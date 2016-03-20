@@ -18,6 +18,7 @@ updatereminder: true
 
 
 # Bungee Voting
+# Please note, this is a beta feature
 # If enabled, server will send votes using the port below
 sendbungeevotes: false
 # If enabled, server will recieve votes using the port below
