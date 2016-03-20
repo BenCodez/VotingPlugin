@@ -94,6 +94,10 @@ public class CommandAdminVote implements CommandExecutor {
 				bungeeVote(sender, args[1], args[2]);
 				return true;
 			}
+			if (args[0].equalsIgnoreCase("globalvote")) {
+				globalVote(sender, args[1], args[2]);
+				return true;
+			}
 
 		}
 
@@ -241,6 +245,17 @@ public class CommandAdminVote implements CommandExecutor {
 					+ " total votes for " + voteSite + " has been set to "
 					+ amount);
 			plugin.updateTopUpdater();
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+	
+	public void globalVote(CommandSender sender, String voteSite,
+			String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.GlobalVote")) {
+			VoteRecieved.getInstance().playerVote(voteSite, playerName);
+			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

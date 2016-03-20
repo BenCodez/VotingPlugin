@@ -31,6 +31,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				cmds.add("reload");
 				cmds.add("uuid");
 				cmds.add("bungeevote");
+				cmds.add("globalvote");
 				cmds.add("reset");
 				cmds.add("sites");
 				cmds.add("version");
@@ -56,7 +57,8 @@ public class AdminVoteTabCompleter implements TabCompleter {
 						|| args[0].equalsIgnoreCase("settotal")
 						|| args[0].equalsIgnoreCase("uuid")
 						|| args[0].equalsIgnoreCase("bungeevote")
-						|| args[0].equalsIgnoreCase("reset")) {
+						|| args[0].equalsIgnoreCase("reset")
+						|| args[0].equalsIgnoreCase("globalvote")) {
 					for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
 						Player player = (Player) playerOb;
 						cmds.add(player.getName());
@@ -79,7 +81,9 @@ public class AdminVoteTabCompleter implements TabCompleter {
 			} else if (args.length == 3) {
 				if (args[0].equalsIgnoreCase("vote")
 						|| args[0].equalsIgnoreCase("settotal")
-						|| args[0].equalsIgnoreCase("bungeevote")) {
+						|| args[0].equalsIgnoreCase("bungeevote")
+						|| args[0].equalsIgnoreCase("reset")
+						|| args[0].equalsIgnoreCase("globalvote")) {
 
 					List<String> cmds = new ArrayList<String>();
 

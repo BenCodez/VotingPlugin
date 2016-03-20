@@ -116,6 +116,8 @@ permissions:
     description: Allows access to /adminvote vote <player> <site>
   VotingPlugin.Commands.AdminVote.BungeeVote: 
     description: Allows access to /adminvote bungeevote <player> <site>
+  VotingPlugin.Commands.AdminVote.GlobalVote: 
+    description: Allows access to /adminvote globalvote <player> <site>  
   VotingPlugin.Commands.AdminVote.UUID: 
     description: Allows access to /adminvote uuid <player>
   VotingPlugin.Commands.AdminVote.Reload: 
