@@ -1,0 +1,29 @@
+# VotingPlugin by Ben12345rocks
+# Main Config
+# To set Format, see Format.yml
+# To add or edit vote sites, see VoteSites.yml
+# Set Bonus Reward in BonusReward.yml
+
+# Wether debug info will be displayed
+debug: false
+# Broadcast votes
+broadcastvote: true
+# Remind players when they can vote
+remindvotes: true
+# Give players a bonus reward when all votes have been complete
+allvotesbonus: false
+# Give players with permission "VotingPlugin.remindupdate" update reminder
+# When a update is available on login
+updatereminder: true
+
+
+# Bungee Voting
+# If enabled, server will send votes using the port below
+sendbungeevotes: false
+# If enabled, server will recieve votes using the port below
+recievebungeevotes: false
+# Port to send votes on
+# Must match on other servers
+# If port is already in use, change it to a different one
+bungeeport: 1335
+

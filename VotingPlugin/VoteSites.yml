@@ -1,0 +1,53 @@
+# VoteSites.yml
+# Add your voting sites here
+      
+VoteSites:
+  # Site Name
+  # Don't have 2 the same name
+  # Used in placeholders
+  PMC:
+    # The serviceName from the vote, has to be correct to work correctly
+    # Gotten from voting on the site (will be in console/log)
+    Site: 'PlanetMinecraft.com'
+    # vote url for /vote
+    # colors can be set in Format.yml
+    VoteURL: 'link to vote URL here, used in /vote'
+    # Time between votes in hours (used for /vote next)
+    # Most sites are 24 hours
+    votedelay: 24
+    # money given on vote, use 0 for none
+    # Requires Vault
+    Money: 500
+    # Items
+    Items:
+      # item (can be anything, just don't have 2 the same)
+      Diamond:
+        # Chance for item giving, out of 100
+        # Set to 100 or 0 for always
+        Chance: 40
+        # Item id
+        id: 264
+        # Item data 
+        Data: 0
+        # Amount of items
+        Amount: 1
+        # Item name
+        # Set to '' (that's 2 ') for no name, e.g Name: ''
+        Name: '&4Example'
+        # Lore
+        # Set to '' (that's 2 ') for no lore, e.g Lore: ''
+        Lore:
+        - '&4Line 1'
+    
+    # Commands to run on vote (when player is online)
+    # use %player% for the player's name
+    Commands:
+      # Console commands
+      # Set to Console: '' to run no commands
+      Console:
+      - 'say Example command: %player%'
+      # Player commands
+      # Set to Player: '' to run no commands
+      # Player needs permissions to run commands
+      Player:
+      - 'vote total'

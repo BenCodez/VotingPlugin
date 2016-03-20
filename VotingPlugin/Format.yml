@@ -1,0 +1,108 @@
+# Format.yml
+# Set your format here
+#  
+# Common PlacesHolders:
+# Please Note: Not all are usable in all sections
+# Special PlaceHolders will be commented where available
+# %player% = player name  
+# %SiteName% = vote site name
+
+
+
+Format:
+
+  # Broadcast vote message
+  broadcastmsg: '&6[&4Server Name&6] &2Thanks &c%player% &2for voting on %SiteName%'
+  
+  Commands:
+    # Format for /vote
+    # %num% = the number of the site, for a numbered list
+    # %url% = site URL
+    Vote: 
+      Sites: '&4%num%: &c&l%SiteName% - &c%url%'
+      
+      # Format for /vote next
+      Next: 
+        # First line
+        Title: '&3&l%player% Next Votes:'
+        
+        # How each line is setup for each vote site
+        # %info% = Info - Below 
+        # %SiteName% = site name from vote
+        Layout: '&3%SiteName%: &6%info%'
+        
+        Info:
+          # Message when player can vote
+          CanVote: 'Go Vote!'
+          # Time until vote msg
+          # %hours% = hours until next vote
+          # %minutes% = minutes until next vote
+          TimeUntilVote: '%hours% Hours and %minutes% Minutes'
+          # If there is an error finding out time until next vote
+          Error: '&cCould not caculate time until next vote!'
+          
+       # Format for /vote last
+      Last:
+        # First line
+        Title: '&3&l%player% Last Vote Times:'
+        # Lines for each vote site
+        # %time% = time, using timeformat below
+        Line: '&3%SiteName%: &6%time%'
+        
+      # Format for /vote total
+      Total:
+        # First line
+        Title: '&3&l%player% Total Votes:'
+        # %Total% = total for that site
+        # %SiteName% = site name
+        Line: '&3%SiteName%: &6%Total%'
+        # %Totals% = totals of all sites added up
+        Total: '&3&lTotal: &6&l%Totals%'
+        
+      # Format for /vote total all  
+      TotalAll:
+        # First line
+        Title: '&3&lAll Votes Total:'
+        # %Total% = total for that site
+        Line: '&3%SiteName% &6%Total%'
+        # %Totals% = totals of all sites added up
+        Total: '&3&lTotal: &6&l%Totals%'
+
+      # Format for /vote help
+      Help:
+        # Lines in /vote help
+        Lines:
+        - '&3&lAdmin Commands:'
+        - '&3[] = Optional'
+        - '&3Aliases: v'
+        - '&b&l/vote - List vote URLs'
+        - '&b&l/vote total [Player/All] - See total votes'
+        - '&b&l/vote next [Player] - See the next time you can vote'
+        - '&b&l/vote last [Player] - See the last vote times'
+        - '&b&l/vote top [page] - See top voters'
+        - '&b&l/vote info [player] - See player info'
+        - '&b&l/vote today - See who voted today'
+        - '&b&l/vote help - See this page'
+        
+      # Format for /vote top
+      Top:
+        # First line
+        # %page% = current page
+        # %maxpages% = max number of pages
+        Title: '&3Top Voters %page%/%maxpages%'
+        # Line for each player in that page
+        Line: '&c%num%: &6%player%, %votes%'
+      
+  # Login message if player can vote on all sites
+  # Must be enabled in config.yml  
+  loginmsg: '&cRemember to vote!'
+  # Msg on reward given
+  # PlaceHolders:
+  # %money% = amount of money given for votesite
+  # %items% = string list of items
+  rewardmsg: '&aYou were given rewards!'
+  # Msg on chance reward
+  chancerewardmsg: '&aLooks like you got lucky!'
+  # Time Format
+  # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
+  timeformat: 'EEE, d MMM yyyy HH:mm'
