@@ -120,7 +120,7 @@ public class Config {
 		return getData().getBoolean("updatereminder");
 	}
 
-	public boolean allowAllNames() {
+	public boolean allowUnJoined() {
 		return getData().getBoolean("allowunjoined");
 	}
 }
