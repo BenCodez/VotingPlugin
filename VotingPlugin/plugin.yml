@@ -1,5 +1,5 @@
 name: VotingPlugin
-version: 2.5.6
+version: 2.5.7
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable VotingPlugin!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
@@ -7,10 +7,12 @@ author: Ben12345rocks
 commands:
   vote:
     description: Vote command
-    aliases: v
+  v:
+    description: Vote command
   adminvote:
     description: Admin commands for VotingPlugin
-    aliases: av
+  av:
+    description: Admin commands for VotingPlugin
   votehelp:
     description: See access to a list of commands, Formated in Format.yml
     aliases: vhelp
@@ -116,6 +118,8 @@ permissions:
     description: Allows access to /adminvote vote <player> <site>
   VotingPlugin.Commands.AdminVote.BungeeVote: 
     description: Allows access to /adminvote bungeevote <player> <site>
+  VotingPlugin.Commands.AdminVote.GlobalVote: 
+    description: Allows access to /adminvote globalvote <player> <site>  
   VotingPlugin.Commands.AdminVote.UUID: 
     description: Allows access to /adminvote uuid <player>
   VotingPlugin.Commands.AdminVote.Reload: 

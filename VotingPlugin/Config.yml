@@ -15,9 +15,13 @@ allvotesbonus: false
 # Give players with permission "VotingPlugin.remindupdate" update reminder
 # When a update is available on login
 updatereminder: true
+# Let players who never joined before vote
+allowunjoined: true
+
 
 
 # Bungee Voting
+# Please note, this is a beta feature
 # If enabled, server will send votes using the port below
 sendbungeevotes: false
 # If enabled, server will recieve votes using the port below

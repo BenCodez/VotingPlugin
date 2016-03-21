@@ -164,4 +164,12 @@ public class ConfigFormat {
 		return string;
 	}
 
+	public int getPageSize() {
+		int size = getData().getInt("Format.pagesize");
+		if (size == 0) {
+			size = 10;
+		}
+		return size;
+	}
+
 }

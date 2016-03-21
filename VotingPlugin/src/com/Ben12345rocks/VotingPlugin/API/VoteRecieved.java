@@ -40,6 +40,10 @@ public class VoteRecieved {
 
 	public void playerVote(String playerName, String voteSiteURL) {
 		User user = new User(playerName);
+		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
+			plugin.getLogger().info("Player has not joined before");
+			return;
+		}
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
 

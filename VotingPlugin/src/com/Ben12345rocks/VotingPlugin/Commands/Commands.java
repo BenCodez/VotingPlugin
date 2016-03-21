@@ -325,18 +325,19 @@ public class Commands {
 	}
 
 	public String[] commandVoteToday(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
 		if (page < 1) {
 			page = 1;
 		}
 		ArrayList<String> msg = new ArrayList<String>();
 
 		msg.add("&cToday's Votes " + page + "/"
-				+ ((plugin.voteToday.length / 10) + 1));
+				+ ((plugin.voteToday.length / pagesize) + 1));
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
-		for (int i = 10 * page; i < plugin.voteToday.length
-				&& i < ((page + 1) * 10); i++) {
+		for (int i = pagesize * page; i < plugin.voteToday.length
+				&& i < ((page + 1) * pagesize); i++) {
 			msg.add(plugin.voteToday[i]);
 		}
 

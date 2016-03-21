@@ -304,4 +304,8 @@ public class Data {
 			return null;
 		}
 	}
+
+	public boolean hasJoinedBefore(User user) {
+		return getPlayersUUIDs().contains(user.getUUID());
+	}
 }
