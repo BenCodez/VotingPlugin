@@ -7,10 +7,12 @@ author: Ben12345rocks
 commands:
   vote:
     description: Vote command
-    aliases: v
+  v:
+    description: Vote command
   adminvote:
     description: Admin commands for VotingPlugin
-    aliases: av
+  av:
+    description: Admin commands for VotingPlugin
   votehelp:
     description: See access to a list of commands, Formated in Format.yml
     aliases: vhelp

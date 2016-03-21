@@ -100,6 +100,13 @@ public class Main extends JavaPlugin {
 		this.getCommand("adminvote").setExecutor(new CommandAdminVote(this));
 		this.getCommand("adminvote").setTabCompleter(
 				new AdminVoteTabCompleter());
+		
+		this.getCommand("v").setExecutor(new CommandVote(this));
+		this.getCommand("v").setTabCompleter(new VoteTabCompleter());
+
+		this.getCommand("av").setExecutor(new CommandAdminVote(this));
+		this.getCommand("av").setTabCompleter(
+				new AdminVoteTabCompleter());
 	}
 
 	private void registerEvents() {
