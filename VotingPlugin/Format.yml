@@ -106,3 +106,7 @@ Format:
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   timeformat: 'EEE, d MMM yyyy HH:mm'
+  # Size of Pages
+  # Used in /v top, /v today, etc
+  # 10 by default
+  pagesize: 10
