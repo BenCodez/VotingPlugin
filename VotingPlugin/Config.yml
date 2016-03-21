@@ -16,7 +16,7 @@ allvotesbonus: false
 # When a update is available on login
 updatereminder: true
 # Let players who never joined before vote
-allowallnames: true
+allowunjoined: true
 
 
 

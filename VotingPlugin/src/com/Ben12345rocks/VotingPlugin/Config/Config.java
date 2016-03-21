@@ -121,6 +121,6 @@ public class Config {
 	}
 
 	public boolean allowAllNames() {
-		return getData().getBoolean("allowallnames");
+		return getData().getBoolean("allowunjoined");
 	}
 }
