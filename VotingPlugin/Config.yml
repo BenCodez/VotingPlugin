@@ -15,6 +15,9 @@ allvotesbonus: false
 # Give players with permission "VotingPlugin.remindupdate" update reminder
 # When a update is available on login
 updatereminder: true
+# Let players who never joined before vote
+allowallnames: true
+
 
 
 # Bungee Voting

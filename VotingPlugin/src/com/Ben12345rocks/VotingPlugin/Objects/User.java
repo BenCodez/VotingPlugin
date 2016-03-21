@@ -115,6 +115,14 @@ public class User {
 	}
 
 	/**
+	 * 
+	 * @return	True if the plaeyer has joined before
+	 */
+	public boolean hasJoinedBefore() {
+		return Data.getInstance().hasJoinedBefore(this);
+	}
+
+	/**
 	 * Send the user a message
 	 * 
 	 * @param msg

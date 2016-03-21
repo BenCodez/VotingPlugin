@@ -107,7 +107,7 @@ public class Config {
 	public boolean sendBungeeVotes() {
 		return getData().getBoolean("sendbungeevotes");
 	}
-	
+
 	public boolean recieveBungeeVotes() {
 		return getData().getBoolean("recievebungeevotes");
 	}
@@ -118,5 +118,9 @@ public class Config {
 
 	public boolean updateReminder() {
 		return getData().getBoolean("updatereminder");
+	}
+
+	public boolean allowAllNames() {
+		return getData().getBoolean("allowallnames");
 	}
 }
