@@ -40,7 +40,6 @@ public class BonusVoteReward {
 
 	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
-	@SuppressWarnings("deprecation")
 	public void giveBonusReward(User user) {
 		String playerName = user.getPlayerName();
 		if (config.getBonusRewardEnabled()) {
@@ -54,7 +53,6 @@ public class BonusVoteReward {
 
 	}
 
-	@SuppressWarnings("deprecation")
 	public void giveItemBonusReward(User user) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
@@ -98,7 +96,6 @@ public class BonusVoteReward {
 		user.giveMoney(money);
 	}
 
-	@SuppressWarnings("deprecation")
 	public static void doBonusCommands(User user) {
 
 		String playerName = user.getPlayerName();

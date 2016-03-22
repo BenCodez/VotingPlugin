@@ -31,7 +31,7 @@ public class VoteSite {
 
 	/**
 	 * New VoteSite
-	 * 
+	 *
 	 * @param siteName
 	 *            Sitename
 	 */
@@ -40,7 +40,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Site name
 	 */
 	public String getSiteName() {
@@ -49,7 +49,7 @@ public class VoteSite {
 
 	/**
 	 * Set name of site
-	 * 
+	 *
 	 * @param siteName
 	 *            Name to set to
 	 */
@@ -58,7 +58,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Service Site of VoteSite
 	 */
 	public String getVoteSiteServiceSite() {
@@ -67,7 +67,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return /vote url
 	 */
 	public String getVoteURL() {
@@ -76,7 +76,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Vote delay
 	 */
 	public int getVoteDelay() {
@@ -85,7 +85,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Amount of money to give
 	 */
 	public int getMoneyAmount() {
@@ -95,7 +95,7 @@ public class VoteSite {
 
 	@SuppressWarnings("unchecked")
 	/**
-	 * 
+	 *
 	 * @return		Console commands
 	 */
 	public ArrayList<String> getConsoleCommands() {
@@ -105,7 +105,7 @@ public class VoteSite {
 
 	@SuppressWarnings("unchecked")
 	/**
-	 * 
+	 *
 	 * @return		Player commands
 	 */
 	public ArrayList<String> getPlayerCommands() {
@@ -114,7 +114,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getItems() {
@@ -124,7 +124,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @return Id of item
@@ -135,7 +135,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @return Item data value
@@ -146,7 +146,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @return Amount of items
@@ -157,7 +157,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @return Name of item
@@ -171,7 +171,7 @@ public class VoteSite {
 
 	@SuppressWarnings("unchecked")
 	/**
-	 * 
+	 *
 	 * @param item 	Item
 	 * @return		Lore of item
 	 */
@@ -181,7 +181,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @return Enchants of item
@@ -207,7 +207,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item
 	 * @param enchant
@@ -224,7 +224,7 @@ public class VoteSite {
 
 	/**
 	 * Broad cast a vote
-	 * 
+	 *
 	 * @param user
 	 *            User to broadcast with
 	 */
@@ -237,7 +237,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param user
 	 *            User to give rewards to
 	 */
@@ -252,7 +252,6 @@ public class VoteSite {
 
 		String playerName = user.getPlayerName();
 
-		@SuppressWarnings("deprecation")
 		Player player = Bukkit.getPlayer(playerName);
 		String rewardmsg = format.getRewardMsg();
 		rewardmsg = rewardmsg
@@ -270,7 +269,7 @@ public class VoteSite {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param item
 	 *            Item to get chance of
 	 * @return Chance if giving item
@@ -289,10 +288,10 @@ public class VoteSite {
 		return chance;
 	}
 
-	@SuppressWarnings("deprecation")
 	/**
-	 * 
-	 * @param user	User to give items to
+	 *
+	 * @param user
+	 *            User to give items to
 	 */
 	public void giveItemSiteReward(User user) {
 		VoteSite voteSite = this;
@@ -342,10 +341,10 @@ public class VoteSite {
 		user.giveMoney(money);
 	}
 
-	@SuppressWarnings("deprecation")
 	/**
-	 * 
-	 * @param user		User to execute commands with
+	 *
+	 * @param user
+	 *            User to execute commands with
 	 */
 	public void doSiteCommands(User user) {
 

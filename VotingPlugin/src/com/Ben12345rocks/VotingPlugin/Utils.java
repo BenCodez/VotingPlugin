@@ -171,7 +171,6 @@ public class Utils {
 
 	}
 
-	@SuppressWarnings("deprecation")
 	public boolean hasPermission(String playerName, String perm) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
@@ -211,7 +210,6 @@ public class Utils {
 		return string;
 	}
 
-	@SuppressWarnings("deprecation")
 	public boolean isPlayerOnline(String playerName) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {

@@ -31,7 +31,7 @@ public class User {
 
 	/**
 	 * New user
-	 * 
+	 *
 	 * @param player
 	 *            Player
 	 */
@@ -42,7 +42,7 @@ public class User {
 
 	/**
 	 * New user
-	 * 
+	 *
 	 * @param uuid
 	 *            UUID
 	 * @param loadName
@@ -57,7 +57,7 @@ public class User {
 
 	/**
 	 * New user
-	 * 
+	 *
 	 * @param uuid
 	 *            UUID
 	 */
@@ -69,7 +69,7 @@ public class User {
 
 	/**
 	 * New user
-	 * 
+	 *
 	 * @param playerName
 	 *            The user's name
 	 */
@@ -88,7 +88,7 @@ public class User {
 
 	/**
 	 * Get user's uuid
-	 * 
+	 *
 	 * @return uuid - as string
 	 */
 	public String getUUID() {
@@ -97,7 +97,7 @@ public class User {
 
 	/**
 	 * Set user's uuid
-	 * 
+	 *
 	 * @param uuid
 	 *            uuid to set to
 	 */
@@ -106,7 +106,7 @@ public class User {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return User's game name
 	 */
 	public String getPlayerName() {
@@ -115,7 +115,7 @@ public class User {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return True if the plaeyer has joined before
 	 */
 	public boolean hasJoinedBefore() {
@@ -124,7 +124,7 @@ public class User {
 
 	/**
 	 * Send the user a message
-	 * 
+	 *
 	 * @param msg
 	 *            Message to send
 	 */
@@ -137,7 +137,7 @@ public class User {
 
 	/**
 	 * Sets the user's ingame name
-	 * 
+	 *
 	 * @param playerName
 	 *            Player name
 	 */
@@ -147,7 +147,7 @@ public class User {
 
 	/**
 	 * Trigger a vote for the user
-	 * 
+	 *
 	 * @param voteSite
 	 *            Site player voted on
 	 */
@@ -163,7 +163,7 @@ public class User {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to add offline votes to
 	 */
@@ -172,7 +172,7 @@ public class User {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Returns totals of all votes sites
 	 */
 	public int getTotalVotes() {
@@ -192,7 +192,7 @@ public class User {
 
 	@SuppressWarnings("deprecation")
 	/**
-	 * 
+	 *
 	 * @param voteSite	VoteSite
 	 * @return			True if player can vote on specified site
 	 */
@@ -231,7 +231,7 @@ public class User {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return True if player can vote on all sites
 	 */
 	public boolean canVoteAll() {
@@ -293,7 +293,6 @@ public class User {
 
 	}
 
-	@SuppressWarnings("deprecation")
 	/**
 	 * Login message if player can vote
 	 */
@@ -362,7 +361,7 @@ public class User {
 
 	/**
 	 * Get total votes for VoteSite
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite
 	 * @return Total votes from VoteSite
@@ -373,7 +372,7 @@ public class User {
 
 	/**
 	 * Set time of last vote for VoteSite
-	 * 
+	 *
 	 * @param siteName
 	 */
 	public void setTime(VoteSite voteSite) {
@@ -392,7 +391,7 @@ public class User {
 
 	/**
 	 * Get time of last vote from VoteSite for user
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to check for last vote
 	 * @return Time in milliseconds when last vote occurred
@@ -414,7 +413,7 @@ public class User {
 
 	/**
 	 * Get time of last bonus vote for user
-	 * 
+	 *
 	 * @return Time in milliseconds when last bonus reward occurred
 	 */
 	public long getTimeAll() {
@@ -430,7 +429,7 @@ public class User {
 
 	/**
 	 * Add total for VoteSite to user
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to add vote to
 	 */
@@ -443,7 +442,7 @@ public class User {
 
 	/**
 	 * Get total from VoteSite for user
-	 * 
+	 *
 	 * @param voteSite
 	 * @return
 	 */
@@ -455,7 +454,7 @@ public class User {
 
 	/**
 	 * Set total for VoteSite for user
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to set total
 	 * @param amount
@@ -469,7 +468,7 @@ public class User {
 
 	/**
 	 * Set offline votes for VoteSite for user
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to set
 	 * @param amount
@@ -484,7 +483,7 @@ public class User {
 
 	/**
 	 * Get amount of offline votes for VoteSite
-	 * 
+	 *
 	 * @param voteSite
 	 *            VoteSite to get offline votes of
 	 * @return Amount of offline votes
@@ -500,7 +499,7 @@ public class User {
 
 	/**
 	 * Set Bonus offline votes
-	 * 
+	 *
 	 * @param amount
 	 *            Amount of set
 	 */
@@ -512,7 +511,7 @@ public class User {
 
 	/**
 	 * Get Amount of offline votes
-	 * 
+	 *
 	 * @return Amount of bonus offline votes
 	 */
 	public int getBonusOfflineVotes() {
@@ -523,7 +522,7 @@ public class User {
 
 	/**
 	 * Get whether or not user has been reminded to vote
-	 * 
+	 *
 	 * @return T
 	 */
 	public boolean reminded() {
@@ -534,7 +533,7 @@ public class User {
 
 	/**
 	 * Set whether or not the user has been reminded to vote
-	 * 
+	 *
 	 * @param reminded
 	 *            boolean
 	 */
@@ -545,7 +544,7 @@ public class User {
 
 	/**
 	 * Check if user has voted on all sites in one day
-	 * 
+	 *
 	 * @return True if player has voted on all sites in one day, False if bonus
 	 *         reward disabled or player has not voted all sites in one day
 	 */
