@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
