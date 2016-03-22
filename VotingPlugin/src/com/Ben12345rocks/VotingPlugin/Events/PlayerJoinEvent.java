@@ -44,6 +44,7 @@ public class PlayerJoinEvent implements Listener {
 
 		plugin.getServer().getScheduler()
 				.runTaskLaterAsynchronously(plugin, new Runnable() {
+					@Override
 					public void run() {
 						// msg player if there is a update
 						if (Config.getInstance().updateReminder()) {
@@ -71,8 +72,8 @@ public class PlayerJoinEvent implements Listener {
 		}
 		case UPDATE_AVAILABLE: {
 			if (player.hasPermission("VotingPlugin.remindupdate")) {
-				player.sendMessage(Utils.getInstance().colorize("&a" +
-						plugin.getName()
+				player.sendMessage(Utils.getInstance().colorize(
+						"&a" + plugin.getName()
 								+ " has an update available! Your Version: &c"
 								+ plugin.getDescription().getVersion()
 								+ "&a New Version: &c" + updater.getVersion()));

@@ -5,7 +5,7 @@ import org.bukkit.Bukkit;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 public class CheckUpdate {
-	
+
 	private CheckUpdate() {
 	}
 
@@ -20,16 +20,17 @@ public class CheckUpdate {
 	public CheckUpdate(Main plugin) {
 		CheckUpdate.plugin = plugin;
 	}
-	
+
 	public void startUp() {
-		Bukkit.getServer().getScheduler().runTaskLaterAsynchronously(plugin,
-				new Runnable() {
+		Bukkit.getServer().getScheduler()
+				.runTaskLaterAsynchronously(plugin, new Runnable() {
+					@Override
 					public void run() {
 						checkUpdate();
 					}
 				}, 20L);
 	}
-	
+
 	public void checkUpdate() {
 		plugin.updater = new Updater(plugin, 15358, false);
 		final Updater.UpdateResult result = plugin.updater.getResult();

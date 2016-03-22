@@ -76,6 +76,7 @@ public class BungeeVote {
 	}
 
 	class ReadThread extends Thread {
+		@Override
 		public void run() {
 			Socket client;
 			while (true) {

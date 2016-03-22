@@ -50,7 +50,7 @@ public class VotiferEvent implements Listener {
 			plugin.getLogger().info("PlayerUsername: " + voteUsername);
 			plugin.getLogger().info("VoteSite: " + voteSite);
 		}
-		
+
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
 
 		VoteRecieved.getInstance().playerVote(voteUsername, voteSite);

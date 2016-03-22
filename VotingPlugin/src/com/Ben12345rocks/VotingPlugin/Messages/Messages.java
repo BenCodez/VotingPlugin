@@ -30,4 +30,8 @@ public class Messages {
 				"You must be a player to use this command!");
 	}
 
+	public String invalidCommand() {
+		return Utils.getInstance().colorize("&cInvalid command, see /v help");
+	}
+
 }

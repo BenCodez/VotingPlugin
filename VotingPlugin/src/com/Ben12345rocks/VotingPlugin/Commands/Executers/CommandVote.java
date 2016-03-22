@@ -16,12 +16,22 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class CommandVote implements CommandExecutor {
 
+	private CommandVote() {
+	}
+
+	private static CommandVote instance = new CommandVote();
+
+	public static CommandVote getInstance() {
+		return instance;
+	}
+
 	private Main plugin;
 
 	public CommandVote(Main plugin) {
 		this.plugin = plugin;
 	}
 
+	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
 			String[] args) {
 
@@ -240,6 +250,7 @@ public class CommandVote implements CommandExecutor {
 				.hasPermission(sender, "Commands.Vote.Total.All")) {
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
+				@Override
 				public void run() {
 					sender.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());

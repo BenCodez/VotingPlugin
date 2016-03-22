@@ -316,7 +316,7 @@ public class Utils {
 			String URL = ConfigVoteSites.getInstance().getVoteSiteServiceSite(
 					siteName);
 			if (URL.equals(url)) {
-				return (String) siteName;
+				return siteName;
 			}
 		}
 		return url;

@@ -14,8 +14,19 @@ import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteNext;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteToday;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTop;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTotal;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteInfoTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteLastTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteNextTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTotalTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -50,6 +61,7 @@ public class Main extends JavaPlugin {
 
 	public static ConfigBonusReward configBonusReward;
 
+	@Override
 	public void onEnable() {
 		plugin = this;
 		setupFiles();
@@ -72,6 +84,7 @@ public class Main extends JavaPlugin {
 		startTimer();
 	}
 
+	@Override
 	public void onDisable() {
 		plugin = null;
 	}
@@ -94,19 +107,39 @@ public class Main extends JavaPlugin {
 	}
 
 	private void registerCommands() {
+		// /vote, /v
 		this.getCommand("vote").setExecutor(new CommandVote(this));
 		this.getCommand("vote").setTabCompleter(new VoteTabCompleter());
-
-		this.getCommand("adminvote").setExecutor(new CommandAdminVote(this));
-		this.getCommand("adminvote").setTabCompleter(
-				new AdminVoteTabCompleter());
-		
 		this.getCommand("v").setExecutor(new CommandVote(this));
 		this.getCommand("v").setTabCompleter(new VoteTabCompleter());
 
-		this.getCommand("av").setExecutor(new CommandAdminVote(this));
-		this.getCommand("av").setTabCompleter(
+		// /adminvote, /av
+		this.getCommand("adminvote").setExecutor(new CommandAdminVote(this));
+		this.getCommand("adminvote").setTabCompleter(
 				new AdminVoteTabCompleter());
+		this.getCommand("av").setExecutor(new CommandAdminVote(this));
+		this.getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+
+		// /votehelp, /vhelp
+		this.getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
+		// /voteinfo, /vinfo
+		this.getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
+		this.getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
+		// /votelast, /vlast
+		this.getCommand("votelast").setExecutor(new CommandVoteLast(this));
+		this.getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
+		// /votenext, /vnext
+		this.getCommand("votenext").setExecutor(new CommandVoteNext(this));
+		this.getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
+		// /votetoday, /vtoday
+		this.getCommand("votetoday").setExecutor(new CommandVoteToday(this));
+		// /votetop, /vtop
+		this.getCommand("votetop").setExecutor(new CommandVoteTop(this));
+		// /votetotal, /vtotal
+		this.getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
+		this.getCommand("votetotal").setTabCompleter(
+				new VoteTotalTabCompleter());
+
 	}
 
 	private void registerEvents() {

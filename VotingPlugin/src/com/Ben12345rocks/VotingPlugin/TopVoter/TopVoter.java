@@ -12,7 +12,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserData.Data;
 
 public class TopVoter {
-	
+
 	private TopVoter() {
 	}
 
@@ -23,18 +23,19 @@ public class TopVoter {
 	}
 
 	static Main plugin = Main.plugin;
-	
+
 	static ConfigFormat format = ConfigFormat.getInstance();
 
 	public TopVoter(Main plugin) {
 		TopVoter.plugin = plugin;
 	}
-	
+
 	public String[] topVoters() {
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
 		Collections.sort(users, new Comparator<User>() {
+			@Override
 			public int compare(User p1, User p2) {
 				int p1Total = p1.getTotalVotes();
 				int p2Total = p2.getTotalVotes();
@@ -84,6 +85,5 @@ public class TopVoter {
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
 	}
-
 
 }

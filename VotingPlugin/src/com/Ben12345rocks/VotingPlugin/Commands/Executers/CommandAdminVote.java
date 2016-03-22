@@ -37,6 +37,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
+	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
 			String[] args) {
 
@@ -205,6 +206,7 @@ public class CommandAdminVote implements CommandExecutor {
 					"&cResseting top voter..."));
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
+				@Override
 				public void run() {
 					resetTopVoter();
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -249,7 +251,7 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
-	
+
 	public void globalVote(CommandSender sender, String voteSite,
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
