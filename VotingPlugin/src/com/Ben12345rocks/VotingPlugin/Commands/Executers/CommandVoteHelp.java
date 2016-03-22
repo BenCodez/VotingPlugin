@@ -5,9 +5,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Commands.Commands;
-import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 
 public class CommandVoteHelp implements CommandExecutor {
 
@@ -24,16 +21,6 @@ public class CommandVoteHelp implements CommandExecutor {
 
 		CommandVote.getInstance().help(sender);
 		return true;
-	}
-
-	public void help(CommandSender sender) {
-		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
-				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			sender.sendMessage(Commands.getInstance().voteHelp());
-
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
 	}
 
 }

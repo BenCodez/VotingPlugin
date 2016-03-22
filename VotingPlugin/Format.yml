@@ -67,22 +67,6 @@ Format:
         Line: '&3%SiteName% &6%Total%'
         # %Totals% = totals of all sites added up
         Total: '&3&lTotal: &6&l%Totals%'
-
-      # Format for /vote help
-      Help:
-        # Lines in /vote help
-        Lines:
-        - '&3&lAdmin Commands:'
-        - '&3[] = Optional'
-        - '&3Aliases: v'
-        - '&b&l/vote - List vote URLs'
-        - '&b&l/vote total [Player/All] - See total votes'
-        - '&b&l/vote next [Player] - See the next time you can vote'
-        - '&b&l/vote last [Player] - See the last vote times'
-        - '&b&l/vote top [page] - See top voters'
-        - '&b&l/vote info [player] - See player info'
-        - '&b&l/vote today - See who voted today'
-        - '&b&l/vote help - See this page'
         
       # Format for /vote top
       Top:

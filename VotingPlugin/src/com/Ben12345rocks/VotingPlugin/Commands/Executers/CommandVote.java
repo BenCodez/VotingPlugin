@@ -135,7 +135,14 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			sender.sendMessage(Commands.getInstance().voteHelp());
+			if (Utils.getInstance().isPlayer(sender)) {
+				Player player = (Player) sender;
+				player.spigot().sendMessage(
+						Commands.getInstance().voteHelpPlayer());
+
+			} else {
+				sender.sendMessage(Commands.getInstance().voteHelpConsole());
+			}
 
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());

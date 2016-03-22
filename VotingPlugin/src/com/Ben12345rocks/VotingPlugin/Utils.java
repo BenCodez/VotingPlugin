@@ -319,4 +319,11 @@ public class Utils {
 		}
 		return url;
 	}
+
+	public boolean isPlayer(CommandSender sender) {
+		if (sender instanceof Player) {
+			return true;
+		}
+		return false;
+	}
 }
