@@ -404,11 +404,7 @@ public class User {
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
 								+ ".Miliseconds");
-		if (mills > 0) {
-			return mills;
-		} else {
-			return getTimeOld(voteSite.getSiteName());
-		}
+		return mills;
 	}
 
 	/**
@@ -420,11 +416,8 @@ public class User {
 		User user = this;
 		long mills = Data.getInstance().getData(user)
 				.getLong(uuid + ".LastBonus.Miliseconds");
-		if (mills > 0) {
-			return mills;
-		} else {
-			return getTimeAllOld();
-		}
+
+		return mills;
 	}
 
 	/**
@@ -592,43 +585,9 @@ public class User {
 	/**
 	 * Set time of bonus reward
 	 */
-	public void setTimeAll() {
+	public void setTimeBonus() {
 		User user = this;
 		Data.getInstance().setTimeAll(user);
-	}
-
-	@Deprecated
-	public int getTimeOLD(String voteSite, String value) {
-		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".LastVote." + voteSite + "." + value);
-	}
-
-	@Deprecated
-	public int getTimeAllOLD(String value) {
-		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".LastBonus." + value);
-	}
-
-	@Deprecated
-	public long getTimeOld(String voteSite) {
-		int year = getTimeOLD(voteSite, "Year");
-		int month = getTimeOLD(voteSite, "Month") - 1;
-		int day = getTimeOLD(voteSite, "Day");
-		int hour = getTimeOLD(voteSite, "Hour");
-		int min = getTimeOLD(voteSite, "Min");
-		return new Date(year, month, day, hour, min).getTime();
-	}
-
-	@Deprecated
-	public long getTimeAllOld() {
-		int year = getTimeAllOLD("Year");
-		int month = getTimeAllOLD("Month") - 1;
-		int day = getTimeAllOLD("Day") + 7;
-		int hour = getTimeAllOLD("Hour");
-		int min = getTimeAllOLD("Min");
-		return new Date(year, month, day, hour, min).getTime();
 	}
 
 }
