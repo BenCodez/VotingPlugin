@@ -141,28 +141,110 @@ public class Commands {
 		return msg;
 	}
 
-	public String[] adminVoteHelp() {
-		ArrayList<String> help = new ArrayList<String>();
-		help.add("&3&lAdmin Commands:");
-		help.add("&3 () = needed");
-		help.add("&3 [] = optional");
-		help.add("&3Aliases: "
-				+ Utils.getInstance().makeStringList(
-						(ArrayList<String>) plugin.getCommand("adminvote")
-								.getAliases()));
-		help.add("&b&l/adminvote vote (player) (sitename) - Manually trigger a vote");
-		help.add("&b&l/adminvote bungeevote (player) (sitename) - Manually send a bungee vote");
-		help.add("&b&l/adminvote settotal (player) (sitename) (amount) - Set players total votes");
-		// help.add("&b&l/adminvote debug - Toggle debug (Deletes Comments)");
-		help.add("&b&l/adminvote reload - Reload Configs");
-		help.add("&b&l/adminvote uuid (playername) - Gives you the players uuid");
-		help.add("&b&l/adminvote version - Display's Plugin Info");
-		help.add("&b&l/adminvote sites [site] - Display vote sites and vote site info");
-		// help.add("&b&l/adminvote convert - convert old data file to new data files (won't lag)");
-		help.add("&b&l/adminvote help - See this page");
+	public TextComponent[] adminVoteHelp() {
 
-		return Utils.getInstance().convertArray(
-				Utils.getInstance().colorize(help));
+		TextComponent[] msg = new TextComponent[11];
+
+		msg[0] = new TextComponent("VotingPlugin Admin Help");
+		msg[0].setColor(ChatColor.DARK_AQUA);
+		msg[0].setBold(true);
+
+		msg[1] = new TextComponent("[] = Optional");
+		msg[1].setColor(ChatColor.DARK_AQUA);
+		msg[1].setBold(false);
+
+		msg[2] = new TextComponent("() = Needed");
+		msg[2].setColor(ChatColor.DARK_AQUA);
+		msg[2].setBold(false);
+
+		msg[3] = new TextComponent("Aliases: adminvote, av");
+		msg[3].setColor(ChatColor.DARK_AQUA);
+		msg[3].setBold(false);
+
+		msg[4] = new TextComponent("/adminvote vote (player) (sitename)");
+		msg[4].setColor(ChatColor.AQUA);
+		msg[4].setBold(true);
+		msg[4].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote vote (player) (sitename)"));
+		msg[4].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Trigger a vote for server").color(
+						ChatColor.AQUA).create()));
+
+		msg[5] = new TextComponent("/adminvote bungeevote (player) (sitename)");
+		msg[5].setColor(ChatColor.AQUA);
+		msg[5].setBold(true);
+		msg[5].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote bungeevote (player) (sitename)"));
+		msg[5].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Trigger bungee vote").color(
+						ChatColor.AQUA).create()));
+
+		msg[6] = new TextComponent("/adminvote globalvote (player) (sitename)");
+		msg[6].setColor(ChatColor.AQUA);
+		msg[6].setBold(true);
+		msg[6].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote globalvote (player) (sitename)"));
+		msg[6].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Trigger server and bungee vote").color(
+						ChatColor.AQUA).create()));
+
+		msg[7] = new TextComponent(
+				"/adminvote settotal (player) (sitename) (amount)");
+		msg[7].setColor(ChatColor.AQUA);
+		msg[7].setBold(true);
+		msg[7].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote settotal (player) (sitename) (amount)"));
+		msg[7].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Set player's total votes for votesite")
+						.color(ChatColor.AQUA).create()));
+
+		msg[8] = new TextComponent("/adminvote reload");
+		msg[8].setColor(ChatColor.AQUA);
+		msg[8].setBold(true);
+		msg[8].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote reload"));
+		msg[8].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Reload the plugin").color(ChatColor.AQUA)
+						.create()));
+
+		msg[9] = new TextComponent("/adminvote uuid (playername)");
+		msg[9].setColor(ChatColor.AQUA);
+		msg[9].setBold(true);
+		msg[9].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote uuid (playername)"));
+		msg[9].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Get player's uuid").color(ChatColor.AQUA)
+						.create()));
+
+		msg[10] = new TextComponent("/adminvote version");
+		msg[10].setColor(ChatColor.AQUA);
+		msg[10].setBold(true);
+		msg[10].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote version"));
+		msg[10].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("See plugin version info").color(
+						ChatColor.AQUA).create()));
+
+		msg[11] = new TextComponent("/adminvote sites [site]");
+		msg[11].setColor(ChatColor.AQUA);
+		msg[11].setBold(true);
+		msg[11].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote sites [site]"));
+		msg[11].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Display vote sites and vote site info")
+						.color(ChatColor.AQUA).create()));
+
+		msg[12] = new TextComponent("/adminvote help");
+		msg[12].setColor(ChatColor.AQUA);
+		msg[12].setBold(true);
+		msg[12].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote help"));
+		msg[12].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("See this page").color(ChatColor.AQUA)
+						.create()));
+
+		 return msg;
+
 	}
 
 	public String[] voteCommandTotal(User user) {

@@ -134,7 +134,8 @@ public class CommandAdminVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Help")) {
-			sender.sendMessage(Commands.getInstance().adminVoteHelp());
+			Utils.getInstance().sendMessageComponent(sender,
+					Commands.getInstance().adminVoteHelp());
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
