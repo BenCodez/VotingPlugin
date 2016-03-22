@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -137,8 +139,10 @@ public class CommandVote implements CommandExecutor {
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
 			if (Utils.getInstance().isPlayer(sender)) {
 				Player player = (Player) sender;
-				player.spigot().sendMessage(
-						Commands.getInstance().voteHelpPlayer());
+				for (TextComponent msg : Commands.getInstance()
+						.voteHelpPlayer()) {
+					player.spigot().sendMessage(msg);
+				}
 
 			} else {
 				sender.sendMessage(Commands.getInstance().voteHelpConsole());

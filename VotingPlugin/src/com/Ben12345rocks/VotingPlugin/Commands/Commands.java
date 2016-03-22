@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -64,6 +65,8 @@ public class Commands {
 		msg[3] = new TextComponent("/vote");
 		msg[3].setColor(ChatColor.AQUA);
 		msg[3].setBold(true);
+		msg[3].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote"));
 		msg[3].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Show list of voting websites").color(
 						ChatColor.AQUA).create()));
@@ -71,6 +74,8 @@ public class Commands {
 		msg[4] = new TextComponent("/vote total [Player/All]");
 		msg[4].setColor(ChatColor.AQUA);
 		msg[4].setBold(true);
+		msg[4].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote total"));
 		msg[4].setHoverEvent(new HoverEvent(
 				HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
@@ -80,6 +85,8 @@ public class Commands {
 		msg[5] = new TextComponent("/vote next [Player]");
 		msg[5].setColor(ChatColor.AQUA);
 		msg[5].setBold(true);
+		msg[5].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote next"));
 		msg[5].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
 						"See when you or another player can vote next").color(
@@ -88,6 +95,8 @@ public class Commands {
 		msg[6] = new TextComponent("/vote last [Player]");
 		msg[6].setColor(ChatColor.AQUA);
 		msg[6].setBold(true);
+		msg[6].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote last"));
 		msg[6].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
 						"See when you or another player voted last").color(
@@ -96,6 +105,8 @@ public class Commands {
 		msg[7] = new TextComponent("/vote top [Page]");
 		msg[7].setColor(ChatColor.AQUA);
 		msg[7].setBold(true);
+		msg[7].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote top"));
 		msg[7].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See the top voters")
 						.color(ChatColor.AQUA).create()));
@@ -103,6 +114,8 @@ public class Commands {
 		msg[8] = new TextComponent("/vote info [Player]");
 		msg[8].setColor(ChatColor.AQUA);
 		msg[8].setBold(true);
+		msg[8].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote info"));
 		msg[8].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See you or another player's info").color(
 						ChatColor.AQUA).create()));
@@ -110,6 +123,8 @@ public class Commands {
 		msg[9] = new TextComponent("/vote today [Page]");
 		msg[9].setColor(ChatColor.AQUA);
 		msg[9].setBold(true);
+		msg[9].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote today"));
 		msg[9].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See who voted today").color(
 						ChatColor.AQUA).create()));
@@ -117,6 +132,8 @@ public class Commands {
 		msg[10] = new TextComponent("/vote help");
 		msg[10].setColor(ChatColor.AQUA);
 		msg[10].setBold(true);
+		msg[10].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/vote help"));
 		msg[10].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See this help info")
 						.color(ChatColor.AQUA).create()));
