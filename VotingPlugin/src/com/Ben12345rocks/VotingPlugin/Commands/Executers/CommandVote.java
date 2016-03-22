@@ -137,16 +137,8 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			if (Utils.getInstance().isPlayer(sender)) {
-				Player player = (Player) sender;
-				for (TextComponent msg : Commands.getInstance()
-						.voteHelpPlayer()) {
-					player.spigot().sendMessage(msg);
-				}
-
-			} else {
-				sender.sendMessage(Commands.getInstance().voteHelpConsole());
-			}
+			Utils.getInstance().sendMessageComponent(sender,
+					Commands.getInstance().voteHelp());
 
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
@@ -219,6 +211,10 @@ public class CommandVote implements CommandExecutor {
 		if (sender instanceof Player) {
 			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Info")
 					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				if (plugin == null) {
+					plugin = (Main) Bukkit.getPluginManager().getPlugin(
+							"VotingPlugin");
+				}
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
@@ -241,6 +237,10 @@ public class CommandVote implements CommandExecutor {
 	public void infoOther(CommandSender sender, String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.Vote.Info.Other")) {
+			if (plugin == null) {
+				plugin = (Main) Bukkit.getPluginManager().getPlugin(
+						"VotingPlugin");
+			}
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -305,6 +305,10 @@ public class CommandVote implements CommandExecutor {
 
 	public void today(CommandSender sender, int page) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Today")) {
+			if (plugin == null) {
+				plugin = (Main) Bukkit.getPluginManager().getPlugin(
+						"VotingPlugin");
+			}
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 				@Override
 				public void run() {

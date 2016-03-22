@@ -47,7 +47,7 @@ public class Commands {
 
 	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
-	public TextComponent[] voteHelpPlayer() {
+	public TextComponent[] voteHelp() {
 		TextComponent[] msg = new TextComponent[11];
 
 		msg[0] = new TextComponent("VotingPlugin Player Help");
@@ -139,15 +139,6 @@ public class Commands {
 						.color(ChatColor.AQUA).create()));
 
 		return msg;
-	}
-
-	public String[] voteHelpConsole() {
-		ArrayList<String> msg = new ArrayList<String>();
-		for (TextComponent text : voteHelpPlayer()) {
-			msg.add(text.getText());
-		}
-
-		return Utils.getInstance().convertArray(msg);
 	}
 
 	public String[] adminVoteHelp() {
