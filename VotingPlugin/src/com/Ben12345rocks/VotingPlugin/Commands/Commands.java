@@ -51,7 +51,7 @@ public class Commands {
 		TextComponent[] msg = new TextComponent[11];
 
 		msg[0] = new TextComponent("VotingPlugin Player Help");
-		msg[0].setColor(ChatColor.DARK_RED);
+		msg[0].setColor(ChatColor.DARK_AQUA);
 		msg[0].setBold(true);
 
 		msg[1] = new TextComponent("[] = Optional");
