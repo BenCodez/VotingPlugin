@@ -25,10 +25,10 @@ public class CommandVote implements CommandExecutor {
 		return instance;
 	}
 
-	private Main plugin;
+	private static Main plugin;
 
 	public CommandVote(Main plugin) {
-		this.plugin = plugin;
+		CommandVote.plugin = plugin;
 	}
 
 	@Override
@@ -209,10 +209,6 @@ public class CommandVote implements CommandExecutor {
 		if (sender instanceof Player) {
 			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Info")
 					|| Utils.getInstance().hasPermission(sender, "Player")) {
-				if (plugin == null) {
-					plugin = (Main) Bukkit.getPluginManager().getPlugin(
-							"VotingPlugin");
-				}
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
@@ -235,10 +231,6 @@ public class CommandVote implements CommandExecutor {
 	public void infoOther(CommandSender sender, String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.Vote.Info.Other")) {
-			if (plugin == null) {
-				plugin = (Main) Bukkit.getPluginManager().getPlugin(
-						"VotingPlugin");
-			}
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -303,10 +295,6 @@ public class CommandVote implements CommandExecutor {
 
 	public void today(CommandSender sender, int page) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Today")) {
-			if (plugin == null) {
-				plugin = (Main) Bukkit.getPluginManager().getPlugin(
-						"VotingPlugin");
-			}
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 				@Override
 				public void run() {

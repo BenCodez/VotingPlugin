@@ -138,7 +138,7 @@ public class Utils {
 	}
 
 	public String getPlayerName(String uuid) {
-		if (uuid == null || uuid.equalsIgnoreCase("null")) {
+		if ((uuid == null) || uuid.equalsIgnoreCase("null")) {
 			if (Config.getInstance().getDebugEnabled()) {
 				plugin.getLogger().info("Null UUID");
 			}
@@ -267,7 +267,7 @@ public class Utils {
 
 	public ItemStack addEnchants(ItemStack item,
 			HashMap<String, Integer> enchants) {
-		if (enchants == null || enchants.size() == 0) {
+		if ((enchants == null) || (enchants.size() == 0)) {
 			return item;
 		}
 		ItemMeta meta = item.getItemMeta();

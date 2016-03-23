@@ -80,7 +80,7 @@ public class Commands {
 				HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
 						"See total votes of yourself, another player, or server total")
-						.color(ChatColor.AQUA).create()));
+				.color(ChatColor.AQUA).create()));
 
 		msg[5] = new TextComponent("/vote next [Player]");
 		msg[5].setColor(ChatColor.AQUA);
@@ -90,7 +90,7 @@ public class Commands {
 		msg[5].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
 						"See when you or another player can vote next").color(
-						ChatColor.AQUA).create()));
+								ChatColor.AQUA).create()));
 
 		msg[6] = new TextComponent("/vote last [Player]");
 		msg[6].setColor(ChatColor.AQUA);
@@ -100,7 +100,7 @@ public class Commands {
 		msg[6].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(
 						"See when you or another player voted last").color(
-						ChatColor.AQUA).create()));
+								ChatColor.AQUA).create()));
 
 		msg[7] = new TextComponent("/vote top [Page]");
 		msg[7].setColor(ChatColor.AQUA);
@@ -109,7 +109,7 @@ public class Commands {
 				"/vote top"));
 		msg[7].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See the top voters")
-						.color(ChatColor.AQUA).create()));
+		.color(ChatColor.AQUA).create()));
 
 		msg[8] = new TextComponent("/vote info [Player]");
 		msg[8].setColor(ChatColor.AQUA);
@@ -136,7 +136,7 @@ public class Commands {
 				"/vote help"));
 		msg[10].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See this help info")
-						.color(ChatColor.AQUA).create()));
+		.color(ChatColor.AQUA).create()));
 
 		return msg;
 	}
@@ -196,7 +196,7 @@ public class Commands {
 				"/adminvote settotal (player) (sitename) (amount)"));
 		msg[7].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Set player's total votes for votesite")
-						.color(ChatColor.AQUA).create()));
+		.color(ChatColor.AQUA).create()));
 
 		msg[8] = new TextComponent("/adminvote reload");
 		msg[8].setColor(ChatColor.AQUA);
@@ -205,7 +205,7 @@ public class Commands {
 				"/adminvote reload"));
 		msg[8].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Reload the plugin").color(ChatColor.AQUA)
-						.create()));
+				.create()));
 
 		msg[9] = new TextComponent("/adminvote uuid (playername)");
 		msg[9].setColor(ChatColor.AQUA);
@@ -214,7 +214,7 @@ public class Commands {
 				"/adminvote uuid (playername)"));
 		msg[9].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Get player's uuid").color(ChatColor.AQUA)
-						.create()));
+				.create()));
 
 		msg[10] = new TextComponent("/adminvote version");
 		msg[10].setColor(ChatColor.AQUA);
@@ -232,7 +232,7 @@ public class Commands {
 				"/adminvote sites [site]"));
 		msg[11].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Display vote sites and vote site info")
-						.color(ChatColor.AQUA).create()));
+		.color(ChatColor.AQUA).create()));
 
 		msg[12] = new TextComponent("/adminvote help");
 		msg[12].setColor(ChatColor.AQUA);
@@ -241,9 +241,9 @@ public class Commands {
 				"/adminvote help"));
 		msg[12].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See this page").color(ChatColor.AQUA)
-						.create()));
+				.create()));
 
-		 return msg;
+		return msg;
 
 	}
 
@@ -318,13 +318,13 @@ public class Commands {
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
 			String timeString = new SimpleDateFormat(format.getTimeFormat())
-					.format(date);
+			.format(date);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -372,15 +372,15 @@ public class Commands {
 				int cyear = new Date().getYear();
 				Date currentDate = new Date(cyear, cmonth, cday, chour, cmin);
 
-				if (nextvote == null || day == 0 || hour == 0) {
+				if ((nextvote == null) || (day == 0) || (hour == 0)) {
 					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
 					msgLine = msgLine.replace("%info%", canVoteMsg);
 				} else {
 					if (!currentDate.after(nextvote)) {
 						long diff = nextvote.getTime() - currentDate.getTime();
 
-						long diffSeconds = diff / 1000 % 60;
-						long diffMinutes = diff / (60 * 1000) % 60;
+						long diffSeconds = (diff / 1000) % 60;
+						long diffMinutes = (diff / (60 * 1000)) % 60;
 						long diffHours = diff / (60 * 60 * 1000);
 						// long diffDays = diff / (24 * 60 * 60 * 1000);
 
@@ -512,8 +512,8 @@ public class Commands {
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
-		for (int i = pagesize * page; i < plugin.voteToday.length
-				&& i < ((page + 1) * pagesize); i++) {
+		for (int i = pagesize * page; (i < plugin.voteToday.length)
+				&& (i < ((page + 1) * pagesize)); i++) {
 			msg.add(plugin.voteToday[i]);
 		}
 

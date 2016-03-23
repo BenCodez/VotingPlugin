@@ -67,7 +67,7 @@ public class TopVoter {
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		int pageSize = 1 + users.size() / pagesize;
+		int pageSize = 1 + (users.size() / pagesize);
 
 		String title = format.getCommandVoteTopTitle()
 				.replace("%page%", "" + page)
@@ -77,8 +77,8 @@ public class TopVoter {
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
 				plugin.topVoter);
 
-		for (int i = (page - 1) * pagesize; i < topVoters.size()
-				&& i < (page - 1) * pagesize + 10; i++) {
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
 		}
 

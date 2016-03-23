@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.API;
+package com.Ben12345rocks.VotingPlugin.BonusReward;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -119,7 +119,7 @@ public class BonusVoteReward {
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
 			for (String playercmd : playercmds) {
-				if (player != null && playercmd.length() > 0) {
+				if ((player != null) && (playercmd.length() > 0)) {
 					playercmd = playercmd.replace("%player%", playerName);
 					player.performCommand(playercmd);
 				}

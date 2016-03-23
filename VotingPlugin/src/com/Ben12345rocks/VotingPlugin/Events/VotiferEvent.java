@@ -1,34 +1,39 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
+import java.util.Set;
+
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.API.VoteRecieved;
+import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
 public class VotiferEvent implements Listener {
 
-	Main plugin = Main.plugin;
+	static Main plugin = Main.plugin;
 
 	public VotiferEvent(Main plugin) {
-		this.plugin = plugin;
+		VotiferEvent.plugin = plugin;
 	}
 
-	Config config = Config.getInstance();
+	static Config config = Config.getInstance();
 
-	ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
+	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
-	ConfigFormat format = ConfigFormat.getInstance();
+	static ConfigFormat format = ConfigFormat.getInstance();
 
-	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onVotiferEvent(VotifierEvent event) {
@@ -53,7 +58,79 @@ public class VotiferEvent implements Listener {
 
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
 
-		VoteRecieved.getInstance().playerVote(voteUsername, voteSite);
+		playerVote(voteUsername, voteSite);
+	}
+
+	public static void playerVote(String playerName, String voteSiteURL) {
+		User user = new User(playerName);
+		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
+			plugin.getLogger().info("Player has not joined before");
+			return;
+		}
+
+		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
+
+		Set<String> sites = configVoteSites.getVoteSitesName();
+
+		// check if a valid site
+		if (!sites.contains(voteSiteName)) {
+			plugin.getLogger()
+			.warning(
+					"Site '"
+							+ voteSiteName
+							+ "' is not registered! Please check it is added to your config!");
+			return;
+		}
+
+		VoteSite voteSite = new VoteSite(voteSiteName);
+
+		// broadcast vote if enabled in config
+		if (config.getBroadCastVotesEnabled()) {
+			voteSite.broadcastVote(user);
+		}
+
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			@Override
+			public void run() {
+				// update last vote time
+				user.setTime(voteSite);
+				// Data.getInstance().setTime(voteSiteName, playerName);
+
+				// add to total votes
+				user.addTotal(voteSite);
+				// Data.getInstance().addTotal(playerName, voteSiteName);
+
+				user.setReminded(false);
+
+				// check if player has voted on all sites in one day
+				boolean allVotes = user.checkAllVotes();
+
+				if (Utils.getInstance().isPlayerOnline(playerName)) {
+					user.playerVote(voteSite);
+					// SiteVoteReward.getInstance().giveSiteReward(user,
+					// voteSite);
+					if (allVotes) {
+						// BonusVoteReward.getInstance().giveBonusReward(user);
+						user.giveBonus();
+					}
+				} else {
+					if (allVotes) {
+						user.addBonusOfflineVote();
+					}
+
+					user.addOfflineVote(voteSite);
+
+					if (config.getDebugEnabled()) {
+						plugin.getLogger().info(
+								"Offline vote set for " + playerName + " on "
+										+ voteSiteName);
+					}
+				}
+
+				plugin.updateTopUpdater();
+			}
+		});
+
 	}
 
 }

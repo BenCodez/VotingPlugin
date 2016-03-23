@@ -13,7 +13,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.API.BonusVoteReward;
+import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -220,7 +220,7 @@ public class User {
 		Date currentDate = new Date(new Date().getYear(), cmonth, cday, chour,
 				cmin);
 
-		if (nextvote != null && day != 0 && hour != 0) {
+		if ((nextvote != null) && (day != 0) && (hour != 0)) {
 			if (currentDate.after(nextvote)) {
 				return true;
 
@@ -254,8 +254,8 @@ public class User {
 	 */
 	public void giveMoney(int money) {
 		String playerName = this.getPlayerName();
-		if (Bukkit.getServer().getPluginManager().getPlugin("Vault") != null
-				&& money > 0) {
+		if ((Bukkit.getServer().getPluginManager().getPlugin("Vault") != null)
+				&& (money > 0)) {
 			Main.econ.depositPlayer(playerName, money);
 		}
 	}
@@ -334,9 +334,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
+					.info("Offline Vote Reward on Site '"
+							+ voteSite.getSiteName()
+							+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -403,7 +403,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-								+ ".Miliseconds");
+						+ ".Miliseconds");
 		return mills;
 	}
 

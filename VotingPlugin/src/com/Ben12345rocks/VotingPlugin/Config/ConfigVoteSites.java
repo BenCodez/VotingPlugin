@@ -47,9 +47,9 @@ public class ConfigVoteSites {
 				plugin.saveResource("VoteSites.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create VoteSites.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create VoteSites.yml!");
 			}
 		}
 
@@ -65,7 +65,7 @@ public class ConfigVoteSites {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save VoteSites.yml!");
+			.severe(ChatColor.RED + "Could not save VoteSites.yml!");
 		}
 	}
 

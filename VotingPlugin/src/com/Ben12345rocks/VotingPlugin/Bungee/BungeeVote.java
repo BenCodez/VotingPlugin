@@ -8,8 +8,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.API.VoteRecieved;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 
 public class BungeeVote {
 
@@ -71,7 +71,7 @@ public class BungeeVote {
 	public void recievedBungeeVote(String playerName, String voteSite) {
 		if (Config.getInstance().recieveBungeeVotes()) {
 			plugin.getLogger().info("Bungee Vote Recieved!");
-			VoteRecieved.getInstance().playerVote(playerName, voteSite);
+			VotiferEvent.playerVote(playerName, voteSite);
 		}
 	}
 

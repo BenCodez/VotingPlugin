@@ -194,7 +194,7 @@ public class VoteSite {
 					.getData()
 					.getConfigurationSection(
 							"VoteSites." + siteName + ".Items." + item
-									+ ".Enchants").getKeys(false);
+							+ ".Enchants").getKeys(false);
 			for (String enchant : enchants) {
 				enchantments.put(enchant, getEnchantLevel(item, enchant));
 			}
@@ -262,7 +262,7 @@ public class VoteSite {
 						"%items%",
 						Utils.getInstance().makeStringList(
 								Utils.getInstance().convert(getItems())));
-		if (rewardmsg != null && rewardmsg != "") {
+		if ((rewardmsg != null) && (rewardmsg != "")) {
 			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 		}
 
@@ -369,7 +369,7 @@ public class VoteSite {
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
 			for (String playercmd : playercmds) {
-				if (player != null && playercmd.length() > 0) {
+				if ((player != null) && (playercmd.length() > 0)) {
 					playercmd = playercmd.replace("%player%", playerName);
 					player.performCommand(playercmd);
 				}

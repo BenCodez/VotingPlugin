@@ -9,13 +9,13 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.API.VoteRecieved;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -223,7 +223,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void vote(CommandSender sender, String voteSite, String playerName) {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Vote")) {
-			VoteRecieved.getInstance().playerVote(voteSite, playerName);
+			VotiferEvent.playerVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -257,7 +257,7 @@ public class CommandAdminVote implements CommandExecutor {
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.GlobalVote")) {
-			VoteRecieved.getInstance().playerVote(voteSite, playerName);
+			VotiferEvent.playerVote(voteSite, playerName);
 			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());

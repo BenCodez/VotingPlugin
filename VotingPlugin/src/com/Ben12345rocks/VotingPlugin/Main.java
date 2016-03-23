@@ -91,11 +91,8 @@ public class Main extends JavaPlugin {
 
 	public void setupFiles() {
 		config = Config.getInstance();
-
 		configVoteSites = ConfigVoteSites.getInstance();
-
 		configFormat = ConfigFormat.getInstance();
-
 		configBonusReward = ConfigBonusReward.getInstance();
 
 		config.setup(this);
@@ -122,19 +119,25 @@ public class Main extends JavaPlugin {
 
 		// /votehelp, /vhelp
 		this.getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
+
 		// /voteinfo, /vinfo
 		this.getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
 		this.getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
+
 		// /votelast, /vlast
 		this.getCommand("votelast").setExecutor(new CommandVoteLast(this));
 		this.getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
+
 		// /votenext, /vnext
 		this.getCommand("votenext").setExecutor(new CommandVoteNext(this));
 		this.getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
+
 		// /votetoday, /vtoday
 		this.getCommand("votetoday").setExecutor(new CommandVoteToday(this));
+
 		// /votetop, /vtop
 		this.getCommand("votetop").setExecutor(new CommandVoteTop(this));
+
 		// /votetotal, /vtotal
 		this.getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
 		this.getCommand("votetotal").setTabCompleter(
@@ -186,30 +189,30 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
 
-									user.loginMessage();
-								}
-							}
+							user.loginMessage();
 						}
 					}
-				}, 50, 60 * 20);
+				}
+			}
+		}, 50, 60 * 20);
 	}
 
 	public void startTimer() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateTopUpdater();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				updateTopUpdater();
+			}
+		}, 50, 600 * 20);
 	}
 
 	public void updateTopUpdater() {
@@ -219,7 +222,7 @@ public class Main extends JavaPlugin {
 			voteToday = Commands.getInstance().voteToday();
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
+			.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
 			ex.printStackTrace();
 		}
 	}
