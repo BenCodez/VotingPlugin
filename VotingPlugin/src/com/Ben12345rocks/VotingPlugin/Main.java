@@ -82,6 +82,9 @@ public class Main extends JavaPlugin {
 		topVoter = new String[1];
 		voteToday = new String[1];
 		startTimer();
+		plugin.getLogger().info(
+				"VotingPlgin " + plugin.getDescription().getVersion()
+						+ " Enabled");
 	}
 
 	@Override
@@ -101,6 +104,9 @@ public class Main extends JavaPlugin {
 		configBonusReward.setup(this);
 
 		UUIDs.getInstance().setup(plugin);
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Files");
+		}
 	}
 
 	private void registerCommands() {
@@ -143,6 +149,10 @@ public class Main extends JavaPlugin {
 		this.getCommand("votetotal").setTabCompleter(
 				new VoteTotalTabCompleter());
 
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Commands");
+		}
+
 	}
 
 	private void registerEvents() {
@@ -150,6 +160,10 @@ public class Main extends JavaPlugin {
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new VotiferEvent(this), this);
+
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Events");
+		}
 	}
 
 	private boolean setupEconomy() {
@@ -176,6 +190,9 @@ public class Main extends JavaPlugin {
 		try {
 			Metrics metrics = new Metrics(this);
 			metrics.start();
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info("Loaded Metrics");
+			}
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
@@ -183,36 +200,46 @@ public class Main extends JavaPlugin {
 
 	public void loadBungee() {
 		BungeeVote.getInstance().registerBungeeVoting();
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Files loaded");
+		}
 	}
 
 	public void loadReminders() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Reminders");
+		}
 	}
 
 	public void startTimer() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						updateTopUpdater();
+					}
+				}, 50, 600 * 20);
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info(
+					"Loaded Timer for VoteTop, Updater, and VoteToday");
+		}
 	}
 
 	public void updateTopUpdater() {
@@ -220,9 +247,13 @@ public class Main extends JavaPlugin {
 			topVoter = TopVoter.getInstance().topVoters();
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info(
+						"Updated VoteTop, Updater, and VoteToday");
+			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
+					.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
 			ex.printStackTrace();
 		}
 	}
