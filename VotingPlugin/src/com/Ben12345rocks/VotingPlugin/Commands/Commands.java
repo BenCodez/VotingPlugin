@@ -463,14 +463,14 @@ public class Commands {
 			msg.add("&cInvalid Vote Site, see /av sites!");
 		} else {
 
-			VoteSite voteSite = new VoteSite(voteSiteName);
+			VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 
 			msg.add("&c&lVote Site Info for " + voteSiteName + ":");
 
-			msg.add("&cSite: &6" + voteSite.getVoteSiteServiceSite());
+			msg.add("&cSite: &6" + voteSite.getServiceSite());
 			msg.add("&cVoteURL: &6" + voteSite.getVoteURL());
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
-			msg.add("&cMoney: &6" + voteSite.getMoneyAmount());
+			msg.add("&cMoney: &6" + voteSite.getMoney());
 
 			msg.add("&cItems:");
 			for (String item : ConfigVoteSites.getInstance().getItems(
@@ -529,8 +529,7 @@ public class Commands {
 		ArrayList<User> users = Utils.getInstance().convertSet(
 				Data.getInstance().getUsers());
 		for (User user : users) {
-			for (VoteSite voteSite : ConfigVoteSites.getInstance()
-					.getVoteSites()) {
+			for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 				long time = user.getTime(voteSite);
 				if (new Date().getDate() == Utils.getInstance().getDayFromMili(
 						time)) {

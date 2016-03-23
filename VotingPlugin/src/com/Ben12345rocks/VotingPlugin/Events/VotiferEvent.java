@@ -1,6 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
-import java.util.Set;
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -70,7 +70,7 @@ public class VotiferEvent implements Listener {
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
 
-		Set<String> sites = configVoteSites.getVoteSitesName();
+		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
 		// check if a valid site
 		if (!sites.contains(voteSiteName)) {
@@ -82,7 +82,7 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		VoteSite voteSite = new VoteSite(voteSiteName);
+		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 
 		// broadcast vote if enabled in config
 		if (config.getBroadCastVotesEnabled()) {

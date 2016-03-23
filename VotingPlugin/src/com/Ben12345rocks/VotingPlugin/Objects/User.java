@@ -260,28 +260,16 @@ public class User {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	/**
-	 * Give the user an item
-	 * @param id	Item id
-	 * @param amount	Item amount
-	 * @param data		Item data
-	 * @param itemName	Item name
-	 * @param lore		Item lore
-	 * @param enchants	Item enchants
+	 * Give the user an item, will drop on ground if inv full
+	 *
+	 * @param item
+	 *            ItemStack to give player
 	 */
-	public void giveItem(int id, int amount, int data, String itemName,
-			List<String> lore, HashMap<String, Integer> enchants) {
-
+	public void giveItem(ItemStack item) {
 		String playerName = this.getPlayerName();
 
-		ItemStack item = new ItemStack(id, amount, (short) data);
-		item = Utils.getInstance().nameItem(item, itemName);
-		item = Utils.getInstance().addlore(item, lore);
 		Player player = Bukkit.getPlayer(playerName);
-		// player.getInventory().addItem(item);
-
-		item = Utils.getInstance().addEnchants(item, enchants);
 
 		HashMap<Integer, ItemStack> excess = player.getInventory()
 				.addItem(item);
@@ -346,10 +334,10 @@ public class User {
 		}
 
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			this.playerVote(new VoteSite(offlineVotes.get(i)));
+			this.playerVote(plugin.getVoteSite(offlineVotes.get(i)));
 		}
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			this.setOfflineVotes(new VoteSite(offlineVotes.get(i)), 0);
+			this.setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
 		}
 
 		for (int i = 0; i < this.getBonusOfflineVotes(); i++) {
@@ -357,6 +345,39 @@ public class User {
 		}
 
 		this.setBonusOfflineVotes(0);
+	}
+
+	@SuppressWarnings("deprecation")
+	/**
+	 * Give the user an item
+	 * @param id	Item id
+	 * @param amount	Item amount
+	 * @param data		Item data
+	 * @param itemName	Item name
+	 * @param lore		Item lore
+	 * @param enchants	Item enchants
+	 */
+	public void giveItem(int id, int amount, int data, String itemName,
+			List<String> lore, HashMap<String, Integer> enchants) {
+
+		String playerName = this.getPlayerName();
+
+		ItemStack item = new ItemStack(id, amount, (short) data);
+		item = Utils.getInstance().nameItem(item, itemName);
+		item = Utils.getInstance().addlore(item, lore);
+		Player player = Bukkit.getPlayer(playerName);
+		// player.getInventory().addItem(item);
+
+		item = Utils.getInstance().addEnchants(item, enchants);
+
+		HashMap<Integer, ItemStack> excess = player.getInventory()
+				.addItem(item);
+		for (Map.Entry<Integer, ItemStack> me : excess.entrySet()) {
+			player.getWorld().dropItem(player.getLocation(), me.getValue());
+		}
+
+		player.updateInventory();
+
 	}
 
 	/**

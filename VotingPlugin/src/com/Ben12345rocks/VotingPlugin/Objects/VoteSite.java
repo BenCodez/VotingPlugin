@@ -1,11 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -14,7 +14,16 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 
 public class VoteSite {
+	private boolean disabled;
 	private String siteName;
+	private String serviceSite;
+	private String voteURL;
+	private int voteDelay;
+	private int money;
+	private ArrayList<ItemStack> items;
+	private ArrayList<String> consoleCommands;
+	private ArrayList<String> playerCommands;
+
 	static Config config = Config.getInstance();
 
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
@@ -37,189 +46,174 @@ public class VoteSite {
 	 */
 	public VoteSite(String siteName) {
 		this.setSiteName(siteName);
+		init();
+	}
+
+	public void init() {
+		this.setDisabled(configVoteSites.getVoteSiteDisabled(siteName));
+		this.serviceSite = configVoteSites.getServiceSite(siteName);
+		this.voteURL = configVoteSites.getVoteURL(siteName);
+		this.voteDelay = configVoteSites.getVoteDelay(siteName);
+		this.money = configVoteSites.getMoneyAmount(siteName);
+		for (String item : configVoteSites.getItems(siteName)) {
+			this.items.add(getItemStackItem(item));
+		}
+		this.consoleCommands = configVoteSites.getConsoleCommands(siteName);
+		this.playerCommands = configVoteSites.getPlayerCommands(siteName);
 	}
 
 	/**
-	 *
-	 * @return Site name
+	 * @return the disabled
+	 */
+	public boolean isDisabled() {
+		return disabled;
+	}
+
+	/**
+	 * @param disabled
+	 *            the enabled to set
+	 */
+	public void setDisabled(boolean disabled) {
+		this.disabled = disabled;
+	}
+
+	/**
+	 * @return the siteName
 	 */
 	public String getSiteName() {
 		return siteName;
 	}
 
 	/**
-	 * Set name of site
-	 *
 	 * @param siteName
-	 *            Name to set to
+	 *            the siteName to set
 	 */
 	public void setSiteName(String siteName) {
 		this.siteName = siteName;
 	}
 
 	/**
-	 *
-	 * @return Service Site of VoteSite
+	 * @return the serviceSite
 	 */
-	public String getVoteSiteServiceSite() {
-		return ConfigVoteSites.getInstance().getData()
-				.getString("VoteSites." + siteName + ".Site");
+	public String getServiceSite() {
+		return serviceSite;
 	}
 
 	/**
-	 *
-	 * @return /vote url
+	 * @param serviceSite
+	 *            the serviceSite to set
+	 */
+	public void setServiceSite(String serviceSite) {
+		this.serviceSite = serviceSite;
+	}
+
+	/**
+	 * @return the voteURL
 	 */
 	public String getVoteURL() {
-		return ConfigVoteSites.getInstance().getData()
-				.getString("VoteSites." + siteName + ".VoteURL");
+		return voteURL;
 	}
 
 	/**
-	 *
-	 * @return Vote delay
+	 * @param voteURL
+	 *            the voteURL to set
+	 */
+	public void setVoteURL(String voteURL) {
+		this.voteURL = voteURL;
+	}
+
+	/**
+	 * @return the voteDelay
 	 */
 	public int getVoteDelay() {
-		return ConfigVoteSites.getInstance().getData()
-				.getInt("VoteSites." + siteName + ".votedelay");
+		return voteDelay;
 	}
 
 	/**
-	 *
-	 * @return Amount of money to give
+	 * @param voteDelay
+	 *            the voteDelay to set
 	 */
-	public int getMoneyAmount() {
-		return ConfigVoteSites.getInstance().getData()
-				.getInt("VoteSites." + siteName + ".Money");
+	public void setVoteDelay(int voteDelay) {
+		this.voteDelay = voteDelay;
 	}
 
-	@SuppressWarnings("unchecked")
 	/**
-	 *
-	 * @return		Console commands
+	 * @return the money
+	 */
+	public int getMoney() {
+		return money;
+	}
+
+	/**
+	 * @param money
+	 *            the money to set
+	 */
+	public void setMoney(int money) {
+		this.money = money;
+	}
+
+	/**
+	 * @return the items
+	 */
+	public ArrayList<ItemStack> getItems() {
+		return items;
+	}
+
+	/**
+	 * @param items
+	 *            the items to set
+	 */
+	public void setItems(ArrayList<ItemStack> items) {
+		this.items = items;
+	}
+
+	/**
+	 * @return the consoleCommands
 	 */
 	public ArrayList<String> getConsoleCommands() {
-		return (ArrayList<String>) ConfigVoteSites.getInstance().getData()
-				.getList("VoteSites." + siteName + ".Commands.Console");
+		return consoleCommands;
 	}
 
-	@SuppressWarnings("unchecked")
 	/**
-	 *
-	 * @return		Player commands
+	 * @param consoleCommands
+	 *            the consoleCommands to set
+	 */
+	public void setConsoleCommands(ArrayList<String> consoleCommands) {
+		this.consoleCommands = consoleCommands;
+	}
+
+	/**
+	 * @return the playerCommands
 	 */
 	public ArrayList<String> getPlayerCommands() {
-		return (ArrayList<String>) ConfigVoteSites.getInstance().getData()
-				.getList("VoteSites." + siteName + ".Commands.Player");
+		return playerCommands;
 	}
 
 	/**
-	 *
-	 * @return Items of VoteSite
+	 * @param playerCommands
+	 *            the playerCommands to set
 	 */
-	public Set<String> getItems() {
-		return ConfigVoteSites.getInstance().getData()
-				.getConfigurationSection("VoteSites." + siteName + ".Items")
-				.getKeys(false);
+	public void setPlayerCommands(ArrayList<String> playerCommands) {
+		this.playerCommands = playerCommands;
 	}
 
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Id of item
-	 */
-	public int getItemID(String item) {
-		return ConfigVoteSites.getInstance().getData()
-				.getInt("VoteSites." + siteName + ".Items." + item + ".id");
-	}
+	@SuppressWarnings("deprecation")
+	public ItemStack getItemStackItem(String item) {
+		int id = configVoteSites.getItemID(siteName, item);
+		int amount = configVoteSites.getItemAmount(siteName, item);
+		int data = configVoteSites.getItemData(siteName, item);
 
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Item data value
-	 */
-	public int getItemData(String item) {
-		return ConfigVoteSites.getInstance().getData()
-				.getInt("VoteSites." + siteName + ".Items." + item + ".Data");
-	}
+		String itemName = configVoteSites.getItemName(siteName, item);
+		itemName = Utils.getInstance().colorize(itemName);
 
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Amount of items
-	 */
-	public int getItemAmount(String item) {
-		return ConfigVoteSites.getInstance().getData()
-				.getInt("VoteSites." + siteName + ".Items." + item + ".Amount");
-	}
-
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Name of item
-	 */
-	public String getItemName(String item) {
-		return ConfigVoteSites
-				.getInstance()
-				.getData()
-				.getString("VoteSites." + siteName + ".Items." + item + ".Name");
-	}
-
-	@SuppressWarnings("unchecked")
-	/**
-	 *
-	 * @param item 	Item
-	 * @return		Lore of item
-	 */
-	public ArrayList<String> getItemLore(String item) {
-		return (ArrayList<String>) ConfigVoteSites.getInstance().getData()
-				.getList("VoteSites." + siteName + ".Items." + item + ".Lore");
-	}
-
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Enchants of item
-	 */
-	public HashMap<String, Integer> getEnchantments(String item) {
-		try {
-			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
-			Set<String> enchants = ConfigVoteSites
-					.getInstance()
-					.getData()
-					.getConfigurationSection(
-							"VoteSites." + siteName + ".Items." + item
-							+ ".Enchants").getKeys(false);
-			for (String enchant : enchants) {
-				enchantments.put(enchant, getEnchantLevel(item, enchant));
-			}
-
-			return enchantments;
-		} catch (Exception ex) {
-			return null;
-		}
-
-	}
-
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @param enchant
-	 *            Enchant
-	 * @return Level of enchantment
-	 */
-	public int getEnchantLevel(String item, String enchant) {
-		return ConfigVoteSites
-				.getInstance()
-				.getData()
-				.getInt("VoteSites." + siteName + ".Items." + item
-						+ ".Enchants." + enchant);
+		ArrayList<String> lore = configVoteSites.getItemLore(siteName, item);
+		lore = Utils.getInstance().colorize(lore);
+		ItemStack itemStack = new ItemStack(id, amount, (short) data);
+		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
+		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addEnchants(itemStack,
+				configVoteSites.getEnchantments(siteName, item));
+		return itemStack;
 	}
 
 	/**
@@ -231,8 +225,7 @@ public class VoteSite {
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
 		String bc = Utils.getInstance().colorize(format.getBroadCastMsg());
-		bc = bc.replace("%player%", playerName).replace("%SiteName%",
-				this.getSiteName());
+		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
 		Bukkit.broadcastMessage(bc);
 	}
 
@@ -257,11 +250,13 @@ public class VoteSite {
 		rewardmsg = rewardmsg
 				.replace("%player%", playerName)
 				.replace("%SiteName%", voteSite.getSiteName())
-				.replace("%money%", "" + getMoneyAmount())
-				.replace(
-						"%items%",
-						Utils.getInstance().makeStringList(
-								Utils.getInstance().convert(getItems())));
+				.replace("%money%",
+						"" + configVoteSites.getMoneyAmount(siteName))
+						.replace(
+								"%items%",
+								Utils.getInstance().makeStringList(
+										Utils.getInstance().convert(
+												configVoteSites.getItems(siteName))));
 		if ((rewardmsg != null) && (rewardmsg != "")) {
 			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 		}
@@ -277,7 +272,7 @@ public class VoteSite {
 	public int getChanceItem(String item) {
 		int chance = ConfigVoteSites
 				.getInstance()
-				.getData()
+				.getData(siteName)
 				.getInt("VoteSites." + this.getSiteName() + ".Items." + item
 						+ ".Chance");
 		if (chance <= 0) {
@@ -294,7 +289,6 @@ public class VoteSite {
 	 *            User to give items to
 	 */
 	public void giveItemSiteReward(User user) {
-		VoteSite voteSite = this;
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -305,30 +299,19 @@ public class VoteSite {
 			return;
 		}
 
-		Set<String> items = voteSite.getItems();
+		Set<String> items = configVoteSites.getItems(siteName);
 		for (String item : items) {
-			int chance = getChanceItem(item);
-			int randomNum = (int) (Math.random() * 100) + 1;
-			if (randomNum <= chance) {
-				if (chance != 100) {
-					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
-				}
-				int id = voteSite.getItemID(item);
-				int amount = voteSite.getItemAmount(item);
-				int data = voteSite.getItemData(item);
+			/*
+			 * int chance = getChanceItem(item); int randomNum = (int)
+			 * (Math.random() * 100) + 1; if (randomNum <= chance) { if (chance
+			 * != 100) { user.sendMessage(ConfigFormat.getInstance()
+			 * .getChanceRewardMsg()); }
+			 */
 
-				String itemName = voteSite.getItemName(item);
-				itemName = Utils.getInstance().colorize(itemName);
-
-				ArrayList<String> lore = voteSite.getItemLore(item);
-				lore = Utils.getInstance().colorize(lore);
-
-				user.giveItem(id, amount, data, itemName, lore,
-						voteSite.getEnchantments(item));
-			}
-
+			user.giveItem(getItemStackItem(item));
 		}
+
+		// }
 
 	}
 
@@ -337,7 +320,7 @@ public class VoteSite {
 	 *            User to give money to
 	 */
 	public void giveMoneySite(User user) {
-		int money = this.getMoneyAmount();
+		int money = configVoteSites.getMoneyAmount(siteName);
 		user.giveMoney(money);
 	}
 
@@ -351,7 +334,8 @@ public class VoteSite {
 		String playerName = user.getPlayerName();
 
 		// Console commands
-		ArrayList<String> consolecmds = this.getConsoleCommands();
+		ArrayList<String> consolecmds = configVoteSites
+				.getConsoleCommands(siteName);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -364,7 +348,8 @@ public class VoteSite {
 		}
 
 		// Player commands
-		ArrayList<String> playercmds = this.getPlayerCommands();
+		ArrayList<String> playercmds = configVoteSites
+				.getPlayerCommands(siteName);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {

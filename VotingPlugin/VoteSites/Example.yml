@@ -1,0 +1,68 @@
+# Example.yml
+# This is an Example VoteSite
+# Located in VoteSites folder in plugin directory
+# The file name is the VoteSite name
+      
+# Disable voteSite
+# Will cause VoteSite to not load on startup automaticly
+# Not recommended to enable
+Disabled: true
+      
+# The serviceName from the vote, has to be correct to work correctly
+# Gotten from voting on the site (will be in console/log)
+ServiceSite: 'PlanetMinecraft.com'
+
+# vote url for /vote
+# Format for this can be set in Format.yml
+# Do not include colors
+VoteURL: 'link to vote URL here, used in /vote'
+
+# Time between votes in hours (used for /vote next)
+# Most sites are 24 hours
+votedelay: 24
+
+# Money given on vote
+# use 0 for none
+# Requires Vault
+Money: 500
+
+# Items
+Items:
+  # Item
+  # This is not the item display name
+  # Used for placeholders in Format.yml
+  Diamond:
+    # Item ID
+    ID: 264
+    
+    # Item Data (Eg 1:4, data is 4)
+    Data: 0
+    
+    # Amount of items
+    # Should be greater than 0
+    Amount: 1
+    
+    # Item name
+    # Remove this line for no name
+    Name: '&4Example'
+    
+    # Lore
+    # Remove this line for no lore
+    Lore:
+    - '&4Line 1'
+
+# Commands to run when giving rewards to player
+# Only will run once player is online
+# use %player% for the player's name
+Commands:
+
+  # Console commands
+  # Delete this value for no console commands
+  Console:
+  - 'say Example command: %player%'
+  
+  # Player commands
+  # Delete this value for no player commands
+  # Player needs permissions to run commands
+  Player:
+  - 'vote total'

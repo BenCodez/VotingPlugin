@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import net.milkbowl.vault.economy.Economy;
 
@@ -36,6 +37,7 @@ import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
@@ -61,6 +63,8 @@ public class Main extends JavaPlugin {
 
 	public static ConfigBonusReward configBonusReward;
 
+	public ArrayList<VoteSite> voteSites;
+
 	@Override
 	public void onEnable() {
 		plugin = this;
@@ -73,6 +77,7 @@ public class Main extends JavaPlugin {
 
 		CheckUpdate.getInstance().startUp();
 
+		loadVoteSites();
 		loadBungee();
 
 		if (Config.getInstance().getRemindVotesEnabled()) {
@@ -83,8 +88,7 @@ public class Main extends JavaPlugin {
 		voteToday = new String[1];
 		startTimer();
 		plugin.getLogger().info(
-				"VotingPlgin " + plugin.getDescription().getVersion()
-						+ " Enabled");
+				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 	}
 
 	@Override
@@ -99,7 +103,7 @@ public class Main extends JavaPlugin {
 		configBonusReward = ConfigBonusReward.getInstance();
 
 		config.setup(this);
-		configVoteSites.setup(this);
+		// configVoteSites.setup(this);
 		configFormat.setup(this);
 		configBonusReward.setup(this);
 
@@ -198,30 +202,35 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void loadVoteSites() {
+		configVoteSites.setup("Example");
+		this.voteSites = configVoteSites.getVoteSitesLoad();
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded VoteSites");
+		}
+	}
+
 	public void loadBungee() {
 		BungeeVote.getInstance().registerBungeeVoting();
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Files loaded");
-		}
 	}
 
 	public void loadReminders() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
 
-									user.loginMessage();
-								}
-							}
+							user.loginMessage();
 						}
 					}
-				}, 50, 60 * 20);
+				}
+			}
+		}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -231,11 +240,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateTopUpdater();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				updateTopUpdater();
+			}
+		}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -253,7 +262,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
+			.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
 			ex.printStackTrace();
 		}
 	}
@@ -264,6 +273,15 @@ public class Main extends JavaPlugin {
 
 	public User getUser(UUID uuid) {
 		return new User(uuid);
+	}
+
+	public VoteSite getVoteSite(String siteName) {
+		for (VoteSite voteSite : voteSites) {
+			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
+				return voteSite;
+			}
+		}
+		return new VoteSite(siteName);
 	}
 
 }

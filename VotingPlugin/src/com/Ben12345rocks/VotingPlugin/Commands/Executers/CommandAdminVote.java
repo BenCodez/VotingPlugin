@@ -146,7 +146,7 @@ public class CommandAdminVote implements CommandExecutor {
 				"Commands.AdminVote.Reload")) {
 			config.reloadData();
 			format.reloadData();
-			voteSites.reloadData();
+			plugin.loadVoteSites();
 			bonusReward.reloadData();
 			sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
 			plugin.updateTopUpdater();

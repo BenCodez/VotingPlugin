@@ -311,10 +311,10 @@ public class Utils {
 	}
 
 	public String getVoteSiteName(String url) {
-		Set<String> sites = ConfigVoteSites.getInstance().getVoteSitesName();
+		ArrayList<String> sites = ConfigVoteSites.getInstance()
+				.getVoteSitesNames();
 		for (String siteName : sites) {
-			String URL = ConfigVoteSites.getInstance().getVoteSiteServiceSite(
-					siteName);
+			String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
 			if (URL.equals(url)) {
 				return siteName;
 			}

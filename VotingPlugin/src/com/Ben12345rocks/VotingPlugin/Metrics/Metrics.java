@@ -131,7 +131,7 @@ public class Metrics {
 		// Do we need to create the file?
 		if (configuration.get("guid", null) == null) {
 			configuration.options().header("http://mcstats.org")
-			.copyDefaults(true);
+					.copyDefaults(true);
 			configuration.save(configurationFile);
 		}
 
@@ -217,7 +217,7 @@ public class Metrics {
 									// server owner decided to opt-out
 									if (isOptOut() && (taskId > 0)) {
 										plugin.getServer().getScheduler()
-										.cancelTask(taskId);
+												.cancelTask(taskId);
 										taskId = -1;
 									}
 								}
@@ -455,9 +455,9 @@ public class Metrics {
 	 */
 	private static void encodeDataPair(final StringBuilder buffer,
 			final String key, final String value)
-					throws UnsupportedEncodingException {
+			throws UnsupportedEncodingException {
 		buffer.append('&').append(encode(key)).append('=')
-		.append(encode(value));
+				.append(encode(value));
 	}
 
 	/**

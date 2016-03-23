@@ -67,7 +67,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 				if (args[0].equalsIgnoreCase("sites")) {
 					cmds.addAll(ConfigVoteSites.getInstance()
-							.getVoteSitesName());
+							.getVoteSitesNames());
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
@@ -88,7 +88,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					List<String> cmds = new ArrayList<String>();
 
 					for (String siteName : ConfigVoteSites.getInstance()
-							.getVoteSitesName()) {
+							.getVoteSitesNames()) {
 						cmds.add(siteName);
 					}
 
