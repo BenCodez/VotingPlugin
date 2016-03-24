@@ -352,7 +352,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 

@@ -45,10 +45,10 @@ public class VotiferEvent implements Listener {
 		// check if a valid site
 		if (!sites.contains(voteSiteName)) {
 			plugin.getLogger()
-					.warning(
-							"Site '"
-									+ voteSiteName
-									+ "' is not registered! Please check it is added to your config!");
+			.warning(
+					"Site '"
+							+ voteSiteName
+							+ "' is not registered! Please check it is added to your config!");
 			return;
 		}
 

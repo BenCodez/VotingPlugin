@@ -33,6 +33,10 @@ public class ConfigBungeeVoting {
 		ConfigBungeeVoting.plugin = plugin;
 	}
 
+	public FileConfiguration getData() {
+		return data;
+	}
+
 	public int getRecievePort() {
 		return getData().getInt("RecievePort");
 	}
@@ -40,10 +44,6 @@ public class ConfigBungeeVoting {
 	@SuppressWarnings("unchecked")
 	public List<Integer> getSendPorts() {
 		return (List<Integer>) getData().getList("SendPorts");
-	}
-
-	public FileConfiguration getData() {
-		return data;
 	}
 
 	public boolean recieveBungeeVotes() {
@@ -59,7 +59,7 @@ public class ConfigBungeeVoting {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save BungeeVoting.yml!");
+			.severe(ChatColor.RED + "Could not save BungeeVoting.yml!");
 		}
 	}
 
@@ -80,9 +80,9 @@ public class ConfigBungeeVoting {
 				plugin.saveResource("BungeeVoting.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BungeeVoting.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BungeeVoting.yml!");
 			}
 		}
 

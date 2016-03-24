@@ -352,11 +352,11 @@ public class VoteSite {
 				.replace("%SiteName%", voteSite.getSiteName())
 				.replace("%money%",
 						"" + configVoteSites.getMoneyAmount(siteName))
-						.replace(
-								"%items%",
-								Utils.getInstance().makeStringList(
-										Utils.getInstance().convert(
-												configVoteSites.getItems(siteName))));
+				.replace(
+						"%items%",
+						Utils.getInstance().makeStringList(
+								Utils.getInstance().convert(
+										configVoteSites.getItems(siteName))));
 		if ((rewardmsg != null) && (rewardmsg != "")) {
 			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 		}
