@@ -1,8 +1,11 @@
 # VotingPlugin by Ben12345rocks
 # Main Config
 # To set Format, see Format.yml
-# To add or edit vote sites, see VoteSites.yml
 # Set Bonus Reward in BonusReward.yml
+# Set VoteSites in the folder VoteSites
+# See wiki for help: 
+# https://github.com/Ben12345rocks/VotingPlugin/wiki
+
 
 # Wether debug info will be displayed
 Debug: false
