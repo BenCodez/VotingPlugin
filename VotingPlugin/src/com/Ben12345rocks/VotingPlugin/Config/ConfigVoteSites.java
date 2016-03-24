@@ -37,6 +37,39 @@ public class ConfigVoteSites {
 	// FileConfiguration data;
 	// File dFile;
 
+	@SuppressWarnings("deprecation")
+	public void addItem(String siteName, String item, ItemStack itemStack) {
+		int id = itemStack.getTypeId();
+		int data = itemStack.getData().getData();
+		int amount = itemStack.getAmount();
+
+		String name = itemStack.getItemMeta().getDisplayName();
+		List<String> lore = itemStack.getItemMeta().getLore();
+
+		HashMap<Enchantment, Integer> enchants = (HashMap<Enchantment, Integer>) itemStack
+				.getEnchantments();
+
+		setItemId(siteName, item, id);
+		setItemData(siteName, item, data);
+		setItemAmount(siteName, item, amount);
+		setItemName(siteName, item, name);
+		setItemLore(siteName, item, lore);
+		setItemEnchants(siteName, item, enchants);
+	}
+
+	public void generateVoteSite(String siteName) {
+		setDisabled(siteName, true);
+		setServiceSite(siteName, "Enter Service Site");
+		setVoteURL(siteName, "VoteURL");
+		setMoney(siteName, 0);
+
+		plugin.loadVoteSites();
+		plugin.getLogger()
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+	}
+
 	public int getChanceRewardChance(String siteName) {
 		return getData(siteName).getInt("ChanceReward.Chance");
 	}
@@ -351,6 +384,12 @@ public class ConfigVoteSites {
 		return getData(siteName).getString("VoteURL");
 	}
 
+	public boolean renameVoteSite(String siteName, String newName) {
+		return getVoteSiteFile(siteName).renameTo(
+				new File(plugin.getDataFolder() + File.separator + "VoteSites",
+						newName + ".yml"));
+	}
+
 	public void set(String siteName, String path, Object value) {
 		// String playerName = user.getPlayerName();
 		File dFile = getVoteSiteFile(siteName);
@@ -361,8 +400,63 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
+	}
+
+	public void setConsoleCommands(String siteName, String item,
+			List<String> consoleCommands) {
+		set(siteName, "Commands.Console", consoleCommands);
+	}
+
+	public void setDisabled(String siteName, boolean disabled) {
+		set(siteName, "Disabled", disabled);
+	}
+
+	public void setItemAmount(String siteName, String item, int amount) {
+		set(siteName, "Items." + item + ".Amount", amount);
+	}
+
+	public void setItemData(String siteName, String item, int data) {
+		set(siteName, "Items." + item + ".Data", data);
+	}
+
+	public void setItemEnchantLevel(String siteName, String item,
+			String enchant, int level) {
+		set(siteName, "Items." + item + ".Enchants." + enchant, level);
+	}
+
+	public void setItemEnchants(String siteName, String item,
+			HashMap<Enchantment, Integer> enchants) {
+		for (Enchantment enchant : enchants.keySet()) {
+			setItemEnchantLevel(siteName, item, enchant.getName(),
+					enchants.get(enchant));
+		}
+	}
+
+	public void setItemId(String siteName, String item, int id) {
+		set(siteName, "Items." + item + ".ID", id);
+	}
+
+	public void setItemLore(String siteName, String item, List<String> lore) {
+		set(siteName, "Items." + item + ".Lore", lore);
+	}
+
+	public void setItemName(String siteName, String item, String name) {
+		set(siteName, "Items." + item + ".Name", name);
+	}
+
+	public void setMoney(String siteName, int money) {
+		set(siteName, "Money", money);
+	}
+
+	public void setPlayerCommands(String siteName, String item,
+			List<String> playerCommands) {
+		set(siteName, "Commands.Player", playerCommands);
+	}
+
+	public void setServiceSite(String siteName, String serviceSite) {
+		set(siteName, "ServiceSite", serviceSite);
 	}
 
 	public void setup(String siteName) {
@@ -390,100 +484,7 @@ public class ConfigVoteSites {
 		// data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
-	public void generateVoteSite(String siteName) {
-		setDisabled(siteName, true);
-		setServiceSite(siteName, "Enter Service Site");
-		setVoteURL(siteName, "VoteURL");
-		setMoney(siteName, 0);
-
-		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
-	}
-
-	public boolean renameVoteSite(String siteName, String newName) {
-		return getVoteSiteFile(siteName).renameTo(
-				new File(plugin.getDataFolder() + File.separator + "VoteSites",
-						newName + ".yml"));
-	}
-
-	public void setServiceSite(String siteName, String serviceSite) {
-		set(siteName, "ServiceSite", serviceSite);
-	}
-
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
-	}
-
-	public void setDisabled(String siteName, boolean disabled) {
-		set(siteName, "Disabled", disabled);
-	}
-
-	public void setMoney(String siteName, int money) {
-		set(siteName, "Money", money);
-	}
-
-	@SuppressWarnings("deprecation")
-	public void addItem(String siteName, String item, ItemStack itemStack) {
-		int id = itemStack.getTypeId();
-		int data = itemStack.getData().getData();
-		int amount = itemStack.getAmount();
-
-		String name = itemStack.getItemMeta().getDisplayName();
-		List<String> lore = itemStack.getItemMeta().getLore();
-
-		HashMap<Enchantment, Integer> enchants = (HashMap<Enchantment, Integer>) itemStack
-				.getEnchantments();
-
-		setItemId(siteName, item, id);
-		setItemData(siteName, item, data);
-		setItemAmount(siteName, item, amount);
-		setItemName(siteName, item, name);
-		setItemLore(siteName, item, lore);
-		setItemEnchants(siteName, item, enchants);
-	}
-
-	public void setItemId(String siteName, String item, int id) {
-		set(siteName, "Items." + item + ".ID", id);
-	}
-
-	public void setItemData(String siteName, String item, int data) {
-		set(siteName, "Items." + item + ".Data", data);
-	}
-
-	public void setItemAmount(String siteName, String item, int amount) {
-		set(siteName, "Items." + item + ".Amount", amount);
-	}
-
-	public void setItemName(String siteName, String item, String name) {
-		set(siteName, "Items." + item + ".Name", name);
-	}
-
-	public void setItemLore(String siteName, String item, List<String> lore) {
-		set(siteName, "Items." + item + ".Lore", lore);
-	}
-
-	public void setItemEnchants(String siteName, String item,
-			HashMap<Enchantment, Integer> enchants) {
-		for (Enchantment enchant : enchants.keySet()) {
-			setItemEnchantLevel(siteName, item, enchant.getName(),
-					enchants.get(enchant));
-		}
-	}
-
-	public void setItemEnchantLevel(String siteName, String item,
-			String enchant, int level) {
-		set(siteName, "Items." + item + ".Enchants." + enchant, level);
-	}
-
-	public void setConsoleCommands(String siteName, String item,
-			List<String> consoleCommands) {
-		set(siteName, "Commands.Console", consoleCommands);
-	}
-
-	public void setPlayerCommands(String siteName, String item,
-			List<String> playerCommands) {
-		set(siteName, "Commands.Player", playerCommands);
 	}
 }

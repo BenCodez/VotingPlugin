@@ -49,7 +49,7 @@ public class Commands {
 
 	public TextComponent[] adminVoteHelp() {
 
-		TextComponent[] msg = new TextComponent[11];
+		TextComponent[] msg = new TextComponent[14];
 
 		msg[0] = new TextComponent("VotingPlugin Admin Help");
 		msg[0].setColor(ChatColor.DARK_AQUA);
@@ -140,12 +140,22 @@ public class Commands {
 				new ComponentBuilder("Display vote sites and vote site info")
 		.color(ChatColor.AQUA).create()));
 
-		msg[12] = new TextComponent("/adminvote help");
+		msg[12] = new TextComponent(
+				"/adminvote VoteSite (SiteName) AddItem Item");
 		msg[12].setColor(ChatColor.AQUA);
 		msg[12].setBold(true);
 		msg[12].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
-				"/adminvote help"));
+				"/adminvote VoteSite (SiteName) AddItem Item"));
 		msg[12].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Add current item in hand to votesite")
+		.color(ChatColor.AQUA).create()));
+
+		msg[13] = new TextComponent("/adminvote help");
+		msg[13].setColor(ChatColor.AQUA);
+		msg[13].setBold(true);
+		msg[13].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote help"));
+		msg[13].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See this page").color(ChatColor.AQUA)
 				.create()));
 

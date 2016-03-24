@@ -132,6 +132,7 @@ permissions:
     description: Allows access to /adminvote sites
   VotingPlugin.Commands.AdminVote.Sites.Site: 
     description: Allows access to /adminvote sites <site>
-  
+  VotingPlugin.Commands.AdminVote.VoteSite.AddItem: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddItem <Item>  
       
       

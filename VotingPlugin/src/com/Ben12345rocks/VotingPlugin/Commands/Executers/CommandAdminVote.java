@@ -37,6 +37,43 @@ public class CommandAdminVote implements CommandExecutor {
 		this.plugin = plugin;
 	}
 
+	public void addVoteSiteItem(CommandSender sender, String voteSite,
+			String item) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.AddItem")) {
+			if (Utils.getInstance().isPlayer(sender)) {
+				Player player = (Player) sender;
+				if (player.getInventory().getItemInMainHand() != null) {
+
+					sender.sendMessage("&cTrying to add item...");
+					Bukkit.getScheduler().runTaskAsynchronously(plugin,
+							new Runnable() {
+
+						@Override
+						public void run() {
+							ConfigVoteSites.getInstance().addItem(
+									voteSite,
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage("&cAdded item &c&l"
+									+ item + " &cto " + voteSite);
+
+						}
+					});
+
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cHold an item"));
+				}
+			} else {
+				sender.sendMessage(Messages.getInstance().mustBePlayer());
+			}
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void bungeeVote(CommandSender sender, String voteSite,
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
@@ -143,6 +180,12 @@ public class CommandAdminVote implements CommandExecutor {
 							"&cError on " + args[4] + ", number expected"));
 				}
 				return true;
+			}
+			if (args[0].equalsIgnoreCase("VoteSite")) {
+				if (args[2].equalsIgnoreCase("AddItem")) {
+					addVoteSiteItem(sender, args[1], args[3]);
+					return true;
+				}
 			}
 		}
 

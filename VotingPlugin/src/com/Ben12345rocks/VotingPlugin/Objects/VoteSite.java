@@ -53,7 +53,6 @@ public class VoteSite {
 		} else {
 			init();
 		}
-
 	}
 
 	/**
@@ -343,31 +342,39 @@ public class VoteSite {
 	 */
 	public void giveSiteReward(User user) {
 		VoteSite voteSite = this;
-		try {
-			giveItemSiteReward(user);
-		} catch (Exception ex) {
-		}
-		giveMoneySite(user);
-		doSiteCommands(user);
+		if (!voteSite.isDisabled()) {
+			try {
+				giveItemSiteReward(user);
+			} catch (Exception ex) {
+			}
+			giveMoneySite(user);
+			doSiteCommands(user);
 
-		String playerName = user.getPlayerName();
+			String playerName = user.getPlayerName();
 
-		Player player = Bukkit.getPlayer(playerName);
-		String rewardmsg = format.getRewardMsg();
-		rewardmsg = rewardmsg
-				.replace("%player%", playerName)
-				.replace("%SiteName%", voteSite.getSiteName())
-				.replace("%money%",
-						"" + configVoteSites.getMoneyAmount(siteName))
-				.replace(
-						"%items%",
-						Utils.getInstance().makeStringList(
-								Utils.getInstance().convert(
-										configVoteSites.getItems(siteName))));
-		if ((rewardmsg != null) && (rewardmsg != "")) {
-			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
+			Player player = Bukkit.getPlayer(playerName);
+			String rewardmsg = format.getRewardMsg();
+			rewardmsg = rewardmsg
+					.replace("%player%", playerName)
+					.replace("%SiteName%", voteSite.getSiteName())
+					.replace("%money%",
+							"" + configVoteSites.getMoneyAmount(siteName))
+							.replace(
+									"%items%",
+									Utils.getInstance()
+									.makeStringList(
+											Utils.getInstance()
+											.convert(
+													configVoteSites
+													.getItems(siteName))));
+			if ((rewardmsg != null) && (rewardmsg != "")) {
+				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
+			}
+			giveChanceReward(user);
+		} else {
+			plugin.getLogger().info(
+					"VoteSite '" + voteSite.getSiteName() + "' is Disabled!");
 		}
-		giveChanceReward(user);
 
 	}
 

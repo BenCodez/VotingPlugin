@@ -42,17 +42,17 @@ public class VotiferEvent implements Listener {
 
 		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
+		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
+
 		// check if a valid site
 		if (!sites.contains(voteSiteName)) {
 			plugin.getLogger()
-			.warning(
-					"Site '"
-							+ voteSiteName
-							+ "' is not registered! Please check it is added to your config!");
+					.warning(
+							"Site '"
+									+ voteSiteName
+									+ "' is not registered! Attempting to get voteSite");
 			return;
 		}
-
-		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 
 		// broadcast vote if enabled in config
 		if (config.getBroadCastVotesEnabled()) {
