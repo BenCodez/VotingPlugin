@@ -4,7 +4,9 @@
 # The file name is the VoteSite name
       
 # Disable voteSite
-# Will cause VoteSite to not load on startup automaticly
+# Will cause VoteSite to not load 
+# Used as default value when adding vote sites
+# with commands/automaticly
 # Not recommended to enable
 Disabled: true
       

@@ -4,11 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -319,7 +322,7 @@ public class ConfigVoteSites {
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
 				if (!site.equalsIgnoreCase("Example")
-						|| !getVoteSiteDisabled(site)) {
+						|| getVoteSiteDisabled(site)) {
 					voteSites.add(new VoteSite(site));
 				}
 			}
@@ -334,6 +337,12 @@ public class ConfigVoteSites {
 		}
 		for (int i = 0; i < siteNames.size(); i++) {
 			siteNames.get(i).replace(".yml", "");
+		}
+		for (int i = siteNames.size(); i >= 0; i--) {
+			if (getVoteSiteDisabled(siteNames.get(i))) {
+				siteNames.remove(i);
+			}
+
 		}
 		return siteNames;
 	}
@@ -381,4 +390,100 @@ public class ConfigVoteSites {
 		// data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public void generateVoteSite(String siteName) {
+		setDisabled(siteName, true);
+		setServiceSite(siteName, "Enter Service Site");
+		setVoteURL(siteName, "VoteURL");
+		setMoney(siteName, 0);
+
+		plugin.getLogger()
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+	}
+
+	public boolean renameVoteSite(String siteName, String newName) {
+		return getVoteSiteFile(siteName).renameTo(
+				new File(plugin.getDataFolder() + File.separator + "VoteSites",
+						newName + ".yml"));
+	}
+
+	public void setServiceSite(String siteName, String serviceSite) {
+		set(siteName, "ServiceSite", serviceSite);
+	}
+
+	public void setVoteURL(String siteName, String url) {
+		set(siteName, "VoteURL", url);
+	}
+
+	public void setDisabled(String siteName, boolean disabled) {
+		set(siteName, "Disabled", disabled);
+	}
+
+	public void setMoney(String siteName, int money) {
+		set(siteName, "Money", money);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void addItem(String siteName, String item, ItemStack itemStack) {
+		int id = itemStack.getTypeId();
+		int data = itemStack.getData().getData();
+		int amount = itemStack.getAmount();
+
+		String name = itemStack.getItemMeta().getDisplayName();
+		List<String> lore = itemStack.getItemMeta().getLore();
+
+		HashMap<Enchantment, Integer> enchants = (HashMap<Enchantment, Integer>) itemStack
+				.getEnchantments();
+
+		setItemId(siteName, item, id);
+		setItemData(siteName, item, data);
+		setItemAmount(siteName, item, amount);
+		setItemName(siteName, item, name);
+		setItemLore(siteName, item, lore);
+		setItemEnchants(siteName, item, enchants);
+	}
+
+	public void setItemId(String siteName, String item, int id) {
+		set(siteName, "Items." + item + ".ID", id);
+	}
+
+	public void setItemData(String siteName, String item, int data) {
+		set(siteName, "Items." + item + ".Data", data);
+	}
+
+	public void setItemAmount(String siteName, String item, int amount) {
+		set(siteName, "Items." + item + ".Amount", amount);
+	}
+
+	public void setItemName(String siteName, String item, String name) {
+		set(siteName, "Items." + item + ".Name", name);
+	}
+
+	public void setItemLore(String siteName, String item, List<String> lore) {
+		set(siteName, "Items." + item + ".Lore", lore);
+	}
+
+	public void setItemEnchants(String siteName, String item,
+			HashMap<Enchantment, Integer> enchants) {
+		for (Enchantment enchant : enchants.keySet()) {
+			setItemEnchantLevel(siteName, item, enchant.getName(),
+					enchants.get(enchant));
+		}
+	}
+
+	public void setItemEnchantLevel(String siteName, String item,
+			String enchant, int level) {
+		set(siteName, "Items." + item + ".Enchants." + enchant, level);
+	}
+
+	public void setConsoleCommands(String siteName, String item,
+			List<String> consoleCommands) {
+		set(siteName, "Commands.Console", consoleCommands);
+	}
+
+	public void setPlayerCommands(String siteName, String item,
+			List<String> playerCommands) {
+		set(siteName, "Commands.Player", playerCommands);
+	}
 }

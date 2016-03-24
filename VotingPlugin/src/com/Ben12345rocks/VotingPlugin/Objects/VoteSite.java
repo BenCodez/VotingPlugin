@@ -46,7 +46,14 @@ public class VoteSite {
 	 */
 	public VoteSite(String siteName) {
 		this.setSiteName(siteName);
-		init();
+		if (!configVoteSites.getVoteSiteFile(siteName).exists()) {
+			configVoteSites.generateVoteSite(siteName);
+			init();
+			plugin.loadVoteSites();
+		} else {
+			init();
+		}
+
 	}
 
 	/**
