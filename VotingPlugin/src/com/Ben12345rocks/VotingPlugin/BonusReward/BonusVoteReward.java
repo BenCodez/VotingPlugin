@@ -49,6 +49,56 @@ public class BonusVoteReward {
 			Player player = Bukkit.getPlayer(playerName);
 			player.sendMessage(ChatColor.RED
 					+ "You were given bonus Items for voting on all sites in one day!");
+			giveChanceReward(user);
+		}
+
+	}
+
+	public void giveChanceReward(User user) {
+		try {
+			int chance = bonusReward.getChanceRewardChance();
+			int randomNum = (int) (Math.random() * 100) + 1;
+			if (randomNum <= chance) {
+				if (chance != 100) {
+					user.sendMessage(ConfigFormat.getInstance()
+							.getChanceRewardMsg());
+				}
+				doChanceRewardBonusCommands(user);
+				giveChanceRewardItemBonusReward(user);
+				giveChanceRewardMoneyBonus(user);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+	}
+
+	public void giveChanceRewardItemBonusReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning("Error giving player items!");
+			}
+			return;
+		}
+
+		Set<String> items = bonusReward.getChanceRewardItems();
+		for (String item : items) {
+			int id = bonusReward.getChanceRewardItemID(item);
+			int amount = bonusReward.getChanceRewardItemAmount(item);
+
+			int data = bonusReward.getChanceRewardItemData(item);
+
+			String itemName = bonusReward.getChanceRewardItemName(item);
+
+			itemName = Utils.getInstance().colorize(itemName);
+
+			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(item);
+			lore = Utils.getInstance().colorize(lore);
+
+			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
+					.getInstance().getChanceRewardEnchantments(item));
+
 		}
 
 	}
@@ -65,30 +115,28 @@ public class BonusVoteReward {
 
 		Set<String> items = bonusReward.getItems();
 		for (String item : items) {
-			int chance = bonusReward.getChance(item);
-			int randomNum = (int) (Math.random() * 100) + 1;
-			if (randomNum <= chance) {
-				if (chance != 100) {
-					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
-				}
-				int id = bonusReward.getItemID(item);
-				int amount = bonusReward.getItemAmount(item);
+			int id = bonusReward.getItemID(item);
+			int amount = bonusReward.getItemAmount(item);
 
-				int data = bonusReward.getItemData(item);
+			int data = bonusReward.getItemData(item);
 
-				String itemName = bonusReward.getItemName(item);
+			String itemName = bonusReward.getItemName(item);
 
-				itemName = Utils.getInstance().colorize(itemName);
+			itemName = Utils.getInstance().colorize(itemName);
 
-				ArrayList<String> lore = bonusReward.getItemLore(item);
-				lore = Utils.getInstance().colorize(lore);
+			ArrayList<String> lore = bonusReward.getItemLore(item);
+			lore = Utils.getInstance().colorize(lore);
 
-				user.giveItem(id, amount, data, itemName, lore,
-						ConfigBonusReward.getInstance().getEnchantments(item));
-			}
+			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
+					.getInstance().getEnchantments(item));
+
 		}
 
+	}
+
+	public void giveChanceRewardMoneyBonus(User user) {
+		int money = bonusReward.getChanceRewardMoneyAmount();
+		user.giveMoney(money);
 	}
 
 	public void giveMoneyBonus(User user) {
@@ -96,12 +144,12 @@ public class BonusVoteReward {
 		user.giveMoney(money);
 	}
 
-	public static void doBonusCommands(User user) {
+	public void doBonusCommands(User user) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
-		ArrayList<String> consolecmds = bonusReward.getPlayerCommands();
+		ArrayList<String> consolecmds = bonusReward.getConsoleCommands();
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -115,6 +163,39 @@ public class BonusVoteReward {
 
 		// Player commands
 		ArrayList<String> playercmds = bonusReward.getPlayerCommands();
+
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
+		}
+	}
+
+	public void doChanceRewardBonusCommands(User user) {
+
+		String playerName = user.getPlayerName();
+
+		// Console commands
+		ArrayList<String> consolecmds = bonusReward
+				.getChanceRewardConsoleCommands();
+
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
+			}
+		}
+
+		// Player commands
+		ArrayList<String> playercmds = bonusReward
+				.getChanceRewardPlayerCommands();
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {

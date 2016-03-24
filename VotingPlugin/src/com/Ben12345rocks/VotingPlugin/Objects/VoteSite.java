@@ -281,6 +281,7 @@ public class VoteSite {
 		if ((rewardmsg != null) && (rewardmsg != "")) {
 			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 		}
+		giveChanceReward(user);
 
 	}
 
@@ -298,7 +299,6 @@ public class VoteSite {
 	}
 
 	public void giveChanceReward(User user) {
-
 		try {
 			int chance = getChanceRewardChance();
 			int randomNum = (int) (Math.random() * 100) + 1;

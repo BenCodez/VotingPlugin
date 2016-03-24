@@ -137,8 +137,77 @@ public class ConfigBonusReward {
 				"AllVotesReward.Items." + item + ".Enchants." + enchant);
 	}
 
-	public int getChance(String item) {
-		return getData().getInt("AllVotesReward.Items." + item + ".Chance");
+	public int getChanceRewardChance() {
+		return getData().getInt("AllVotesReward.ChanceReward.Chance");
+	}
+
+	public int getChanceRewardMoneyAmount() {
+		return getData().getInt("AllVotesReward.ChanceReward.Money");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChanceRewardConsoleCommands() {
+		return (ArrayList<String>) getData().getList(
+				"AllVotesReward.ChanceReward.Commands.Console");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChanceRewardPlayerCommands() {
+		return (ArrayList<String>) getData().getList(
+				"AllVotesReward.ChanceReward.Commands.Player");
+	}
+
+	public Set<String> getChanceRewardItems() {
+		return getData().getConfigurationSection(
+				"AllVotesReward.ChanceReward.Items").getKeys(false);
+	}
+
+	public int getChanceRewardItemID(String item) {
+		return getData().getInt(
+				"AllVotesReward.ChanceReward.Items." + item + ".ID");
+	}
+
+	public int getChanceRewardItemData(String item) {
+		return getData().getInt(
+				"AllVotesReward.ChanceReward.Items." + item + ".Data");
+	}
+
+	public int getChanceRewardItemAmount(String item) {
+		return getData().getInt(
+				"AllVotesReward.ChanceReward.Items." + item + ".Amount");
+	}
+
+	public String getChanceRewardItemName(String item) {
+		return getData().getString(
+				"AllVotesReward.ChanceReward.Items." + item + ".Name");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChanceRewardItemLore(String item) {
+		return (ArrayList<String>) getData().getList(
+				"AllVotesReward.ChanceReward.Items." + item + ".Lore");
+	}
+
+	public HashMap<String, Integer> getChanceRewardEnchantments(String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData().getConfigurationSection(
+					"AllVotesReward.ChanceReward.Items." + item + ".Enchants")
+					.getKeys(false);
+			for (String enchant : enchants) {
+				enchantments.put(enchant, getEnchantLevel(item, enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
+	public int getChanceRewardEnchantLevel(String item, String enchant) {
+		return getData().getInt(
+				"AllVotesReward.ChanceReward.Items." + item + ".Enchants."
+						+ enchant);
 	}
 
 }

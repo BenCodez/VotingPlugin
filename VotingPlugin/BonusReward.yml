@@ -30,3 +30,19 @@ AllVotesReward:
     # Player needs permissions to run commands
     Player:
     - 'vote total'
+    
+  # Rewards to give based on a chance
+  # Can use the same rewards as above
+  # Follows same rules
+  ChanceReward:
+    # Chance out of 1000
+    # Must be an integer
+    Chance: 20
+    Items:
+      ID: 264
+      Data: 0
+      Amount: 1
+    Money: 1000
+    Commands:
+      Console:
+      - 'say %player% was extra lucky'
