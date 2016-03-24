@@ -45,22 +45,26 @@ public class CommandAdminVote implements CommandExecutor {
 				Player player = (Player) sender;
 				if (player.getInventory().getItemInMainHand() != null) {
 
-					sender.sendMessage("&cTrying to add item...");
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cTrying to add item..."));
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigVoteSites.getInstance().addItem(
-									voteSite,
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage("&cAdded item &c&l"
-									+ item + " &cto " + voteSite);
+								@Override
+								public void run() {
+									ConfigVoteSites.getInstance().addItem(
+											voteSite,
+											item,
+											player.getInventory()
+													.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded item &c&l" + item
+															+ " &cto "
+															+ voteSite));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(

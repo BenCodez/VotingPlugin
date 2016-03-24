@@ -263,7 +263,10 @@ public class VoteSite {
 							.getChanceRewardMsg());
 				}
 				doChanceRewardSiteCommands(user);
-				giveChanceRewardItemSiteReward(user);
+				try {
+					giveChanceRewardItemSiteReward(user);
+				} catch (Exception ex) {
+				}
 				giveChanceRewardMoneySite(user);
 			}
 		} catch (Exception ex) {
@@ -358,15 +361,15 @@ public class VoteSite {
 					.replace("%player%", playerName)
 					.replace("%SiteName%", voteSite.getSiteName())
 					.replace("%money%",
-							"" + configVoteSites.getMoneyAmount(siteName))
-					.replace(
-							"%items%",
-							Utils.getInstance()
-									.makeStringList(
-											Utils.getInstance()
-													.convert(
-															configVoteSites
-																	.getItems(siteName))));
+							"" + configVoteSites.getMoneyAmount(siteName));
+			try {
+				rewardmsg = rewardmsg.replace(
+						"%items%",
+						Utils.getInstance().makeStringList(
+								Utils.getInstance().convert(
+										configVoteSites.getItems(siteName))));
+			} catch (Exception ex) {
+			}
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
