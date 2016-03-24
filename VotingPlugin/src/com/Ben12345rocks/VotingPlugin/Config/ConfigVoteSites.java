@@ -377,9 +377,9 @@ public class ConfigVoteSites {
 			siteNames.set(i, siteNames.get(i).replace(".yml", ""));
 		}
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
-			plugin.getLogger().info(siteNames.get(i));
+			//plugin.getLogger().info(siteNames.get(i));
 			if (getVoteSiteDisabled(siteNames.get(i))) {
-				plugin.getLogger().info("Removed: " + siteNames.get(i));
+				//plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 
 			}
