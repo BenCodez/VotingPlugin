@@ -30,6 +30,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTotalTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
@@ -246,6 +247,8 @@ public class Main extends JavaPlugin {
 		// configVoteSites.setup(this);
 		configFormat.setup(this);
 		configBonusReward.setup(this);
+
+		ConfigBungeeVoting.getInstance().setup(plugin);
 
 		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {
