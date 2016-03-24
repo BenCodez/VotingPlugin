@@ -93,7 +93,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 
@@ -258,6 +258,127 @@ public class ConfigVoteSites {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getPlayerCommands(String siteName) {
 		return (ArrayList<String>) getData(siteName).getList("Commands.Player");
+	}
+
+	public int getChanceRewardChance(String siteName) {
+		return getData(siteName).getInt("ChanceReward.Chance");
+	}
+
+	public int getChanceRewardMoneyAmount(String siteName) {
+		return getData(siteName).getInt("ChanceReward.Money");
+	}
+
+	/**
+	 *
+	 * @return Items of VoteSite
+	 */
+	public Set<String> getChanceRewardItems(String siteName) {
+		return getData(siteName).getConfigurationSection("ChanceReward.Items")
+				.getKeys(false);
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Id of item
+	 */
+	public int getChanceRewardItemID(String siteName, String item) {
+		return getData(siteName).getInt("ChanceReward.Items." + item + ".ID");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Item data value
+	 */
+	public int getChanceRewardItemData(String siteName, String item) {
+		return getData(siteName).getInt("ChanceReward.Items." + item + ".Data");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Amount of items
+	 */
+	public int getChanceRewardItemAmount(String siteName, String item) {
+		return getData(siteName).getInt(
+				"ChanceReward.Items." + item + ".Amount");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Name of item
+	 */
+	public String getChanceRewardItemName(String siteName, String item) {
+		return getData(siteName).getString(
+				"ChanceReward.Items." + item + ".Name");
+	}
+
+	@SuppressWarnings("unchecked")
+	/**
+	 *
+	 * @param item 	Item
+	 * @return		Lore of item
+	 */
+	public ArrayList<String> getChanceRewardItemLore(String siteName,
+			String item) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ChanceReward.Items." + item + ".Lore");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Enchants of item
+	 */
+	public HashMap<String, Integer> getChanceRewardEnchantments(
+			String siteName, String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData(siteName).getConfigurationSection(
+					"ChanceReward.Items." + item + ".Enchants").getKeys(false);
+			for (String enchant : enchants) {
+				enchantments.put(enchant,
+						getEnchantLevel(siteName, item, enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @param enchant
+	 *            Enchant
+	 * @return Level of enchantment
+	 */
+	public int getChanceRewardEnchantLevel(String siteName, String item,
+			String enchant) {
+		return getData(siteName).getInt(
+				"ChanceReward.Items." + item + ".Enchants." + enchant);
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChanceRewardConsoleCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ChanceReward.Commands.Console");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChanceRewardPlayerCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ChanceReward.Commands.Player");
 	}
 
 }

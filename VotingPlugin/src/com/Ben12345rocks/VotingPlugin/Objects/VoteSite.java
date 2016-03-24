@@ -216,6 +216,27 @@ public class VoteSite {
 		return itemStack;
 	}
 
+	@SuppressWarnings("deprecation")
+	public ItemStack getChanceRewardItemStackItem(String item) {
+		int id = configVoteSites.getChanceRewardItemID(siteName, item);
+		int amount = configVoteSites.getChanceRewardItemAmount(siteName, item);
+		int data = configVoteSites.getChanceRewardItemData(siteName, item);
+
+		String itemName = configVoteSites.getChanceRewardItemName(siteName,
+				item);
+		itemName = Utils.getInstance().colorize(itemName);
+
+		ArrayList<String> lore = configVoteSites.getChanceRewardItemLore(
+				siteName, item);
+		lore = Utils.getInstance().colorize(lore);
+		ItemStack itemStack = new ItemStack(id, amount, (short) data);
+		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
+		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addEnchants(itemStack,
+				configVoteSites.getChanceRewardEnchantments(siteName, item));
+		return itemStack;
+	}
+
 	/**
 	 * Broad cast a vote
 	 *
@@ -252,11 +273,11 @@ public class VoteSite {
 				.replace("%SiteName%", voteSite.getSiteName())
 				.replace("%money%",
 						"" + configVoteSites.getMoneyAmount(siteName))
-						.replace(
-								"%items%",
-								Utils.getInstance().makeStringList(
-										Utils.getInstance().convert(
-												configVoteSites.getItems(siteName))));
+				.replace(
+						"%items%",
+						Utils.getInstance().makeStringList(
+								Utils.getInstance().convert(
+										configVoteSites.getItems(siteName))));
 		if ((rewardmsg != null) && (rewardmsg != "")) {
 			player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 		}
@@ -264,23 +285,36 @@ public class VoteSite {
 	}
 
 	/**
-	 *
-	 * @param item
-	 *            Item to get chance of
-	 * @return Chance if giving item
+	 * @return Chance
 	 */
-	public int getChanceItem(String item) {
-		int chance = ConfigVoteSites
-				.getInstance()
-				.getData(siteName)
-				.getInt("VoteSites." + this.getSiteName() + ".Items." + item
-						+ ".Chance");
+	public int getChanceRewardChance() {
+		int chance = configVoteSites.getChanceRewardChance(siteName);
 		if (chance <= 0) {
 			chance = 100;
 		} else if (chance > 100) {
 			chance = 100;
 		}
 		return chance;
+	}
+
+	public void giveChanceReward(User user) {
+
+		try {
+			int chance = getChanceRewardChance();
+			int randomNum = (int) (Math.random() * 100) + 1;
+			if (randomNum <= chance) {
+				if (chance != 100) {
+					user.sendMessage(ConfigFormat.getInstance()
+							.getChanceRewardMsg());
+				}
+				doChanceRewardSiteCommands(user);
+				giveChanceRewardItemSiteReward(user);
+				giveChanceRewardMoneySite(user);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
 	}
 
 	/**
@@ -301,18 +335,31 @@ public class VoteSite {
 
 		Set<String> items = configVoteSites.getItems(siteName);
 		for (String item : items) {
-			/*
-			 * int chance = getChanceItem(item); int randomNum = (int)
-			 * (Math.random() * 100) + 1; if (randomNum <= chance) { if (chance
-			 * != 100) { user.sendMessage(ConfigFormat.getInstance()
-			 * .getChanceRewardMsg()); }
-			 */
-
 			user.giveItem(getItemStackItem(item));
 		}
 
-		// }
+	}
 
+	/**
+	 *
+	 * @param user
+	 *            User to give items to
+	 */
+	public void giveChanceRewardItemSiteReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning(
+						"Error giving player items! Player = null");
+			}
+			return;
+		}
+
+		Set<String> items = configVoteSites.getChanceRewardItems(siteName);
+		for (String item : items) {
+			user.giveItem(getChanceRewardItemStackItem(item));
+		}
 	}
 
 	/**
@@ -360,5 +407,52 @@ public class VoteSite {
 				}
 			}
 		}
+	}
+
+	/**
+	 *
+	 * @param user
+	 *            User to execute commands with
+	 */
+	public void doChanceRewardSiteCommands(User user) {
+
+		String playerName = user.getPlayerName();
+
+		// Console commands
+		ArrayList<String> consolecmds = configVoteSites
+				.getChanceRewardConsoleCommands(siteName);
+
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
+			}
+		}
+
+		// Player commands
+		ArrayList<String> playercmds = configVoteSites
+				.getChanceRewardPlayerCommands(siteName);
+
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @param user
+	 *            User to give money to
+	 */
+	public void giveChanceRewardMoneySite(User user) {
+		int money = configVoteSites.getChanceRewardMoneyAmount(siteName);
+		user.giveMoney(money);
 	}
 }
