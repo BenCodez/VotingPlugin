@@ -18,16 +18,3 @@ updatereminder: true
 # Let players who never joined before vote
 allowunjoined: true
 
-
-
-# Bungee Voting
-# Please note, this is a beta feature
-# If enabled, server will send votes using the port below
-sendbungeevotes: false
-# If enabled, server will recieve votes using the port below
-recievebungeevotes: false
-# Port to send votes on
-# Must match on other servers
-# If port is already in use, change it to a different one
-bungeeport: 1335
-
