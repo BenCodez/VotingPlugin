@@ -33,15 +33,15 @@ public class Config {
 	}
 
 	public boolean allowUnJoined() {
-		return getData().getBoolean("allowunjoined");
+		return getData().getBoolean("AllowUnjoined");
 	}
 
 	public boolean getBonusRewardEnabled() {
-		return getData().getBoolean("allvotesbonus");
+		return getData().getBoolean("AllVotesBonus");
 	}
 
 	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("broadcastvote");
+		return getData().getBoolean("BroadcastVote");
 	}
 
 	public FileConfiguration getData() {
@@ -49,11 +49,11 @@ public class Config {
 	}
 
 	public boolean getDebugEnabled() {
-		return getData().getBoolean("debug");
+		return getData().getBoolean("Debug");
 	}
 
 	public boolean getRemindVotesEnabled() {
-		return getData().getBoolean("remindvotes");
+		return getData().getBoolean("RemindVotes");
 	}
 
 	public void reloadData() {
@@ -70,22 +70,22 @@ public class Config {
 	}
 
 	public void setBonusRewardEnabled(boolean value) {
-		getData().set("allvotesbonus", value);
+		getData().set("AllVotesBonus", value);
 		saveData();
 	}
 
 	public void setBroadcastVoteEnabled(boolean value) {
-		getData().set("broadcastvote", value);
+		getData().set("BroadcastVote", value);
 		saveData();
 	}
 
 	public void setDebugEnabled(boolean value) {
-		getData().set("debug", value);
+		getData().set("Debug", value);
 		saveData();
 	}
 
 	public void setRemindVotesEnabled(boolean value) {
-		getData().set("remindvotes", value);
+		getData().set("RemindVotes", value);
 		saveData();
 	}
 
@@ -110,6 +110,6 @@ public class Config {
 	}
 
 	public boolean updateReminder() {
-		return getData().getBoolean("updatereminder");
+		return getData().getBoolean("UpdateReminder");
 	}
 }

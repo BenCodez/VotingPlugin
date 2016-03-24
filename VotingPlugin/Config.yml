@@ -5,16 +5,21 @@
 # Set Bonus Reward in BonusReward.yml
 
 # Wether debug info will be displayed
-debug: false
+Debug: false
+
 # Broadcast votes
-broadcastvote: true
+BroadcastVote: true
+
 # Remind players when they can vote
-remindvotes: true
+RemindVotes: true
+
 # Give players a bonus reward when all votes have been complete
-allvotesbonus: false
+AllVotesBonus: false
+
 # Give players with permission "VotingPlugin.remindupdate" update reminder
 # When a update is available on login
-updatereminder: true
+UpdateReminder: true
+
 # Let players who never joined before vote
-allowunjoined: true
+AllowUnjoined: true
 
