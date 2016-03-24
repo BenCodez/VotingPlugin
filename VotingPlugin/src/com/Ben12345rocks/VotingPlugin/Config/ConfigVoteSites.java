@@ -65,9 +65,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	public int getChanceRewardChance(String siteName) {
@@ -339,12 +339,17 @@ public class ConfigVoteSites {
 	}
 
 	public ArrayList<VoteSite> getVoteSites() {
-		return plugin.voteSites;
+		if (plugin.voteSites != null) {
+			return plugin.voteSites;
+		} else {
+			plugin.loadVoteSites();
+			return plugin.voteSites;
+		}
 	}
 
 	public ArrayList<String> getVoteSitesFiles() {
 		File folder = new File(plugin.getDataFolder() + File.separator
-				+ "VoteSite");
+				+ "VoteSites");
 		String[] fileNames = folder.list();
 		return Utils.getInstance().convertArray(fileNames);
 	}
@@ -355,7 +360,7 @@ public class ConfigVoteSites {
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
 				if (!site.equalsIgnoreCase("Example")
-						|| getVoteSiteDisabled(site)) {
+						&& !getVoteSiteDisabled(site)) {
 					voteSites.add(new VoteSite(site));
 				}
 			}
@@ -369,11 +374,14 @@ public class ConfigVoteSites {
 			return null;
 		}
 		for (int i = 0; i < siteNames.size(); i++) {
-			siteNames.get(i).replace(".yml", "");
+			siteNames.set(i, siteNames.get(i).replace(".yml", ""));
 		}
-		for (int i = siteNames.size(); i >= 0; i--) {
+		for (int i = siteNames.size() - 1; i >= 0; i--) {
+			plugin.getLogger().info(siteNames.get(i));
 			if (getVoteSiteDisabled(siteNames.get(i))) {
+				plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
+
 			}
 
 		}
@@ -400,7 +408,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 

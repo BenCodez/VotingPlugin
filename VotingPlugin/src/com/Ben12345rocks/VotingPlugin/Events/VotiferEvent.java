@@ -44,24 +44,41 @@ public class VotiferEvent implements Listener {
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 
-		// check if a valid site
-		if (!sites.contains(voteSiteName)) {
-			plugin.getLogger()
-					.warning(
-							"Site '"
-									+ voteSiteName
-									+ "' is not registered! Attempting to get voteSite");
-			return;
-		}
-
-		// broadcast vote if enabled in config
-		if (config.getBroadCastVotesEnabled()) {
-			voteSite.broadcastVote(user);
-		}
-
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
+
+				// check if a valid site
+				if (sites != null) {
+					if (!sites.contains(voteSiteName)) {
+						plugin.getLogger()
+								.warning(
+										"VoteSite "
+												+ voteSiteName
+												+ " doe not exist, generaterating one...");
+						
+						ConfigVoteSites.getInstance().generateVoteSite(
+								voteSiteName);
+						ConfigVoteSites.getInstance().setServiceSite(
+								voteSiteName, voteSiteURL);
+						return;
+					}
+				} else {
+					plugin.getLogger().warning(
+							"VoteSite " + voteSiteName
+									+ " doe not exist, generaterating one...");
+					ConfigVoteSites.getInstance()
+							.generateVoteSite(voteSiteName);
+					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
+							voteSiteURL);
+					return;
+				}
+
+				// broadcast vote if enabled in config
+				if (config.getBroadCastVotesEnabled()) {
+					voteSite.broadcastVote(user);
+				}
+
 				// update last vote time
 				user.setTime(voteSite);
 				// Data.getInstance().setTime(voteSiteName, playerName);

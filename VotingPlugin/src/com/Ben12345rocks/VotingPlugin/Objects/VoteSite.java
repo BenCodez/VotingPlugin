@@ -359,14 +359,14 @@ public class VoteSite {
 					.replace("%SiteName%", voteSite.getSiteName())
 					.replace("%money%",
 							"" + configVoteSites.getMoneyAmount(siteName))
-							.replace(
-									"%items%",
-									Utils.getInstance()
+					.replace(
+							"%items%",
+							Utils.getInstance()
 									.makeStringList(
 											Utils.getInstance()
-											.convert(
-													configVoteSites
-													.getItems(siteName))));
+													.convert(
+															configVoteSites
+																	.getItems(siteName))));
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
@@ -384,11 +384,23 @@ public class VoteSite {
 		this.voteURL = configVoteSites.getVoteURL(siteName);
 		this.voteDelay = configVoteSites.getVoteDelay(siteName);
 		this.money = configVoteSites.getMoneyAmount(siteName);
-		for (String item : configVoteSites.getItems(siteName)) {
-			this.items.add(getItemStackItem(item));
+		try {
+			for (String item : configVoteSites.getItems(siteName)) {
+				this.items.add(getItemStackItem(item));
+			}
+		} catch (Exception ex) {
+			if (config.getDebugEnabled()) {
+				ex.printStackTrace();
+			}
 		}
-		this.consoleCommands = configVoteSites.getConsoleCommands(siteName);
-		this.playerCommands = configVoteSites.getPlayerCommands(siteName);
+		try {
+			this.consoleCommands = configVoteSites.getConsoleCommands(siteName);
+			this.playerCommands = configVoteSites.getPlayerCommands(siteName);
+		} catch (Exception ex) {
+			if (config.getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
 	}
 
 	/**

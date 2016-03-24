@@ -103,40 +103,45 @@ public class Data {
 	public ArrayList<String> getPlayerNames() {
 		ArrayList<String> files = getFiles();
 		ArrayList<String> names = new ArrayList<String>();
-		for (String playerFile : files) {
-			String uuid = playerFile.replace(".yml", "");
-			String playerName = Utils.getInstance().getPlayerName(uuid);
-			if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info(uuid + ": " + playerName);
+		if (files != null) {
+			for (String playerFile : files) {
+				String uuid = playerFile.replace(".yml", "");
+				String playerName = Utils.getInstance().getPlayerName(uuid);
+				if (Config.getInstance().getDebugEnabled()) {
+					plugin.getLogger().info(uuid + ": " + playerName);
+				}
+				if (playerName != null) {
+					names.add(playerName);
+				}
 			}
-			if (playerName != null) {
-				names.add(playerName);
+			if (names == null) {
+				return null;
+			} else {
+				return names;
 			}
 		}
-		if (names == null) {
-			return null;
-		} else {
-			return names;
-		}
+		return null;
 	}
 
 	@SuppressWarnings("unused")
 	public ArrayList<String> getPlayersUUIDs() {
 		ArrayList<String> files = getFiles();
-		ArrayList<String> uuids = new ArrayList<String>();
-		if (files.size() > 0) {
-			for (String playerFile : files) {
-				String uuid = playerFile.replace(".yml", "");
-				uuids.add(uuid);
+		if (files != null) {
+			ArrayList<String> uuids = new ArrayList<String>();
+			if (files.size() > 0) {
+				for (String playerFile : files) {
+					String uuid = playerFile.replace(".yml", "");
+					uuids.add(uuid);
+				}
+				if (uuids == null) {
+					return null;
+				} else {
+					return uuids;
+				}
 			}
-			if (uuids == null) {
-				return null;
-			} else {
-				return uuids;
-			}
-		} else {
-			return null;
 		}
+		return null;
+
 	}
 
 	public int getSiteMonthTotal(User user, String voteSiteName) {
@@ -171,7 +176,6 @@ public class Data {
 		Set<User> users = new HashSet<User>();
 		ArrayList<String> players = getPlayerNames();
 		if (players != null) {
-
 			for (String playerName : players) {
 				User user = new User(playerName);
 				users.add(user);
@@ -287,8 +291,11 @@ public class Data {
 			plugin.getDataFolder().mkdir();
 		}
 
-		String playerName = user.getPlayerName();
 		String uuid = user.getUUID();
+		String playerName = user.getPlayerName();
+		if (playerName == null) {
+			Utils.getInstance().getPlayerName(uuid);
+		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
 				uuid + ".yml");

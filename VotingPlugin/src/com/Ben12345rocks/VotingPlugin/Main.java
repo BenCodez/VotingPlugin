@@ -282,7 +282,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

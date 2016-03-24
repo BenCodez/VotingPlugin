@@ -203,9 +203,9 @@ public class CommandAdminVote implements CommandExecutor {
 			format.reloadData();
 			plugin.loadVoteSites();
 			bonusReward.reloadData();
-			sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
 			plugin.updateTopUpdater();
 			plugin.setupFiles();
+			sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

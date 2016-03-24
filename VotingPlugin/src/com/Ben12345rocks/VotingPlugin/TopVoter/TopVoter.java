@@ -57,29 +57,31 @@ public class TopVoter {
 	public String[] topVoters() {
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		Collections.sort(users, new Comparator<User>() {
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalVotes();
-				int p2Total = p2.getTotalVotes();
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+			Collections.sort(users, new Comparator<User>() {
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalVotes();
+					int p2Total = p2.getTotalVotes();
 
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
+					if (p1Total < p2Total) {
+						return 1;
+					}
+					if (p1Total > p2Total) {
+						return -1;
+					}
 
-				return 0;
+					return 0;
+				}
+			});
+			for (int i = 0; i < users.size(); i++) {
+				String line = format.getCommandVoteTopLine()
+						.replace("%num%", "" + (i + 1))
+						.replace("%player%", users.get(i).getPlayerName())
+						.replace("%votes%", "" + users.get(i).getTotalVotes());
+				msg.add(line);
 			}
-		});
-		for (int i = 0; i < users.size(); i++) {
-			String line = format.getCommandVoteTopLine()
-					.replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%", "" + users.get(i).getTotalVotes());
-			msg.add(line);
 		}
 
 		msg = Utils.getInstance().colorize(msg);

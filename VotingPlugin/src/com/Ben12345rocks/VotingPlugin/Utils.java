@@ -130,6 +130,9 @@ public class Utils {
 	}
 
 	public ArrayList<User> convertSet(Set<User> set) {
+		if (set == null) {
+			return null;
+		}
 		ArrayList<User> list = new ArrayList<User>();
 		for (User user : set) {
 			list.add(user);
