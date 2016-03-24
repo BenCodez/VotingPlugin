@@ -16,19 +16,121 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class CommandVote implements CommandExecutor {
 
-	private CommandVote() {
-	}
-
 	private static CommandVote instance = new CommandVote();
+
+	private static Main plugin;
 
 	public static CommandVote getInstance() {
 		return instance;
 	}
 
-	private static Main plugin;
+	private CommandVote() {
+	}
 
 	public CommandVote(Main plugin) {
 		CommandVote.plugin = plugin;
+	}
+
+	public void help(CommandSender sender) {
+		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
+				|| Utils.getInstance().hasPermission(sender, "Player")) {
+			Utils.getInstance().sendMessageComponent(sender,
+					Commands.getInstance().voteHelp());
+
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void infoOther(CommandSender sender, String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.Vote.Info.Other")) {
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cGetting player info..."));
+					sender.sendMessage(Commands.getInstance().playerInfo(
+							new User(playerName)));
+				}
+			});
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void infoSelf(CommandSender sender) {
+		if (sender instanceof Player) {
+			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Info")
+					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				Bukkit.getScheduler().runTaskAsynchronously(plugin,
+						new Runnable() {
+
+							@Override
+							public void run() {
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cGetting info..."));
+								sender.sendMessage(Commands.getInstance()
+										.playerInfo(new User(sender.getName())));
+							}
+						});
+			} else {
+				sender.sendMessage(Messages.getInstance().noPerms());
+			}
+		} else {
+			sender.sendMessage(Messages.getInstance().mustBePlayer());
+		}
+	}
+
+	public void lastOther(CommandSender sender, String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.Vote.Last.Other")) {
+			User user = new User(playerName);
+			sender.sendMessage(Commands.getInstance().voteCommandLast(user));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void lastSelf(CommandSender sender) {
+		if (sender instanceof Player) {
+			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Last")
+					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				String playerName = sender.getName();
+				User user = new User(playerName);
+				sender.sendMessage(Commands.getInstance().voteCommandLast(user));
+			} else {
+				sender.sendMessage(Messages.getInstance().noPerms());
+			}
+		} else {
+			sender.sendMessage(Messages.getInstance().mustBePlayer());
+		}
+	}
+
+	public void nextOther(CommandSender sender, String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.Vote.Next.Other")) {
+			User user = new User(playerName);
+			sender.sendMessage(Commands.getInstance().voteCommandNext(user));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void nextSelf(CommandSender sender) {
+		if (sender instanceof Player) {
+			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Next")
+					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				String playerName = sender.getName();
+				User user = new User(playerName);
+				sender.sendMessage(Commands.getInstance().voteCommandNext(user));
+			} else {
+				sender.sendMessage(Messages.getInstance().noPerms());
+			}
+		} else {
+			sender.sendMessage(Messages.getInstance().mustBePlayer());
+		}
 	}
 
 	@Override
@@ -126,67 +228,19 @@ public class CommandVote implements CommandExecutor {
 		return true;
 	}
 
-	public void voteURLs(CommandSender sender) {
-		String[] urls = Utils.getInstance().convertArray(
-				Commands.getInstance().voteURLs());
-		sender.sendMessage(urls);
-	}
+	public void today(CommandSender sender, int page) {
+		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Today")) {
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+				@Override
+				public void run() {
 
-	public void help(CommandSender sender) {
-		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
-				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			Utils.getInstance().sendMessageComponent(sender,
-					Commands.getInstance().voteHelp());
+					sender.sendMessage(Commands.getInstance().commandVoteToday(
+							page));
+				}
+			});
 
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void totalSelf(CommandSender sender) {
-		if (sender instanceof Player) {
-			if (Utils.getInstance()
-					.hasPermission(sender, "Commands.Vote.Total")
-					|| Utils.getInstance().hasPermission(sender, "Player")) {
-				String playerName = sender.getName();
-				User user = new User(playerName);
-				sender.sendMessage(Commands.getInstance()
-						.voteCommandTotal(user));
-			} else {
-				sender.sendMessage(Messages.getInstance().noPerms());
-			}
-		} else {
-			sender.sendMessage(Messages.getInstance().mustBePlayer());
-		}
-	}
-
-	public void lastSelf(CommandSender sender) {
-		if (sender instanceof Player) {
-			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Last")
-					|| Utils.getInstance().hasPermission(sender, "Player")) {
-				String playerName = sender.getName();
-				User user = new User(playerName);
-				sender.sendMessage(Commands.getInstance().voteCommandLast(user));
-			} else {
-				sender.sendMessage(Messages.getInstance().noPerms());
-			}
-		} else {
-			sender.sendMessage(Messages.getInstance().mustBePlayer());
-		}
-	}
-
-	public void nextSelf(CommandSender sender) {
-		if (sender instanceof Player) {
-			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Next")
-					|| Utils.getInstance().hasPermission(sender, "Player")) {
-				String playerName = sender.getName();
-				User user = new User(playerName);
-				sender.sendMessage(Commands.getInstance().voteCommandNext(user));
-			} else {
-				sender.sendMessage(Messages.getInstance().noPerms());
-			}
-		} else {
-			sender.sendMessage(Messages.getInstance().mustBePlayer());
 		}
 	}
 
@@ -198,47 +252,6 @@ public class CommandVote implements CommandExecutor {
 				@Override
 				public void run() {
 					sender.sendMessage(TopVoter.getInstance().topVoter(page));
-				}
-			});
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void infoSelf(CommandSender sender) {
-		if (sender instanceof Player) {
-			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Info")
-					|| Utils.getInstance().hasPermission(sender, "Player")) {
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-					@Override
-					public void run() {
-						sender.sendMessage(Utils.getInstance()
-								.colorize("&cGetting info..."));
-						sender.sendMessage(Commands.getInstance()
-								.playerInfo(new User(sender.getName())));
-					}
-				});
-			} else {
-				sender.sendMessage(Messages.getInstance().noPerms());
-			}
-		} else {
-			sender.sendMessage(Messages.getInstance().mustBePlayer());
-		}
-	}
-
-	public void infoOther(CommandSender sender, String playerName) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.Vote.Info.Other")) {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cGetting player info..."));
-					sender.sendMessage(Commands.getInstance().playerInfo(
-							new User(playerName)));
 				}
 			});
 		} else {
@@ -273,39 +286,26 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
-	public void lastOther(CommandSender sender, String playerName) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.Vote.Last.Other")) {
-			User user = new User(playerName);
-			sender.sendMessage(Commands.getInstance().voteCommandLast(user));
+	public void totalSelf(CommandSender sender) {
+		if (sender instanceof Player) {
+			if (Utils.getInstance()
+					.hasPermission(sender, "Commands.Vote.Total")
+					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				String playerName = sender.getName();
+				User user = new User(playerName);
+				sender.sendMessage(Commands.getInstance()
+						.voteCommandTotal(user));
+			} else {
+				sender.sendMessage(Messages.getInstance().noPerms());
+			}
 		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
+			sender.sendMessage(Messages.getInstance().mustBePlayer());
 		}
 	}
 
-	public void nextOther(CommandSender sender, String playerName) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.Vote.Next.Other")) {
-			User user = new User(playerName);
-			sender.sendMessage(Commands.getInstance().voteCommandNext(user));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void today(CommandSender sender, int page) {
-		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Today")) {
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-				@Override
-				public void run() {
-
-					sender.sendMessage(Commands.getInstance().commandVoteToday(
-							page));
-				}
-			});
-
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
+	public void voteURLs(CommandSender sender) {
+		String[] urls = Utils.getInstance().convertArray(
+				Commands.getInstance().voteURLs());
+		sender.sendMessage(urls);
 	}
 }

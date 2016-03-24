@@ -45,25 +45,100 @@ import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Main extends JavaPlugin {
 
-	public static Main plugin;
-
-	public static Economy econ = null;
-
-	public Updater updater;
-
-	public String[] topVoter;
-
-	public String[] voteToday;
-
 	public static Config config;
-
-	public static ConfigVoteSites configVoteSites;
-
-	public static ConfigFormat configFormat;
 
 	public static ConfigBonusReward configBonusReward;
 
+	public static ConfigFormat configFormat;
+
+	public static ConfigVoteSites configVoteSites;
+
+	public static Economy econ = null;
+
+	public static Main plugin;
+
+	public String[] topVoter;
+
+	public Updater updater;
+
 	public ArrayList<VoteSite> voteSites;
+
+	public String[] voteToday;
+
+	private void checkVotifier() {
+		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
+			plugin.getLogger().warning(
+					"Votifier not found, votes will not work!");
+		}
+	}
+
+	public User getUser(String playerName) {
+		return new User(playerName);
+	}
+
+	public User getUser(UUID uuid) {
+		return new User(uuid);
+	}
+
+	public VoteSite getVoteSite(String siteName) {
+		for (VoteSite voteSite : voteSites) {
+			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
+				return voteSite;
+			}
+		}
+		return new VoteSite(siteName);
+	}
+
+	public void loadBungee() {
+		BungeeVote.getInstance().registerBungeeVoting();
+	}
+
+	public void loadReminders() {
+		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
+				new Runnable() {
+
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
+
+									user.loginMessage();
+								}
+							}
+						}
+					}
+				}, 50, 60 * 20);
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Reminders");
+		}
+	}
+
+	public void loadVoteSites() {
+		configVoteSites.setup("Example");
+		this.voteSites = configVoteSites.getVoteSitesLoad();
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded VoteSites");
+		}
+	}
+
+	private void metrics() {
+		try {
+			Metrics metrics = new Metrics(this);
+			metrics.start();
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info("Loaded Metrics");
+			}
+		} catch (IOException e) {
+			plugin.getLogger().info("Can't submit metrics stats");
+		}
+	}
+
+	@Override
+	public void onDisable() {
+		plugin = null;
+	}
 
 	@Override
 	public void onEnable() {
@@ -89,28 +164,6 @@ public class Main extends JavaPlugin {
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
-	}
-
-	@Override
-	public void onDisable() {
-		plugin = null;
-	}
-
-	public void setupFiles() {
-		config = Config.getInstance();
-		configVoteSites = ConfigVoteSites.getInstance();
-		configFormat = ConfigFormat.getInstance();
-		configBonusReward = ConfigBonusReward.getInstance();
-
-		config.setup(this);
-		// configVoteSites.setup(this);
-		configFormat.setup(this);
-		configBonusReward.setup(this);
-
-		UUIDs.getInstance().setup(plugin);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Files");
-		}
 	}
 
 	private void registerCommands() {
@@ -183,56 +236,20 @@ public class Main extends JavaPlugin {
 		return econ != null;
 	}
 
-	private void checkVotifier() {
-		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
-			plugin.getLogger().warning(
-					"Votifier not found, votes will not work!");
-		}
-	}
+	public void setupFiles() {
+		config = Config.getInstance();
+		configVoteSites = ConfigVoteSites.getInstance();
+		configFormat = ConfigFormat.getInstance();
+		configBonusReward = ConfigBonusReward.getInstance();
 
-	private void metrics() {
-		try {
-			Metrics metrics = new Metrics(this);
-			metrics.start();
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info("Loaded Metrics");
-			}
-		} catch (IOException e) {
-			plugin.getLogger().info("Can't submit metrics stats");
-		}
-	}
+		config.setup(this);
+		// configVoteSites.setup(this);
+		configFormat.setup(this);
+		configBonusReward.setup(this);
 
-	public void loadVoteSites() {
-		configVoteSites.setup("Example");
-		this.voteSites = configVoteSites.getVoteSitesLoad();
+		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded VoteSites");
-		}
-	}
-
-	public void loadBungee() {
-		BungeeVote.getInstance().registerBungeeVoting();
-	}
-
-	public void loadReminders() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
-
-							user.loginMessage();
-						}
-					}
-				}
-			}
-		}, 50, 60 * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Reminders");
+			plugin.getLogger().info("Loaded Files");
 		}
 	}
 
@@ -240,11 +257,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						updateTopUpdater();
+					}
+				}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -262,26 +279,9 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
+					.info("Looks like there are no data files or something went wrong. If this is your first time installing this plugin ignore this");
 			ex.printStackTrace();
 		}
-	}
-
-	public User getUser(String playerName) {
-		return new User(playerName);
-	}
-
-	public User getUser(UUID uuid) {
-		return new User(uuid);
-	}
-
-	public VoteSite getVoteSite(String siteName) {
-		for (VoteSite voteSite : voteSites) {
-			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
-				return voteSite;
-			}
-		}
-		return new VoteSite(siteName);
 	}
 
 }

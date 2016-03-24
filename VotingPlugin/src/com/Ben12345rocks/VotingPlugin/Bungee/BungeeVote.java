@@ -13,21 +13,56 @@ import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 
 public class BungeeVote {
 
-	static ServerSocket sock;
+	class ReadThread extends Thread {
+		@Override
+		public void run() {
+			Socket client;
+			while (true) {
+				try {
+					// init the client
+					client = sock.accept();
+					// Read the data
+					DataInputStream dis = new DataInputStream(
+							client.getInputStream());
+					String data = dis.readUTF();
 
-	private BungeeVote() {
+					String[] lines = data.split("/");
+					String cmd = lines[0];
+					if (cmd.equalsIgnoreCase("vote")) {
+						recievedBungeeVote(lines[1], lines[2]);
+					}
+
+				} catch (Exception e) {
+					plugin.getLogger().warning(
+							"Exception caught while recieving vote!");
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 
 	static BungeeVote instance = new BungeeVote();
+
+	static Main plugin = Main.plugin;
+
+	static ServerSocket sock;
 
 	public static BungeeVote getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	private BungeeVote() {
+	}
 
 	public BungeeVote(Main plugin) {
 		BungeeVote.plugin = plugin;
+	}
+
+	public void recievedBungeeVote(String playerName, String voteSite) {
+		if (Config.getInstance().recieveBungeeVotes()) {
+			plugin.getLogger().info("Bungee Vote Recieved!");
+			VotiferEvent.playerVote(playerName, voteSite);
+		}
 	}
 
 	public void registerBungeeVoting() {
@@ -64,41 +99,6 @@ public class BungeeVote {
 				e1.printStackTrace();
 			} catch (IOException e1) {
 				e1.printStackTrace();
-			}
-		}
-	}
-
-	public void recievedBungeeVote(String playerName, String voteSite) {
-		if (Config.getInstance().recieveBungeeVotes()) {
-			plugin.getLogger().info("Bungee Vote Recieved!");
-			VotiferEvent.playerVote(playerName, voteSite);
-		}
-	}
-
-	class ReadThread extends Thread {
-		@Override
-		public void run() {
-			Socket client;
-			while (true) {
-				try {
-					// init the client
-					client = sock.accept();
-					// Read the data
-					DataInputStream dis = new DataInputStream(
-							client.getInputStream());
-					String data = dis.readUTF();
-
-					String[] lines = data.split("/");
-					String cmd = lines[0];
-					if (cmd.equalsIgnoreCase("vote")) {
-						recievedBungeeVote(lines[1], lines[2]);
-					}
-
-				} catch (Exception e) {
-					plugin.getLogger().warning(
-							"Exception caught while recieving vote!");
-					e.printStackTrace();
-				}
 			}
 		}
 	}

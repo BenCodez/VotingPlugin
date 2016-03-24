@@ -19,16 +19,16 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class Data {
 
-	private Data() {
-	}
-
 	static Data instance = new Data();
+
+	static Main plugin = Main.plugin;
 
 	public static Data getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	private Data() {
+	}
 
 	public Data(Main plugin) {
 		Data.plugin = plugin;
@@ -37,35 +37,39 @@ public class Data {
 	// FileConfiguration data;
 	// File dFile;
 
-	public void setup(User user) {
-		if (!plugin.getDataFolder().exists()) {
-			plugin.getDataFolder().mkdir();
-		}
+	public void addSiteMonthTotal(User user, String voteSiteName) {
+		setSiteMonthTotal(user, voteSiteName,
+				getSiteMonthTotal(user, voteSiteName) + 1);
+	}
 
-		String playerName = user.getPlayerName();
-		String uuid = user.getUUID();
+	public void addTotal(User user, String voteSite) {
+		set(user, user.getUUID() + ".Total." + voteSite,
+				getTotal(user, voteSite) + 1);
+	}
 
-		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
-				uuid + ".yml");
+	public int getBonusOfflineVotes(User user) {
+		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
+	}
+
+	public FileConfiguration getData(User user) {
+		File dFile = getPlayerFile(user);
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		if (!dFile.exists()) {
-			try {
-				data.save(dFile);
-				setName(user);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + uuid + ".yml from player: "
-									+ playerName);
-				}
-			} catch (IOException e) {
-				plugin.getLogger().severe(
-						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+		return data;
+	}
 
-			}
-		}
+	public ArrayList<String> getFiles() {
+		File folder = new File(plugin.getDataFolder() + File.separator + "Data");
+		String[] fileNames = folder.list();
+		return Utils.getInstance().convertArray(fileNames);
+	}
 
-		// FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+	public String getName(User user) {
+		return getData(user).getString(user.getUUID() + ".Name");
+	}
+
+	public int getOfflineVotes(User user, String voteSite) {
+		return getData(user).getInt(
+				user.getUUID() + ".OfflineVotes." + voteSite);
 	}
 
 	public File getPlayerFile(User user) {
@@ -85,55 +89,14 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
 		return dFile;
 
-	}
-
-	public FileConfiguration getData(User user) {
-		File dFile = getPlayerFile(user);
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		return data;
-	}
-
-	public void saveData(User user) {
-		File dFile = getPlayerFile(user);
-		String playerName = user.getPlayerName();
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
-		}
-
-	}
-
-	public void set(User user, String path, Object value) {
-		// String playerName = user.getPlayerName();
-		String uuid = user.getUUID();
-		File dFile = getPlayerFile(user);
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		data.set(path, value);
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
-		}
-	}
-
-	public ArrayList<String> getFiles() {
-		File folder = new File(plugin.getDataFolder() + File.separator + "Data");
-		String[] fileNames = folder.list();
-		return Utils.getInstance().convertArray(fileNames);
 	}
 
 	@SuppressWarnings("unused")
@@ -176,64 +139,9 @@ public class Data {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
-	public void setTimeOLD(String siteName, User user) {
-		int day = new Date().getDate();
-		int month = new Date().getMonth();
-		int hour = new Date().getHours();
-		int min = new Date().getMinutes();
-		int year = new Date().getYear();
-		month++;
-		String uuid = user.getUUID();
-		set(user, uuid + ".LastVote." + siteName + ".Month", month);
-		set(user, uuid + ".LastVote." + siteName + ".Day", day);
-		set(user, uuid + ".LastVote." + siteName + ".Hour", hour);
-		set(user, uuid + ".LastVote." + siteName + ".Min", min);
-		set(user, uuid + ".LastVote." + siteName + ".Year", year);
-	}
-
-	public void setTime(String siteName, User user) {
-		String uuid = user.getUUID();
-		set(user, uuid + ".LastVote." + siteName + ".Miliseconds",
-				System.currentTimeMillis());
-	}
-
-	@SuppressWarnings("deprecation")
-	public void setTimeAllOLD(User user) {
-		int day = new Date().getDate();
-		int month = new Date().getMonth();
-		int hour = new Date().getHours();
-		int min = new Date().getMinutes();
-		int year = new Date().getYear();
-		month++;
-		String uuid = user.getUUID();
-		set(user, uuid + ".LastBonus.Month", month);
-		set(user, uuid + ".LastBonus.Day", day);
-		set(user, uuid + ".LastBonus.Hour", hour);
-		set(user, uuid + ".LastBonus.Min", min);
-		set(user, uuid + ".LastBonus.Year", year);
-	}
-
-	public void setTimeAll(User user) {
-		String uuid = user.getUUID();
-		set(user, uuid + ".LastBonus.Miliseconds", System.currentTimeMillis());
-	}
-
-	public void setName(User user) {
-		set(user, user.getUUID() + ".Name", user.getPlayerName());
-	}
-
-	public String getName(User user) {
-		return getData(user).getString(user.getUUID() + ".Name");
-	}
-
-	public int getTimeOLD(User user, String voteSite, String value) {
+	public int getSiteMonthTotal(User user, String voteSiteName) {
 		return getData(user).getInt(
-				user.getUUID() + ".LastVote." + voteSite + "." + value);
-	}
-
-	public int getTimeAllOLD(User user, String value) {
-		return getData(user).getInt(user.getUUID() + ".LastBonus." + value);
+				user.getUUID() + ".TotalMonth." + voteSiteName);
 	}
 
 	public long getTime(User user, String voteSite) {
@@ -246,48 +154,17 @@ public class Data {
 		return getData(user).getLong(uuid + ".LastBonus.Miliseconds");
 	}
 
-	public void addTotal(User user, String voteSite) {
-		set(user, user.getUUID() + ".Total." + voteSite,
-				getTotal(user, voteSite) + 1);
+	public int getTimeAllOLD(User user, String value) {
+		return getData(user).getInt(user.getUUID() + ".LastBonus." + value);
+	}
+
+	public int getTimeOLD(User user, String voteSite, String value) {
+		return getData(user).getInt(
+				user.getUUID() + ".LastVote." + voteSite + "." + value);
 	}
 
 	public int getTotal(User user, String voteSite) {
 		return getData(user).getInt(user.getUUID() + ".Total." + voteSite);
-	}
-
-	public void setTotal(User user, String voteSite, int amount) {
-		set(user, user.getUUID() + ".Total." + voteSite, amount);
-	}
-
-	public void setOfflineVotes(User user, String voteSite, int amount) {
-		set(user, user.getUUID() + ".OfflineVotes." + voteSite, amount);
-	}
-
-	public int getOfflineVotes(User user, String voteSite) {
-		return getData(user).getInt(
-				user.getUUID() + ".OfflineVotes." + voteSite);
-	}
-
-	public void setBonusOfflineVotes(User user, int amount) {
-		set(user, user.getUUID() + ".BonusOfflineVotes", amount);
-	}
-
-	public int getBonusOfflineVotes(User user) {
-		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
-	}
-
-	public void addSiteMonthTotal(User user, String voteSiteName) {
-		setSiteMonthTotal(user, voteSiteName,
-				getSiteMonthTotal(user, voteSiteName) + 1);
-	}
-
-	public void setSiteMonthTotal(User user, String voteSiteName, int amount) {
-		set(user, user.getUUID() + ".TotalMonth." + voteSiteName, amount);
-	}
-
-	public int getSiteMonthTotal(User user, String voteSiteName) {
-		return getData(user).getInt(
-				user.getUUID() + ".TotalMonth." + voteSiteName);
 	}
 
 	public Set<User> getUsers() {
@@ -307,5 +184,128 @@ public class Data {
 
 	public boolean hasJoinedBefore(User user) {
 		return getPlayersUUIDs().contains(user.getUUID());
+	}
+
+	public void saveData(User user) {
+		File dFile = getPlayerFile(user);
+		String playerName = user.getPlayerName();
+		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer()
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
+		}
+
+	}
+
+	public void set(User user, String path, Object value) {
+		// String playerName = user.getPlayerName();
+		String uuid = user.getUUID();
+		File dFile = getPlayerFile(user);
+		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+		data.set(path, value);
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer().getLogger()
+			.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
+		}
+	}
+
+	public void setBonusOfflineVotes(User user, int amount) {
+		set(user, user.getUUID() + ".BonusOfflineVotes", amount);
+	}
+
+	public void setName(User user) {
+		set(user, user.getUUID() + ".Name", user.getPlayerName());
+	}
+
+	public void setOfflineVotes(User user, String voteSite, int amount) {
+		set(user, user.getUUID() + ".OfflineVotes." + voteSite, amount);
+	}
+
+	public void setSiteMonthTotal(User user, String voteSiteName, int amount) {
+		set(user, user.getUUID() + ".TotalMonth." + voteSiteName, amount);
+	}
+
+	public void setTime(String siteName, User user) {
+		String uuid = user.getUUID();
+		set(user, uuid + ".LastVote." + siteName + ".Miliseconds",
+				System.currentTimeMillis());
+	}
+
+	public void setTimeAll(User user) {
+		String uuid = user.getUUID();
+		set(user, uuid + ".LastBonus.Miliseconds", System.currentTimeMillis());
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTimeAllOLD(User user) {
+		int day = new Date().getDate();
+		int month = new Date().getMonth();
+		int hour = new Date().getHours();
+		int min = new Date().getMinutes();
+		int year = new Date().getYear();
+		month++;
+		String uuid = user.getUUID();
+		set(user, uuid + ".LastBonus.Month", month);
+		set(user, uuid + ".LastBonus.Day", day);
+		set(user, uuid + ".LastBonus.Hour", hour);
+		set(user, uuid + ".LastBonus.Min", min);
+		set(user, uuid + ".LastBonus.Year", year);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTimeOLD(String siteName, User user) {
+		int day = new Date().getDate();
+		int month = new Date().getMonth();
+		int hour = new Date().getHours();
+		int min = new Date().getMinutes();
+		int year = new Date().getYear();
+		month++;
+		String uuid = user.getUUID();
+		set(user, uuid + ".LastVote." + siteName + ".Month", month);
+		set(user, uuid + ".LastVote." + siteName + ".Day", day);
+		set(user, uuid + ".LastVote." + siteName + ".Hour", hour);
+		set(user, uuid + ".LastVote." + siteName + ".Min", min);
+		set(user, uuid + ".LastVote." + siteName + ".Year", year);
+	}
+
+	public void setTotal(User user, String voteSite, int amount) {
+		set(user, user.getUUID() + ".Total." + voteSite, amount);
+	}
+
+	public void setup(User user) {
+		if (!plugin.getDataFolder().exists()) {
+			plugin.getDataFolder().mkdir();
+		}
+
+		String playerName = user.getPlayerName();
+		String uuid = user.getUUID();
+
+		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
+				uuid + ".yml");
+		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+		if (!dFile.exists()) {
+			try {
+				data.save(dFile);
+				setName(user);
+				if (Config.getInstance().getDebugEnabled()) {
+					plugin.getLogger().info(
+							"Created file: " + uuid + ".yml from player: "
+									+ playerName);
+				}
+			} catch (IOException e) {
+				plugin.getLogger().severe(
+						ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
+
+			}
+		}
+
+		// FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 	}
 }

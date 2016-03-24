@@ -7,11 +7,11 @@ public class UUID {
 		this.uuid = uuid;
 	}
 
-	public void setUUID(String uuid) {
-		this.uuid = uuid;
-	}
-
 	public String getUUID() {
 		return uuid;
+	}
+
+	public void setUUID(String uuid) {
+		this.uuid = uuid;
 	}
 }

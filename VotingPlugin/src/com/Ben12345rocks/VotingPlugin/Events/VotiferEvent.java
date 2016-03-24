@@ -21,11 +21,7 @@ import com.vexsoftware.votifier.model.VotifierEvent;
 
 public class VotiferEvent implements Listener {
 
-	static Main plugin = Main.plugin;
-
-	public VotiferEvent(Main plugin) {
-		VotiferEvent.plugin = plugin;
-	}
+	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
 	static Config config = Config.getInstance();
 
@@ -33,33 +29,7 @@ public class VotiferEvent implements Listener {
 
 	static ConfigFormat format = ConfigFormat.getInstance();
 
-	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
-
-	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-	public void onVotiferEvent(VotifierEvent event) {
-
-		Vote vote = event.getVote();
-		String voteSite = vote.getServiceName();
-		String voteUsername = vote.getUsername();
-
-		if (voteUsername.length() == 0) {
-			plugin.getLogger().warning("No name from vote on " + voteSite);
-			return;
-		}
-
-		plugin.getLogger().info(
-				"Recieved a vote from '" + voteSite + "' by player '"
-						+ voteUsername + "'!");
-
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("PlayerUsername: " + voteUsername);
-			plugin.getLogger().info("VoteSite: " + voteSite);
-		}
-
-		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
-
-		playerVote(voteUsername, voteSite);
-	}
+	static Main plugin = Main.plugin;
 
 	public static void playerVote(String playerName, String voteSiteURL) {
 		User user = new User(playerName);
@@ -75,10 +45,10 @@ public class VotiferEvent implements Listener {
 		// check if a valid site
 		if (!sites.contains(voteSiteName)) {
 			plugin.getLogger()
-			.warning(
-					"Site '"
-							+ voteSiteName
-							+ "' is not registered! Please check it is added to your config!");
+					.warning(
+							"Site '"
+									+ voteSiteName
+									+ "' is not registered! Please check it is added to your config!");
 			return;
 		}
 
@@ -131,6 +101,36 @@ public class VotiferEvent implements Listener {
 			}
 		});
 
+	}
+
+	public VotiferEvent(Main plugin) {
+		VotiferEvent.plugin = plugin;
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onVotiferEvent(VotifierEvent event) {
+
+		Vote vote = event.getVote();
+		String voteSite = vote.getServiceName();
+		String voteUsername = vote.getUsername();
+
+		if (voteUsername.length() == 0) {
+			plugin.getLogger().warning("No name from vote on " + voteSite);
+			return;
+		}
+
+		plugin.getLogger().info(
+				"Recieved a vote from '" + voteSite + "' by player '"
+						+ voteUsername + "'!");
+
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("PlayerUsername: " + voteUsername);
+			plugin.getLogger().info("VoteSite: " + voteSite);
+		}
+
+		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
+
+		playerVote(voteUsername, voteSite);
 	}
 
 }

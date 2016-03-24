@@ -17,20 +17,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class BonusVoteReward {
 
-	private BonusVoteReward() {
-	}
-
-	static BonusVoteReward instance = new BonusVoteReward();
-
-	public static BonusVoteReward getInstance() {
-		return instance;
-	}
-
-	static Main plugin = Main.plugin;
-
-	public BonusVoteReward(Main plugin) {
-		BonusVoteReward.plugin = plugin;
-	}
+	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
 	static Config config = Config.getInstance();
 
@@ -38,110 +25,19 @@ public class BonusVoteReward {
 
 	static ConfigFormat format = ConfigFormat.getInstance();
 
-	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	static BonusVoteReward instance = new BonusVoteReward();
 
-	public void giveBonusReward(User user) {
-		String playerName = user.getPlayerName();
-		if (config.getBonusRewardEnabled()) {
-			giveItemBonusReward(user);
-			giveMoneyBonus(user);
-			doBonusCommands(user);
-			Player player = Bukkit.getPlayer(playerName);
-			player.sendMessage(ChatColor.RED
-					+ "You were given bonus Items for voting on all sites in one day!");
-			giveChanceReward(user);
-		}
+	static Main plugin = Main.plugin;
 
+	public static BonusVoteReward getInstance() {
+		return instance;
 	}
 
-	public void giveChanceReward(User user) {
-		try {
-			int chance = bonusReward.getChanceRewardChance();
-			int randomNum = (int) (Math.random() * 100) + 1;
-			if (randomNum <= chance) {
-				if (chance != 100) {
-					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
-				}
-				doChanceRewardBonusCommands(user);
-				giveChanceRewardItemBonusReward(user);
-				giveChanceRewardMoneyBonus(user);
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
+	private BonusVoteReward() {
 	}
 
-	public void giveChanceRewardItemBonusReward(User user) {
-		String playerName = user.getPlayerName();
-		Player player = Bukkit.getPlayer(playerName);
-		if (player == null) {
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().warning("Error giving player items!");
-			}
-			return;
-		}
-
-		Set<String> items = bonusReward.getChanceRewardItems();
-		for (String item : items) {
-			int id = bonusReward.getChanceRewardItemID(item);
-			int amount = bonusReward.getChanceRewardItemAmount(item);
-
-			int data = bonusReward.getChanceRewardItemData(item);
-
-			String itemName = bonusReward.getChanceRewardItemName(item);
-
-			itemName = Utils.getInstance().colorize(itemName);
-
-			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(item);
-			lore = Utils.getInstance().colorize(lore);
-
-			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
-					.getInstance().getChanceRewardEnchantments(item));
-
-		}
-
-	}
-
-	public void giveItemBonusReward(User user) {
-		String playerName = user.getPlayerName();
-		Player player = Bukkit.getPlayer(playerName);
-		if (player == null) {
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().warning("Error giving player items!");
-			}
-			return;
-		}
-
-		Set<String> items = bonusReward.getItems();
-		for (String item : items) {
-			int id = bonusReward.getItemID(item);
-			int amount = bonusReward.getItemAmount(item);
-
-			int data = bonusReward.getItemData(item);
-
-			String itemName = bonusReward.getItemName(item);
-
-			itemName = Utils.getInstance().colorize(itemName);
-
-			ArrayList<String> lore = bonusReward.getItemLore(item);
-			lore = Utils.getInstance().colorize(lore);
-
-			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
-					.getInstance().getEnchantments(item));
-
-		}
-
-	}
-
-	public void giveChanceRewardMoneyBonus(User user) {
-		int money = bonusReward.getChanceRewardMoneyAmount();
-		user.giveMoney(money);
-	}
-
-	public void giveMoneyBonus(User user) {
-		int money = bonusReward.getMoneyAmount();
-		user.giveMoney(money);
+	public BonusVoteReward(Main plugin) {
+		BonusVoteReward.plugin = plugin;
 	}
 
 	public void doBonusCommands(User user) {
@@ -206,6 +102,110 @@ public class BonusVoteReward {
 				}
 			}
 		}
+	}
+
+	public void giveBonusReward(User user) {
+		String playerName = user.getPlayerName();
+		if (config.getBonusRewardEnabled()) {
+			giveItemBonusReward(user);
+			giveMoneyBonus(user);
+			doBonusCommands(user);
+			Player player = Bukkit.getPlayer(playerName);
+			player.sendMessage(ChatColor.RED
+					+ "You were given bonus Items for voting on all sites in one day!");
+			giveChanceReward(user);
+		}
+
+	}
+
+	public void giveChanceReward(User user) {
+		try {
+			int chance = bonusReward.getChanceRewardChance();
+			int randomNum = (int) (Math.random() * 100) + 1;
+			if (randomNum <= chance) {
+				if (chance != 100) {
+					user.sendMessage(ConfigFormat.getInstance()
+							.getChanceRewardMsg());
+				}
+				doChanceRewardBonusCommands(user);
+				giveChanceRewardItemBonusReward(user);
+				giveChanceRewardMoneyBonus(user);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+	}
+
+	public void giveChanceRewardItemBonusReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning("Error giving player items!");
+			}
+			return;
+		}
+
+		Set<String> items = bonusReward.getChanceRewardItems();
+		for (String item : items) {
+			int id = bonusReward.getChanceRewardItemID(item);
+			int amount = bonusReward.getChanceRewardItemAmount(item);
+
+			int data = bonusReward.getChanceRewardItemData(item);
+
+			String itemName = bonusReward.getChanceRewardItemName(item);
+
+			itemName = Utils.getInstance().colorize(itemName);
+
+			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(item);
+			lore = Utils.getInstance().colorize(lore);
+
+			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
+					.getInstance().getChanceRewardEnchantments(item));
+
+		}
+
+	}
+
+	public void giveChanceRewardMoneyBonus(User user) {
+		int money = bonusReward.getChanceRewardMoneyAmount();
+		user.giveMoney(money);
+	}
+
+	public void giveItemBonusReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning("Error giving player items!");
+			}
+			return;
+		}
+
+		Set<String> items = bonusReward.getItems();
+		for (String item : items) {
+			int id = bonusReward.getItemID(item);
+			int amount = bonusReward.getItemAmount(item);
+
+			int data = bonusReward.getItemData(item);
+
+			String itemName = bonusReward.getItemName(item);
+
+			itemName = Utils.getInstance().colorize(itemName);
+
+			ArrayList<String> lore = bonusReward.getItemLore(item);
+			lore = Utils.getInstance().colorize(lore);
+
+			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
+					.getInstance().getEnchantments(item));
+
+		}
+
+	}
+
+	public void giveMoneyBonus(User user) {
+		int money = bonusReward.getMoneyAmount();
+		user.giveMoney(money);
 	}
 
 }

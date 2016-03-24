@@ -23,19 +23,50 @@ import com.Ben12345rocks.VotingPlugin.UserData.Data;
 
 public class CommandAdminVote implements CommandExecutor {
 
+	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+
+	Config config = Config.getInstance();
+
+	ConfigFormat format = ConfigFormat.getInstance();
+
 	private Main plugin;
+
+	ConfigVoteSites voteSites = ConfigVoteSites.getInstance();
 
 	public CommandAdminVote(Main plugin) {
 		this.plugin = plugin;
 	}
 
-	Config config = Config.getInstance();
+	public void bungeeVote(CommandSender sender, String voteSite,
+			String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BungeeVote")) {
+			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
 
-	ConfigVoteSites voteSites = ConfigVoteSites.getInstance();
+	public void globalVote(CommandSender sender, String voteSite,
+			String playerName) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.GlobalVote")) {
+			VotiferEvent.playerVote(voteSite, playerName);
+			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
 
-	ConfigFormat format = ConfigFormat.getInstance();
-
-	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	public void help(CommandSender sender) {
+		if (Utils.getInstance()
+				.hasPermission(sender, "Commands.AdminVote.Help")) {
+			Utils.getInstance().sendMessageComponent(sender,
+					Commands.getInstance().adminVoteHelp());
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
 
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
@@ -122,25 +153,6 @@ public class CommandAdminVote implements CommandExecutor {
 		return true;
 	}
 
-	public void resetTopVoter() {
-		for (User user : Data.getInstance().getUsers()) {
-			for (VoteSite voteSite : ConfigVoteSites.getInstance()
-					.getVoteSites()) {
-				user.setTotal(voteSite, 0);
-			}
-		}
-	}
-
-	public void help(CommandSender sender) {
-		if (Utils.getInstance()
-				.hasPermission(sender, "Commands.AdminVote.Help")) {
-			Utils.getInstance().sendMessageComponent(sender,
-					Commands.getInstance().adminVoteHelp());
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
 	public void reload(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Reload")) {
@@ -151,50 +163,6 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
 			plugin.updateTopUpdater();
 			plugin.setupFiles();
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void version(CommandSender sender) {
-		if (sender instanceof Player) {
-			if (Utils.getInstance().hasPermission(sender,
-					"Commands.AdminVote.Version")) {
-				Player player = (Player) sender;
-				player.performCommand("bukkit:version " + plugin.getName());
-			} else {
-				sender.sendMessage(Messages.getInstance().noPerms());
-			}
-		} else {
-			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-					"bukkit:version " + plugin.getName());
-		}
-	}
-
-	public void sites(CommandSender sender) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Sites")) {
-			sender.sendMessage(Commands.getInstance().voteCommandSites());
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void site(CommandSender sender, String site) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Sites.Site")) {
-			sender.sendMessage(Commands.getInstance().voteCommandSiteInfo(site));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void uuid(CommandSender sender, String playerName) {
-		if (Utils.getInstance()
-				.hasPermission(sender, "Commands.AdminVote.UUID")) {
-			sender.sendMessage(ChatColor.GREEN + "UUID of player "
-					+ ChatColor.DARK_GREEN + playerName + ChatColor.GREEN
-					+ " is: " + Utils.getInstance().getUUID(playerName));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -220,22 +188,12 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void vote(CommandSender sender, String voteSite, String playerName) {
-		if (Utils.getInstance()
-				.hasPermission(sender, "Commands.AdminVote.Vote")) {
-			VotiferEvent.playerVote(voteSite, playerName);
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void bungeeVote(CommandSender sender, String voteSite,
-			String playerName) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BungeeVote")) {
-			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
+	public void resetTopVoter() {
+		for (User user : Data.getInstance().getUsers()) {
+			for (VoteSite voteSite : ConfigVoteSites.getInstance()
+					.getVoteSites()) {
+				user.setTotal(voteSite, 0);
+			}
 		}
 	}
 
@@ -253,12 +211,54 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void globalVote(CommandSender sender, String voteSite,
-			String playerName) {
+	public void site(CommandSender sender, String site) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.GlobalVote")) {
+				"Commands.AdminVote.Sites.Site")) {
+			sender.sendMessage(Commands.getInstance().voteCommandSiteInfo(site));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void sites(CommandSender sender) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Sites")) {
+			sender.sendMessage(Commands.getInstance().voteCommandSites());
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void uuid(CommandSender sender, String playerName) {
+		if (Utils.getInstance()
+				.hasPermission(sender, "Commands.AdminVote.UUID")) {
+			sender.sendMessage(ChatColor.GREEN + "UUID of player "
+					+ ChatColor.DARK_GREEN + playerName + ChatColor.GREEN
+					+ " is: " + Utils.getInstance().getUUID(playerName));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void version(CommandSender sender) {
+		if (sender instanceof Player) {
+			if (Utils.getInstance().hasPermission(sender,
+					"Commands.AdminVote.Version")) {
+				Player player = (Player) sender;
+				player.performCommand("bukkit:version " + plugin.getName());
+			} else {
+				sender.sendMessage(Messages.getInstance().noPerms());
+			}
+		} else {
+			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
+					"bukkit:version " + plugin.getName());
+		}
+	}
+
+	public void vote(CommandSender sender, String voteSite, String playerName) {
+		if (Utils.getInstance()
+				.hasPermission(sender, "Commands.AdminVote.Vote")) {
 			VotiferEvent.playerVote(voteSite, playerName);
-			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

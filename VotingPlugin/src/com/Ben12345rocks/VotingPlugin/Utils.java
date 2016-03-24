@@ -27,34 +27,31 @@ import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Utils {
 
-	private Utils() {
-	}
-
 	static Utils instance = new Utils();
+
+	static Main plugin = Main.plugin;
 
 	public static Utils getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	private Utils() {
+	}
 
 	public Utils(Main plugin) {
 		Utils.plugin = plugin;
 	}
 
-	public String colorize(String format) {
-		if (format == null) {
-			return null;
-		}
-		return ChatColor.translateAlternateColorCodes('&', format);
-	}
-
-	public ItemStack nameItem(ItemStack item, String name) {
-		if (name == null) {
+	public ItemStack addEnchants(ItemStack item,
+			HashMap<String, Integer> enchants) {
+		if ((enchants == null) || (enchants.size() == 0)) {
 			return item;
 		}
 		ItemMeta meta = item.getItemMeta();
-		meta.setDisplayName(name);
+		for (String enchant : enchants.keySet()) {
+			meta.addEnchant(Enchantment.getByName(enchant),
+					enchants.get(enchant), false);
+		}
 		item.setItemMeta(meta);
 		return item;
 
@@ -74,6 +71,32 @@ public class Utils {
 		return item;
 	}
 
+	public ArrayList<String> colorize(ArrayList<String> list) {
+		if (list == null) {
+			return null;
+		}
+
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, colorize(list.get(i)));
+		}
+		return list;
+	}
+
+	public String colorize(String format) {
+		if (format == null) {
+			return null;
+		}
+		return ChatColor.translateAlternateColorCodes('&', format);
+	}
+
+	public ArrayList<String> convert(Set<String> set) {
+		ArrayList<String> list = new ArrayList<String>();
+		for (String st : set) {
+			list.add(st);
+		}
+		return list;
+	}
+
 	@SuppressWarnings("unused")
 	public String[] convertArray(ArrayList<String> list) {
 		if (list == null) {
@@ -88,24 +111,6 @@ public class Utils {
 		} else {
 			return string;
 		}
-	}
-
-	public ArrayList<String> colorize(ArrayList<String> list) {
-		if (list == null) {
-			return null;
-		}
-
-		for (int i = 0; i < list.size(); i++) {
-			list.set(i, colorize(list.get(i)));
-		}
-		return list;
-	}
-
-	public String getMonthString(int month) {
-		if (month == 0) {
-			month++;
-		}
-		return new DateFormatSymbols().getMonths()[month - 1];
 	}
 
 	@SuppressWarnings("unused")
@@ -124,17 +129,43 @@ public class Utils {
 		}
 	}
 
+	public ArrayList<User> convertSet(Set<User> set) {
+		ArrayList<User> list = new ArrayList<User>();
+		for (User user : set) {
+			list.add(user);
+		}
+		return list;
+	}
+
 	@SuppressWarnings("deprecation")
-	public String getUUID(String playerName) {
-		if (playerName == null) {
-			return null;
+	public int getDayFromMili(long time) {
+		Date date = new Date(time);
+		return date.getDate();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getHourFromMili(long time) {
+		Date date = new Date(time);
+		return date.getHours();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getMinutesFromMili(long time) {
+		Date date = new Date(time);
+		return date.getMinutes();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getMonthFromMili(long time) {
+		Date date = new Date(time);
+		return date.getMonth();
+	}
+
+	public String getMonthString(int month) {
+		if (month == 0) {
+			month++;
 		}
-		Player player = Bukkit.getPlayer(playerName);
-		if (player == null) {
-			return Bukkit.getOfflinePlayer(playerName).getUniqueId().toString();
-		} else {
-			return player.getUniqueId().toString();
-		}
+		return new DateFormatSymbols().getMonths()[month - 1];
 	}
 
 	public String getPlayerName(String uuid) {
@@ -173,6 +204,45 @@ public class Utils {
 
 	}
 
+	@SuppressWarnings("deprecation")
+	public String getUUID(String playerName) {
+		if (playerName == null) {
+			return null;
+		}
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			return Bukkit.getOfflinePlayer(playerName).getUniqueId().toString();
+		} else {
+			return player.getUniqueId().toString();
+		}
+	}
+
+	public String getVoteSiteName(String url) {
+		ArrayList<String> sites = ConfigVoteSites.getInstance()
+				.getVoteSitesNames();
+		for (String siteName : sites) {
+			String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
+			if (URL.equals(url)) {
+				return siteName;
+			}
+		}
+		return url;
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getYearFromMili(long time) {
+		Date date = new Date(time);
+		return date.getYear();
+	}
+
+	public boolean hasPermission(CommandSender sender, String perm) {
+		return sender.hasPermission(plugin.getName() + "." + perm);
+	}
+
+	public boolean hasPermission(Player player, String perm) {
+		return player.hasPermission(plugin.getName() + "." + perm);
+	}
+
 	public boolean hasPermission(String playerName, String perm) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
@@ -181,19 +251,30 @@ public class Utils {
 		return false;
 	}
 
-	@SuppressWarnings("unused")
-	public String[] setToArray(Set<String> set) {
-		String[] array = new String[set.size()];
-		int i = 0;
-		for (String item : set) {
-			array[i] = item;
-			i++;
+	public boolean isInt(String st) {
+		try {
+			@SuppressWarnings("unused")
+			int num = Integer.parseInt(st);
+			return true;
+
+		} catch (NumberFormatException ex) {
+			return false;
 		}
-		if (array == null) {
-			return null;
-		} else {
-			return array;
+	}
+
+	public boolean isPlayer(CommandSender sender) {
+		if (sender instanceof Player) {
+			return true;
 		}
+		return false;
+	}
+
+	public boolean isPlayerOnline(String playerName) {
+		Player player = Bukkit.getPlayer(playerName);
+		if (player != null) {
+			return true;
+		}
+		return false;
 	}
 
 	public String makeStringList(ArrayList<String> list) {
@@ -212,28 +293,15 @@ public class Utils {
 		return string;
 	}
 
-	public boolean isPlayerOnline(String playerName) {
-		Player player = Bukkit.getPlayer(playerName);
-		if (player != null) {
-			return true;
+	public ItemStack nameItem(ItemStack item, String name) {
+		if (name == null) {
+			return item;
 		}
-		return false;
-	}
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
 
-	public ArrayList<User> convertSet(Set<User> set) {
-		ArrayList<User> list = new ArrayList<User>();
-		for (User user : set) {
-			list.add(user);
-		}
-		return list;
-	}
-
-	public ArrayList<String> convert(Set<String> set) {
-		ArrayList<String> list = new ArrayList<String>();
-		for (String st : set) {
-			list.add(st);
-		}
-		return list;
 	}
 
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
@@ -246,87 +314,13 @@ public class Utils {
 		return al;
 	}
 
-	public boolean isInt(String st) {
-		try {
-			@SuppressWarnings("unused")
-			int num = Integer.parseInt(st);
-			return true;
-
-		} catch (NumberFormatException ex) {
-			return false;
+	public void sendMessageComponent(CommandSender sender, TextComponent msg) {
+		if (isPlayer(sender)) {
+			Player player = (Player) sender;
+			player.spigot().sendMessage(msg);
+		} else {
+			sender.sendMessage(msg.getText());
 		}
-	}
-
-	public boolean hasPermission(Player player, String perm) {
-		return player.hasPermission(plugin.getName() + "." + perm);
-	}
-
-	public boolean hasPermission(CommandSender sender, String perm) {
-		return sender.hasPermission(plugin.getName() + "." + perm);
-	}
-
-	public ItemStack addEnchants(ItemStack item,
-			HashMap<String, Integer> enchants) {
-		if ((enchants == null) || (enchants.size() == 0)) {
-			return item;
-		}
-		ItemMeta meta = item.getItemMeta();
-		for (String enchant : enchants.keySet()) {
-			meta.addEnchant(Enchantment.getByName(enchant),
-					enchants.get(enchant), false);
-		}
-		item.setItemMeta(meta);
-		return item;
-
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getMonthFromMili(long time) {
-		Date date = new Date(time);
-		return date.getMonth();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getDayFromMili(long time) {
-		Date date = new Date(time);
-		return date.getDate();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getYearFromMili(long time) {
-		Date date = new Date(time);
-		return date.getYear();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getHourFromMili(long time) {
-		Date date = new Date(time);
-		return date.getHours();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getMinutesFromMili(long time) {
-		Date date = new Date(time);
-		return date.getMinutes();
-	}
-
-	public String getVoteSiteName(String url) {
-		ArrayList<String> sites = ConfigVoteSites.getInstance()
-				.getVoteSitesNames();
-		for (String siteName : sites) {
-			String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
-			if (URL.equals(url)) {
-				return siteName;
-			}
-		}
-		return url;
-	}
-
-	public boolean isPlayer(CommandSender sender) {
-		if (sender instanceof Player) {
-			return true;
-		}
-		return false;
 	}
 
 	public void sendMessageComponent(CommandSender sender, TextComponent[] msg) {
@@ -335,12 +329,18 @@ public class Utils {
 		}
 	}
 
-	public void sendMessageComponent(CommandSender sender, TextComponent msg) {
-		if (isPlayer(sender)) {
-			Player player = (Player) sender;
-			player.spigot().sendMessage(msg);
+	@SuppressWarnings("unused")
+	public String[] setToArray(Set<String> set) {
+		String[] array = new String[set.size()];
+		int i = 0;
+		for (String item : set) {
+			array[i] = item;
+			i++;
+		}
+		if (array == null) {
+			return null;
 		} else {
-			sender.sendMessage(msg.getText());
+			return array;
 		}
 	}
 }

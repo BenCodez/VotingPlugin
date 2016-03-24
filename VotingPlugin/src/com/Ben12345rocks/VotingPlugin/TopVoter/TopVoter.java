@@ -13,21 +13,45 @@ import com.Ben12345rocks.VotingPlugin.UserData.Data;
 
 public class TopVoter {
 
-	private TopVoter() {
-	}
+	static ConfigFormat format = ConfigFormat.getInstance();
 
 	static TopVoter instance = new TopVoter();
+
+	static Main plugin = Main.plugin;
 
 	public static TopVoter getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
-
-	static ConfigFormat format = ConfigFormat.getInstance();
+	private TopVoter() {
+	}
 
 	public TopVoter(Main plugin) {
 		TopVoter.plugin = plugin;
+	}
+
+	public String[] topVoter(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> msg = new ArrayList<String>();
+		Set<User> users1 = Data.getInstance().getUsers();
+		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		int pageSize = 1 + (users.size() / pagesize);
+
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize);
+		msg.add(Utils.getInstance().colorize(title));
+
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				plugin.topVoter);
+
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			msg.add(topVoters.get(i));
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
 	}
 
 	public String[] topVoters() {
@@ -56,30 +80,6 @@ public class TopVoter {
 					.replace("%player%", users.get(i).getPlayerName())
 					.replace("%votes%", "" + users.get(i).getTotalVotes());
 			msg.add(line);
-		}
-
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	public String[] topVoter(int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		int pageSize = 1 + (users.size() / pagesize);
-
-		String title = format.getCommandVoteTopTitle()
-				.replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize);
-		msg.add(Utils.getInstance().colorize(title));
-
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				plugin.topVoter);
-
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			msg.add(topVoters.get(i));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
