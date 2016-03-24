@@ -46,8 +46,8 @@ public class ConfigVoteSites {
 		String name = itemStack.getItemMeta().getDisplayName();
 		List<String> lore = itemStack.getItemMeta().getLore();
 
-		HashMap<Enchantment, Integer> enchants = (HashMap<Enchantment, Integer>) itemStack
-				.getEnchantments();
+		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
+				itemStack.getEnchantments());
 
 		setItemId(siteName, item, id);
 		setItemData(siteName, item, data);
@@ -377,9 +377,9 @@ public class ConfigVoteSites {
 			siteNames.set(i, siteNames.get(i).replace(".yml", ""));
 		}
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
-			//plugin.getLogger().info(siteNames.get(i));
+			// plugin.getLogger().info(siteNames.get(i));
 			if (getVoteSiteDisabled(siteNames.get(i))) {
-				//plugin.getLogger().info("Removed: " + siteNames.get(i));
+				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 
 			}
