@@ -220,13 +220,17 @@ public class Utils {
 	public String getVoteSiteName(String url) {
 		ArrayList<String> sites = ConfigVoteSites.getInstance()
 				.getVoteSitesNames();
-		for (String siteName : sites) {
-			String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
-			if (URL.equals(url)) {
-				return siteName;
+		if (sites != null) {
+			for (String siteName : sites) {
+				String URL = ConfigVoteSites.getInstance().getServiceSite(
+						siteName);
+				if (URL.equals(url)) {
+					return siteName;
+				}
 			}
 		}
 		return url;
+
 	}
 
 	@SuppressWarnings("deprecation")
