@@ -459,9 +459,12 @@ public class ConfigVoteSites {
 		set(siteName, "Money", money);
 	}
 
-	public void setPlayerCommands(String siteName, String item,
-			List<String> playerCommands) {
+	public void setPlayerCommands(String siteName, List<String> playerCommands) {
 		set(siteName, "Commands.Player", playerCommands);
+	}
+
+	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
+		set(siteName, "Commands.Console", consoleCommands);
 	}
 
 	public void setVoteDelay(String siteName, int voteDelay) {

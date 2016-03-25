@@ -97,6 +97,12 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				}
 				if (args[0].equalsIgnoreCase("VoteSite")) {
 					cmds.add("AddItem");
+					cmds.add("SetMoney");
+					cmds.add("SetServiceSite");
+					cmds.add("SetDisabled");
+					cmds.add("AddCommandPlayer");
+					cmds.add("AddCommandConsole");
+
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {

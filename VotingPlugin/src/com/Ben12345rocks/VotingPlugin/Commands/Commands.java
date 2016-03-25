@@ -49,7 +49,7 @@ public class Commands {
 
 	public TextComponent[] adminVoteHelp() {
 
-		TextComponent[] msg = new TextComponent[14];
+		TextComponent[] msg = new TextComponent[19];
 
 		msg[0] = new TextComponent("VotingPlugin Admin Help");
 		msg[0].setColor(ChatColor.DARK_AQUA);
@@ -150,12 +150,64 @@ public class Commands {
 				new ComponentBuilder("Add current item in hand to votesite")
 						.color(ChatColor.AQUA).create()));
 
-		msg[13] = new TextComponent("/adminvote help");
+		msg[13] = new TextComponent(
+				"/adminvote VoteSite (SiteName) SetMoney (Money)");
 		msg[13].setColor(ChatColor.AQUA);
 		msg[13].setBold(true);
 		msg[13].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
-				"/adminvote help"));
+				"/adminvote VoteSite (SiteName) SetMoney (Money)"));
 		msg[13].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Set money for votesite").color(
+						ChatColor.AQUA).create()));
+
+		msg[14] = new TextComponent(
+				"/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite)");
+		msg[14].setColor(ChatColor.AQUA);
+		msg[14].setBold(true);
+		msg[14].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite)"));
+		msg[14].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Set service site for votesite").color(
+						ChatColor.AQUA).create()));
+
+		msg[15] = new TextComponent(
+				"/adminvote VoteSite (SiteName) SetDisabled (Disabled)");
+		msg[15].setColor(ChatColor.AQUA);
+		msg[15].setBold(true);
+		msg[15].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote VoteSite (SiteName) SetDisabled (Disabled)"));
+		msg[15].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder("Set disabled (true/false) on votesite")
+						.color(ChatColor.AQUA).create()));
+
+		msg[16] = new TextComponent(
+				"/adminvote VoteSite (SiteName) AddCommandPlayer (Command)");
+		msg[16].setColor(ChatColor.AQUA);
+		msg[16].setBold(true);
+		msg[16].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote VoteSite (SiteName) AddCommandPlayer (Command)"));
+		msg[16].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder(
+						"Add command to list of player commands for votesite")
+						.color(ChatColor.AQUA).create()));
+
+		msg[17] = new TextComponent(
+				"/adminvote VoteSite (SiteName) AddCommandConsole (Command)");
+		msg[17].setColor(ChatColor.AQUA);
+		msg[17].setBold(true);
+		msg[17].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote VoteSite (SiteName) AddCommandConsole (Command)"));
+		msg[17].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder(
+						"Add command to list of console commands for votesite")
+						.color(ChatColor.AQUA).create()));
+
+		msg[18] = new TextComponent("/adminvote help");
+		msg[18].setColor(ChatColor.AQUA);
+		msg[18].setBold(true);
+		msg[18].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				"/adminvote help"));
+		msg[18].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("See this page").color(ChatColor.AQUA)
 						.create()));
 

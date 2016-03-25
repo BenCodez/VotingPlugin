@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
+import java.util.List;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -176,12 +178,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 		if (args.length == 4) {
 			if (args[0].equalsIgnoreCase("settotal")) {
-				if (Utils.getInstance().isInt(args[4])) {
+				if (Utils.getInstance().isInt(args[3])) {
 					setTotal(sender, args[1], args[2],
-							Integer.parseInt(args[2]));
+							Integer.parseInt(args[3]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
-							"&cError on " + args[4] + ", number expected"));
+							"&cError on " + args[3] + ", number expected"));
 				}
 				return true;
 			}
@@ -190,7 +192,35 @@ public class CommandAdminVote implements CommandExecutor {
 					addVoteSiteItem(sender, args[1], args[3]);
 					return true;
 				}
+				if (args[2].equalsIgnoreCase("SetMoney")) {
+					if (Utils.getInstance().isInt(args[3])) {
+						setVoteSiteMoney(sender, args[1],
+								Integer.parseInt(args[3]));
+					} else {
+						sender.sendMessage(Utils.getInstance().colorize(
+								"&cError on " + args[3] + ", number expected"));
+					}
+					return true;
+				}
+				if (args[2].equalsIgnoreCase("SetServiceSite")) {
+					setVoteSiteServiceSite(sender, args[1], args[3]);
+					return true;
+				}
+				if (args[2].equalsIgnoreCase("SetDisabled")) {
+					setVoteSiteDsiabled(sender, args[1],
+							Boolean.parseBoolean(args[3]));
+					return true;
+				}
+				if (args[2].equalsIgnoreCase("AddCommandPlayer")) {
+					addVoteSiteCommandPlayer(sender, args[1], args[3]);
+					return true;
+				}
+				if (args[2].equalsIgnoreCase("AddCommandConsole")) {
+					addVoteSiteCommandConsole(sender, args[1], args[3]);
+					return true;
+				}
 			}
+
 		}
 
 		// invalid command
@@ -310,4 +340,75 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
+
+	public void setVoteSiteMoney(CommandSender sender, String voteSite,
+			int money) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetMoney")) {
+			ConfigVoteSites.getInstance().setMoney(voteSite, money);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
+			String serviceSite) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetServiceSite")) {
+			ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteDsiabled(CommandSender sender, String voteSite,
+			boolean disabled) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetDisabled")) {
+			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void addVoteSiteCommandPlayer(CommandSender sender, String voteSite,
+			String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.AddCommandPlayer")) {
+			List<String> cmds = ConfigVoteSites.getInstance()
+					.getPlayerCommands(voteSite);
+			cmds.add(cmd);
+			ConfigVoteSites.getInstance().setPlayerCommands(voteSite, cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded player command &c&l" + cmd + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void addVoteSiteCommandConsole(CommandSender sender,
+			String voteSite, String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.AddCommandConsole")) {
+			List<String> cmds = ConfigVoteSites.getInstance()
+					.getConsoleCommands(voteSite);
+			cmds.add(cmd);
+			ConfigVoteSites.getInstance().setConsoleCommands(voteSite, cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded console command &c&l" + cmd + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 }
