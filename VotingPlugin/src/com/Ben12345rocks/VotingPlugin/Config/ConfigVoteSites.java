@@ -66,9 +66,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	public int getChanceRewardChance(String siteName) {
@@ -409,8 +409,12 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
+	}
+
+	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
+		set(siteName, "Commands.Console", consoleCommands);
 	}
 
 	public void setConsoleCommands(String siteName, String item,
@@ -463,14 +467,6 @@ public class ConfigVoteSites {
 		set(siteName, "Commands.Player", playerCommands);
 	}
 
-	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
-		set(siteName, "Commands.Console", consoleCommands);
-	}
-
-	public void setVoteDelay(String siteName, int voteDelay) {
-		set(siteName, "VoteDelay", voteDelay);
-	}
-
 	public void setServiceSite(String siteName, String serviceSite) {
 		set(siteName, "ServiceSite", serviceSite);
 	}
@@ -498,6 +494,10 @@ public class ConfigVoteSites {
 		}
 
 		// data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void setVoteDelay(String siteName, int voteDelay) {
+		set(siteName, "VoteDelay", voteDelay);
 	}
 
 	public void setVoteURL(String siteName, String url) {

@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -162,13 +161,13 @@ public class Commands {
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
 			String timeString = new SimpleDateFormat(format.getTimeFormat())
-					.format(date);
+			.format(date);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -369,6 +368,26 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	public TextComponent voteHelp() {
+		TextComponent texts = new TextComponent();
+		for (String msg : voteHelpText()) {
+			TextComponent text = new TextComponent();
+			text.setText(msg.split("-")[0] + "\n");
+			text.setColor(ChatColor.DARK_AQUA);
+			text.setBold(true);
+			text.setClickEvent(new ClickEvent(
+					ClickEvent.Action.SUGGEST_COMMAND, msg.split("-")[0]));
+			if (msg.split("-").length > 1) {
+				text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+						new ComponentBuilder(msg.split("-")[1]).color(
+								ChatColor.AQUA).create()));
+			}
+			texts.addExtra(text);
+		}
+
+		return texts;
+	}
+
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
 		texts.add("VotingPlugin Player Help");
@@ -398,26 +417,6 @@ public class Commands {
 		texts = Utils.getInstance().colorize(texts);
 		return Utils.getInstance().convertArray(texts);
 
-	}
-
-	public TextComponent voteHelp() {
-		TextComponent texts = new TextComponent();
-		for (String msg : voteHelpText()) {
-			TextComponent text = new TextComponent();
-			text.setText(msg.split("-")[0] + "\n");
-			text.setColor(ChatColor.DARK_AQUA);
-			text.setBold(true);
-			text.setClickEvent(new ClickEvent(
-					ClickEvent.Action.SUGGEST_COMMAND, msg.split("-")[0]));
-			if (msg.split("-").length > 1) {
-				text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-						new ComponentBuilder(msg.split("-")[1]).color(
-								ChatColor.AQUA).create()));
-			}
-			texts.addExtra(text);
-		}
-
-		return texts;
 	}
 
 	@SuppressWarnings("deprecation")

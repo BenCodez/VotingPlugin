@@ -100,6 +100,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetMoney");
 					cmds.add("SetServiceSite");
 					cmds.add("SetDisabled");
+					cmds.add("SetVoteDelay");
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
 					cmds.add("Create");

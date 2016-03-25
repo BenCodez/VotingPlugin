@@ -39,6 +39,38 @@ public class CommandAdminVote implements CommandExecutor {
 		this.plugin = plugin;
 	}
 
+	public void addVoteSiteCommandConsole(CommandSender sender,
+			String voteSite, String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.AddCommandConsole")) {
+			List<String> cmds = ConfigVoteSites.getInstance()
+					.getConsoleCommands(voteSite);
+			cmds.add(cmd);
+			ConfigVoteSites.getInstance().setConsoleCommands(voteSite, cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded console command &c&l" + cmd + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void addVoteSiteCommandPlayer(CommandSender sender, String voteSite,
+			String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.AddCommandPlayer")) {
+			List<String> cmds = ConfigVoteSites.getInstance()
+					.getPlayerCommands(voteSite);
+			cmds.add(cmd);
+			ConfigVoteSites.getInstance().setPlayerCommands(voteSite, cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded player command &c&l" + cmd + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void addVoteSiteItem(CommandSender sender, String voteSite,
 			String item) {
 		if (Utils.getInstance().hasPermission(sender,
@@ -52,21 +84,21 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigVoteSites.getInstance().addItem(
-											voteSite,
-											item,
-											player.getInventory()
-													.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded item &c&l" + item
-															+ " &cto "
-															+ voteSite));
+						@Override
+						public void run() {
+							ConfigVoteSites.getInstance().addItem(
+									voteSite,
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded item &c&l" + item
+											+ " &cto "
+											+ voteSite));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -90,6 +122,25 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	public void createVoteSite(CommandSender sender, String voteSite) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.Create")) {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cCreating VoteSite..."));
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					ConfigVoteSites.getInstance().generateVoteSite(voteSite);
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cCreated VoteSite: &c&l" + voteSite));
+				}
+			});
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void globalVote(CommandSender sender, String voteSite,
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
@@ -108,7 +159,8 @@ public class CommandAdminVote implements CommandExecutor {
 				Utils.getInstance().sendMessageComponent(sender,
 						Commands.getInstance().adminVoteHelp());
 			} else {
-				sender.sendMessage(Commands.getInstance().adminHelpTextColored());
+				sender.sendMessage(Commands.getInstance()
+						.adminHelpTextColored());
 			}
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
@@ -223,6 +275,17 @@ public class CommandAdminVote implements CommandExecutor {
 								Boolean.parseBoolean(args[3]));
 						return true;
 					}
+					if (args[2].equalsIgnoreCase("SetVoteDelay")) {
+						if (Utils.getInstance().isInt(args[3])) {
+							setVoteSiteVoteDelay(sender, args[1],
+									Integer.parseInt(args[3]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[3]
+											+ ", number expected"));
+						}
+						return true;
+					}
 				}
 			}
 			if (args[2].equalsIgnoreCase("AddCommandPlayer")) {
@@ -303,6 +366,58 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	public void setVoteSiteDsiabled(CommandSender sender, String voteSite,
+			boolean disabled) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetDisabled")) {
+			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteMoney(CommandSender sender, String voteSite,
+			int money) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetMoney")) {
+			ConfigVoteSites.getInstance().setMoney(voteSite, money);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
+			String serviceSite) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetServiceSite")) {
+			ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
+							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite,
+			int delay) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetVoteDelay")) {
+			ConfigVoteSites.getInstance().setVoteDelay(voteSite, delay);
+			sender.sendMessage(Utils.getInstance()
+					.colorize(
+							"&cSet VoteDelay to &c&l" + delay + "&c on &c&l"
+									+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void site(CommandSender sender, String site) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Sites.Site")) {
@@ -351,95 +466,6 @@ public class CommandAdminVote implements CommandExecutor {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Vote")) {
 			VotiferEvent.playerVote(voteSite, playerName);
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setVoteSiteMoney(CommandSender sender, String voteSite,
-			int money) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetMoney")) {
-			ConfigVoteSites.getInstance().setMoney(voteSite, money);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
-			String serviceSite) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetServiceSite")) {
-			ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
-							+ voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setVoteSiteDsiabled(CommandSender sender, String voteSite,
-			boolean disabled) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetDisabled")) {
-			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
-							+ voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void addVoteSiteCommandPlayer(CommandSender sender, String voteSite,
-			String cmd) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.AddCommandPlayer")) {
-			List<String> cmds = ConfigVoteSites.getInstance()
-					.getPlayerCommands(voteSite);
-			cmds.add(cmd);
-			ConfigVoteSites.getInstance().setPlayerCommands(voteSite, cmds);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded player command &c&l" + cmd + "&c on &c&l"
-							+ voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void addVoteSiteCommandConsole(CommandSender sender,
-			String voteSite, String cmd) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.AddCommandConsole")) {
-			List<String> cmds = ConfigVoteSites.getInstance()
-					.getConsoleCommands(voteSite);
-			cmds.add(cmd);
-			ConfigVoteSites.getInstance().setConsoleCommands(voteSite, cmds);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded console command &c&l" + cmd + "&c on &c&l"
-							+ voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void createVoteSite(CommandSender sender, String voteSite) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.Create")) {
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cCreating VoteSite..."));
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					ConfigVoteSites.getInstance().generateVoteSite(voteSite);
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cCreated VoteSite: &c&l" + voteSite));
-				}
-			});
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
