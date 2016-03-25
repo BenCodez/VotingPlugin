@@ -26,3 +26,7 @@ UpdateReminder: true
 # Let players who never joined before vote
 AllowUnjoined: false
 
+# Disable json features in help commands
+# Set to true if console gets spammed by errors on help commands
+DisableJson: false
+

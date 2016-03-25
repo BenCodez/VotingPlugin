@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -34,8 +35,12 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			Utils.getInstance().sendMessageComponent(sender,
-					Commands.getInstance().voteHelp());
+			if (!Config.getInstance().disableJson()) {
+				Utils.getInstance().sendMessageComponent(sender,
+						Commands.getInstance().voteHelp());
+			} else {
+				sender.sendMessage(Commands.getInstance().voteHelpTextColored());
+			}
 
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());

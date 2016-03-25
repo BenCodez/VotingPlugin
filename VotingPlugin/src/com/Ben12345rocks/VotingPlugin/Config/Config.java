@@ -112,4 +112,8 @@ public class Config {
 	public boolean updateReminder() {
 		return getData().getBoolean("UpdateReminder");
 	}
+
+	public boolean disableJson() {
+		return getData().getBoolean("DisableJson");
+	}
 }
