@@ -150,3 +150,6 @@ permissions:
     description: Allows access to /adminvote VoteSite <SiteName> AddCommandPlayer <Command> 
   VotingPlugin.Commands.AdminVote.VoteSite.AddCommandConsole: 
     description: Allows access to /adminvote VoteSite <SiteName> AddCommandConsole <Command>       
+  VotingPlugin.Commands.AdminVote.VoteSite.Create:
+    description: Allows access to /adminvote VoteSite <SiteName> Create       
+  

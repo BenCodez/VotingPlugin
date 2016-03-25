@@ -141,11 +141,11 @@ public class Commands {
 						.color(ChatColor.AQUA).create()));
 
 		msg[12] = new TextComponent(
-				"/adminvote VoteSite (SiteName) AddItem Item");
+				"/adminvote VoteSite (SiteName) AddItem (Item)");
 		msg[12].setColor(ChatColor.AQUA);
 		msg[12].setBold(true);
 		msg[12].setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
-				"/adminvote VoteSite (SiteName) AddItem Item"));
+				"/adminvote VoteSite (SiteName) AddItem (Item)"));
 		msg[12].setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder("Add current item in hand to votesite")
 						.color(ChatColor.AQUA).create()));

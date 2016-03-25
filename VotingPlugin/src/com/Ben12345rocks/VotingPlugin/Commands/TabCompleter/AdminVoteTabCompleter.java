@@ -102,12 +102,33 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetDisabled");
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
+					cmds.add("Create");
 
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
 							args[2])) {
+						tab.add(cmds.get(i));
+					}
+				}
+
+				return tab;
+
+			} else if (args.length == 4) {
+				List<String> cmds = new ArrayList<String>();
+
+				if (args[0].equalsIgnoreCase("VoteSite")) {
+					if (args[2].equalsIgnoreCase("SetDisabled")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+
+				}
+
+				for (int i = 0; i < cmds.size(); i++) {
+					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+							args[3])) {
 						tab.add(cmds.get(i));
 					}
 				}

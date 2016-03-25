@@ -173,28 +173,20 @@ public class CommandAdminVote implements CommandExecutor {
 				globalVote(sender, args[1], args[2]);
 				return true;
 			}
+			if (args[0].equalsIgnoreCase("VoteSite")) {
+				if (args[2].equalsIgnoreCase("Create")) {
+					createVoteSite(sender, args[1]);
+					return true;
+				}
+			}
 
 		}
 
-		if (args.length == 4) {
-			if (args[0].equalsIgnoreCase("settotal")) {
-				if (Utils.getInstance().isInt(args[3])) {
-					setTotal(sender, args[1], args[2],
-							Integer.parseInt(args[3]));
-				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cError on " + args[3] + ", number expected"));
-				}
-				return true;
-			}
-			if (args[0].equalsIgnoreCase("VoteSite")) {
-				if (args[2].equalsIgnoreCase("AddItem")) {
-					addVoteSiteItem(sender, args[1], args[3]);
-					return true;
-				}
-				if (args[2].equalsIgnoreCase("SetMoney")) {
+		if (args.length >= 4) {
+			if (args.length == 4) {
+				if (args[0].equalsIgnoreCase("settotal")) {
 					if (Utils.getInstance().isInt(args[3])) {
-						setVoteSiteMoney(sender, args[1],
+						setTotal(sender, args[1], args[2],
 								Integer.parseInt(args[3]));
 					} else {
 						sender.sendMessage(Utils.getInstance().colorize(
@@ -202,23 +194,42 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 					return true;
 				}
-				if (args[2].equalsIgnoreCase("SetServiceSite")) {
-					setVoteSiteServiceSite(sender, args[1], args[3]);
-					return true;
+				if (args[0].equalsIgnoreCase("VoteSite")) {
+					if (args[2].equalsIgnoreCase("AddItem")) {
+						addVoteSiteItem(sender, args[1], args[3]);
+						return true;
+					}
+					if (args[2].equalsIgnoreCase("SetMoney")) {
+						if (Utils.getInstance().isInt(args[3])) {
+							setVoteSiteMoney(sender, args[1],
+									Integer.parseInt(args[3]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[3]
+											+ ", number expected"));
+						}
+						return true;
+					}
+					if (args[2].equalsIgnoreCase("SetServiceSite")) {
+						setVoteSiteServiceSite(sender, args[1], args[3]);
+						return true;
+					}
+					if (args[2].equalsIgnoreCase("SetDisabled")) {
+						setVoteSiteDsiabled(sender, args[1],
+								Boolean.parseBoolean(args[3]));
+						return true;
+					}
 				}
-				if (args[2].equalsIgnoreCase("SetDisabled")) {
-					setVoteSiteDsiabled(sender, args[1],
-							Boolean.parseBoolean(args[3]));
-					return true;
-				}
-				if (args[2].equalsIgnoreCase("AddCommandPlayer")) {
-					addVoteSiteCommandPlayer(sender, args[1], args[3]);
-					return true;
-				}
-				if (args[2].equalsIgnoreCase("AddCommandConsole")) {
-					addVoteSiteCommandConsole(sender, args[1], args[3]);
-					return true;
-				}
+			}
+			if (args[2].equalsIgnoreCase("AddCommandPlayer")) {
+				addVoteSiteCommandPlayer(sender, args[1], Utils.getInstance()
+						.makeString(3, args));
+				return true;
+			}
+			if (args[2].equalsIgnoreCase("AddCommandConsole")) {
+				addVoteSiteCommandConsole(sender, args[1], Utils.getInstance()
+						.makeString(3, args));
+				return true;
 			}
 
 		}
@@ -406,6 +417,25 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded console command &c&l" + cmd + "&c on &c&l"
 							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void createVoteSite(CommandSender sender, String voteSite) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.Create")) {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cCreating VoteSite..."));
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					ConfigVoteSites.getInstance().generateVoteSite(voteSite);
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cCreated VoteSite: &c&l" + voteSite));
+				}
+			});
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

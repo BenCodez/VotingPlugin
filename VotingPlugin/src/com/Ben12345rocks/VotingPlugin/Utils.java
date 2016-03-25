@@ -354,4 +354,17 @@ public class Utils {
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
+
+	public String makeString(int startIndex, String[] strs) {
+		String str = new String();
+		for (int i = startIndex; i < strs.length; i++) {
+			if (i == startIndex) {
+				str += strs[i];
+			} else {
+				str += " " + strs[i];
+			}
+
+		}
+		return str;
+	}
 }
