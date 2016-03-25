@@ -62,6 +62,7 @@ public class ConfigVoteSites {
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
 		setMoney(siteName, 0);
+		setVoteDelay(siteName, 24);
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
@@ -461,6 +462,10 @@ public class ConfigVoteSites {
 	public void setPlayerCommands(String siteName, String item,
 			List<String> playerCommands) {
 		set(siteName, "Commands.Player", playerCommands);
+	}
+
+	public void setVoteDelay(String siteName, int voteDelay) {
+		set(siteName, "VoteDelay", voteDelay);
 	}
 
 	public void setServiceSite(String siteName, String serviceSite) {
