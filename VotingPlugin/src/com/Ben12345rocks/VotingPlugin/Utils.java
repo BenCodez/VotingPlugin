@@ -350,4 +350,8 @@ public class Utils {
 			return array;
 		}
 	}
+
+	public boolean startsWithIgnoreCase(String str1, String str2) {
+		return str1.toLowerCase().startsWith(str2.toLowerCase());
+	}
 }

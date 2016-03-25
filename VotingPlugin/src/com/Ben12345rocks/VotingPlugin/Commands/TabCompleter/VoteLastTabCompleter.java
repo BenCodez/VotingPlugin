@@ -9,6 +9,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
+
 public class VoteLastTabCompleter implements TabCompleter {
 
 	@Override
@@ -30,7 +32,8 @@ public class VoteLastTabCompleter implements TabCompleter {
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
-					if (cmds.get(i).startsWith(args[1])) {
+					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+							args[0])) {
 						tab.add(cmds.get(i));
 					}
 				}

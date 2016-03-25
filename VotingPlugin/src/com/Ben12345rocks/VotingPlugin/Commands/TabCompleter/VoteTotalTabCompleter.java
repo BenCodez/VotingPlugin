@@ -9,6 +9,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
+
 public class VoteTotalTabCompleter implements TabCompleter {
 
 	@Override
@@ -24,7 +26,7 @@ public class VoteTotalTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				cmds.add("all");
+				cmds.add("All");
 
 				for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
 					Player player = (Player) playerOb;
@@ -32,7 +34,8 @@ public class VoteTotalTabCompleter implements TabCompleter {
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
-					if (cmds.get(i).startsWith(args[1])) {
+					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+							args[0])) {
 						tab.add(cmds.get(i));
 					}
 				}

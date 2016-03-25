@@ -9,6 +9,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
+
 public class VoteTabCompleter implements TabCompleter {
 
 	@Override
@@ -24,15 +26,16 @@ public class VoteTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				cmds.add("next");
-				cmds.add("total");
-				cmds.add("last");
-				cmds.add("top");
-				cmds.add("info");
-				cmds.add("help");
+				cmds.add("Next");
+				cmds.add("Total");
+				cmds.add("Last");
+				cmds.add("Top");
+				cmds.add("Info");
+				cmds.add("Help");
 
 				for (int i = 0; i < cmds.size(); i++) {
-					if (cmds.get(i).startsWith(args[0])) {
+					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+							args[0])) {
 						tab.add(cmds.get(i));
 					}
 				}
@@ -44,7 +47,7 @@ public class VoteTabCompleter implements TabCompleter {
 				List<String> cmds = new ArrayList<String>();
 
 				if (args[0].equalsIgnoreCase("total")) {
-					cmds.add("all");
+					cmds.add("All");
 				}
 
 				for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
@@ -53,7 +56,8 @@ public class VoteTabCompleter implements TabCompleter {
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
-					if (cmds.get(i).startsWith(args[1])) {
+					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+							args[0])) {
 						tab.add(cmds.get(i));
 					}
 				}
