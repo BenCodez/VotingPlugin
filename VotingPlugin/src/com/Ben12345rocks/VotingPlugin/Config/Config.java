@@ -37,7 +37,8 @@ public class Config {
 	}
 
 	public boolean disableJson() {
-		return getData().getBoolean("DisableJson");
+		return true;
+		//return getData().getBoolean("DisableJson");
 	}
 
 	public boolean getBroadCastVotesEnabled() {

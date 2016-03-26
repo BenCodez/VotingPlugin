@@ -35,7 +35,8 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			if (!Config.getInstance().disableJson()) {
+			if (!Config.getInstance().disableJson()
+					&& Utils.getInstance().isPlayer(sender)) {
 				Utils.getInstance().sendMessageComponent(sender,
 						Commands.getInstance().voteHelp());
 			} else {

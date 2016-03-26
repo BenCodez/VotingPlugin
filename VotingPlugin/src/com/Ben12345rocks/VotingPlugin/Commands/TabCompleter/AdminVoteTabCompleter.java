@@ -83,12 +83,12 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("AddCommandConsole");
 				}
 
-				if (args[0].equalsIgnoreCase("BonusReward")) {
+				if (args[0].equalsIgnoreCase("Config")) {
 					cmds.add("SetDebug");
 					cmds.add("SetBroadcastVote");
 					cmds.add("SetUpdateReminder");
 					cmds.add("SetAllowUnjoined");
-					cmds.add("SetDisableJson");
+					//cmds.add("SetDisableJson");
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
@@ -139,10 +139,10 @@ public class AdminVoteTabCompleter implements TabCompleter {
 						cmds.add("True");
 						cmds.add("False");
 					}
-					if (args[1].equalsIgnoreCase("SetDisableJson")) {
+				/*	if (args[1].equalsIgnoreCase("SetDisableJson")) {
 						cmds.add("True");
 						cmds.add("False");
-					}
+					}*/
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {

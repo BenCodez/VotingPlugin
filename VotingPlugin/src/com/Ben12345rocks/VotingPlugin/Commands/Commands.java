@@ -250,8 +250,8 @@ public class Commands {
 	public String[] voteCommandSiteInfo(String voteSiteName) {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		if (!ConfigVoteSites.getInstance().getVoteSites()
-				.contains(voteSiteName)) {
+		if (!ConfigVoteSites.getInstance().getVoteSiteFile(voteSiteName)
+				.exists()) {
 			msg.add("&cInvalid Vote Site, see /av sites!");
 		} else {
 

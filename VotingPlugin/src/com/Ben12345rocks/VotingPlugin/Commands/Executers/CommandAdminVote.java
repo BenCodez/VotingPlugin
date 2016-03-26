@@ -221,7 +221,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Help")) {
-			if (!config.disableJson()) {
+			if (!config.disableJson() && Utils.getInstance().isPlayer(sender)) {
 				Utils.getInstance().sendMessageComponent(sender,
 						Commands.getInstance().adminVoteHelp());
 			} else {
@@ -345,11 +345,11 @@ public class CommandAdminVote implements CommandExecutor {
 								Boolean.parseBoolean(args[2]));
 						return true;
 					}
-					if (args[1].equalsIgnoreCase("SetDisableJson")) {
+					/*if (args[1].equalsIgnoreCase("SetDisableJson")) {
 						setConfigDisableJson(sender,
 								Boolean.parseBoolean(args[2]));
 						return true;
-					}
+					}*/
 				}
 			}
 			if (args[0].equalsIgnoreCase("BonusReward")) {
