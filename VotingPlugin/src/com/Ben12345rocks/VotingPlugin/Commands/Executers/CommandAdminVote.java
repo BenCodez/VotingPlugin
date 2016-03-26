@@ -239,6 +239,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 		if (args.length == 0) {
 			help(sender);
+			return true;
 		}
 
 		if (args.length == 1) {
@@ -446,13 +447,21 @@ public class CommandAdminVote implements CommandExecutor {
 	public void reload(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Reload")) {
-			config.reloadData();
-			format.reloadData();
-			plugin.loadVoteSites();
-			bonusReward.reloadData();
-			plugin.updateTopUpdater();
-			plugin.setupFiles();
-			sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			
+			@Override
+			public void run() {
+				sender.sendMessage(ChatColor.RED + "Reloading " + plugin.getName() + "...");
+				config.reloadData();
+				format.reloadData();
+				plugin.loadVoteSites();
+				bonusReward.reloadData();
+				plugin.updateTopUpdater();
+				plugin.setupFiles();
+				sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
+			}
+			});
+			
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

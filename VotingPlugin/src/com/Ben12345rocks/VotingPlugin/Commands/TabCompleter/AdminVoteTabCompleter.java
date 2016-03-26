@@ -145,6 +145,12 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					 * cmds.add("True"); cmds.add("False"); }
 					 */
 				}
+				if (args[0].equalsIgnoreCase("BonusReward")) {
+					if (args[1].equalsIgnoreCase("SetGiveMoney")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+				}
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

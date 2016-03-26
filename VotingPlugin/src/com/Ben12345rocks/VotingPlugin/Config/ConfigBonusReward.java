@@ -215,14 +215,17 @@ public class ConfigBonusReward {
 
 	public void setItemAmount(String item, int amount) {
 		getData().set("Items." + item + ".Amount", amount);
+		saveData();
 	}
 
 	public void setItemData(String item, int data) {
 		getData().set("Items." + item + ".Data", data);
+		saveData();
 	}
 
 	public void setItemEnchantLevel(String item, String enchant, int level) {
 		getData().set("Items." + item + ".Enchants." + enchant, level);
+		saveData();
 	}
 
 	public void setItemEnchants(String item,
@@ -234,22 +237,27 @@ public class ConfigBonusReward {
 
 	public void setItemId(String item, int id) {
 		getData().set("Items." + item + ".ID", id);
+		saveData();
 	}
 
 	public void setItemLore(String item, List<String> lore) {
 		getData().set("Items." + item + ".Lore", lore);
+		saveData();
 	}
 
 	public void setItemName(String item, String name) {
 		getData().set("Items." + item + ".Name", name);
+		saveData();
 	}
 
 	public void setMoney(int money) {
 		getData().set("Money", money);
+		saveData();
 	}
 
 	public void setPlayerCommands(List<String> playerCommands) {
 		getData().set("Commands.Player", playerCommands);
+		saveData();
 	}
 
 	public void setup(Plugin p) {
