@@ -345,11 +345,11 @@ public class CommandAdminVote implements CommandExecutor {
 								Boolean.parseBoolean(args[2]));
 						return true;
 					}
-					/*if (args[1].equalsIgnoreCase("SetDisableJson")) {
-						setConfigDisableJson(sender,
-								Boolean.parseBoolean(args[2]));
-						return true;
-					}*/
+					/*
+					 * if (args[1].equalsIgnoreCase("SetDisableJson")) {
+					 * setConfigDisableJson(sender,
+					 * Boolean.parseBoolean(args[2])); return true; }
+					 */
 				}
 			}
 			if (args[0].equalsIgnoreCase("BonusReward")) {
@@ -396,6 +396,10 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 					if (args[2].equalsIgnoreCase("SetServiceSite")) {
 						setVoteSiteServiceSite(sender, args[1], args[3]);
+						return true;
+					}
+					if (args[2].equalsIgnoreCase("SetVoteURL")) {
+						setVoteSiteVoteURL(sender, args[1], args[3]);
 						return true;
 					}
 					if (args[2].equalsIgnoreCase("SetDisabled")) {
@@ -552,6 +556,18 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
 							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
+			String url) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetVoteURL")) {
+			ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

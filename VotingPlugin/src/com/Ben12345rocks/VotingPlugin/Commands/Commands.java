@@ -66,8 +66,18 @@ public class Commands {
 		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite) - Set servicesite on votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetDisabled (Disabled) - Set votesite disabled");
+		msg.add("/adminvote VoteSite (SiteName) SetVoteDelay (Delay) - Set votesite votedelay");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandPlayer (Command) - Add player command to votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandConsole (Command) - Add console command to votesite");
+		msg.add("/adminvote BonusReward AddItem (Item) - Add item in hand");
+		msg.add("/adminvote BonusReward SetMoney (Money) - Set money");
+		msg.add("/adminvote BonusReward SetGiveBonusReward (Disabled) - Set bonus reward enabled");
+		msg.add("/adminvote BonusReward AddCommandPlayer (Command) - Add player command");
+		msg.add("/adminvote BonusReward AddCommandConsole (Command) - Add console command");
+		msg.add("/adminvote Config SetDebug (true/false) - Set debug");
+		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
+		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
+		msg.add("/adminvote Config SetAllowUnjoined (true/false) - Set allowunjoined");
 		return msg;
 	}
 

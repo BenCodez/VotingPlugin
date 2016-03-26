@@ -88,7 +88,6 @@ permissions:
       VotingPlugin.Commands.AdminVote.Config.SetBroadcastVote: true
       VotingPlugin.Commands.AdminVote.Config.SetUpdateReminder: true
       VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: true
-      VotingPlugin.Commands.AdminVote.Config.SetDisableJson: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -155,6 +154,8 @@ permissions:
     description: Allows access to /adminvote VoteSite <SiteName> SetMoney <Money> 
   VotingPlugin.Commands.AdminVote.VoteSite.SetServiceSite: 
     description: Allows access to /adminvote VoteSite <SiteName> SetService <ServiceSite> 
+  VotingPlugin.Commands.AdminVote.VoteSite.SetVoteURL: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetVoteURL <ServiceSite> 
   VotingPlugin.Commands.AdminVote.VoteSite.SetDisabled: 
     description: Allows access to /adminvote VoteSite <SiteName> SetDisabled <Disabled> 
   VotingPlugin.Commands.AdminVote.VoteSite.SetVoteDelay: 
@@ -183,6 +184,4 @@ permissions:
     description: Allows access to /adminvote Config SetUpdateReminder <true/false>
   VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: 
     description: Allows access to /adminvote Config SetAllowUnjoined <true/false>
-  VotingPlugin.Commands.AdminVote.Config.SetDisableJson: 
-    description: Allows access to /adminvote Config SetDisablejson <true/false>
   
