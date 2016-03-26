@@ -16,9 +16,9 @@ import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class PlayerJoinEvent implements Listener {
 
-	Data data = Data.getInstance();
-
 	private static Main plugin;
+
+	Data data = Data.getInstance();
 
 	public PlayerJoinEvent(Main plugin) {
 		PlayerJoinEvent.plugin = plugin;
@@ -40,23 +40,24 @@ public class PlayerJoinEvent implements Listener {
 		userDataFile(user);
 
 		UUIDs.getInstance()
-				.setName(playerName, player.getUniqueId().toString());
+		.setName(playerName, player.getUniqueId().toString());
 
 		plugin.getServer().getScheduler()
-				.runTaskLaterAsynchronously(plugin, new Runnable() {
-					public void run() {
-						// msg player if there is a update
-						if (Config.getInstance().updateReminder()) {
-							updateCheckLogin(player);
-						}
+		.runTaskLaterAsynchronously(plugin, new Runnable() {
+			@Override
+			public void run() {
+				// msg player if there is a update
+				if (Config.getInstance().updateReminder()) {
+					updateCheckLogin(player);
+				}
 
-						// give offline vote (if they voted offline)
-						user.offVote();
+				// give offline vote (if they voted offline)
+				user.offVote();
 
-						// msg player if he can vote
-						user.loginMessage();
-					}
-				}, 100L);
+				// msg player if he can vote
+				user.loginMessage();
+			}
+		}, 100L);
 	}
 
 	private void updateCheckLogin(Player player) {
@@ -71,11 +72,11 @@ public class PlayerJoinEvent implements Listener {
 		}
 		case UPDATE_AVAILABLE: {
 			if (player.hasPermission("VotingPlugin.remindupdate")) {
-				player.sendMessage(Utils.getInstance().colorize("&a" +
-						plugin.getName()
-								+ " has an update available! Your Version: &c"
-								+ plugin.getDescription().getVersion()
-								+ "&a New Version: &c" + updater.getVersion()));
+				player.sendMessage(Utils.getInstance().colorize(
+						"&a" + plugin.getName()
+						+ " has an update available! Your Version: &c"
+						+ plugin.getDescription().getVersion()
+						+ "&a New Version: &c" + updater.getVersion()));
 			}
 			break;
 		}

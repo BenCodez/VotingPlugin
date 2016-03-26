@@ -1,5 +1,5 @@
 name: VotingPlugin
-version: 2.5.7
+version: 3.0
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable VotingPlugin!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
@@ -72,6 +72,22 @@ permissions:
       VotingPlugin.Commands.AdminVote.Version: true
       VotingPlugin.Commands.AdminVote.Sites: true
       VotingPlugin.Commands.AdminVote.Sites.Site: true
+      VotingPlugin.Commands.AdminVote.VoteSite.AddItem: true
+      VotingPlugin.Commands.AdminVote.VoteSite.SetMoney: true
+      VotingPlugin.Commands.AdminVote.VoteSite.SetServiceSite: true
+      VotingPlugin.Commands.AdminVote.VoteSite.SetDisabled: true
+      VotingPlugin.Commands.AdminVote.VoteSite.SetVoteDelay: true
+      VotingPlugin.Commands.AdminVote.VoteSite.AddCommandPlayer: true
+      VotingPlugin.Commands.AdminVote.VoteSite.AddCommandConsole: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddItem: true
+      VotingPlugin.Commands.AdminVote.BonusReward.SetMoney: true
+      VotingPlugin.Commands.AdminVote.BonusReward.SetGiveBonusReward: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddCommandPlayer: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: true
+      VotingPlugin.Commands.AdminVote.Config.SetDebug: true
+      VotingPlugin.Commands.AdminVote.Config.SetBroadcastVote: true
+      VotingPlugin.Commands.AdminVote.Config.SetUpdateReminder: true
+      VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -132,6 +148,40 @@ permissions:
     description: Allows access to /adminvote sites
   VotingPlugin.Commands.AdminVote.Sites.Site: 
     description: Allows access to /adminvote sites <site>
+  VotingPlugin.Commands.AdminVote.VoteSite.AddItem: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddItem <Item>  
+  VotingPlugin.Commands.AdminVote.VoteSite.SetMoney: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetMoney <Money> 
+  VotingPlugin.Commands.AdminVote.VoteSite.SetServiceSite: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetService <ServiceSite> 
+  VotingPlugin.Commands.AdminVote.VoteSite.SetVoteURL: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetVoteURL <ServiceSite> 
+  VotingPlugin.Commands.AdminVote.VoteSite.SetDisabled: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetDisabled <Disabled> 
+  VotingPlugin.Commands.AdminVote.VoteSite.SetVoteDelay: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetVoteDelay <VoteDelay> 
+  VotingPlugin.Commands.AdminVote.VoteSite.AddCommandPlayer: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddCommandPlayer <Command> 
+  VotingPlugin.Commands.AdminVote.VoteSite.AddCommandConsole: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddCommandConsole <Command>       
+  VotingPlugin.Commands.AdminVote.VoteSite.Create:
+    description: Allows access to /adminvote VoteSite <SiteName> Create       
+  VotingPlugin.Commands.AdminVote.BonusReward.AddItem: 
+    description: Allows access to /adminvote BonusReward AddItem <Item>  
+  VotingPlugin.Commands.AdminVote.BonusReward.SetMoney: 
+    description: Allows access to /adminvote BonusReward SetMoney <Money> 
+  VotingPlugin.Commands.AdminVote.BonusReward.SetGiveBonusReward: 
+    description: Allows access to /adminvote BonusReward SetGiveBonusReward <Disabled> 
+  VotingPlugin.Commands.AdminVote.BonusReward.AddCommandPlayer: 
+    description: Allows access to /adminvote BonusReward AddCommandPlayer <Command> 
+  VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: 
+    description: Allows access to /adminvote BonusReward AddCommandConsole <Command>       
+  VotingPlugin.Commands.AdminVote.Config.SetDebug: 
+    description: Allows access to /adminvote Config SetDebug <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetBroadcastVote: 
+    description: Allows access to /adminvote Config SetBroadcastVote <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetUpdateReminder: 
+    description: Allows access to /adminvote Config SetUpdateReminder <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: 
+    description: Allows access to /adminvote Config SetAllowUnjoined <true/false>
   
-      
-      

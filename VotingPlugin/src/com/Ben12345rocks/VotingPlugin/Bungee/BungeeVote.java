@@ -5,77 +5,15 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.API.VoteRecieved;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
+import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 
 public class BungeeVote {
 
-	static ServerSocket sock;
-
-	private BungeeVote() {
-	}
-
-	static BungeeVote instance = new BungeeVote();
-
-	public static BungeeVote getInstance() {
-		return instance;
-	}
-
-	static Main plugin = Main.plugin;
-
-	public BungeeVote(Main plugin) {
-		BungeeVote.plugin = plugin;
-	}
-
-	public void registerBungeeVoting() {
-		if (Config.getInstance().recieveBungeeVotes()) {
-			try {
-				sock = new ServerSocket(Config.getInstance().bungeePort());
-				ReadThread read = new ReadThread();
-				read.start();
-				plugin.getLogger().info(
-						"Bungee voting registered! Server will recieve votes on port '"
-								+ Config.getInstance().bungeePort() + "'!");
-			} catch (IOException e) {
-				plugin.getLogger().warning("Bungee voting failed to load!");
-				e.printStackTrace();
-			}
-		}
-	}
-
-	public void sendBungeeVote(String playerName, String voteSite) {
-		if (Config.getInstance().sendBungeeVotes()) {
-			Socket client;
-			try {
-				String data = "vote/" + playerName + "/" + voteSite;
-
-				client = new Socket("localhost", Config.getInstance()
-						.bungeePort());
-
-				DataOutputStream ds = new DataOutputStream(
-						client.getOutputStream());
-				ds.writeUTF(data);
-				ds.close();
-				client.close();
-			} catch (UnknownHostException e1) {
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
-		}
-	}
-
-	public void recievedBungeeVote(String playerName, String voteSite) {
-		if (Config.getInstance().recieveBungeeVotes()) {
-			plugin.getLogger().info("Bungee Vote Recieved!");
-			VoteRecieved.getInstance().playerVote(playerName, voteSite);
-		}
-	}
-
 	class ReadThread extends Thread {
+		@Override
 		public void run() {
 			Socket client;
 			while (true) {
@@ -98,6 +36,69 @@ public class BungeeVote {
 							"Exception caught while recieving vote!");
 					e.printStackTrace();
 				}
+			}
+		}
+	}
+
+	static BungeeVote instance = new BungeeVote();
+
+	static Main plugin = Main.plugin;
+
+	static ServerSocket sock;
+
+	public static BungeeVote getInstance() {
+		return instance;
+	}
+
+	private BungeeVote() {
+	}
+
+	public BungeeVote(Main plugin) {
+		BungeeVote.plugin = plugin;
+	}
+
+	public void recievedBungeeVote(String playerName, String voteSite) {
+		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
+			plugin.getLogger().info("Bungee Vote Recieved!");
+			VotiferEvent.playerVote(playerName, voteSite);
+		}
+	}
+
+	public void registerBungeeVoting() {
+		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
+			try {
+				sock = new ServerSocket(ConfigBungeeVoting.getInstance()
+						.getRecievePort());
+				ReadThread read = new ReadThread();
+				read.start();
+				plugin.getLogger().info(
+						"Bungee voting registered! Server will recieve votes on port '"
+								+ ConfigBungeeVoting.getInstance()
+										.getRecievePort() + "'!");
+			} catch (IOException e) {
+				plugin.getLogger().warning("Bungee voting failed to load!");
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public void sendBungeeVote(String playerName, String voteSite) {
+		if (ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
+			Socket client;
+			try {
+				for (int port : ConfigBungeeVoting.getInstance().getSendPorts()) {
+					String data = "vote/" + playerName + "/" + voteSite;
+
+					client = new Socket("localhost", port);
+
+					DataOutputStream ds = new DataOutputStream(
+							client.getOutputStream());
+					ds.writeUTF(data);
+					ds.close();
+					client.close();
+				}
+			} catch (Exception ex) {
+				ex.printStackTrace();
 			}
 		}
 	}

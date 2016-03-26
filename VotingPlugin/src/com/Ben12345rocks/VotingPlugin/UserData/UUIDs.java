@@ -13,23 +13,50 @@ import com.Ben12345rocks.VotingPlugin.Main;
 
 public class UUIDs {
 
-	private UUIDs() {
-	}
-
 	static UUIDs instance = new UUIDs();
+
+	static Main plugin = Main.plugin;
 
 	public static UUIDs getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	FileConfiguration data;
+
+	File dFile;
+
+	private UUIDs() {
+	}
 
 	public UUIDs(Main plugin) {
 		UUIDs.plugin = plugin;
 	}
 
-	FileConfiguration data;
-	File dFile;
+	public FileConfiguration getData() {
+		return data;
+	}
+
+	public String getPlayerName(String uuid) {
+		return getData().getString(uuid);
+	}
+
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void saveData() {
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer().getLogger()
+			.severe(ChatColor.RED + "Could not save uuids.yml!");
+		}
+	}
+
+	public void setName(String playerName, String uuid) {
+		getData().set(uuid, playerName);
+		saveData();
+	}
 
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -43,37 +70,11 @@ public class UUIDs {
 				dFile.createNewFile();
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create uuids.yml!");
+				.severe(ChatColor.RED + "Could not create uuids.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save uuids.yml!");
-		}
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setName(String playerName, String uuid) {
-		getData().set(uuid, playerName);
-		saveData();
-	}
-
-	public String getPlayerName(String uuid) {
-		return getData().getString(uuid);
 	}
 
 }

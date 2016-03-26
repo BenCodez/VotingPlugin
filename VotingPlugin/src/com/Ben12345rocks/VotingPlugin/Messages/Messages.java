@@ -5,29 +5,33 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 
 public class Messages {
 
-	private Messages() {
-	}
-
 	static Messages instance = new Messages();
+
+	static Main plugin = Main.plugin;
 
 	public static Messages getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	private Messages() {
+	}
 
 	public Messages(Main plugin) {
 		Messages.plugin = plugin;
 	}
 
-	public String noPerms() {
-		return Utils.getInstance().colorize(
-				"&cYou do not have enough permission for that command!");
+	public String invalidCommand() {
+		return Utils.getInstance().colorize("&cInvalid command, see /v help");
 	}
 
 	public String mustBePlayer() {
 		return Utils.getInstance().colorize(
 				"You must be a player to use this command!");
+	}
+
+	public String noPerms() {
+		return Utils.getInstance().colorize(
+				"&cYou do not have enough permission for that command!");
 	}
 
 }

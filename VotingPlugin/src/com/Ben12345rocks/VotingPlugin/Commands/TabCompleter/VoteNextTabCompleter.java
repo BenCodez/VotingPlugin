@@ -11,44 +11,20 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Utils;
 
-public class VoteTabCompleter implements TabCompleter {
+public class VoteNextTabCompleter implements TabCompleter {
 
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] args) {
 
-		if (cmd.getName().equalsIgnoreCase("vote")
-				|| cmd.getName().equalsIgnoreCase("v")) {
+		if (cmd.getName().equalsIgnoreCase("votenext")
+				|| cmd.getName().equalsIgnoreCase("vnext")) {
 
 			List<String> tab = new ArrayList<String>();
 
 			if (args.length == 1) {
 
 				List<String> cmds = new ArrayList<String>();
-
-				cmds.add("Next");
-				cmds.add("Total");
-				cmds.add("Last");
-				cmds.add("Top");
-				cmds.add("Info");
-				cmds.add("Help");
-
-				for (int i = 0; i < cmds.size(); i++) {
-					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[0])) {
-						tab.add(cmds.get(i));
-					}
-				}
-
-				return tab;
-
-			} else if (args.length == 2) {
-
-				List<String> cmds = new ArrayList<String>();
-
-				if (args[0].equalsIgnoreCase("total")) {
-					cmds.add("All");
-				}
 
 				for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
 					Player player = (Player) playerOb;

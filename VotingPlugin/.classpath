@@ -2,10 +2,8 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/VaultAPI-master.zip"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Votifier.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
-	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/Essentials-2.x-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/craftbukkit-1.9.jar"/>
+	<classpathentry kind="lib" path="D:/programming/Liabaries/spigot-1.9.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

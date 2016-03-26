@@ -1,32 +1,49 @@
 # BonusReward.yml
 # Set bonus reward here
-# Needs to be enabled in Config.yml
+
+# Give players a bonus reward when all votes have been complete
+GiveBonusReward: false
     
-AllVotesReward:
-  # money given on reward, use 0 for none
-  # Requires Vault
-  Money: 1000
-  # Items
+# money given on reward, use 0 for none
+# Requires Vault
+Money: 1000
+# Items
+Items:
+  # item (can be anything, just don't have 2 the same)
+  Diamond:
+    # Item ID
+    id: 264
+    # Item Data
+    Data: 0
+    # Amount of items
+    Amount: 1
+    # Can also use name and lore and chance (see VoteSites.yml)
+    
+# Commands
+# use %player% for the player's name
+Commands:
+  # Console commands
+  # Set to Console: '' to run no commands
+  Console:
+  - 'say Example command: %player%'
+  # Player commands
+  # Set to Player: '' to run no commands
+  # Player needs permissions to run commands
+  Player:
+  - 'vote total'
+  
+# Rewards to give based on a chance
+# Can use the same rewards as above
+# Follows same rules
+ChanceReward:
+  # Chance out of 1000
+  # Must be an integer
+  Chance: 20
   Items:
-    # item (can be anything, just don't have 2 the same)
-    Diamond:
-      # Item ID
-      id: 264
-      # Item Data
-      Data: 0
-      # Amount of items
-      Amount: 1
-      # Can also use name and lore and chance (see VoteSites.yml)
-      
-  # Commands
-  # use %player% for the player's name
+    ID: 264
+    Data: 0
+    Amount: 1
+  Money: 1000
   Commands:
-    # Console commands
-    # Set to Console: '' to run no commands
     Console:
-    - 'say Example command: %player%'
-    # Player commands
-    # Set to Player: '' to run no commands
-    # Player needs permissions to run commands
-    Player:
-    - 'vote total'
+    - 'say %player% was extra lucky'

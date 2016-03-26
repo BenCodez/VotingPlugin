@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -25,34 +27,31 @@ import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Utils {
 
-	private Utils() {
-	}
-
 	static Utils instance = new Utils();
+
+	static Main plugin = Main.plugin;
 
 	public static Utils getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	private Utils() {
+	}
 
 	public Utils(Main plugin) {
 		Utils.plugin = plugin;
 	}
 
-	public String colorize(String format) {
-		if (format == null) {
-			return null;
-		}
-		return ChatColor.translateAlternateColorCodes('&', format);
-	}
-
-	public ItemStack nameItem(ItemStack item, String name) {
-		if (name == null) {
+	public ItemStack addEnchants(ItemStack item,
+			HashMap<String, Integer> enchants) {
+		if ((enchants == null) || (enchants.size() == 0)) {
 			return item;
 		}
 		ItemMeta meta = item.getItemMeta();
-		meta.setDisplayName(name);
+		for (String enchant : enchants.keySet()) {
+			meta.addEnchant(Enchantment.getByName(enchant),
+					enchants.get(enchant), false);
+		}
 		item.setItemMeta(meta);
 		return item;
 
@@ -72,6 +71,32 @@ public class Utils {
 		return item;
 	}
 
+	public ArrayList<String> colorize(ArrayList<String> list) {
+		if (list == null) {
+			return null;
+		}
+
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, colorize(list.get(i)));
+		}
+		return list;
+	}
+
+	public String colorize(String format) {
+		if (format == null) {
+			return null;
+		}
+		return ChatColor.translateAlternateColorCodes('&', format);
+	}
+
+	public ArrayList<String> convert(Set<String> set) {
+		ArrayList<String> list = new ArrayList<String>();
+		for (String st : set) {
+			list.add(st);
+		}
+		return list;
+	}
+
 	@SuppressWarnings("unused")
 	public String[] convertArray(ArrayList<String> list) {
 		if (list == null) {
@@ -86,24 +111,6 @@ public class Utils {
 		} else {
 			return string;
 		}
-	}
-
-	public ArrayList<String> colorize(ArrayList<String> list) {
-		if (list == null) {
-			return null;
-		}
-
-		for (int i = 0; i < list.size(); i++) {
-			list.set(i, colorize(list.get(i)));
-		}
-		return list;
-	}
-
-	public String getMonthString(int month) {
-		if (month == 0) {
-			month++;
-		}
-		return new DateFormatSymbols().getMonths()[month - 1];
 	}
 
 	@SuppressWarnings("unused")
@@ -122,21 +129,50 @@ public class Utils {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
-	public String getUUID(String playerName) {
-		if (playerName == null) {
+	public ArrayList<User> convertSet(Set<User> set) {
+		if (set == null) {
 			return null;
 		}
-		Player player = Bukkit.getPlayer(playerName);
-		if (player == null) {
-			return Bukkit.getOfflinePlayer(playerName).getUniqueId().toString();
-		} else {
-			return player.getUniqueId().toString();
+		ArrayList<User> list = new ArrayList<User>();
+		for (User user : set) {
+			list.add(user);
 		}
+		return list;
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getDayFromMili(long time) {
+		Date date = new Date(time);
+		return date.getDate();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getHourFromMili(long time) {
+		Date date = new Date(time);
+		return date.getHours();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getMinutesFromMili(long time) {
+		Date date = new Date(time);
+		return date.getMinutes();
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getMonthFromMili(long time) {
+		Date date = new Date(time);
+		return date.getMonth();
+	}
+
+	public String getMonthString(int month) {
+		if (month == 0) {
+			month++;
+		}
+		return new DateFormatSymbols().getMonths()[month - 1];
 	}
 
 	public String getPlayerName(String uuid) {
-		if (uuid == null || uuid.equalsIgnoreCase("null")) {
+		if ((uuid == null) || uuid.equalsIgnoreCase("null")) {
 			if (Config.getInstance().getDebugEnabled()) {
 				plugin.getLogger().info("Null UUID");
 			}
@@ -172,6 +208,48 @@ public class Utils {
 	}
 
 	@SuppressWarnings("deprecation")
+	public String getUUID(String playerName) {
+		if (playerName == null) {
+			return null;
+		}
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			return Bukkit.getOfflinePlayer(playerName).getUniqueId().toString();
+		} else {
+			return player.getUniqueId().toString();
+		}
+	}
+
+	public String getVoteSiteName(String url) {
+		ArrayList<String> sites = ConfigVoteSites.getInstance()
+				.getVoteSitesNames();
+		if (sites != null) {
+			for (String siteName : sites) {
+				String URL = ConfigVoteSites.getInstance().getServiceSite(
+						siteName);
+				if (URL.equals(url)) {
+					return siteName;
+				}
+			}
+		}
+		return url;
+
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getYearFromMili(long time) {
+		Date date = new Date(time);
+		return date.getYear();
+	}
+
+	public boolean hasPermission(CommandSender sender, String perm) {
+		return sender.hasPermission(plugin.getName() + "." + perm);
+	}
+
+	public boolean hasPermission(Player player, String perm) {
+		return player.hasPermission(plugin.getName() + "." + perm);
+	}
+
 	public boolean hasPermission(String playerName, String perm) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
@@ -180,19 +258,43 @@ public class Utils {
 		return false;
 	}
 
-	@SuppressWarnings("unused")
-	public String[] setToArray(Set<String> set) {
-		String[] array = new String[set.size()];
-		int i = 0;
-		for (String item : set) {
-			array[i] = item;
-			i++;
+	public boolean isInt(String st) {
+		try {
+			@SuppressWarnings("unused")
+			int num = Integer.parseInt(st);
+			return true;
+
+		} catch (NumberFormatException ex) {
+			return false;
 		}
-		if (array == null) {
-			return null;
-		} else {
-			return array;
+	}
+
+	public boolean isPlayer(CommandSender sender) {
+		if (sender instanceof Player) {
+			return true;
 		}
+		return false;
+	}
+
+	public boolean isPlayerOnline(String playerName) {
+		Player player = Bukkit.getPlayer(playerName);
+		if (player != null) {
+			return true;
+		}
+		return false;
+	}
+
+	public String makeString(int startIndex, String[] strs) {
+		String str = new String();
+		for (int i = startIndex; i < strs.length; i++) {
+			if (i == startIndex) {
+				str += strs[i];
+			} else {
+				str += " " + strs[i];
+			}
+
+		}
+		return str;
 	}
 
 	public String makeStringList(ArrayList<String> list) {
@@ -211,29 +313,15 @@ public class Utils {
 		return string;
 	}
 
-	@SuppressWarnings("deprecation")
-	public boolean isPlayerOnline(String playerName) {
-		Player player = Bukkit.getPlayer(playerName);
-		if (player != null) {
-			return true;
+	public ItemStack nameItem(ItemStack item, String name) {
+		if (name == null) {
+			return item;
 		}
-		return false;
-	}
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
 
-	public ArrayList<User> convertSet(Set<User> set) {
-		ArrayList<User> list = new ArrayList<User>();
-		for (User user : set) {
-			list.add(user);
-		}
-		return list;
-	}
-
-	public ArrayList<String> convert(Set<String> set) {
-		ArrayList<String> list = new ArrayList<String>();
-		for (String st : set) {
-			list.add(st);
-		}
-		return list;
 	}
 
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
@@ -246,79 +334,37 @@ public class Utils {
 		return al;
 	}
 
-	public boolean isInt(String st) {
-		try {
-			@SuppressWarnings("unused")
-			int num = Integer.parseInt(st);
-			return true;
-
-		} catch (NumberFormatException ex) {
-			return false;
+	public void sendMessageComponent(CommandSender sender, TextComponent msg) {
+		if (isPlayer(sender)) {
+			Player player = (Player) sender;
+			player.spigot().sendMessage(msg);
+		} else {
+			sender.sendMessage(msg.getText());
 		}
 	}
 
-	public boolean hasPermission(Player player, String perm) {
-		return player.hasPermission(plugin.getName() + "." + perm);
-	}
-
-	public boolean hasPermission(CommandSender sender, String perm) {
-		return sender.hasPermission(plugin.getName() + "." + perm);
-	}
-
-	public ItemStack addEnchants(ItemStack item,
-			HashMap<String, Integer> enchants) {
-		if (enchants == null || enchants.size() == 0) {
-			return item;
+	public void sendMessageComponent(CommandSender sender, TextComponent[] msg) {
+		for (TextComponent message : msg) {
+			sendMessageComponent(sender, message);
 		}
-		ItemMeta meta = item.getItemMeta();
-		for (String enchant : enchants.keySet()) {
-			meta.addEnchant(Enchantment.getByName(enchant),
-					enchants.get(enchant), false);
+	}
+
+	@SuppressWarnings("unused")
+	public String[] setToArray(Set<String> set) {
+		String[] array = new String[set.size()];
+		int i = 0;
+		for (String item : set) {
+			array[i] = item;
+			i++;
 		}
-		item.setItemMeta(meta);
-		return item;
-
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getMonthFromMili(long time) {
-		Date date = new Date(time);
-		return date.getMonth();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getDayFromMili(long time) {
-		Date date = new Date(time);
-		return date.getDate();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getYearFromMili(long time) {
-		Date date = new Date(time);
-		return date.getYear();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getHourFromMili(long time) {
-		Date date = new Date(time);
-		return date.getHours();
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getMinutesFromMili(long time) {
-		Date date = new Date(time);
-		return date.getMinutes();
-	}
-
-	public String getVoteSiteName(String url) {
-		Set<String> sites = ConfigVoteSites.getInstance().getVoteSitesName();
-		for (String siteName : sites) {
-			String URL = ConfigVoteSites.getInstance().getVoteSiteServiceSite(
-					siteName);
-			if (URL.equals(url)) {
-				return (String) siteName;
-			}
+		if (array == null) {
+			return null;
+		} else {
+			return array;
 		}
-		return url;
+	}
+
+	public boolean startsWithIgnoreCase(String str1, String str2) {
+		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
 }

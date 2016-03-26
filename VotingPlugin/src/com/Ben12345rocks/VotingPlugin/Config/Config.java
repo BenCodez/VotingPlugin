@@ -13,23 +13,92 @@ import com.Ben12345rocks.VotingPlugin.Main;
 
 public class Config {
 
-	private Config() {
-	}
-
 	static Config instance = new Config();
+
+	static Main plugin = Main.plugin;
 
 	public static Config getInstance() {
 		return instance;
 	}
 
-	static Main plugin = Main.plugin;
+	FileConfiguration data;
+
+	File dFile;
+
+	private Config() {
+	}
 
 	public Config(Main plugin) {
 		Config.plugin = plugin;
 	}
 
-	FileConfiguration data;
-	File dFile;
+	public boolean allowUnJoined() {
+		return getData().getBoolean("AllowUnjoined");
+	}
+
+	public boolean disableJson() {
+		return true;
+		//return getData().getBoolean("DisableJson");
+	}
+
+	public boolean getBroadCastVotesEnabled() {
+		return getData().getBoolean("BroadcastVote");
+	}
+
+	public void setAllowUnJoined(boolean value) {
+		getData().set("AllowUnjoined", value);
+		saveData();
+	}
+
+	public void setDisableJson(boolean value) {
+		getData().set("DisableJson", value);
+		saveData();
+	}
+
+	public void setDebugEnabled(boolean value) {
+		getData().set("Debug", value);
+		saveData();
+	}
+
+	public void setRemindVotesEnabled(boolean value) {
+		getData().set("RemindVotes", value);
+		saveData();
+	}
+
+	public void setUpdateReminder(boolean value) {
+		getData().set("UpdateReminder", value);
+		saveData();
+	}
+
+	public FileConfiguration getData() {
+		return data;
+	}
+
+	public boolean getDebugEnabled() {
+		return getData().getBoolean("Debug");
+	}
+
+	public boolean getRemindVotesEnabled() {
+		return getData().getBoolean("RemindVotes");
+	}
+
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void saveData() {
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer().getLogger()
+					.severe(ChatColor.RED + "Could not save Config.yml!");
+		}
+	}
+
+	public void setBroadcastVoteEnabled(boolean value) {
+		getData().set("BroadcastVote", value);
+		saveData();
+	}
 
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -51,76 +120,7 @@ public class Config {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Config.yml!");
-		}
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public boolean getDebugEnabled() {
-		return getData().getBoolean("debug");
-	}
-
-	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("broadcastvote");
-	}
-
-	public boolean getRemindVotesEnabled() {
-		return getData().getBoolean("remindvotes");
-	}
-
-	public boolean getBonusRewardEnabled() {
-		return getData().getBoolean("allvotesbonus");
-	}
-
-	public void setDebugEnabled(boolean value) {
-		getData().set("debug", value);
-		saveData();
-	}
-
-	public void setBroadcastVoteEnabled(boolean value) {
-		getData().set("broadcastvote", value);
-		saveData();
-	}
-
-	public void setRemindVotesEnabled(boolean value) {
-		getData().set("remindvotes", value);
-		saveData();
-	}
-
-	public void setBonusRewardEnabled(boolean value) {
-		getData().set("allvotesbonus", value);
-		saveData();
-	}
-
-	public boolean sendBungeeVotes() {
-		return getData().getBoolean("sendbungeevotes");
-	}
-
-	public boolean recieveBungeeVotes() {
-		return getData().getBoolean("recievebungeevotes");
-	}
-
-	public int bungeePort() {
-		return getData().getInt("bungeeport");
-	}
-
 	public boolean updateReminder() {
-		return getData().getBoolean("updatereminder");
-	}
-
-	public boolean allowUnJoined() {
-		return getData().getBoolean("allowunjoined");
+		return getData().getBoolean("UpdateReminder");
 	}
 }
