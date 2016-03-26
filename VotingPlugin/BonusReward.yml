@@ -1,6 +1,5 @@
 # BonusReward.yml
 # Set bonus reward here
-# Needs to be enabled in Config.yml
 
 # Give players a bonus reward when all votes have been complete
 GiveBonusReward: false

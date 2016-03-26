@@ -166,7 +166,7 @@ public class ConfigBonusReward {
 	}
 
 	public int getItemID(String item) {
-		return getData().getInt("Items." + item + ".id");
+		return getData().getInt("Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")

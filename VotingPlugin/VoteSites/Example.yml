@@ -12,11 +12,12 @@ Disabled: true
       
 # The serviceName from the vote, has to be correct to work correctly
 # Gotten from voting on the site (will be in console/log)
+# Usually is the main part of the url(e.g. PlanetMinecraft.com)
 ServiceSite: 'PlanetMinecraft.com'
 
 # vote url for /vote
 # Format for this can be set in Format.yml
-# Do not include colors
+# Do not include colors here
 VoteURL: 'link to vote URL here, used in /vote'
 
 # Time between votes in hours (used for /vote next)
