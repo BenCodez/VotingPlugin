@@ -349,6 +349,9 @@ public class VoteSite {
 			try {
 				giveItemSiteReward(user);
 			} catch (Exception ex) {
+				if (Config.getInstance().getDebugEnabled()) {
+					ex.printStackTrace();
+				}
 			}
 			giveMoneySite(user);
 			doSiteCommands(user);
