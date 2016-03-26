@@ -44,6 +44,31 @@ public class Config {
 		return getData().getBoolean("BroadcastVote");
 	}
 
+	public void setAllowUnJoined(boolean value) {
+		getData().set("AllowUnjoined", value);
+		saveData();
+	}
+
+	public void setDisableJson(boolean value) {
+		getData().set("DisableJson", value);
+		saveData();
+	}
+
+	public void setDebugEnabled(boolean value) {
+		getData().set("Debug", value);
+		saveData();
+	}
+
+	public void setRemindVotesEnabled(boolean value) {
+		getData().set("RemindVotes", value);
+		saveData();
+	}
+
+	public void setUpdateReminder(boolean value) {
+		getData().set("UpdateReminder", value);
+		saveData();
+	}
+
 	public FileConfiguration getData() {
 		return data;
 	}
@@ -71,16 +96,6 @@ public class Config {
 
 	public void setBroadcastVoteEnabled(boolean value) {
 		getData().set("BroadcastVote", value);
-		saveData();
-	}
-
-	public void setDebugEnabled(boolean value) {
-		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setRemindVotesEnabled(boolean value) {
-		getData().set("RemindVotes", value);
 		saveData();
 	}
 

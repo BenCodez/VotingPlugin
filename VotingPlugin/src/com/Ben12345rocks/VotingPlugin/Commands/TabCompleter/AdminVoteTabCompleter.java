@@ -39,6 +39,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				cmds.add("Help");
 				cmds.add("VoteSite");
 				cmds.add("BonusReward");
+				cmds.add("Config");
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -82,6 +83,14 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("AddCommandConsole");
 				}
 
+				if (args[0].equalsIgnoreCase("BonusReward")) {
+					cmds.add("SetDebug");
+					cmds.add("SetBroadcastVote");
+					cmds.add("SetUpdateReminder");
+					cmds.add("SetAllowUnjoined");
+					cmds.add("SetDisableJson");
+				}
+
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
 							args[1])) {
@@ -112,6 +121,28 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
 					cmds.add("Create");
+				}
+				if (args[0].equalsIgnoreCase("Config")) {
+					if (args[1].equalsIgnoreCase("SetDebug")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+					if (args[1].equalsIgnoreCase("SetBroadcastVote")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+					if (args[1].equalsIgnoreCase("SetUpdateReminder")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+					if (args[1].equalsIgnoreCase("SetAllowUnjoined")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+					if (args[1].equalsIgnoreCase("SetDisableJson")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {

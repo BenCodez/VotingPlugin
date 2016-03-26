@@ -84,6 +84,11 @@ permissions:
       VotingPlugin.Commands.AdminVote.BonusReward.SetGiveBonusReward: true
       VotingPlugin.Commands.AdminVote.BonusReward.AddCommandPlayer: true
       VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: true
+      VotingPlugin.Commands.AdminVote.Config.SetDebug: true
+      VotingPlugin.Commands.AdminVote.Config.SetBroadcastVote: true
+      VotingPlugin.Commands.AdminVote.Config.SetUpdateReminder: true
+      VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: true
+      VotingPlugin.Commands.AdminVote.Config.SetDisablejson: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -170,4 +175,14 @@ permissions:
     description: Allows access to /adminvote BonusReward AddCommandPlayer <Command> 
   VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: 
     description: Allows access to /adminvote BonusReward AddCommandConsole <Command>       
+  VotingPlugin.Commands.AdminVote.Config.SetDebug: 
+    description: Allows access to /adminvote Config SetDebug <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetBroadcastVote: 
+    description: Allows access to /adminvote Config SetBroadcastVote <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetUpdateReminder: 
+    description: Allows access to /adminvote Config SetUpdateReminder <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetAllowUnjoined: 
+    description: Allows access to /adminvote Config SetAllowUnjoined <true/false>
+  VotingPlugin.Commands.AdminVote.Config.SetDisablejson: 
+    description: Allows access to /adminvote Config SetDisablejson <true/false>
   
