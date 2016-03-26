@@ -76,8 +76,14 @@ permissions:
       VotingPlugin.Commands.AdminVote.VoteSite.SetMoney: true
       VotingPlugin.Commands.AdminVote.VoteSite.SetServiceSite: true
       VotingPlugin.Commands.AdminVote.VoteSite.SetDisabled: true
+      VotingPlugin.Commands.AdminVote.VoteSite.SetVoteDelay: true
       VotingPlugin.Commands.AdminVote.VoteSite.AddCommandPlayer: true
       VotingPlugin.Commands.AdminVote.VoteSite.AddCommandConsole: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddItem: true
+      VotingPlugin.Commands.AdminVote.BonusReward.SetMoney: true
+      VotingPlugin.Commands.AdminVote.BonusReward.SetGiveBonusReward: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddCommandPlayer: true
+      VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -154,4 +160,14 @@ permissions:
     description: Allows access to /adminvote VoteSite <SiteName> AddCommandConsole <Command>       
   VotingPlugin.Commands.AdminVote.VoteSite.Create:
     description: Allows access to /adminvote VoteSite <SiteName> Create       
+  VotingPlugin.Commands.AdminVote.BonusReward.AddItem: 
+    description: Allows access to /adminvote BonusReward AddItem <Item>  
+  VotingPlugin.Commands.AdminVote.BonusReward.SetMoney: 
+    description: Allows access to /adminvote BonusReward SetMoney <Money> 
+  VotingPlugin.Commands.AdminVote.BonusReward.SetGiveBonusReward: 
+    description: Allows access to /adminvote BonusReward SetGiveBonusReward <Disabled> 
+  VotingPlugin.Commands.AdminVote.BonusReward.AddCommandPlayer: 
+    description: Allows access to /adminvote BonusReward AddCommandPlayer <Command> 
+  VotingPlugin.Commands.AdminVote.BonusReward.AddCommandConsole: 
+    description: Allows access to /adminvote BonusReward AddCommandConsole <Command>       
   

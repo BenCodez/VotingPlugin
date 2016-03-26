@@ -38,6 +38,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				cmds.add("Version");
 				cmds.add("Help");
 				cmds.add("VoteSite");
+				cmds.add("BonusReward");
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -73,6 +74,13 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.addAll(ConfigVoteSites.getInstance()
 							.getVoteSitesNames());
 				}
+				if (args[0].equalsIgnoreCase("BonusReward")) {
+					cmds.add("AddItem");
+					cmds.add("SetMoney");
+					cmds.add("SetGiveBonusReward");
+					cmds.add("AddCommandPlayer");
+					cmds.add("AddCommandConsole");
+				}
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -104,7 +112,6 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
 					cmds.add("Create");
-
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {

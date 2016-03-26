@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.UserData.Data;
@@ -173,7 +174,7 @@ public class User {
 	 */
 	public boolean checkAllVotes() {
 		User user = this;
-		if (!Config.getInstance().getBonusRewardEnabled()) {
+		if (!ConfigBonusReward.getInstance().getGiveBonusReward()) {
 			return false;
 		}
 
