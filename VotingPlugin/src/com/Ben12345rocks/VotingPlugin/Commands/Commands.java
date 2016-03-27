@@ -96,26 +96,6 @@ public class Commands {
 
 	}
 
-	public TextComponent adminVoteHelp() {
-		TextComponent texts = new TextComponent();
-		for (String msg : adminHelpText()) {
-			TextComponent text = new TextComponent();
-			text.setText(msg.split("-")[0] + "\n");
-			text.setColor(ChatColor.DARK_AQUA);
-			text.setBold(true);
-			text.setClickEvent(new ClickEvent(
-					ClickEvent.Action.SUGGEST_COMMAND, msg.split("-")[0]));
-			if (msg.split("-").length > 1) {
-				text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-						new ComponentBuilder(msg.split("-")[1]).color(
-								ChatColor.AQUA).create()));
-			}
-			texts.addExtra(text);
-		}
-
-		return texts;
-	}
-
 	public String[] commandVoteToday(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		if (page < 1) {
