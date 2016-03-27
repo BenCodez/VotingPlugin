@@ -57,6 +57,27 @@ public class ConfigVoteSites {
 		setItemEnchants(siteName, item, enchants);
 	}
 
+	@SuppressWarnings("deprecation")
+	public void addChanceRewardItem(String siteName, String item,
+			ItemStack itemStack) {
+		int id = itemStack.getTypeId();
+		int data = itemStack.getData().getData();
+		int amount = itemStack.getAmount();
+
+		String name = itemStack.getItemMeta().getDisplayName();
+		List<String> lore = itemStack.getItemMeta().getLore();
+
+		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
+				itemStack.getEnchantments());
+
+		setChanceRewardItemId(siteName, item, id);
+		setChanceRewardItemData(siteName, item, data);
+		setChanceRewardItemAmount(siteName, item, amount);
+		setChanceRewardItemName(siteName, item, name);
+		setChanceRewardItemLore(siteName, item, lore);
+		setChanceRewardItemEnchants(siteName, item, enchants);
+	}
+
 	public void generateVoteSite(String siteName) {
 		setDisabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
@@ -66,9 +87,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	public int getChanceRewardChance(String siteName) {
@@ -409,7 +430,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 
@@ -497,5 +518,60 @@ public class ConfigVoteSites {
 
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
+	}
+
+	public void setChanceRewardConsoleCommands(String siteName,
+			List<String> consoleCommands) {
+		set(siteName, "ChanceReward.Commands.Console", consoleCommands);
+	}
+
+	public void setChanceRewardItemAmount(String siteName, String item,
+			int amount) {
+		set(siteName, "ChanceReward.Items." + item + ".Amount", amount);
+	}
+
+	public void setChanceRewardItemData(String siteName, String item, int data) {
+		set(siteName, "ChanceReward.Items." + item + ".Data", data);
+	}
+
+	public void setChanceRewardChance(String siteName, int chance) {
+		set(siteName, "ChanceReward.Chance", chance);
+	}
+
+	public void setChanceRewardItemEnchantLevel(String siteName, String item,
+			String enchant, int level) {
+		set(siteName, "ChanceReward.Items." + item + ".Enchants." + enchant,
+				level);
+	}
+
+	public void setChanceRewardItemEnchants(String siteName, String item,
+			HashMap<Enchantment, Integer> enchants) {
+		for (Enchantment enchant : enchants.keySet()) {
+			setItemEnchantLevel(siteName, item, enchant.getName(),
+					enchants.get(enchant));
+		}
+	}
+
+	public void setChanceRewardItemId(String siteName, String item, int id) {
+		set(siteName, "ChanceReward.Items." + item + ".ID", id);
+	}
+
+	public void setChanceRewardItemLore(String siteName, String item,
+			List<String> lore) {
+		set(siteName, "ChanceReward.Items." + item + ".Lore", lore);
+	}
+
+	public void setChanceRewardItemName(String siteName, String item,
+			String name) {
+		set(siteName, "ChanceReward.Items." + item + ".Name", name);
+	}
+
+	public void setChanceRewardMoney(String siteName, int money) {
+		set(siteName, "ChanceReward.Money", money);
+	}
+
+	public void setChanceRewardPlayerCommands(String siteName,
+			List<String> playerCommands) {
+		set(siteName, "ChanceReward.Commands.Player", playerCommands);
 	}
 }

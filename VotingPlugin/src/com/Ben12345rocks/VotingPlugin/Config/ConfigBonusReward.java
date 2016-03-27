@@ -282,4 +282,55 @@ public class ConfigBonusReward {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public void setChanceRewardConsoleCommands(String siteName,
+			List<String> consoleCommands) {
+		getData().set("ChanceReward.Commands.Console", consoleCommands);
+	}
+
+	public void setChanceRewardItemAmount(String item, int amount) {
+		getData().set("ChanceReward.Items." + item + ".Amount", amount);
+	}
+
+	public void setChanceRewardItemData(String item, int data) {
+		getData().set("ChanceReward.Items." + item + ".Data", data);
+	}
+
+	public void setChanceRewardChance(int chance) {
+		getData().set("ChanceReward.Chance", chance);
+	}
+
+	public void setChanceRewardItemEnchantLevel(String item, String enchant,
+			int level) {
+		getData().set("ChanceReward.Items." + item + ".Enchants." + enchant,
+				level);
+	}
+
+	public void setChanceRewardItemEnchants(String item,
+			HashMap<Enchantment, Integer> enchants) {
+		for (Enchantment enchant : enchants.keySet()) {
+			setItemEnchantLevel(item, enchant.getName(), enchants.get(enchant));
+		}
+	}
+
+	public void setChanceRewardItemId(String item, int id) {
+		getData().set("ChanceReward.Items." + item + ".ID", id);
+	}
+
+	public void setChanceRewardItemLore(String item, List<String> lore) {
+		getData().set("ChanceReward.Items." + item + ".Lore", lore);
+	}
+
+	public void setChanceRewardItemName(String item, String name) {
+		getData().set("ChanceReward.Items." + item + ".Name", name);
+	}
+
+	public void setChanceRewardMoney(int money) {
+		getData().set("ChanceReward.Money", money);
+	}
+
+	public void setChanceRewardPlayerCommands(String siteName,
+			List<String> playerCommands) {
+		getData().set("ChanceReward.Commands.Player", playerCommands);
+	}
+
 }

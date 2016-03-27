@@ -165,7 +165,15 @@ permissions:
   VotingPlugin.Commands.AdminVote.VoteSite.AddCommandConsole: 
     description: Allows access to /adminvote VoteSite <SiteName> AddCommandConsole <Command>       
   VotingPlugin.Commands.AdminVote.VoteSite.Create:
-    description: Allows access to /adminvote VoteSite <SiteName> Create       
+    description: Allows access to /adminvote VoteSite <SiteName> Create  
+  VotingPlugin.Commands.AdminVote.VoteSite.ChanceReward.AddItem: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddChanceRewardItem <Item>  
+  VotingPlugin.Commands.AdminVote.VoteSite.ChanceReward.SetMoney: 
+    description: Allows access to /adminvote VoteSite <SiteName> SetChanceRewardMoney <Money> 
+  VotingPlugin.Commands.AdminVote.VoteSite.ChanceReward.AddCommandPlayer: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddChanceRewardCommandPlayer <Command> 
+  VotingPlugin.Commands.AdminVote.VoteSite.ChanceReward.AddCommandConsole: 
+    description: Allows access to /adminvote VoteSite <SiteName> AddChanceRewardCommandConsole <Command>           
   VotingPlugin.Commands.AdminVote.BonusReward.AddItem: 
     description: Allows access to /adminvote BonusReward AddItem <Item>  
   VotingPlugin.Commands.AdminVote.BonusReward.SetMoney: 

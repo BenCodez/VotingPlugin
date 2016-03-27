@@ -122,6 +122,10 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
 					cmds.add("Create");
+					cmds.add("AddChanceRewardItem");
+					cmds.add("SetChanceRewardMoney");
+					cmds.add("AddChanceRewardCommandPlayer");
+					cmds.add("AddChanceRewardCommandConsole");
 				}
 				if (args[0].equalsIgnoreCase("Config")) {
 					if (args[1].equalsIgnoreCase("SetDebug")) {
