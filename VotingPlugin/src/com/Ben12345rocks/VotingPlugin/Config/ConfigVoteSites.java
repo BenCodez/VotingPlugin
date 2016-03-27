@@ -66,9 +66,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	public int getChanceRewardChance(String siteName) {
@@ -409,7 +409,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
 	}
 

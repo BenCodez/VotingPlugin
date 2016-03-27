@@ -79,19 +79,19 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigBonusReward.getInstance().addItem(
+						@Override
+						public void run() {
+							ConfigBonusReward.getInstance().addItem(
 
-											item,
-											player.getInventory()
-													.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded item &c&l" + item));
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded item &c&l" + item));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -150,21 +150,21 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigVoteSites.getInstance().addItem(
-											voteSite,
-											item,
-											player.getInventory()
-													.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded item &c&l" + item
-															+ " &cto "
-															+ voteSite));
+						@Override
+						public void run() {
+							ConfigVoteSites.getInstance().addItem(
+									voteSite,
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded item &c&l" + item
+											+ " &cto "
+											+ voteSite));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -448,20 +448,22 @@ public class CommandAdminVote implements CommandExecutor {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Reload")) {
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-			
-			@Override
-			public void run() {
-				sender.sendMessage(ChatColor.RED + "Reloading " + plugin.getName() + "...");
-				config.reloadData();
-				format.reloadData();
-				plugin.loadVoteSites();
-				bonusReward.reloadData();
-				plugin.updateTopUpdater();
-				plugin.setupFiles();
-				sender.sendMessage(ChatColor.RED + plugin.getName() + " reloaded!");
-			}
+
+				@Override
+				public void run() {
+					sender.sendMessage(ChatColor.RED + "Reloading "
+							+ plugin.getName() + "...");
+					config.reloadData();
+					format.reloadData();
+					plugin.loadVoteSites();
+					bonusReward.reloadData();
+					plugin.updateTopUpdater();
+					plugin.setupFiles();
+					sender.sendMessage(ChatColor.RED + plugin.getName()
+							+ " reloaded!");
+				}
 			});
-			
+
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -502,6 +504,61 @@ public class CommandAdminVote implements CommandExecutor {
 			ConfigBonusReward.getInstance().setMoney(money);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet money to &c&l" + money));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Config.SetAllowUnjoined")) {
+			Config.getInstance().setAllowUnJoined(value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet AllowUnjoined to &c&l" + value));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setConfigBroadcastVote(CommandSender sender, boolean value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Config.SetBroadcastVote")) {
+			Config.getInstance().setDebugEnabled(value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet BroadcastVote to &c&l" + value));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setConfigDebug(CommandSender sender, boolean value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Config.SetDebug")) {
+			Config.getInstance().setDebugEnabled(value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet Debug to &c&l" + value));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setConfigDisableJson(CommandSender sender, boolean value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Config.SetDisablejson")) {
+			Config.getInstance().setDisableJson(value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet DisableJson to &c&l" + value));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setConfigUpdateReminder(CommandSender sender, boolean value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.Config.SetUpdateReminder")) {
+			Config.getInstance().setUpdateReminder(value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet UpdateReminder to &c&l" + value));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -570,18 +627,6 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
-			String url) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetVoteURL")) {
-			ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
 	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite,
 			int delay) {
 		if (Utils.getInstance().hasPermission(sender,
@@ -591,6 +636,18 @@ public class CommandAdminVote implements CommandExecutor {
 					.colorize(
 							"&cSet VoteDelay to &c&l" + delay + "&c on &c&l"
 									+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
+			String url) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.SetVoteURL")) {
+			ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -644,61 +701,6 @@ public class CommandAdminVote implements CommandExecutor {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Vote")) {
 			VotiferEvent.playerVote(voteSite, playerName);
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setConfigDebug(CommandSender sender, boolean value) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetDebug")) {
-			Config.getInstance().setDebugEnabled(value);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet Debug to &c&l" + value));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setConfigBroadcastVote(CommandSender sender, boolean value) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetBroadcastVote")) {
-			Config.getInstance().setDebugEnabled(value);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet BroadcastVote to &c&l" + value));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setConfigUpdateReminder(CommandSender sender, boolean value) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetUpdateReminder")) {
-			Config.getInstance().setUpdateReminder(value);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet UpdateReminder to &c&l" + value));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetAllowUnjoined")) {
-			Config.getInstance().setAllowUnJoined(value);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet AllowUnjoined to &c&l" + value));
-		} else {
-			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void setConfigDisableJson(CommandSender sender, boolean value) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetDisablejson")) {
-			Config.getInstance().setDisableJson(value);
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet DisableJson to &c&l" + value));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

@@ -149,7 +149,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save Format.yml!");
+					.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -166,7 +166,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 
