@@ -39,9 +39,81 @@ public class CommandAdminVote implements CommandExecutor {
 		this.plugin = plugin;
 	}
 
+	public void addBonusRewardChanceRewardCommandConsole(CommandSender sender,
+			String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BonusReward.Edit")) {
+			List<String> cmds = ConfigBonusReward.getInstance()
+					.getChanceRewardConsoleCommands();
+			cmds.add(cmd);
+			ConfigBonusReward.getInstance()
+					.setChanceRewardConsoleCommands(cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded chance reward console command &c&l" + cmd));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void addBonusRewardChanceRewardCommandPlayer(CommandSender sender,
+			String cmd) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BonusReward.Edit")) {
+			List<String> cmds = ConfigBonusReward.getInstance()
+					.getChanceRewardPlayerCommands();
+			cmds.add(cmd);
+			ConfigBonusReward.getInstance().setChanceRewardPlayerCommands(cmds);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cAdded chance reward player command &c&l" + cmd));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void addBonusRewardChanceRewardItem(CommandSender sender, String item) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BonusReward.Edit")) {
+			if (Utils.getInstance().isPlayer(sender)) {
+				Player player = (Player) sender;
+				if (player.getInventory().getItemInMainHand() != null) {
+
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cTrying to add item..."));
+					Bukkit.getScheduler().runTaskAsynchronously(plugin,
+							new Runnable() {
+
+								@Override
+								public void run() {
+									ConfigBonusReward
+											.getInstance()
+											.addChanceRewardItem(
+
+													item,
+													player.getInventory()
+															.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded chance reward item &c&l"
+															+ item));
+
+								}
+							});
+
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cHold an item"));
+				}
+			} else {
+				sender.sendMessage(Messages.getInstance().mustBePlayer());
+			}
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void addBonusRewardCommandConsole(CommandSender sender, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BonusReward.AddCommandConsole")) {
+				"Commands.AdminVote.BonusReward.Edit")) {
 			List<String> cmds = ConfigBonusReward.getInstance()
 					.getConsoleCommands();
 			cmds.add(cmd);
@@ -55,7 +127,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void addBonusRewardCommandPlayer(CommandSender sender, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BonusReward.AddCommandPlayer")) {
+				"Commands.AdminVote.BonusReward.Edit")) {
 			List<String> cmds = ConfigBonusReward.getInstance()
 					.getPlayerCommands();
 			cmds.add(cmd);
@@ -69,7 +141,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void addBonusRewardItem(CommandSender sender, String item) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BonusReward.AddItem")) {
+				"Commands.AdminVote.BonusReward.Edit")) {
 			if (Utils.getInstance().isPlayer(sender)) {
 				Player player = (Player) sender;
 				if (player.getInventory().getItemInMainHand() != null) {
@@ -108,7 +180,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteCommandConsole(CommandSender sender,
 			String voteSite, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.AddCommandConsole")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
 					.getConsoleCommands(voteSite);
 			cmds.add(cmd);
@@ -124,7 +196,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteChanceRewardCommandConsole(CommandSender sender,
 			String voteSite, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.ChanceReward.AddCommandConsole")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
 					.getChanceRewardConsoleCommands(voteSite);
 			cmds.add(cmd);
@@ -141,7 +213,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteCommandPlayer(CommandSender sender, String voteSite,
 			String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.AddCommandPlayer")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
 					.getPlayerCommands(voteSite);
 			cmds.add(cmd);
@@ -157,7 +229,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteChanceRewardCommandPlayer(CommandSender sender,
 			String voteSite, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.ChanceReward.AddCommandPlayer")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
 					.getChanceRewardPlayerCommands(voteSite);
 			cmds.add(cmd);
@@ -174,7 +246,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteItem(CommandSender sender, String voteSite,
 			String item) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.AddItem")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			if (Utils.getInstance().isPlayer(sender)) {
 				Player player = (Player) sender;
 				if (player.getInventory().getItemInMainHand() != null) {
@@ -215,7 +287,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void addVoteSiteChanceRewardItem(CommandSender sender,
 			String voteSite, String item) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.ChanceReward.AddItem")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			if (Utils.getInstance().isPlayer(sender)) {
 				Player player = (Player) sender;
 				if (player.getInventory().getItemInMainHand() != null) {
@@ -391,6 +463,35 @@ public class CommandAdminVote implements CommandExecutor {
 						}
 						return true;
 					}
+
+					if (args[1].equalsIgnoreCase("AddChanceRewardItem")) {
+						addBonusRewardChanceRewardItem(sender, args[2]);
+						return true;
+					}
+					if (args[1].equalsIgnoreCase("SetChanceRewardMoney")) {
+						if (Utils.getInstance().isInt(args[2])) {
+							setBonusRewardChanceRewardMoney(sender,
+									Integer.parseInt(args[2]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[2]
+											+ ", number expected"));
+						}
+						return true;
+					}
+
+					if (args[1].equalsIgnoreCase("SetChanceRewardChance")) {
+						if (Utils.getInstance().isInt(args[2])) {
+							setBonusRewardChanceRewardChance(sender,
+									Integer.parseInt(args[2]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[2]
+											+ ", number expected"));
+						}
+						return true;
+					}
+
 					if (args[1].equalsIgnoreCase("SetGiveBonusReward")) {
 						setGiveBonusReward(sender,
 								Boolean.parseBoolean(args[2]));
@@ -436,6 +537,17 @@ public class CommandAdminVote implements CommandExecutor {
 							.makeString(2, args));
 					return true;
 				}
+
+				if (args[1].equalsIgnoreCase("AddhanceRewardCommandPlayer")) {
+					addBonusRewardChanceRewardCommandPlayer(sender, Utils
+							.getInstance().makeString(2, args));
+					return true;
+				}
+				if (args[1].equalsIgnoreCase("AddhanceRewardCommandConsole")) {
+					addBonusRewardChanceRewardCommandConsole(sender, Utils
+							.getInstance().makeString(2, args));
+					return true;
+				}
 			}
 		}
 
@@ -459,6 +571,18 @@ public class CommandAdminVote implements CommandExecutor {
 					if (args[2].equalsIgnoreCase("SetMoney")) {
 						if (Utils.getInstance().isInt(args[3])) {
 							setVoteSiteMoney(sender, args[1],
+									Integer.parseInt(args[3]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[3]
+											+ ", number expected"));
+						}
+						return true;
+					}
+
+					if (args[2].equalsIgnoreCase("SetChanceRewardChance")) {
+						if (Utils.getInstance().isInt(args[3])) {
+							setVoteSiteChanceRewardChance(sender, args[1],
 									Integer.parseInt(args[3]));
 						} else {
 							sender.sendMessage(Utils.getInstance().colorize(
@@ -600,7 +724,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setBonusRewardMoney(CommandSender sender, int money) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BonusReward.SetMoney")) {
+				"Commands.AdminVote.BonusReward.Edit")) {
 			ConfigBonusReward.getInstance().setMoney(money);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet money to &c&l" + money));
@@ -609,9 +733,45 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	public void setBonusRewardChanceRewardMoney(CommandSender sender, int money) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BonusReward.Edit")) {
+			ConfigBonusReward.getInstance().setChanceRewardMoney(money);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet chance reward money to &c&l" + money));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSiteChanceRewardChance(CommandSender sender,
+			String siteName, int chance) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.Edit")) {
+			ConfigVoteSites.getInstance().setChanceRewardChance(siteName,
+					chance);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet chance to &c&l" + chance));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setBonusRewardChanceRewardChance(CommandSender sender,
+			int chance) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.BonusReward.Edit")) {
+			ConfigBonusReward.getInstance().setChanceRewardChance(chance);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet chance to &c&l" + chance));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetAllowUnjoined")) {
+				"Commands.AdminVote.Config.Edit")) {
 			Config.getInstance().setAllowUnJoined(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet AllowUnjoined to &c&l" + value));
@@ -622,7 +782,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setConfigBroadcastVote(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetBroadcastVote")) {
+				"Commands.AdminVote.Config.Edit")) {
 			Config.getInstance().setDebugEnabled(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet BroadcastVote to &c&l" + value));
@@ -633,7 +793,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setConfigDebug(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetDebug")) {
+				"Commands.AdminVote.Config.Edit")) {
 			Config.getInstance().setDebugEnabled(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet Debug to &c&l" + value));
@@ -644,7 +804,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setConfigDisableJson(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetDisablejson")) {
+				"Commands.AdminVote.Config.Edit")) {
 			Config.getInstance().setDisableJson(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet DisableJson to &c&l" + value));
@@ -655,7 +815,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setConfigUpdateReminder(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Config.SetUpdateReminder")) {
+				"Commands.AdminVote.Config.Edit")) {
 			Config.getInstance().setUpdateReminder(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet UpdateReminder to &c&l" + value));
@@ -666,7 +826,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public void setGiveBonusReward(CommandSender sender, boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.BonusReward.SetGiveBonusReward")) {
+				"Commands.AdminVote.BonusReward.Edit")) {
 			ConfigBonusReward.getInstance().setGiveBonusReward(value);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet GiveBonusReward to &c&l" + value));
@@ -692,7 +852,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteDsiabled(CommandSender sender, String voteSite,
 			boolean disabled) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetDisabled")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
@@ -705,7 +865,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteMoney(CommandSender sender, String voteSite,
 			int money) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetMoney")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setMoney(voteSite, money);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
@@ -717,7 +877,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteChanceRewardMoney(CommandSender sender,
 			String voteSite, int money) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.ChanceReward.SetMoney")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setChanceRewardMoney(voteSite, money);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet chance reward money to &c&l" + money + "&c on &c&l"
@@ -730,7 +890,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
 			String serviceSite) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetServiceSite")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
@@ -743,7 +903,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite,
 			int delay) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetVoteDelay")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setVoteDelay(voteSite, delay);
 			sender.sendMessage(Utils.getInstance()
 					.colorize(
@@ -757,7 +917,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
 			String url) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.VoteSite.SetVoteURL")) {
+				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));

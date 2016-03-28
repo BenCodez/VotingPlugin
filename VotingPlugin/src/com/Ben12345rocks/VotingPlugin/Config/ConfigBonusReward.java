@@ -58,6 +58,26 @@ public class ConfigBonusReward {
 		setItemEnchants(item, enchants);
 	}
 
+	@SuppressWarnings("deprecation")
+	public void addChanceRewardItem(String item, ItemStack itemStack) {
+		int id = itemStack.getTypeId();
+		int data = itemStack.getData().getData();
+		int amount = itemStack.getAmount();
+
+		String name = itemStack.getItemMeta().getDisplayName();
+		List<String> lore = itemStack.getItemMeta().getLore();
+
+		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
+				itemStack.getEnchantments());
+
+		setChanceRewardItemId(item, id);
+		setChanceRewardItemData(item, data);
+		setChanceRewardItemAmount(item, amount);
+		setChanceRewardItemName(item, name);
+		setChanceRewardItemLore(item, lore);
+		setChanceRewardItemEnchants(item, enchants);
+	}
+
 	public int getChanceRewardChance() {
 		return getData().getInt("ChanceReward.Chance");
 	}
@@ -282,8 +302,7 @@ public class ConfigBonusReward {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
-	public void setChanceRewardConsoleCommands(String siteName,
-			List<String> consoleCommands) {
+	public void setChanceRewardConsoleCommands(List<String> consoleCommands) {
 		getData().set("ChanceReward.Commands.Console", consoleCommands);
 	}
 
@@ -328,8 +347,7 @@ public class ConfigBonusReward {
 		getData().set("ChanceReward.Money", money);
 	}
 
-	public void setChanceRewardPlayerCommands(String siteName,
-			List<String> playerCommands) {
+	public void setChanceRewardPlayerCommands(List<String> playerCommands) {
 		getData().set("ChanceReward.Commands.Player", playerCommands);
 	}
 
