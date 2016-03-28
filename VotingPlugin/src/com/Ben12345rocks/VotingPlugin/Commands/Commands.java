@@ -69,11 +69,21 @@ public class Commands {
 		msg.add("/adminvote VoteSite (SiteName) SetVoteDelay (Delay) - Set votesite votedelay");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandPlayer (Command) - Add player command to votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandConsole (Command) - Add console command to votesite");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardItem (Item) - Add ChanceReward item in hand to votesite");
+		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardMoney (Money) - Set ChanceReward money for votesite");
+		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardChance (Chance) - Set ChanceReward chance");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandPlayer (Command) - Add ChanceReward player command to votesite");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandConsole (Command) - Add ChanceReward console command to votesite");
 		msg.add("/adminvote BonusReward AddItem (Item) - Add item in hand");
 		msg.add("/adminvote BonusReward SetMoney (Money) - Set money");
 		msg.add("/adminvote BonusReward SetGiveBonusReward (Disabled) - Set bonus reward enabled");
 		msg.add("/adminvote BonusReward AddCommandPlayer (Command) - Add player command");
 		msg.add("/adminvote BonusReward AddCommandConsole (Command) - Add console command");
+		msg.add("/adminvote BonusReward AddChanceRewardItem (Item) - Add ChanceReward item in hand");
+		msg.add("/adminvote BonusReward SetChanceRewardMoney (Money) - Set ChanceReward money");
+		msg.add("/adminvote BonusReward SetChanceRewardChance (Chance) - Set ChanceReward chance");
+		msg.add("/adminvote BonusReward AddChanceRewardCommandPlayer (Command) - Add ChanceReward player command");
+		msg.add("/adminvote BonusReward AddChanceRewardCommandConsole (Command) - Add ChanceReward console command");
 		msg.add("/adminvote Config SetDebug (true/false) - Set debug");
 		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
 		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
@@ -151,13 +161,13 @@ public class Commands {
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
 			String timeString = new SimpleDateFormat(format.getTimeFormat())
-			.format(date);
+					.format(date);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
