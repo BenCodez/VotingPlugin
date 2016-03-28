@@ -81,6 +81,11 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetGiveBonusReward");
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
+					cmds.add("SetChanceRewardChance");
+					cmds.add("AddChanceRewardItem");
+					cmds.add("SetChanceRewardMoney");
+					cmds.add("AddChanceRewardCommandPlayer");
+					cmds.add("AddChanceRewardCommandConsole");
 				}
 
 				if (args[0].equalsIgnoreCase("Config")) {
@@ -117,11 +122,16 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetMoney");
 					cmds.add("SetServiceSite");
 					cmds.add("SetVoteURL");
+					cmds.add("SetChanceRewardChance");
 					cmds.add("SetDisabled");
 					cmds.add("SetVoteDelay");
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");
 					cmds.add("Create");
+					cmds.add("AddChanceRewardItem");
+					cmds.add("SetChanceRewardMoney");
+					cmds.add("AddChanceRewardCommandPlayer");
+					cmds.add("AddChanceRewardCommandConsole");
 				}
 				if (args[0].equalsIgnoreCase("Config")) {
 					if (args[1].equalsIgnoreCase("SetDebug")) {

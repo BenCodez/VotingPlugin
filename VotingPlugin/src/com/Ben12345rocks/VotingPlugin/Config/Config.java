@@ -38,36 +38,11 @@ public class Config {
 
 	public boolean disableJson() {
 		return true;
-		//return getData().getBoolean("DisableJson");
+		// return getData().getBoolean("DisableJson");
 	}
 
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
-	}
-
-	public void setAllowUnJoined(boolean value) {
-		getData().set("AllowUnjoined", value);
-		saveData();
-	}
-
-	public void setDisableJson(boolean value) {
-		getData().set("DisableJson", value);
-		saveData();
-	}
-
-	public void setDebugEnabled(boolean value) {
-		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setRemindVotesEnabled(boolean value) {
-		getData().set("RemindVotes", value);
-		saveData();
-	}
-
-	public void setUpdateReminder(boolean value) {
-		getData().set("UpdateReminder", value);
-		saveData();
 	}
 
 	public FileConfiguration getData() {
@@ -95,8 +70,28 @@ public class Config {
 		}
 	}
 
+	public void setAllowUnJoined(boolean value) {
+		getData().set("AllowUnjoined", value);
+		saveData();
+	}
+
 	public void setBroadcastVoteEnabled(boolean value) {
 		getData().set("BroadcastVote", value);
+		saveData();
+	}
+
+	public void setDebugEnabled(boolean value) {
+		getData().set("Debug", value);
+		saveData();
+	}
+
+	public void setDisableJson(boolean value) {
+		getData().set("DisableJson", value);
+		saveData();
+	}
+
+	public void setRemindVotesEnabled(boolean value) {
+		getData().set("RemindVotes", value);
 		saveData();
 	}
 
@@ -118,6 +113,11 @@ public class Config {
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void setUpdateReminder(boolean value) {
+		getData().set("UpdateReminder", value);
+		saveData();
 	}
 
 	public boolean updateReminder() {

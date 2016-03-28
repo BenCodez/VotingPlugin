@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -35,14 +34,7 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender, "Commands.Vote.Help")
 				|| Utils.getInstance().hasPermission(sender, "Player")) {
-			if (!Config.getInstance().disableJson()
-					&& Utils.getInstance().isPlayer(sender)) {
-				Utils.getInstance().sendMessageComponent(sender,
-						Commands.getInstance().voteHelp());
-			} else {
-				sender.sendMessage(Commands.getInstance().voteHelpTextColored());
-			}
-
+			sender.sendMessage(Commands.getInstance().voteHelpTextColored());
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -73,14 +65,14 @@ public class CommandVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-							@Override
-							public void run() {
-								sender.sendMessage(Utils.getInstance()
-										.colorize("&cGetting info..."));
-								sender.sendMessage(Commands.getInstance()
-										.playerInfo(new User(sender.getName())));
-							}
-						});
+					@Override
+					public void run() {
+						sender.sendMessage(Utils.getInstance()
+								.colorize("&cGetting info..."));
+						sender.sendMessage(Commands.getInstance()
+								.playerInfo(new User(sender.getName())));
+					}
+				});
 			} else {
 				sender.sendMessage(Messages.getInstance().noPerms());
 			}
