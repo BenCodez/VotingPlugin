@@ -65,14 +65,14 @@ public class CommandVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-							@Override
-							public void run() {
-								sender.sendMessage(Utils.getInstance()
-										.colorize("&cGetting info..."));
-								sender.sendMessage(Commands.getInstance()
-										.playerInfo(new User(sender.getName())));
-							}
-						});
+					@Override
+					public void run() {
+						sender.sendMessage(Utils.getInstance()
+								.colorize("&cGetting info..."));
+						sender.sendMessage(Commands.getInstance()
+								.playerInfo(new User(sender.getName())));
+					}
+				});
 			} else {
 				sender.sendMessage(Messages.getInstance().noPerms());
 			}
