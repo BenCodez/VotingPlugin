@@ -18,7 +18,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -263,7 +264,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
+								+ ".Miliseconds");
 		return mills;
 	}
 
@@ -290,6 +291,43 @@ public class User {
 		User user = this;
 		return Data.getInstance().getData(user)
 				.getInt(user.getUUID() + ".Total." + voteSite.getSiteName());
+	}
+
+	public void topVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveTopVoterAward(place);
+		} else {
+			// offline
+		}
+
+	}
+
+	public void giveTopVoterAward(int place) {
+		this.giveMoney(TopVoterAwards.getInstance()
+				.getTopVoterAwardMoney(place));
+		try {
+			for (String item : TopVoterAwards.getInstance().getItems(place)) {
+				this.giveItem(TopVoterAwards.getInstance()
+						.getTopVoterAwardItemStack(place, item));
+			}
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
+		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+	}
+
+	public void setOfflineTopVoter(int place) {
+		Data.getInstance().setTopVoterAwardOffline(this, place);
+	}
+
+	public int getOfflineTopVoter() {
+		return Data.getInstance().getTopVoterAwardOffline(this);
 	}
 
 	/**
@@ -454,9 +492,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -477,6 +515,12 @@ public class User {
 		}
 
 		this.setBonusOfflineVotes(0);
+
+		int place = this.getOfflineTopVoter();
+		if (place > 0) {
+			giveTopVoterAward(place);
+		}
+
 	}
 
 	/**

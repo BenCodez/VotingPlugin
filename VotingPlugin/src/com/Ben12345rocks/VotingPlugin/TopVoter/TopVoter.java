@@ -10,10 +10,10 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
-import com.Ben12345rocks.VotingPlugin.UserData.ServerData;
 
 public class TopVoter {
 
@@ -106,12 +106,37 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
-			plugin.getLogger().info("Month changed, resetting top voter!");
+			plugin.getLogger().info("Month changed, giving out top voter awards!");
+			
+			
+			
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
 					new Date().getMonth() + 1, topVoterNoColor());
 			resetTopVoter();
 
 		}
+	}
+	
+	public ArrayList<User> topVotersSorted() {
+		Set<User> users1 = Data.getInstance().getUsers();
+		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		Collections.sort(users, new Comparator<User>() {
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotalVotes();
+				int p2Total = p2.getTotalVotes();
+
+				if (p1Total < p2Total) {
+					return 1;
+				}
+				if (p1Total > p2Total) {
+					return -1;
+				}
+
+				return 0;
+			}
+		});
+		return users;
 	}
 
 	public String[] topVoterNoColor() {

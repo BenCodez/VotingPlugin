@@ -21,9 +21,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
-import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Utils {
 

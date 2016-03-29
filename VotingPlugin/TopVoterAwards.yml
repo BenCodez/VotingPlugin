@@ -1,0 +1,19 @@
+Awards:
+  1:
+    Money: 5000
+    Items:
+      Diamond:
+        ID: 264
+        Data: 0
+        Amount: 5
+        Name: '&cTop voter gift, First Place'
+    Commands:
+      Console:
+      - 'say %player% is first!'
+  2:
+    Money: 3000
+    Items:
+      ID: 264
+      Data: 0
+      Amount: 5
+      Name: '&cTop voter gift, Second Place'
