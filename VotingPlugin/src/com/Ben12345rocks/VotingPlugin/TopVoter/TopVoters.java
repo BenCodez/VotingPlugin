@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.TopVoter;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -9,6 +10,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class TopVoters {
 
@@ -51,13 +55,24 @@ public class TopVoters {
 			}
 		}
 
-		data.set("TopVoters", topVoters);
+		data.set("All", topVoters);
+		for (VoteSite voteSite : plugin.voteSites) {
+			ArrayList<String> voteSiteTop = new ArrayList<String>();
+			int i = 1;
+			for (User user : Data.getInstance().getUsers()) {
+				int siteTotal = user.getTotalVotesSite(voteSite);
+				voteSiteTop.add(i + ": " + user.getPlayerName() + ", "
+						+ siteTotal);
+				i++;
+			}
+			data.set(voteSite.getSiteName(), voteSiteTop);
+		}
 		try {
 			data.save(dFile);
 		} catch (IOException e) {
 			plugin.getLogger().info(
-					"Could not save: " + "TopVoters." + year + "."
-							+ month + ".yml");
+					"Could not save: " + "TopVoters." + year + "." + month
+							+ ".yml");
 		}
 
 	}

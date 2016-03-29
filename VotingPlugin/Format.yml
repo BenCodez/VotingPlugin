@@ -87,6 +87,9 @@ Format:
   rewardmsg: '&aYou were given rewards!'
   # Msg on chance reward
   chancerewardmsg: '&aLooks like you got lucky!'
+  # Msg on top voter award, will only send message if that place has a reward set
+  # %place% = place - 1,2,3,etc
+  topvoterawardmsg: '&aYou came in %place% in top voters of the month! Here's a award!'
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   timeformat: 'EEE, d MMM yyyy HH:mm'

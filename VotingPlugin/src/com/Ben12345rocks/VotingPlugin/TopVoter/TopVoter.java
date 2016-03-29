@@ -106,17 +106,23 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
-			plugin.getLogger().info("Month changed, giving out top voter awards!");
-			
-			
-			
+			plugin.getLogger().info("Month changed, giving top voter awards!");
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
 					new Date().getMonth() + 1, topVoterNoColor());
+			Set<String> places = TopVoterAwards.getInstance()
+					.getPossibleRewardPlaces();
+			int i = 0;
+			for (User user : topVotersSorted()) {
+				i++;
+				if (places.contains(Integer.toString(i))) {
+					user.topVoterAward(i);
+				}
+			}
 			resetTopVoter();
 
 		}
 	}
-	
+
 	public ArrayList<User> topVotersSorted() {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);

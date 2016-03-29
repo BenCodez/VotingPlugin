@@ -301,7 +301,7 @@ public class User {
 			// online
 			giveTopVoterAward(place);
 		} else {
-			// offline
+			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
 
 	}
@@ -320,6 +320,11 @@ public class User {
 			}
 		}
 		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()));
+		}
 	}
 
 	public void setOfflineTopVoter(int place) {
@@ -519,6 +524,7 @@ public class User {
 		int place = this.getOfflineTopVoter();
 		if (place > 0) {
 			giveTopVoterAward(place);
+			Data.getInstance().setTopVoterAwardOffline(this, 0);
 		}
 
 	}

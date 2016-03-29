@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -83,6 +84,15 @@ public class TopVoterAwards {
 	public int getTopVoterAwardMoney(int place) {
 		int money = getData().getInt("Awards." + place + ".Money");
 		return money;
+	}
+
+	public Set<String> getPossibleRewardPlaces() {
+		try {
+		return getData().getConfigurationSection("Awards").getKeys(false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
 	}
 
 	@SuppressWarnings("deprecation")
