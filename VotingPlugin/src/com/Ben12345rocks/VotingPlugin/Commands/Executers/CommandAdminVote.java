@@ -20,8 +20,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserData.Data;
+import com.Ben12345rocks.VotingPlugin.UserData.ServerData;
 
 public class CommandAdminVote implements CommandExecutor {
 
@@ -683,6 +684,7 @@ public class CommandAdminVote implements CommandExecutor {
 					bonusReward.reloadData();
 					plugin.updateTopUpdater();
 					plugin.setupFiles();
+					ServerData.getInstance().reloadData();
 					sender.sendMessage(ChatColor.RED + plugin.getName()
 							+ " reloaded!");
 				}
@@ -702,7 +704,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 				@Override
 				public void run() {
-					resetTopVoter();
+					TopVoter.getInstance().resetTopVoter();
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cDone resseting top voter"));
 					plugin.updateTopUpdater();
@@ -713,14 +715,7 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void resetTopVoter() {
-		for (User user : Data.getInstance().getUsers()) {
-			for (VoteSite voteSite : ConfigVoteSites.getInstance()
-					.getVoteSites()) {
-				user.setTotal(voteSite, 0);
-			}
-		}
-	}
+	
 
 	public void setBonusRewardChanceRewardChance(CommandSender sender,
 			int chance) {

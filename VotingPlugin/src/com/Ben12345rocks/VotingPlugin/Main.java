@@ -42,6 +42,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.UserData.ServerData;
 import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Main extends JavaPlugin {
@@ -250,6 +251,8 @@ public class Main extends JavaPlugin {
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
+		ServerData.getInstance().setup(plugin);
+
 		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Files");
@@ -276,6 +279,7 @@ public class Main extends JavaPlugin {
 			topVoter = TopVoter.getInstance().topVoters();
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
+			TopVoter.getInstance().checkTopVoterAward();
 			if (config.getDebugEnabled()) {
 				plugin.getLogger().info(
 						"Updated VoteTop, Updater, and VoteToday");
