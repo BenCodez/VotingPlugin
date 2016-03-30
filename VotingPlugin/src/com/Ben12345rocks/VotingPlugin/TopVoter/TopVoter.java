@@ -196,7 +196,6 @@ public class TopVoter {
 	public void refreshSigns() {
 		Set<String> signs = ServerData.getInstance().getSigns();
 		if (signs != null) {
-
 			ArrayList<User> users = topVotersSorted();
 			for (String sign : signs) {
 				Location loc = ServerData.getInstance().getSignLocation(sign);
@@ -208,24 +207,26 @@ public class TopVoter {
 							sign);
 					if (position != 0) {
 						if (data.equalsIgnoreCase("All")) {
-							s.setLine(0, "#" + position);
-							s.setLine(1, users.get(position - 1)
+							s.setLine(0, "TopVoter: " + data);
+							s.setLine(1, "#" + position);
+							s.setLine(2, users.get(position - 1)
 									.getPlayerName());
-							s.setLine(2, "TopVoter: " + data);
 							s.setLine(3, ""
 									+ users.get(position - 1).getTotalVotes()
 									+ " Votes");
+							s.update();
 						}
 						for (VoteSite voteSite : plugin.voteSites) {
 							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-								s.setLine(0, "#" + position);
-								s.setLine(1, users.get(position - 1)
+								s.setLine(0, "TopVoter: " + data);
+								s.setLine(1, "#" + position);
+								s.setLine(2, users.get(position - 1)
 										.getPlayerName());
-								s.setLine(2, "TopVoter: " + data);
 								s.setLine(3, ""
 										+ users.get(position - 1)
 												.getTotalVotesSite(voteSite)
 										+ " Votes");
+								s.update();
 							}
 						}
 					}
@@ -233,5 +234,4 @@ public class TopVoter {
 			}
 		}
 	}
-
 }

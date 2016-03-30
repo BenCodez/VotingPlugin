@@ -94,9 +94,11 @@ public class ServerData {
 	public int nextSignNumber() {
 		Set<String> signs = getSigns();
 
-		for (int i = 0; i < 10000; i++) {
-			if (!signs.contains(i)) {
-				return i;
+		if (signs != null) {
+			for (int i = 0; i < 10000; i++) {
+				if (!signs.contains(Integer.toString(i))) {
+					return i;
+				}
 			}
 		}
 		return 0;
@@ -113,7 +115,7 @@ public class ServerData {
 		getData().set("Signs." + count + ".Z", location.getBlockZ());
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
-		count++;
+		saveData();
 	}
 
 	public Set<String> getSigns() {
@@ -131,6 +133,7 @@ public class ServerData {
 		getData().set("Signs." + sign + ".Z", null);
 		getData().set("Signs." + sign + ".Data", null);
 		getData().set("Signs." + sign + ".Position", null);
+		getData().set("Signs." + sign, null);
 	}
 
 	public Location getSignLocation(String sign) {

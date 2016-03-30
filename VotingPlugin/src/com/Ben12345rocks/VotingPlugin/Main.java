@@ -35,7 +35,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
+import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
+import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
@@ -221,6 +223,10 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new VotiferEvent(this), this);
 
+		pm.registerEvents(new SignChange(this), this);
+		
+		pm.registerEvents(new BlockBreak(this), this);
+		
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Events");
 		}

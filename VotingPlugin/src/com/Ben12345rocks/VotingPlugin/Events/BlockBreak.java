@@ -24,7 +24,7 @@ public class BlockBreak implements Listener {
 	public void onBlockBreak(BlockBreakEvent event) {
 		if (event.getBlock().getState() instanceof Sign) {
 			Sign s = (Sign) event.getBlock().getState();
-			if (s.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {
+			if (s.getLine(0).startsWith("TopVoter")) {
 				Set<String> signs = ServerData.getInstance().getSigns();
 				if (signs != null) {
 					for (String sign : signs) {

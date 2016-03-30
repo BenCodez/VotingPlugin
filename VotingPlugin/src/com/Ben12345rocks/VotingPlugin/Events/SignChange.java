@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.SignChangeEvent;
@@ -11,7 +12,6 @@ import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 
 public class SignChange implements Listener {
 
-	@SuppressWarnings("unused")
 	private static Main plugin;
 
 	public SignChange(Main plugin) {
@@ -27,6 +27,16 @@ public class SignChange implements Listener {
 					ServerData.getInstance().addSign(
 							event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
+					event.getPlayer().sendMessage(
+							Utils.getInstance().colorize("&aAdded sign!"));
+					Bukkit.getScheduler().runTaskAsynchronously(plugin,
+							new Runnable() {
+
+								@Override
+								public void run() {
+									plugin.updateTopUpdater();
+								}
+							});
 				} catch (Exception ex) {
 					event.getPlayer().sendMessage(
 							Utils.getInstance().colorize(
