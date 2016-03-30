@@ -225,14 +225,14 @@ public class Data {
 
 	@SuppressWarnings("deprecation")
 	public void setTopVoterAwardOffline(User user, int place) {
-		set(user, user.getUUID() + "." + new Date().getYear() + "."
+		set(user, user.getUUID() + ".TopVoter." + new Date().getYear() + "."
 				+ new Date().getMonth(), place);
 	}
 
 	@SuppressWarnings("deprecation")
 	public int getTopVoterAwardOffline(User user) {
 		return getData(user).getInt(
-				user.getUUID() + "." + new Date().getYear() + "."
+				user.getUUID() + ".TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth());
 	}
 

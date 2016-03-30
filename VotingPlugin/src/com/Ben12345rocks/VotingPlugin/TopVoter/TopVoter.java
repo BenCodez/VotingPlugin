@@ -8,6 +8,7 @@ import java.util.Set;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -106,16 +107,18 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
-			plugin.getLogger().info("Month changed, giving top voter awards!");
+			plugin.getLogger().info("Month changed!");
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
 					new Date().getMonth() + 1, topVoterNoColor());
-			Set<String> places = TopVoterAwards.getInstance()
-					.getPossibleRewardPlaces();
-			int i = 0;
-			for (User user : topVotersSorted()) {
-				i++;
-				if (places.contains(Integer.toString(i))) {
-					user.topVoterAward(i);
+			if (!Config.getInstance().getTopVoterAwardsDisabled()) {
+				Set<String> places = TopVoterAwards.getInstance()
+						.getPossibleRewardPlaces();
+				int i = 0;
+				for (User user : topVotersSorted()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.topVoterAward(i);
+					}
 				}
 			}
 			resetTopVoter();

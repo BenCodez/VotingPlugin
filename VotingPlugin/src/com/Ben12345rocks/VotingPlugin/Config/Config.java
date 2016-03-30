@@ -53,6 +53,10 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
+	public boolean getTopVoterAwardsDisabled() {
+		return getData().getBoolean("DisableTopVoterAwards");
+	}
+
 	public boolean getRemindVotesEnabled() {
 		return getData().getBoolean("RemindVotes");
 	}
