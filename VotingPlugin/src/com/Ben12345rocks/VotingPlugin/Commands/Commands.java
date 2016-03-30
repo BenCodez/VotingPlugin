@@ -88,6 +88,8 @@ public class Commands {
 		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
 		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
 		msg.add("/adminvote Config SetAllowUnjoined (true/false) - Set allowunjoined");
+		msg.add("/adminvote Config SetDisableTopVoterAwards (true/false) - Set disabletopvoterawards");
+		msg.add("/adminvote ServerData SetPrevMonth - Set prevmonth, DO NOT USE");
 		return msg;
 	}
 

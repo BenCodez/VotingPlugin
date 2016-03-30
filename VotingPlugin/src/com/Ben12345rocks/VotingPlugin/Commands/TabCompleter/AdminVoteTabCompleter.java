@@ -40,6 +40,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				cmds.add("VoteSite");
 				cmds.add("BonusReward");
 				cmds.add("Config");
+				cmds.add("ServerData");
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -93,7 +94,11 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetBroadcastVote");
 					cmds.add("SetUpdateReminder");
 					cmds.add("SetAllowUnjoined");
-					// cmds.add("SetDisableJson");
+					cmds.add("SetDisableTopVoterAwards");
+				}
+
+				if (args[0].equalsIgnoreCase("ServerData")) {
+					cmds.add("SetPrevMonth");
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
@@ -147,6 +152,10 @@ public class AdminVoteTabCompleter implements TabCompleter {
 						cmds.add("False");
 					}
 					if (args[1].equalsIgnoreCase("SetAllowUnjoined")) {
+						cmds.add("True");
+						cmds.add("False");
+					}
+					if (args[1].equalsIgnoreCase("SetDisableTopVoterAwards")) {
 						cmds.add("True");
 						cmds.add("False");
 					}

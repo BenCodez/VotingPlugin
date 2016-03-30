@@ -75,6 +75,7 @@ permissions:
       VotingPlugin.Commands.AdminVote.VoteSite.Edit: true
       VotingPlugin.Commands.AdminVote.BonusReward.Edit: true
       VotingPlugin.Commands.AdminVote.Config.Edit: true
+      VotingPlugin.Commands.AdminVote.ServerData.Edit: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -141,5 +142,7 @@ permissions:
     description: Allows access to commands which edit BonusReward.yml
   VotingPlugin.Commands.AdminVote.Config.Edit: 
     description: Allows access to commands which edit Config.yml
+  VotingPlugin.Commands.AdminVote.ServerData.Edit: 
+    description: Allows access to commands which edit ServerData.yml
 
   
