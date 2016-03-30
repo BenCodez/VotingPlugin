@@ -134,6 +134,7 @@ public class ServerData {
 		getData().set("Signs." + sign + ".Data", null);
 		getData().set("Signs." + sign + ".Position", null);
 		getData().set("Signs." + sign, null);
+		saveData();
 	}
 
 	public Location getSignLocation(String sign) {

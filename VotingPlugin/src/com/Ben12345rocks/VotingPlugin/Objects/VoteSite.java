@@ -391,6 +391,7 @@ public class VoteSite {
 		this.voteDelay = configVoteSites.getVoteDelay(siteName);
 		this.money = configVoteSites.getMoneyAmount(siteName);
 		try {
+			this.items = new ArrayList<ItemStack>();
 			for (String item : configVoteSites.getItems(siteName)) {
 				this.items.add(getItemStackItem(item));
 			}

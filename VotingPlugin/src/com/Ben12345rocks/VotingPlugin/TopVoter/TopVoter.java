@@ -7,7 +7,9 @@ import java.util.Date;
 import java.util.Set;
 
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Skull;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -117,7 +119,7 @@ public class TopVoter {
 				Set<String> places = TopVoterAwards.getInstance()
 						.getPossibleRewardPlaces();
 				int i = 0;
-				for (User user : topVotersSorted()) {
+				for (User user : topVotersSortedAll()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
 						user.topVoterAward(i);
@@ -129,7 +131,7 @@ public class TopVoter {
 		}
 	}
 
-	public ArrayList<User> topVotersSorted() {
+	public ArrayList<User> topVotersSortedAll() {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
 		Collections.sort(users, new Comparator<User>() {
@@ -137,6 +139,28 @@ public class TopVoter {
 			public int compare(User p1, User p2) {
 				int p1Total = p1.getTotalVotes();
 				int p2Total = p2.getTotalVotes();
+
+				if (p1Total < p2Total) {
+					return 1;
+				}
+				if (p1Total > p2Total) {
+					return -1;
+				}
+
+				return 0;
+			}
+		});
+		return users;
+	}
+
+	public ArrayList<User> topVotersSortedVoteSite(VoteSite voteSite) {
+		Set<User> users1 = Data.getInstance().getUsers();
+		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		Collections.sort(users, new Comparator<User>() {
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotal(voteSite);
+				int p2Total = p1.getTotal(voteSite);
 
 				if (p1Total < p2Total) {
 					return 1;
@@ -196,7 +220,7 @@ public class TopVoter {
 	public void refreshSigns() {
 		Set<String> signs = ServerData.getInstance().getSigns();
 		if (signs != null) {
-			ArrayList<User> users = topVotersSorted();
+
 			for (String sign : signs) {
 				Location loc = ServerData.getInstance().getSignLocation(sign);
 				if (loc.getBlock().getState() instanceof Sign) {
@@ -207,30 +231,69 @@ public class TopVoter {
 							sign);
 					if (position != 0) {
 						if (data.equalsIgnoreCase("All")) {
+							ArrayList<User> users = topVotersSortedAll();
+
 							s.setLine(0, "TopVoter: " + data);
 							s.setLine(1, "#" + position);
-							s.setLine(2, users.get(position - 1)
-									.getPlayerName());
-							s.setLine(3, ""
-									+ users.get(position - 1).getTotalVotes()
-									+ " Votes");
-							s.update();
-						}
-						for (VoteSite voteSite : plugin.voteSites) {
-							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-								s.setLine(0, "TopVoter: " + data);
-								s.setLine(1, "#" + position);
+							if (users.size() >= position) {
 								s.setLine(2, users.get(position - 1)
 										.getPlayerName());
 								s.setLine(3, ""
 										+ users.get(position - 1)
-												.getTotalVotesSite(voteSite)
-										+ " Votes");
+												.getTotalVotes() + " Votes");
+
+								checkSkulls(loc, users.get(position - 1)
+										.getPlayerName());
+							} else {
+								s.setLine(2, "No Player");
+							}
+							s.update();
+						}
+						for (VoteSite voteSite : plugin.voteSites) {
+							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
+
+								ArrayList<User> users = topVotersSortedVoteSite(voteSite);
+
+								s.setLine(0, "TopVoter: " + data);
+								s.setLine(1, "#" + position);
+								if (users.size() >= position) {
+									s.setLine(2, users.get(position - 1)
+											.getPlayerName());
+									s.setLine(
+											3,
+											""
+													+ users.get(position - 1)
+															.getTotalVotesSite(
+																	voteSite)
+													+ " Votes");
+									checkSkulls(loc, users.get(position - 1)
+											.getPlayerName());
+								} else {
+									s.setLine(2, "No Player");
+								}
 								s.update();
 							}
 						}
 					}
+
+				} else {
+					ServerData.getInstance().removeSign(sign);
 				}
+			}
+		}
+	}
+
+	public void checkSkulls(Location loc, String playerName) {
+		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
+				loc.getBlockY() - 1, loc.getBlockZ() - 1);
+		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1,
+				loc.getBlockY() + 1, loc.getBlockZ() + 1);
+		for (Block block : Utils.getInstance().getRegionBlocks(loc.getWorld(),
+				loc1, loc2)) {
+			if (block.getState() instanceof Skull) {
+				Skull skull = (Skull) block.getState();
+				skull.setOwner(playerName);
+				skull.update();
 			}
 		}
 	}
