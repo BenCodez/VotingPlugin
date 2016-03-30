@@ -6,6 +6,9 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Set;
 
+import org.bukkit.Location;
+import org.bukkit.block.Sign;
+
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -186,6 +189,47 @@ public class TopVoter {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
 				user.setTotal(voteSite, 0);
+			}
+		}
+	}
+
+	public void refreshSigns() {
+		Set<String> signs = ServerData.getInstance().getSigns();
+		if (signs != null) {
+
+			ArrayList<User> users = topVotersSorted();
+			for (String sign : signs) {
+				Location loc = ServerData.getInstance().getSignLocation(sign);
+				if (loc.getBlock().getState() instanceof Sign) {
+					Sign s = (Sign) loc.getBlock().getState();
+
+					String data = ServerData.getInstance().getSignData(sign);
+					int position = ServerData.getInstance().getSignPosition(
+							sign);
+					if (position != 0) {
+						if (data.equalsIgnoreCase("All")) {
+							s.setLine(0, "#" + position);
+							s.setLine(1, users.get(position - 1)
+									.getPlayerName());
+							s.setLine(2, "TopVoter: " + data);
+							s.setLine(3, ""
+									+ users.get(position - 1).getTotalVotes()
+									+ " Votes");
+						}
+						for (VoteSite voteSite : plugin.voteSites) {
+							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
+								s.setLine(0, "#" + position);
+								s.setLine(1, users.get(position - 1)
+										.getPlayerName());
+								s.setLine(2, "TopVoter: " + data);
+								s.setLine(3, ""
+										+ users.get(position - 1)
+												.getTotalVotesSite(voteSite)
+										+ " Votes");
+							}
+						}
+					}
+				}
 			}
 		}
 	}

@@ -253,7 +253,7 @@ public class Main extends JavaPlugin {
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
 		ServerData.getInstance().setup(plugin);
-		
+
 		TopVoterAwards.getInstance().setup(plugin);
 
 		UUIDs.getInstance().setup(plugin);
@@ -283,6 +283,7 @@ public class Main extends JavaPlugin {
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
 			TopVoter.getInstance().checkTopVoterAward();
+			TopVoter.getInstance().refreshSigns();
 			if (config.getDebugEnabled()) {
 				plugin.getLogger().info(
 						"Updated VoteTop, Updater, and VoteToday");

@@ -91,6 +91,7 @@ permissions:
     children:
       VotingPlugin.Commands.AdminVote.*: true
       VotingPlugin.Player: true
+      VotingPlugin.Signs.Create: true
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
@@ -144,5 +145,7 @@ permissions:
     description: Allows access to commands which edit Config.yml
   VotingPlugin.Commands.AdminVote.ServerData.Edit: 
     description: Allows access to commands which edit ServerData.yml
+  VotingPlugin.Signs.Create:
+    description: Allows access to create signs
 
   
