@@ -237,82 +237,108 @@ public class TopVoter {
 		Set<String> signs = ServerData.getInstance().getSigns();
 		if (signs != null) {
 
+			int i = 0;
 			for (String sign : signs) {
 				Location loc = ServerData.getInstance().getSignLocation(sign);
-				Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+				int position = ServerData.getInstance().getSignPosition(sign);
+				String data = ServerData.getInstance().getSignData(sign);
+				if (position != 0) {
+					if (data.equalsIgnoreCase("All")) {
+						ArrayList<User> users = topVotersSortedAll();
+						Bukkit.getScheduler().runTaskLater(plugin,
+								new Runnable() {
 
-					@Override
-					public void run() {
-						BlockState state = loc.getBlock().getState();
-						if (state instanceof Sign) {
-							Sign s = (Sign) state;
+									@Override
+									public void run() {
+										BlockState state = loc.getBlock()
+												.getState();
+										if (state instanceof Sign) {
+											Sign s = (Sign) state;
 
-							int position = ServerData.getInstance()
-									.getSignPosition(sign);
-							if (position != 0) {
-								String data = ServerData.getInstance()
-										.getSignData(sign);
-								if (data.equalsIgnoreCase("All")) {
-									ArrayList<User> users = topVotersSortedAll();
+											s.setLine(0, "TopVoter: " + data);
+											s.setLine(1, "#" + position);
+											if (users.size() >= position) {
+												s.setLine(
+														2,
+														users.get(position - 1)
+																.getPlayerName());
+												s.setLine(
+														3,
+														""
+																+ users.get(
+																		position - 1)
+																		.getTotalVotes()
+																+ " Votes");
 
-									s.setLine(0, "TopVoter: " + data);
-									s.setLine(1, "#" + position);
-									if (users.size() >= position) {
-										s.setLine(2, users.get(position - 1)
-												.getPlayerName());
-										s.setLine(
-												3,
-												""
-														+ users.get(
-																position - 1)
-																.getTotalVotes()
-														+ " Votes");
+												checkSkulls(
+														loc,
+														users.get(position - 1)
+																.getPlayerName());
+											} else {
+												s.setLine(2, "No Player");
+											}
+											s.update();
 
-										checkSkulls(loc, users
-												.get(position - 1)
-												.getPlayerName());
-									} else {
-										s.setLine(2, "No Player");
-									}
-									s.update();
-								}
-								for (VoteSite voteSite : plugin.voteSites) {
-									if (data.equalsIgnoreCase(voteSite
-											.getSiteName())) {
-
-										ArrayList<User> users = topVotersSortedVoteSite(voteSite);
-
-										s.setLine(0, "TopVoter: " + data);
-										s.setLine(1, "#" + position);
-										if (users.size() >= position) {
-											s.setLine(2, users
-													.get(position - 1)
-													.getPlayerName());
-											s.setLine(
-													3,
-													""
-															+ users.get(
-																	position - 1)
-																	.getTotalVotesSite(
-																			voteSite)
-															+ " Votes");
-											checkSkulls(loc,
-													users.get(position - 1)
-															.getPlayerName());
-										} else {
-											s.setLine(2, "No Player");
 										}
-										s.update();
 									}
-								}
+
+								}, 10l + i);
+					} else {
+						for (VoteSite voteSite : plugin.voteSites) {
+							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
+								ArrayList<User> users = topVotersSortedVoteSite(voteSite);
+								Bukkit.getScheduler().runTaskLater(plugin,
+										new Runnable() {
+
+											@Override
+											public void run() {
+												BlockState state = loc
+														.getBlock().getState();
+												if (state instanceof Sign) {
+													Sign s = (Sign) state;
+
+													s.setLine(0, "TopVoter: "
+															+ data);
+													s.setLine(1, "#" + position);
+													if (users.size() >= position) {
+														s.setLine(
+																2,
+																users.get(
+																		position - 1)
+																		.getPlayerName());
+														s.setLine(
+																3,
+																""
+																		+ users.get(
+																				position - 1)
+																				.getTotalVotesSite(
+																						voteSite)
+																		+ " Votes");
+														checkSkulls(
+																loc,
+																users.get(
+																		position - 1)
+																		.getPlayerName());
+													} else {
+														s.setLine(2,
+																"No Player");
+													}
+													s.update();
+
+												}
+
+											}
+
+										}, 10l + i);
 							}
 
-						} else {
-							ServerData.getInstance().removeSign(sign);
 						}
-
 					}
-				}, 10l);
+
+				} else {
+					ServerData.getInstance().removeSign(sign);
+				}
+				i += 5;
 
 			}
 		}
