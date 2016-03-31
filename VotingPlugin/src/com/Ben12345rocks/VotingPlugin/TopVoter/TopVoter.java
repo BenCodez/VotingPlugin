@@ -150,6 +150,13 @@ public class TopVoter {
 				return 0;
 			}
 		});
+		if (Config.getInstance().getDebugEnabled()) {
+			for (User user : users) {
+				plugin.getLogger().info(
+						"Debug: " + user.getPlayerName() + ", "
+								+ user.getTotalVotes());
+			}
+		}
 		return users;
 	}
 
@@ -160,7 +167,7 @@ public class TopVoter {
 			@Override
 			public int compare(User p1, User p2) {
 				int p1Total = p1.getTotalVotesSite(voteSite);
-				int p2Total = p1.getTotalVotesSite(voteSite);
+				int p2Total = p2.getTotalVotesSite(voteSite);
 
 				if (p1Total < p2Total) {
 					return 1;
@@ -172,6 +179,13 @@ public class TopVoter {
 				return 0;
 			}
 		});
+		if (Config.getInstance().getDebugEnabled()) {
+			for (User user : users) {
+				plugin.getLogger().info(
+						"Debug: " + user.getPlayerName() + ", "
+								+ user.getTotalVotesSite(voteSite));
+			}
+		}
 		return users;
 	}
 
