@@ -6,8 +6,10 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 
@@ -237,62 +239,81 @@ public class TopVoter {
 
 			for (String sign : signs) {
 				Location loc = ServerData.getInstance().getSignLocation(sign);
-				if (loc.getBlock().getState() instanceof Sign) {
-					Sign s = (Sign) loc.getBlock().getState();
+				Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
 
-					String data = ServerData.getInstance().getSignData(sign);
-					int position = ServerData.getInstance().getSignPosition(
-							sign);
-					if (position != 0) {
-						if (data.equalsIgnoreCase("All")) {
-							ArrayList<User> users = topVotersSortedAll();
+					@Override
+					public void run() {
+						BlockState state = loc.getBlock().getState();
+						if (state instanceof Sign) {
+							Sign s = (Sign) state;
 
-							s.setLine(0, "TopVoter: " + data);
-							s.setLine(1, "#" + position);
-							if (users.size() >= position) {
-								s.setLine(2, users.get(position - 1)
-										.getPlayerName());
-								s.setLine(3, ""
-										+ users.get(position - 1)
-												.getTotalVotes() + " Votes");
+							int position = ServerData.getInstance()
+									.getSignPosition(sign);
+							if (position != 0) {
+								String data = ServerData.getInstance()
+										.getSignData(sign);
+								if (data.equalsIgnoreCase("All")) {
+									ArrayList<User> users = topVotersSortedAll();
 
-								checkSkulls(loc, users.get(position - 1)
-										.getPlayerName());
-							} else {
-								s.setLine(2, "No Player");
-							}
-							s.update();
-						}
-						for (VoteSite voteSite : plugin.voteSites) {
-							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
+									s.setLine(0, "TopVoter: " + data);
+									s.setLine(1, "#" + position);
+									if (users.size() >= position) {
+										s.setLine(2, users.get(position - 1)
+												.getPlayerName());
+										s.setLine(
+												3,
+												""
+														+ users.get(
+																position - 1)
+																.getTotalVotes()
+														+ " Votes");
 
-								ArrayList<User> users = topVotersSortedVoteSite(voteSite);
-
-								s.setLine(0, "TopVoter: " + data);
-								s.setLine(1, "#" + position);
-								if (users.size() >= position) {
-									s.setLine(2, users.get(position - 1)
-											.getPlayerName());
-									s.setLine(
-											3,
-											""
-													+ users.get(position - 1)
-															.getTotalVotesSite(
-																	voteSite)
-													+ " Votes");
-									checkSkulls(loc, users.get(position - 1)
-											.getPlayerName());
-								} else {
-									s.setLine(2, "No Player");
+										checkSkulls(loc, users
+												.get(position - 1)
+												.getPlayerName());
+									} else {
+										s.setLine(2, "No Player");
+									}
+									s.update();
 								}
-								s.update();
-							}
-						}
-					}
+								for (VoteSite voteSite : plugin.voteSites) {
+									if (data.equalsIgnoreCase(voteSite
+											.getSiteName())) {
 
-				} else {
-					ServerData.getInstance().removeSign(sign);
-				}
+										ArrayList<User> users = topVotersSortedVoteSite(voteSite);
+
+										s.setLine(0, "TopVoter: " + data);
+										s.setLine(1, "#" + position);
+										if (users.size() >= position) {
+											s.setLine(2, users
+													.get(position - 1)
+													.getPlayerName());
+											s.setLine(
+													3,
+													""
+															+ users.get(
+																	position - 1)
+																	.getTotalVotesSite(
+																			voteSite)
+															+ " Votes");
+											checkSkulls(loc,
+													users.get(position - 1)
+															.getPlayerName());
+										} else {
+											s.setLine(2, "No Player");
+										}
+										s.update();
+									}
+								}
+							}
+
+						} else {
+							ServerData.getInstance().removeSign(sign);
+						}
+
+					}
+				}, 10l);
+
 			}
 		}
 	}

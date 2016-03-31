@@ -1,10 +1,12 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
@@ -326,6 +328,31 @@ public class User {
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
 							.replace("%place%", "" + place)));
 		}
+	}
+
+	public long getVoteTimeLast() {
+		ArrayList<Long> times = new ArrayList<Long>();
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.add(getTime(voteSite));
+		}
+		Long last = Collections.max(times);
+		return last;
+	}
+
+	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
+		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.put(voteSite, getTime(voteSite));
+		}
+		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times
+				.entrySet()
+				.stream()
+				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+				.collect(
+						Collectors
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		return sorted;
 	}
 
 	public void setOfflineTopVoter(int place) {
