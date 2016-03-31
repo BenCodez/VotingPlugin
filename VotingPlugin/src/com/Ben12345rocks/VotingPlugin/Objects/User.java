@@ -323,7 +323,8 @@ public class User {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
-					ConfigFormat.getInstance().getTopVoterRewardMsg()));
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+							.replace("%place%", "" + place)));
 		}
 	}
 

@@ -159,8 +159,8 @@ public class TopVoter {
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotal(voteSite);
-				int p2Total = p1.getTotal(voteSite);
+				int p1Total = p1.getTotalVotesSite(voteSite);
+				int p2Total = p1.getTotalVotesSite(voteSite);
 
 				if (p1Total < p2Total) {
 					return 1;
