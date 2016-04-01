@@ -4,12 +4,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.apache.commons.lang3.time.DateUtils;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -370,7 +364,7 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public TextComponent voteHelp() {
+	/*public TextComponent voteHelp() {
 		TextComponent texts = new TextComponent();
 		for (String msg : voteHelpText()) {
 			TextComponent text = new TextComponent();
@@ -388,7 +382,7 @@ public class Commands {
 		}
 
 		return texts;
-	}
+	}*/
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
