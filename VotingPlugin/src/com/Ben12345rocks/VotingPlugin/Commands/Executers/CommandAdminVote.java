@@ -17,11 +17,12 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class CommandAdminVote implements CommandExecutor {
 
@@ -47,7 +48,7 @@ public class CommandAdminVote implements CommandExecutor {
 					.getChanceRewardConsoleCommands();
 			cmds.add(cmd);
 			ConfigBonusReward.getInstance()
-			.setChanceRewardConsoleCommands(cmds);
+					.setChanceRewardConsoleCommands(cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded chance reward console command &c&l" + cmd));
 		} else {
@@ -82,22 +83,22 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigBonusReward
-							.getInstance()
-							.addChanceRewardItem(
+								@Override
+								public void run() {
+									ConfigBonusReward
+											.getInstance()
+											.addChanceRewardItem(
 
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded chance reward item &c&l"
-													+ item));
+													item,
+													player.getInventory()
+															.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded chance reward item &c&l"
+															+ item));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -151,19 +152,19 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigBonusReward.getInstance().addItem(
+								@Override
+								public void run() {
+									ConfigBonusReward.getInstance().addItem(
 
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded item &c&l" + item));
+											item,
+											player.getInventory()
+													.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded item &c&l" + item));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -188,7 +189,7 @@ public class CommandAdminVote implements CommandExecutor {
 					voteSite, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded chance reward console command &c&l" + cmd
-					+ "&c on &c&l" + voteSite));
+							+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -205,7 +206,7 @@ public class CommandAdminVote implements CommandExecutor {
 					voteSite, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded chance reward player command &c&l" + cmd
-					+ "&c on &c&l" + voteSite));
+							+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -224,23 +225,23 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigVoteSites
-							.getInstance()
-							.addChanceRewardItem(
-									voteSite,
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded chance reward item &c&l"
-													+ item + " &cto "
-													+ voteSite));
+								@Override
+								public void run() {
+									ConfigVoteSites
+											.getInstance()
+											.addChanceRewardItem(
+													voteSite,
+													item,
+													player.getInventory()
+															.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded chance reward item &c&l"
+															+ item + " &cto "
+															+ voteSite));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -299,21 +300,21 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigVoteSites.getInstance().addItem(
-									voteSite,
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded item &c&l" + item
-											+ " &cto "
-											+ voteSite));
+								@Override
+								public void run() {
+									ConfigVoteSites.getInstance().addItem(
+											voteSite,
+											item,
+											player.getInventory()
+													.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded item &c&l" + item
+															+ " &cto "
+															+ voteSite));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -519,12 +520,27 @@ public class CommandAdminVote implements CommandExecutor {
 								Boolean.parseBoolean(args[2]));
 						return true;
 					}
-					/*
-					 * if (args[1].equalsIgnoreCase("SetDisableJson")) {
-					 * setConfigDisableJson(sender,
-					 * Boolean.parseBoolean(args[2])); return true; }
-					 */
+					if (args[1].equalsIgnoreCase("SetDisableTopVoterAwards")) {
+						setConfigDisableTopVoterAwards(sender,
+								Boolean.parseBoolean(args[2]));
+						return true;
+					}
 				}
+
+				if (args[0].equalsIgnoreCase("ServerData")) {
+					if (args[1].equalsIgnoreCase("SetPrevMonth")) {
+						if (Utils.getInstance().isInt(args[2])) {
+							setServerDataPrevMonth(sender,
+									Integer.parseInt(args[2]));
+						} else {
+							sender.sendMessage(Utils.getInstance().colorize(
+									"&cError on " + args[2]
+											+ ", number expected"));
+						}
+						return true;
+					}
+				}
+
 			}
 			if (args[0].equalsIgnoreCase("BonusReward")) {
 				if (args[1].equalsIgnoreCase("AddCommandPlayer")) {
@@ -538,12 +554,12 @@ public class CommandAdminVote implements CommandExecutor {
 					return true;
 				}
 
-				if (args[1].equalsIgnoreCase("AddhanceRewardCommandPlayer")) {
+				if (args[1].equalsIgnoreCase("AddChanceRewardCommandPlayer")) {
 					addBonusRewardChanceRewardCommandPlayer(sender, Utils
 							.getInstance().makeString(2, args));
 					return true;
 				}
-				if (args[1].equalsIgnoreCase("AddhanceRewardCommandConsole")) {
+				if (args[1].equalsIgnoreCase("AddChanceRewardCommandConsole")) {
 					addBonusRewardChanceRewardCommandConsole(sender, Utils
 							.getInstance().makeString(2, args));
 					return true;
@@ -683,6 +699,7 @@ public class CommandAdminVote implements CommandExecutor {
 					bonusReward.reloadData();
 					plugin.updateTopUpdater();
 					plugin.setupFiles();
+					ServerData.getInstance().reloadData();
 					sender.sendMessage(ChatColor.RED + plugin.getName()
 							+ " reloaded!");
 				}
@@ -702,7 +719,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 				@Override
 				public void run() {
-					resetTopVoter();
+					TopVoter.getInstance().resetTopVoter();
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cDone resseting top voter"));
 					plugin.updateTopUpdater();
@@ -710,15 +727,6 @@ public class CommandAdminVote implements CommandExecutor {
 			});
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
-		}
-	}
-
-	public void resetTopVoter() {
-		for (User user : Data.getInstance().getUsers()) {
-			for (VoteSite voteSite : ConfigVoteSites.getInstance()
-					.getVoteSites()) {
-				user.setTotal(voteSite, 0);
-			}
 		}
 	}
 
@@ -789,12 +797,24 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setConfigDisableJson(CommandSender sender, boolean value) {
+	public void setConfigDisableTopVoterAwards(CommandSender sender,
+			boolean value) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Config.Edit")) {
-			Config.getInstance().setDisableJson(value);
+			Config.getInstance().setTopVoterAwardsDisabled(value);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet DisableJson to &c&l" + value));
+					"&cSet DisableTopVoterAwards to &c&l" + value));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setServerDataPrevMonth(CommandSender sender, int month) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.ServerData.Edit")) {
+			ServerData.getInstance().setPrevMonth(month);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet PreMonth to &c&l" + month));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

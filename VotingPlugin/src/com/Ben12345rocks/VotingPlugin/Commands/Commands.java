@@ -18,9 +18,9 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
 
 public class Commands {
 
@@ -88,6 +88,8 @@ public class Commands {
 		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
 		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
 		msg.add("/adminvote Config SetAllowUnjoined (true/false) - Set allowunjoined");
+		msg.add("/adminvote Config SetDisableTopVoterAwards (true/false) - Set disabletopvoterawards");
+		msg.add("/adminvote ServerData SetPrevMonth - Set prevmonth, DO NOT USE");
 		return msg;
 	}
 

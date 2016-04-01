@@ -33,16 +33,20 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
+import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
+import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
-import com.Ben12345rocks.VotingPlugin.UserData.UUIDs;
 
 public class Main extends JavaPlugin {
 
@@ -219,6 +223,10 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new VotiferEvent(this), this);
 
+		pm.registerEvents(new SignChange(this), this);
+		
+		pm.registerEvents(new BlockBreak(this), this);
+		
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Events");
 		}
@@ -250,6 +258,10 @@ public class Main extends JavaPlugin {
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
+		ServerData.getInstance().setup(plugin);
+
+		TopVoterAwards.getInstance().setup(plugin);
+
 		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Files");
@@ -276,6 +288,8 @@ public class Main extends JavaPlugin {
 			topVoter = TopVoter.getInstance().topVoters();
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
+			TopVoter.getInstance().checkTopVoterAward();
+			TopVoter.getInstance().refreshSigns();
 			if (config.getDebugEnabled()) {
 				plugin.getLogger().info(
 						"Updated VoteTop, Updater, and VoteToday");

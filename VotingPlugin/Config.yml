@@ -6,7 +6,6 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
-
 # Wether debug info will be displayed
 Debug: false
 
@@ -22,4 +21,7 @@ UpdateReminder: true
 
 # Let players who never joined before vote
 AllowUnjoined: false
+
+# Disable Montly Top Voter Awards
+DisableTopVoterAwards: true
 

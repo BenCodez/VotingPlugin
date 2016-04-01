@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.UserData;
+package com.Ben12345rocks.VotingPlugin.Data;
 
 import java.io.File;
 import java.io.IOException;
@@ -221,6 +221,19 @@ public class Data {
 			Bukkit.getServer().getLogger()
 					.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
 		}
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTopVoterAwardOffline(User user, int place) {
+		set(user, user.getUUID() + ".TopVoter." + new Date().getYear() + "."
+				+ new Date().getMonth(), place);
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getTopVoterAwardOffline(User user) {
+		return getData(user).getInt(
+				user.getUUID() + ".TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth());
 	}
 
 	public void setBonusOfflineVotes(User user, int amount) {

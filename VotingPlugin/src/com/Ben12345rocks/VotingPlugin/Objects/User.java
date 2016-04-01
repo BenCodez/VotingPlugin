@@ -1,10 +1,12 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
@@ -18,7 +20,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.UserData.Data;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -263,7 +266,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
+								+ ".Miliseconds");
 		return mills;
 	}
 
@@ -290,6 +293,74 @@ public class User {
 		User user = this;
 		return Data.getInstance().getData(user)
 				.getInt(user.getUUID() + ".Total." + voteSite.getSiteName());
+	}
+
+	public void topVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOffline(this, place);
+		}
+
+	}
+
+	public void giveTopVoterAward(int place) {
+		this.giveMoney(TopVoterAwards.getInstance()
+				.getTopVoterAwardMoney(place));
+		try {
+			for (String item : TopVoterAwards.getInstance().getItems(place)) {
+				this.giveItem(TopVoterAwards.getInstance()
+						.getTopVoterAwardItemStack(place, item));
+			}
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
+		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+							.replace("%place%", "" + place)));
+		}
+	}
+
+	public long getVoteTimeLast() {
+		ArrayList<Long> times = new ArrayList<Long>();
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.add(getTime(voteSite));
+		}
+		Long last = Collections.max(times);
+		return last;
+	}
+
+	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
+		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.put(voteSite, getTime(voteSite));
+		}
+		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times
+				.entrySet()
+				.stream()
+				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+				.collect(
+						Collectors
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		return sorted;
+	}
+
+	public void setOfflineTopVoter(int place) {
+		Data.getInstance().setTopVoterAwardOffline(this, place);
+	}
+
+	public int getOfflineTopVoter() {
+		return Data.getInstance().getTopVoterAwardOffline(this);
 	}
 
 	/**
@@ -454,9 +525,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -477,6 +548,13 @@ public class User {
 		}
 
 		this.setBonusOfflineVotes(0);
+
+		int place = this.getOfflineTopVoter();
+		if (place > 0) {
+			giveTopVoterAward(place);
+			Data.getInstance().setTopVoterAwardOffline(this, 0);
+		}
+
 	}
 
 	/**
