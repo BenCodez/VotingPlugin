@@ -399,7 +399,9 @@ public class User {
 	 * Trigger Bonus Reward
 	 */
 	public void giveBonus() {
+
 		BonusVoteReward.getInstance().giveBonusReward(this);
+
 	}
 
 	@SuppressWarnings("deprecation")

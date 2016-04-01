@@ -71,13 +71,13 @@ public class BonusVoteReward {
 		}
 	}
 
-	public void doChanceRewardBonusCommands(User user) {
+	public void doChanceRewardBonusCommands(User user, String reward) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
 		ArrayList<String> consolecmds = bonusReward
-				.getChanceRewardConsoleCommands();
+				.getChanceRewardConsoleCommands(reward);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -91,7 +91,7 @@ public class BonusVoteReward {
 
 		// Player commands
 		ArrayList<String> playercmds = bonusReward
-				.getChanceRewardPlayerCommands();
+				.getChanceRewardPlayerCommands(reward);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -113,30 +113,33 @@ public class BonusVoteReward {
 			Player player = Bukkit.getPlayer(playerName);
 			player.sendMessage(ChatColor.RED
 					+ "You were given bonus Items for voting on all sites in one day!");
-			giveChanceReward(user);
+			for (String reward : ConfigBonusReward.getInstance()
+					.getChanceRewardRewards()) {
+				giveChanceReward(user, reward);
+			}
 		}
 
 	}
 
-	public void giveChanceReward(User user) {
+	public void giveChanceReward(User user, String reward) {
 		try {
-			int chance = bonusReward.getChanceRewardChance();
+			int chance = bonusReward.getChanceRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
 				if (chance != 100) {
 					user.sendMessage(ConfigFormat.getInstance()
 							.getChanceRewardMsg());
 				}
-				doChanceRewardBonusCommands(user);
-				giveChanceRewardItemBonusReward(user);
-				giveChanceRewardMoneyBonus(user);
+				doChanceRewardBonusCommands(user, reward);
+				giveChanceRewardItemBonusReward(user, reward);
+				giveChanceRewardMoneyBonus(user, reward);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
 	}
 
-	public void giveChanceRewardItemBonusReward(User user) {
+	public void giveChanceRewardItemBonusReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -146,29 +149,30 @@ public class BonusVoteReward {
 			return;
 		}
 
-		Set<String> items = bonusReward.getChanceRewardItems();
+		Set<String> items = bonusReward.getChanceRewardItems(reward);
 		for (String item : items) {
-			int id = bonusReward.getChanceRewardItemID(item);
-			int amount = bonusReward.getChanceRewardItemAmount(item);
+			int id = bonusReward.getChanceRewardItemID(reward, item);
+			int amount = bonusReward.getChanceRewardItemAmount(reward, item);
 
-			int data = bonusReward.getChanceRewardItemData(item);
+			int data = bonusReward.getChanceRewardItemData(reward, item);
 
-			String itemName = bonusReward.getChanceRewardItemName(item);
+			String itemName = bonusReward.getChanceRewardItemName(reward, item);
 
 			itemName = Utils.getInstance().colorize(itemName);
 
-			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(item);
+			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(
+					reward, item);
 			lore = Utils.getInstance().colorize(lore);
 
 			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
-					.getInstance().getChanceRewardEnchantments(item));
+					.getInstance().getChanceRewardEnchantments(reward, item));
 
 		}
 
 	}
 
-	public void giveChanceRewardMoneyBonus(User user) {
-		int money = bonusReward.getChanceRewardMoneyAmount();
+	public void giveChanceRewardMoneyBonus(User user, String reward) {
+		int money = bonusReward.getChanceRewardMoneyAmount(reward);
 		user.giveMoney(money);
 	}
 
