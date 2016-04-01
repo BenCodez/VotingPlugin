@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -38,8 +39,8 @@ public class ConfigVoteSites {
 	// File dFile;
 
 	@SuppressWarnings("deprecation")
-	public void addChanceRewardItem(String siteName, String item,
-			ItemStack itemStack) {
+	public void addChanceRewardItem(String siteName, String reward,
+			String item, ItemStack itemStack) {
 		int id = itemStack.getTypeId();
 		int data = itemStack.getData().getData();
 		int amount = itemStack.getAmount();
@@ -50,12 +51,12 @@ public class ConfigVoteSites {
 		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
 				itemStack.getEnchantments());
 
-		setChanceRewardItemId(siteName, item, id);
-		setChanceRewardItemData(siteName, item, data);
-		setChanceRewardItemAmount(siteName, item, amount);
-		setChanceRewardItemName(siteName, item, name);
-		setChanceRewardItemLore(siteName, item, lore);
-		setChanceRewardItemEnchants(siteName, item, enchants);
+		setChanceRewardItemId(siteName, reward, item, id);
+		setChanceRewardItemData(siteName, reward, item, data);
+		setChanceRewardItemAmount(siteName, reward, item, amount);
+		setChanceRewardItemName(siteName, reward, item, name);
+		setChanceRewardItemLore(siteName, reward, item, lore);
+		setChanceRewardItemEnchants(siteName, reward, item, enchants);
 	}
 
 	@SuppressWarnings("deprecation")
@@ -87,19 +88,33 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
-	public int getChanceRewardChance(String siteName) {
-		return getData(siteName).getInt("ChanceReward.Chance");
+	public Set<String> getChanceRewardRewards(String siteName) {
+		try {
+			return getData(siteName).getConfigurationSection("ChanceReward")
+					.getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
+
+	}
+
+	public int getChanceRewardChance(String reward, String siteName) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".Chance");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardConsoleCommands(String siteName) {
+	public ArrayList<String> getChanceRewardConsoleCommands(String siteName,
+			String reward) {
 		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward.Commands.Console");
+				"ChanceReward." + reward + ".Commands.Console");
 	}
 
 	/**
@@ -110,10 +125,11 @@ public class ConfigVoteSites {
 	 *            Enchant
 	 * @return Level of enchantment
 	 */
-	public int getChanceRewardEnchantLevel(String siteName, String item,
-			String enchant) {
+	public int getChanceRewardEnchantLevel(String siteName, String reward,
+			String item, String enchant) {
 		return getData(siteName).getInt(
-				"ChanceReward.Items." + item + ".Enchants." + enchant);
+				"ChanceReward." + reward + ".Items." + item + ".Enchants."
+						+ enchant);
 	}
 
 	/**
@@ -123,14 +139,17 @@ public class ConfigVoteSites {
 	 * @return Enchants of item
 	 */
 	public HashMap<String, Integer> getChanceRewardEnchantments(
-			String siteName, String item) {
+			String siteName, String reward, String item) {
 		try {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
-					"ChanceReward.Items." + item + ".Enchants").getKeys(false);
+					"ChanceReward." + reward + ".Items." + item + ".Enchants")
+					.getKeys(false);
 			for (String enchant : enchants) {
-				enchantments.put(enchant,
-						getEnchantLevel(siteName, item, enchant));
+				enchantments.put(
+						enchant,
+						getChanceRewardEnchantLevel(siteName, reward, item,
+								enchant));
 			}
 
 			return enchantments;
@@ -146,9 +165,10 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Amount of items
 	 */
-	public int getChanceRewardItemAmount(String siteName, String item) {
+	public int getChanceRewardItemAmount(String siteName, String reward,
+			String item) {
 		return getData(siteName).getInt(
-				"ChanceReward.Items." + item + ".Amount");
+				"ChanceReward." + reward + ".Items." + item + ".Amount");
 	}
 
 	/**
@@ -157,8 +177,10 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Item data value
 	 */
-	public int getChanceRewardItemData(String siteName, String item) {
-		return getData(siteName).getInt("ChanceReward.Items." + item + ".Data");
+	public int getChanceRewardItemData(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".Data");
 	}
 
 	/**
@@ -167,8 +189,9 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Id of item
 	 */
-	public int getChanceRewardItemID(String siteName, String item) {
-		return getData(siteName).getInt("ChanceReward.Items." + item + ".ID");
+	public int getChanceRewardItemID(String siteName, String reward, String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -178,9 +201,9 @@ public class ConfigVoteSites {
 	 * @return		Lore of item
 	 */
 	public ArrayList<String> getChanceRewardItemLore(String siteName,
-			String item) {
+			String reward, String item) {
 		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward.Items." + item + ".Lore");
+				"ChanceReward." + reward + ".Items." + item + ".Lore");
 	}
 
 	/**
@@ -189,28 +212,30 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Name of item
 	 */
-	public String getChanceRewardItemName(String siteName, String item) {
+	public String getChanceRewardItemName(String siteName, String reward,
+			String item) {
 		return getData(siteName).getString(
-				"ChanceReward.Items." + item + ".Name");
+				"ChanceReward." + reward + ".Items." + item + ".Name");
 	}
 
 	/**
 	 *
 	 * @return Items of VoteSite
 	 */
-	public Set<String> getChanceRewardItems(String siteName) {
+	public Set<String> getChanceRewardItems(String siteName, String reward) {
 		return getData(siteName).getConfigurationSection("ChanceReward.Items")
 				.getKeys(false);
 	}
 
-	public int getChanceRewardMoneyAmount(String siteName) {
-		return getData(siteName).getInt("ChanceReward.Money");
+	public int getChanceRewardMoneyAmount(String siteName, String reward) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".Money");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardPlayerCommands(String siteName) {
+	public ArrayList<String> getChanceRewardPlayerCommands(String siteName,
+			String reward) {
 		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward.Commands.Player");
+				"ChanceReward." + reward + ".Commands.Player");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -430,63 +455,71 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 
-	public void setChanceRewardChance(String siteName, int chance) {
-		set(siteName, "ChanceReward.Chance", chance);
+	public void setChanceRewardChance(String siteName, String reward, int chance) {
+		set(siteName, "ChanceReward." + reward + ".Chance", chance);
 	}
 
-	public void setChanceRewardConsoleCommands(String siteName,
+	public void setChanceRewardConsoleCommands(String siteName, String reward,
 			List<String> consoleCommands) {
-		set(siteName, "ChanceReward.Commands.Console", consoleCommands);
+		set(siteName, "ChanceReward." + reward + ".Commands.Console",
+				consoleCommands);
 	}
 
-	public void setChanceRewardItemAmount(String siteName, String item,
-			int amount) {
-		set(siteName, "ChanceReward.Items." + item + ".Amount", amount);
+	public void setChanceRewardItemAmount(String siteName, String reward,
+			String item, int amount) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Amount",
+				amount);
 	}
 
-	public void setChanceRewardItemData(String siteName, String item, int data) {
-		set(siteName, "ChanceReward.Items." + item + ".Data", data);
+	public void setChanceRewardItemData(String siteName, String reward,
+			String item, int data) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Data",
+				data);
 	}
 
-	public void setChanceRewardItemEnchantLevel(String siteName, String item,
-			String enchant, int level) {
-		set(siteName, "ChanceReward.Items." + item + ".Enchants." + enchant,
-				level);
+	public void setChanceRewardItemEnchantLevel(String siteName, String reward,
+			String item, String enchant, int level) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item
+				+ ".Enchants." + enchant, level);
 	}
 
-	public void setChanceRewardItemEnchants(String siteName, String item,
-			HashMap<Enchantment, Integer> enchants) {
+	public void setChanceRewardItemEnchants(String siteName, String reward,
+			String item, HashMap<Enchantment, Integer> enchants) {
 		for (Enchantment enchant : enchants.keySet()) {
-			setItemEnchantLevel(siteName, item, enchant.getName(),
-					enchants.get(enchant));
+			setChanceRewardItemEnchantLevel(siteName, reward, item,
+					enchant.getName(), enchants.get(enchant));
 		}
 	}
 
-	public void setChanceRewardItemId(String siteName, String item, int id) {
-		set(siteName, "ChanceReward.Items." + item + ".ID", id);
+	public void setChanceRewardItemId(String siteName, String reward,
+			String item, int id) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item + ".ID", id);
 	}
 
-	public void setChanceRewardItemLore(String siteName, String item,
-			List<String> lore) {
-		set(siteName, "ChanceReward.Items." + item + ".Lore", lore);
+	public void setChanceRewardItemLore(String siteName, String reward,
+			String item, List<String> lore) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Lore",
+				lore);
 	}
 
-	public void setChanceRewardItemName(String siteName, String item,
-			String name) {
-		set(siteName, "ChanceReward.Items." + item + ".Name", name);
+	public void setChanceRewardItemName(String siteName, String reward,
+			String item, String name) {
+		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Name",
+				name);
 	}
 
-	public void setChanceRewardMoney(String siteName, int money) {
-		set(siteName, "ChanceReward.Money", money);
+	public void setChanceRewardMoney(String siteName, String reward, int money) {
+		set(siteName, "ChanceReward." + reward + ".Money", money);
 	}
 
-	public void setChanceRewardPlayerCommands(String siteName,
+	public void setChanceRewardPlayerCommands(String siteName, String reward,
 			List<String> playerCommands) {
-		set(siteName, "ChanceReward.Commands.Player", playerCommands);
+		set(siteName, "ChanceReward." + reward + ".Commands.Player",
+				playerCommands);
 	}
 
 	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
