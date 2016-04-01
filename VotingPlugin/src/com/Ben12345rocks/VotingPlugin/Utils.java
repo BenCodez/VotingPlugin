@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -337,7 +335,7 @@ public class Utils {
 		return al;
 	}
 
-	public void sendMessageComponent(CommandSender sender, TextComponent msg) {
+/*	public void sendMessageComponent(CommandSender sender, TextComponent msg) {
 		if (isPlayer(sender)) {
 			Player player = (Player) sender;
 			player.spigot().sendMessage(msg);
@@ -350,7 +348,7 @@ public class Utils {
 		for (TextComponent message : msg) {
 			sendMessageComponent(sender, message);
 		}
-	}
+	}*/
 
 	@SuppressWarnings("unused")
 	public String[] setToArray(Set<String> set) {
