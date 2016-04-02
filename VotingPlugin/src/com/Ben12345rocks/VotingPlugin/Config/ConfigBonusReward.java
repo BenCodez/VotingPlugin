@@ -156,11 +156,6 @@ public class ConfigBonusReward {
 				"ChanceReward." + reward + ".Commands.Player");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getConsoleCommands() {
-		return (ArrayList<String>) getData().getList("Commands.Console");
-	}
-
 	public Set<String> getChanceRewardRewards() {
 		try {
 			return getData().getConfigurationSection("ChanceReward").getKeys(
@@ -172,6 +167,11 @@ public class ConfigBonusReward {
 			return new HashSet<String>();
 		}
 
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getConsoleCommands() {
+		return (ArrayList<String>) getData().getList("Commands.Console");
 	}
 
 	public FileConfiguration getData() {
@@ -244,7 +244,7 @@ public class ConfigBonusReward {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save BonusReward.yml!");
+			.severe(ChatColor.RED + "Could not save BonusReward.yml!");
 		}
 	}
 
@@ -377,9 +377,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BonusReward.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BonusReward.yml!");
 			}
 		}
 

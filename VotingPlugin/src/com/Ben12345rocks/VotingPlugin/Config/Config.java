@@ -53,17 +53,12 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
-	public boolean getTopVoterAwardsDisabled() {
-		return getData().getBoolean("DisableTopVoterAwards");
-	}
-
-	public void setTopVoterAwardsDisabled(boolean value) {
-		getData().set("DisableTopVoterAwards", value);
-		saveData();
-	}
-
 	public boolean getRemindVotesEnabled() {
 		return getData().getBoolean("RemindVotes");
+	}
+
+	public boolean getTopVoterAwardsDisabled() {
+		return getData().getBoolean("DisableTopVoterAwards");
 	}
 
 	public void reloadData() {
@@ -75,7 +70,7 @@ public class Config {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Config.yml!");
+			.severe(ChatColor.RED + "Could not save Config.yml!");
 		}
 	}
 
@@ -104,6 +99,11 @@ public class Config {
 		saveData();
 	}
 
+	public void setTopVoterAwardsDisabled(boolean value) {
+		getData().set("DisableTopVoterAwards", value);
+		saveData();
+	}
+
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
 			p.getDataFolder().mkdir();
@@ -117,7 +117,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

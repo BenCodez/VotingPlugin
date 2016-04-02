@@ -89,9 +89,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -168,6 +168,13 @@ public class Data {
 				user.getUUID() + ".LastVote." + voteSite + "." + value);
 	}
 
+	@SuppressWarnings("deprecation")
+	public int getTopVoterAwardOffline(User user) {
+		return getData(user).getInt(
+				user.getUUID() + ".TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth());
+	}
+
 	public int getTotal(User user, String voteSite) {
 		return getData(user).getInt(user.getUUID() + ".Total." + voteSite);
 	}
@@ -202,9 +209,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -219,21 +226,8 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
+			.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
 		}
-	}
-
-	@SuppressWarnings("deprecation")
-	public void setTopVoterAwardOffline(User user, int place) {
-		set(user, user.getUUID() + ".TopVoter." + new Date().getYear() + "."
-				+ new Date().getMonth(), place);
-	}
-
-	@SuppressWarnings("deprecation")
-	public int getTopVoterAwardOffline(User user) {
-		return getData(user).getInt(
-				user.getUUID() + ".TopVoter." + new Date().getYear() + "."
-						+ new Date().getMonth());
 	}
 
 	public void setBonusOfflineVotes(User user, int amount) {
@@ -295,6 +289,12 @@ public class Data {
 		set(user, uuid + ".LastVote." + siteName + ".Year", year);
 	}
 
+	@SuppressWarnings("deprecation")
+	public void setTopVoterAwardOffline(User user, int place) {
+		set(user, user.getUUID() + ".TopVoter." + new Date().getYear() + "."
+				+ new Date().getMonth(), place);
+	}
+
 	public void setTotal(User user, String voteSite, int amount) {
 		set(user, user.getUUID() + ".Total." + voteSite, amount);
 	}
@@ -325,7 +325,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}

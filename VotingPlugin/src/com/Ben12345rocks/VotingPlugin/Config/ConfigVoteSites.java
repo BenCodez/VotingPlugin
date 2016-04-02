@@ -88,25 +88,12 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
-	public Set<String> getChanceRewardRewards(String siteName) {
-		try {
-			return getData(siteName).getConfigurationSection("ChanceReward")
-					.getKeys(false);
-		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
-			return new HashSet<String>();
-		}
-
-	}
-
-	public int getChanceRewardChance(String reward, String siteName) {
+	public int getChanceRewardChance(String siteName, String reward) {
 		return getData(siteName).getInt("ChanceReward." + reward + ".Chance");
 	}
 
@@ -236,6 +223,19 @@ public class ConfigVoteSites {
 			String reward) {
 		return (ArrayList<String>) getData(siteName).getList(
 				"ChanceReward." + reward + ".Commands.Player");
+	}
+
+	public Set<String> getChanceRewardRewards(String siteName) {
+		try {
+			return getData(siteName).getConfigurationSection("ChanceReward")
+					.getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -455,7 +455,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
 	}
 

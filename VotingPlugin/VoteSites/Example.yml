@@ -73,15 +73,17 @@ Commands:
 # Rewards to give based on a chance
 # Can use the same rewards as above
 # Follows same rules
+# Can have more than one chance reward
 ChanceReward:
-  # Chance out of 100
-  # Must be an integer
-  Chance: 40
-  Items:
-    ID: 264
-    Data: 0
-    Amount: 1
-  Money: 1000
-  Commands:
-    Console:
-    - 'say %player% was lucky'
+  Reward1:
+    # Chance out of 100
+    # Must be an integer
+    Chance: 40
+    Items:
+      ID: 264
+      Data: 0
+      Amount: 1
+    Money: 1000
+    Commands:
+      Console:
+      - 'say %player% was lucky'
