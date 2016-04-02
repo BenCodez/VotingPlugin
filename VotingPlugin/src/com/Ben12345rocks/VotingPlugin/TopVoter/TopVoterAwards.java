@@ -40,78 +40,50 @@ public class TopVoterAwards {
 		TopVoterAwards.plugin = plugin;
 	}
 
-	public FileConfiguration getData() {
-		return data;
-	}
+	/**
+	 *
+	 * @param user
+	 *            User to execute commands with
+	 */
+	public void doTopVoterAwardCommands(User user, int place) {
 
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
+		String playerName = user.getPlayerName();
 
-	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED
-							+ "Could not save TopVoterAwards.yml!");
-		}
-	}
+		// Console commands
+		ArrayList<String> consolecmds = this.getConsoleCommands(place);
 
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "TopVoterAwards.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("TopVoterAwards.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
 			}
 		}
 
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
+		// Player commands
+		ArrayList<String> playercmds = this.getPlayerCommands(place);
 
-	public int getTopVoterAwardMoney(int place) {
-		int money = getData().getInt("Awards." + place + ".Money");
-		return money;
-	}
-
-	public Set<String> getPossibleRewardPlaces() {
-		try {
-		return getData().getConfigurationSection("Awards").getKeys(false);
-		} catch (Exception ex) {
-			Set<String> noValues = new HashSet<String>();
-			return noValues;
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
 		}
 	}
 
-	@SuppressWarnings("deprecation")
-	public ItemStack getTopVoterAwardItemStack(int place, String item) {
-		int id = this.getItemID(place, item);
-		int amount = this.getItemAmount(place, item);
-		int data = this.getItemData(place, item);
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getConsoleCommands(int place) {
+		return (ArrayList<String>) getData().getList(
+				"Awards." + place + ".Commands.Console");
+	}
 
-		String itemName = this.getItemName(place, item);
-		itemName = Utils.getInstance().colorize(itemName);
-
-		ArrayList<String> lore = this.getItemLore(place, item);
-		lore = Utils.getInstance().colorize(lore);
-		ItemStack itemStack = new ItemStack(id, amount, (short) data);
-		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
-		itemStack = Utils.getInstance().addlore(itemStack, lore);
-		itemStack = Utils.getInstance().addEnchants(itemStack,
-				this.getEnchantments(place, item));
-		return itemStack;
+	public FileConfiguration getData() {
+		return data;
 	}
 
 	/**
@@ -141,7 +113,7 @@ public class TopVoterAwards {
 					.getKeys(false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant, getEnchantLevel(place, item, enchant));
+				.put(enchant, getEnchantLevel(place, item, enchant));
 			}
 
 			return enchantments;
@@ -213,55 +185,83 @@ public class TopVoterAwards {
 				.getKeys(false);
 	}
 
+	public String getMessage(int place) {
+		return getData().getString("Awards." + place + ".Message");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getPlayerCommands(int place) {
 		return (ArrayList<String>) getData().getList(
 				"Awards." + place + ".Commands.Player");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getConsoleCommands(int place) {
-		return (ArrayList<String>) getData().getList(
-				"Awards." + place + ".Commands.Console");
+	public Set<String> getPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("Awards").getKeys(false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
 	}
 
-	public String getMessage(int place) {
-		return getData().getString("Awards." + place + ".Message");
+	@SuppressWarnings("deprecation")
+	public ItemStack getTopVoterAwardItemStack(int place, String item) {
+		int id = this.getItemID(place, item);
+		int amount = this.getItemAmount(place, item);
+		int data = this.getItemData(place, item);
+
+		String itemName = this.getItemName(place, item);
+		itemName = Utils.getInstance().colorize(itemName);
+
+		ArrayList<String> lore = this.getItemLore(place, item);
+		lore = Utils.getInstance().colorize(lore);
+		ItemStack itemStack = new ItemStack(id, amount, (short) data);
+		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
+		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addEnchants(itemStack,
+				this.getEnchantments(place, item));
+		return itemStack;
 	}
 
-	/**
-	 *
-	 * @param user
-	 *            User to execute commands with
-	 */
-	public void doTopVoterAwardCommands(User user, int place) {
+	public int getTopVoterAwardMoney(int place) {
+		int money = getData().getInt("Awards." + place + ".Money");
+		return money;
+	}
 
-		String playerName = user.getPlayerName();
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
 
-		// Console commands
-		ArrayList<String> consolecmds = this.getConsoleCommands(place);
+	public void saveData() {
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer()
+			.getLogger()
+			.severe(ChatColor.RED
+					+ "Could not save TopVoterAwards.yml!");
+		}
+	}
 
-		if (consolecmds != null) {
-			for (String consolecmd : consolecmds) {
-				if (consolecmd.length() > 0) {
-					consolecmd = consolecmd.replace("%player%", playerName);
-					Bukkit.getServer().dispatchCommand(
-							Bukkit.getConsoleSender(), consolecmd);
-				}
+	public void setup(Plugin p) {
+		if (!p.getDataFolder().exists()) {
+			p.getDataFolder().mkdir();
+		}
+
+		dFile = new File(p.getDataFolder(), "TopVoterAwards.yml");
+
+		if (!dFile.exists()) {
+			try {
+				dFile.createNewFile();
+				plugin.saveResource("TopVoterAwards.yml", true);
+			} catch (IOException e) {
+				Bukkit.getServer()
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 
-		// Player commands
-		ArrayList<String> playercmds = this.getPlayerCommands(place);
-
-		Player player = Bukkit.getPlayer(playerName);
-		if (playercmds != null) {
-			for (String playercmd : playercmds) {
-				if ((player != null) && (playercmd.length() > 0)) {
-					playercmd = playercmd.replace("%player%", playerName);
-					player.performCommand(playercmd);
-				}
-			}
-		}
+		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 }

@@ -4,12 +4,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.apache.commons.lang3.time.DateUtils;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -69,21 +63,21 @@ public class Commands {
 		msg.add("/adminvote VoteSite (SiteName) SetVoteDelay (Delay) - Set votesite votedelay");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandPlayer (Command) - Add player command to votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddCommandConsole (Command) - Add console command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardItem (Item) - Add ChanceReward item in hand to votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardMoney (Money) - Set ChanceReward money for votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardChance (Chance) - Set ChanceReward chance");
-		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandPlayer (Command) - Add ChanceReward player command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandConsole (Command) - Add ChanceReward console command to votesite");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardItem (Reward) (Item) - Add ChanceReward item in hand to votesite");
+		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardMoney (Reward) (Money) - Set ChanceReward money for votesite");
+		msg.add("/adminvote VoteSite (SiteName) SetChanceRewardChance (Reward) (Chance) - Set ChanceReward chance");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandPlayer (Reward) (Command) - Add ChanceReward player command to votesite");
+		msg.add("/adminvote VoteSite (SiteName) AddChanceRewardCommandConsole (Reward) (Command) - Add ChanceReward console command to votesite");
 		msg.add("/adminvote BonusReward AddItem (Item) - Add item in hand");
 		msg.add("/adminvote BonusReward SetMoney (Money) - Set money");
 		msg.add("/adminvote BonusReward SetGiveBonusReward (Disabled) - Set bonus reward enabled");
 		msg.add("/adminvote BonusReward AddCommandPlayer (Command) - Add player command");
 		msg.add("/adminvote BonusReward AddCommandConsole (Command) - Add console command");
-		msg.add("/adminvote BonusReward AddChanceRewardItem (Item) - Add ChanceReward item in hand");
-		msg.add("/adminvote BonusReward SetChanceRewardMoney (Money) - Set ChanceReward money");
-		msg.add("/adminvote BonusReward SetChanceRewardChance (Chance) - Set ChanceReward chance");
-		msg.add("/adminvote BonusReward AddChanceRewardCommandPlayer (Command) - Add ChanceReward player command");
-		msg.add("/adminvote BonusReward AddChanceRewardCommandConsole (Command) - Add ChanceReward console command");
+		msg.add("/adminvote BonusReward AddChanceRewardItem (Reward) (Item) - Add ChanceReward item in hand");
+		msg.add("/adminvote BonusReward SetChanceRewardMoney (Reward) (Money) - Set ChanceReward money");
+		msg.add("/adminvote BonusReward SetChanceRewardChance (Reward) (Chance) - Set ChanceReward chance");
+		msg.add("/adminvote BonusReward AddChanceRewardCommandPlayer (Reward) (Command) - Add ChanceReward player command");
+		msg.add("/adminvote BonusReward AddChanceRewardCommandConsole (Reward) (Command) - Add ChanceReward console command");
 		msg.add("/adminvote Config SetDebug (true/false) - Set debug");
 		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
 		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
@@ -163,13 +157,13 @@ public class Commands {
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
 			String timeString = new SimpleDateFormat(format.getTimeFormat())
-			.format(date);
+					.format(date);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -370,25 +364,19 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public TextComponent voteHelp() {
-		TextComponent texts = new TextComponent();
-		for (String msg : voteHelpText()) {
-			TextComponent text = new TextComponent();
-			text.setText(msg.split("-")[0] + "\n");
-			text.setColor(ChatColor.DARK_AQUA);
-			text.setBold(true);
-			text.setClickEvent(new ClickEvent(
-					ClickEvent.Action.SUGGEST_COMMAND, msg.split("-")[0]));
-			if (msg.split("-").length > 1) {
-				text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-						new ComponentBuilder(msg.split("-")[1]).color(
-								ChatColor.AQUA).create()));
-			}
-			texts.addExtra(text);
-		}
-
-		return texts;
-	}
+	/*
+	 * public TextComponent voteHelp() { TextComponent texts = new
+	 * TextComponent(); for (String msg : voteHelpText()) { TextComponent text =
+	 * new TextComponent(); text.setText(msg.split("-")[0] + "\n");
+	 * text.setColor(ChatColor.DARK_AQUA); text.setBold(true);
+	 * text.setClickEvent(new ClickEvent( ClickEvent.Action.SUGGEST_COMMAND,
+	 * msg.split("-")[0])); if (msg.split("-").length > 1) {
+	 * text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new
+	 * ComponentBuilder(msg.split("-")[1]).color( ChatColor.AQUA).create())); }
+	 * texts.addExtra(text); }
+	 * 
+	 * return texts; }
+	 */
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();

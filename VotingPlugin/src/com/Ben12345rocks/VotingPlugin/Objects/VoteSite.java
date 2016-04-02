@@ -73,13 +73,13 @@ public class VoteSite {
 	 * @param user
 	 *            User to execute commands with
 	 */
-	public void doChanceRewardSiteCommands(User user) {
+	public void doChanceRewardSiteCommands(User user, String reward) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
 		ArrayList<String> consolecmds = configVoteSites
-				.getChanceRewardConsoleCommands(siteName);
+				.getChanceRewardConsoleCommands(siteName, reward);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -93,7 +93,7 @@ public class VoteSite {
 
 		// Player commands
 		ArrayList<String> playercmds = configVoteSites
-				.getChanceRewardPlayerCommands(siteName);
+				.getChanceRewardPlayerCommands(siteName, reward);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -147,8 +147,8 @@ public class VoteSite {
 	/**
 	 * @return Chance
 	 */
-	public int getChanceRewardChance() {
-		int chance = configVoteSites.getChanceRewardChance(siteName);
+	public int getChanceRewardChance(String reward) {
+		int chance = configVoteSites.getChanceRewardChance(siteName, reward);
 		if (chance <= 0) {
 			chance = 100;
 		} else if (chance > 100) {
@@ -158,23 +158,27 @@ public class VoteSite {
 	}
 
 	@SuppressWarnings("deprecation")
-	public ItemStack getChanceRewardItemStackItem(String item) {
-		int id = configVoteSites.getChanceRewardItemID(siteName, item);
-		int amount = configVoteSites.getChanceRewardItemAmount(siteName, item);
-		int data = configVoteSites.getChanceRewardItemData(siteName, item);
+	public ItemStack getChanceRewardItemStackItem(String reward, String item) {
+		int id = configVoteSites.getChanceRewardItemID(siteName, reward, item);
+		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
+				reward, item);
+		int data = configVoteSites.getChanceRewardItemData(siteName, reward,
+				item);
 
 		String itemName = configVoteSites.getChanceRewardItemName(siteName,
-				item);
+				reward, item);
 		itemName = Utils.getInstance().colorize(itemName);
 
 		ArrayList<String> lore = configVoteSites.getChanceRewardItemLore(
-				siteName, item);
+				siteName, reward, item);
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
 		itemStack = Utils.getInstance().addlore(itemStack, lore);
-		itemStack = Utils.getInstance().addEnchants(itemStack,
-				configVoteSites.getChanceRewardEnchantments(siteName, item));
+		itemStack = Utils.getInstance().addEnchants(
+				itemStack,
+				configVoteSites.getChanceRewardEnchantments(siteName, reward,
+						item));
 		return itemStack;
 	}
 
@@ -253,21 +257,21 @@ public class VoteSite {
 		return voteURL;
 	}
 
-	public void giveChanceReward(User user) {
+	public void giveChanceReward(User user, String reward) {
 		try {
-			int chance = getChanceRewardChance();
+			int chance = getChanceRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
 				if (chance != 100) {
 					user.sendMessage(ConfigFormat.getInstance()
 							.getChanceRewardMsg());
 				}
-				doChanceRewardSiteCommands(user);
+				doChanceRewardSiteCommands(user, reward);
 				try {
-					giveChanceRewardItemSiteReward(user);
+					giveChanceRewardItemSiteReward(user, reward);
 				} catch (Exception ex) {
 				}
-				giveChanceRewardMoneySite(user);
+				giveChanceRewardMoneySite(user, reward);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -280,7 +284,7 @@ public class VoteSite {
 	 * @param user
 	 *            User to give items to
 	 */
-	public void giveChanceRewardItemSiteReward(User user) {
+	public void giveChanceRewardItemSiteReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -291,9 +295,10 @@ public class VoteSite {
 			return;
 		}
 
-		Set<String> items = configVoteSites.getChanceRewardItems(siteName);
+		Set<String> items = configVoteSites.getChanceRewardItems(siteName,
+				reward);
 		for (String item : items) {
-			user.giveItem(getChanceRewardItemStackItem(item));
+			user.giveItem(getChanceRewardItemStackItem(reward, item));
 		}
 	}
 
@@ -301,8 +306,9 @@ public class VoteSite {
 	 * @param user
 	 *            User to give money to
 	 */
-	public void giveChanceRewardMoneySite(User user) {
-		int money = configVoteSites.getChanceRewardMoneyAmount(siteName);
+	public void giveChanceRewardMoneySite(User user, String reward) {
+		int money = configVoteSites
+				.getChanceRewardMoneyAmount(siteName, reward);
 		user.giveMoney(money);
 	}
 
@@ -376,7 +382,10 @@ public class VoteSite {
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
-			giveChanceReward(user);
+			for (String reward : ConfigVoteSites.getInstance()
+					.getChanceRewardRewards(siteName)) {
+				giveChanceReward(user, reward);
+			}
 		} else {
 			plugin.getLogger().info(
 					"VoteSite '" + voteSite.getSiteName() + "' is Disabled!");

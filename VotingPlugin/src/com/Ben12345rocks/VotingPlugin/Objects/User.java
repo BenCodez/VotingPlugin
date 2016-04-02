@@ -227,6 +227,26 @@ public class User {
 				.getInt(user.getUUID() + ".BonusOfflineVotes");
 	}
 
+	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
+		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.put(voteSite, getTime(voteSite));
+		}
+		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times
+				.entrySet()
+				.stream()
+				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+				.collect(
+						Collectors
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		return sorted;
+	}
+
+	public int getOfflineTopVoter() {
+		return Data.getInstance().getTopVoterAwardOffline(this);
+	}
+
 	/**
 	 * Get amount of offline votes for VoteSite
 	 *
@@ -266,7 +286,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-								+ ".Miliseconds");
+						+ ".Miliseconds");
 		return mills;
 	}
 
@@ -293,74 +313,6 @@ public class User {
 		User user = this;
 		return Data.getInstance().getData(user)
 				.getInt(user.getUUID() + ".Total." + voteSite.getSiteName());
-	}
-
-	public void topVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
-		}
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
-			// online
-			giveTopVoterAward(place);
-		} else {
-			Data.getInstance().setTopVoterAwardOffline(this, place);
-		}
-
-	}
-
-	public void giveTopVoterAward(int place) {
-		this.giveMoney(TopVoterAwards.getInstance()
-				.getTopVoterAwardMoney(place));
-		try {
-			for (String item : TopVoterAwards.getInstance().getItems(place)) {
-				this.giveItem(TopVoterAwards.getInstance()
-						.getTopVoterAwardItemStack(place, item));
-			}
-		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
-		}
-		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			player.sendMessage(Utils.getInstance().colorize(
-					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
-		}
-	}
-
-	public long getVoteTimeLast() {
-		ArrayList<Long> times = new ArrayList<Long>();
-		for (VoteSite voteSite : plugin.voteSites) {
-			times.add(getTime(voteSite));
-		}
-		Long last = Collections.max(times);
-		return last;
-	}
-
-	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
-		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
-
-		for (VoteSite voteSite : plugin.voteSites) {
-			times.put(voteSite, getTime(voteSite));
-		}
-		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times
-				.entrySet()
-				.stream()
-				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-				.collect(
-						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
-		return sorted;
-	}
-
-	public void setOfflineTopVoter(int place) {
-		Data.getInstance().setTopVoterAwardOffline(this, place);
-	}
-
-	public int getOfflineTopVoter() {
-		return Data.getInstance().getTopVoterAwardOffline(this);
 	}
 
 	/**
@@ -395,11 +347,22 @@ public class User {
 		return uuid;
 	}
 
+	public long getVoteTimeLast() {
+		ArrayList<Long> times = new ArrayList<Long>();
+		for (VoteSite voteSite : plugin.voteSites) {
+			times.add(getTime(voteSite));
+		}
+		Long last = Collections.max(times);
+		return last;
+	}
+
 	/**
 	 * Trigger Bonus Reward
 	 */
 	public void giveBonus() {
+
 		BonusVoteReward.getInstance().giveBonusReward(this);
+
 	}
 
 	@SuppressWarnings("deprecation")
@@ -469,9 +432,31 @@ public class User {
 		}
 	}
 
+	public void giveTopVoterAward(int place) {
+		this.giveMoney(TopVoterAwards.getInstance()
+				.getTopVoterAwardMoney(place));
+		try {
+			for (String item : TopVoterAwards.getInstance().getItems(place)) {
+				this.giveItem(TopVoterAwards.getInstance()
+						.getTopVoterAwardItemStack(place, item));
+			}
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
+		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+					.replace("%place%", "" + place)));
+		}
+	}
+
 	/**
 	 *
-	 * @return True if the plaeyer has joined before
+	 * @return True if the player has joined before
 	 */
 	public boolean hasJoinedBefore() {
 		return Data.getInstance().hasJoinedBefore(this);
@@ -525,9 +510,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
+					.info("Offline Vote Reward on Site '"
+							+ voteSite.getSiteName()
+							+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -612,6 +597,10 @@ public class User {
 				user.getPlayerName());
 	}
 
+	public void setOfflineTopVoter(int place) {
+		Data.getInstance().setTopVoterAwardOffline(this, place);
+	}
+
 	/**
 	 * Set offline votes for VoteSite for user
 	 *
@@ -688,6 +677,19 @@ public class User {
 	 */
 	public void setUUID(String uuid) {
 		this.uuid = uuid;
+	}
+
+	public void topVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOffline(this, place);
+		}
+
 	}
 
 }

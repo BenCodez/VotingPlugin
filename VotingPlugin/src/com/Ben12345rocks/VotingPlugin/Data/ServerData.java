@@ -35,12 +35,78 @@ public class ServerData {
 		ServerData.plugin = plugin;
 	}
 
+	public void addSign(Location location, String data, int position) {
+
+		int count = nextSignNumber();
+
+		getData().set("Signs." + count + ".World",
+				location.getWorld().getName());
+		getData().set("Signs." + count + ".X", location.getBlockX());
+		getData().set("Signs." + count + ".Y", location.getBlockY());
+		getData().set("Signs." + count + ".Z", location.getBlockZ());
+		getData().set("Signs." + count + ".Data", data);
+		getData().set("Signs." + count + ".Position", position);
+		saveData();
+	}
+
 	public FileConfiguration getData() {
 		return data;
 	}
 
+	public int getPrevMonth() {
+		return getData().getInt("PrevMonth");
+	}
+
+	public String getSignData(String sign) {
+		return getData().getString("Signs." + sign + ".Data");
+	}
+
+	public Location getSignLocation(String sign) {
+		return new Location(Bukkit.getWorld(getData().getString(
+				"Signs." + sign + ".World")), getData().getDouble(
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
+	}
+
+	public int getSignPosition(String sign) {
+		return getData().getInt("Signs." + sign + ".Position");
+	}
+
+	public Set<String> getSigns() {
+		try {
+			return getData().getConfigurationSection("Signs").getKeys(false);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
+	public int nextSignNumber() {
+		Set<String> signs = getSigns();
+
+		if (signs != null) {
+			for (int i = 0; i < 10000; i++) {
+				if (!signs.contains(Integer.toString(i))) {
+					return i;
+				}
+			}
+		}
+		return 0;
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void removeSign(String sign) {
+		getData().set("Signs." + sign + ".World", null);
+		getData().set("Signs." + sign + ".X", null);
+		getData().set("Signs." + sign + ".Y", null);
+		getData().set("Signs." + sign + ".Z", null);
+		getData().set("Signs." + sign + ".Data", null);
+		getData().set("Signs." + sign + ".Position", null);
+		getData().set("Signs." + sign, null);
+		saveData();
 	}
 
 	public void saveData() {
@@ -48,8 +114,13 @@ public class ServerData {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save ServerData.yml!");
+			.severe(ChatColor.RED + "Could not save ServerData.yml!");
 		}
+	}
+
+	public void setPrevMonth(int value) {
+		getData().set("PrevMonth", value);
+		saveData();
 	}
 
 	@SuppressWarnings("deprecation")
@@ -68,9 +139,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 
@@ -80,76 +151,5 @@ public class ServerData {
 			setPrevMonth(new Date().getMonth());
 		}
 		saveData();
-	}
-
-	public int getPrevMonth() {
-		return getData().getInt("PrevMonth");
-	}
-
-	public void setPrevMonth(int value) {
-		getData().set("PrevMonth", value);
-		saveData();
-	}
-
-	public int nextSignNumber() {
-		Set<String> signs = getSigns();
-
-		if (signs != null) {
-			for (int i = 0; i < 10000; i++) {
-				if (!signs.contains(Integer.toString(i))) {
-					return i;
-				}
-			}
-		}
-		return 0;
-	}
-
-	public void addSign(Location location, String data, int position) {
-
-		int count = nextSignNumber();
-
-		getData().set("Signs." + count + ".World",
-				location.getWorld().getName());
-		getData().set("Signs." + count + ".X", location.getBlockX());
-		getData().set("Signs." + count + ".Y", location.getBlockY());
-		getData().set("Signs." + count + ".Z", location.getBlockZ());
-		getData().set("Signs." + count + ".Data", data);
-		getData().set("Signs." + count + ".Position", position);
-		saveData();
-	}
-
-	public Set<String> getSigns() {
-		try {
-			return getData().getConfigurationSection("Signs").getKeys(false);
-		} catch (Exception ex) {
-			return null;
-		}
-	}
-
-	public void removeSign(String sign) {
-		getData().set("Signs." + sign + ".World", null);
-		getData().set("Signs." + sign + ".X", null);
-		getData().set("Signs." + sign + ".Y", null);
-		getData().set("Signs." + sign + ".Z", null);
-		getData().set("Signs." + sign + ".Data", null);
-		getData().set("Signs." + sign + ".Position", null);
-		getData().set("Signs." + sign, null);
-		saveData();
-	}
-
-	public Location getSignLocation(String sign) {
-		return new Location(Bukkit.getWorld(getData().getString(
-				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
-	}
-
-	public String getSignData(String sign) {
-		return getData().getString("Signs." + sign + ".Data");
-	}
-
-	public int getSignPosition(String sign) {
-		return getData().getInt("Signs." + sign + ".Position");
 	}
 }

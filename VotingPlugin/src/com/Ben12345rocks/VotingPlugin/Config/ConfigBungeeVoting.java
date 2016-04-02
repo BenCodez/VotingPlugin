@@ -59,7 +59,7 @@ public class ConfigBungeeVoting {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save BungeeVoting.yml!");
+			.severe(ChatColor.RED + "Could not save BungeeVoting.yml!");
 		}
 	}
 
@@ -80,9 +80,9 @@ public class ConfigBungeeVoting {
 				plugin.saveResource("BungeeVoting.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BungeeVoting.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BungeeVoting.yml!");
 			}
 		}
 

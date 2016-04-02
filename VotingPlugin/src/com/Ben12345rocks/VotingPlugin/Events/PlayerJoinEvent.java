@@ -11,6 +11,7 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
+import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 
@@ -35,7 +36,7 @@ public class PlayerJoinEvent implements Listener {
 			plugin.getDataFolder().mkdir();
 		}
 
-		User user = new User(playerName);
+		User user = new User(new UUID(player.getUniqueId().toString()));
 
 		userDataFile(user);
 
