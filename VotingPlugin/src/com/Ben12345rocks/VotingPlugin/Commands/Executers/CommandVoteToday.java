@@ -27,12 +27,12 @@ public class CommandVoteToday implements CommandExecutor {
 		}
 
 		if (args.length == 1) {
-			if (Utils.getInstance().isInt(args[1])) {
+			if (Utils.getInstance().isInt(args[0])) {
 				CommandVote.getInstance().today(sender,
-						Integer.parseInt(args[1]));
+						Integer.parseInt(args[0]));
 			} else {
 				sender.sendMessage(Utils.getInstance().colorize(
-						"&cError on " + args[1] + ", number expected"));
+						"&cError on " + args[0] + ", number expected"));
 			}
 
 			return true;
