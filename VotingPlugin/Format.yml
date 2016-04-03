@@ -10,7 +10,7 @@
 Format:
 
   # Broadcast vote message
-  broadcastmsg: '&6[&4Server Name&6] &2Thanks &c%player% &2for voting on %SiteName%'
+  broadcastmsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
   
   Commands:
     # Format for /vote
