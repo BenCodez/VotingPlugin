@@ -17,6 +17,11 @@ Format:
     # %num% = the number of the site, for a numbered list
     # %url% = site URL
     Vote: 
+      Title:
+      - '&4&lVote for our server!'
+      
+      # For each VoteSite
+      # make sure to set VoteURL in your VoteSites
       Sites: '&4%num%: &c&l%SiteName% - &c%url%'
       
       # Format for /vote next
