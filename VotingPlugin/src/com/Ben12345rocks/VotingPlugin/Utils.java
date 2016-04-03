@@ -368,4 +368,18 @@ public class Utils {
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
+
+	public String replaceIgnoreCase(String str, String toReplace,
+			String replaceWith) {
+		return str.replaceAll("(?i)" + toReplace, replaceWith);
+	}
+
+	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
+			String toReplace, String replaceWith) {
+		ArrayList<String> newList = new ArrayList<String>();
+		for (String msg : list) {
+			newList.add(replaceIgnoreCase(msg, toReplace, replaceWith));
+		}
+		return newList;
+	}
 }
