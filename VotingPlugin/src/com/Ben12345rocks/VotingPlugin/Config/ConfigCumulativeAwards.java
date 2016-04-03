@@ -88,32 +88,6 @@ public class ConfigCumulativeAwards {
 		return data;
 	}
 
-	public int getRequiredVotes(String reward) {
-		return getData().getInt("Awards." + reward + ".Votes");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<VoteSite> getRequiredVoteSites(String reward) {
-		List<String> list = (List<String>) getData().getList(
-				"Awards." + reward + ".VoteSites");
-		if (list.contains("All")) {
-			list.clear();
-			for (VoteSite voteSite : plugin.voteSites) {
-				list.add(voteSite.getSiteName());
-			}
-		}
-
-		ArrayList<VoteSite> voteSites = new ArrayList<VoteSite>();
-		for (String siteName : list) {
-			VoteSite voteSite = new VoteSite(siteName);
-			if (voteSite != null) {
-				voteSites.add(voteSite);
-			}
-		}
-		return voteSites;
-
-	}
-
 	/**
 	 *
 	 * @param item
@@ -233,6 +207,32 @@ public class ConfigCumulativeAwards {
 		}
 	}
 
+	public int getRequiredVotes(String reward) {
+		return getData().getInt("Awards." + reward + ".Votes");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<VoteSite> getRequiredVoteSites(String reward) {
+		List<String> list = (List<String>) getData().getList(
+				"Awards." + reward + ".VoteSites");
+		if (list.contains("All")) {
+			list.clear();
+			for (VoteSite voteSite : plugin.voteSites) {
+				list.add(voteSite.getSiteName());
+			}
+		}
+
+		ArrayList<VoteSite> voteSites = new ArrayList<VoteSite>();
+		for (String siteName : list) {
+			VoteSite voteSite = new VoteSite(siteName);
+			if (voteSite != null) {
+				voteSites.add(voteSite);
+			}
+		}
+		return voteSites;
+
+	}
+
 	@SuppressWarnings("deprecation")
 	public ItemStack getTopVoterAwardItemStack(String reward, String item) {
 		int id = getItemID(reward, item);
@@ -266,9 +266,9 @@ public class ConfigCumulativeAwards {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED
-							+ "Could not save TopVoterAwards.yml!");
+			.getLogger()
+			.severe(ChatColor.RED
+					+ "Could not save TopVoterAwards.yml!");
 		}
 	}
 
@@ -285,9 +285,9 @@ public class ConfigCumulativeAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

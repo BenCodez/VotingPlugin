@@ -117,6 +117,3 @@ Format:
       Line2: '#%position%'
       Line3: '%player%'
       Line4: '%votes% Votes'
-    
-    RightClick:
-    - '&6Player &b%player% &6is &b%position% &6on &b%SiteName% with &c%votes% &6votes'

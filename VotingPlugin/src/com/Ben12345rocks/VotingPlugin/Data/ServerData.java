@@ -49,19 +49,14 @@ public class ServerData {
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
 	}
-	
-	public void setLines(String sign, List<String> lines) {
-		getData().set("Signs." + sign + ".Lines", lines);
-		saveData();
-	}
-	
-	@SuppressWarnings("unchecked")
-	public List<String> getLines(String sign) {
-		return (List<String>) getData().getList("Signs." + sign + ".Lines");
-	}
 
 	public FileConfiguration getData() {
 		return data;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getLines(String sign) {
+		return (List<String>) getData().getList("Signs." + sign + ".Lines");
 	}
 
 	public int getPrevMonth() {
@@ -75,9 +70,9 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
@@ -125,8 +120,13 @@ public class ServerData {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save ServerData.yml!");
+			.severe(ChatColor.RED + "Could not save ServerData.yml!");
 		}
+	}
+
+	public void setLines(String sign, List<String> lines) {
+		getData().set("Signs." + sign + ".Lines", lines);
+		saveData();
 	}
 
 	public void setPrevMonth(int value) {
@@ -150,9 +150,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 

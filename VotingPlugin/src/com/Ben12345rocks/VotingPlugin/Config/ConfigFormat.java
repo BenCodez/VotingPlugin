@@ -2,10 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -133,73 +130,6 @@ public class ConfigFormat {
 		return getData().getString("Format.rewardmsg");
 	}
 
-	public String getTimeFormat() {
-		String string = getData().getString("Format.timeformat");
-		if (string == null) {
-			return "EEE, d MMM yyyy HH:mm";
-		}
-		return string;
-	}
-
-	public String getTopVoterRewardMsg() {
-		String msg = getData().getString("Format.topvoterawardmsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aYou came in %place% in top voters of the month! Here is an award!";
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public List<String> getVoteHelp() {
-		return (List<String>) getData().getList(
-				"Format.Commands.Vote.Help.Lines");
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
-		}
-	}
-
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "Format.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("Format.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public Set<String> getSignRightClickMsg() {
-		try {
-			return getData().getConfigurationSection("Format.Signs.RightClick")
-					.getKeys(false);
-		} catch (Exception ex) {
-			Set<String> list = new HashSet<String>();
-			list.add("&6Player &b%player% &6is &b%place% &6on &b%SiteName% with &c%votes% &6votes");
-			return list;
-		}
-	}
-
 	public String getSignTopVoterSignLine1() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line1");
 		if (str != null) {
@@ -234,5 +164,61 @@ public class ConfigFormat {
 		} else {
 			return "%votes% Votes";
 		}
+	}
+
+	public String getTimeFormat() {
+		String string = getData().getString("Format.timeformat");
+		if (string == null) {
+			return "EEE, d MMM yyyy HH:mm";
+		}
+		return string;
+	}
+
+	public String getTopVoterRewardMsg() {
+		String msg = getData().getString("Format.topvoterawardmsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aYou came in %place% in top voters of the month! Here is an award!";
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getVoteHelp() {
+		return (List<String>) getData().getList(
+				"Format.Commands.Vote.Help.Lines");
+	}
+
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void saveData() {
+		try {
+			data.save(dFile);
+		} catch (IOException e) {
+			Bukkit.getServer().getLogger()
+			.severe(ChatColor.RED + "Could not save Format.yml!");
+		}
+	}
+
+	public void setup(Plugin p) {
+		if (!p.getDataFolder().exists()) {
+			p.getDataFolder().mkdir();
+		}
+
+		dFile = new File(p.getDataFolder(), "Format.yml");
+
+		if (!dFile.exists()) {
+			try {
+				dFile.createNewFile();
+				plugin.saveResource("Format.yml", true);
+			} catch (IOException e) {
+				Bukkit.getServer().getLogger()
+				.severe(ChatColor.RED + "Could not create Format.yml!");
+			}
+		}
+
+		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 }

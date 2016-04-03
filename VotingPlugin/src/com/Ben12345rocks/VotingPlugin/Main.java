@@ -32,8 +32,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
@@ -44,6 +44,7 @@ import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
@@ -102,19 +103,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
 
-									user.loginMessage();
-								}
-							}
+							user.loginMessage();
 						}
 					}
-				}, 50, 60 * 20);
+				}
+			}
+		}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -180,8 +181,7 @@ public class Main extends JavaPlugin {
 
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
-		getCommand("adminvote").setTabCompleter(
-				new AdminVoteTabCompleter());
+		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
@@ -208,8 +208,7 @@ public class Main extends JavaPlugin {
 
 		// /votetotal, /vtotal
 		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		getCommand("votetotal").setTabCompleter(
-				new VoteTotalTabCompleter());
+		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Commands");
@@ -272,11 +271,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateTopUpdater();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				updateTopUpdater();
+			}
+		}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -289,14 +288,14 @@ public class Main extends JavaPlugin {
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
 			TopVoter.getInstance().checkTopVoterAward();
-			TopVoter.getInstance().refreshSigns();
+			Signs.getInstance().refreshSigns();
 			if (config.getDebugEnabled()) {
 				plugin.getLogger().info(
 						"Updated VoteTop, Updater, and VoteToday");
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

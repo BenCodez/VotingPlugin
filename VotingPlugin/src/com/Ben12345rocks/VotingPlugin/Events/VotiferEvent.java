@@ -82,11 +82,9 @@ public class VotiferEvent implements Listener {
 
 				// update last vote time
 				user.setTime(voteSite);
-				// Data.getInstance().setTime(voteSiteName, playerName);
 
 				// add to total votes
 				user.addTotal(voteSite);
-				// Data.getInstance().addTotal(playerName, voteSiteName);
 
 				user.setReminded(false);
 
@@ -94,9 +92,9 @@ public class VotiferEvent implements Listener {
 				boolean allVotes = user.checkAllVotes();
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
+
 					user.playerVote(voteSite);
-					// SiteVoteReward.getInstance().giveSiteReward(user,
-					// voteSite);
+
 					if (allVotes) {
 						// BonusVoteReward.getInstance().giveBonusReward(user);
 						user.giveBonus();
