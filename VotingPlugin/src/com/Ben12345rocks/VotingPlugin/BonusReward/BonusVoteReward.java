@@ -121,6 +121,22 @@ public class BonusVoteReward {
 
 	}
 
+	public int getChanceRewardMoneyAmount(String reward) {
+		int amount = bonusReward.getChanceRewardMoneyAmount(reward);
+		int maxAmount = bonusReward.getChanceRewardMaxMoneyAmount(reward);
+		int minAmount = bonusReward.getChanceRewardMinMoneyAmount(reward);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	public void giveChanceReward(User user, String reward) {
 		try {
 			int chance = bonusReward.getChanceRewardChance(reward);
@@ -139,6 +155,22 @@ public class BonusVoteReward {
 		}
 	}
 
+	public int getChanceRewardItemsStackAmount(String reward, String item) {
+		int amount = bonusReward.getChanceRewardItemAmount(reward, item);
+		int maxAmount = bonusReward.getChanceRewardMaxItemAmount(reward, item);
+		int minAmount = bonusReward.getChanceRewardMinItemAmount(reward, item);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	public void giveChanceRewardItemBonusReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
@@ -152,7 +184,7 @@ public class BonusVoteReward {
 		Set<String> items = bonusReward.getChanceRewardItems(reward);
 		for (String item : items) {
 			int id = bonusReward.getChanceRewardItemID(reward, item);
-			int amount = bonusReward.getChanceRewardItemAmount(reward, item);
+			int amount = getChanceRewardItemsStackAmount(reward, item);
 
 			int data = bonusReward.getChanceRewardItemData(reward, item);
 
@@ -172,7 +204,7 @@ public class BonusVoteReward {
 	}
 
 	public void giveChanceRewardMoneyBonus(User user, String reward) {
-		int money = bonusReward.getChanceRewardMoneyAmount(reward);
+		int money = getChanceRewardMoneyAmount(reward);
 		user.giveMoney(money);
 	}
 

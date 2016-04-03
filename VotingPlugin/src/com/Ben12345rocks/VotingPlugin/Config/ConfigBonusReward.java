@@ -120,6 +120,16 @@ public class ConfigBonusReward {
 				"ChanceReward." + reward + ".Items." + item + ".Amount");
 	}
 
+	public int getChanceRewardMaxItemAmount(String reward, String item) {
+		return getData().getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MaxAmount");
+	}
+
+	public int getChanceRewardMinItemAmount(String reward, String item) {
+		return getData().getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MinAmount");
+	}
+
 	public int getChanceRewardItemData(String reward, String item) {
 		return getData().getInt(
 				"ChanceReward." + reward + ".Items." + item + ".Data");
@@ -148,6 +158,14 @@ public class ConfigBonusReward {
 
 	public int getChanceRewardMoneyAmount(String reward) {
 		return getData().getInt("ChanceReward." + reward + ".Money");
+	}
+
+	public int getChanceRewardMaxMoneyAmount(String reward) {
+		return getData().getInt("ChanceReward." + reward + ".MaxMoney");
+	}
+
+	public int getChanceRewardMinMoneyAmount(String reward) {
+		return getData().getInt("ChanceReward." + reward + ".MinMoney");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -244,7 +262,7 @@ public class ConfigBonusReward {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save BonusReward.yml!");
+					.severe(ChatColor.RED + "Could not save BonusReward.yml!");
 		}
 	}
 
@@ -377,9 +395,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create BonusReward.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create BonusReward.yml!");
 			}
 		}
 

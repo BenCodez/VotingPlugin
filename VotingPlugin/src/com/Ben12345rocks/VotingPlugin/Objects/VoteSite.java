@@ -160,8 +160,7 @@ public class VoteSite {
 	@SuppressWarnings("deprecation")
 	public ItemStack getChanceRewardItemStackItem(String reward, String item) {
 		int id = configVoteSites.getChanceRewardItemID(siteName, reward, item);
-		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
-				reward, item);
+		int amount = getChanceRewardItemsStackAmount(reward, item);
 		int data = configVoteSites.getChanceRewardItemData(siteName, reward,
 				item);
 
@@ -180,6 +179,44 @@ public class VoteSite {
 				configVoteSites.getChanceRewardEnchantments(siteName, reward,
 						item));
 		return itemStack;
+	}
+
+	public int getChanceRewardItemsStackAmount(String reward, String item) {
+		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
+				reward, item);
+		int maxAmount = configVoteSites.getChanceRewardMaxItemAmount(siteName,
+				reward, item);
+		int minAmount = configVoteSites.getChanceRewardMinItemAmount(siteName,
+				reward, item);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
+	public int getChanceRewardMoneyAmount(String reward) {
+		int amount = configVoteSites.getChanceRewardMoneyAmount(siteName,
+				reward);
+		int maxAmount = configVoteSites.getChanceRewardMaxMoney(siteName,
+				reward);
+		int minAmount = configVoteSites.getChanceRewardMinMoney(siteName,
+				reward);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
 	}
 
 	/**
@@ -307,8 +344,7 @@ public class VoteSite {
 	 *            User to give money to
 	 */
 	public void giveChanceRewardMoneySite(User user, String reward) {
-		int money = configVoteSites
-				.getChanceRewardMoneyAmount(siteName, reward);
+		int money = getChanceRewardMoneyAmount(reward);
 		user.giveMoney(money);
 	}
 

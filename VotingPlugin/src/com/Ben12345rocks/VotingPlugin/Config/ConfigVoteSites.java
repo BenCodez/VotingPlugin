@@ -93,6 +93,26 @@ public class ConfigVoteSites {
 						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
+	public int getChanceRewardMinMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".MinMoney");
+	}
+
+	public int getChanceRewardMaxMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".MaxMoney");
+	}
+
+	public int getChanceRewardMaxItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MaxAmount");
+	}
+
+	public int getChanceRewardMinItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MinAmount");
+	}
+
 	public int getChanceRewardChance(String siteName, String reward) {
 		return getData(siteName).getInt("ChanceReward." + reward + ".Chance");
 	}

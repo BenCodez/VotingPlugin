@@ -83,7 +83,12 @@ ChanceReward:
       ID: 264
       Data: 0
       Amount: 1
+      MinAmount: 1
+      MaxAmount: 4
+      Name: '&aSpecial Prize'
     Money: 1000
+    MinMoney: 100
+    MaxMoney: 3000
     Commands:
       Console:
       - 'say %player% was lucky'
