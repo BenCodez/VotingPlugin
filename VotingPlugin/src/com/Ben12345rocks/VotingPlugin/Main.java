@@ -33,6 +33,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
@@ -44,7 +45,6 @@ import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 
@@ -260,7 +260,7 @@ public class Main extends JavaPlugin {
 
 		ServerData.getInstance().setup(plugin);
 
-		TopVoterAwards.getInstance().setup(plugin);
+		ConfigTopVoterAwards.getInstance().setup(plugin);
 
 		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {

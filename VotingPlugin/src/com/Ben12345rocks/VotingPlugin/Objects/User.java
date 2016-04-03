@@ -18,10 +18,11 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigCumulativeAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -433,10 +434,12 @@ public class User {
 	}
 
 	public void giveTopVoterAward(int place) {
-		giveMoney(TopVoterAwards.getInstance().getTopVoterAwardMoney(place));
+		giveMoney(ConfigTopVoterAwards.getInstance().getTopVoterAwardMoney(
+				place));
 		try {
-			for (String item : TopVoterAwards.getInstance().getItems(place)) {
-				this.giveItem(TopVoterAwards.getInstance()
+			for (String item : ConfigTopVoterAwards.getInstance().getItems(
+					place)) {
+				this.giveItem(ConfigTopVoterAwards.getInstance()
 						.getTopVoterAwardItemStack(place, item));
 			}
 		} catch (Exception ex) {
@@ -444,7 +447,7 @@ public class User {
 				ex.printStackTrace();
 			}
 		}
-		TopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+		ConfigTopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
@@ -689,6 +692,14 @@ public class User {
 			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
 
+	}
+
+	@SuppressWarnings("unused")
+	public void checkCumulativeAwards() {
+		for (String reward : ConfigCumulativeAwards.getInstance()
+				.getPossibleRewardrewards()) {
+			// finish this
+		}
 	}
 
 }

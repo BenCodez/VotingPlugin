@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Data;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -47,6 +48,16 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
+	}
+	
+	public void setLines(String sign, List<String> lines) {
+		getData().set("Signs." + sign + ".Lines", lines);
+		saveData();
+	}
+	
+	@SuppressWarnings("unchecked")
+	public List<String> getLines(String sign) {
+		return (List<String>) getData().getList("Signs." + sign + ".Lines");
 	}
 
 	public FileConfiguration getData() {

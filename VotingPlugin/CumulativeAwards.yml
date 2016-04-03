@@ -1,0 +1,27 @@
+Awards:
+  Reward1:
+    Votes: 5
+    VoteSites:
+    - 'All'
+    Money: 500
+    Items:
+      Diamond:
+        ID: 264
+        Data: 0
+        Amount: 1
+    Commands:
+      Console:
+      - 'say %player% got a cumulative reward for voting 20 times'
+  reward2:
+    Votes: 2
+    VoteSites:
+    - 'PMC'
+    Money: 500
+    Items:
+      Diamond:
+        ID: 264
+        Data: 0
+        Amount: 1
+    Commands:
+      Console:
+      - 'say %player% got a cumulative reward for PMC by voting twice on PMC'

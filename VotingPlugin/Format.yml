@@ -105,3 +105,18 @@ Format:
   # Used in /v top, /v today, etc
   # 10 by default
   pagesize: 10
+  
+  # Format for signs
+  # SiteName may be all, depending on sign
+  # %position% = position of player, set by sign
+  # %votes% = Number of votes
+  Signs:
+    
+    TopVoterSign:
+      Line1: 'TopVoter: %SiteName%'
+      Line2: '#%position%'
+      Line3: '%player%'
+      Line4: '%votes% Votes'
+    
+    RightClick:
+    - '&6Player &b%player% &6is &b%position% &6on &b%SiteName% with &c%votes% &6votes'

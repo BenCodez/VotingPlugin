@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.TopVoter;
+package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,13 +19,13 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
-public class TopVoterAwards {
+public class ConfigTopVoterAwards {
 
-	static TopVoterAwards instance = new TopVoterAwards();
+	static ConfigTopVoterAwards instance = new ConfigTopVoterAwards();
 
 	static Main plugin = Main.plugin;
 
-	public static TopVoterAwards getInstance() {
+	public static ConfigTopVoterAwards getInstance() {
 		return instance;
 	}
 
@@ -33,11 +33,11 @@ public class TopVoterAwards {
 
 	File dFile;
 
-	private TopVoterAwards() {
+	private ConfigTopVoterAwards() {
 	}
 
-	public TopVoterAwards(Main plugin) {
-		TopVoterAwards.plugin = plugin;
+	public ConfigTopVoterAwards(Main plugin) {
+		ConfigTopVoterAwards.plugin = plugin;
 	}
 
 	/**
@@ -181,8 +181,12 @@ public class TopVoterAwards {
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getItems(int place) {
-		return getData().getConfigurationSection("Awards." + place + ".Items")
-				.getKeys(false);
+		try {
+			return getData().getConfigurationSection(
+					"Awards." + place + ".Items").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	public String getMessage(int place) {

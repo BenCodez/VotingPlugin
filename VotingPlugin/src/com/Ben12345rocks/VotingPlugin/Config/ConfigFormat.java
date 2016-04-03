@@ -2,7 +2,9 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -163,7 +165,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save Format.yml!");
+					.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -180,11 +182,57 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public Set<String> getSignRightClickMsg() {
+		try {
+			return getData().getConfigurationSection("Format.Signs.RightClick")
+					.getKeys(false);
+		} catch (Exception ex) {
+			Set<String> list = new HashSet<String>();
+			list.add("&6Player &b%player% &6is &b%place% &6on &b%SiteName% with &c%votes% &6votes");
+			return list;
+		}
+	}
+
+	public String getSignTopVoterSignLine1() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line1");
+		if (str != null) {
+			return str;
+		} else {
+			return "TopVoter: %SiteName%";
+		}
+	}
+
+	public String getSignTopVoterSignLine2() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line2");
+		if (str != null) {
+			return str;
+		} else {
+			return "#%position%";
+		}
+	}
+
+	public String getSignTopVoterSignLine3() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line3");
+		if (str != null) {
+			return str;
+		} else {
+			return "%player%";
+		}
+	}
+
+	public String getSignTopVoterSignLine4() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line4");
+		if (str != null) {
+			return str;
+		} else {
+			return "%votes% Votes";
+		}
+	}
 }
