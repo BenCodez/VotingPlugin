@@ -120,8 +120,8 @@ public class Utils {
 			return null;
 		}
 		ArrayList<String> newlist = new ArrayList<String>();
-		for (int i = 0; i < list.length; i++) {
-			newlist.add(list[i]);
+		for (String element : list) {
+			newlist.add(element);
 		}
 		if (newlist == null) {
 			return null;

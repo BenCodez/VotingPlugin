@@ -105,41 +105,41 @@ public class TopVoter {
 						Bukkit.getScheduler().runTaskLater(plugin,
 								new Runnable() {
 
-							@Override
-							public void run() {
-								BlockState state = loc.getBlock()
-										.getState();
-								if (state instanceof Sign) {
-									Sign s = (Sign) state;
+									@Override
+									public void run() {
+										BlockState state = loc.getBlock()
+												.getState();
+										if (state instanceof Sign) {
+											Sign s = (Sign) state;
 
-									s.setLine(0, "TopVoter: " + data);
-									s.setLine(1, "#" + position);
-									if (users.size() >= position) {
-										s.setLine(
-												2,
-												users.get(position - 1)
-												.getPlayerName());
-										s.setLine(
-												3,
-												""
-														+ users.get(
-																position - 1)
-																.getTotalVotes()
+											s.setLine(0, "TopVoter: " + data);
+											s.setLine(1, "#" + position);
+											if (users.size() >= position) {
+												s.setLine(
+														2,
+														users.get(position - 1)
+																.getPlayerName());
+												s.setLine(
+														3,
+														""
+																+ users.get(
+																		position - 1)
+																		.getTotalVotes()
 																+ " Votes");
 
-										checkSkulls(
-												loc,
-												users.get(position - 1)
-												.getPlayerName());
-									} else {
-										s.setLine(2, "No Player");
+												checkSkulls(
+														loc,
+														users.get(position - 1)
+																.getPlayerName());
+											} else {
+												s.setLine(2, "No Player");
+											}
+											s.update();
+
+										}
 									}
-									s.update();
 
-								}
-							}
-
-						}, 10l + i);
+								}, 10l + i);
 					} else {
 						for (VoteSite voteSite : plugin.voteSites) {
 							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
@@ -147,46 +147,46 @@ public class TopVoter {
 								Bukkit.getScheduler().runTaskLater(plugin,
 										new Runnable() {
 
-									@Override
-									public void run() {
-										BlockState state = loc
-												.getBlock().getState();
-										if (state instanceof Sign) {
-											Sign s = (Sign) state;
+											@Override
+											public void run() {
+												BlockState state = loc
+														.getBlock().getState();
+												if (state instanceof Sign) {
+													Sign s = (Sign) state;
 
-											s.setLine(0, "TopVoter: "
-													+ data);
-											s.setLine(1, "#" + position);
-											if (users.size() >= position) {
-												s.setLine(
-														2,
-														users.get(
-																position - 1)
-																.getPlayerName());
-												s.setLine(
-														3,
-														""
-																+ users.get(
+													s.setLine(0, "TopVoter: "
+															+ data);
+													s.setLine(1, "#" + position);
+													if (users.size() >= position) {
+														s.setLine(
+																2,
+																users.get(
 																		position - 1)
-																		.getTotalVotesSite(
-																				voteSite)
-																				+ " Votes");
-												checkSkulls(
-														loc,
-														users.get(
-																position - 1)
-																.getPlayerName());
-											} else {
-												s.setLine(2,
-														"No Player");
+																		.getPlayerName());
+														s.setLine(
+																3,
+																""
+																		+ users.get(
+																				position - 1)
+																				.getTotalVotesSite(
+																						voteSite)
+																		+ " Votes");
+														checkSkulls(
+																loc,
+																users.get(
+																		position - 1)
+																		.getPlayerName());
+													} else {
+														s.setLine(2,
+																"No Player");
+													}
+													s.update();
+
+												}
+
 											}
-											s.update();
 
-										}
-
-									}
-
-								}, 10l + i);
+										}, 10l + i);
 							}
 
 						}

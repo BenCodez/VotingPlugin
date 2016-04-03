@@ -36,11 +36,6 @@ public class ConfigFormat {
 	public String getBroadCastMsg() {
 		return getData().getString("Format.broadcastmsg");
 	}
-	
-	@SuppressWarnings("unchecked")
-	public List<String> getCommandsVoteTitle() {
-		return (List<String>) getData().getList("Format.Commands.Vote.Title");
-	}
 
 	public String getChanceRewardMsg() {
 		return getData().getString("Format.chancerewardmsg");
@@ -73,6 +68,11 @@ public class ConfigFormat {
 
 	public String getCommandsVoteNextTitle() {
 		return getData().getString("Format.Commands.Vote.Next.Title");
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getCommandsVoteTitle() {
+		return (List<String>) getData().getList("Format.Commands.Vote.Title");
 	}
 
 	public String getCommandsVoteTotalAllLine() {
@@ -163,7 +163,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
+			.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -180,7 +180,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

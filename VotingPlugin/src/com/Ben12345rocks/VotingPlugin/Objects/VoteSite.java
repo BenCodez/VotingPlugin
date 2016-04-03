@@ -45,7 +45,7 @@ public class VoteSite {
 	 *            Sitename
 	 */
 	public VoteSite(String siteName) {
-		this.setSiteName(siteName);
+		setSiteName(siteName);
 		if (!configVoteSites.getVoteSiteFile(siteName).exists()) {
 			configVoteSites.generateVoteSite(siteName);
 			init();
@@ -157,6 +157,25 @@ public class VoteSite {
 		return chance;
 	}
 
+	public int getChanceRewardItemsStackAmount(String reward, String item) {
+		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
+				reward, item);
+		int maxAmount = configVoteSites.getChanceRewardMaxItemAmount(siteName,
+				reward, item);
+		int minAmount = configVoteSites.getChanceRewardMinItemAmount(siteName,
+				reward, item);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	@SuppressWarnings("deprecation")
 	public ItemStack getChanceRewardItemStackItem(String reward, String item) {
 		int id = configVoteSites.getChanceRewardItemID(siteName, reward, item);
@@ -179,25 +198,6 @@ public class VoteSite {
 				configVoteSites.getChanceRewardEnchantments(siteName, reward,
 						item));
 		return itemStack;
-	}
-
-	public int getChanceRewardItemsStackAmount(String reward, String item) {
-		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
-				reward, item);
-		int maxAmount = configVoteSites.getChanceRewardMaxItemAmount(siteName,
-				reward, item);
-		int minAmount = configVoteSites.getChanceRewardMinItemAmount(siteName,
-				reward, item);
-		if (maxAmount == 0 && minAmount == 0) {
-			return amount;
-		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
-			return num;
-		}
 	}
 
 	public int getChanceRewardMoneyAmount(String reward) {
@@ -425,15 +425,15 @@ public class VoteSite {
 	}
 
 	public void init() {
-		this.setDisabled(configVoteSites.getVoteSiteDisabled(siteName));
-		this.serviceSite = configVoteSites.getServiceSite(siteName);
-		this.voteURL = configVoteSites.getVoteURL(siteName);
-		this.voteDelay = configVoteSites.getVoteDelay(siteName);
-		this.money = configVoteSites.getMoneyAmount(siteName);
+		setDisabled(configVoteSites.getVoteSiteDisabled(siteName));
+		serviceSite = configVoteSites.getServiceSite(siteName);
+		voteURL = configVoteSites.getVoteURL(siteName);
+		voteDelay = configVoteSites.getVoteDelay(siteName);
+		money = configVoteSites.getMoneyAmount(siteName);
 		try {
-			this.items = new ArrayList<ItemStack>();
+			items = new ArrayList<ItemStack>();
 			for (String item : configVoteSites.getItems(siteName)) {
-				this.items.add(getItemStackItem(item));
+				items.add(getItemStackItem(item));
 			}
 		} catch (Exception ex) {
 			if (config.getDebugEnabled()) {
@@ -441,8 +441,8 @@ public class VoteSite {
 			}
 		}
 		try {
-			this.consoleCommands = configVoteSites.getConsoleCommands(siteName);
-			this.playerCommands = configVoteSites.getPlayerCommands(siteName);
+			consoleCommands = configVoteSites.getConsoleCommands(siteName);
+			playerCommands = configVoteSites.getPlayerCommands(siteName);
 		} catch (Exception ex) {
 			if (config.getDebugEnabled()) {
 				ex.printStackTrace();

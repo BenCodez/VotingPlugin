@@ -50,7 +50,7 @@ public class TopVoterAwards {
 		String playerName = user.getPlayerName();
 
 		// Console commands
-		ArrayList<String> consolecmds = this.getConsoleCommands(place);
+		ArrayList<String> consolecmds = getConsoleCommands(place);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -63,7 +63,7 @@ public class TopVoterAwards {
 		}
 
 		// Player commands
-		ArrayList<String> playercmds = this.getPlayerCommands(place);
+		ArrayList<String> playercmds = getPlayerCommands(place);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -113,7 +113,7 @@ public class TopVoterAwards {
 					.getKeys(false);
 			for (String enchant : enchants) {
 				enchantments
-				.put(enchant, getEnchantLevel(place, item, enchant));
+						.put(enchant, getEnchantLevel(place, item, enchant));
 			}
 
 			return enchantments;
@@ -206,20 +206,20 @@ public class TopVoterAwards {
 
 	@SuppressWarnings("deprecation")
 	public ItemStack getTopVoterAwardItemStack(int place, String item) {
-		int id = this.getItemID(place, item);
-		int amount = this.getItemAmount(place, item);
-		int data = this.getItemData(place, item);
+		int id = getItemID(place, item);
+		int amount = getItemAmount(place, item);
+		int data = getItemData(place, item);
 
-		String itemName = this.getItemName(place, item);
+		String itemName = getItemName(place, item);
 		itemName = Utils.getInstance().colorize(itemName);
 
-		ArrayList<String> lore = this.getItemLore(place, item);
+		ArrayList<String> lore = getItemLore(place, item);
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
 		itemStack = Utils.getInstance().addlore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(itemStack,
-				this.getEnchantments(place, item));
+				getEnchantments(place, item));
 		return itemStack;
 	}
 
@@ -237,9 +237,9 @@ public class TopVoterAwards {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED
-					+ "Could not save TopVoterAwards.yml!");
+					.getLogger()
+					.severe(ChatColor.RED
+							+ "Could not save TopVoterAwards.yml!");
 		}
 	}
 
@@ -256,9 +256,9 @@ public class TopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create TopVoterAwards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

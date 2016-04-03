@@ -104,21 +104,20 @@ public class BonusVoteReward {
 		}
 	}
 
-	public void giveBonusReward(User user) {
-		String playerName = user.getPlayerName();
-		if (ConfigBonusReward.getInstance().getGiveBonusReward()) {
-			giveItemBonusReward(user);
-			giveMoneyBonus(user);
-			doBonusCommands(user);
-			Player player = Bukkit.getPlayer(playerName);
-			player.sendMessage(ChatColor.RED
-					+ "You were given bonus Items for voting on all sites in one day!");
-			for (String reward : ConfigBonusReward.getInstance()
-					.getChanceRewardRewards()) {
-				giveChanceReward(user, reward);
+	public int getChanceRewardItemsStackAmount(String reward, String item) {
+		int amount = bonusReward.getChanceRewardItemAmount(reward, item);
+		int maxAmount = bonusReward.getChanceRewardMaxItemAmount(reward, item);
+		int minAmount = bonusReward.getChanceRewardMinItemAmount(reward, item);
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
 			}
+			return num;
 		}
-
 	}
 
 	public int getChanceRewardMoneyAmount(String reward) {
@@ -137,6 +136,23 @@ public class BonusVoteReward {
 		}
 	}
 
+	public void giveBonusReward(User user) {
+		String playerName = user.getPlayerName();
+		if (ConfigBonusReward.getInstance().getGiveBonusReward()) {
+			giveItemBonusReward(user);
+			giveMoneyBonus(user);
+			doBonusCommands(user);
+			Player player = Bukkit.getPlayer(playerName);
+			player.sendMessage(ChatColor.RED
+					+ "You were given bonus Items for voting on all sites in one day!");
+			for (String reward : ConfigBonusReward.getInstance()
+					.getChanceRewardRewards()) {
+				giveChanceReward(user, reward);
+			}
+		}
+
+	}
+
 	public void giveChanceReward(User user, String reward) {
 		try {
 			int chance = bonusReward.getChanceRewardChance(reward);
@@ -152,22 +168,6 @@ public class BonusVoteReward {
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
-		}
-	}
-
-	public int getChanceRewardItemsStackAmount(String reward, String item) {
-		int amount = bonusReward.getChanceRewardItemAmount(reward, item);
-		int maxAmount = bonusReward.getChanceRewardMaxItemAmount(reward, item);
-		int minAmount = bonusReward.getChanceRewardMinItemAmount(reward, item);
-		if (maxAmount == 0 && minAmount == 0) {
-			return amount;
-		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
-			return num;
 		}
 	}
 

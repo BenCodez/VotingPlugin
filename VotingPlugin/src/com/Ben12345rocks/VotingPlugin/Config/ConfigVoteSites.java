@@ -88,29 +88,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
-	}
-
-	public int getChanceRewardMinMoney(String siteName, String reward) {
-		return getData(siteName).getInt("ChanceReward." + reward + ".MinMoney");
-	}
-
-	public int getChanceRewardMaxMoney(String siteName, String reward) {
-		return getData(siteName).getInt("ChanceReward." + reward + ".MaxMoney");
-	}
-
-	public int getChanceRewardMaxItemAmount(String siteName, String reward,
-			String item) {
-		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".MaxAmount");
-	}
-
-	public int getChanceRewardMinItemAmount(String siteName, String reward,
-			String item) {
-		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".MinAmount");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	public int getChanceRewardChance(String siteName, String reward) {
@@ -231,14 +211,34 @@ public class ConfigVoteSites {
 	 */
 	public Set<String> getChanceRewardItems(String siteName, String reward) {
 		try {
-		return getData(siteName).getConfigurationSection(
-				"ChanceReward." + reward + ".Items").getKeys(false);
+			return getData(siteName).getConfigurationSection(
+					"ChanceReward." + reward + ".Items").getKeys(false);
 		} catch (Exception ex) {
 			if (Config.getInstance().getDebugEnabled()) {
 				ex.printStackTrace();
 			}
 			return new HashSet<String>();
 		}
+	}
+
+	public int getChanceRewardMaxItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MaxAmount");
+	}
+
+	public int getChanceRewardMaxMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".MaxMoney");
+	}
+
+	public int getChanceRewardMinItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ChanceReward." + reward + ".Items." + item + ".MinAmount");
+	}
+
+	public int getChanceRewardMinMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ChanceReward." + reward + ".MinMoney");
 	}
 
 	public int getChanceRewardMoneyAmount(String siteName, String reward) {
@@ -370,8 +370,8 @@ public class ConfigVoteSites {
 	 */
 	public Set<String> getItems(String siteName) {
 		try {
-		return getData(siteName).getConfigurationSection("Items")
-				.getKeys(false);
+			return getData(siteName).getConfigurationSection("Items").getKeys(
+					false);
 		} catch (Exception ex) {
 			if (Config.getInstance().getDebugEnabled()) {
 				ex.printStackTrace();
@@ -489,7 +489,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
 	}
 

@@ -102,19 +102,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -122,7 +122,7 @@ public class Main extends JavaPlugin {
 
 	public void loadVoteSites() {
 		configVoteSites.setup("Example");
-		this.voteSites = configVoteSites.getVoteSitesLoad();
+		voteSites = configVoteSites.getVoteSitesLoad();
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded VoteSites");
 		}
@@ -173,42 +173,42 @@ public class Main extends JavaPlugin {
 
 	private void registerCommands() {
 		// /vote, /v
-		this.getCommand("vote").setExecutor(new CommandVote(this));
-		this.getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		this.getCommand("v").setExecutor(new CommandVote(this));
-		this.getCommand("v").setTabCompleter(new VoteTabCompleter());
+		getCommand("vote").setExecutor(new CommandVote(this));
+		getCommand("vote").setTabCompleter(new VoteTabCompleter());
+		getCommand("v").setExecutor(new CommandVote(this));
+		getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
-		this.getCommand("adminvote").setExecutor(new CommandAdminVote(this));
-		this.getCommand("adminvote").setTabCompleter(
+		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
+		getCommand("adminvote").setTabCompleter(
 				new AdminVoteTabCompleter());
-		this.getCommand("av").setExecutor(new CommandAdminVote(this));
-		this.getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+		getCommand("av").setExecutor(new CommandAdminVote(this));
+		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
 		// /votehelp, /vhelp
-		this.getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
+		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
 
 		// /voteinfo, /vinfo
-		this.getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
-		this.getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
+		getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
+		getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
 
 		// /votelast, /vlast
-		this.getCommand("votelast").setExecutor(new CommandVoteLast(this));
-		this.getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
+		getCommand("votelast").setExecutor(new CommandVoteLast(this));
+		getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
 
 		// /votenext, /vnext
-		this.getCommand("votenext").setExecutor(new CommandVoteNext(this));
-		this.getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
+		getCommand("votenext").setExecutor(new CommandVoteNext(this));
+		getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
 
 		// /votetoday, /vtoday
-		this.getCommand("votetoday").setExecutor(new CommandVoteToday(this));
+		getCommand("votetoday").setExecutor(new CommandVoteToday(this));
 
 		// /votetop, /vtop
-		this.getCommand("votetop").setExecutor(new CommandVoteTop(this));
+		getCommand("votetop").setExecutor(new CommandVoteTop(this));
 
 		// /votetotal, /vtotal
-		this.getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		this.getCommand("votetotal").setTabCompleter(
+		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
+		getCommand("votetotal").setTabCompleter(
 				new VoteTotalTabCompleter());
 
 		if (config.getDebugEnabled()) {
@@ -272,11 +272,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						updateTopUpdater();
+					}
+				}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -296,7 +296,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

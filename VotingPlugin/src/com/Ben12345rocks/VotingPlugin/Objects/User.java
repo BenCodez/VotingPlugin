@@ -40,8 +40,8 @@ public class User {
 	 *            Player
 	 */
 	public User(Player player) {
-		this.playerName = player.getName();
-		this.uuid = player.getUniqueId().toString();
+		playerName = player.getName();
+		uuid = player.getUniqueId().toString();
 	}
 
 	/**
@@ -52,7 +52,7 @@ public class User {
 	 */
 	public User(String playerName) {
 		this.playerName = playerName;
-		this.uuid = Utils.getInstance().getUUID(playerName);
+		uuid = Utils.getInstance().getUUID(playerName);
 
 	}
 
@@ -64,7 +64,7 @@ public class User {
 	 */
 	public User(UUID uuid) {
 		this.uuid = uuid.getUUID();
-		this.playerName = Utils.getInstance().getPlayerName(this.uuid);
+		playerName = Utils.getInstance().getPlayerName(this.uuid);
 
 	}
 
@@ -79,7 +79,7 @@ public class User {
 	public User(UUID uuid, boolean loadName) {
 		this.uuid = uuid.getUUID();
 		if (loadName) {
-			this.playerName = Utils.getInstance().getPlayerName(this.uuid);
+			playerName = Utils.getInstance().getPlayerName(this.uuid);
 		}
 	}
 
@@ -87,7 +87,7 @@ public class User {
 	 * Add offline vote to bonus
 	 */
 	public void addBonusOfflineVote() {
-		this.setBonusOfflineVotes(this.getBonusOfflineVotes() + 1);
+		setBonusOfflineVotes(getBonusOfflineVotes() + 1);
 	}
 
 	/**
@@ -96,7 +96,7 @@ public class User {
 	 *            VoteSite to add offline votes to
 	 */
 	public void addOfflineVote(VoteSite voteSite) {
-		this.setOfflineVotes(voteSite, this.getOfflineVotes(voteSite) + 1);
+		setOfflineVotes(voteSite, getOfflineVotes(voteSite) + 1);
 	}
 
 	/**
@@ -137,7 +137,7 @@ public class User {
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
 		String siteName = voteSite.getSiteName();
-		Date date = new Date(this.getTime(voteSite));
+		Date date = new Date(getTime(voteSite));
 		int month = date.getMonth();
 		int day = date.getDate();
 		int hour = date.getHours();
@@ -239,7 +239,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -286,7 +286,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
+								+ ".Miliseconds");
 		return mills;
 	}
 
@@ -378,7 +378,7 @@ public class User {
 	public void giveItem(int id, int amount, int data, String itemName,
 			List<String> lore, HashMap<String, Integer> enchants) {
 
-		String playerName = this.getPlayerName();
+		String playerName = getPlayerName();
 
 		ItemStack item = new ItemStack(id, amount, (short) data);
 		item = Utils.getInstance().nameItem(item, itemName);
@@ -405,7 +405,7 @@ public class User {
 	 *            ItemStack to give player
 	 */
 	public void giveItem(ItemStack item) {
-		String playerName = this.getPlayerName();
+		String playerName = getPlayerName();
 
 		Player player = Bukkit.getPlayer(playerName);
 
@@ -425,7 +425,7 @@ public class User {
 	 * @param money		Amount of money to give
 	 */
 	public void giveMoney(int money) {
-		String playerName = this.getPlayerName();
+		String playerName = getPlayerName();
 		if ((Bukkit.getServer().getPluginManager().getPlugin("Vault") != null)
 				&& (money > 0)) {
 			Main.econ.depositPlayer(playerName, money);
@@ -433,8 +433,7 @@ public class User {
 	}
 
 	public void giveTopVoterAward(int place) {
-		this.giveMoney(TopVoterAwards.getInstance()
-				.getTopVoterAwardMoney(place));
+		giveMoney(TopVoterAwards.getInstance().getTopVoterAwardMoney(place));
 		try {
 			for (String item : TopVoterAwards.getInstance().getItems(place)) {
 				this.giveItem(TopVoterAwards.getInstance()
@@ -450,7 +449,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -466,27 +465,27 @@ public class User {
 	 * Load the user's name from uuid
 	 */
 	public void loadName() {
-		this.playerName = Utils.getInstance().getPlayerName(this.uuid);
+		playerName = Utils.getInstance().getPlayerName(uuid);
 	}
 
 	/**
 	 * Login message if player can vote
 	 */
 	public void loginMessage() {
-		String playerName = this.getPlayerName();
+		String playerName = getPlayerName();
 		if (Config.getInstance().getRemindVotesEnabled()) {
 			if (Utils.getInstance().hasPermission(playerName,
 					"VotingPlugin.Login.RemindVotes")
 					|| Utils.getInstance().hasPermission(playerName,
 							"VotingPlugin.Player")) {
-				if (this.canVoteAll()) {
+				if (canVoteAll()) {
 					Player player = Bukkit.getPlayer(playerName);
 					if (player != null) {
 						String msg = Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getLoginMsg());
 						msg = msg.replace("%player%", playerName);
 						player.sendMessage(msg);
-						this.setReminded(true);
+						setReminded(true);
 					}
 
 				}
@@ -503,16 +502,16 @@ public class User {
 
 		ArrayList<String> offlineVotes = new ArrayList<String>();
 
-		String playerName = this.getPlayerName();
+		String playerName = getPlayerName();
 
 		for (VoteSite voteSite : voteSites) {
-			int offvotes = this.getOfflineVotes(voteSite);
+			int offvotes = getOfflineVotes(voteSite);
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -522,19 +521,19 @@ public class User {
 		}
 
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			this.playerVote(plugin.getVoteSite(offlineVotes.get(i)));
+			playerVote(plugin.getVoteSite(offlineVotes.get(i)));
 		}
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			this.setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
+			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
 		}
 
-		for (int i = 0; i < this.getBonusOfflineVotes(); i++) {
+		for (int i = 0; i < getBonusOfflineVotes(); i++) {
 			BonusVoteReward.getInstance().giveBonusReward(this);
 		}
 
-		this.setBonusOfflineVotes(0);
+		setBonusOfflineVotes(0);
 
-		int place = this.getOfflineTopVoter();
+		int place = getOfflineTopVoter();
 		if (place > 0) {
 			giveTopVoterAward(place);
 			Data.getInstance().setTopVoterAwardOffline(this, 0);
