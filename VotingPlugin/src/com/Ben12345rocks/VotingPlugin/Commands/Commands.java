@@ -436,9 +436,10 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public ArrayList<String> voteURLs() {
+	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		sites.addAll(ConfigFormat.getInstance().getCommandsVoteTitle());
 		int counter = 0;
 		for (VoteSite voteSite : voteSites) {
 			counter++;
@@ -450,7 +451,8 @@ public class Commands {
 			msg = msg.replace("%SiteName%", voteSite.getSiteName());
 			sites.add(msg);
 		}
-		return sites;
+		sites = Utils.getInstance().colorize(sites);
+		return Utils.getInstance().convertArray(sites);
 	}
 
 }

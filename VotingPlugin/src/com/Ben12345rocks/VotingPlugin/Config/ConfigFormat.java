@@ -36,6 +36,11 @@ public class ConfigFormat {
 	public String getBroadCastMsg() {
 		return getData().getString("Format.broadcastmsg");
 	}
+	
+	@SuppressWarnings("unchecked")
+	public List<String> getCommandsVoteTitle() {
+		return (List<String>) getData().getList("Format.Commands.Vote.Title");
+	}
 
 	public String getChanceRewardMsg() {
 		return getData().getString("Format.chancerewardmsg");

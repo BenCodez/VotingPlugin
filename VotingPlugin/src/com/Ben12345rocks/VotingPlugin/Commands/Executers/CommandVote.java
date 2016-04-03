@@ -302,8 +302,6 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void voteURLs(CommandSender sender) {
-		String[] urls = Utils.getInstance().convertArray(
-				Commands.getInstance().voteURLs());
-		sender.sendMessage(urls);
+		sender.sendMessage(Commands.getInstance().voteURLs());
 	}
 }

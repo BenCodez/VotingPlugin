@@ -7,8 +7,6 @@
 # %player% = player name  
 # %SiteName% = vote site name
 
-
-
 Format:
 
   # Broadcast vote message
@@ -27,7 +25,7 @@ Format:
         Title: '&3&l%player% Next Votes:'
         
         # How each line is setup for each vote site
-        # %info% = Info - Below 
+        # %info% = Info - See Below 
         # %SiteName% = site name from vote
         Layout: '&3%SiteName%: &6%info%'
         
@@ -80,19 +78,24 @@ Format:
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
   loginmsg: '&cRemember to vote!'
+  
   # Msg on reward given
   # PlaceHolders:
   # %money% = amount of money given for votesite
   # %items% = string list of items
   rewardmsg: '&aYou were given rewards!'
+  
   # Msg on chance reward
   chancerewardmsg: '&aLooks like you got lucky!'
+  
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc
   topvoterawardmsg: '&aYou came in %place% in top voters of the month! Here is an award!'
+  
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   timeformat: 'EEE, d MMM yyyy HH:mm'
+  
   # Size of Pages
   # Used in /v top, /v today, etc
   # 10 by default
