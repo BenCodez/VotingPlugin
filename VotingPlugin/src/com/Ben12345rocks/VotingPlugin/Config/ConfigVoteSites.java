@@ -230,8 +230,15 @@ public class ConfigVoteSites {
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getChanceRewardItems(String siteName, String reward) {
+		try {
 		return getData(siteName).getConfigurationSection(
 				"ChanceReward." + reward + ".Items").getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
 	}
 
 	public int getChanceRewardMoneyAmount(String siteName, String reward) {
@@ -362,8 +369,15 @@ public class ConfigVoteSites {
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getItems(String siteName) {
+		try {
 		return getData(siteName).getConfigurationSection("Items")
 				.getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
 	}
 
 	public int getMoneyAmount(String siteName) {

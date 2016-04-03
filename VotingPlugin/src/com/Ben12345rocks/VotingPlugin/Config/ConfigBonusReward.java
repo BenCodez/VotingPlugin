@@ -152,8 +152,15 @@ public class ConfigBonusReward {
 	}
 
 	public Set<String> getChanceRewardItems(String reward) {
-		return getData().getConfigurationSection(
-				"ChanceReward." + reward + ".Items").getKeys(false);
+		try {
+			return getData().getConfigurationSection(
+					"ChanceReward." + reward + ".Items").getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
 	}
 
 	public int getChanceRewardMoneyAmount(String reward) {
@@ -241,7 +248,14 @@ public class ConfigBonusReward {
 	}
 
 	public Set<String> getItems() {
-		return getData().getConfigurationSection("Items").getKeys(false);
+		try {
+			return getData().getConfigurationSection("Items").getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
 	}
 
 	public int getMoneyAmount() {

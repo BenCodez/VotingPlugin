@@ -340,17 +340,6 @@ public class Utils {
 
 	}
 
-	/*
-	 * public void sendMessageComponent(CommandSender sender, TextComponent msg)
-	 * { if (isPlayer(sender)) { Player player = (Player) sender;
-	 * player.spigot().sendMessage(msg); } else {
-	 * sender.sendMessage(msg.getText()); } }
-	 * 
-	 * public void sendMessageComponent(CommandSender sender, TextComponent[]
-	 * msg) { for (TextComponent message : msg) { sendMessageComponent(sender,
-	 * message); } }
-	 */
-
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();

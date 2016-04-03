@@ -388,13 +388,9 @@ public class VoteSite {
 	public void giveSiteReward(User user) {
 		VoteSite voteSite = this;
 		if (!voteSite.isDisabled()) {
-			try {
-				giveItemSiteReward(user);
-			} catch (Exception ex) {
-				if (Config.getInstance().getDebugEnabled()) {
-					ex.printStackTrace();
-				}
-			}
+
+			giveItemSiteReward(user);
+
 			giveMoneySite(user);
 			doSiteCommands(user);
 
@@ -407,14 +403,13 @@ public class VoteSite {
 					.replace("%SiteName%", voteSite.getSiteName())
 					.replace("%money%",
 							"" + configVoteSites.getMoneyAmount(siteName));
-			try {
-				rewardmsg = rewardmsg.replace(
-						"%items%",
-						Utils.getInstance().makeStringList(
-								Utils.getInstance().convert(
-										configVoteSites.getItems(siteName))));
-			} catch (Exception ex) {
-			}
+
+			rewardmsg = rewardmsg.replace(
+					"%items%",
+					Utils.getInstance().makeStringList(
+							Utils.getInstance().convert(
+									configVoteSites.getItems(siteName))));
+
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
