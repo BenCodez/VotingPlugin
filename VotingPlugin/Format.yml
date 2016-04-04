@@ -91,7 +91,7 @@ Format:
   rewardmsg: '&aYou were given rewards!'
   
   # Msg on chance reward
-  chancerewardmsg: '&aLooks like you got lucky!'
+  extrarewardmsg: '&aLooks like you got lucky!'
   
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc

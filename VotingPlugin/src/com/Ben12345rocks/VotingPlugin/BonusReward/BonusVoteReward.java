@@ -71,13 +71,13 @@ public class BonusVoteReward {
 		}
 	}
 
-	public void doChanceRewardBonusCommands(User user, String reward) {
+	public void doExtraRewardBonusCommands(User user, String reward) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
 		ArrayList<String> consolecmds = bonusReward
-				.getChanceRewardConsoleCommands(reward);
+				.getExtraRewardConsoleCommands(reward);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -91,7 +91,7 @@ public class BonusVoteReward {
 
 		// Player commands
 		ArrayList<String> playercmds = bonusReward
-				.getChanceRewardPlayerCommands(reward);
+				.getExtraRewardPlayerCommands(reward);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -104,10 +104,10 @@ public class BonusVoteReward {
 		}
 	}
 
-	public int getChanceRewardItemsStackAmount(String reward, String item) {
-		int amount = bonusReward.getChanceRewardItemAmount(reward, item);
-		int maxAmount = bonusReward.getChanceRewardMaxItemAmount(reward, item);
-		int minAmount = bonusReward.getChanceRewardMinItemAmount(reward, item);
+	public int getExtraRewardItemsStackAmount(String reward, String item) {
+		int amount = bonusReward.getExtraRewardItemAmount(reward, item);
+		int maxAmount = bonusReward.getExtraRewardMaxItemAmount(reward, item);
+		int minAmount = bonusReward.getExtraRewardMinItemAmount(reward, item);
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
 		} else {
@@ -120,10 +120,10 @@ public class BonusVoteReward {
 		}
 	}
 
-	public int getChanceRewardMoneyAmount(String reward) {
-		int amount = bonusReward.getChanceRewardMoneyAmount(reward);
-		int maxAmount = bonusReward.getChanceRewardMaxMoneyAmount(reward);
-		int minAmount = bonusReward.getChanceRewardMinMoneyAmount(reward);
+	public int getExtraRewardMoneyAmount(String reward) {
+		int amount = bonusReward.getExtraRewardMoneyAmount(reward);
+		int maxAmount = bonusReward.getExtraRewardMaxMoneyAmount(reward);
+		int minAmount = bonusReward.getExtraRewardMinMoneyAmount(reward);
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
 		} else {
@@ -146,32 +146,32 @@ public class BonusVoteReward {
 			player.sendMessage(ChatColor.RED
 					+ "You were given bonus Items for voting on all sites in one day!");
 			for (String reward : ConfigBonusReward.getInstance()
-					.getChanceRewardRewards()) {
-				giveChanceReward(user, reward);
+					.getExtraRewardRewards()) {
+				giveExtraReward(user, reward);
 			}
 		}
 
 	}
 
-	public void giveChanceReward(User user, String reward) {
+	public void giveExtraReward(User user, String reward) {
 		try {
-			int chance = bonusReward.getChanceRewardChance(reward);
+			int chance = bonusReward.getExtraRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
 				if (chance != 100) {
 					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
+							.getExtraRewardMsg());
 				}
-				doChanceRewardBonusCommands(user, reward);
-				giveChanceRewardItemBonusReward(user, reward);
-				giveChanceRewardMoneyBonus(user, reward);
+				doExtraRewardBonusCommands(user, reward);
+				giveExtraRewardItemBonusReward(user, reward);
+				giveExtraRewardMoneyBonus(user, reward);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
 	}
 
-	public void giveChanceRewardItemBonusReward(User user, String reward) {
+	public void giveExtraRewardItemBonusReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -181,30 +181,30 @@ public class BonusVoteReward {
 			return;
 		}
 
-		Set<String> items = bonusReward.getChanceRewardItems(reward);
+		Set<String> items = bonusReward.getExtraRewardItems(reward);
 		for (String item : items) {
-			int id = bonusReward.getChanceRewardItemID(reward, item);
-			int amount = getChanceRewardItemsStackAmount(reward, item);
+			int id = bonusReward.getExtraRewardItemID(reward, item);
+			int amount = getExtraRewardItemsStackAmount(reward, item);
 
-			int data = bonusReward.getChanceRewardItemData(reward, item);
+			int data = bonusReward.getExtraRewardItemData(reward, item);
 
-			String itemName = bonusReward.getChanceRewardItemName(reward, item);
+			String itemName = bonusReward.getExtraRewardItemName(reward, item);
 
 			itemName = Utils.getInstance().colorize(itemName);
 
-			ArrayList<String> lore = bonusReward.getChanceRewardItemLore(
+			ArrayList<String> lore = bonusReward.getExtraRewardItemLore(
 					reward, item);
 			lore = Utils.getInstance().colorize(lore);
 
 			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward
-					.getInstance().getChanceRewardEnchantments(reward, item));
+					.getInstance().getExtraRewardEnchantments(reward, item));
 
 		}
 
 	}
 
-	public void giveChanceRewardMoneyBonus(User user, String reward) {
-		int money = getChanceRewardMoneyAmount(reward);
+	public void giveExtraRewardMoneyBonus(User user, String reward) {
+		int money = getExtraRewardMoneyAmount(reward);
 		user.giveMoney(money);
 	}
 

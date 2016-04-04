@@ -40,7 +40,7 @@ public class ConfigBonusReward {
 	}
 
 	@SuppressWarnings("deprecation")
-	public void addChanceRewardItem(String reward, String item,
+	public void addExtraRewardItem(String reward, String item,
 			ItemStack itemStack) {
 		int id = itemStack.getTypeId();
 		int data = itemStack.getData().getData();
@@ -52,12 +52,12 @@ public class ConfigBonusReward {
 		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
 				itemStack.getEnchantments());
 
-		setChanceRewardItemId(reward, item, id);
-		setChanceRewardItemData(reward, item, data);
-		setChanceRewardItemAmount(reward, item, amount);
-		setChanceRewardItemName(reward, item, name);
-		setChanceRewardItemLore(reward, item, lore);
-		setChanceRewardItemEnchants(reward, item, enchants);
+		setExtraRewardItemId(reward, item, id);
+		setExtraRewardItemData(reward, item, data);
+		setExtraRewardItemAmount(reward, item, amount);
+		setExtraRewardItemName(reward, item, name);
+		setExtraRewardItemLore(reward, item, lore);
+		setExtraRewardItemEnchants(reward, item, enchants);
 	}
 
 	@SuppressWarnings("deprecation")
@@ -80,33 +80,33 @@ public class ConfigBonusReward {
 		setItemEnchants(item, enchants);
 	}
 
-	public int getChanceRewardChance(String reward) {
-		return getData().getInt("ChanceReward." + reward + ".Chance");
+	public int getExtraRewardChance(String reward) {
+		return getData().getInt("ExtraReward." + reward + ".Chance");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardConsoleCommands(String reward) {
+	public ArrayList<String> getExtraRewardConsoleCommands(String reward) {
 		return (ArrayList<String>) getData().getList(
-				"ChanceReward.Commands." + reward + ".Console");
+				"ExtraReward.Commands." + reward + ".Console");
 	}
 
-	public int getChanceRewardEnchantLevel(String reward, String item,
+	public int getExtraRewardEnchantLevel(String reward, String item,
 			String enchant) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Enchants."
+				"ExtraReward." + reward + ".Items." + item + ".Enchants."
 						+ enchant);
 	}
 
-	public HashMap<String, Integer> getChanceRewardEnchantments(String reward,
+	public HashMap<String, Integer> getExtraRewardEnchantments(String reward,
 			String item) {
 		try {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData().getConfigurationSection(
-					"ChanceReward." + reward + ".Items." + item + ".Enchants")
+					"ExtraReward." + reward + ".Items." + item + ".Enchants")
 					.getKeys(false);
 			for (String enchant : enchants) {
 				enchantments.put(enchant,
-						getChanceRewardEnchantLevel(reward, item, enchant));
+						getExtraRewardEnchantLevel(reward, item, enchant));
 			}
 
 			return enchantments;
@@ -115,36 +115,36 @@ public class ConfigBonusReward {
 		}
 	}
 
-	public int getChanceRewardItemAmount(String reward, String item) {
+	public int getExtraRewardItemAmount(String reward, String item) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Amount");
+				"ExtraReward." + reward + ".Items." + item + ".Amount");
 	}
 
-	public int getChanceRewardItemData(String reward, String item) {
+	public int getExtraRewardItemData(String reward, String item) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Data");
+				"ExtraReward." + reward + ".Items." + item + ".Data");
 	}
 
-	public int getChanceRewardItemID(String reward, String item) {
+	public int getExtraRewardItemID(String reward, String item) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".ID");
+				"ExtraReward." + reward + ".Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardItemLore(String reward, String item) {
+	public ArrayList<String> getExtraRewardItemLore(String reward, String item) {
 		return (ArrayList<String>) getData().getList(
-				"ChanceReward." + reward + ".Items." + item + ".Lore");
+				"ExtraReward." + reward + ".Items." + item + ".Lore");
 	}
 
-	public String getChanceRewardItemName(String reward, String item) {
+	public String getExtraRewardItemName(String reward, String item) {
 		return getData().getString(
-				"ChanceReward." + reward + ".Items." + item + ".Name");
+				"ExtraReward." + reward + ".Items." + item + ".Name");
 	}
 
-	public Set<String> getChanceRewardItems(String reward) {
+	public Set<String> getExtraRewardItems(String reward) {
 		try {
 			return getData().getConfigurationSection(
-					"ChanceReward." + reward + ".Items").getKeys(false);
+					"ExtraReward." + reward + ".Items").getKeys(false);
 		} catch (Exception ex) {
 			if (Config.getInstance().getDebugEnabled()) {
 				ex.printStackTrace();
@@ -153,37 +153,37 @@ public class ConfigBonusReward {
 		}
 	}
 
-	public int getChanceRewardMaxItemAmount(String reward, String item) {
+	public int getExtraRewardMaxItemAmount(String reward, String item) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".MaxAmount");
+				"ExtraReward." + reward + ".Items." + item + ".MaxAmount");
 	}
 
-	public int getChanceRewardMaxMoneyAmount(String reward) {
-		return getData().getInt("ChanceReward." + reward + ".MaxMoney");
+	public int getExtraRewardMaxMoneyAmount(String reward) {
+		return getData().getInt("ExtraReward." + reward + ".MaxMoney");
 	}
 
-	public int getChanceRewardMinItemAmount(String reward, String item) {
+	public int getExtraRewardMinItemAmount(String reward, String item) {
 		return getData().getInt(
-				"ChanceReward." + reward + ".Items." + item + ".MinAmount");
+				"ExtraReward." + reward + ".Items." + item + ".MinAmount");
 	}
 
-	public int getChanceRewardMinMoneyAmount(String reward) {
-		return getData().getInt("ChanceReward." + reward + ".MinMoney");
+	public int getExtraRewardMinMoneyAmount(String reward) {
+		return getData().getInt("ExtraReward." + reward + ".MinMoney");
 	}
 
-	public int getChanceRewardMoneyAmount(String reward) {
-		return getData().getInt("ChanceReward." + reward + ".Money");
+	public int getExtraRewardMoneyAmount(String reward) {
+		return getData().getInt("ExtraReward." + reward + ".Money");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardPlayerCommands(String reward) {
+	public ArrayList<String> getExtraRewardPlayerCommands(String reward) {
 		return (ArrayList<String>) getData().getList(
-				"ChanceReward." + reward + ".Commands.Player");
+				"ExtraReward." + reward + ".Commands.Player");
 	}
 
-	public Set<String> getChanceRewardRewards() {
+	public Set<String> getExtraRewardRewards() {
 		try {
-			return getData().getConfigurationSection("ChanceReward").getKeys(
+			return getData().getConfigurationSection("ExtraReward").getKeys(
 					false);
 		} catch (Exception ex) {
 			if (Config.getInstance().getDebugEnabled()) {
@@ -280,63 +280,63 @@ public class ConfigBonusReward {
 		}
 	}
 
-	public void setChanceRewardChance(String reward, int chance) {
-		getData().set("ChanceReward." + reward + ".Chance", chance);
+	public void setExtraRewardChance(String reward, int chance) {
+		getData().set("ExtraReward." + reward + ".Chance", chance);
 	}
 
-	public void setChanceRewardConsoleCommands(String reward,
+	public void setExtraRewardConsoleCommands(String reward,
 			List<String> consoleCommands) {
-		getData().set("ChanceReward." + reward + ".Commands.Console",
+		getData().set("ExtraReward." + reward + ".Commands.Console",
 				consoleCommands);
 	}
 
-	public void setChanceRewardItemAmount(String reward, String item, int amount) {
-		getData().set("ChanceReward." + reward + ".Items." + item + ".Amount",
+	public void setExtraRewardItemAmount(String reward, String item, int amount) {
+		getData().set("ExtraReward." + reward + ".Items." + item + ".Amount",
 				amount);
 	}
 
-	public void setChanceRewardItemData(String reward, String item, int data) {
-		getData().set("ChanceReward." + reward + ".Items." + item + ".Data",
+	public void setExtraRewardItemData(String reward, String item, int data) {
+		getData().set("ExtraReward." + reward + ".Items." + item + ".Data",
 				data);
 	}
 
-	public void setChanceRewardItemEnchantLevel(String reward, String item,
+	public void setExtraRewardItemEnchantLevel(String reward, String item,
 			String enchant, int level) {
 		getData().set(
-				"ChanceReward." + reward + ".Items." + item + ".Enchants."
+				"ExtraReward." + reward + ".Items." + item + ".Enchants."
 						+ enchant, level);
 	}
 
-	public void setChanceRewardItemEnchants(String reward, String item,
+	public void setExtraRewardItemEnchants(String reward, String item,
 			HashMap<Enchantment, Integer> enchants) {
 		for (Enchantment enchant : enchants.keySet()) {
-			setChanceRewardItemEnchantLevel(reward, item, enchant.getName(),
+			setExtraRewardItemEnchantLevel(reward, item, enchant.getName(),
 					enchants.get(enchant));
 		}
 	}
 
-	public void setChanceRewardItemId(String reward, String item, int id) {
-		getData().set("ChanceReward." + reward + ".Items." + item + ".ID", id);
+	public void setExtraRewardItemId(String reward, String item, int id) {
+		getData().set("ExtraReward." + reward + ".Items." + item + ".ID", id);
 	}
 
-	public void setChanceRewardItemLore(String reward, String item,
+	public void setExtraRewardItemLore(String reward, String item,
 			List<String> lore) {
-		getData().set("ChanceReward." + reward + ".Items." + item + ".Lore",
+		getData().set("ExtraReward." + reward + ".Items." + item + ".Lore",
 				lore);
 	}
 
-	public void setChanceRewardItemName(String reward, String item, String name) {
-		getData().set("ChanceReward." + reward + ".Items." + item + ".Name",
+	public void setExtraRewardItemName(String reward, String item, String name) {
+		getData().set("ExtraReward." + reward + ".Items." + item + ".Name",
 				name);
 	}
 
-	public void setChanceRewardMoney(String reward, int money) {
-		getData().set("ChanceReward." + reward + ".Money", money);
+	public void setExtraRewardMoney(String reward, int money) {
+		getData().set("ExtraReward." + reward + ".Money", money);
 	}
 
-	public void setChanceRewardPlayerCommands(String reward,
+	public void setExtraRewardPlayerCommands(String reward,
 			List<String> playerCommands) {
-		getData().set("ChanceReward." + reward + ".Commands.Player",
+		getData().set("ExtraReward." + reward + ".Commands.Player",
 				playerCommands);
 	}
 

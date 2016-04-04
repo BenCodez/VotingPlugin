@@ -40,39 +40,39 @@ public class CommandAdminVote implements CommandExecutor {
 		this.plugin = plugin;
 	}
 
-	public void addBonusRewardChanceRewardCommandConsole(CommandSender sender,
+	public void addBonusRewardExtraRewardCommandConsole(CommandSender sender,
 			String reward, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
 			List<String> cmds = ConfigBonusReward.getInstance()
-					.getChanceRewardConsoleCommands(reward);
+					.getExtraRewardConsoleCommands(reward);
 			cmds.add(cmd);
-			ConfigBonusReward.getInstance().setChanceRewardConsoleCommands(
+			ConfigBonusReward.getInstance().setExtraRewardConsoleCommands(
 					reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded chance reward console command &c&l" + cmd));
+					"&cAdded extra reward console command &c&l" + cmd));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
 
-	public void addBonusRewardChanceRewardCommandPlayer(CommandSender sender,
+	public void addBonusRewardExtraRewardCommandPlayer(CommandSender sender,
 			String reward, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
 			List<String> cmds = ConfigBonusReward.getInstance()
-					.getChanceRewardPlayerCommands(reward);
+					.getExtraRewardPlayerCommands(reward);
 			cmds.add(cmd);
-			ConfigBonusReward.getInstance().setChanceRewardPlayerCommands(
+			ConfigBonusReward.getInstance().setExtraRewardPlayerCommands(
 					reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded chance reward player command &c&l" + cmd));
+					"&cAdded extra reward player command &c&l" + cmd));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
 
-	public void addBonusRewardChanceRewardItem(CommandSender sender,
+	public void addBonusRewardExtraRewardItem(CommandSender sender,
 			String reward, String item) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
@@ -85,23 +85,23 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigBonusReward
-							.getInstance()
-							.addChanceRewardItem(
-									reward,
+								@Override
+								public void run() {
+									ConfigBonusReward
+											.getInstance()
+											.addExtraRewardItem(
+													reward,
 
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded chance reward item &c&l"
-													+ item));
+													item,
+													player.getInventory()
+															.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded extra reward item &c&l"
+															+ item));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -155,19 +155,19 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigBonusReward.getInstance().addItem(
+								@Override
+								public void run() {
+									ConfigBonusReward.getInstance().addItem(
 
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded item &c&l" + item));
+											item,
+											player.getInventory()
+													.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded item &c&l" + item));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -181,41 +181,41 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void addVoteSiteChanceRewardCommandConsole(CommandSender sender,
+	public void addVoteSiteExtraRewardCommandConsole(CommandSender sender,
 			String voteSite, String reward, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
-					.getChanceRewardConsoleCommands(voteSite, reward);
+					.getExtraRewardConsoleCommands(voteSite, reward);
 			cmds.add(cmd);
-			ConfigVoteSites.getInstance().setChanceRewardConsoleCommands(
+			ConfigVoteSites.getInstance().setExtraRewardConsoleCommands(
 					voteSite, reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded chance reward console command &c&l" + cmd
-					+ "&c on &c&l" + voteSite));
+					"&cAdded extra reward console command &c&l" + cmd
+							+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
 
-	public void addVoteSiteChanceRewardCommandPlayer(CommandSender sender,
+	public void addVoteSiteExtraRewardCommandPlayer(CommandSender sender,
 			String voteSite, String reward, String cmd) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.VoteSite.Edit")) {
 			List<String> cmds = ConfigVoteSites.getInstance()
-					.getChanceRewardPlayerCommands(voteSite, reward);
+					.getExtraRewardPlayerCommands(voteSite, reward);
 			cmds.add(cmd);
-			ConfigVoteSites.getInstance().setChanceRewardPlayerCommands(
+			ConfigVoteSites.getInstance().setExtraRewardPlayerCommands(
 					voteSite, reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cAdded chance reward player command &c&l" + cmd
-					+ "&c on &c&l" + voteSite));
+					"&cAdded extra reward player command &c&l" + cmd
+							+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
 	}
 
-	public void addVoteSiteChanceRewardItem(CommandSender sender,
+	public void addVoteSiteExtraRewardItem(CommandSender sender,
 			String voteSite, String reward, String item) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.VoteSite.Edit")) {
@@ -228,24 +228,24 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigVoteSites
-							.getInstance()
-							.addChanceRewardItem(
-									voteSite,
-									reward,
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded chance reward item &c&l"
-													+ item + " &cto "
-													+ voteSite));
+								@Override
+								public void run() {
+									ConfigVoteSites
+											.getInstance()
+											.addExtraRewardItem(
+													voteSite,
+													reward,
+													item,
+													player.getInventory()
+															.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded extra reward item &c&l"
+															+ item + " &cto "
+															+ voteSite));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -304,21 +304,21 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							ConfigVoteSites.getInstance().addItem(
-									voteSite,
-									item,
-									player.getInventory()
-									.getItemInMainHand());
-							sender.sendMessage(Utils.getInstance()
-									.colorize(
-											"&cAdded item &c&l" + item
-											+ " &cto "
-											+ voteSite));
+								@Override
+								public void run() {
+									ConfigVoteSites.getInstance().addItem(
+											voteSite,
+											item,
+											player.getInventory()
+													.getItemInMainHand());
+									sender.sendMessage(Utils.getInstance()
+											.colorize(
+													"&cAdded item &c&l" + item
+															+ " &cto "
+															+ voteSite));
 
-						}
-					});
+								}
+							});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -536,13 +536,13 @@ public class CommandAdminVote implements CommandExecutor {
 		if (args.length >= 4) {
 			if (args.length == 4) {
 				if (args[0].equalsIgnoreCase("BonusReward")) {
-					if (args[1].equalsIgnoreCase("AddChanceRewardItem")) {
-						addBonusRewardChanceRewardItem(sender, args[2], args[3]);
+					if (args[1].equalsIgnoreCase("AddExtraRewardItem")) {
+						addBonusRewardExtraRewardItem(sender, args[2], args[3]);
 						return true;
 					}
-					if (args[1].equalsIgnoreCase("SetChanceRewardMoney")) {
+					if (args[1].equalsIgnoreCase("SetExtraRewardMoney")) {
 						if (Utils.getInstance().isInt(args[3])) {
-							setBonusRewardChanceRewardMoney(sender, args[2],
+							setBonusRewardExtraRewardMoney(sender, args[2],
 									Integer.parseInt(args[3]));
 						} else {
 							sender.sendMessage(Utils.getInstance().colorize(
@@ -552,9 +552,9 @@ public class CommandAdminVote implements CommandExecutor {
 						return true;
 					}
 
-					if (args[1].equalsIgnoreCase("SetChanceRewardChance")) {
+					if (args[1].equalsIgnoreCase("SetExtraRewardChance")) {
 						if (Utils.getInstance().isInt(args[3])) {
-							setBonusRewardChanceRewardChance(sender, args[2],
+							setBonusRewardExtraRewardChance(sender, args[2],
 									Integer.parseInt(args[3]));
 						} else {
 							sender.sendMessage(Utils.getInstance().colorize(
@@ -632,13 +632,13 @@ public class CommandAdminVote implements CommandExecutor {
 
 			}
 			if (args[0].equalsIgnoreCase("BonusReward")) {
-				if (args[1].equalsIgnoreCase("AddChanceRewardCommandPlayer")) {
-					addBonusRewardChanceRewardCommandPlayer(sender, args[2],
+				if (args[1].equalsIgnoreCase("AddExtraRewardCommandPlayer")) {
+					addBonusRewardExtraRewardCommandPlayer(sender, args[2],
 							Utils.getInstance().makeString(3, args));
 					return true;
 				}
-				if (args[1].equalsIgnoreCase("AddChanceRewardCommandConsole")) {
-					addBonusRewardChanceRewardCommandConsole(sender, args[2],
+				if (args[1].equalsIgnoreCase("AddExtraRewardCommandConsole")) {
+					addBonusRewardExtraRewardCommandConsole(sender, args[2],
 							Utils.getInstance().makeString(3, args));
 					return true;
 				}
@@ -649,9 +649,9 @@ public class CommandAdminVote implements CommandExecutor {
 		if (args.length >= 5) {
 			if (args.length == 5) {
 				if (args[0].equalsIgnoreCase("VoteSite")) {
-					if (args[2].equalsIgnoreCase("SetChanceRewardChance")) {
+					if (args[2].equalsIgnoreCase("SetExtraRewardChance")) {
 						if (Utils.getInstance().isInt(args[3])) {
-							setVoteSiteChanceRewardChance(sender, args[1],
+							setVoteSiteExtraRewardChance(sender, args[1],
 									args[3], Integer.parseInt(args[4]));
 						} else {
 							sender.sendMessage(Utils.getInstance().colorize(
@@ -661,14 +661,14 @@ public class CommandAdminVote implements CommandExecutor {
 						return true;
 					}
 
-					if (args[2].equalsIgnoreCase("AddChanceRewardItem")) {
-						addVoteSiteChanceRewardItem(sender, args[1], args[3],
+					if (args[2].equalsIgnoreCase("AddExtraRewardItem")) {
+						addVoteSiteExtraRewardItem(sender, args[1], args[3],
 								args[4]);
 						return true;
 					}
-					if (args[2].equalsIgnoreCase("SetChanceRewardMoney")) {
+					if (args[2].equalsIgnoreCase("SetExtraRewardMoney")) {
 						if (Utils.getInstance().isInt(args[4])) {
-							setVoteSiteChanceRewardMoney(sender, args[1],
+							setVoteSiteExtraRewardMoney(sender, args[1],
 									args[3], Integer.parseInt(args[4]));
 						} else {
 							sender.sendMessage(Utils.getInstance().colorize(
@@ -679,13 +679,13 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 				}
 			}
-			if (args[2].equalsIgnoreCase("AddChanceRewardCommandPlayer")) {
-				addVoteSiteChanceRewardCommandPlayer(sender, args[1], args[3],
+			if (args[2].equalsIgnoreCase("AddExtraRewardCommandPlayer")) {
+				addVoteSiteExtraRewardCommandPlayer(sender, args[1], args[3],
 						Utils.getInstance().makeString(4, args));
 				return true;
 			}
-			if (args[2].equalsIgnoreCase("AddChanceRewardCommandConsole")) {
-				addVoteSiteChanceRewardCommandConsole(sender, args[1], args[3],
+			if (args[2].equalsIgnoreCase("AddExtraRewardCommandConsole")) {
+				addVoteSiteExtraRewardCommandConsole(sender, args[1], args[3],
 						Utils.getInstance().makeString(4, args));
 				return true;
 			}
@@ -744,12 +744,12 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setBonusRewardChanceRewardChance(CommandSender sender,
+	public void setBonusRewardExtraRewardChance(CommandSender sender,
 			String reward, int chance) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
-			ConfigBonusReward.getInstance().setChanceRewardChance(reward,
-					chance);
+			ConfigBonusReward.getInstance()
+					.setExtraRewardChance(reward, chance);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet chance to &c&l" + chance));
 		} else {
@@ -757,13 +757,13 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setBonusRewardChanceRewardMoney(CommandSender sender,
+	public void setBonusRewardExtraRewardMoney(CommandSender sender,
 			String reward, int money) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
-			ConfigBonusReward.getInstance().setChanceRewardMoney(reward, money);
+			ConfigBonusReward.getInstance().setExtraRewardMoney(reward, money);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet chance reward money to &c&l" + money));
+					"&cSet extra reward money to &c&l" + money));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -872,11 +872,11 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setVoteSiteChanceRewardChance(CommandSender sender,
+	public void setVoteSiteExtraRewardChance(CommandSender sender,
 			String siteName, String reward, int chance) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.VoteSite.Edit")) {
-			ConfigVoteSites.getInstance().setChanceRewardChance(siteName,
+			ConfigVoteSites.getInstance().setExtraRewardChance(siteName,
 					reward, chance);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet chance to &c&l" + chance));
@@ -885,14 +885,14 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void setVoteSiteChanceRewardMoney(CommandSender sender,
+	public void setVoteSiteExtraRewardMoney(CommandSender sender,
 			String voteSite, String reward, int money) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.VoteSite.Edit")) {
-			ConfigVoteSites.getInstance().setChanceRewardMoney(voteSite,
-					reward, money);
+			ConfigVoteSites.getInstance().setExtraRewardMoney(voteSite, reward,
+					money);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet chance reward money to &c&l" + money + "&c on &c&l"
+					"&cSet extra reward money to &c&l" + money + "&c on &c&l"
 							+ voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());

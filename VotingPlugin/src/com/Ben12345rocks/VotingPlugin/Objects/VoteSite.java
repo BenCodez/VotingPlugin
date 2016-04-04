@@ -73,13 +73,13 @@ public class VoteSite {
 	 * @param user
 	 *            User to execute commands with
 	 */
-	public void doChanceRewardSiteCommands(User user, String reward) {
+	public void doExtraRewardSiteCommands(User user, String reward) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
 		ArrayList<String> consolecmds = configVoteSites
-				.getChanceRewardConsoleCommands(siteName, reward);
+				.getExtraRewardConsoleCommands(siteName, reward);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -93,7 +93,7 @@ public class VoteSite {
 
 		// Player commands
 		ArrayList<String> playercmds = configVoteSites
-				.getChanceRewardPlayerCommands(siteName, reward);
+				.getExtraRewardPlayerCommands(siteName, reward);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -147,8 +147,8 @@ public class VoteSite {
 	/**
 	 * @return Chance
 	 */
-	public int getChanceRewardChance(String reward) {
-		int chance = configVoteSites.getChanceRewardChance(siteName, reward);
+	public int getExtraRewardChance(String reward) {
+		int chance = configVoteSites.getExtraRewardChance(siteName, reward);
 		if (chance <= 0) {
 			chance = 100;
 		} else if (chance > 100) {
@@ -157,12 +157,12 @@ public class VoteSite {
 		return chance;
 	}
 
-	public int getChanceRewardItemsStackAmount(String reward, String item) {
-		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
+	public int getExtraRewardItemsStackAmount(String reward, String item) {
+		int amount = configVoteSites.getExtraRewardItemAmount(siteName,
 				reward, item);
-		int maxAmount = configVoteSites.getChanceRewardMaxItemAmount(siteName,
+		int maxAmount = configVoteSites.getExtraRewardMaxItemAmount(siteName,
 				reward, item);
-		int minAmount = configVoteSites.getChanceRewardMinItemAmount(siteName,
+		int minAmount = configVoteSites.getExtraRewardMinItemAmount(siteName,
 				reward, item);
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
@@ -177,17 +177,17 @@ public class VoteSite {
 	}
 
 	@SuppressWarnings("deprecation")
-	public ItemStack getChanceRewardItemStackItem(String reward, String item) {
-		int id = configVoteSites.getChanceRewardItemID(siteName, reward, item);
-		int amount = getChanceRewardItemsStackAmount(reward, item);
-		int data = configVoteSites.getChanceRewardItemData(siteName, reward,
+	public ItemStack getExtraRewardItemStackItem(String reward, String item) {
+		int id = configVoteSites.getExtraRewardItemID(siteName, reward, item);
+		int amount = getExtraRewardItemsStackAmount(reward, item);
+		int data = configVoteSites.getExtraRewardItemData(siteName, reward,
 				item);
 
-		String itemName = configVoteSites.getChanceRewardItemName(siteName,
+		String itemName = configVoteSites.getExtraRewardItemName(siteName,
 				reward, item);
 		itemName = Utils.getInstance().colorize(itemName);
 
-		ArrayList<String> lore = configVoteSites.getChanceRewardItemLore(
+		ArrayList<String> lore = configVoteSites.getExtraRewardItemLore(
 				siteName, reward, item);
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
@@ -195,17 +195,17 @@ public class VoteSite {
 		itemStack = Utils.getInstance().addlore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(
 				itemStack,
-				configVoteSites.getChanceRewardEnchantments(siteName, reward,
+				configVoteSites.getExtraRewardEnchantments(siteName, reward,
 						item));
 		return itemStack;
 	}
 
-	public int getChanceRewardMoneyAmount(String reward) {
-		int amount = configVoteSites.getChanceRewardMoneyAmount(siteName,
+	public int getExtraRewardMoneyAmount(String reward) {
+		int amount = configVoteSites.getExtraRewardMoneyAmount(siteName,
 				reward);
-		int maxAmount = configVoteSites.getChanceRewardMaxMoney(siteName,
+		int maxAmount = configVoteSites.getExtraRewardMaxMoney(siteName,
 				reward);
-		int minAmount = configVoteSites.getChanceRewardMinMoney(siteName,
+		int minAmount = configVoteSites.getExtraRewardMinMoney(siteName,
 				reward);
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
@@ -294,21 +294,21 @@ public class VoteSite {
 		return voteURL;
 	}
 
-	public void giveChanceReward(User user, String reward) {
+	public void giveExtraReward(User user, String reward) {
 		try {
-			int chance = getChanceRewardChance(reward);
+			int chance = getExtraRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
 				if (chance != 100) {
 					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
+							.getExtraRewardMsg());
 				}
-				doChanceRewardSiteCommands(user, reward);
+				doExtraRewardSiteCommands(user, reward);
 				try {
-					giveChanceRewardItemSiteReward(user, reward);
+					giveExtraRewardItemSiteReward(user, reward);
 				} catch (Exception ex) {
 				}
-				giveChanceRewardMoneySite(user, reward);
+				giveExtraRewardMoneySite(user, reward);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -321,7 +321,7 @@ public class VoteSite {
 	 * @param user
 	 *            User to give items to
 	 */
-	public void giveChanceRewardItemSiteReward(User user, String reward) {
+	public void giveExtraRewardItemSiteReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -332,10 +332,10 @@ public class VoteSite {
 			return;
 		}
 
-		Set<String> items = configVoteSites.getChanceRewardItems(siteName,
+		Set<String> items = configVoteSites.getExtraRewardItems(siteName,
 				reward);
 		for (String item : items) {
-			user.giveItem(getChanceRewardItemStackItem(reward, item));
+			user.giveItem(getExtraRewardItemStackItem(reward, item));
 		}
 	}
 
@@ -343,8 +343,8 @@ public class VoteSite {
 	 * @param user
 	 *            User to give money to
 	 */
-	public void giveChanceRewardMoneySite(User user, String reward) {
-		int money = getChanceRewardMoneyAmount(reward);
+	public void giveExtraRewardMoneySite(User user, String reward) {
+		int money = getExtraRewardMoneyAmount(reward);
 		user.giveMoney(money);
 	}
 
@@ -414,8 +414,8 @@ public class VoteSite {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
 			for (String reward : ConfigVoteSites.getInstance()
-					.getChanceRewardRewards(siteName)) {
-				giveChanceReward(user, reward);
+					.getExtraRewardRewards(siteName)) {
+				giveExtraReward(user, reward);
 			}
 		} else {
 			plugin.getLogger().info(
