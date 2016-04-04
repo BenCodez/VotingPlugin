@@ -393,7 +393,8 @@ public class VoteSite {
 			user.addCumulativeReward(this);
 
 			if (user.getCumulativeReward(this) >= configVoteSites
-					.getCumulativeRewardVotesAmount(siteName)) {
+					.getCumulativeRewardVotesAmount(siteName)
+					&& configVoteSites.getCumulativeRewardVotesAmount(siteName) != 0) {
 
 				doCumulativeRewardSiteCommands(user);
 
@@ -402,6 +403,16 @@ public class VoteSite {
 				giveCumulativeRewardMoneySite(user);
 
 				user.setCumulativeReward(this, 0);
+
+				user.sendMessage(Utils
+						.getInstance()
+						.replaceIgnoreCase(
+								ConfigFormat.getInstance()
+										.getCumulativeRewardMsg(),
+								"%votes%",
+								""
+										+ configVoteSites
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {

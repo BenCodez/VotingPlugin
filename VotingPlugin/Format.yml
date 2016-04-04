@@ -93,6 +93,10 @@ Format:
   # Msg on chance reward
   extrarewardmsg: '&aLooks like you got lucky!'
   
+  # Msg on cumulative reward
+  # %votes% = number of votes required
+  CumulativeRewardMsg: '&aYou recieved an extra reward for voting %votes% times!'
+  
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc
   topvoterawardmsg: '&aYou came in %place% in top voters of the month! Here is an award!'
