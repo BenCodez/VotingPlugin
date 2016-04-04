@@ -106,6 +106,15 @@ public class ConfigFormat {
 		return getData().getString("Format.Commands.Vote.Top.Title");
 	}
 
+	public String getCumulativeRewardMsg() {
+		String msg = getData().getString("Format.CumulativeRewardMsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aYou recieved an extra reward for voting %votes% times!";
+		}
+	}
+
 	public FileConfiguration getData() {
 		return data;
 	}
@@ -116,15 +125,6 @@ public class ConfigFormat {
 			return msg;
 		} else {
 			return "&aLooks like you got lucky!";
-		}
-	}
-
-	public String getCumulativeRewardMsg() {
-		String msg = getData().getString("Format.CumulativeRewardMsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aYou recieved an extra reward for voting %votes% times!";
 		}
 	}
 
@@ -212,7 +212,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
+			.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -229,7 +229,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 
