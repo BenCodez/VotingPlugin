@@ -18,10 +18,9 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigCumulativeAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 
 public class User {
@@ -217,14 +216,6 @@ public class User {
 		return true;
 	}
 
-	@SuppressWarnings("unused")
-	public void checkCumulativeAwards() {
-		for (String reward : ConfigCumulativeAwards.getInstance()
-				.getPossibleRewardrewards()) {
-			// finish this
-		}
-	}
-
 	/**
 	 * Get Amount of offline votes
 	 *
@@ -248,7 +239,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -295,7 +286,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
+								+ ".Miliseconds");
 		return mills;
 	}
 
@@ -460,7 +451,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -520,9 +511,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
