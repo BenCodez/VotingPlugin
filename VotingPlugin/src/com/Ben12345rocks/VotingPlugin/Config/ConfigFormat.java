@@ -36,15 +36,6 @@ public class ConfigFormat {
 		return getData().getString("Format.broadcastmsg");
 	}
 
-	public String getExtraRewardMsg() {
-		String msg = getData().getString("Format.extrarewardmsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aLooks like you got lucky!";
-		}
-	}
-
 	public String getCommandsVoteLastLine() {
 		return getData().getString("Format.Commands.Vote.Last.Line");
 	}
@@ -117,6 +108,15 @@ public class ConfigFormat {
 
 	public FileConfiguration getData() {
 		return data;
+	}
+
+	public String getExtraRewardMsg() {
+		String msg = getData().getString("Format.extrarewardmsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aLooks like you got lucky!";
+		}
 	}
 
 	public String getLoginMsg() {
@@ -203,7 +203,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
+			.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -220,7 +220,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

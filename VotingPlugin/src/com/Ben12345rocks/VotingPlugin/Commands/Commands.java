@@ -157,13 +157,13 @@ public class Commands {
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
 			String timeString = new SimpleDateFormat(format.getTimeFormat())
-					.format(date);
+			.format(date);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);

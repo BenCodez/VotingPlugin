@@ -80,6 +80,34 @@ public class ConfigBonusReward {
 		setItemEnchants(item, enchants);
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getConsoleCommands() {
+		return (ArrayList<String>) getData().getList("Commands.Console");
+	}
+
+	public FileConfiguration getData() {
+		return data;
+	}
+
+	public int getEnchantLevel(String item, String enchant) {
+		return getData().getInt("Items." + item + ".Enchants." + enchant);
+	}
+
+	public HashMap<String, Integer> getEnchantments(String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData().getConfigurationSection(
+					"Items." + item + ".Enchants").getKeys(false);
+			for (String enchant : enchants) {
+				enchantments.put(enchant, getEnchantLevel(item, enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
 	public int getExtraRewardChance(String reward) {
 		return getData().getInt("ExtraReward." + reward + ".Chance");
 	}
@@ -175,6 +203,20 @@ public class ConfigBonusReward {
 		return getData().getInt("ExtraReward." + reward + ".Money");
 	}
 
+	public String getExtraRewardPermission(String reward) {
+		String perm = getData().getString(
+				"ExtraReward." + reward + ".Permission");
+		if (perm == null) {
+			return null;
+		}
+
+		if (perm.equalsIgnoreCase("none")) {
+			return null;
+		}
+
+		return "ExtraReward." + perm;
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getExtraRewardPlayerCommands(String reward) {
 		return (ArrayList<String>) getData().getList(
@@ -192,34 +234,6 @@ public class ConfigBonusReward {
 			return new HashSet<String>();
 		}
 
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getConsoleCommands() {
-		return (ArrayList<String>) getData().getList("Commands.Console");
-	}
-
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	public int getEnchantLevel(String item, String enchant) {
-		return getData().getInt("Items." + item + ".Enchants." + enchant);
-	}
-
-	public HashMap<String, Integer> getEnchantments(String item) {
-		try {
-			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
-			Set<String> enchants = getData().getConfigurationSection(
-					"Items." + item + ".Enchants").getKeys(false);
-			for (String enchant : enchants) {
-				enchantments.put(enchant, getEnchantLevel(item, enchant));
-			}
-
-			return enchantments;
-		} catch (Exception ex) {
-			return null;
-		}
 	}
 
 	public boolean getGiveBonusReward() {
@@ -276,8 +290,12 @@ public class ConfigBonusReward {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save BonusReward.yml!");
+			.severe(ChatColor.RED + "Could not save BonusReward.yml!");
 		}
+	}
+
+	public void setConsoleCommands(List<String> consoleCommands) {
+		getData().set("Commands.Console", consoleCommands);
 	}
 
 	public void setExtraRewardChance(String reward, int chance) {
@@ -338,24 +356,6 @@ public class ConfigBonusReward {
 			List<String> playerCommands) {
 		getData().set("ExtraReward." + reward + ".Commands.Player",
 				playerCommands);
-	}
-
-	public String getExtraRewardPermission(String reward) {
-		String perm = getData().getString(
-				"ExtraReward." + reward + ".Permission");
-		if (perm == null) {
-			return null;
-		}
-
-		if (perm.equalsIgnoreCase("none")) {
-			return null;
-		}
-
-		return "ExtraReward." + perm;
-	}
-
-	public void setConsoleCommands(List<String> consoleCommands) {
-		getData().set("Commands.Console", consoleCommands);
 	}
 
 	public void setGiveBonusReward(boolean value) {
@@ -423,9 +423,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BonusReward.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BonusReward.yml!");
 			}
 		}
 

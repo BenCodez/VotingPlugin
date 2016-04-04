@@ -145,6 +145,13 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the consoleCommands
+	 */
+	public ArrayList<String> getConsoleCommands() {
+		return consoleCommands;
+	}
+
+	/**
 	 * @return Chance
 	 */
 	public int getExtraRewardChance(String reward) {
@@ -217,13 +224,6 @@ public class VoteSite {
 			}
 			return num;
 		}
-	}
-
-	/**
-	 * @return the consoleCommands
-	 */
-	public ArrayList<String> getConsoleCommands() {
-		return consoleCommands;
 	}
 
 	/**

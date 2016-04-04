@@ -49,7 +49,7 @@ public class UUIDs {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save uuids.yml!");
+			.severe(ChatColor.RED + "Could not save uuids.yml!");
 		}
 	}
 
@@ -70,7 +70,7 @@ public class UUIDs {
 				dFile.createNewFile();
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create uuids.yml!");
+				.severe(ChatColor.RED + "Could not create uuids.yml!");
 			}
 		}
 

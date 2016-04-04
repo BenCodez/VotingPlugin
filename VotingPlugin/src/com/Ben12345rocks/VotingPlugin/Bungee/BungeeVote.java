@@ -74,7 +74,7 @@ public class BungeeVote {
 				plugin.getLogger().info(
 						"Bungee voting registered! Server will recieve votes on port '"
 								+ ConfigBungeeVoting.getInstance()
-								.getRecievePort() + "'!");
+										.getRecievePort() + "'!");
 			} catch (IOException e) {
 				plugin.getLogger().warning("Bungee voting failed to load!");
 				e.printStackTrace();

@@ -88,9 +88,57 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getConsoleCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName)
+				.getList("Commands.Console");
+	}
+
+	public FileConfiguration getData(String siteName) {
+		File dFile = getVoteSiteFile(siteName);
+		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+		return data;
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @param enchant
+	 *            Enchant
+	 * @return Level of enchantment
+	 */
+	public int getEnchantLevel(String siteName, String item, String enchant) {
+		return getData(siteName).getInt(
+				"Items." + item + ".Enchants." + enchant);
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Enchants of item
+	 */
+	public HashMap<String, Integer> getEnchantments(String siteName, String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData(siteName).getConfigurationSection(
+					"Items." + item + ".Enchants").getKeys(false);
+			for (String enchant : enchants) {
+				enchantments.put(enchant,
+						getEnchantLevel(siteName, item, enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+
 	}
 
 	public int getExtraRewardChance(String siteName, String reward) {
@@ -245,6 +293,20 @@ public class ConfigVoteSites {
 		return getData(siteName).getInt("ExtraReward." + reward + ".Money");
 	}
 
+	public String getExtraRewardPermission(String siteName, String reward) {
+		String perm = getData(siteName).getString(
+				"ExtraReward." + reward + ".Permission");
+		if (perm == null) {
+			return null;
+		}
+
+		if (perm.equalsIgnoreCase("none")) {
+			return null;
+		}
+
+		return "ExtraReward." + perm;
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getExtraRewardPlayerCommands(String siteName,
 			String reward) {
@@ -261,54 +323,6 @@ public class ConfigVoteSites {
 				ex.printStackTrace();
 			}
 			return new HashSet<String>();
-		}
-
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getConsoleCommands(String siteName) {
-		return (ArrayList<String>) getData(siteName)
-				.getList("Commands.Console");
-	}
-
-	public FileConfiguration getData(String siteName) {
-		File dFile = getVoteSiteFile(siteName);
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		return data;
-	}
-
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @param enchant
-	 *            Enchant
-	 * @return Level of enchantment
-	 */
-	public int getEnchantLevel(String siteName, String item, String enchant) {
-		return getData(siteName).getInt(
-				"Items." + item + ".Enchants." + enchant);
-	}
-
-	/**
-	 *
-	 * @param item
-	 *            Item
-	 * @return Enchants of item
-	 */
-	public HashMap<String, Integer> getEnchantments(String siteName, String item) {
-		try {
-			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
-			Set<String> enchants = getData(siteName).getConfigurationSection(
-					"Items." + item + ".Enchants").getKeys(false);
-			for (String enchant : enchants) {
-				enchantments.put(enchant,
-						getEnchantLevel(siteName, item, enchant));
-			}
-
-			return enchantments;
-		} catch (Exception ex) {
-			return null;
 		}
 
 	}
@@ -489,8 +503,16 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
+	}
+
+	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
+		set(siteName, "Commands.Console", consoleCommands);
+	}
+
+	public void setDisabled(String siteName, boolean disabled) {
+		set(siteName, "Disabled", disabled);
 	}
 
 	public void setExtraRewardChance(String siteName, String reward, int chance) {
@@ -556,30 +578,8 @@ public class ConfigVoteSites {
 				playerCommands);
 	}
 
-	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
-		set(siteName, "Commands.Console", consoleCommands);
-	}
-
-	public void setDisabled(String siteName, boolean disabled) {
-		set(siteName, "Disabled", disabled);
-	}
-
 	public void setItemAmount(String siteName, String item, int amount) {
 		set(siteName, "Items." + item + ".Amount", amount);
-	}
-
-	public String getExtraRewardPermission(String siteName, String reward) {
-		String perm = getData(siteName).getString(
-				"ExtraReward." + reward + ".Permission");
-		if (perm == null) {
-			return null;
-		}
-
-		if (perm.equalsIgnoreCase("none")) {
-			return null;
-		}
-
-		return "ExtraReward." + perm;
 	}
 
 	public void setItemData(String siteName, String item, int data) {
