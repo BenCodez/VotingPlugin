@@ -290,6 +290,74 @@ public class Commands {
 				}
 			} catch (Exception ex) {
 			}
+
+			msg.add("&c&lExtra Rewards:");
+			for (String reward : voteSite.getExtraRewardsChance().keySet()) {
+				msg.add("Reward: " + reward);
+				msg.add("&cChance: &6"
+						+ voteSite.getExtraRewardsChance().get(reward));
+				msg.add("&cMoney: &6"
+						+ voteSite.getExtraRewardsMoney().get(reward));
+				msg.add("&cPermission: &6"
+						+ voteSite.getExtraRewardsPermission().get(reward));
+
+				msg.add("&cItems:");
+				for (String item : ConfigVoteSites.getInstance()
+						.getExtraRewardItems(voteSite.getSiteName(), reward)) {
+					msg.add("&c- &6" + item);
+				}
+
+				msg.add("&cPlayer Commands:");
+
+				try {
+					for (String playerCommands : voteSite
+							.getExtraRewardsPlayerCommands().get(reward)) {
+						msg.add("&c- " + playerCommands);
+					}
+				} catch (Exception ex) {
+				}
+
+				msg.add("&cConsole Commands:");
+
+				try {
+					for (String consoleCommands : voteSite
+							.getExtraRewardsConsoleCommands().get(reward)) {
+						msg.add("&c- " + consoleCommands);
+					}
+				} catch (Exception ex) {
+				}
+			}
+
+			msg.add("&c&lCumulative Rewards:");
+
+			msg.add("&cVotes: &6" + voteSite.getCumulativeVotes());
+			msg.add("&cMoney: &6" + voteSite.getCumulativeMoney());
+
+			msg.add("&cItems:");
+			for (String item : ConfigVoteSites.getInstance()
+					.getCumulativeRewardItems(voteSite.getSiteName())) {
+				msg.add("&c- &6" + item);
+			}
+
+			msg.add("&cPlayer Commands:");
+
+			try {
+				for (String playerCommands : voteSite
+						.getCumulativePlayerCommands()) {
+					msg.add("&c- " + playerCommands);
+				}
+			} catch (Exception ex) {
+			}
+
+			msg.add("&cConsole Commands:");
+
+			try {
+				for (String consoleCommands : voteSite
+						.getCumulativeConsoleCommands()) {
+					msg.add("&c- " + consoleCommands);
+				}
+			} catch (Exception ex) {
+			}
 		}
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
