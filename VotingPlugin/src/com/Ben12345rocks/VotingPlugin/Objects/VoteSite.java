@@ -278,6 +278,9 @@ public class VoteSite {
 				reward, item);
 		int minAmount = configVoteSites.getExtraRewardMinItemAmount(siteName,
 				reward, item);
+		if (amount != 0) {
+			return amount;
+		}
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
 		} else {
@@ -321,6 +324,9 @@ public class VoteSite {
 				.getExtraRewardMaxMoney(siteName, reward);
 		int minAmount = configVoteSites
 				.getExtraRewardMinMoney(siteName, reward);
+		if (amount != 0) {
+			return amount;
+		}
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
 		} else {
@@ -679,6 +685,7 @@ public class VoteSite {
 		extraRewardsItems = new HashMap<String, ArrayList<ItemStack>>();
 		extraRewardsPermission = new HashMap<String, String>();
 		extraRewardsChance = new HashMap<String, Integer>();
+		extraRewardsMoney = new HashMap<String, Integer>();
 		for (String reward : rewards) {
 			try {
 
@@ -702,7 +709,7 @@ public class VoteSite {
 				ArrayList<ItemStack> extraRewardsRewardItems = new ArrayList<ItemStack>();
 				for (String item : configVoteSites.getExtraRewardItems(
 						siteName, reward)) {
-					items.add(getItemStackItem(item));
+					items.add(getExtraRewardItemStackItem(reward, item));
 				}
 
 				extraRewardsItems.put(reward, extraRewardsRewardItems);

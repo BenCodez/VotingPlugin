@@ -91,18 +91,19 @@ ExtraReward:
     # for default example
     Permission: 'Reward1'
     Items:
-      ID: 264
-      Data: 0
-      # Will only give Amount if min and max amounts are 0
-      Amount: 1
-      # Random amount of items between Min and Max will be given
-      # if min and max are not both 0
-      # Min amount of items
-      # Same goes for money
-      MinAmount: 1
-      # Max amount of items
-      MaxAmount: 4
-      Name: '&aSpecial Prize'
+      Diamond:
+        ID: 264
+        Data: 0
+        # Will only give Amount if min and max amounts are 0
+        Amount: 1
+        # Random amount of items between Min and Max will be given
+        # if min and max are not both 0
+        # Min amount of items
+        # Same goes for money
+        MinAmount: 1
+        # Max amount of items
+        MaxAmount: 4
+        Name: '&aSpecial Prize'
     Money: 1000
     MinMoney: 100
     MaxMoney: 3000
@@ -117,8 +118,9 @@ CumulativeReward:
   Votes: 20
   Money: 1000
   Items:
-    ID: 264
-    Data: 0
-    Amount: 1
-    Name: '&4Cumulative Reward'
+    Diamond:
+      ID: 264
+      Data: 0
+      Amount: 1
+      Name: '&4Cumulative Reward'
   
