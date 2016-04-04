@@ -109,3 +109,16 @@ ExtraReward:
     Commands:
       Console:
       - 'say %player% was lucky'
+      
+# Rewards to give once certain number of votes reached for this vote site
+# Rewards work similar to above
+CumulativeReward:
+  # Number of votes required to give this reward
+  Votes: 20
+  Money: 1000
+  Items:
+    ID: 264
+    Data: 0
+    Amount: 1
+    Name: '&4Cumulative Reward'
+  

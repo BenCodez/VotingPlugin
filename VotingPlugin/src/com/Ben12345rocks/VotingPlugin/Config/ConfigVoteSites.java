@@ -35,9 +35,6 @@ public class ConfigVoteSites {
 		ConfigVoteSites.plugin = plugin;
 	}
 
-	// FileConfiguration data;
-	// File dFile;
-
 	@SuppressWarnings("deprecation")
 	public void addExtraRewardItem(String siteName, String reward, String item,
 			ItemStack itemStack) {
@@ -88,9 +85,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -262,9 +259,6 @@ public class ConfigVoteSites {
 			return getData(siteName).getConfigurationSection(
 					"ExtraReward." + reward + ".Items").getKeys(false);
 		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
 			return new HashSet<String>();
 		}
 	}
@@ -503,7 +497,7 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
+							+ ".yml!");
 		}
 	}
 
@@ -655,4 +649,135 @@ public class ConfigVoteSites {
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
 	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewardConsoleCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"CumulativeReward.Commands.Console");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @param enchant
+	 *            Enchant
+	 * @return Level of enchantment
+	 */
+	public int getCumulativeRewardEnchantLevel(String siteName, String item,
+			String enchant) {
+		return getData(siteName).getInt(
+				"CumulativeReward.Items." + item + ".Enchants." + enchant);
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Enchants of item
+	 */
+	public HashMap<String, Integer> getCumulativeRewardEnchantments(
+			String siteName, String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData(siteName).getConfigurationSection(
+					"CumulativeReward.Items." + item + ".Enchants").getKeys(
+					false);
+			for (String enchant : enchants) {
+				enchantments
+						.put(enchant,
+								getCumulativeRewardEnchantLevel(siteName, item,
+										enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Amount of items
+	 */
+	public int getCumulativeRewardItemAmount(String siteName, String item) {
+		return getData(siteName).getInt(
+				"CumulativeReward.Items." + item + ".Amount");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Item data value
+	 */
+	public int getCumulativeRewardItemData(String siteName, String item) {
+		return getData(siteName).getInt(
+				"CumulativeReward.Items." + item + ".Data");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Id of item
+	 */
+	public int getCumulativeRewardItemID(String siteName, String item) {
+		return getData(siteName).getInt(
+				"CumulativeReward.Items." + item + ".ID");
+	}
+
+	@SuppressWarnings("unchecked")
+	/**
+	 *
+	 * @param item 	Item
+	 * @return		Lore of item
+	 */
+	public ArrayList<String> getCumulativeRewardItemLore(String siteName,
+			String item) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"CumulativeReward.Items." + item + ".Lore");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Name of item
+	 */
+	public String getCumulativeRewardItemName(String siteName, String item) {
+		return getData(siteName).getString(
+				"CumulativeReward.Items." + item + ".Name");
+	}
+
+	/**
+	 *
+	 * @return Items of VoteSite
+	 */
+	public Set<String> getCumulativeRewardItems(String siteName) {
+		try {
+			return getData(siteName).getConfigurationSection(
+					"CumulativeReward.Items").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public int getCumulativeRewardMoneyAmount(String siteName) {
+		return getData(siteName).getInt("CumulativeReward.Money");
+	}
+
+	public int getCumulativeRewardVotesAmount(String siteName) {
+		return getData(siteName).getInt("CumulativeReward.Votes");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewardPlayerCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"CumulativeReward.Commands.Player");
+	}
+
 }

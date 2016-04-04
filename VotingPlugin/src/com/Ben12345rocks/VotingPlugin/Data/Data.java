@@ -42,6 +42,18 @@ public class Data {
 				getSiteMonthTotal(user, voteSiteName) + 1);
 	}
 
+	public void setCumulativeSite(User user, String voteSite, int amount) {
+		set(user, user.getUUID() + ".Cumulative." + voteSite, amount);
+	}
+
+	public int getCumulativeSite(User user, String voteSite) {
+		return getData(user).getInt(user.getUUID() + ".Cumulative." + voteSite);
+	}
+
+	public void addCumulativeSite(User user, String voteSite) {
+		setCumulativeSite(user, voteSite, getCumulativeSite(user, voteSite) + 1);
+	}
+
 	public void addTotal(User user, String voteSite) {
 		set(user, user.getUUID() + ".Total." + voteSite,
 				getTotal(user, voteSite) + 1);

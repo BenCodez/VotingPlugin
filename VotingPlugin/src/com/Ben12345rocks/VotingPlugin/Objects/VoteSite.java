@@ -73,6 +73,44 @@ public class VoteSite {
 	 * @param user
 	 *            User to execute commands with
 	 */
+	public void doCumulativeRewardSiteCommands(User user) {
+
+		String playerName = user.getPlayerName();
+
+		// Console commands
+		ArrayList<String> consolecmds = configVoteSites
+				.getCumulativeRewardConsoleCommands(siteName);
+
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
+			}
+		}
+
+		// Player commands
+		ArrayList<String> playercmds = configVoteSites
+				.getCumulativeRewardPlayerCommands(siteName);
+
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
+		}
+	}
+
+	/**
+	 *
+	 * @param user
+	 *            User to execute commands with
+	 */
 	public void doExtraRewardSiteCommands(User user, String reward) {
 
 		String playerName = user.getPlayerName();
@@ -207,6 +245,31 @@ public class VoteSite {
 		return itemStack;
 	}
 
+	@SuppressWarnings("deprecation")
+	public ItemStack getCumulativeRewardItemStackItem(String item) {
+		int id = configVoteSites.getCumulativeRewardItemID(siteName, item);
+		int amount = configVoteSites.getCumulativeRewardItemAmount(siteName,
+				item);
+		int data = configVoteSites.getCumulativeRewardItemData(siteName, item);
+
+		String itemName = configVoteSites.getCumulativeRewardItemName(siteName,
+				item);
+		itemName = Utils.getInstance().colorize(itemName);
+
+		ArrayList<String> lore = configVoteSites.getCumulativeRewardItemLore(
+				siteName, item);
+		lore = Utils.getInstance().colorize(lore);
+		ItemStack itemStack = new ItemStack(id, amount, (short) data);
+		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
+		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance()
+				.addEnchants(
+						itemStack,
+						configVoteSites.getCumulativeRewardEnchantments(
+								siteName, item));
+		return itemStack;
+	}
+
 	public int getExtraRewardMoneyAmount(String reward) {
 		int amount = configVoteSites
 				.getExtraRewardMoneyAmount(siteName, reward);
@@ -324,6 +387,51 @@ public class VoteSite {
 
 	}
 
+	public void giveCumulativeReward(User user) {
+		try {
+
+			user.addCumulativeReward(this);
+
+			if (user.getCumulativeReward(this) >= configVoteSites
+					.getCumulativeRewardVotesAmount(siteName)) {
+
+				doCumulativeRewardSiteCommands(user);
+
+				giveCumulativeRewardItemSiteReward(user);
+
+				giveCumulativeRewardMoneySite(user);
+
+				user.setCumulativeReward(this, 0);
+			}
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
+	}
+
+	/**
+	 *
+	 * @param user
+	 *            User to give items to
+	 */
+	public void giveCumulativeRewardItemSiteReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning(
+						"Error giving player items! Player = null");
+			}
+			return;
+		}
+
+		Set<String> items = configVoteSites.getCumulativeRewardItems(siteName);
+		for (String item : items) {
+			user.giveItem(getCumulativeRewardItemStackItem(item));
+		}
+	}
+
 	/**
 	 *
 	 * @param user
@@ -353,6 +461,15 @@ public class VoteSite {
 	 */
 	public void giveExtraRewardMoneySite(User user, String reward) {
 		int money = getExtraRewardMoneyAmount(reward);
+		user.giveMoney(money);
+	}
+
+	/**
+	 * @param user
+	 *            User to give money to
+	 */
+	public void giveCumulativeRewardMoneySite(User user) {
+		int money = configVoteSites.getCumulativeRewardMoneyAmount(siteName);
 		user.giveMoney(money);
 	}
 
@@ -425,6 +542,9 @@ public class VoteSite {
 					.getExtraRewardRewards(siteName)) {
 				giveExtraReward(user, reward);
 			}
+
+			giveCumulativeReward(user);
+
 		} else {
 			plugin.getLogger().info(
 					"VoteSite '" + voteSite.getSiteName() + "' is Disabled!");
