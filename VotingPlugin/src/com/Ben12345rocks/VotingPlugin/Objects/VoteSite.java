@@ -158,8 +158,8 @@ public class VoteSite {
 	}
 
 	public int getExtraRewardItemsStackAmount(String reward, String item) {
-		int amount = configVoteSites.getExtraRewardItemAmount(siteName,
-				reward, item);
+		int amount = configVoteSites.getExtraRewardItemAmount(siteName, reward,
+				item);
 		int maxAmount = configVoteSites.getExtraRewardMaxItemAmount(siteName,
 				reward, item);
 		int minAmount = configVoteSites.getExtraRewardMinItemAmount(siteName,
@@ -201,12 +201,12 @@ public class VoteSite {
 	}
 
 	public int getExtraRewardMoneyAmount(String reward) {
-		int amount = configVoteSites.getExtraRewardMoneyAmount(siteName,
-				reward);
-		int maxAmount = configVoteSites.getExtraRewardMaxMoney(siteName,
-				reward);
-		int minAmount = configVoteSites.getExtraRewardMinMoney(siteName,
-				reward);
+		int amount = configVoteSites
+				.getExtraRewardMoneyAmount(siteName, reward);
+		int maxAmount = configVoteSites
+				.getExtraRewardMaxMoney(siteName, reward);
+		int minAmount = configVoteSites
+				.getExtraRewardMinMoney(siteName, reward);
 		if (maxAmount == 0 && minAmount == 0) {
 			return amount;
 		} else {
@@ -296,6 +296,14 @@ public class VoteSite {
 
 	public void giveExtraReward(User user, String reward) {
 		try {
+			String perm = configVoteSites.getExtraRewardPermission(siteName,
+					reward);
+			if (perm != null) {
+				if (!Utils.getInstance().hasPermission(user.getPlayerName(),
+						perm)) {
+					return;
+				}
+			}
 			int chance = getExtraRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {

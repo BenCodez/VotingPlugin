@@ -87,6 +87,8 @@ ExtraReward:
     # Permission is prefixed with VotingPlugin.ExtraReward
     # Player requires this in order to recieve these rewards
     # Set to none for no permission
+    # E.g. VotingPlugin.ExtraReward.Reward1 would be the permission 
+    # for default example
     Permission: 'Reward1'
     Items:
       ID: 264

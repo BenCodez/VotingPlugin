@@ -340,6 +340,20 @@ public class ConfigBonusReward {
 				playerCommands);
 	}
 
+	public String getExtraRewardPermission(String reward) {
+		String perm = getData().getString(
+				"ExtraReward." + reward + ".Permission");
+		if (perm == null) {
+			return null;
+		}
+
+		if (perm.equalsIgnoreCase("none")) {
+			return null;
+		}
+
+		return "ExtraReward." + perm;
+	}
+
 	public void setConsoleCommands(List<String> consoleCommands) {
 		getData().set("Commands.Console", consoleCommands);
 	}

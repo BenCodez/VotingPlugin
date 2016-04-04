@@ -155,6 +155,13 @@ public class BonusVoteReward {
 
 	public void giveExtraReward(User user, String reward) {
 		try {
+			String perm = bonusReward.getExtraRewardPermission(reward);
+			if (perm != null) {
+				if (!Utils.getInstance().hasPermission(user.getPlayerName(),
+						perm)) {
+					return;
+				}
+			}
 			int chance = bonusReward.getExtraRewardChance(reward);
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
@@ -192,8 +199,8 @@ public class BonusVoteReward {
 
 			itemName = Utils.getInstance().colorize(itemName);
 
-			ArrayList<String> lore = bonusReward.getExtraRewardItemLore(
-					reward, item);
+			ArrayList<String> lore = bonusReward.getExtraRewardItemLore(reward,
+					item);
 			lore = Utils.getInstance().colorize(lore);
 
 			user.giveItem(id, amount, data, itemName, lore, ConfigBonusReward

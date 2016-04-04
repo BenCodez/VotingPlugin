@@ -568,6 +568,20 @@ public class ConfigVoteSites {
 		set(siteName, "Items." + item + ".Amount", amount);
 	}
 
+	public String getExtraRewardPermission(String siteName, String reward) {
+		String perm = getData(siteName).getString(
+				"ExtraReward." + reward + ".Permission");
+		if (perm == null) {
+			return null;
+		}
+
+		if (perm.equalsIgnoreCase("none")) {
+			return null;
+		}
+
+		return "ExtraReward." + perm;
+	}
+
 	public void setItemData(String siteName, String item, int data) {
 		set(siteName, "Items." + item + ".Data", data);
 	}
