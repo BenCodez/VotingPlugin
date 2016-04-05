@@ -293,7 +293,7 @@ public class Commands {
 
 			msg.add("&c&lExtra Rewards:");
 			for (String reward : voteSite.getExtraRewardsChance().keySet()) {
-				msg.add("Reward: " + reward);
+				msg.add("&cReward: " + reward);
 				msg.add("&cChance: &6"
 						+ voteSite.getExtraRewardsChance().get(reward));
 				msg.add("&cMoney: &6"

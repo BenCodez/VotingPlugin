@@ -535,6 +535,9 @@ public class VoteSite {
 				try {
 					giveExtraRewardItemSiteReward(user, reward);
 				} catch (Exception ex) {
+					if (Config.getInstance().getDebugEnabled()) {
+						ex.printStackTrace();
+					}
 				}
 				giveExtraRewardMoneySite(user, reward);
 			}
@@ -640,8 +643,7 @@ public class VoteSite {
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
-			for (String reward : ConfigVoteSites.getInstance()
-					.getExtraRewardRewards(siteName)) {
+			for (String reward : getExtraRewardsMoney().keySet()) {
 				giveExtraReward(user, reward);
 			}
 
@@ -688,7 +690,6 @@ public class VoteSite {
 		extraRewardsMoney = new HashMap<String, Integer>();
 		for (String reward : rewards) {
 			try {
-
 				extraRewardsConsoleCommands.put(reward, configVoteSites
 						.getExtraRewardConsoleCommands(siteName, reward));
 				extraRewardsPlayerCommands.put(reward, configVoteSites
@@ -709,7 +710,8 @@ public class VoteSite {
 				ArrayList<ItemStack> extraRewardsRewardItems = new ArrayList<ItemStack>();
 				for (String item : configVoteSites.getExtraRewardItems(
 						siteName, reward)) {
-					items.add(getExtraRewardItemStackItem(reward, item));
+					extraRewardsRewardItems.add(getExtraRewardItemStackItem(
+							reward, item));
 				}
 
 				extraRewardsItems.put(reward, extraRewardsRewardItems);

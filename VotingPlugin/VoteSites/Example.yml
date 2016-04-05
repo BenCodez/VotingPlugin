@@ -72,6 +72,7 @@ Commands:
   Player:
   - 'vote total'
   
+# Advanced Section - USE ONLY IF YOU KNOW HOW
 # Rewards to give based on a chance
 # Can use the same rewards as above
 # Follows same rules
