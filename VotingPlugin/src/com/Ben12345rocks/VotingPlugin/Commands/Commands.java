@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
 
@@ -503,7 +504,11 @@ public class Commands {
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
-		sites.addAll(ConfigFormat.getInstance().getCommandsVoteTitle());
+
+		List<String> title = ConfigFormat.getInstance().getCommandsVoteTitle();
+		if (title != null) {
+			sites.addAll(title);
+		}
 		int counter = 0;
 		for (VoteSite voteSite : voteSites) {
 			counter++;
