@@ -267,6 +267,9 @@ public class Utils {
 	}
 
 	public boolean hasPermission(String playerName, String perm) {
+		if (playerName == null) {
+			return false;
+		}
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
 			return player.hasPermission(plugin.getName() + "." + perm);
