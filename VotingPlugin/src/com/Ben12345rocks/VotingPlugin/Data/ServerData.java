@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Data;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -51,6 +52,11 @@ public class ServerData {
 
 	public FileConfiguration getData() {
 		return data;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getLines(String sign) {
+		return (List<String>) getData().getList("Signs." + sign + ".Lines");
 	}
 
 	public int getPrevMonth() {
@@ -116,6 +122,11 @@ public class ServerData {
 			Bukkit.getServer().getLogger()
 			.severe(ChatColor.RED + "Could not save ServerData.yml!");
 		}
+	}
+
+	public void setLines(String sign, List<String> lines) {
+		getData().set("Signs." + sign + ".Lines", lines);
+		saveData();
 	}
 
 	public void setPrevMonth(int value) {

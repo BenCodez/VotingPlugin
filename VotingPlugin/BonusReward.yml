@@ -32,11 +32,12 @@ Commands:
   Player:
   - 'vote total'
   
-# Rewards to give based on a chance
+# Rewards to give based on a chance or permission
 # Can use the same rewards as above
 # Follows same rules
-# Can have more than 1 chance reward
-ChanceReward:
+# Can have more than 1 extra reward
+# Works same as each vote site does
+ExtraReward:
   Reward1:
     # Chance out of 1000
     # Must be an integer

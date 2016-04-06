@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -17,20 +18,31 @@ public class VoteSite {
 	static Config config = Config.getInstance();
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 	static ConfigFormat format = ConfigFormat.getInstance();
+
 	static Main plugin = Main.plugin;
-	private ArrayList<String> consoleCommands;
+
+	private String serviceSite;
+	private String siteName;
+	private int voteDelay;
 	private boolean disabled;
+
+	private ArrayList<String> consoleCommands;
 	private ArrayList<ItemStack> items;
 	private int money;
 	private ArrayList<String> playerCommands;
 
-	private String serviceSite;
+	private HashMap<String, ArrayList<String>> extraRewardsConsoleCommands;
+	private HashMap<String, ArrayList<String>> extraRewardsPlayerCommands;
+	private HashMap<String, Integer> extraRewardsMoney;
+	private HashMap<String, ArrayList<ItemStack>> extraRewardsItems;
+	private HashMap<String, String> extraRewardsPermission;
+	private HashMap<String, Integer> extraRewardsChance;
 
-	private String siteName;
-
-	private int voteDelay;
-
-	// static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	private ArrayList<String> cumulativeConsoleCommands;
+	private ArrayList<ItemStack> cumulativeItems;
+	private int cumulativeMoney;
+	private int cumulativeVotes;
+	private ArrayList<String> cumulativePlayerCommands;
 
 	private String voteURL;
 
@@ -45,7 +57,7 @@ public class VoteSite {
 	 *            Sitename
 	 */
 	public VoteSite(String siteName) {
-		this.setSiteName(siteName);
+		setSiteName(siteName);
 		if (!configVoteSites.getVoteSiteFile(siteName).exists()) {
 			configVoteSites.generateVoteSite(siteName);
 			init();
@@ -73,13 +85,12 @@ public class VoteSite {
 	 * @param user
 	 *            User to execute commands with
 	 */
-	public void doChanceRewardSiteCommands(User user, String reward) {
+	public void doCumulativeRewardSiteCommands(User user) {
 
 		String playerName = user.getPlayerName();
 
 		// Console commands
-		ArrayList<String> consolecmds = configVoteSites
-				.getChanceRewardConsoleCommands(siteName, reward);
+		ArrayList<String> consolecmds = getCumulativeConsoleCommands();
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -92,9 +103,45 @@ public class VoteSite {
 		}
 
 		// Player commands
-		ArrayList<String> playercmds = configVoteSites
-				.getChanceRewardPlayerCommands(siteName, reward);
+		ArrayList<String> playercmds = getCumulativePlayerCommands();
 
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
+		}
+	}
+
+	/**
+	 *
+	 * @param user
+	 *            User to execute commands with
+	 */
+	public void doExtraRewardSiteCommands(User user, String reward) {
+
+		String playerName = user.getPlayerName();
+
+		// Console commands
+		ArrayList<String> consolecmds = getExtraRewardsConsoleCommands().get(
+				reward);
+
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
+			}
+		}
+
+		// Player commands
+		ArrayList<String> playercmds = getExtraRewardsPlayerCommands().get(
+				reward);
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
 			for (String playercmd : playercmds) {
@@ -145,10 +192,77 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the consoleCommands
+	 */
+	public ArrayList<String> getConsoleCommands() {
+		return consoleCommands;
+	}
+
+	/**
+	 * @return the cumulativeConsoleCommands
+	 */
+	public ArrayList<String> getCumulativeConsoleCommands() {
+		return cumulativeConsoleCommands;
+	}
+
+	/**
+	 * @return the cumulativeItems
+	 */
+	public ArrayList<ItemStack> getCumulativeItems() {
+		return cumulativeItems;
+	}
+
+	/**
+	 * @return the cumulativeMoney
+	 */
+	public int getCumulativeMoney() {
+		return cumulativeMoney;
+	}
+
+	/**
+	 * @return the cumulativePlayerCommands
+	 */
+	public ArrayList<String> getCumulativePlayerCommands() {
+		return cumulativePlayerCommands;
+	}
+
+	@SuppressWarnings("deprecation")
+	public ItemStack getCumulativeRewardItemStackItem(String item) {
+		int id = configVoteSites.getCumulativeRewardItemID(siteName, item);
+		int amount = configVoteSites.getCumulativeRewardItemAmount(siteName,
+				item);
+		int data = configVoteSites.getCumulativeRewardItemData(siteName, item);
+
+		String itemName = configVoteSites.getCumulativeRewardItemName(siteName,
+				item);
+		itemName = Utils.getInstance().colorize(itemName);
+
+		ArrayList<String> lore = configVoteSites.getCumulativeRewardItemLore(
+				siteName, item);
+		lore = Utils.getInstance().colorize(lore);
+		ItemStack itemStack = new ItemStack(id, amount, (short) data);
+		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
+		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance()
+				.addEnchants(
+						itemStack,
+						configVoteSites.getCumulativeRewardEnchantments(
+								siteName, item));
+		return itemStack;
+	}
+
+	/**
+	 * @return the cumulativeVotes
+	 */
+	public int getCumulativeVotes() {
+		return cumulativeVotes;
+	}
+
+	/**
 	 * @return Chance
 	 */
-	public int getChanceRewardChance(String reward) {
-		int chance = configVoteSites.getChanceRewardChance(siteName, reward);
+	public int getExtraRewardChance(String reward) {
+		int chance = configVoteSites.getExtraRewardChance(siteName, reward);
 		if (chance <= 0) {
 			chance = 100;
 		} else if (chance > 100) {
@@ -157,19 +271,40 @@ public class VoteSite {
 		return chance;
 	}
 
-	@SuppressWarnings("deprecation")
-	public ItemStack getChanceRewardItemStackItem(String reward, String item) {
-		int id = configVoteSites.getChanceRewardItemID(siteName, reward, item);
-		int amount = configVoteSites.getChanceRewardItemAmount(siteName,
+	public int getExtraRewardItemsStackAmount(String reward, String item) {
+		int amount = configVoteSites.getExtraRewardItemAmount(siteName, reward,
+				item);
+		int maxAmount = configVoteSites.getExtraRewardMaxItemAmount(siteName,
 				reward, item);
-		int data = configVoteSites.getChanceRewardItemData(siteName, reward,
+		int minAmount = configVoteSites.getExtraRewardMinItemAmount(siteName,
+				reward, item);
+		if (amount != 0) {
+			return amount;
+		}
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
+	@SuppressWarnings("deprecation")
+	public ItemStack getExtraRewardItemStackItem(String reward, String item) {
+		int id = configVoteSites.getExtraRewardItemID(siteName, reward, item);
+		int amount = getExtraRewardItemsStackAmount(reward, item);
+		int data = configVoteSites.getExtraRewardItemData(siteName, reward,
 				item);
 
-		String itemName = configVoteSites.getChanceRewardItemName(siteName,
+		String itemName = configVoteSites.getExtraRewardItemName(siteName,
 				reward, item);
 		itemName = Utils.getInstance().colorize(itemName);
 
-		ArrayList<String> lore = configVoteSites.getChanceRewardItemLore(
+		ArrayList<String> lore = configVoteSites.getExtraRewardItemLore(
 				siteName, reward, item);
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
@@ -177,16 +312,73 @@ public class VoteSite {
 		itemStack = Utils.getInstance().addlore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(
 				itemStack,
-				configVoteSites.getChanceRewardEnchantments(siteName, reward,
+				configVoteSites.getExtraRewardEnchantments(siteName, reward,
 						item));
 		return itemStack;
 	}
 
+	public int getExtraRewardMoneyAmount(String reward) {
+		int amount = configVoteSites
+				.getExtraRewardMoneyAmount(siteName, reward);
+		int maxAmount = configVoteSites
+				.getExtraRewardMaxMoney(siteName, reward);
+		int minAmount = configVoteSites
+				.getExtraRewardMinMoney(siteName, reward);
+		if (amount != 0) {
+			return amount;
+		}
+		if (maxAmount == 0 && minAmount == 0) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	/**
-	 * @return the consoleCommands
+	 * @return the extraRewardsChance
 	 */
-	public ArrayList<String> getConsoleCommands() {
-		return consoleCommands;
+	public HashMap<String, Integer> getExtraRewardsChance() {
+		return extraRewardsChance;
+	}
+
+	/**
+	 * @return the extraRewardsConsoleCommands
+	 */
+	public HashMap<String, ArrayList<String>> getExtraRewardsConsoleCommands() {
+		return extraRewardsConsoleCommands;
+	}
+
+	/**
+	 * @return the extraRewardsItems
+	 */
+	public HashMap<String, ArrayList<ItemStack>> getExtraRewardsItems() {
+		return extraRewardsItems;
+	}
+
+	/**
+	 * @return the extraRewardsMoney
+	 */
+	public HashMap<String, Integer> getExtraRewardsMoney() {
+		return extraRewardsMoney;
+	}
+
+	/**
+	 * @return the extraRewardsPermission
+	 */
+	public HashMap<String, String> getExtraRewardsPermission() {
+		return extraRewardsPermission;
+	}
+
+	/**
+	 * @return the extraRewardsPlayerCommands
+	 */
+	public HashMap<String, ArrayList<String>> getExtraRewardsPlayerCommands() {
+		return extraRewardsPlayerCommands;
 	}
 
 	/**
@@ -257,21 +449,97 @@ public class VoteSite {
 		return voteURL;
 	}
 
-	public void giveChanceReward(User user, String reward) {
+	public void giveCumulativeReward(User user) {
 		try {
-			int chance = getChanceRewardChance(reward);
+
+			user.addCumulativeReward(this);
+
+			if (user.getCumulativeReward(this) >= configVoteSites
+					.getCumulativeRewardVotesAmount(siteName)
+					&& configVoteSites.getCumulativeRewardVotesAmount(siteName) != 0) {
+
+				doCumulativeRewardSiteCommands(user);
+
+				giveCumulativeRewardItemSiteReward(user);
+
+				giveCumulativeRewardMoneySite(user);
+
+				user.setCumulativeReward(this, 0);
+
+				user.sendMessage(Utils
+						.getInstance()
+						.replaceIgnoreCase(
+								ConfigFormat.getInstance()
+										.getCumulativeRewardMsg(),
+								"%votes%",
+								""
+										+ configVoteSites
+												.getCumulativeRewardVotesAmount(siteName)));
+			}
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
+	}
+
+	/**
+	 *
+	 * @param user
+	 *            User to give items to
+	 */
+	public void giveCumulativeRewardItemSiteReward(User user) {
+		String playerName = user.getPlayerName();
+		Player player = Bukkit.getPlayer(playerName);
+		if (player == null) {
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().warning(
+						"Error giving player items! Player = null");
+			}
+			return;
+		}
+
+		ArrayList<ItemStack> items = getCumulativeItems();
+		for (ItemStack item : items) {
+			user.giveItem(item);
+		}
+	}
+
+	/**
+	 * @param user
+	 *            User to give money to
+	 */
+	public void giveCumulativeRewardMoneySite(User user) {
+		int money = getCumulativeMoney();
+		user.giveMoney(money);
+	}
+
+	public void giveExtraReward(User user, String reward) {
+		try {
+			String perm = getExtraRewardsPermission().get(reward);
+			if (perm != null) {
+				if (!Utils.getInstance().hasPermission(user.getPlayerName(),
+						perm)) {
+					return;
+				}
+			}
+			int chance = getExtraRewardsChance().get(reward);
+
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
 				if (chance != 100) {
 					user.sendMessage(ConfigFormat.getInstance()
-							.getChanceRewardMsg());
+							.getExtraRewardMsg());
 				}
-				doChanceRewardSiteCommands(user, reward);
+				doExtraRewardSiteCommands(user, reward);
 				try {
-					giveChanceRewardItemSiteReward(user, reward);
+					giveExtraRewardItemSiteReward(user, reward);
 				} catch (Exception ex) {
+					if (Config.getInstance().getDebugEnabled()) {
+						ex.printStackTrace();
+					}
 				}
-				giveChanceRewardMoneySite(user, reward);
+				giveExtraRewardMoneySite(user, reward);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -284,7 +552,7 @@ public class VoteSite {
 	 * @param user
 	 *            User to give items to
 	 */
-	public void giveChanceRewardItemSiteReward(User user, String reward) {
+	public void giveExtraRewardItemSiteReward(User user, String reward) {
 		String playerName = user.getPlayerName();
 		Player player = Bukkit.getPlayer(playerName);
 		if (player == null) {
@@ -295,10 +563,9 @@ public class VoteSite {
 			return;
 		}
 
-		Set<String> items = configVoteSites.getChanceRewardItems(siteName,
-				reward);
-		for (String item : items) {
-			user.giveItem(getChanceRewardItemStackItem(reward, item));
+		ArrayList<ItemStack> items = getExtraRewardsItems().get(reward);
+		for (ItemStack item : items) {
+			user.giveItem(item);
 		}
 	}
 
@@ -306,9 +573,8 @@ public class VoteSite {
 	 * @param user
 	 *            User to give money to
 	 */
-	public void giveChanceRewardMoneySite(User user, String reward) {
-		int money = configVoteSites
-				.getChanceRewardMoneyAmount(siteName, reward);
+	public void giveExtraRewardMoneySite(User user, String reward) {
+		int money = getExtraRewardsMoney().get(reward);
 		user.giveMoney(money);
 	}
 
@@ -352,13 +618,9 @@ public class VoteSite {
 	public void giveSiteReward(User user) {
 		VoteSite voteSite = this;
 		if (!voteSite.isDisabled()) {
-			try {
-				giveItemSiteReward(user);
-			} catch (Exception ex) {
-				if (Config.getInstance().getDebugEnabled()) {
-					ex.printStackTrace();
-				}
-			}
+
+			giveItemSiteReward(user);
+
 			giveMoneySite(user);
 			doSiteCommands(user);
 
@@ -371,21 +633,22 @@ public class VoteSite {
 					.replace("%SiteName%", voteSite.getSiteName())
 					.replace("%money%",
 							"" + configVoteSites.getMoneyAmount(siteName));
-			try {
-				rewardmsg = rewardmsg.replace(
-						"%items%",
-						Utils.getInstance().makeStringList(
-								Utils.getInstance().convert(
-										configVoteSites.getItems(siteName))));
-			} catch (Exception ex) {
-			}
+
+			rewardmsg = rewardmsg.replace(
+					"%items%",
+					Utils.getInstance().makeStringList(
+							Utils.getInstance().convert(
+									configVoteSites.getItems(siteName))));
+
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
 			}
-			for (String reward : ConfigVoteSites.getInstance()
-					.getChanceRewardRewards(siteName)) {
-				giveChanceReward(user, reward);
+			for (String reward : getExtraRewardsMoney().keySet()) {
+				giveExtraReward(user, reward);
 			}
+
+			giveCumulativeReward(user);
+
 		} else {
 			plugin.getLogger().info(
 					"VoteSite '" + voteSite.getSiteName() + "' is Disabled!");
@@ -394,15 +657,15 @@ public class VoteSite {
 	}
 
 	public void init() {
-		this.setDisabled(configVoteSites.getVoteSiteDisabled(siteName));
-		this.serviceSite = configVoteSites.getServiceSite(siteName);
-		this.voteURL = configVoteSites.getVoteURL(siteName);
-		this.voteDelay = configVoteSites.getVoteDelay(siteName);
-		this.money = configVoteSites.getMoneyAmount(siteName);
+		setDisabled(configVoteSites.getVoteSiteDisabled(siteName));
+		serviceSite = configVoteSites.getServiceSite(siteName);
+		voteURL = configVoteSites.getVoteURL(siteName);
+		voteDelay = configVoteSites.getVoteDelay(siteName);
+		money = configVoteSites.getMoneyAmount(siteName);
 		try {
-			this.items = new ArrayList<ItemStack>();
+			items = new ArrayList<ItemStack>();
 			for (String item : configVoteSites.getItems(siteName)) {
-				this.items.add(getItemStackItem(item));
+				items.add(getItemStackItem(item));
 			}
 		} catch (Exception ex) {
 			if (config.getDebugEnabled()) {
@@ -410,8 +673,82 @@ public class VoteSite {
 			}
 		}
 		try {
-			this.consoleCommands = configVoteSites.getConsoleCommands(siteName);
-			this.playerCommands = configVoteSites.getPlayerCommands(siteName);
+			consoleCommands = configVoteSites.getConsoleCommands(siteName);
+			playerCommands = configVoteSites.getPlayerCommands(siteName);
+		} catch (Exception ex) {
+			if (config.getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
+
+		Set<String> rewards = configVoteSites.getExtraRewardRewards(siteName);
+		extraRewardsConsoleCommands = new HashMap<String, ArrayList<String>>();
+		extraRewardsPlayerCommands = new HashMap<String, ArrayList<String>>();
+		extraRewardsItems = new HashMap<String, ArrayList<ItemStack>>();
+		extraRewardsPermission = new HashMap<String, String>();
+		extraRewardsChance = new HashMap<String, Integer>();
+		extraRewardsMoney = new HashMap<String, Integer>();
+		for (String reward : rewards) {
+			try {
+				extraRewardsConsoleCommands.put(reward, configVoteSites
+						.getExtraRewardConsoleCommands(siteName, reward));
+				extraRewardsPlayerCommands.put(reward, configVoteSites
+						.getExtraRewardPlayerCommands(siteName, reward));
+
+			} catch (Exception ex) {
+				if (config.getDebugEnabled()) {
+					ex.printStackTrace();
+				}
+			}
+
+			extraRewardsMoney
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
+
+			try {
+
+				ArrayList<ItemStack> extraRewardsRewardItems = new ArrayList<ItemStack>();
+				for (String item : configVoteSites.getExtraRewardItems(
+						siteName, reward)) {
+					extraRewardsRewardItems.add(getExtraRewardItemStackItem(
+							reward, item));
+				}
+
+				extraRewardsItems.put(reward, extraRewardsRewardItems);
+
+			} catch (Exception ex) {
+				if (config.getDebugEnabled()) {
+					ex.printStackTrace();
+				}
+			}
+			extraRewardsPermission.put(reward,
+					configVoteSites.getExtraRewardPermission(siteName, reward));
+
+			extraRewardsChance.put(reward,
+					configVoteSites.getExtraRewardChance(siteName, reward));
+
+		}
+
+		cumulativeMoney = configVoteSites
+				.getCumulativeRewardMoneyAmount(siteName);
+		cumulativeVotes = configVoteSites
+				.getCumulativeRewardVotesAmount(siteName);
+		try {
+			cumulativeItems = new ArrayList<ItemStack>();
+			for (String item : configVoteSites
+					.getCumulativeRewardItems(siteName)) {
+				cumulativeItems.add(getCumulativeRewardItemStackItem(item));
+			}
+		} catch (Exception ex) {
+			if (config.getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+		}
+		try {
+			cumulativeConsoleCommands = configVoteSites
+					.getCumulativeRewardConsoleCommands(siteName);
+			cumulativePlayerCommands = configVoteSites
+					.getCumulativeRewardPlayerCommands(siteName);
 		} catch (Exception ex) {
 			if (config.getDebugEnabled()) {
 				ex.printStackTrace();
@@ -435,11 +772,106 @@ public class VoteSite {
 	}
 
 	/**
+	 * @param cumulativeConsoleCommands
+	 *            the cumulativeConsoleCommands to set
+	 */
+	public void setCumulativeConsoleCommands(
+			ArrayList<String> cumulativeConsoleCommands) {
+		this.cumulativeConsoleCommands = cumulativeConsoleCommands;
+	}
+
+	/**
+	 * @param cumulativeItems
+	 *            the cumulativeItems to set
+	 */
+	public void setCumulativeItems(ArrayList<ItemStack> cumulativeItems) {
+		this.cumulativeItems = cumulativeItems;
+	}
+
+	/**
+	 * @param cumulativeMoney
+	 *            the cumulativeMoney to set
+	 */
+	public void setCumulativeMoney(int cumulativeMoney) {
+		this.cumulativeMoney = cumulativeMoney;
+	}
+
+	/**
+	 * @param cumulativePlayerCommands
+	 *            the cumulativePlayerCommands to set
+	 */
+	public void setCumulativePlayerCommands(
+			ArrayList<String> cumulativePlayerCommands) {
+		this.cumulativePlayerCommands = cumulativePlayerCommands;
+	}
+
+	/**
+	 * @param cumulativeVotes
+	 *            the cumulativeVotes to set
+	 */
+	public void setCumulativeVotes(int cumulativeVotes) {
+		this.cumulativeVotes = cumulativeVotes;
+	}
+
+	/**
 	 * @param disabled
 	 *            the enabled to set
 	 */
 	public void setDisabled(boolean disabled) {
 		this.disabled = disabled;
+	}
+
+	/**
+	 * @param extraRewardsChance
+	 *            the extraRewardsChance to set
+	 */
+	public void setExtraRewardsChance(
+			HashMap<String, Integer> extraRewardsChance) {
+		this.extraRewardsChance = extraRewardsChance;
+	}
+
+	/**
+	 * @param extraRewardsConsoleCommands
+	 *            the extraRewardsConsoleCommands to set
+	 */
+	public void setExtraRewardsConsoleCommands(
+			HashMap<String, ArrayList<String>> extraRewardsConsoleCommands) {
+		this.extraRewardsConsoleCommands = extraRewardsConsoleCommands;
+	}
+
+	/**
+	 * @param extraRewardsItems
+	 *            the extraRewardsItems to set
+	 */
+	public void setExtraRewardsItems(
+			HashMap<String, ArrayList<ItemStack>> extraRewardsItems) {
+		this.extraRewardsItems = extraRewardsItems;
+	}
+
+	/**
+	 * @param extraRewardsMoney
+	 *            the extraRewardsMoney to set
+	 */
+	public void setExtraRewardsMoney(HashMap<String, Integer> extraRewardsMoney) {
+		this.extraRewardsMoney = extraRewardsMoney;
+	}
+
+	/**
+	 * @param extraRewardsPermission
+	 *            the extraRewardsPermission to set
+	 */
+	public void setExtraRewardsPermission(
+			HashMap<String, String> extraRewardsPermission) {
+		this.extraRewardsPermission = extraRewardsPermission;
+	}
+
+	/**
+	 * @param extraRewardsPlayerCommands
+	 *            the extraRewardsPlayerCommands to set
+	 */
+	public void setExtraRewardsPlayerCommands(
+			HashMap<String, ArrayList<String>> extraRewardsPlayerCommands) {
+		this.extraRewardsPlayerCommands = extraRewardsPlayerCommands;
 	}
 
 	/**

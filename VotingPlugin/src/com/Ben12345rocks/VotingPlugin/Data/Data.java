@@ -37,6 +37,10 @@ public class Data {
 	// FileConfiguration data;
 	// File dFile;
 
+	public void addCumulativeSite(User user, String voteSite) {
+		setCumulativeSite(user, voteSite, getCumulativeSite(user, voteSite) + 1);
+	}
+
 	public void addSiteMonthTotal(User user, String voteSiteName) {
 		setSiteMonthTotal(user, voteSiteName,
 				getSiteMonthTotal(user, voteSiteName) + 1);
@@ -49,6 +53,10 @@ public class Data {
 
 	public int getBonusOfflineVotes(User user) {
 		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
+	}
+
+	public int getCumulativeSite(User user, String voteSite) {
+		return getData(user).getInt(user.getUUID() + ".Cumulative." + voteSite);
 	}
 
 	public FileConfiguration getData(User user) {
@@ -232,6 +240,10 @@ public class Data {
 
 	public void setBonusOfflineVotes(User user, int amount) {
 		set(user, user.getUUID() + ".BonusOfflineVotes", amount);
+	}
+
+	public void setCumulativeSite(User user, String voteSite, int amount) {
+		set(user, user.getUUID() + ".Cumulative." + voteSite, amount);
 	}
 
 	public void setName(User user) {

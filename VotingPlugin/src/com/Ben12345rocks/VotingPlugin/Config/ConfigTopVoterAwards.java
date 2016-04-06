@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.TopVoter;
+package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,13 +19,13 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
-public class TopVoterAwards {
+public class ConfigTopVoterAwards {
 
-	static TopVoterAwards instance = new TopVoterAwards();
+	static ConfigTopVoterAwards instance = new ConfigTopVoterAwards();
 
 	static Main plugin = Main.plugin;
 
-	public static TopVoterAwards getInstance() {
+	public static ConfigTopVoterAwards getInstance() {
 		return instance;
 	}
 
@@ -33,11 +33,11 @@ public class TopVoterAwards {
 
 	File dFile;
 
-	private TopVoterAwards() {
+	private ConfigTopVoterAwards() {
 	}
 
-	public TopVoterAwards(Main plugin) {
-		TopVoterAwards.plugin = plugin;
+	public ConfigTopVoterAwards(Main plugin) {
+		ConfigTopVoterAwards.plugin = plugin;
 	}
 
 	/**
@@ -50,7 +50,7 @@ public class TopVoterAwards {
 		String playerName = user.getPlayerName();
 
 		// Console commands
-		ArrayList<String> consolecmds = this.getConsoleCommands(place);
+		ArrayList<String> consolecmds = getConsoleCommands(place);
 
 		if (consolecmds != null) {
 			for (String consolecmd : consolecmds) {
@@ -63,7 +63,7 @@ public class TopVoterAwards {
 		}
 
 		// Player commands
-		ArrayList<String> playercmds = this.getPlayerCommands(place);
+		ArrayList<String> playercmds = getPlayerCommands(place);
 
 		Player player = Bukkit.getPlayer(playerName);
 		if (playercmds != null) {
@@ -181,8 +181,12 @@ public class TopVoterAwards {
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getItems(int place) {
-		return getData().getConfigurationSection("Awards." + place + ".Items")
-				.getKeys(false);
+		try {
+			return getData().getConfigurationSection(
+					"Awards." + place + ".Items").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	public String getMessage(int place) {
@@ -206,20 +210,20 @@ public class TopVoterAwards {
 
 	@SuppressWarnings("deprecation")
 	public ItemStack getTopVoterAwardItemStack(int place, String item) {
-		int id = this.getItemID(place, item);
-		int amount = this.getItemAmount(place, item);
-		int data = this.getItemData(place, item);
+		int id = getItemID(place, item);
+		int amount = getItemAmount(place, item);
+		int data = getItemData(place, item);
 
-		String itemName = this.getItemName(place, item);
+		String itemName = getItemName(place, item);
 		itemName = Utils.getInstance().colorize(itemName);
 
-		ArrayList<String> lore = this.getItemLore(place, item);
+		ArrayList<String> lore = getItemLore(place, item);
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
 		itemStack = Utils.getInstance().addlore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(itemStack,
-				this.getEnchantments(place, item));
+				getEnchantments(place, item));
 		return itemStack;
 	}
 

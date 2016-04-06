@@ -35,12 +35,9 @@ public class ConfigVoteSites {
 		ConfigVoteSites.plugin = plugin;
 	}
 
-	// FileConfiguration data;
-	// File dFile;
-
 	@SuppressWarnings("deprecation")
-	public void addChanceRewardItem(String siteName, String reward,
-			String item, ItemStack itemStack) {
+	public void addExtraRewardItem(String siteName, String reward, String item,
+			ItemStack itemStack) {
 		int id = itemStack.getTypeId();
 		int data = itemStack.getData().getData();
 		int amount = itemStack.getAmount();
@@ -51,12 +48,12 @@ public class ConfigVoteSites {
 		HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>(
 				itemStack.getEnchantments());
 
-		setChanceRewardItemId(siteName, reward, item, id);
-		setChanceRewardItemData(siteName, reward, item, data);
-		setChanceRewardItemAmount(siteName, reward, item, amount);
-		setChanceRewardItemName(siteName, reward, item, name);
-		setChanceRewardItemLore(siteName, reward, item, lore);
-		setChanceRewardItemEnchants(siteName, reward, item, enchants);
+		setExtraRewardItemId(siteName, reward, item, id);
+		setExtraRewardItemData(siteName, reward, item, data);
+		setExtraRewardItemAmount(siteName, reward, item, amount);
+		setExtraRewardItemName(siteName, reward, item, name);
+		setExtraRewardItemLore(siteName, reward, item, lore);
+		setExtraRewardItemEnchants(siteName, reward, item, enchants);
 	}
 
 	@SuppressWarnings("deprecation")
@@ -88,20 +85,21 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
-	}
-
-	public int getChanceRewardChance(String siteName, String reward) {
-		return getData(siteName).getInt("ChanceReward." + reward + ".Chance");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardConsoleCommands(String siteName,
-			String reward) {
+	public ArrayList<String> getConsoleCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName)
+				.getList("Commands.Console");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewardConsoleCommands(String siteName) {
 		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward." + reward + ".Commands.Console");
+				"CumulativeReward.Commands.Console");
 	}
 
 	/**
@@ -112,11 +110,10 @@ public class ConfigVoteSites {
 	 *            Enchant
 	 * @return Level of enchantment
 	 */
-	public int getChanceRewardEnchantLevel(String siteName, String reward,
-			String item, String enchant) {
+	public int getCumulativeRewardEnchantLevel(String siteName, String item,
+			String enchant) {
 		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Enchants."
-						+ enchant);
+				"CumulativeReward.Items." + item + ".Enchants." + enchant);
 	}
 
 	/**
@@ -125,17 +122,17 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Enchants of item
 	 */
-	public HashMap<String, Integer> getChanceRewardEnchantments(
-			String siteName, String reward, String item) {
+	public HashMap<String, Integer> getCumulativeRewardEnchantments(
+			String siteName, String item) {
 		try {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
-					"ChanceReward." + reward + ".Items." + item + ".Enchants")
-					.getKeys(false);
+					"CumulativeReward.Items." + item + ".Enchants").getKeys(
+							false);
 			for (String enchant : enchants) {
-				enchantments.put(
-						enchant,
-						getChanceRewardEnchantLevel(siteName, reward, item,
+				enchantments
+				.put(enchant,
+						getCumulativeRewardEnchantLevel(siteName, item,
 								enchant));
 			}
 
@@ -152,10 +149,9 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Amount of items
 	 */
-	public int getChanceRewardItemAmount(String siteName, String reward,
-			String item) {
+	public int getCumulativeRewardItemAmount(String siteName, String item) {
 		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Amount");
+				"CumulativeReward.Items." + item + ".Amount");
 	}
 
 	/**
@@ -164,10 +160,9 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Item data value
 	 */
-	public int getChanceRewardItemData(String siteName, String reward,
-			String item) {
+	public int getCumulativeRewardItemData(String siteName, String item) {
 		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".Data");
+				"CumulativeReward.Items." + item + ".Data");
 	}
 
 	/**
@@ -176,9 +171,9 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Id of item
 	 */
-	public int getChanceRewardItemID(String siteName, String reward, String item) {
+	public int getCumulativeRewardItemID(String siteName, String item) {
 		return getData(siteName).getInt(
-				"ChanceReward." + reward + ".Items." + item + ".ID");
+				"CumulativeReward.Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -187,10 +182,10 @@ public class ConfigVoteSites {
 	 * @param item 	Item
 	 * @return		Lore of item
 	 */
-	public ArrayList<String> getChanceRewardItemLore(String siteName,
-			String reward, String item) {
+	public ArrayList<String> getCumulativeRewardItemLore(String siteName,
+			String item) {
 		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward." + reward + ".Items." + item + ".Lore");
+				"CumulativeReward.Items." + item + ".Lore");
 	}
 
 	/**
@@ -199,49 +194,36 @@ public class ConfigVoteSites {
 	 *            Item
 	 * @return Name of item
 	 */
-	public String getChanceRewardItemName(String siteName, String reward,
-			String item) {
+	public String getCumulativeRewardItemName(String siteName, String item) {
 		return getData(siteName).getString(
-				"ChanceReward." + reward + ".Items." + item + ".Name");
+				"CumulativeReward.Items." + item + ".Name");
 	}
 
 	/**
 	 *
 	 * @return Items of VoteSite
 	 */
-	public Set<String> getChanceRewardItems(String siteName, String reward) {
-		return getData(siteName).getConfigurationSection(
-				"ChanceReward." + reward + ".Items").getKeys(false);
-	}
-
-	public int getChanceRewardMoneyAmount(String siteName, String reward) {
-		return getData(siteName).getInt("ChanceReward." + reward + ".Money");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChanceRewardPlayerCommands(String siteName,
-			String reward) {
-		return (ArrayList<String>) getData(siteName).getList(
-				"ChanceReward." + reward + ".Commands.Player");
-	}
-
-	public Set<String> getChanceRewardRewards(String siteName) {
+	public Set<String> getCumulativeRewardItems(String siteName) {
 		try {
-			return getData(siteName).getConfigurationSection("ChanceReward")
-					.getKeys(false);
+			return getData(siteName).getConfigurationSection(
+					"CumulativeReward.Items").getKeys(false);
 		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
 			return new HashSet<String>();
 		}
+	}
 
+	public int getCumulativeRewardMoneyAmount(String siteName) {
+		return getData(siteName).getInt("CumulativeReward.Money");
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getConsoleCommands(String siteName) {
-		return (ArrayList<String>) getData(siteName)
-				.getList("Commands.Console");
+	public ArrayList<String> getCumulativeRewardPlayerCommands(String siteName) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"CumulativeReward.Commands.Player");
+	}
+
+	public int getCumulativeRewardVotesAmount(String siteName) {
+		return getData(siteName).getInt("CumulativeReward.Votes");
 	}
 
 	public FileConfiguration getData(String siteName) {
@@ -282,6 +264,189 @@ public class ConfigVoteSites {
 			return enchantments;
 		} catch (Exception ex) {
 			return null;
+		}
+
+	}
+
+	public int getExtraRewardChance(String siteName, String reward) {
+		return getData(siteName).getInt("ExtraReward." + reward + ".Chance");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getExtraRewardConsoleCommands(String siteName,
+			String reward) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ExtraReward." + reward + ".Commands.Console");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @param enchant
+	 *            Enchant
+	 * @return Level of enchantment
+	 */
+	public int getExtraRewardEnchantLevel(String siteName, String reward,
+			String item, String enchant) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".Enchants."
+						+ enchant);
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Enchants of item
+	 */
+	public HashMap<String, Integer> getExtraRewardEnchantments(String siteName,
+			String reward, String item) {
+		try {
+			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
+			Set<String> enchants = getData(siteName).getConfigurationSection(
+					"ExtraReward." + reward + ".Items." + item + ".Enchants")
+					.getKeys(false);
+			for (String enchant : enchants) {
+				enchantments.put(
+						enchant,
+						getExtraRewardEnchantLevel(siteName, reward, item,
+								enchant));
+			}
+
+			return enchantments;
+		} catch (Exception ex) {
+			return null;
+		}
+
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Amount of items
+	 */
+	public int getExtraRewardItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".Amount");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Item data value
+	 */
+	public int getExtraRewardItemData(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".Data");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Id of item
+	 */
+	public int getExtraRewardItemID(String siteName, String reward, String item) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".ID");
+	}
+
+	@SuppressWarnings("unchecked")
+	/**
+	 *
+	 * @param item 	Item
+	 * @return		Lore of item
+	 */
+	public ArrayList<String> getExtraRewardItemLore(String siteName,
+			String reward, String item) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ExtraReward." + reward + ".Items." + item + ".Lore");
+	}
+
+	/**
+	 *
+	 * @param item
+	 *            Item
+	 * @return Name of item
+	 */
+	public String getExtraRewardItemName(String siteName, String reward,
+			String item) {
+		return getData(siteName).getString(
+				"ExtraReward." + reward + ".Items." + item + ".Name");
+	}
+
+	/**
+	 *
+	 * @return Items of VoteSite
+	 */
+	public Set<String> getExtraRewardItems(String siteName, String reward) {
+		try {
+			return getData(siteName).getConfigurationSection(
+					"ExtraReward." + reward + ".Items").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public int getExtraRewardMaxItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".MaxAmount");
+	}
+
+	public int getExtraRewardMaxMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ExtraReward." + reward + ".MaxMoney");
+	}
+
+	public int getExtraRewardMinItemAmount(String siteName, String reward,
+			String item) {
+		return getData(siteName).getInt(
+				"ExtraReward." + reward + ".Items." + item + ".MinAmount");
+	}
+
+	public int getExtraRewardMinMoney(String siteName, String reward) {
+		return getData(siteName).getInt("ExtraReward." + reward + ".MinMoney");
+	}
+
+	public int getExtraRewardMoneyAmount(String siteName, String reward) {
+		return getData(siteName).getInt("ExtraReward." + reward + ".Money");
+	}
+
+	public String getExtraRewardPermission(String siteName, String reward) {
+		String perm = getData(siteName).getString(
+				"ExtraReward." + reward + ".Permission");
+		if (perm == null) {
+			return null;
+		}
+
+		if (perm.equalsIgnoreCase("none")) {
+			return null;
+		}
+
+		return "ExtraReward." + perm;
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getExtraRewardPlayerCommands(String siteName,
+			String reward) {
+		return (ArrayList<String>) getData(siteName).getList(
+				"ExtraReward." + reward + ".Commands.Player");
+	}
+
+	public Set<String> getExtraRewardRewards(String siteName) {
+		try {
+			return getData(siteName).getConfigurationSection("ExtraReward")
+					.getKeys(false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
 		}
 
 	}
@@ -342,8 +507,15 @@ public class ConfigVoteSites {
 	 * @return Items of VoteSite
 	 */
 	public Set<String> getItems(String siteName) {
-		return getData(siteName).getConfigurationSection("Items")
-				.getKeys(false);
+		try {
+			return getData(siteName).getConfigurationSection("Items").getKeys(
+					false);
+		} catch (Exception ex) {
+			if (Config.getInstance().getDebugEnabled()) {
+				ex.printStackTrace();
+			}
+			return new HashSet<String>();
+		}
 	}
 
 	public int getMoneyAmount(String siteName) {
@@ -455,71 +627,8 @@ public class ConfigVoteSites {
 		} catch (IOException e) {
 			plugin.getLogger().severe(
 					ChatColor.RED + "Could not save VoteSites/" + siteName
-							+ ".yml!");
+					+ ".yml!");
 		}
-	}
-
-	public void setChanceRewardChance(String siteName, String reward, int chance) {
-		set(siteName, "ChanceReward." + reward + ".Chance", chance);
-	}
-
-	public void setChanceRewardConsoleCommands(String siteName, String reward,
-			List<String> consoleCommands) {
-		set(siteName, "ChanceReward." + reward + ".Commands.Console",
-				consoleCommands);
-	}
-
-	public void setChanceRewardItemAmount(String siteName, String reward,
-			String item, int amount) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Amount",
-				amount);
-	}
-
-	public void setChanceRewardItemData(String siteName, String reward,
-			String item, int data) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Data",
-				data);
-	}
-
-	public void setChanceRewardItemEnchantLevel(String siteName, String reward,
-			String item, String enchant, int level) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item
-				+ ".Enchants." + enchant, level);
-	}
-
-	public void setChanceRewardItemEnchants(String siteName, String reward,
-			String item, HashMap<Enchantment, Integer> enchants) {
-		for (Enchantment enchant : enchants.keySet()) {
-			setChanceRewardItemEnchantLevel(siteName, reward, item,
-					enchant.getName(), enchants.get(enchant));
-		}
-	}
-
-	public void setChanceRewardItemId(String siteName, String reward,
-			String item, int id) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item + ".ID", id);
-	}
-
-	public void setChanceRewardItemLore(String siteName, String reward,
-			String item, List<String> lore) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Lore",
-				lore);
-	}
-
-	public void setChanceRewardItemName(String siteName, String reward,
-			String item, String name) {
-		set(siteName, "ChanceReward." + reward + ".Items." + item + ".Name",
-				name);
-	}
-
-	public void setChanceRewardMoney(String siteName, String reward, int money) {
-		set(siteName, "ChanceReward." + reward + ".Money", money);
-	}
-
-	public void setChanceRewardPlayerCommands(String siteName, String reward,
-			List<String> playerCommands) {
-		set(siteName, "ChanceReward." + reward + ".Commands.Player",
-				playerCommands);
 	}
 
 	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
@@ -528,6 +637,69 @@ public class ConfigVoteSites {
 
 	public void setDisabled(String siteName, boolean disabled) {
 		set(siteName, "Disabled", disabled);
+	}
+
+	public void setExtraRewardChance(String siteName, String reward, int chance) {
+		set(siteName, "ExtraReward." + reward + ".Chance", chance);
+	}
+
+	public void setExtraRewardConsoleCommands(String siteName, String reward,
+			List<String> consoleCommands) {
+		set(siteName, "ExtraReward." + reward + ".Commands.Console",
+				consoleCommands);
+	}
+
+	public void setExtraRewardItemAmount(String siteName, String reward,
+			String item, int amount) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".Amount",
+				amount);
+	}
+
+	public void setExtraRewardItemData(String siteName, String reward,
+			String item, int data) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".Data",
+				data);
+	}
+
+	public void setExtraRewardItemEnchantLevel(String siteName, String reward,
+			String item, String enchant, int level) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".Enchants."
+				+ enchant, level);
+	}
+
+	public void setExtraRewardItemEnchants(String siteName, String reward,
+			String item, HashMap<Enchantment, Integer> enchants) {
+		for (Enchantment enchant : enchants.keySet()) {
+			setExtraRewardItemEnchantLevel(siteName, reward, item,
+					enchant.getName(), enchants.get(enchant));
+		}
+	}
+
+	public void setExtraRewardItemId(String siteName, String reward,
+			String item, int id) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".ID", id);
+	}
+
+	public void setExtraRewardItemLore(String siteName, String reward,
+			String item, List<String> lore) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".Lore",
+				lore);
+	}
+
+	public void setExtraRewardItemName(String siteName, String reward,
+			String item, String name) {
+		set(siteName, "ExtraReward." + reward + ".Items." + item + ".Name",
+				name);
+	}
+
+	public void setExtraRewardMoney(String siteName, String reward, int money) {
+		set(siteName, "ExtraReward." + reward + ".Money", money);
+	}
+
+	public void setExtraRewardPlayerCommands(String siteName, String reward,
+			List<String> playerCommands) {
+		set(siteName, "ExtraReward." + reward + ".Commands.Player",
+				playerCommands);
 	}
 
 	public void setItemAmount(String siteName, String item, int amount) {
@@ -607,4 +779,5 @@ public class ConfigVoteSites {
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
 	}
+
 }

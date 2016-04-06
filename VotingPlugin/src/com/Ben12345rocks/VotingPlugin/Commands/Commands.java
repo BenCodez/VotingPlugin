@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
 
@@ -151,8 +152,8 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(format.getCommandsVoteLastTitle().replace("%player%",
-				playerName));
+		msg.add(Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteLastTitle(), "%player%", playerName));
 
 		for (VoteSite voteSite : voteSites) {
 			Date date = new Date(user.getTime(voteSite));
@@ -179,7 +180,8 @@ public class Commands {
 		String playerName = user.getPlayerName();
 
 		msg.add(Utils.getInstance().colorize(
-				format.getCommandsVoteNextTitle().replace("%player%",
+				Utils.getInstance().replaceIgnoreCase(
+						format.getCommandsVoteNextTitle(), "%player%",
 						playerName)));
 
 		for (VoteSite voteSite : voteSites) {
@@ -198,7 +200,8 @@ public class Commands {
 					.getVoteDelay(voteSite.getSiteName());
 			if (votedelay == 0) {
 				String errorMsg = format.getCommandsVoteNextInfoError();
-				msgLine = msgLine.replace("%info%", errorMsg);
+				msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
+						"%info%", errorMsg);
 			} else {
 
 				Date voteTime = new Date(year, month, day, hour, min);
@@ -213,7 +216,8 @@ public class Commands {
 
 				if ((nextvote == null) || (day == 0) || (hour == 0)) {
 					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
-					msgLine = msgLine.replace("%info%", canVoteMsg);
+					msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
+							"%info%", canVoteMsg);
 				} else {
 					if (!currentDate.after(nextvote)) {
 						long diff = nextvote.getTime() - currentDate.getTime();
@@ -224,19 +228,23 @@ public class Commands {
 						// long diffDays = diff / (24 * 60 * 60 * 1000);
 
 						String timeMsg = format.getCommandsVoteNextInfoTime();
-						timeMsg = timeMsg.replace("%hours%",
-								Long.toString(diffHours));
-						timeMsg = timeMsg.replace("%minutes%",
+						timeMsg = Utils.getInstance().replaceIgnoreCase(
+								timeMsg, "%hours%", Long.toString(diffHours));
+						timeMsg = Utils.getInstance().replaceIgnoreCase(
+								timeMsg, "%minutes%",
 								Long.toString(diffMinutes));
-						msgLine = msgLine.replace("%info%", timeMsg);
+						msgLine = Utils.getInstance().replaceIgnoreCase(
+								msgLine, "%info%", timeMsg);
 					} else {
 						String canVoteMsg = format
 								.getCommandsVoteNextInfoCanVote();
-						msgLine = msgLine.replace("%info%", canVoteMsg);
+						msgLine = Utils.getInstance().replaceIgnoreCase(
+								msgLine, "%info%", canVoteMsg);
 					}
 				}
 			}
-			msgLine = msgLine.replace("%SiteName%", voteSite.getSiteName());
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
+					"%SiteName%", voteSite.getSiteName());
 			msg.add(Utils.getInstance().colorize(msgLine));
 
 		}
@@ -283,6 +291,74 @@ public class Commands {
 				}
 			} catch (Exception ex) {
 			}
+
+			msg.add("&c&lExtra Rewards:");
+			for (String reward : voteSite.getExtraRewardsChance().keySet()) {
+				msg.add("&cReward: " + reward);
+				msg.add("&cChance: &6"
+						+ voteSite.getExtraRewardsChance().get(reward));
+				msg.add("&cMoney: &6"
+						+ voteSite.getExtraRewardsMoney().get(reward));
+				msg.add("&cPermission: &6"
+						+ voteSite.getExtraRewardsPermission().get(reward));
+
+				msg.add("&cItems:");
+				for (String item : ConfigVoteSites.getInstance()
+						.getExtraRewardItems(voteSite.getSiteName(), reward)) {
+					msg.add("&c- &6" + item);
+				}
+
+				msg.add("&cPlayer Commands:");
+
+				try {
+					for (String playerCommands : voteSite
+							.getExtraRewardsPlayerCommands().get(reward)) {
+						msg.add("&c- " + playerCommands);
+					}
+				} catch (Exception ex) {
+				}
+
+				msg.add("&cConsole Commands:");
+
+				try {
+					for (String consoleCommands : voteSite
+							.getExtraRewardsConsoleCommands().get(reward)) {
+						msg.add("&c- " + consoleCommands);
+					}
+				} catch (Exception ex) {
+				}
+			}
+
+			msg.add("&c&lCumulative Rewards:");
+
+			msg.add("&cVotes: &6" + voteSite.getCumulativeVotes());
+			msg.add("&cMoney: &6" + voteSite.getCumulativeMoney());
+
+			msg.add("&cItems:");
+			for (String item : ConfigVoteSites.getInstance()
+					.getCumulativeRewardItems(voteSite.getSiteName())) {
+				msg.add("&c- &6" + item);
+			}
+
+			msg.add("&cPlayer Commands:");
+
+			try {
+				for (String playerCommands : voteSite
+						.getCumulativePlayerCommands()) {
+					msg.add("&c- " + playerCommands);
+				}
+			} catch (Exception ex) {
+			}
+
+			msg.add("&cConsole Commands:");
+
+			try {
+				for (String consoleCommands : voteSite
+						.getCumulativeConsoleCommands()) {
+					msg.add("&c- " + consoleCommands);
+				}
+			} catch (Exception ex) {
+			}
 		}
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
@@ -313,8 +389,8 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(format.getCommandsVoteTotalTitle().replace("%player%",
-				playerName));
+		msg.add(Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteTotalTitle(), "%player%", playerName));
 
 		// total votes
 		int total = 0;
@@ -323,12 +399,14 @@ public class Commands {
 			int votes = user.getTotal(voteSite);
 			// int votes = Data.getInstance().getTotal(playerName, siteName);
 			total += votes;
-			msg.add(format.getCommandsVoteTotalLine()
-					.replace("%SiteName%", voteSite.getSiteName())
-					.replace("%Total%", "" + votes));
+			String line = format.getCommandsVoteTotalLine();
+			msg.add(Utils.getInstance().replaceIgnoreCase(
+					Utils.getInstance().replaceIgnoreCase(line, "%Total%",
+							"" + votes), "%SiteName%", voteSite.getSiteName()));
+
 		}
-		msg.add(format.getCommandsVoteTotalTotal().replace("%Totals%",
-				"" + total));
+		msg.add(Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteTotalTotal(), "%Totals%", "" + total));
 
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
@@ -352,31 +430,18 @@ public class Commands {
 					votes += user.getTotal(voteSite);
 				}
 			}
-			msg.add(format.getCommandsVoteTotalAllLine()
-					.replace("%SiteName%", voteSite.getSiteName())
-					.replace("%Total%", "" + votes));
+			msg.add(Utils.getInstance().replaceIgnoreCase(
+					Utils.getInstance().replaceIgnoreCase(
+							format.getCommandsVoteTotalAllLine(), "%SiteName%",
+							voteSite.getSiteName()), "%Total%", "" + votes));
 			total += votes;
 		}
-		msg.add(format.getCommandsVoteTotalAllTotal().replace("%Totals%",
-				"" + total));
+		msg.add(Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteTotalAllTotal(), "%Totals%", "" + total));
 
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
 	}
-
-	/*
-	 * public TextComponent voteHelp() { TextComponent texts = new
-	 * TextComponent(); for (String msg : voteHelpText()) { TextComponent text =
-	 * new TextComponent(); text.setText(msg.split("-")[0] + "\n");
-	 * text.setColor(ChatColor.DARK_AQUA); text.setBold(true);
-	 * text.setClickEvent(new ClickEvent( ClickEvent.Action.SUGGEST_COMMAND,
-	 * msg.split("-")[0])); if (msg.split("-").length > 1) {
-	 * text.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new
-	 * ComponentBuilder(msg.split("-")[1]).color( ChatColor.AQUA).create())); }
-	 * texts.addExtra(text); }
-	 * 
-	 * return texts; }
-	 */
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
@@ -436,21 +501,29 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public ArrayList<String> voteURLs() {
+	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+
+		List<String> title = ConfigFormat.getInstance().getCommandsVoteTitle();
+		if (title != null) {
+			sites.addAll(title);
+		}
 		int counter = 0;
 		for (VoteSite voteSite : voteSites) {
 			counter++;
 			String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
 			String msg = format.getCommandsVoteURLS();
 			msg = Utils.getInstance().colorize(msg);
-			msg = msg.replace("%num%", Integer.toString(counter));
-			msg = msg.replace("%url%", voteURL);
-			msg = msg.replace("%SiteName%", voteSite.getSiteName());
+			msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
+					Integer.toString(counter));
+			msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
+			msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
+					voteSite.getSiteName());
 			sites.add(msg);
 		}
-		return sites;
+		sites = Utils.getInstance().colorize(sites);
+		return Utils.getInstance().convertArray(sites);
 	}
 
 }

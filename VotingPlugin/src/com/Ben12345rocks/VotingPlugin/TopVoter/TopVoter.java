@@ -6,17 +6,11 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Sign;
-import org.bukkit.block.Skull;
-
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -42,21 +36,6 @@ public class TopVoter {
 		TopVoter.plugin = plugin;
 	}
 
-	public void checkSkulls(Location loc, String playerName) {
-		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
-				loc.getBlockY() - 1, loc.getBlockZ() - 1);
-		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1,
-				loc.getBlockY() + 1, loc.getBlockZ() + 1);
-		for (Block block : Utils.getInstance().getRegionBlocks(loc.getWorld(),
-				loc1, loc2)) {
-			if (block.getState() instanceof Skull) {
-				Skull skull = (Skull) block.getState();
-				skull.setOwner(playerName);
-				skull.update();
-			}
-		}
-	}
-
 	@SuppressWarnings("deprecation")
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
@@ -64,7 +43,7 @@ public class TopVoter {
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
 					new Date().getMonth() + 1, topVoterNoColor());
 			if (!Config.getInstance().getTopVoterAwardsDisabled()) {
-				Set<String> places = TopVoterAwards.getInstance()
+				Set<String> places = ConfigTopVoterAwards.getInstance()
 						.getPossibleRewardPlaces();
 				int i = 0;
 				for (User user : topVotersSortedAll()) {
@@ -88,117 +67,6 @@ public class TopVoter {
 			return true;
 		}
 		return false;
-	}
-
-	public void refreshSigns() {
-		Set<String> signs = ServerData.getInstance().getSigns();
-		if (signs != null) {
-
-			int i = 0;
-			for (String sign : signs) {
-				Location loc = ServerData.getInstance().getSignLocation(sign);
-				int position = ServerData.getInstance().getSignPosition(sign);
-				String data = ServerData.getInstance().getSignData(sign);
-				if (position != 0) {
-					if (data.equalsIgnoreCase("All")) {
-						ArrayList<User> users = topVotersSortedAll();
-						Bukkit.getScheduler().runTaskLater(plugin,
-								new Runnable() {
-
-							@Override
-							public void run() {
-								BlockState state = loc.getBlock()
-										.getState();
-								if (state instanceof Sign) {
-									Sign s = (Sign) state;
-
-									s.setLine(0, "TopVoter: " + data);
-									s.setLine(1, "#" + position);
-									if (users.size() >= position) {
-										s.setLine(
-												2,
-												users.get(position - 1)
-												.getPlayerName());
-										s.setLine(
-												3,
-												""
-														+ users.get(
-																position - 1)
-																.getTotalVotes()
-																+ " Votes");
-
-										checkSkulls(
-												loc,
-												users.get(position - 1)
-												.getPlayerName());
-									} else {
-										s.setLine(2, "No Player");
-									}
-									s.update();
-
-								}
-							}
-
-						}, 10l + i);
-					} else {
-						for (VoteSite voteSite : plugin.voteSites) {
-							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-								ArrayList<User> users = topVotersSortedVoteSite(voteSite);
-								Bukkit.getScheduler().runTaskLater(plugin,
-										new Runnable() {
-
-									@Override
-									public void run() {
-										BlockState state = loc
-												.getBlock().getState();
-										if (state instanceof Sign) {
-											Sign s = (Sign) state;
-
-											s.setLine(0, "TopVoter: "
-													+ data);
-											s.setLine(1, "#" + position);
-											if (users.size() >= position) {
-												s.setLine(
-														2,
-														users.get(
-																position - 1)
-																.getPlayerName());
-												s.setLine(
-														3,
-														""
-																+ users.get(
-																		position - 1)
-																		.getTotalVotesSite(
-																				voteSite)
-																				+ " Votes");
-												checkSkulls(
-														loc,
-														users.get(
-																position - 1)
-																.getPlayerName());
-											} else {
-												s.setLine(2,
-														"No Player");
-											}
-											s.update();
-
-										}
-
-									}
-
-								}, 10l + i);
-							}
-
-						}
-					}
-
-				} else {
-					ServerData.getInstance().removeSign(sign);
-				}
-				i += 5;
-
-			}
-		}
 	}
 
 	public void resetTopVoter() {

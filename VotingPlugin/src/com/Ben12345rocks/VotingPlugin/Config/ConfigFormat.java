@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -37,10 +36,6 @@ public class ConfigFormat {
 		return getData().getString("Format.broadcastmsg");
 	}
 
-	public String getChanceRewardMsg() {
-		return getData().getString("Format.chancerewardmsg");
-	}
-
 	public String getCommandsVoteLastLine() {
 		return getData().getString("Format.Commands.Vote.Last.Line");
 	}
@@ -68,6 +63,11 @@ public class ConfigFormat {
 
 	public String getCommandsVoteNextTitle() {
 		return getData().getString("Format.Commands.Vote.Next.Title");
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getCommandsVoteTitle() {
+		return (List<String>) getData().getList("Format.Commands.Vote.Title");
 	}
 
 	public String getCommandsVoteTotalAllLine() {
@@ -106,8 +106,26 @@ public class ConfigFormat {
 		return getData().getString("Format.Commands.Vote.Top.Title");
 	}
 
+	public String getCumulativeRewardMsg() {
+		String msg = getData().getString("Format.CumulativeRewardMsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aYou recieved an extra reward for voting %votes% times!";
+		}
+	}
+
 	public FileConfiguration getData() {
 		return data;
+	}
+
+	public String getExtraRewardMsg() {
+		String msg = getData().getString("Format.extrarewardmsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aLooks like you got lucky!";
+		}
 	}
 
 	public String getLoginMsg() {
@@ -126,6 +144,42 @@ public class ConfigFormat {
 		return getData().getString("Format.rewardmsg");
 	}
 
+	public String getSignTopVoterSignLine1() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line1");
+		if (str != null) {
+			return str;
+		} else {
+			return "TopVoter: %SiteName%";
+		}
+	}
+
+	public String getSignTopVoterSignLine2() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line2");
+		if (str != null) {
+			return str;
+		} else {
+			return "#%position%";
+		}
+	}
+
+	public String getSignTopVoterSignLine3() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line3");
+		if (str != null) {
+			return str;
+		} else {
+			return "%player%";
+		}
+	}
+
+	public String getSignTopVoterSignLine4() {
+		String str = getData().getString("Format.Signs.TopVoterSign.Line4");
+		if (str != null) {
+			return str;
+		} else {
+			return "%votes% Votes";
+		}
+	}
+
 	public String getTimeFormat() {
 		String string = getData().getString("Format.timeformat");
 		if (string == null) {
@@ -135,7 +189,12 @@ public class ConfigFormat {
 	}
 
 	public String getTopVoterRewardMsg() {
-		return getData().getString("Format.topvoterawardmsg");
+		String msg = getData().getString("Format.topvoterawardmsg");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&aYou came in %place% in top voters of the month! Here is an award!";
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -176,5 +235,4 @@ public class ConfigFormat {
 
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
-
 }

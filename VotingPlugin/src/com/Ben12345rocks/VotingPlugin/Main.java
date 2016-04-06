@@ -32,6 +32,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
@@ -43,8 +44,8 @@ import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 
@@ -122,7 +123,7 @@ public class Main extends JavaPlugin {
 
 	public void loadVoteSites() {
 		configVoteSites.setup("Example");
-		this.voteSites = configVoteSites.getVoteSitesLoad();
+		voteSites = configVoteSites.getVoteSitesLoad();
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded VoteSites");
 		}
@@ -173,43 +174,41 @@ public class Main extends JavaPlugin {
 
 	private void registerCommands() {
 		// /vote, /v
-		this.getCommand("vote").setExecutor(new CommandVote(this));
-		this.getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		this.getCommand("v").setExecutor(new CommandVote(this));
-		this.getCommand("v").setTabCompleter(new VoteTabCompleter());
+		getCommand("vote").setExecutor(new CommandVote(this));
+		getCommand("vote").setTabCompleter(new VoteTabCompleter());
+		getCommand("v").setExecutor(new CommandVote(this));
+		getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
-		this.getCommand("adminvote").setExecutor(new CommandAdminVote(this));
-		this.getCommand("adminvote").setTabCompleter(
-				new AdminVoteTabCompleter());
-		this.getCommand("av").setExecutor(new CommandAdminVote(this));
-		this.getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
+		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
+		getCommand("av").setExecutor(new CommandAdminVote(this));
+		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
 		// /votehelp, /vhelp
-		this.getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
+		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
 
 		// /voteinfo, /vinfo
-		this.getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
-		this.getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
+		getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
+		getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
 
 		// /votelast, /vlast
-		this.getCommand("votelast").setExecutor(new CommandVoteLast(this));
-		this.getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
+		getCommand("votelast").setExecutor(new CommandVoteLast(this));
+		getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
 
 		// /votenext, /vnext
-		this.getCommand("votenext").setExecutor(new CommandVoteNext(this));
-		this.getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
+		getCommand("votenext").setExecutor(new CommandVoteNext(this));
+		getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
 
 		// /votetoday, /vtoday
-		this.getCommand("votetoday").setExecutor(new CommandVoteToday(this));
+		getCommand("votetoday").setExecutor(new CommandVoteToday(this));
 
 		// /votetop, /vtop
-		this.getCommand("votetop").setExecutor(new CommandVoteTop(this));
+		getCommand("votetop").setExecutor(new CommandVoteTop(this));
 
 		// /votetotal, /vtotal
-		this.getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		this.getCommand("votetotal").setTabCompleter(
-				new VoteTotalTabCompleter());
+		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
+		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Commands");
@@ -260,7 +259,7 @@ public class Main extends JavaPlugin {
 
 		ServerData.getInstance().setup(plugin);
 
-		TopVoterAwards.getInstance().setup(plugin);
+		ConfigTopVoterAwards.getInstance().setup(plugin);
 
 		UUIDs.getInstance().setup(plugin);
 		if (config.getDebugEnabled()) {
@@ -289,7 +288,7 @@ public class Main extends JavaPlugin {
 			updater = new Updater(this, 15358, false);
 			voteToday = Commands.getInstance().voteToday();
 			TopVoter.getInstance().checkTopVoterAward();
-			TopVoter.getInstance().refreshSigns();
+			Signs.getInstance().refreshSigns();
 			if (config.getDebugEnabled()) {
 				plugin.getLogger().info(
 						"Updated VoteTop, Updater, and VoteToday");

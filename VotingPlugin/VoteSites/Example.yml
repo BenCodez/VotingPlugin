@@ -2,6 +2,8 @@
 # This is an Example VoteSite
 # Located in VoteSites folder in plugin directory
 # The file name is the VoteSite name
+# The Main rewards below are always the same
+# Use ExtraRewards for lucky/extra rewards, etc
       
 # Disable voteSite
 # Will cause VoteSite to not load 
@@ -70,20 +72,56 @@ Commands:
   Player:
   - 'vote total'
   
+# Advanced Section - USE ONLY IF YOU KNOW HOW
 # Rewards to give based on a chance
 # Can use the same rewards as above
 # Follows same rules
 # Can have more than one chance reward
-ChanceReward:
+ExtraReward:
+  # Reward name
+  # Can be anything, just no 2 names the same
   Reward1:
     # Chance out of 100
     # Must be an integer
+    # Set to 0 or 100 for always, or delete this line
     Chance: 40
+    # Permission is prefixed with VotingPlugin.ExtraReward
+    # Player requires this in order to recieve these rewards
+    # Set to none for no permission
+    # E.g. VotingPlugin.ExtraReward.Reward1 would be the permission 
+    # for default example
+    Permission: 'Reward1'
     Items:
-      ID: 264
-      Data: 0
-      Amount: 1
+      Diamond:
+        ID: 264
+        Data: 0
+        # Will only give Amount if min and max amounts are 0
+        Amount: 1
+        # Random amount of items between Min and Max will be given
+        # if min and max are not both 0
+        # Min amount of items
+        # Same goes for money
+        MinAmount: 1
+        # Max amount of items
+        MaxAmount: 4
+        Name: '&aSpecial Prize'
     Money: 1000
+    MinMoney: 100
+    MaxMoney: 3000
     Commands:
       Console:
       - 'say %player% was lucky'
+      
+# Rewards to give once certain number of votes reached for this vote site
+# Rewards work similar to above
+CumulativeReward:
+  # Number of votes required to give this reward
+  Votes: 20
+  Money: 1000
+  Items:
+    Diamond:
+      ID: 264
+      Data: 0
+      Amount: 1
+      Name: '&4Cumulative Reward'
+  

@@ -120,8 +120,8 @@ public class Utils {
 			return null;
 		}
 		ArrayList<String> newlist = new ArrayList<String>();
-		for (int i = 0; i < list.length; i++) {
-			newlist.add(list[i]);
+		for (String element : list) {
+			newlist.add(element);
 		}
 		if (newlist == null) {
 			return null;
@@ -269,7 +269,7 @@ public class Utils {
 	public boolean hasPermission(String playerName, String perm) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
-			return player.hasPermission(perm);
+			return player.hasPermission(plugin.getName() + "." + perm);
 		}
 		return false;
 	}
@@ -340,17 +340,6 @@ public class Utils {
 
 	}
 
-	/*
-	 * public void sendMessageComponent(CommandSender sender, TextComponent msg)
-	 * { if (isPlayer(sender)) { Player player = (Player) sender;
-	 * player.spigot().sendMessage(msg); } else {
-	 * sender.sendMessage(msg.getText()); } }
-	 * 
-	 * public void sendMessageComponent(CommandSender sender, TextComponent[]
-	 * msg) { for (TextComponent message : msg) { sendMessageComponent(sender,
-	 * message); } }
-	 */
-
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();
@@ -359,6 +348,20 @@ public class Utils {
 		al.addAll(hs);
 
 		return al;
+	}
+
+	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
+			String toReplace, String replaceWith) {
+		ArrayList<String> newList = new ArrayList<String>();
+		for (String msg : list) {
+			newList.add(replaceIgnoreCase(msg, toReplace, replaceWith));
+		}
+		return newList;
+	}
+
+	public String replaceIgnoreCase(String str, String toReplace,
+			String replaceWith) {
+		return str.replaceAll("(?i)" + toReplace, replaceWith);
 	}
 
 	@SuppressWarnings("unused")

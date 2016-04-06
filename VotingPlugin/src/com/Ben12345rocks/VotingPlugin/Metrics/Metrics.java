@@ -372,7 +372,7 @@ public class Metrics {
 
 			// Disable Task, if it is running
 			if (taskId > 0) {
-				this.plugin.getServer().getScheduler().cancelTask(taskId);
+				plugin.getServer().getScheduler().cancelTask(taskId);
 				taskId = -1;
 			}
 		}
