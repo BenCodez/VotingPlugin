@@ -6,7 +6,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import org.bukkit.craftbukkit.libs.joptsimple.util.InetAddressConverter;
+
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 
@@ -65,16 +68,32 @@ public class BungeeVote {
 	}
 
 	public void registerBungeeVoting() {
+
 		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
 			try {
-				sock = new ServerSocket(ConfigBungeeVoting.getInstance()
-						.getRecievePort());
-				ReadThread read = new ReadThread();
-				read.start();
-				plugin.getLogger().info(
-						"Bungee voting registered! Server will recieve votes on port '"
-								+ ConfigBungeeVoting.getInstance()
-										.getRecievePort() + "'!");
+				if (!ConfigBungeeVoting.getInstance().useAdvanced()) {
+					sock = new ServerSocket(ConfigBungeeVoting.getInstance()
+							.getRecievePort());
+					ReadThread read = new ReadThread();
+					read.start();
+					plugin.getLogger().info(
+							"Bungee voting registered! Server will recieve votes on port '"
+									+ ConfigBungeeVoting.getInstance()
+											.getRecievePort() + "'!");
+				} else {
+					sock = new ServerSocket(ConfigBungeeVoting.getInstance()
+							.getAdvancedRecievePort(), 0,
+							new InetAddressConverter()
+									.convert(ConfigBungeeVoting.getInstance()
+											.getAdvancedRecieveIP()));
+
+					ReadThread read = new ReadThread();
+					read.start();
+					plugin.getLogger().info(
+							"Bungee voting registered! Server will recieve votes on port '"
+									+ ConfigBungeeVoting.getInstance()
+											.getAdvancedRecievePort() + "'!");
+				}
 			} catch (IOException e) {
 				plugin.getLogger().warning("Bungee voting failed to load!");
 				e.printStackTrace();
@@ -84,18 +103,47 @@ public class BungeeVote {
 
 	public void sendBungeeVote(String playerName, String voteSite) {
 		if (ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
+
 			Socket client;
 			try {
-				for (int port : ConfigBungeeVoting.getInstance().getSendPorts()) {
-					String data = "vote/" + playerName + "/" + voteSite;
+				if (!ConfigBungeeVoting.getInstance().useAdvanced()) {
+					for (int port : ConfigBungeeVoting.getInstance()
+							.getSendPorts()) {
+						String data = "vote/" + playerName + "/" + voteSite;
 
-					client = new Socket("localhost", port);
+						client = new Socket("localhost", port);
 
-					DataOutputStream ds = new DataOutputStream(
-							client.getOutputStream());
-					ds.writeUTF(data);
-					ds.close();
-					client.close();
+						DataOutputStream ds = new DataOutputStream(
+								client.getOutputStream());
+						ds.writeUTF(data);
+						ds.close();
+						client.close();
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Sent bungee vote on port: " + port);
+						}
+					}
+				} else {
+					for (String server : ConfigBungeeVoting.getInstance()
+							.getAdvancedSendServers()) {
+						String ip = ConfigBungeeVoting.getInstance()
+								.getAdvancedSendIP(server);
+						int port = ConfigBungeeVoting.getInstance()
+								.getAdvancedSendPort(server);
+						String data = "vote/" + playerName + "/" + voteSite;
+
+						client = new Socket(ip, port);
+
+						DataOutputStream ds = new DataOutputStream(
+								client.getOutputStream());
+						ds.writeUTF(data);
+						ds.close();
+						client.close();
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Sent bungee vote to " + server);
+						}
+					}
 				}
 			} catch (Exception ex) {
 				ex.printStackTrace();
