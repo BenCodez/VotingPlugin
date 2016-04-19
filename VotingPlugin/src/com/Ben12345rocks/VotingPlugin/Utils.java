@@ -144,7 +144,7 @@ public class Utils {
 	@SuppressWarnings("deprecation")
 	public int getDayFromMili(long time) {
 		Date date = new Date(time);
-		return date.getDay();
+		return date.getDate();
 	}
 
 	@SuppressWarnings("deprecation")

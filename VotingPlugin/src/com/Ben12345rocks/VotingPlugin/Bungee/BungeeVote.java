@@ -86,6 +86,7 @@ public class BungeeVote {
 							new InetAddressConverter()
 									.convert(ConfigBungeeVoting.getInstance()
 											.getAdvancedRecieveIP()));
+					
 
 					ReadThread read = new ReadThread();
 					read.start();

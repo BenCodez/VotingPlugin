@@ -486,7 +486,7 @@ public class Commands {
 			for (User user : users) {
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
-					if (new Date().getDay() == Utils.getInstance()
+					if (new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time)) {
 
 						String timeString = new SimpleDateFormat(
