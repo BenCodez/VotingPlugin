@@ -2,7 +2,9 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -88,4 +90,37 @@ public class ConfigBungeeVoting {
 
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
+
+	public boolean useAdvanced() {
+		return getData().getBoolean("UseAdvanced");
+	}
+
+	public Set<String> getAdvancedSendServers() {
+		try {
+			return getData().getConfigurationSection("Advanced.SendPorts")
+					.getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public String getAdvancedRecieveIP() {
+		return getData().getString("Advanced.RecievePort.IP");
+	}
+
+	public int getAdvancedRecievePort() {
+		return getData().getInt("Advanced.RecievePort.Port");
+
+	}
+
+	public String getAdvancedSendIP(String server) {
+		return getData().getString("Advanced.SendPorts." + server + ".IP");
+
+	}
+
+	public int getAdvancedSendPort(String server) {
+		return getData().getInt("Advanced.SendPorts." + server + ".Port");
+
+	}
+
 }

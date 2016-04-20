@@ -18,3 +18,16 @@ RecievePort: 1335
 # and that server must have RecieveBungeeVotes enabled
 SendPorts:
 - 1335
+
+# --------- ADVANCED SECTION --------------
+# This is for advanced users
+# DO NOT USE THIS UNLESS YOU KNOW WHAT YOU ARE DOING
+UseAdvanced: false
+Advanced:
+  RecievePort:
+    IP: 'localhost'
+    Port: 1335
+  SendPorts:
+    Server1:
+      IP: 'localhost'
+      Port: 1335
