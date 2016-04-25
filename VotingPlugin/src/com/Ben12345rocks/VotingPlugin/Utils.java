@@ -364,6 +364,9 @@ public class Utils {
 
 	public String replaceIgnoreCase(String str, String toReplace,
 			String replaceWith) {
+		if (str == null) {
+			return "";
+		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
 	}
 
