@@ -24,12 +24,12 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
-	public String playerTotalVotes(Player player) {
-		return Integer.toString(new User(player).getTotalVotes());
-	}
-
 	public String playerCanVote(Player player) {
 		return Boolean.toString(new User(player).canVoteAll());
+	}
+
+	public String playerTotalVotes(Player player) {
+		return Integer.toString(new User(player).getTotalVotes());
 	}
 
 	public String playerTotalVotesSite(Player player, String siteName) {

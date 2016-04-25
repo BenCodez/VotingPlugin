@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -212,7 +213,7 @@ public class ConfigFormat {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
+			.severe(ChatColor.RED + "Could not save Format.yml!");
 		}
 	}
 
@@ -229,7 +230,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 
