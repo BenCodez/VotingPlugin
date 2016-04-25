@@ -3,7 +3,9 @@ package com.Ben12345rocks.VotingPlugin.PlaceHolderExpansion;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class PlaceHolders {
 
@@ -28,6 +30,17 @@ public class PlaceHolders {
 
 	public String playerCanVote(Player player) {
 		return Boolean.toString(new User(player).canVoteAll());
+	}
+
+	public String playerTotalVotesSite(Player player, String siteName) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
+				.contains(siteName)) {
+			return "";
+		}
+
+		VoteSite voteSite = plugin.getVoteSite(siteName);
+		User user = new User(player);
+		return Integer.toString(user.getTotalVotesSite(voteSite));
 	}
 
 }
