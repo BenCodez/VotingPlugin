@@ -137,13 +137,11 @@ public class BonusVoteReward {
 	}
 
 	public void giveBonusReward(User user) {
-		String playerName = user.getPlayerName();
 		if (ConfigBonusReward.getInstance().getGiveBonusReward()) {
 			giveItemBonusReward(user);
 			giveMoneyBonus(user);
 			doBonusCommands(user);
-			Player player = Bukkit.getPlayer(playerName);
-			player.sendMessage(ChatColor.RED
+			user.sendMessage(ChatColor.RED
 					+ "You were given bonus Items for voting on all sites in one day!");
 			for (String reward : ConfigBonusReward.getInstance()
 					.getExtraRewardRewards()) {
