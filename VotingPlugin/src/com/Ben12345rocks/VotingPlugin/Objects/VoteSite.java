@@ -470,11 +470,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
+										.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -626,7 +626,6 @@ public class VoteSite {
 
 			String playerName = user.getPlayerName();
 
-			Player player = Bukkit.getPlayer(playerName);
 			String rewardmsg = format.getRewardMsg();
 			rewardmsg = rewardmsg
 					.replace("%player%", playerName)
@@ -641,7 +640,7 @@ public class VoteSite {
 									configVoteSites.getItems(siteName))));
 
 			if ((rewardmsg != null) && (rewardmsg != "")) {
-				player.sendMessage(Utils.getInstance().colorize(rewardmsg));
+				user.sendMessage(rewardmsg);
 			}
 			for (String reward : getExtraRewardsMoney().keySet()) {
 				giveExtraReward(user, reward);
@@ -702,8 +701,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-					siteName, reward));
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
 
 			try {
 

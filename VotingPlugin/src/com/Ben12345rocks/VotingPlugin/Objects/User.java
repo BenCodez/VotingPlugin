@@ -581,8 +581,10 @@ public class User {
 	 */
 	public void sendMessage(String msg) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			player.sendMessage(Utils.getInstance().colorize(msg));
+		if (player != null && msg != null) {
+			if (msg != "") {
+				player.sendMessage(Utils.getInstance().colorize(msg));
+			}
 		}
 	}
 

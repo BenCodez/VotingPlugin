@@ -2,7 +2,9 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -33,77 +35,179 @@ public class ConfigFormat {
 	}
 
 	public String getBroadCastMsg() {
-		return getData().getString("Format.broadcastmsg");
+		String str = getData().getString("Format.broadcastmsg");
+		if (str != null) {
+			return str;
+		} else {
+			return "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%";
+		}
 	}
 
 	public String getCommandsVoteLastLine() {
-		return getData().getString("Format.Commands.Vote.Last.Line");
+		String str = getData().getString("Format.Commands.Vote.Last.Line");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3%SiteName%: &6%time%";
+		}
 	}
 
 	public String getCommandsVoteLastTitle() {
-		return getData().getString("Format.Commands.Vote.Last.Title");
+		String str = getData().getString("Format.Commands.Vote.Last.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&l%player% Last Vote Times:";
+		}
 	}
 
 	public String getCommandsVoteNextInfoCanVote() {
-		return getData().getString("Format.Commands.Vote.Next.Info.CanVote");
+		String str = getData().getString(
+				"Format.Commands.Vote.Next.Info.CanVote");
+		if (str != null) {
+			return str;
+		} else {
+			return "Go Vote!";
+		}
 	}
 
 	public String getCommandsVoteNextInfoError() {
-		return getData().getString("Format.Commands.Vote.Next.Info.Error");
+		String str = getData()
+				.getString("Format.Commands.Vote.Next.Info.Error");
+		if (str != null) {
+			return str;
+		} else {
+			return "";
+		}
 	}
 
 	public String getCommandsVoteNextInfoTime() {
-		return getData().getString(
+		String str = getData().getString(
 				"Format.Commands.Vote.Next.Info.TimeUntilVote");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cCould not caculate time until next vote!";
+		}
 	}
 
 	public String getCommandsVoteNextLayout() {
-		return getData().getString("Format.Commands.Vote.Next.Layout");
+		String str = getData().getString("Format.Commands.Vote.Next.Layout");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3%SiteName%: &6%info%";
+		}
 	}
 
 	public String getCommandsVoteNextTitle() {
-		return getData().getString("Format.Commands.Vote.Next.Title");
+		String str = getData().getString("Format.Commands.Vote.Next.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&l%player% Next Votes:";
+		}
 	}
 
 	@SuppressWarnings("unchecked")
 	public List<String> getCommandsVoteTitle() {
-		return (List<String>) getData().getList("Format.Commands.Vote.Title");
+		List<String> str;
+		try {
+			str = (List<String>) getData()
+					.getList("Format.Commands.Vote.Title");
+			if (str != null) {
+				return str;
+			} else {
+				str = new ArrayList<String>();
+				str.add("&4&lVote for our server!");
+				return str;
+			}
+		} catch (Exception ex) {
+			str = new ArrayList<String>();
+			str.add("&4&lVote for our server!");
+			return str;
+		}
 	}
 
 	public String getCommandsVoteTotalAllLine() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Line");
+		String str = getData().getString("Format.Commands.Vote.TotalAll.Line");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3%SiteName% &6%Total%";
+		}
 	}
 
 	public String getCommandsVoteTotalAllTitle() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Title");
+		String str = getData().getString("Format.Commands.Vote.TotalAll.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&lAll Votes Total:";
+		}
 	}
 
 	public String getCommandsVoteTotalAllTotal() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Total");
+		String str = getData().getString("Format.Commands.Vote.TotalAll.Total");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&lTotal: &6&l%Totals%";
+		}
 	}
 
 	public String getCommandsVoteTotalLine() {
-		return getData().getString("Format.Commands.Vote.Total.Line");
+		String str = getData().getString("Format.Commands.Vote.Total.Line");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3%SiteName%: &6%Total%";
+		}
 	}
 
 	public String getCommandsVoteTotalTitle() {
-		return getData().getString("Format.Commands.Vote.Total.Title");
+		String str = getData().getString("Format.Commands.Vote.Total.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&l%player% Total Votes:";
+		}
 	}
 
 	public String getCommandsVoteTotalTotal() {
-		return getData().getString("Format.Commands.Vote.Total.Total");
+		String str = getData().getString("Format.Commands.Vote.Total.Total");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3&lTotal: &6&l%Totals%";
+		}
 	}
 
 	public String getCommandsVoteURLS() {
-		return getData().getString("Format.Commands.Vote.Sites");
+		String str = getData().getString("Format.Commands.Vote.Sites");
+		if (str != null) {
+			return str;
+		} else {
+			return "&4%num%: &c&l%SiteName% - &c%url%";
+		}
 	}
 
 	public String getCommandVoteTopLine() {
-		return getData().getString("Format.Commands.Vote.Top.Line");
+		String str = getData().getString("Format.Commands.Vote.Top.Line");
+		if (str != null) {
+			return str;
+		} else {
+			return "&c%num%: &6%player%, %votes%";
+		}
 	}
 
 	public String getCommandVoteTopTitle() {
-		return getData().getString("Format.Commands.Vote.Top.Title");
+		String str = getData().getString("Format.Commands.Vote.Top.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "&3Top Voters %page%/%maxpages%";
+		}
 	}
 
 	public String getCumulativeRewardMsg() {
@@ -129,7 +233,12 @@ public class ConfigFormat {
 	}
 
 	public String getLoginMsg() {
-		return getData().getString("Format.loginmsg");
+		String str = getData().getString("Format.loginmsg");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cRemember to vote!";
+		}
 	}
 
 	public int getPageSize() {
@@ -141,7 +250,12 @@ public class ConfigFormat {
 	}
 
 	public String getRewardMsg() {
-		return getData().getString("Format.rewardmsg");
+		String str = getData().getString("Format.rewardmsg");
+		if (str != null) {
+			return str;
+		} else {
+			return "&aYou were given rewards!";
+		}
 	}
 
 	public String getSignTopVoterSignLine1() {
