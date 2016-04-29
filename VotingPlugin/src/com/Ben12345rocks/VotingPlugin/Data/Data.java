@@ -34,9 +34,6 @@ public class Data {
 		Data.plugin = plugin;
 	}
 
-	// FileConfiguration data;
-	// File dFile;
-
 	public void addCumulativeSite(User user, String voteSite) {
 		setCumulativeSite(user, voteSite, getCumulativeSite(user, voteSite) + 1);
 	}
@@ -97,9 +94,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create " + uuid
+								+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -115,9 +112,6 @@ public class Data {
 			for (String playerFile : files) {
 				String uuid = playerFile.replace(".yml", "");
 				String playerName = Utils.getInstance().getPlayerName(uuid);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(uuid + ": " + playerName);
-				}
 				if (playerName != null) {
 					names.add(playerName);
 				}
@@ -217,9 +211,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED + "Could not save "
-					+ Utils.getInstance().getUUID(playerName) + ".yml!");
+					.getLogger()
+					.severe(ChatColor.RED + "Could not save "
+							+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -234,7 +228,7 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
+					.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
 		}
 	}
 
@@ -337,7 +331,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+								+ ".yml! Name: " + playerName);
 
 			}
 		}

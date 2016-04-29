@@ -73,8 +73,8 @@ public class Main extends JavaPlugin {
 
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
-			plugin.getLogger().warning(
-					"Votifier not found, votes will not work!");
+			plugin.getLogger()
+			.warning("Votifier not found, votes may not work");
 		}
 	}
 
