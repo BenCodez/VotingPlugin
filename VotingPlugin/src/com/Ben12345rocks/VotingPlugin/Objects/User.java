@@ -508,10 +508,6 @@ public class User {
 		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
 				.getVoteSites();
 
-		ArrayList<String> offlineVotes = new ArrayList<String>();
-
-		String playerName = getPlayerName();
-
 		for (VoteSite voteSite : voteSites) {
 			for (String reward : ConfigVoteSites.getInstance()
 					.getExtraRewardRewards(voteSite.getSiteName())) {
