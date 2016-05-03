@@ -52,6 +52,19 @@ public class Data {
 		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
 	}
 
+	public int getOfflineVotesWorld(User user, String voteSite, String reward,
+			String world) {
+		return getData(user).getInt(
+				user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
+						+ reward + "." + world);
+	}
+
+	public void setOfflineVotesWorld(User user, String voteSite, String reward,
+			String world, int value) {
+		set(user, user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
+				+ reward + "." + world, value);
+	}
+
 	public int getCumulativeSite(User user, String voteSite) {
 		return getData(user).getInt(user.getUUID() + ".Cumulative." + voteSite);
 	}

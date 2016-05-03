@@ -279,6 +279,10 @@ public class ConfigVoteSites {
 				"ExtraReward." + reward + ".Commands.Console");
 	}
 
+	public String getExtraRewardWorld(String siteName, String reward) {
+		return getData(siteName).getString("ExtraReward." + reward + ".World");
+	}
+
 	/**
 	 *
 	 * @param item

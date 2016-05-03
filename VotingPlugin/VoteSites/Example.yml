@@ -91,6 +91,9 @@ ExtraReward:
     # E.g. VotingPlugin.ExtraReward.Reward1 would be the permission 
     # for default example
     Permission: 'Reward1'
+    # World to give this reward in\
+    # Player will be given this world once he is in this world
+    World: 'world'
     Items:
       Diamond:
         ID: 264
