@@ -544,7 +544,7 @@ public class VoteSite {
 
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
-				String world = extraRewardsWorld.get(this);
+				String world = extraRewardsWorld.get(reward);
 				Player player = Bukkit.getPlayer(user.getPlayerName());
 				if (player != null && world != null && world != "") {
 					if (player.getWorld().getName() == world) {
@@ -559,6 +559,8 @@ public class VoteSite {
 										this.getSiteName(), reward, world) + 1);
 
 					}
+				} else {
+					giveExtraRewardReward(user, reward, chance);
 				}
 
 			}

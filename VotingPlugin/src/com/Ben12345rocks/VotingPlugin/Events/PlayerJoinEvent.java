@@ -52,6 +52,8 @@ public class PlayerJoinEvent implements Listener {
 							updateCheckLogin(player);
 						}
 
+						user.offVoteWorld(player.getWorld().getName());
+
 						// give offline vote (if they voted offline)
 						user.offVote();
 
