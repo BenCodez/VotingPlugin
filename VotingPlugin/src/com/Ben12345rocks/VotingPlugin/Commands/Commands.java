@@ -144,6 +144,13 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	public String voteCommandLastDate(User user, VoteSite voteSite) {
+		Date date = new Date(user.getTime(voteSite));
+		String timeString = new SimpleDateFormat(format.getTimeFormat())
+				.format(date);
+		return timeString;
+	}
+
 	public String[] voteCommandLast(User user) {
 
 		ArrayList<String> msg = new ArrayList<String>();
@@ -156,9 +163,7 @@ public class Commands {
 				format.getCommandsVoteLastTitle(), "%player%", playerName));
 
 		for (VoteSite voteSite : voteSites) {
-			Date date = new Date(user.getTime(voteSite));
-			String timeString = new SimpleDateFormat(format.getTimeFormat())
-					.format(date);
+			String timeString = voteCommandLastDate(user, voteSite);
 
 			msg.add(format
 					.getCommandsVoteLastLine()
@@ -171,7 +176,61 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	@SuppressWarnings({ "deprecation", "unused" })
+	@SuppressWarnings("deprecation")
+	public String voteCommandNextInfo(User user, VoteSite voteSite) {
+		String info = new String();
+
+		Date date = new Date(user.getTime(voteSite));
+
+		int month = date.getMonth();
+		int day = date.getDate();
+		int hour = date.getHours();
+		int min = date.getMinutes();
+		int year = date.getYear();
+
+		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
+		if (votedelay == 0) {
+			String errorMsg = format.getCommandsVoteNextInfoError();
+			info = errorMsg;
+		} else {
+
+			Date voteTime = new Date(year, month, day, hour, min);
+			Date nextvote = DateUtils.addHours(voteTime, votedelay);
+
+			int cday = new Date().getDate();
+			int cmonth = new Date().getMonth();
+			int chour = new Date().getHours();
+			int cmin = new Date().getMinutes();
+			int cyear = new Date().getYear();
+			Date currentDate = new Date(cyear, cmonth, cday, chour, cmin);
+
+			if ((nextvote == null) || (day == 0) || (hour == 0)) {
+				String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
+				info = canVoteMsg;
+			} else {
+				if (!currentDate.after(nextvote)) {
+					long diff = nextvote.getTime() - currentDate.getTime();
+
+					// long diffSeconds = (diff / 1000) % 60;
+					long diffMinutes = (diff / (60 * 1000)) % 60;
+					long diffHours = diff / (60 * 60 * 1000);
+					// long diffDays = diff / (24 * 60 * 60 * 1000);
+
+					String timeMsg = format.getCommandsVoteNextInfoTime();
+					timeMsg = Utils.getInstance().replaceIgnoreCase(timeMsg,
+							"%hours%", Long.toString(diffHours));
+					timeMsg = Utils.getInstance().replaceIgnoreCase(timeMsg,
+							"%minutes%", Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
+					info = canVoteMsg;
+				}
+			}
+		}
+		return info;
+	}
+
 	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -188,61 +247,9 @@ public class Commands {
 
 			String msgLine = format.getCommandsVoteNextLayout();
 
-			Date date = new Date(user.getTime(voteSite));
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine, "%info%",
+					voteCommandNextInfo(user, voteSite));
 
-			int month = date.getMonth();
-			int day = date.getDate();
-			int hour = date.getHours();
-			int min = date.getMinutes();
-			int year = date.getYear();
-
-			int votedelay = configVoteSites
-					.getVoteDelay(voteSite.getSiteName());
-			if (votedelay == 0) {
-				String errorMsg = format.getCommandsVoteNextInfoError();
-				msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
-						"%info%", errorMsg);
-			} else {
-
-				Date voteTime = new Date(year, month, day, hour, min);
-				Date nextvote = DateUtils.addHours(voteTime, votedelay);
-
-				int cday = new Date().getDate();
-				int cmonth = new Date().getMonth();
-				int chour = new Date().getHours();
-				int cmin = new Date().getMinutes();
-				int cyear = new Date().getYear();
-				Date currentDate = new Date(cyear, cmonth, cday, chour, cmin);
-
-				if ((nextvote == null) || (day == 0) || (hour == 0)) {
-					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
-					msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
-							"%info%", canVoteMsg);
-				} else {
-					if (!currentDate.after(nextvote)) {
-						long diff = nextvote.getTime() - currentDate.getTime();
-
-						long diffSeconds = (diff / 1000) % 60;
-						long diffMinutes = (diff / (60 * 1000)) % 60;
-						long diffHours = diff / (60 * 60 * 1000);
-						// long diffDays = diff / (24 * 60 * 60 * 1000);
-
-						String timeMsg = format.getCommandsVoteNextInfoTime();
-						timeMsg = Utils.getInstance().replaceIgnoreCase(
-								timeMsg, "%hours%", Long.toString(diffHours));
-						timeMsg = Utils.getInstance().replaceIgnoreCase(
-								timeMsg, "%minutes%",
-								Long.toString(diffMinutes));
-						msgLine = Utils.getInstance().replaceIgnoreCase(
-								msgLine, "%info%", timeMsg);
-					} else {
-						String canVoteMsg = format
-								.getCommandsVoteNextInfoCanVote();
-						msgLine = Utils.getInstance().replaceIgnoreCase(
-								msgLine, "%info%", canVoteMsg);
-					}
-				}
-			}
 			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
 					"%SiteName%", voteSite.getSiteName());
 			msg.add(Utils.getInstance().colorize(msgLine));
