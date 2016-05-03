@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.PlaceHolderExpansion;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -41,6 +42,28 @@ public class PlaceHolders {
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
 		return Integer.toString(user.getTotalVotesSite(voteSite));
+	}
+
+	public String playerNextVote(Player player, String siteName) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
+				.contains(siteName)) {
+			return "";
+		}
+
+		VoteSite voteSite = plugin.getVoteSite(siteName);
+		User user = new User(player);
+		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
+	}
+
+	public String playerLastVote(Player player, String siteName) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
+				.contains(siteName)) {
+			return "";
+		}
+
+		VoteSite voteSite = plugin.getVoteSite(siteName);
+		User user = new User(player);
+		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
 }
