@@ -32,7 +32,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				cmds.add("Reload");
 				cmds.add("UUID");
 				cmds.add("BungeeVote");
-				cmds.add("GlobalVote");
+				cmds.add("ServerVote");
 				cmds.add("Reset");
 				cmds.add("Sites");
 				cmds.add("Version");

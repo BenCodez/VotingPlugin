@@ -49,9 +49,9 @@ public class Commands {
 		msg.add("() = Needed");
 		msg.add("Aliases: adminvote, av");
 		msg.add("/adminvote help - See this page");
-		msg.add("/adminvote vote (player) (sitename) - Trigger server only vote");
+		msg.add("/adminvote vote (player) (sitename) - Trigger vote");
 		msg.add("/adminvote bungeevote (player) (sitename) - Trigger bungee only vote");
-		msg.add("/adminvote globalvote (player) (sitename) - Trigger server and bungee vote");
+		msg.add("/adminvote servervote (player) (sitename) - Trigger server only vote");
 		msg.add("/adminvote settotal (player) (sitename) (amount) - Set total votes of a player on votesite");
 		msg.add("/adminvote reload - Reload the plugin");
 		msg.add("/adminvote uuid (playername) - See uuid of player");

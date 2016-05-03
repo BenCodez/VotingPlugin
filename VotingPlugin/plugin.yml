@@ -1,5 +1,5 @@
 name: VotingPlugin
-version: 3.3.2
+version: 3.3.3
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable VotingPlugin!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
@@ -66,6 +66,7 @@ permissions:
       VotingPlugin.Commands.AdminVote.Help: true
       VotingPlugin.Commands.AdminVote.Vote: true
       VotingPlugin.Commands.AdminVote.BungeeVote: true
+      VotingPlugin.Commands.AdminVote.ServerVote: true
       VotingPlugin.Commands.AdminVote.UUID: true
       VotingPlugin.Commands.AdminVote.Reload: true
       VotingPlugin.Commands.AdminVote.Set.Total: true
@@ -123,8 +124,8 @@ permissions:
     description: Allows access to /adminvote vote <player> <site>
   VotingPlugin.Commands.AdminVote.BungeeVote: 
     description: Allows access to /adminvote bungeevote <player> <site>
-  VotingPlugin.Commands.AdminVote.GlobalVote: 
-    description: Allows access to /adminvote globalvote <player> <site>  
+  VotingPlugin.Commands.AdminVote.ServerVote: 
+    description: Allows access to /adminvote servervote <player> <site>  
   VotingPlugin.Commands.AdminVote.UUID: 
     description: Allows access to /adminvote uuid <player>
   VotingPlugin.Commands.AdminVote.Reload: 
