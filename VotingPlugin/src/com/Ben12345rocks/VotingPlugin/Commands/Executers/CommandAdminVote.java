@@ -364,7 +364,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void globalVote(CommandSender sender, String voteSite,
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.GlobalVote")) {
+				"Commands.AdminVote.Vote")) {
 			VotiferEvent.playerVote(voteSite, playerName);
 			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
@@ -1010,7 +1010,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void serverVote(CommandSender sender, String voteSite,
 			String playerName) {
 		if (Utils.getInstance()
-				.hasPermission(sender, "Commands.AdminVote.Vote")) {
+				.hasPermission(sender, "Commands.AdminVote.ServerVote")) {
 			VotiferEvent.playerVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
