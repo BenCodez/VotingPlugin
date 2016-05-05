@@ -511,19 +511,29 @@ public class User {
 		for (VoteSite voteSite : voteSites) {
 			for (String reward : ConfigVoteSites.getInstance()
 					.getExtraRewardRewards(voteSite.getSiteName())) {
-				if (ConfigVoteSites.getInstance().getExtraRewardWorld(
-						voteSite.getSiteName(), reward) != "") {
-					int worldRewards = Data.getInstance().getOfflineVotesWorld(
-							this, voteSite.getSiteName(), reward, world);
+				ArrayList<String> worlds = ConfigVoteSites.getInstance()
+						.getExtraRewardWorld(voteSite.getSiteName(), reward);
+				for (String worldName : worlds) {
+					if (worldName != "") {
+						if (worldName == world) {
+							int worldRewards = Data.getInstance()
+									.getOfflineVotesWorld(this,
+											voteSite.getSiteName(), reward,
+											worldName);
 
-					while (worldRewards > 0) {
-						voteSite.giveExtraRewardReward(this, reward, 100);
-						worldRewards--;
+							while (worldRewards > 0) {
+								voteSite.giveExtraRewardReward(this, reward,
+										100);
+								worldRewards--;
+							}
+							Data.getInstance().setOfflineVotesWorld(this,
+									voteSite.getSiteName(), reward, worldName,
+									0);
+
+						}
 					}
-					Data.getInstance().setOfflineVotesWorld(this,
-							voteSite.getSiteName(), reward, world, 0);
-				}
 
+				}
 			}
 
 		}

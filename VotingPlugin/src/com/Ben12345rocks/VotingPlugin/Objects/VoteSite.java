@@ -37,7 +37,7 @@ public class VoteSite {
 	private HashMap<String, Integer> extraRewardsMoney;
 	private HashMap<String, ArrayList<ItemStack>> extraRewardsItems;
 	private HashMap<String, String> extraRewardsPermission;
-	private HashMap<String, String> extraRewardsWorld;
+	private HashMap<String, ArrayList<String>> extraRewardsWorld;
 	private HashMap<String, Integer> extraRewardsChance;
 
 	private ArrayList<String> cumulativeConsoleCommands;
@@ -544,20 +544,23 @@ public class VoteSite {
 
 			int randomNum = (int) (Math.random() * 100) + 1;
 			if (randomNum <= chance) {
-				String world = extraRewardsWorld.get(reward);
+				ArrayList<String> worlds = extraRewardsWorld.get(reward);
 				Player player = Bukkit.getPlayer(user.getPlayerName());
-				if (player != null && world != null && world != "") {
-					if (player.getWorld().getName() == world) {
-						giveExtraRewardReward(user, reward, chance);
-					} else {
-						Data.getInstance().setOfflineVotesWorld(
-								user,
-								this.getSiteName(),
-								reward,
-								world,
-								Data.getInstance().getOfflineVotesWorld(user,
-										this.getSiteName(), reward, world) + 1);
+				if (player != null && worlds != null) {
+					for (String world : worlds) {
+						if (player.getWorld().getName() == world) {
+							giveExtraRewardReward(user, reward, chance);
+						} else {
+							Data.getInstance().setOfflineVotesWorld(
+									user,
+									this.getSiteName(),
+									reward,
+									world,
+									Data.getInstance().getOfflineVotesWorld(
+											user, this.getSiteName(), reward,
+											world) + 1);
 
+						}
 					}
 				} else {
 					giveExtraRewardReward(user, reward, chance);
@@ -708,7 +711,7 @@ public class VoteSite {
 		extraRewardsPlayerCommands = new HashMap<String, ArrayList<String>>();
 		extraRewardsItems = new HashMap<String, ArrayList<ItemStack>>();
 		extraRewardsPermission = new HashMap<String, String>();
-		extraRewardsWorld = new HashMap<String, String>();
+		extraRewardsWorld = new HashMap<String, ArrayList<String>>();
 		extraRewardsChance = new HashMap<String, Integer>();
 		extraRewardsMoney = new HashMap<String, Integer>();
 		for (String reward : rewards) {
