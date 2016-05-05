@@ -52,19 +52,6 @@ public class Data {
 		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
 	}
 
-	public int getOfflineVotesWorld(User user, String voteSite, String reward,
-			String world) {
-		return getData(user).getInt(
-				user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
-						+ reward + "." + world);
-	}
-
-	public void setOfflineVotesWorld(User user, String voteSite, String reward,
-			String world, int value) {
-		set(user, user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
-				+ reward + "." + world, value);
-	}
-
 	public int getCumulativeSite(User user, String voteSite) {
 		return getData(user).getInt(user.getUUID() + ".Cumulative." + voteSite);
 	}
@@ -90,6 +77,13 @@ public class Data {
 				user.getUUID() + ".OfflineVotes." + voteSite);
 	}
 
+	public int getOfflineVotesWorld(User user, String voteSite, String reward,
+			String world) {
+		return getData(user).getInt(
+				user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
+						+ reward + "." + world);
+	}
+
 	public File getPlayerFile(User user) {
 		String playerName = user.getPlayerName();
 		String uuid = user.getUUID();
@@ -107,9 +101,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -224,9 +218,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -241,7 +235,7 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
+			.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
 		}
 	}
 
@@ -259,6 +253,12 @@ public class Data {
 
 	public void setOfflineVotes(User user, String voteSite, int amount) {
 		set(user, user.getUUID() + ".OfflineVotes." + voteSite, amount);
+	}
+
+	public void setOfflineVotesWorld(User user, String voteSite, String reward,
+			String world, int value) {
+		set(user, user.getUUID() + ".OfflineVotesWorld." + voteSite + "."
+				+ reward + "." + world, value);
 	}
 
 	public void setSiteMonthTotal(User user, String voteSiteName, int amount) {
@@ -344,7 +344,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}

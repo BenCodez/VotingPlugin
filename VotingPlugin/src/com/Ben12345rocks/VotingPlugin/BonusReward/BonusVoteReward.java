@@ -108,7 +108,7 @@ public class BonusVoteReward {
 		int amount = bonusReward.getExtraRewardItemAmount(reward, item);
 		int maxAmount = bonusReward.getExtraRewardMaxItemAmount(reward, item);
 		int minAmount = bonusReward.getExtraRewardMinItemAmount(reward, item);
-		if (maxAmount == 0 && minAmount == 0) {
+		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
 			int num = (int) (Math.random() * maxAmount);
@@ -124,7 +124,7 @@ public class BonusVoteReward {
 		int amount = bonusReward.getExtraRewardMoneyAmount(reward);
 		int maxAmount = bonusReward.getExtraRewardMaxMoneyAmount(reward);
 		int minAmount = bonusReward.getExtraRewardMinMoneyAmount(reward);
-		if (maxAmount == 0 && minAmount == 0) {
+		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
 			int num = (int) (Math.random() * maxAmount);

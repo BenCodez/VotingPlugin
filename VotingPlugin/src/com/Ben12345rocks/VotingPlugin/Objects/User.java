@@ -248,7 +248,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -295,7 +295,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-								+ ".Miliseconds");
+						+ ".Miliseconds");
 		return mills;
 	}
 
@@ -460,7 +460,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -504,6 +504,54 @@ public class User {
 		}
 	}
 
+	/**
+	 * Check for offline votes
+	 */
+	public void offVote() {
+		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
+				.getVoteSites();
+
+		ArrayList<String> offlineVotes = new ArrayList<String>();
+
+		String playerName = getPlayerName();
+
+		for (VoteSite voteSite : voteSites) {
+			int offvotes = getOfflineVotes(voteSite);
+			if (offvotes > 0) {
+				if (Config.getInstance().getDebugEnabled()) {
+					plugin.getLogger()
+					.info("Offline Vote Reward on Site '"
+							+ voteSite.getSiteName()
+							+ "' given for player '" + playerName + "'");
+				}
+				for (int i = 0; i < offvotes; i++) {
+					offlineVotes.add(voteSite.getSiteName());
+				}
+			}
+
+		}
+
+		for (int i = 0; i < offlineVotes.size(); i++) {
+			playerVote(plugin.getVoteSite(offlineVotes.get(i)));
+		}
+		for (int i = 0; i < offlineVotes.size(); i++) {
+			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
+		}
+
+		for (int i = 0; i < getBonusOfflineVotes(); i++) {
+			BonusVoteReward.getInstance().giveBonusReward(this);
+		}
+
+		setBonusOfflineVotes(0);
+
+		int place = getOfflineTopVoter();
+		if (place > 0) {
+			giveTopVoterAward(place);
+			Data.getInstance().setTopVoterAwardOffline(this, 0);
+		}
+
+	}
+
 	public void offVoteWorld(String world) {
 		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
 				.getVoteSites();
@@ -540,54 +588,6 @@ public class User {
 	}
 
 	/**
-	 * Check for offline votes
-	 */
-	public void offVote() {
-		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
-				.getVoteSites();
-
-		ArrayList<String> offlineVotes = new ArrayList<String>();
-
-		String playerName = getPlayerName();
-
-		for (VoteSite voteSite : voteSites) {
-			int offvotes = getOfflineVotes(voteSite);
-			if (offvotes > 0) {
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
-				}
-				for (int i = 0; i < offvotes; i++) {
-					offlineVotes.add(voteSite.getSiteName());
-				}
-			}
-
-		}
-
-		for (int i = 0; i < offlineVotes.size(); i++) {
-			playerVote(plugin.getVoteSite(offlineVotes.get(i)));
-		}
-		for (int i = 0; i < offlineVotes.size(); i++) {
-			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
-		}
-
-		for (int i = 0; i < getBonusOfflineVotes(); i++) {
-			BonusVoteReward.getInstance().giveBonusReward(this);
-		}
-
-		setBonusOfflineVotes(0);
-
-		int place = getOfflineTopVoter();
-		if (place > 0) {
-			giveTopVoterAward(place);
-			Data.getInstance().setTopVoterAwardOffline(this, 0);
-		}
-
-	}
-
-	/**
 	 * Trigger a vote for the user
 	 *
 	 * @param voteSite
@@ -616,7 +616,7 @@ public class User {
 	 */
 	public void sendMessage(String msg) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null && msg != null) {
+		if ((player != null) && (msg != null)) {
 			if (msg != "") {
 				player.sendMessage(Utils.getInstance().colorize(msg));
 			}

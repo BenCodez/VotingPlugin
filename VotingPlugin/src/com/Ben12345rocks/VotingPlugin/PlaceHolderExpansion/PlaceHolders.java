@@ -29,11 +29,7 @@ public class PlaceHolders {
 		return Boolean.toString(new User(player).canVoteAll());
 	}
 
-	public String playerTotalVotes(Player player) {
-		return Integer.toString(new User(player).getTotalVotes());
-	}
-
-	public String playerTotalVotesSite(Player player, String siteName) {
+	public String playerLastVote(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
 			return "";
@@ -41,7 +37,7 @@ public class PlaceHolders {
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
-		return Integer.toString(user.getTotalVotesSite(voteSite));
+		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
 	public String playerNextVote(Player player, String siteName) {
@@ -55,7 +51,11 @@ public class PlaceHolders {
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 	}
 
-	public String playerLastVote(Player player, String siteName) {
+	public String playerTotalVotes(Player player) {
+		return Integer.toString(new User(player).getTotalVotes());
+	}
+
+	public String playerTotalVotesSite(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
 			return "";
@@ -63,7 +63,7 @@ public class PlaceHolders {
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
-		return Commands.getInstance().voteCommandLastDate(user, voteSite);
+		return Integer.toString(user.getTotalVotesSite(voteSite));
 	}
 
 }

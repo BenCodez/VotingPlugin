@@ -113,7 +113,7 @@ public class ConfigTopVoterAwards {
 					.getKeys(false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant, getEnchantLevel(place, item, enchant));
+				.put(enchant, getEnchantLevel(place, item, enchant));
 			}
 
 			return enchantments;
@@ -241,9 +241,9 @@ public class ConfigTopVoterAwards {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED
-							+ "Could not save TopVoterAwards.yml!");
+			.getLogger()
+			.severe(ChatColor.RED
+					+ "Could not save TopVoterAwards.yml!");
 		}
 	}
 
@@ -260,9 +260,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

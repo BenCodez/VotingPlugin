@@ -144,13 +144,6 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public String voteCommandLastDate(User user, VoteSite voteSite) {
-		Date date = new Date(user.getTime(voteSite));
-		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
-		return timeString;
-	}
-
 	public String[] voteCommandLast(User user) {
 
 		ArrayList<String> msg = new ArrayList<String>();
@@ -169,10 +162,44 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String voteCommandLastDate(User user, VoteSite voteSite) {
+		Date date = new Date(user.getTime(voteSite));
+		String timeString = new SimpleDateFormat(format.getTimeFormat())
+		.format(date);
+		return timeString;
+	}
+
+	public String[] voteCommandNext(User user) {
+		ArrayList<String> msg = new ArrayList<String>();
+
+		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+
+		String playerName = user.getPlayerName();
+
+		msg.add(Utils.getInstance().colorize(
+				Utils.getInstance().replaceIgnoreCase(
+						format.getCommandsVoteNextTitle(), "%player%",
+						playerName)));
+
+		for (VoteSite voteSite : voteSites) {
+
+			String msgLine = format.getCommandsVoteNextLayout();
+
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine, "%info%",
+					voteCommandNextInfo(user, voteSite));
+
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
+					"%SiteName%", voteSite.getSiteName());
+			msg.add(Utils.getInstance().colorize(msgLine));
+
+		}
 		return Utils.getInstance().convertArray(msg);
 	}
 
@@ -229,33 +256,6 @@ public class Commands {
 			}
 		}
 		return info;
-	}
-
-	public String[] voteCommandNext(User user) {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
-
-		String playerName = user.getPlayerName();
-
-		msg.add(Utils.getInstance().colorize(
-				Utils.getInstance().replaceIgnoreCase(
-						format.getCommandsVoteNextTitle(), "%player%",
-						playerName)));
-
-		for (VoteSite voteSite : voteSites) {
-
-			String msgLine = format.getCommandsVoteNextLayout();
-
-			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine, "%info%",
-					voteCommandNextInfo(user, voteSite));
-
-			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
-					"%SiteName%", voteSite.getSiteName());
-			msg.add(Utils.getInstance().colorize(msgLine));
-
-		}
-		return Utils.getInstance().convertArray(msg);
 	}
 
 	public String[] voteCommandSiteInfo(String voteSiteName) {
