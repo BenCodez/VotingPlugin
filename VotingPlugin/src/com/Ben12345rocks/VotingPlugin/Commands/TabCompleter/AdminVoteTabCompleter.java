@@ -64,7 +64,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 						|| args[0].equalsIgnoreCase("uuid")
 						|| args[0].equalsIgnoreCase("bungeevote")
 						|| args[0].equalsIgnoreCase("reset")
-						|| args[0].equalsIgnoreCase("globalvote")) {
+						|| args[0].equalsIgnoreCase("servervote")) {
 					for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
 						Player player = (Player) playerOb;
 						cmds.add(player.getName());
@@ -115,7 +115,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 						|| args[0].equalsIgnoreCase("settotal")
 						|| args[0].equalsIgnoreCase("bungeevote")
 						|| args[0].equalsIgnoreCase("reset")
-						|| args[0].equalsIgnoreCase("globalvote")) {
+						|| args[0].equalsIgnoreCase("servervote")) {
 
 					for (String siteName : ConfigVoteSites.getInstance()
 							.getVoteSitesNames()) {
