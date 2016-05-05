@@ -286,11 +286,8 @@ public class VoteSite {
 		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
+			int num = minAmount
+					+ (int) (Math.random() * ((maxAmount - minAmount) + 1));
 			return num;
 		}
 	}
