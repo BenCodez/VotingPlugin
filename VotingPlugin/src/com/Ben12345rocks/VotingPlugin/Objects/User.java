@@ -559,12 +559,24 @@ public class User {
 		for (VoteSite voteSite : voteSites) {
 			for (String reward : ConfigVoteSites.getInstance()
 					.getExtraRewardRewards(voteSite.getSiteName())) {
+
 				ArrayList<String> worlds = ConfigVoteSites.getInstance()
 						.getExtraRewardWorld(voteSite.getSiteName(), reward);
+
 				if (worlds != null) {
 					for (String worldName : worlds) {
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Checking world: " + worldName
+											+ ", reard: " + reward
+											+ ", votesite: "
+											+ voteSite.getSiteName());
+						}
 						if (worldName != "") {
-							if (worldName == world) {
+							if (worldName.equals(world)) {
+								if (Config.getInstance().getDebugEnabled()) {
+									plugin.getLogger().info("Giving reward...");
+								}
 								int worldRewards = Data.getInstance()
 										.getOfflineVotesWorld(this,
 												voteSite.getSiteName(), reward,
@@ -575,6 +587,7 @@ public class User {
 											reward, 100);
 									worldRewards--;
 								}
+
 								Data.getInstance().setOfflineVotesWorld(this,
 										voteSite.getSiteName(), reward,
 										worldName, 0);

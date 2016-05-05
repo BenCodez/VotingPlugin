@@ -473,11 +473,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
+										.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -534,7 +534,7 @@ public class VoteSite {
 				Player player = Bukkit.getPlayer(user.getPlayerName());
 				if ((player != null) && (worlds != null)) {
 					for (String world : worlds) {
-						if (player.getWorld().getName() == world) {
+						if (player.getWorld().getName().equals(world)) {
 							giveExtraRewardReward(user, reward, chance);
 						} else {
 							Data.getInstance().setOfflineVotesWorld(
@@ -729,8 +729,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-					siteName, reward));
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
 
 			try {
 
