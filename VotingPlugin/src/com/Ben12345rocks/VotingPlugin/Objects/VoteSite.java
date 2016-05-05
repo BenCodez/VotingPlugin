@@ -467,11 +467,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
+										.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -523,7 +523,14 @@ public class VoteSite {
 			int chance = getExtraRewardsChance().get(reward);
 
 			int randomNum = (int) (Math.random() * 100) + 1;
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info(
+						"Random: " + randomNum + ", Chance: " + chance);
+			}
 			if (randomNum <= chance) {
+				if (config.getDebugEnabled()) {
+					plugin.getLogger().info("Giving reward");
+				}
 				ArrayList<String> worlds = extraRewardsWorld.get(reward);
 				Player player = Bukkit.getPlayer(user.getPlayerName());
 				if ((player != null) && (worlds != null)) {
@@ -723,8 +730,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-					siteName, reward));
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
 
 			try {
 
