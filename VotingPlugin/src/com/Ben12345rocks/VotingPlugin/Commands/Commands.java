@@ -299,13 +299,20 @@ public class Commands {
 			} catch (Exception ex) {
 			}
 
-			msg.add("&c&lExtra Rewards:");
-			for (String reward : voteSite.getExtraRewardsChance().keySet()) {
-				msg.add("&cReward: " + reward);
+			msg.add("&4&l&nExtra Rewards:");
+			for (String reward : configVoteSites
+					.getExtraRewardRewards(voteSiteName)) {
+				msg.add("&4&lReward: &c" + reward);
 				msg.add("&cChance: &6"
 						+ voteSite.getExtraRewardsChance().get(reward));
 				msg.add("&cMoney: &6"
 						+ voteSite.getExtraRewardsMoney().get(reward));
+
+				ArrayList<String> worlds = new ArrayList<String>();
+				worlds.addAll(voteSite.getExtraRewardsWorld().get(voteSiteName));
+				msg.add("&cWorlds: "
+						+ Utils.getInstance().makeStringList(worlds));
+
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));
 

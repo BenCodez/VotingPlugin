@@ -599,11 +599,26 @@ public class VoteSite {
 		try {
 			giveExtraRewardItemSiteReward(user, reward);
 		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
+			if (config.getDebugEnabled()) {
 				ex.printStackTrace();
 			}
 		}
 		giveExtraRewardMoneySite(user, reward);
+	}
+
+	/**
+	 * @return the extraRewardsWorld
+	 */
+	public HashMap<String, ArrayList<String>> getExtraRewardsWorld() {
+		return extraRewardsWorld;
+	}
+
+	/**
+	 * @param extraRewardsWorld the extraRewardsWorld to set
+	 */
+	public void setExtraRewardsWorld(
+			HashMap<String, ArrayList<String>> extraRewardsWorld) {
+		this.extraRewardsWorld = extraRewardsWorld;
 	}
 
 	/**
@@ -670,7 +685,8 @@ public class VoteSite {
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				user.sendMessage(rewardmsg);
 			}
-			for (String reward : getExtraRewardsMoney().keySet()) {
+			for (String reward : configVoteSites
+					.getExtraRewardRewards(siteName)) {
 				giveExtraReward(user, reward);
 			}
 
