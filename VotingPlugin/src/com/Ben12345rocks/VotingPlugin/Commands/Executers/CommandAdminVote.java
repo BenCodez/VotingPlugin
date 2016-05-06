@@ -701,32 +701,18 @@ public class CommandAdminVote implements CommandExecutor {
 	public void reload(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Reload")) {
-			if (!config.getDisableAsyncReload()) {
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
 
-							@Override
-							public void run() {
-								sender.sendMessage(ChatColor.RED + "Reloading "
-										+ plugin.getName() + "...");
-								plugin.reload();
-								sender.sendMessage(ChatColor.RED
-										+ plugin.getName() + " reloaded!");
-							}
-						});
-			} else {
-				Bukkit.getScheduler().runTask(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-					@Override
-					public void run() {
-						sender.sendMessage(ChatColor.RED + "Reloading "
-								+ plugin.getName() + "...");
-						plugin.reload();
-						sender.sendMessage(ChatColor.RED + plugin.getName()
-								+ " reloaded!");
-					}
-				});
-			}
+				@Override
+				public void run() {
+					sender.sendMessage(ChatColor.RED + "Reloading "
+							+ plugin.getName() + "...");
+					plugin.reload();
+					sender.sendMessage(ChatColor.RED + plugin.getName()
+							+ " reloaded!");
+				}
+			});
 
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());

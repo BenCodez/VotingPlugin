@@ -53,10 +53,6 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
-	public boolean getDisableAsyncReload() {
-		return getData().getBoolean("DisableAsyncReload");
-	}
-
 	public boolean getRemindVotesEnabled() {
 		return getData().getBoolean("RemindVotes");
 	}

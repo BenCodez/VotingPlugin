@@ -25,6 +25,3 @@ AllowUnjoined: false
 # Disable Montly Top Voter Awards
 DisableTopVoterAwards: true
 
-# Leave this disabled, will cause plugin loading/startup to lag the server
-DisableAsyncReload: false
-
