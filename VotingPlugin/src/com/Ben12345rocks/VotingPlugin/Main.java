@@ -282,6 +282,16 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void reload() {
+		config.reloadData();
+		configFormat.reloadData();
+		plugin.loadVoteSites();
+		configBonusReward.reloadData();
+		plugin.updateTopUpdater();
+		plugin.setupFiles();
+		ServerData.getInstance().reloadData();
+	}
+
 	public void updateTopUpdater() {
 		try {
 			topVoter = TopVoter.getInstance().topVoters();
