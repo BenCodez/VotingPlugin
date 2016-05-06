@@ -308,10 +308,12 @@ public class Commands {
 				msg.add("&cMoney: &6"
 						+ voteSite.getExtraRewardsMoney().get(reward));
 
-				ArrayList<String> worlds = new ArrayList<String>();
-				worlds.addAll(voteSite.getExtraRewardsWorld().get(voteSiteName));
-				msg.add("&cWorlds: "
-						+ Utils.getInstance().makeStringList(worlds));
+				ArrayList<String> worlds = voteSite.getExtraRewardsWorld().get(
+						reward);
+				if (worlds != null) {
+					msg.add("&cWorlds: "
+							+ Utils.getInstance().makeStringList(worlds));
+				}
 
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));
