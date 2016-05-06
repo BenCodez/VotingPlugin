@@ -287,8 +287,8 @@ public class Main extends JavaPlugin {
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
-		plugin.updateTopUpdater();
 		plugin.setupFiles();
+		plugin.updateTopUpdater();
 		ServerData.getInstance().reloadData();
 	}
 
