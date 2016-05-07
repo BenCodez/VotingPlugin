@@ -387,6 +387,10 @@ public class User {
 	public void giveItem(int id, int amount, int data, String itemName,
 			List<String> lore, HashMap<String, Integer> enchants) {
 
+		if (amount == 0) {
+			return;
+		}
+
 		String playerName = getPlayerName();
 
 		ItemStack item = new ItemStack(id, amount, (short) data);
@@ -414,6 +418,10 @@ public class User {
 	 *            ItemStack to give player
 	 */
 	public void giveItem(ItemStack item) {
+		if (item.getAmount() == 0) {
+			return;
+		}
+
 		String playerName = getPlayerName();
 
 		Player player = Bukkit.getPlayer(playerName);

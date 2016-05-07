@@ -286,11 +286,8 @@ public class VoteSite {
 		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
+			int num = minAmount
+					+ (int) (Math.random() * ((maxAmount - minAmount) + 1));
 			return num;
 		}
 	}
@@ -332,11 +329,8 @@ public class VoteSite {
 		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
+			int num = minAmount
+					+ (int) (Math.random() * ((maxAmount - minAmount) + 1));
 			return num;
 		}
 	}
@@ -381,6 +375,13 @@ public class VoteSite {
 	 */
 	public HashMap<String, ArrayList<String>> getExtraRewardsPlayerCommands() {
 		return extraRewardsPlayerCommands;
+	}
+
+	/**
+	 * @return the extraRewardsWorld
+	 */
+	public HashMap<String, ArrayList<String>> getExtraRewardsWorld() {
+		return extraRewardsWorld;
 	}
 
 	/**
@@ -473,11 +474,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-										.getCumulativeRewardMsg(),
+								.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-												.getCumulativeRewardVotesAmount(siteName)));
+										.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -529,7 +530,14 @@ public class VoteSite {
 			int chance = getExtraRewardsChance().get(reward);
 
 			int randomNum = (int) (Math.random() * 100) + 1;
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info(
+						"Random: " + randomNum + ", Chance: " + chance);
+			}
 			if (randomNum <= chance) {
+				if (config.getDebugEnabled()) {
+					plugin.getLogger().info("Giving reward");
+				}
 				ArrayList<String> worlds = extraRewardsWorld.get(reward);
 				Player player = Bukkit.getPlayer(user.getPlayerName());
 				if ((player != null) && (worlds != null)) {
@@ -575,9 +583,10 @@ public class VoteSite {
 			return;
 		}
 
-		ArrayList<ItemStack> items = getExtraRewardsItems().get(reward);
-		for (ItemStack item : items) {
-			user.giveItem(item);
+		Set<String> items = configVoteSites.getExtraRewardItems(siteName,
+				reward);
+		for (String item : items) {
+			user.giveItem(getExtraRewardItemStackItem(reward, item));
 		}
 	}
 
@@ -598,7 +607,7 @@ public class VoteSite {
 		try {
 			giveExtraRewardItemSiteReward(user, reward);
 		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
+			if (config.getDebugEnabled()) {
 				ex.printStackTrace();
 			}
 		}
@@ -669,7 +678,8 @@ public class VoteSite {
 			if ((rewardmsg != null) && (rewardmsg != "")) {
 				user.sendMessage(rewardmsg);
 			}
-			for (String reward : getExtraRewardsMoney().keySet()) {
+			for (String reward : configVoteSites
+					.getExtraRewardRewards(siteName)) {
 				giveExtraReward(user, reward);
 			}
 
@@ -729,8 +739,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-							siteName, reward));
+			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+					siteName, reward));
 
 			try {
 
@@ -902,6 +912,15 @@ public class VoteSite {
 	public void setExtraRewardsPlayerCommands(
 			HashMap<String, ArrayList<String>> extraRewardsPlayerCommands) {
 		this.extraRewardsPlayerCommands = extraRewardsPlayerCommands;
+	}
+
+	/**
+	 * @param extraRewardsWorld
+	 *            the extraRewardsWorld to set
+	 */
+	public void setExtraRewardsWorld(
+			HashMap<String, ArrayList<String>> extraRewardsWorld) {
+		this.extraRewardsWorld = extraRewardsWorld;
 	}
 
 	/**

@@ -317,6 +317,9 @@ public class Utils {
 	}
 
 	public String makeStringList(ArrayList<String> list) {
+		if (list == null) {
+			return "";
+		}
 		String string = new String();
 		if (list.size() > 1) {
 			for (int i = 0; i < list.size(); i++) {

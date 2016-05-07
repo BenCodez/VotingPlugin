@@ -701,19 +701,14 @@ public class CommandAdminVote implements CommandExecutor {
 	public void reload(CommandSender sender) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.Reload")) {
+
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
 					sender.sendMessage(ChatColor.RED + "Reloading "
 							+ plugin.getName() + "...");
-					config.reloadData();
-					format.reloadData();
-					plugin.loadVoteSites();
-					bonusReward.reloadData();
-					plugin.updateTopUpdater();
-					plugin.setupFiles();
-					ServerData.getInstance().reloadData();
+					plugin.reload();
 					sender.sendMessage(ChatColor.RED + plugin.getName()
 							+ " reloaded!");
 				}

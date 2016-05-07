@@ -299,13 +299,22 @@ public class Commands {
 			} catch (Exception ex) {
 			}
 
-			msg.add("&c&lExtra Rewards:");
-			for (String reward : voteSite.getExtraRewardsChance().keySet()) {
-				msg.add("&cReward: " + reward);
+			msg.add("&4&l&nExtra Rewards:");
+			for (String reward : configVoteSites
+					.getExtraRewardRewards(voteSiteName)) {
+				msg.add("&4&lReward: &c" + reward);
 				msg.add("&cChance: &6"
 						+ voteSite.getExtraRewardsChance().get(reward));
 				msg.add("&cMoney: &6"
 						+ voteSite.getExtraRewardsMoney().get(reward));
+
+				ArrayList<String> worlds = voteSite.getExtraRewardsWorld().get(
+						reward);
+				if (worlds != null) {
+					msg.add("&cWorlds: "
+							+ Utils.getInstance().makeStringList(worlds));
+				}
+
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));
 
@@ -452,7 +461,7 @@ public class Commands {
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
-		texts.add("VotingPlugin Player Help");
+		texts.add("Voting Player Help");
 		texts.add("[] = Optional");
 		texts.add("Aliases: vote, v");
 		texts.add("/vote - List vote URLs");

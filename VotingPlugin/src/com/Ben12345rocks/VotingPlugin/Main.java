@@ -231,6 +231,16 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void reload() {
+		config.reloadData();
+		configFormat.reloadData();
+		plugin.loadVoteSites();
+		configBonusReward.reloadData();
+		plugin.setupFiles();
+		plugin.updateTopUpdater();
+		ServerData.getInstance().reloadData();
+	}
+
 	private boolean setupEconomy() {
 		if (getServer().getPluginManager().getPlugin("Vault") == null) {
 			return false;
