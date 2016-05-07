@@ -79,20 +79,20 @@ public class BungeeVote {
 					plugin.getLogger().info(
 							"Bungee voting registered! Server will recieve votes on port '"
 									+ ConfigBungeeVoting.getInstance()
-											.getRecievePort() + "'!");
+									.getRecievePort() + "'!");
 				} else {
 					sock = new ServerSocket(ConfigBungeeVoting.getInstance()
 							.getAdvancedRecievePort(), 0,
 							new InetAddressConverter()
-									.convert(ConfigBungeeVoting.getInstance()
-											.getAdvancedRecieveIP()));
+					.convert(ConfigBungeeVoting.getInstance()
+							.getAdvancedRecieveIP()));
 
 					ReadThread read = new ReadThread();
 					read.start();
 					plugin.getLogger().info(
 							"Bungee voting registered! Server will recieve votes on port '"
 									+ ConfigBungeeVoting.getInstance()
-											.getAdvancedRecievePort() + "'!");
+									.getAdvancedRecievePort() + "'!");
 				}
 			} catch (IOException e) {
 				plugin.getLogger().warning("Bungee voting failed to load!");

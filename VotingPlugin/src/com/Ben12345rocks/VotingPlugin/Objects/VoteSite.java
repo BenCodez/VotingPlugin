@@ -378,6 +378,13 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the extraRewardsWorld
+	 */
+	public HashMap<String, ArrayList<String>> getExtraRewardsWorld() {
+		return extraRewardsWorld;
+	}
+
+	/**
 	 * @return the items
 	 */
 	public ArrayList<ItemStack> getItems() {
@@ -467,11 +474,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-										.getCumulativeRewardMsg(),
+								.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-												.getCumulativeRewardVotesAmount(siteName)));
+										.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -608,22 +615,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * @return the extraRewardsWorld
-	 */
-	public HashMap<String, ArrayList<String>> getExtraRewardsWorld() {
-		return extraRewardsWorld;
-	}
-
-	/**
-	 * @param extraRewardsWorld
-	 *            the extraRewardsWorld to set
-	 */
-	public void setExtraRewardsWorld(
-			HashMap<String, ArrayList<String>> extraRewardsWorld) {
-		this.extraRewardsWorld = extraRewardsWorld;
-	}
-
-	/**
 	 *
 	 * @param user
 	 *            User to give items to
@@ -748,8 +739,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-							siteName, reward));
+			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+					siteName, reward));
 
 			try {
 
@@ -921,6 +912,15 @@ public class VoteSite {
 	public void setExtraRewardsPlayerCommands(
 			HashMap<String, ArrayList<String>> extraRewardsPlayerCommands) {
 		this.extraRewardsPlayerCommands = extraRewardsPlayerCommands;
+	}
+
+	/**
+	 * @param extraRewardsWorld
+	 *            the extraRewardsWorld to set
+	 */
+	public void setExtraRewardsWorld(
+			HashMap<String, ArrayList<String>> extraRewardsWorld) {
+		this.extraRewardsWorld = extraRewardsWorld;
 	}
 
 	/**

@@ -248,7 +248,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -295,7 +295,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
+								+ ".Miliseconds");
 		return mills;
 	}
 
@@ -468,7 +468,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -528,9 +528,9 @@ public class User {
 			if (offvotes > 0) {
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -576,9 +576,9 @@ public class User {
 						if (Config.getInstance().getDebugEnabled()) {
 							plugin.getLogger().info(
 									"Checking world: " + worldName
-									+ ", reard: " + reward
-									+ ", votesite: "
-									+ voteSite.getSiteName());
+											+ ", reard: " + reward
+											+ ", votesite: "
+											+ voteSite.getSiteName());
 						}
 						if (worldName != "") {
 							if (worldName.equals(world)) {
