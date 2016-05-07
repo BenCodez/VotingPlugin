@@ -576,9 +576,10 @@ public class VoteSite {
 			return;
 		}
 
-		ArrayList<ItemStack> items = getExtraRewardsItems().get(reward);
-		for (ItemStack item : items) {
-			user.giveItem(item);
+		Set<String> items = configVoteSites.getExtraRewardItems(siteName,
+				reward);
+		for (String item : items) {
+			user.giveItem(getExtraRewardItemStackItem(reward, item));
 		}
 	}
 
@@ -614,7 +615,8 @@ public class VoteSite {
 	}
 
 	/**
-	 * @param extraRewardsWorld the extraRewardsWorld to set
+	 * @param extraRewardsWorld
+	 *            the extraRewardsWorld to set
 	 */
 	public void setExtraRewardsWorld(
 			HashMap<String, ArrayList<String>> extraRewardsWorld) {
