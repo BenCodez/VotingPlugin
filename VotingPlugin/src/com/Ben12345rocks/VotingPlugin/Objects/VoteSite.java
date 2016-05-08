@@ -244,7 +244,7 @@ public class VoteSite {
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
-		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addLore(itemStack, lore);
 		itemStack = Utils.getInstance()
 				.addEnchants(
 						itemStack,
@@ -308,7 +308,7 @@ public class VoteSite {
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
-		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addLore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(
 				itemStack,
 				configVoteSites.getExtraRewardEnchantments(siteName, reward,
@@ -404,7 +404,7 @@ public class VoteSite {
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
-		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addLore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(itemStack,
 				configVoteSites.getEnchantments(siteName, item));
 		return itemStack;

@@ -395,7 +395,7 @@ public class User {
 
 		ItemStack item = new ItemStack(id, amount, (short) data);
 		item = Utils.getInstance().nameItem(item, itemName);
-		item = Utils.getInstance().addlore(item, lore);
+		item = Utils.getInstance().addLore(item, lore);
 		Player player = Bukkit.getPlayer(playerName);
 		// player.getInventory().addItem(item);
 

@@ -58,7 +58,7 @@ public class Utils {
 
 	}
 
-	public ItemStack addlore(ItemStack item, List<String> lore) {
+	public ItemStack addLore(ItemStack item, List<String> lore) {
 		if (lore == null) {
 			return item;
 		}

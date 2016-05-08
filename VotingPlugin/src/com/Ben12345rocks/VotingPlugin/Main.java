@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
@@ -189,6 +190,9 @@ public class Main extends JavaPlugin {
 
 		// /votehelp, /vhelp
 		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
+		
+		// /votegui, /vgui
+		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
 
 		// /voteinfo, /vinfo
 		getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));

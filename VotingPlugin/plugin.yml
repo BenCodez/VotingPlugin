@@ -34,6 +34,9 @@ commands:
   votetoday:
     description: See who voted today
     aliases: vtoday
+  votegui:
+    description: Open voting GUI
+    aliases: vgui
 permissions:
   VotingPlugin.*:
     description: Gives access to all VotingPlugin commands

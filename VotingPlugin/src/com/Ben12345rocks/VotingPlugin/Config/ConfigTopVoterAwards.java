@@ -222,7 +222,7 @@ public class ConfigTopVoterAwards {
 		lore = Utils.getInstance().colorize(lore);
 		ItemStack itemStack = new ItemStack(id, amount, (short) data);
 		itemStack = Utils.getInstance().nameItem(itemStack, itemName);
-		itemStack = Utils.getInstance().addlore(itemStack, lore);
+		itemStack = Utils.getInstance().addLore(itemStack, lore);
 		itemStack = Utils.getInstance().addEnchants(itemStack,
 				getEnchantments(place, item));
 		return itemStack;

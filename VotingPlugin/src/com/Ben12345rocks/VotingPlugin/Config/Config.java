@@ -37,11 +37,6 @@ public class Config {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
-	public boolean disableJson() {
-		return true;
-		// return getData().getBoolean("DisableJson");
-	}
-
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
 	}
@@ -82,11 +77,6 @@ public class Config {
 
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setDisableJson(boolean value) {
-		getData().set("DisableJson", value);
 		saveData();
 	}
 
