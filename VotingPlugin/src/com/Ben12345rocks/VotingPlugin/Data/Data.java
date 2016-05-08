@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class Data {
@@ -101,9 +102,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create " + uuid
+								+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -218,25 +219,25 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED + "Could not save "
-					+ Utils.getInstance().getUUID(playerName) + ".yml!");
+					.getLogger()
+					.severe(ChatColor.RED + "Could not save "
+							+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
 
 	public void set(User user, String path, Object value) {
 		// String playerName = user.getPlayerName();
-		String uuid = user.getUUID();
+		//String uuid = user.getUUID();
 		File dFile = getPlayerFile(user);
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		data.set(path, value);
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save " + uuid + ".yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
+		/*
+		 * try { data.save(dFile); } catch (IOException e) {
+		 * Bukkit.getServer().getLogger() .severe(ChatColor.RED +
+		 * "Could not save " + uuid + ".yml!"); }
+		 */
 	}
 
 	public void setBonusOfflineVotes(User user, int amount) {
@@ -344,7 +345,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+								+ ".yml! Name: " + playerName);
 
 			}
 		}

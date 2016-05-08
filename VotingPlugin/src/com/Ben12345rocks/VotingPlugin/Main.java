@@ -40,6 +40,7 @@ import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -74,7 +75,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+					.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -103,19 +104,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -149,6 +150,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+		Files.getInstance().loadFileEditngThread();
 		setupFiles();
 		registerCommands();
 		registerEvents();
@@ -281,11 +283,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						updateTopUpdater();
+					}
+				}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -308,7 +310,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

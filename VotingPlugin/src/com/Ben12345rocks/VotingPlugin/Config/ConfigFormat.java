@@ -12,6 +12,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class ConfigFormat {
 
@@ -322,12 +323,8 @@ public class ConfigFormat {
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
+
 	}
 
 	public void setup(Plugin p) {

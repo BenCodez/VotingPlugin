@@ -17,6 +17,7 @@ import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class ConfigTopVoterAwards {
@@ -237,14 +238,7 @@ public class ConfigTopVoterAwards {
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED
-					+ "Could not save TopVoterAwards.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
 	}
 
 	public void setup(Plugin p) {

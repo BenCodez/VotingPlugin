@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class ConfigBonusReward {
 
@@ -286,12 +287,12 @@ public class ConfigBonusReward {
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save BonusReward.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
+		/*
+		 * try { data.save(dFile); } catch (IOException e) {
+		 * Bukkit.getServer().getLogger() .severe(ChatColor.RED +
+		 * "Could not save BonusReward.yml!"); }
+		 */
 	}
 
 	public void setConsoleCommands(List<String> consoleCommands) {

@@ -10,6 +10,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class UUIDs {
 
@@ -45,12 +46,13 @@ public class UUIDs {
 	}
 
 	public void saveData() {
-		try {
+		Files.getInstance().editFile(dFile, data);
+		/*try {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer().getLogger()
 					.severe(ChatColor.RED + "Could not save uuids.yml!");
-		}
+		}*/
 	}
 
 	public void setName(String playerName, String uuid) {
