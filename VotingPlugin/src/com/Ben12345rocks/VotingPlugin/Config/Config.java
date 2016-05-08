@@ -68,11 +68,6 @@ public class Config {
 
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
-		/*
-		 * try { data.save(dFile); } catch (IOException e) {
-		 * Bukkit.getServer().getLogger() .severe(ChatColor.RED +
-		 * "Could not save Config.yml!"); }
-		 */
 	}
 
 	public void setAllowUnJoined(boolean value) {
@@ -118,7 +113,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

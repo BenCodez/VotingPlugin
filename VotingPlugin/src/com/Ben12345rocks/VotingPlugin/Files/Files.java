@@ -11,7 +11,24 @@ import com.Ben12345rocks.VotingPlugin.Main;
 
 public class Files {
 
-	public ReadThread thread;
+	public class ReadThread extends Thread {
+		public void editFile(File file, FileConfiguration data) {
+			try {
+				data.save(file);
+				// plugin.getLogger().info("Saved file " + file.getName());
+			} catch (IOException e) {
+				Bukkit.getServer()
+				.getLogger()
+				.severe(ChatColor.RED + "Could not save "
+						+ file.getName());
+			}
+		}
+
+		@Override
+		public void run() {
+			plugin.getLogger().info("Files thread loaded");
+		}
+	}
 
 	static Files instance = new Files();
 
@@ -21,6 +38,8 @@ public class Files {
 		return instance;
 	}
 
+	public ReadThread thread;
+
 	private Files() {
 	}
 
@@ -28,31 +47,12 @@ public class Files {
 		Files.plugin = plugin;
 	}
 
-	public class ReadThread extends Thread {
-		@Override
-		public void run() {
-			plugin.getLogger().info("File editing thread started!");
-		}
-
-		public void editFile(File file, FileConfiguration data) {
-			try {
-				data.save(file);
-				plugin.getLogger().info("Saved file " + file.getName());
-			} catch (IOException e) {
-				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not save "
-								+ file.getName());
-			}
-		}
+	public void editFile(File file, FileConfiguration data) {
+		thread.editFile(file, data);
 	}
 
 	public void loadFileEditngThread() {
 		this.thread = new ReadThread();
 		this.thread.start();
-	}
-
-	public void editFile(File file, FileConfiguration data) {
-		thread.editFile(file, data);
 	}
 }

@@ -288,11 +288,6 @@ public class ConfigBonusReward {
 
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
-		/*
-		 * try { data.save(dFile); } catch (IOException e) {
-		 * Bukkit.getServer().getLogger() .severe(ChatColor.RED +
-		 * "Could not save BonusReward.yml!"); }
-		 */
 	}
 
 	public void setConsoleCommands(List<String> consoleCommands) {
@@ -424,9 +419,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BonusReward.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BonusReward.yml!");
 			}
 		}
 

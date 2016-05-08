@@ -474,11 +474,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
+										.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -739,8 +739,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-					siteName, reward));
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
 
 			try {
 
