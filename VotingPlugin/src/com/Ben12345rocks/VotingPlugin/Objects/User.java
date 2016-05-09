@@ -141,7 +141,11 @@ public class User {
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
 		String siteName = voteSite.getSiteName();
-		Date date = new Date(getTime(voteSite));
+		long time = getTime(voteSite);
+		if (time == 0) {
+			return true;
+		}
+		Date date = new Date(time);
 		int month = date.getMonth();
 		int day = date.getDate();
 		int hour = date.getHours();
