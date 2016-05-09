@@ -461,7 +461,7 @@ public class Commands {
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
-		texts.add("Voting Player Help");
+		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
 		texts.add("[] = Optional");
 		texts.add("Aliases: vote, v");
 		texts.add("/vote - List vote URLs");

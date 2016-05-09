@@ -258,6 +258,16 @@ public class ConfigFormat {
 			return "&aYou were given rewards!";
 		}
 	}
+	
+	public String getCommandsVoteHelpTitle() {
+		String str = getData().getString("Format.Commands.Vote.Help.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "Voting Player Help";
+		}
+		
+	}
 
 	public String getSignTopVoterSignLine1() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line1");

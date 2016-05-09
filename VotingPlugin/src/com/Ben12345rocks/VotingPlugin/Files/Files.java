@@ -15,7 +15,6 @@ public class Files {
 		public void editFile(File file, FileConfiguration data) {
 			try {
 				data.save(file);
-				// plugin.getLogger().info("Saved file " + file.getName());
 			} catch (IOException e) {
 				Bukkit.getServer()
 				.getLogger()
@@ -26,7 +25,7 @@ public class Files {
 
 		@Override
 		public void run() {
-			plugin.getLogger().info("Files thread loaded");
+			plugin.getLogger().info("File Editng Thread Loaded!");
 		}
 	}
 

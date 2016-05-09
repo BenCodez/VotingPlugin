@@ -79,6 +79,11 @@ Format:
         Title: '&3Top Voters %page%/%maxpages%'
         # Line for each player in that page
         Line: '&c%num%: &6%player%, %votes%'
+        
+      # Format for /vote help
+      Help:
+        # Title of /vote help, color is automaticly applied
+        Title: 'Voting Player Help'
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
