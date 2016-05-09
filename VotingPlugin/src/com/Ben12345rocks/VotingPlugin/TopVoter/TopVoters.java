@@ -10,7 +10,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -59,7 +58,8 @@ public class TopVoters {
 		for (VoteSite voteSite : plugin.voteSites) {
 			ArrayList<String> voteSiteTop = new ArrayList<String>();
 			int i = 1;
-			for (User user : Data.getInstance().getUsers()) {
+			for (User user : TopVoter.getInstance().topVotersSortedVoteSite(
+					voteSite)) {
 				int siteTotal = user.getTotalVotesSite(voteSite);
 				voteSiteTop.add(i + ": " + user.getPlayerName() + ", "
 						+ siteTotal);

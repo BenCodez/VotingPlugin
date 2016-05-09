@@ -107,6 +107,11 @@ public class TopVoter {
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
 			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+			}
 			Collections.sort(users, new Comparator<User>() {
 				@Override
 				public int compare(User p1, User p2) {
@@ -140,6 +145,11 @@ public class TopVoter {
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
 			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+			}
 			Collections.sort(users, new Comparator<User>() {
 				@Override
 				public int compare(User p1, User p2) {
@@ -163,6 +173,7 @@ public class TopVoter {
 						.replace("%votes%", "" + users.get(i).getTotalVotes());
 				msg.add(line);
 			}
+
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -172,6 +183,11 @@ public class TopVoter {
 	public ArrayList<User> topVotersSortedAll() {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalVotes() == 0) {
+				users.remove(i);
+			}
+		}
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
@@ -188,19 +204,18 @@ public class TopVoter {
 				return 0;
 			}
 		});
-		if (Config.getInstance().getDebugEnabled()) {
-			for (User user : users) {
-				plugin.getLogger().info(
-						"Debug: " + user.getPlayerName() + ", "
-								+ user.getTotalVotes());
-			}
-		}
+
 		return users;
 	}
 
 	public ArrayList<User> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalVotesSite(voteSite) == 0) {
+				users.remove(i);
+			}
+		}
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
@@ -217,13 +232,6 @@ public class TopVoter {
 				return 0;
 			}
 		});
-		if (Config.getInstance().getDebugEnabled()) {
-			for (User user : users) {
-				plugin.getLogger().info(
-						"Debug: " + user.getPlayerName() + ", "
-								+ user.getTotalVotesSite(voteSite));
-			}
-		}
 		return users;
 	}
 }
