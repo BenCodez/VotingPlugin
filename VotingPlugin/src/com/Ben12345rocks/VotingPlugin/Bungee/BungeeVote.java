@@ -1,8 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Bungee;
 
-import java.io.DataInputStream;
 import java.net.ServerSocket;
-import java.net.Socket;
+import java.util.Date;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -17,7 +16,7 @@ import com.google.common.io.ByteStreams;
 
 public class BungeeVote implements PluginMessageListener {
 
-	class ReadThread extends Thread {
+	/*class ReadThread extends Thread {
 		@Override
 		public void run() {
 			Socket client;
@@ -43,7 +42,7 @@ public class BungeeVote implements PluginMessageListener {
 				}
 			}
 		}
-	}
+	}*/
 
 	static BungeeVote instance = new BungeeVote();
 
@@ -62,10 +61,13 @@ public class BungeeVote implements PluginMessageListener {
 		BungeeVote.plugin = plugin;
 	}
 
-	public void recievedBungeeVote(String playerName, String voteSite) {
+	public void recievedBungeeVote(String playerName, String voteSite, String time) {
 		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
 			plugin.getLogger().info("Bungee Vote Recieved!");
-			VotiferEvent.playerVote(playerName, voteSite);
+			
+			Long mill = Long.getLong(time);
+			
+			VotiferEvent.playerVote(playerName, voteSite, mill);
 		}
 	}
 
@@ -136,22 +138,24 @@ public class BungeeVote implements PluginMessageListener {
 			 * } catch (Exception ex) { ex.printStackTrace(); }
 			 */
 			ByteArrayDataOutput out = ByteStreams.newDataOutput();
-			out.writeUTF(playerName + "/" + voteSite);
+			out.writeUTF(playerName + "/" + voteSite + "/"
+					+ new Date().getTime());
 			Bukkit.getServer().sendPluginMessage(plugin, "VotingPlugin",
 					out.toByteArray());
+			plugin.getLogger().info("Sent bungee vote");
 		}
 	}
 
 	@Override
-    public void onPluginMessageReceived(String channel, Player p, byte[] msg) {
-        if (!channel.equals("Your Channel")) {
-            return;
-        }
-        ByteArrayDataInput in = ByteStreams.newDataInput(msg);
-        String input = in.readUTF();
-        if (input.split("/").length > 1) {
-			recievedBungeeVote(input.split("/")[0], input.split("/")[1]);
+	public void onPluginMessageReceived(String channel, Player p, byte[] msg) {
+		if (!channel.equals("VotingPlugin")) {
+			return;
 		}
-        
-    }
+		ByteArrayDataInput in = ByteStreams.newDataInput(msg);
+		String input = in.readUTF();
+		if (input.split("/").length > 2) {
+			recievedBungeeVote(input.split("/")[0], input.split("/")[1], input.split("/")[2]);
+		}
+
+	}
 }

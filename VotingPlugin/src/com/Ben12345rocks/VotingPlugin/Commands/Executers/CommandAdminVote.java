@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -365,7 +366,11 @@ public class CommandAdminVote implements CommandExecutor {
 			String playerName) {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Vote")) {
-			VotiferEvent.playerVote(voteSite, playerName);
+
+			if (!ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
+
+				VotiferEvent.playerVote(voteSite, playerName, (long) 0);
+			}
 			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
@@ -438,10 +443,7 @@ public class CommandAdminVote implements CommandExecutor {
 					globalVote(sender, args[1], args[2]);
 					return true;
 				}
-				if (args[0].equalsIgnoreCase("bungeevote")) {
-					bungeeVote(sender, args[1], args[2]);
-					return true;
-				}
+				
 				if (args[0].equalsIgnoreCase("servervote")) {
 					serverVote(sender, args[1], args[2]);
 					return true;
@@ -743,7 +745,7 @@ public class CommandAdminVote implements CommandExecutor {
 			String playerName) {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.ServerVote")) {
-			VotiferEvent.playerVote(voteSite, playerName);
+			VotiferEvent.playerVote(voteSite, playerName, (long) 0);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
