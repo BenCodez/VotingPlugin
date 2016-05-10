@@ -5,5 +5,6 @@
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Votifier.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/spigot-1.9.jar"/>
+	<classpathentry kind="lib" path="D:/programming/Liabaries/BungeeCord.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -1,0 +1,4 @@
+name: VotingPlugin
+version: 3.4
+main: com.Ben12345rocks.VotingPlugin.Bungee.BungeeMain
+author: Ben12345rocks

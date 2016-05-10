@@ -304,4 +304,8 @@ public class CommandVote implements CommandExecutor {
 	public void voteURLs(CommandSender sender) {
 		sender.sendMessage(Commands.getInstance().voteURLs());
 	}
+	
+	public void voteTopSite(CommandSender sender, String siteName) {
+		
+	}
 }
