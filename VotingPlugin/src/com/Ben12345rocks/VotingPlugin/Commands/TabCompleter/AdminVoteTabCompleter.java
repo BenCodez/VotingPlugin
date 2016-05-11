@@ -129,6 +129,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					cmds.add("SetVoteURL");
 					cmds.add("SetExtraRewardChance");
 					cmds.add("SetDisabled");
+					cmds.add("SetPriority");
 					cmds.add("SetVoteDelay");
 					cmds.add("AddCommandPlayer");
 					cmds.add("AddCommandConsole");

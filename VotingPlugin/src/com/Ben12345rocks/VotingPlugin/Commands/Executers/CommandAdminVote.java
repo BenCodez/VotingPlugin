@@ -607,6 +607,16 @@ public class CommandAdminVote implements CommandExecutor {
 								Boolean.parseBoolean(args[3]));
 						return true;
 					}
+					if (args[2].equalsIgnoreCase("SetPriority")) {
+						if (Utils.getInstance().isInt(args[3])) {
+							setVoteSitePriority(sender, args[1],
+									Integer.parseInt(args[3]));
+						} else {
+							sender.sendMessage("&c" + args[3]
+									+ " is not an int");
+						}
+						return true;
+					}
 					if (args[2].equalsIgnoreCase("SetVoteDelay")) {
 						if (Utils.getInstance().isInt(args[3])) {
 							setVoteSiteVoteDelay(sender, args[1],
@@ -886,8 +896,20 @@ public class CommandAdminVote implements CommandExecutor {
 				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
+					"&cSet priority to &c&l" + disabled + "&c on &c&l"
 							+ voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSitePriority(CommandSender sender, String voteSite,
+			int value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.Edit")) {
+			ConfigVoteSites.getInstance().setPriority(voteSite, value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
