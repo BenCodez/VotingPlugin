@@ -1,22 +1,21 @@
 package com.Ben12345rocks.VotingPlugin.Bungee;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.Date;
+import java.net.Socket;
 
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.bukkit.craftbukkit.libs.joptsimple.util.InetAddressConverter;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.google.common.io.ByteArrayDataInput;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 
-public class BungeeVote implements PluginMessageListener {
+public class BungeeVote {
 
-	/*class ReadThread extends Thread {
+	class ReadThread extends Thread {
 		@Override
 		public void run() {
 			Socket client;
@@ -42,7 +41,7 @@ public class BungeeVote implements PluginMessageListener {
 				}
 			}
 		}
-	}*/
+	}
 
 	static BungeeVote instance = new BungeeVote();
 
@@ -61,101 +60,94 @@ public class BungeeVote implements PluginMessageListener {
 		BungeeVote.plugin = plugin;
 	}
 
-	public void recievedBungeeVote(String playerName, String voteSite, String time) {
+	public void recievedBungeeVote(String playerName, String voteSite) {
 		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
 			plugin.getLogger().info("Bungee Vote Recieved!");
-			
-			Long mill = Long.getLong(time);
-			
-			VotiferEvent.playerVote(playerName, voteSite, mill);
+			VotiferEvent.playerVote(playerName, voteSite);
 		}
 	}
 
 	public void registerBungeeVoting() {
 
-		/*
-		 * if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) { try { if
-		 * (!ConfigBungeeVoting.getInstance().useAdvanced()) { sock = new
-		 * ServerSocket(ConfigBungeeVoting.getInstance() .getRecievePort());
-		 * ReadThread read = new ReadThread(); read.start();
-		 * plugin.getLogger().info(
-		 * "Bungee voting registered! Server will recieve votes on port '" +
-		 * ConfigBungeeVoting.getInstance() .getRecievePort() + "'!"); } else {
-		 * sock = new ServerSocket(ConfigBungeeVoting.getInstance()
-		 * .getAdvancedRecievePort(), 0, new InetAddressConverter()
-		 * .convert(ConfigBungeeVoting.getInstance() .getAdvancedRecieveIP()));
-		 * 
-		 * ReadThread read = new ReadThread(); read.start();
-		 * plugin.getLogger().info(
-		 * "Bungee voting registered! Server will recieve votes on port '" +
-		 * ConfigBungeeVoting.getInstance() .getAdvancedRecievePort() + "'!"); }
-		 * } catch (IOException e) {
-		 * plugin.getLogger().warning("Bungee voting failed to load!");
-		 * e.printStackTrace(); } }
-		 */
-
 		if (ConfigBungeeVoting.getInstance().recieveBungeeVotes()) {
-			Bukkit.getServer()
-					.getMessenger()
-					.registerIncomingPluginChannel(plugin, "VotingPlugin", this);
-		}
+			try {
+				if (!ConfigBungeeVoting.getInstance().useAdvanced()) {
+					sock = new ServerSocket(ConfigBungeeVoting.getInstance()
+							.getRecievePort());
+					ReadThread read = new ReadThread();
+					read.start();
+					plugin.getLogger().info(
+							"Bungee voting registered! Server will recieve votes on port '"
+									+ ConfigBungeeVoting.getInstance()
+									.getRecievePort() + "'!");
+				} else {
+					sock = new ServerSocket(ConfigBungeeVoting.getInstance()
+							.getAdvancedRecievePort(), 0,
+							new InetAddressConverter()
+					.convert(ConfigBungeeVoting.getInstance()
+							.getAdvancedRecieveIP()));
 
-		if (ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
-			Bukkit.getServer().getMessenger()
-					.registerOutgoingPluginChannel(plugin, "VotingPlugin");
+					ReadThread read = new ReadThread();
+					read.start();
+					plugin.getLogger().info(
+							"Bungee voting registered! Server will recieve votes on port '"
+									+ ConfigBungeeVoting.getInstance()
+									.getAdvancedRecievePort() + "'!");
+				}
+			} catch (IOException e) {
+				plugin.getLogger().warning("Bungee voting failed to load!");
+				e.printStackTrace();
+			}
 		}
-
 	}
 
 	public void sendBungeeVote(String playerName, String voteSite) {
 		if (ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
 
-			/*
-			 * Socket client; try { if
-			 * (!ConfigBungeeVoting.getInstance().useAdvanced()) { for (int port
-			 * : ConfigBungeeVoting.getInstance() .getSendPorts()) { String data
-			 * = "vote/" + playerName + "/" + voteSite;
-			 * 
-			 * client = new Socket("localhost", port);
-			 * 
-			 * DataOutputStream ds = new DataOutputStream(
-			 * client.getOutputStream()); ds.writeUTF(data); ds.close();
-			 * client.close(); if (Config.getInstance().getDebugEnabled()) {
-			 * plugin.getLogger().info( "Sent bungee vote on port: " + port); }
-			 * } } else { for (String server : ConfigBungeeVoting.getInstance()
-			 * .getAdvancedSendServers()) { String ip =
-			 * ConfigBungeeVoting.getInstance() .getAdvancedSendIP(server); int
-			 * port = ConfigBungeeVoting.getInstance()
-			 * .getAdvancedSendPort(server); String data = "vote/" + playerName
-			 * + "/" + voteSite;
-			 * 
-			 * client = new Socket(ip, port);
-			 * 
-			 * DataOutputStream ds = new DataOutputStream(
-			 * client.getOutputStream()); ds.writeUTF(data); ds.close();
-			 * client.close(); if (Config.getInstance().getDebugEnabled()) {
-			 * plugin.getLogger().info( "Sent bungee vote to " + server); } } }
-			 * } catch (Exception ex) { ex.printStackTrace(); }
-			 */
-			ByteArrayDataOutput out = ByteStreams.newDataOutput();
-			out.writeUTF(playerName + "/" + voteSite + "/"
-					+ new Date().getTime());
-			Bukkit.getServer().sendPluginMessage(plugin, "VotingPlugin",
-					out.toByteArray());
-			plugin.getLogger().info("Sent bungee vote");
-		}
-	}
+			Socket client;
+			try {
+				if (!ConfigBungeeVoting.getInstance().useAdvanced()) {
+					for (int port : ConfigBungeeVoting.getInstance()
+							.getSendPorts()) {
+						String data = "vote/" + playerName + "/" + voteSite;
 
-	@Override
-	public void onPluginMessageReceived(String channel, Player p, byte[] msg) {
-		if (!channel.equals("VotingPlugin")) {
-			return;
-		}
-		ByteArrayDataInput in = ByteStreams.newDataInput(msg);
-		String input = in.readUTF();
-		if (input.split("/").length > 2) {
-			recievedBungeeVote(input.split("/")[0], input.split("/")[1], input.split("/")[2]);
-		}
+						client = new Socket("localhost", port);
 
+						DataOutputStream ds = new DataOutputStream(
+								client.getOutputStream());
+						ds.writeUTF(data);
+						ds.close();
+						client.close();
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Sent bungee vote on port: " + port);
+						}
+					}
+				} else {
+					for (String server : ConfigBungeeVoting.getInstance()
+							.getAdvancedSendServers()) {
+						String ip = ConfigBungeeVoting.getInstance()
+								.getAdvancedSendIP(server);
+						int port = ConfigBungeeVoting.getInstance()
+								.getAdvancedSendPort(server);
+						String data = "vote/" + playerName + "/" + voteSite;
+
+						client = new Socket(ip, port);
+
+						DataOutputStream ds = new DataOutputStream(
+								client.getOutputStream());
+						ds.writeUTF(data);
+						ds.close();
+						client.close();
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Sent bungee vote to " + server);
+						}
+					}
+				}
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
 	}
 }

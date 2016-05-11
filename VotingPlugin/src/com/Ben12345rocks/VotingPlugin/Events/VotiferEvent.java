@@ -15,7 +15,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
@@ -33,8 +32,7 @@ public class VotiferEvent implements Listener {
 
 	static Main plugin = Main.plugin;
 
-	public static void playerVote(String playerName, String voteSiteURL,
-			Long mill) {
+	public static void playerVote(String playerName, String voteSiteURL) {
 		User user = new User(playerName);
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
@@ -85,11 +83,6 @@ public class VotiferEvent implements Listener {
 
 				// update last vote time
 				user.setTime(voteSite);
-
-				if (mill > 0) {
-					Data.getInstance().setTimeMill(voteSite.getSiteName(),
-							user, mill);
-				}
 
 				// add to total votes
 				user.addTotal(voteSite);
@@ -154,7 +147,7 @@ public class VotiferEvent implements Listener {
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
 
 		if (!ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
-			playerVote(voteUsername, voteSite, (long) 0);
+			playerVote(voteUsername, voteSite);
 		}
 	}
 
