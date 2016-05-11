@@ -82,7 +82,7 @@ public class Utils {
 		}
 		return list;
 	}
-	
+
 	public List<String> colorize(List<String> list) {
 		if (list == null) {
 			return null;
@@ -376,6 +376,9 @@ public class Utils {
 			String replaceWith) {
 		if (str == null) {
 			return "";
+		}
+		if (toReplace == null || replaceWith == null) {
+			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
 	}
