@@ -12,7 +12,6 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -146,9 +145,8 @@ public class VotiferEvent implements Listener {
 
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
 
-		if (!ConfigBungeeVoting.getInstance().sendBungeeVotes()) {
-			playerVote(voteUsername, voteSite);
-		}
+		playerVote(voteUsername, voteSite);
+
 	}
 
 }

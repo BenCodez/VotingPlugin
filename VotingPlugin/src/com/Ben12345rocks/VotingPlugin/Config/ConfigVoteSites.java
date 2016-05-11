@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -86,9 +88,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -129,12 +131,12 @@ public class ConfigVoteSites {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
 					"CumulativeReward.Items." + item + ".Enchants").getKeys(
-							false);
+					false);
 			for (String enchant : enchants) {
 				enchantments
-				.put(enchant,
-						getCumulativeRewardEnchantLevel(siteName, item,
-								enchant));
+						.put(enchant,
+								getCumulativeRewardEnchantLevel(siteName, item,
+										enchant));
 			}
 
 			return enchantments;
@@ -591,6 +593,24 @@ public class ConfigVoteSites {
 				}
 			}
 		}
+
+		Collections.sort(voteSites, new Comparator<VoteSite>() {
+			@Override
+			public int compare(VoteSite v1, VoteSite v2) {
+				int v1P = getPriority(v1.getSiteName());
+				int v2P = getPriority(v2.getSiteName());
+
+				if (v1P < v2P) {
+					return 1;
+				}
+				if (v1P > v2P) {
+					return -1;
+				}
+
+				return 0;
+			}
+		});
+
 		return voteSites;
 	}
 
@@ -642,6 +662,14 @@ public class ConfigVoteSites {
 
 	public void setExtraRewardChance(String siteName, String reward, int chance) {
 		set(siteName, "ExtraReward." + reward + ".Chance", chance);
+	}
+
+	public int getPriority(String siteName) {
+		return getData(siteName).getInt("Priority");
+	}
+
+	public void setPriority(String siteName, int value) {
+		set(siteName, "Priority", value);
 	}
 
 	public void setExtraRewardConsoleCommands(String siteName, String reward,
