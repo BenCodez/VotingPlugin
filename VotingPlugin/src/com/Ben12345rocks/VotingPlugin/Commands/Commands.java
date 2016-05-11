@@ -463,16 +463,7 @@ public class Commands {
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
 		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
-		texts.add("[] = Optional");
-		texts.add("Aliases: vote, v");
-		texts.add("/vote - List vote URLs");
-		texts.add("/vote help - See this page");
-		texts.add("/vote total [Player/All] - See total votes");
-		texts.add("/vote next [Player] - See next time you can vote");
-		texts.add("/vote last [Player] - See last vote");
-		texts.add("/vote top [Page] - See top voters");
-		texts.add("/vote info [Player] - See player info");
-		texts.add("/vote today [Page] - See who voted today");
+		texts.addAll(ConfigFormat.getInstance().getCommandsVoteHelpLines());
 		return texts;
 	}
 
@@ -542,7 +533,5 @@ public class Commands {
 		sites = Utils.getInstance().colorize(sites);
 		return Utils.getInstance().convertArray(sites);
 	}
-	
-	
 
 }

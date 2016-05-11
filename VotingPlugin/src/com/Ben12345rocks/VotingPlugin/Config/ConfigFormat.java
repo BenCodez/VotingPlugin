@@ -258,7 +258,7 @@ public class ConfigFormat {
 			return "&aYou were given rewards!";
 		}
 	}
-	
+
 	public String getCommandsVoteHelpTitle() {
 		String str = getData().getString("Format.Commands.Vote.Help.Title");
 		if (str != null) {
@@ -266,7 +266,31 @@ public class ConfigFormat {
 		} else {
 			return "Voting Player Help";
 		}
-		
+
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsVoteHelpLines() {
+
+		ArrayList<String> str = (ArrayList<String>) getData().getList(
+				"Format.Commands.Vote.Help.Lines");
+		if (str != null) {
+			return str;
+		} else {
+			ArrayList<String> texts = new ArrayList<String>();
+			texts.add("[] = Optional");
+			texts.add("Aliases: vote, v");
+			texts.add("/vote - List vote URLs");
+			texts.add("/vote help - See this page");
+			texts.add("/vote total [Player/All] - See total votes");
+			texts.add("/vote next [Player] - See next time you can vote");
+			texts.add("/vote last [Player] - See last vote");
+			texts.add("/vote top [Page] - See top voters");
+			texts.add("/vote info [Player] - See player info");
+			texts.add("/vote today [Page] - See who voted today");
+			return texts;
+		}
+
 	}
 
 	public String getSignTopVoterSignLine1() {
@@ -350,7 +374,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 
