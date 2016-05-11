@@ -57,6 +57,7 @@ public class Commands {
 		msg.add("/adminvote uuid (playername) - See uuid of player");
 		msg.add("/adminvote version - Version info");
 		msg.add("/adminvote sites [site] - List of sites and site info");
+		msg.add("/adminvote VoteSite (SiteName) Create - Gernerate a votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddItem (Item) - Add item in hand to votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite) - Set servicesite on votesite");
