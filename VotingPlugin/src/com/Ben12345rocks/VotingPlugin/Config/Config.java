@@ -57,6 +57,22 @@ public class Config {
 		return getData().getBoolean("DisableTopVoterAwards");
 	}
 
+	public boolean getVoteSoundEnabled() {
+		return getData().getBoolean("VoteSound.Enabled");
+	}
+
+	public String getVoteSoundSound() {
+		return getData().getString("VoteSound.Sound");
+	}
+
+	public float getVoteSoundVolume() {
+		return (float) getData().getDouble("VoteSound.Volume");
+	}
+
+	public float getVoteSoundPitch() {
+		return (float) getData().getDouble("VoteSound.Pitch");
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}

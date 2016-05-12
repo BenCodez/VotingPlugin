@@ -98,6 +98,8 @@ public class VotiferEvent implements Listener {
 					if (allVotes) {
 						user.giveBonus();
 					}
+					
+					user.playVoteSound();
 				} else {
 					if (allVotes) {
 						user.addBonusOfflineVote();
