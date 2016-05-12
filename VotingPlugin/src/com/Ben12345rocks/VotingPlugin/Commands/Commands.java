@@ -285,6 +285,8 @@ public class Commands {
 			msg.add("&cVoteURL: &6" + voteSite.getVoteURL());
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
 			msg.add("&cMoney: &6" + voteSite.getMoney());
+			msg.add("&cPriority: &6"
+					+ ConfigVoteSites.getInstance().getPriority(voteSiteName));
 
 			msg.add("&cItems:");
 			for (String item : ConfigVoteSites.getInstance().getItems(
