@@ -17,9 +17,9 @@ public class Files {
 				data.save(file);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not save "
-						+ file.getName());
+						.getLogger()
+						.severe(ChatColor.RED + "Could not save "
+								+ file.getName());
 			}
 		}
 
@@ -51,7 +51,7 @@ public class Files {
 	}
 
 	public void loadFileEditngThread() {
-		this.thread = new ReadThread();
-		this.thread.start();
+		thread = new ReadThread();
+		thread.start();
 	}
 }

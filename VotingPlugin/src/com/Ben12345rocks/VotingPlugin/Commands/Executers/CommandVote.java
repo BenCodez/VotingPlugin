@@ -65,14 +65,14 @@ public class CommandVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						sender.sendMessage(Utils.getInstance()
-								.colorize("&cGetting info..."));
-						sender.sendMessage(Commands.getInstance()
-								.playerInfo(new User(sender.getName())));
-					}
-				});
+							@Override
+							public void run() {
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cGetting info..."));
+								sender.sendMessage(Commands.getInstance()
+										.playerInfo(new User(sender.getName())));
+							}
+						});
 			} else {
 				sender.sendMessage(Messages.getInstance().noPerms());
 			}
@@ -301,11 +301,11 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
+	public void voteTopSite(CommandSender sender, String siteName) {
+
+	}
+
 	public void voteURLs(CommandSender sender) {
 		sender.sendMessage(Commands.getInstance().voteURLs());
-	}
-	
-	public void voteTopSite(CommandSender sender, String siteName) {
-		
 	}
 }

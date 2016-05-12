@@ -88,9 +88,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -131,12 +131,12 @@ public class ConfigVoteSites {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
 					"CumulativeReward.Items." + item + ".Enchants").getKeys(
-					false);
+							false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant,
-								getCumulativeRewardEnchantLevel(siteName, item,
-										enchant));
+				.put(enchant,
+						getCumulativeRewardEnchantLevel(siteName, item,
+								enchant));
 			}
 
 			return enchantments;
@@ -536,6 +536,10 @@ public class ConfigVoteSites {
 		return (ArrayList<String>) getData(siteName).getList("Commands.Player");
 	}
 
+	public int getPriority(String siteName) {
+		return getData(siteName).getInt("Priority");
+	}
+
 	public String getServiceSite(String siteName) {
 		return getData(siteName).getString("ServiceSite");
 	}
@@ -664,14 +668,6 @@ public class ConfigVoteSites {
 		set(siteName, "ExtraReward." + reward + ".Chance", chance);
 	}
 
-	public int getPriority(String siteName) {
-		return getData(siteName).getInt("Priority");
-	}
-
-	public void setPriority(String siteName, int value) {
-		set(siteName, "Priority", value);
-	}
-
 	public void setExtraRewardConsoleCommands(String siteName, String reward,
 			List<String> consoleCommands) {
 		set(siteName, "ExtraReward." + reward + ".Commands.Console",
@@ -770,6 +766,10 @@ public class ConfigVoteSites {
 
 	public void setPlayerCommands(String siteName, List<String> playerCommands) {
 		set(siteName, "Commands.Player", playerCommands);
+	}
+
+	public void setPriority(String siteName, int value) {
+		set(siteName, "Priority", value);
 	}
 
 	public void setServiceSite(String siteName, String serviceSite) {

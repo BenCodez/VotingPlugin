@@ -419,9 +419,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create BonusReward.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create BonusReward.yml!");
 			}
 		}
 

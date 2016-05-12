@@ -102,9 +102,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -219,9 +219,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -265,11 +265,6 @@ public class Data {
 				System.currentTimeMillis());
 	}
 
-	public void setTimeMill(String siteName, User user, Long mill) {
-		set(user, user.getUUID() + ".LastVote." + siteName + ".Miliseconds",
-				mill);
-	}
-
 	public void setTimeAll(User user) {
 		String uuid = user.getUUID();
 		set(user, uuid + ".LastBonus.Miliseconds", System.currentTimeMillis());
@@ -289,6 +284,11 @@ public class Data {
 		set(user, uuid + ".LastBonus.Hour", hour);
 		set(user, uuid + ".LastBonus.Min", min);
 		set(user, uuid + ".LastBonus.Year", year);
+	}
+
+	public void setTimeMill(String siteName, User user, Long mill) {
+		set(user, user.getUUID() + ".LastVote." + siteName + ".Miliseconds",
+				mill);
 	}
 
 	@SuppressWarnings("deprecation")
@@ -343,7 +343,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}

@@ -474,11 +474,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-										.getCumulativeRewardMsg(),
+								.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-												.getCumulativeRewardVotesAmount(siteName)));
+										.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -545,14 +545,16 @@ public class VoteSite {
 						if (player.getWorld().getName().equals(world)) {
 							giveExtraRewardReward(user, reward, chance);
 						} else {
-							Data.getInstance().setOfflineVotesWorld(
-									user,
-									this.getSiteName(),
-									reward,
-									world,
-									Data.getInstance().getOfflineVotesWorld(
-											user, this.getSiteName(), reward,
-											world) + 1);
+							Data.getInstance()
+									.setOfflineVotesWorld(
+											user,
+											getSiteName(),
+											reward,
+											world,
+											Data.getInstance()
+													.getOfflineVotesWorld(user,
+															getSiteName(),
+															reward, world) + 1);
 
 						}
 					}
@@ -739,8 +741,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-							siteName, reward));
+			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+					siteName, reward));
 
 			try {
 

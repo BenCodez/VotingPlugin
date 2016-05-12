@@ -34,7 +34,7 @@ public class CommandVoteGUI implements CommandExecutor {
 			return true;
 		}
 		Player player = (Player) sender;
-		
+
 		if (!Utils.getInstance().hasPermission(player, "Commands.Vote.GUI")) {
 			player.sendMessage("&cNo Permissions to use this command");
 			return true;
@@ -94,7 +94,7 @@ public class CommandVoteGUI implements CommandExecutor {
 		ItemStack prevPage = new ItemStack(Material.STAINED_GLASS_PANE, 1,
 				(short) 5);
 
-		int maxPages = (int) page / 45;
+		int maxPages = page / 45;
 		maxPages++;
 
 		List<String> lore = new ArrayList<String>();
