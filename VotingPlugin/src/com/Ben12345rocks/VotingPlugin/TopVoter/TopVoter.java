@@ -219,6 +219,16 @@ public class TopVoter {
 				users.remove(i);
 			}
 		}
+		for (int i = users.size() - 1; i >= 0; i--) {
+			for (int j = users.size() - 1; j >= 0; j--) {
+				if (i != j) {
+					if (users.get(i).getPlayerName() == users.get(j)
+							.getPlayerName()) {
+						users.remove(j);
+					}
+				}
+			}
+		}
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
