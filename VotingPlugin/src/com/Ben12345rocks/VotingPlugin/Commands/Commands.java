@@ -62,6 +62,7 @@ public class Commands {
 		msg.add("/adminvote uuid (playername) - See uuid of player");
 		msg.add("/adminvote version - Version info");
 		msg.add("/adminvote sites [site] - List of sites and site info");
+		msg.add("Editing Commands");
 		msg.add("/adminvote VoteSite (SiteName) Create - Gernerate a votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddItem (Item) - Add item in hand to votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
@@ -116,8 +117,12 @@ public class Commands {
 		}
 		ArrayList<String> msg = new ArrayList<String>();
 
-		msg.add("&cToday's Votes " + page + "/"
-				+ ((plugin.voteToday.length / pagesize) + 1));
+		int maxPage = plugin.voteToday.length / pagesize;
+		if (plugin.voteToday.length % pagesize != 0) {
+			maxPage++;
+		}
+
+		msg.add("&cToday's Votes " + page + "/" + maxPage);
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 

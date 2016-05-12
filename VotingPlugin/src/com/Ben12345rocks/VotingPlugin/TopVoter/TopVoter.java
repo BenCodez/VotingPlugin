@@ -61,7 +61,9 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
-		int month = new Date().getMonth();
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.Calendar c = java.util.Calendar.getInstance(tz);
+		int month = c.getTime().getMonth();
 		ServerData.getInstance().setPrevMonth(month);
 		if (prevMonth != month) {
 			return true;
@@ -84,7 +86,10 @@ public class TopVoter {
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
 				plugin.topVoter);
 
-		int pageSize = 1 + (topVoters.size() / pagesize);
+		int pageSize = (topVoters.size() / pagesize);
+		if (topVoters.size() % pagesize != 0) {
+			pageSize++;
+		}
 
 		String title = format.getCommandVoteTopTitle()
 				.replace("%page%", "" + page)
