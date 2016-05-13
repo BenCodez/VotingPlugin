@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -141,7 +142,11 @@ public class User {
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
 		String siteName = voteSite.getSiteName();
-		Date date = new Date(getTime(voteSite));
+		long time = getTime(voteSite);
+		if (time == 0) {
+			return true;
+		}
+		Date date = new Date(time);
 		int month = date.getMonth();
 		int day = date.getDate();
 		int hour = date.getHours();
@@ -395,7 +400,7 @@ public class User {
 
 		ItemStack item = new ItemStack(id, amount, (short) data);
 		item = Utils.getInstance().nameItem(item, itemName);
-		item = Utils.getInstance().addlore(item, lore);
+		item = Utils.getInstance().addLore(item, lore);
 		Player player = Bukkit.getPlayer(playerName);
 		// player.getInventory().addItem(item);
 
@@ -523,9 +528,12 @@ public class User {
 
 		String playerName = getPlayerName();
 
+		boolean playSound = false;
+
 		for (VoteSite voteSite : voteSites) {
 			int offvotes = getOfflineVotes(voteSite);
 			if (offvotes > 0) {
+				playSound = true;
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
 							.info("Offline Vote Reward on Site '"
@@ -551,6 +559,10 @@ public class User {
 		}
 
 		setBonusOfflineVotes(0);
+
+		if (playSound) {
+			this.playVoteSound();
+		}
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {
@@ -742,6 +754,30 @@ public class User {
 		User user = this;
 		Data.getInstance().set(user,
 				user.getUUID() + ".Total." + voteSite.getSiteName(), amount);
+	}
+
+	public void playSound(String soundName, float volume, float pitch) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			Sound sound = Sound.valueOf(soundName);
+			if (sound != null) {
+				player.playSound(player.getLocation(), sound, volume, pitch);
+			} else if (Config.getInstance().getDebugEnabled()) {
+				plugin.getLogger().info("Invalid sound: " + soundName);
+			}
+		}
+	}
+
+	public void playVoteSound() {
+		if (Config.getInstance().getVoteSoundEnabled()) {
+			try {
+				playSound(Config.getInstance().getVoteSoundSound(), Config
+						.getInstance().getVoteSoundVolume(), Config
+						.getInstance().getVoteSoundPitch());
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
 	}
 
 	/**

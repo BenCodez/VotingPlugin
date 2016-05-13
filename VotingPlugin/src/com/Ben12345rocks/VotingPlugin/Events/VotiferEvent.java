@@ -96,9 +96,10 @@ public class VotiferEvent implements Listener {
 					user.playerVote(voteSite);
 
 					if (allVotes) {
-						// BonusVoteReward.getInstance().giveBonusReward(user);
 						user.giveBonus();
 					}
+					
+					user.playVoteSound();
 				} else {
 					if (allVotes) {
 						user.addBonusOfflineVote();
@@ -147,6 +148,7 @@ public class VotiferEvent implements Listener {
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
 
 		playerVote(voteUsername, voteSite);
+
 	}
 
 }

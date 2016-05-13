@@ -365,7 +365,9 @@ public class CommandAdminVote implements CommandExecutor {
 			String playerName) {
 		if (Utils.getInstance()
 				.hasPermission(sender, "Commands.AdminVote.Vote")) {
+
 			VotiferEvent.playerVote(voteSite, playerName);
+
 			BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
@@ -442,6 +444,7 @@ public class CommandAdminVote implements CommandExecutor {
 					bungeeVote(sender, args[1], args[2]);
 					return true;
 				}
+
 				if (args[0].equalsIgnoreCase("servervote")) {
 					serverVote(sender, args[1], args[2]);
 					return true;
@@ -602,6 +605,16 @@ public class CommandAdminVote implements CommandExecutor {
 					if (args[2].equalsIgnoreCase("SetDisabled")) {
 						setVoteSiteDsiabled(sender, args[1],
 								Boolean.parseBoolean(args[3]));
+						return true;
+					}
+					if (args[2].equalsIgnoreCase("SetPriority")) {
+						if (Utils.getInstance().isInt(args[3])) {
+							setVoteSitePriority(sender, args[1],
+									Integer.parseInt(args[3]));
+						} else {
+							sender.sendMessage("&c" + args[3]
+									+ " is not an int");
+						}
 						return true;
 					}
 					if (args[2].equalsIgnoreCase("SetVoteDelay")) {
@@ -883,7 +896,7 @@ public class CommandAdminVote implements CommandExecutor {
 				"Commands.AdminVote.VoteSite.Edit")) {
 			ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
 			sender.sendMessage(Utils.getInstance().colorize(
-					"&cSet Dsiabled to &c&l" + disabled + "&c on &c&l"
+					"&cSet priority to &c&l" + disabled + "&c on &c&l"
 							+ voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
@@ -924,6 +937,18 @@ public class CommandAdminVote implements CommandExecutor {
 			ConfigVoteSites.getInstance().setMoney(voteSite, money);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
+		} else {
+			sender.sendMessage(Messages.getInstance().noPerms());
+		}
+	}
+
+	public void setVoteSitePriority(CommandSender sender, String voteSite,
+			int value) {
+		if (Utils.getInstance().hasPermission(sender,
+				"Commands.AdminVote.VoteSite.Edit")) {
+			ConfigVoteSites.getInstance().setPriority(voteSite, value);
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}

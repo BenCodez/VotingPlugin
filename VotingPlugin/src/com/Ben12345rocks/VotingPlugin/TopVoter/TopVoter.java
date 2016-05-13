@@ -61,7 +61,9 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
-		int month = new Date().getMonth();
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.Calendar c = java.util.Calendar.getInstance(tz);
+		int month = c.getTime().getMonth();
 		ServerData.getInstance().setPrevMonth(month);
 		if (prevMonth != month) {
 			return true;
@@ -81,17 +83,18 @@ public class TopVoter {
 	public String[] topVoter(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		int pageSize = 1 + (users.size() / pagesize);
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				plugin.topVoter);
+
+		int pageSize = (topVoters.size() / pagesize);
+		if (topVoters.size() % pagesize != 0) {
+			pageSize++;
+		}
 
 		String title = format.getCommandVoteTopTitle()
 				.replace("%page%", "" + page)
 				.replace("%maxpages%", "" + pageSize);
 		msg.add(Utils.getInstance().colorize(title));
-
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				plugin.topVoter);
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -107,6 +110,11 @@ public class TopVoter {
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
 			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+			}
 			Collections.sort(users, new Comparator<User>() {
 				@Override
 				public int compare(User p1, User p2) {
@@ -140,6 +148,11 @@ public class TopVoter {
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
 			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+			}
 			Collections.sort(users, new Comparator<User>() {
 				@Override
 				public int compare(User p1, User p2) {
@@ -163,6 +176,7 @@ public class TopVoter {
 						.replace("%votes%", "" + users.get(i).getTotalVotes());
 				msg.add(line);
 			}
+
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -172,6 +186,11 @@ public class TopVoter {
 	public ArrayList<User> topVotersSortedAll() {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalVotes() == 0) {
+				users.remove(i);
+			}
+		}
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
@@ -188,19 +207,28 @@ public class TopVoter {
 				return 0;
 			}
 		});
-		if (Config.getInstance().getDebugEnabled()) {
-			for (User user : users) {
-				plugin.getLogger().info(
-						"Debug: " + user.getPlayerName() + ", "
-								+ user.getTotalVotes());
-			}
-		}
+
 		return users;
 	}
 
 	public ArrayList<User> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalVotesSite(voteSite) == 0) {
+				users.remove(i);
+			}
+		}
+		for (int i = users.size() - 1; i >= 0; i--) {
+			for (int j = users.size() - 1; j >= 0; j--) {
+				if (i != j) {
+					if (users.get(i).getPlayerName() == users.get(j)
+							.getPlayerName()) {
+						users.remove(j);
+					}
+				}
+			}
+		}
 		Collections.sort(users, new Comparator<User>() {
 			@Override
 			public int compare(User p1, User p2) {
@@ -217,13 +245,6 @@ public class TopVoter {
 				return 0;
 			}
 		});
-		if (Config.getInstance().getDebugEnabled()) {
-			for (User user : users) {
-				plugin.getLogger().info(
-						"Debug: " + user.getPlayerName() + ", "
-								+ user.getTotalVotesSite(voteSite));
-			}
-		}
 		return users;
 	}
 }

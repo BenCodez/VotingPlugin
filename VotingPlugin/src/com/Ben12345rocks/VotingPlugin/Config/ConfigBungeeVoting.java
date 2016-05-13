@@ -13,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class ConfigBungeeVoting {
 
@@ -85,12 +86,7 @@ public class ConfigBungeeVoting {
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save BungeeVoting.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
 	}
 
 	public boolean sendBungeeVotes() {

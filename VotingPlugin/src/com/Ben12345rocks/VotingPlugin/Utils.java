@@ -58,7 +58,7 @@ public class Utils {
 
 	}
 
-	public ItemStack addlore(ItemStack item, List<String> lore) {
+	public ItemStack addLore(ItemStack item, List<String> lore) {
 		if (lore == null) {
 			return item;
 		}
@@ -67,12 +67,23 @@ public class Utils {
 		}
 
 		ItemMeta meta = item.getItemMeta();
-		meta.setLore(lore);
+		meta.setLore(colorize(lore));
 		item.setItemMeta(meta);
 		return item;
 	}
 
 	public ArrayList<String> colorize(ArrayList<String> list) {
+		if (list == null) {
+			return null;
+		}
+
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, colorize(list.get(i)));
+		}
+		return list;
+	}
+
+	public List<String> colorize(List<String> list) {
 		if (list == null) {
 			return null;
 		}
@@ -197,10 +208,6 @@ public class Utils {
 		if (player == null) {
 			playerName = Bukkit.getOfflinePlayer(UUID.fromString(uuid))
 					.getName();
-			/*
-			 * if (playerName == null) { playerName =
-			 * MojangNameLookup.lookupName(UUID.fromString(uuid)); }
-			 */
 			return playerName;
 		} else {
 			return player.getName();
@@ -369,6 +376,9 @@ public class Utils {
 			String replaceWith) {
 		if (str == null) {
 			return "";
+		}
+		if (toReplace == null || replaceWith == null) {
+			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
 	}

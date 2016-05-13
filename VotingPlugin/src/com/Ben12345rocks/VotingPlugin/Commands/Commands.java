@@ -6,6 +6,11 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -57,6 +62,8 @@ public class Commands {
 		msg.add("/adminvote uuid (playername) - See uuid of player");
 		msg.add("/adminvote version - Version info");
 		msg.add("/adminvote sites [site] - List of sites and site info");
+		msg.add("Editing Commands");
+		msg.add("/adminvote VoteSite (SiteName) Create - Gernerate a votesite");
 		msg.add("/adminvote VoteSite (SiteName) AddItem (Item) - Add item in hand to votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
 		msg.add("/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite) - Set servicesite on votesite");
@@ -110,8 +117,12 @@ public class Commands {
 		}
 		ArrayList<String> msg = new ArrayList<String>();
 
-		msg.add("&cToday's Votes " + page + "/"
-				+ ((plugin.voteToday.length / pagesize) + 1));
+		int maxPage = plugin.voteToday.length / pagesize;
+		if (plugin.voteToday.length % pagesize != 0) {
+			maxPage++;
+		}
+
+		msg.add("&cToday's Votes " + page + "/" + maxPage);
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
@@ -162,7 +173,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -172,7 +183,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-		.format(date);
+				.format(date);
 		return timeString;
 	}
 
@@ -274,6 +285,8 @@ public class Commands {
 			msg.add("&cVoteURL: &6" + voteSite.getVoteURL());
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
 			msg.add("&cMoney: &6" + voteSite.getMoney());
+			msg.add("&cPriority: &6"
+					+ ConfigVoteSites.getInstance().getPriority(voteSiteName));
 
 			msg.add("&cItems:");
 			for (String item : ConfigVoteSites.getInstance().getItems(
@@ -461,17 +474,8 @@ public class Commands {
 
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
-		texts.add("Voting Player Help");
-		texts.add("[] = Optional");
-		texts.add("Aliases: vote, v");
-		texts.add("/vote - List vote URLs");
-		texts.add("/vote help - See this page");
-		texts.add("/vote total [Player/All] - See total votes");
-		texts.add("/vote next [Player] - See next time you can vote");
-		texts.add("/vote last [Player] - See last vote");
-		texts.add("/vote top [Page] - See top voters");
-		texts.add("/vote info [Player] - See player info");
-		texts.add("/vote today [Page] - See who voted today");
+		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
+		texts.addAll(ConfigFormat.getInstance().getCommandsVoteHelpLines());
 		return texts;
 	}
 
@@ -540,6 +544,77 @@ public class Commands {
 		}
 		sites = Utils.getInstance().colorize(sites);
 		return Utils.getInstance().convertArray(sites);
+	}
+
+	public void openVoteSitesListGUI(Player player, int page) {
+		String guiName = "VotingPlugin: VoteSites";
+
+		ArrayList<ItemStack> items = new ArrayList<ItemStack>();
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			ItemStack item = new ItemStack(Material.STONE);
+			item = Utils.getInstance().nameItem(item, voteSite.getSiteName());
+			items.add(item);
+		}
+
+		Inventory inv = Bukkit.createInventory(null, 54, guiName);
+
+		int slot = 0;
+
+		for (int i = (page - 1) * 45; i < items.size() && slot <= 54; i++) {
+			try {
+				inv.setItem(slot, items.get(i));
+				slot++;
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+
+		ItemStack placeHolder = new ItemStack(Material.STAINED_GLASS_PANE, 1,
+				(short) 7);
+
+		ItemStack prevPage = new ItemStack(Material.STAINED_GLASS_PANE, 1,
+				(short) 5);
+
+		int maxPages = 1 + page / 45;
+
+		List<String> lore = new ArrayList<String>();
+		lore.add("&bCurrent Page: &6" + page);
+		lore.add("&bMax Pages: &6" + maxPages);
+
+		prevPage = Utils.getInstance()
+				.addLore(
+						Utils.getInstance().nameItem(prevPage,
+								"&cPrevious Page"), lore);
+
+		ItemStack nextPage = new ItemStack(Material.STAINED_GLASS_PANE, 1,
+				(short) 5);
+
+		nextPage = Utils.getInstance().addLore(
+				Utils.getInstance().nameItem(nextPage, "&cNext Page"), lore);
+
+		ItemStack back = new ItemStack(Material.STAINED_GLASS_PANE, 1,
+				(short) 12);
+
+		back = Utils.getInstance().nameItem(back, "&cBack");
+
+		inv.setItem(45, placeHolder);
+
+		inv.setItem(46, placeHolder);
+
+		inv.setItem(47, prevPage);
+
+		inv.setItem(48, placeHolder);
+		inv.setItem(49, placeHolder);
+		inv.setItem(50, placeHolder);
+
+		inv.setItem(51, nextPage);
+
+		inv.setItem(52, placeHolder);
+
+		inv.setItem(53, back);
+
+		player.openInventory(inv);
 	}
 
 }

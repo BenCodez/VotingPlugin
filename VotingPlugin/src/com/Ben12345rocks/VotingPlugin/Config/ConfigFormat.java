@@ -12,6 +12,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class ConfigFormat {
 
@@ -41,6 +42,40 @@ public class ConfigFormat {
 		} else {
 			return "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%";
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsVoteHelpLines() {
+
+		ArrayList<String> str = (ArrayList<String>) getData().getList(
+				"Format.Commands.Vote.Help.Lines");
+		if (str != null) {
+			return str;
+		} else {
+			ArrayList<String> texts = new ArrayList<String>();
+			texts.add("[] = Optional");
+			texts.add("Aliases: vote, v");
+			texts.add("/vote - List vote URLs");
+			texts.add("/vote help - See this page");
+			texts.add("/vote total [Player/All] - See total votes");
+			texts.add("/vote next [Player] - See next time you can vote");
+			texts.add("/vote last [Player] - See last vote");
+			texts.add("/vote top [Page] - See top voters");
+			texts.add("/vote info [Player] - See player info");
+			texts.add("/vote today [Page] - See who voted today");
+			return texts;
+		}
+
+	}
+
+	public String getCommandsVoteHelpTitle() {
+		String str = getData().getString("Format.Commands.Vote.Help.Title");
+		if (str != null) {
+			return str;
+		} else {
+			return "Voting Player Help";
+		}
+
 	}
 
 	public String getCommandsVoteLastLine() {
@@ -322,12 +357,8 @@ public class ConfigFormat {
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-					.severe(ChatColor.RED + "Could not save Format.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
+
 	}
 
 	public void setup(Plugin p) {
@@ -343,7 +374,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

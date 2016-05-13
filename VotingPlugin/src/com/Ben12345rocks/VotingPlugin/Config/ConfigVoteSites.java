@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class ConfigVoteSites {
@@ -533,6 +536,10 @@ public class ConfigVoteSites {
 		return (ArrayList<String>) getData(siteName).getList("Commands.Player");
 	}
 
+	public int getPriority(String siteName) {
+		return getData(siteName).getInt("Priority");
+	}
+
 	public String getServiceSite(String siteName) {
 		return getData(siteName).getString("ServiceSite");
 	}
@@ -590,6 +597,24 @@ public class ConfigVoteSites {
 				}
 			}
 		}
+
+		Collections.sort(voteSites, new Comparator<VoteSite>() {
+			@Override
+			public int compare(VoteSite v1, VoteSite v2) {
+				int v1P = getPriority(v1.getSiteName());
+				int v2P = getPriority(v2.getSiteName());
+
+				if (v1P < v2P) {
+					return 1;
+				}
+				if (v1P > v2P) {
+					return -1;
+				}
+
+				return 0;
+			}
+		});
+
 		return voteSites;
 	}
 
@@ -628,13 +653,7 @@ public class ConfigVoteSites {
 		File dFile = getVoteSiteFile(siteName);
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		data.set(path, value);
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			plugin.getLogger().severe(
-					ChatColor.RED + "Could not save VoteSites/" + siteName
-					+ ".yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
 	}
 
 	public void setConsoleCommands(String siteName, List<String> consoleCommands) {
@@ -747,6 +766,10 @@ public class ConfigVoteSites {
 
 	public void setPlayerCommands(String siteName, List<String> playerCommands) {
 		set(siteName, "Commands.Player", playerCommands);
+	}
+
+	public void setPriority(String siteName, int value) {
+		set(siteName, "Priority", value);
 	}
 
 	public void setServiceSite(String siteName, String serviceSite) {

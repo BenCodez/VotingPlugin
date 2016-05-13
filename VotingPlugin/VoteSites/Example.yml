@@ -12,6 +12,11 @@
 # Not recommended to enable
 Disabled: true
       
+# Priority of this site
+# Used for sorted list
+# High prority, higher on the list
+Priority: 5
+      
 # The serviceName from the vote, has to be correct to work correctly
 # Gotten from voting on the site (will be in console/log)
 # Usually is the main part of the url(e.g. PlanetMinecraft.com)

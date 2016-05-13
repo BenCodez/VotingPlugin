@@ -10,6 +10,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class Config {
 
@@ -36,11 +37,6 @@ public class Config {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
-	public boolean disableJson() {
-		return true;
-		// return getData().getBoolean("DisableJson");
-	}
-
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
 	}
@@ -61,17 +57,28 @@ public class Config {
 		return getData().getBoolean("DisableTopVoterAwards");
 	}
 
+	public boolean getVoteSoundEnabled() {
+		return getData().getBoolean("VoteSound.Enabled");
+	}
+
+	public String getVoteSoundSound() {
+		return getData().getString("VoteSound.Sound");
+	}
+
+	public float getVoteSoundVolume() {
+		return (float) getData().getDouble("VoteSound.Volume");
+	}
+
+	public float getVoteSoundPitch() {
+		return (float) getData().getDouble("VoteSound.Pitch");
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
 	public void saveData() {
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer().getLogger()
-			.severe(ChatColor.RED + "Could not save Config.yml!");
-		}
+		Files.getInstance().editFile(dFile, data);
 	}
 
 	public void setAllowUnJoined(boolean value) {
@@ -86,11 +93,6 @@ public class Config {
 
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setDisableJson(boolean value) {
-		getData().set("DisableJson", value);
 		saveData();
 	}
 
@@ -117,7 +119,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
