@@ -584,37 +584,58 @@ public class User {
 						.getExtraRewardWorld(voteSite.getSiteName(), reward);
 
 				if (worlds != null) {
-					for (String worldName : worlds) {
-						if (Config.getInstance().getDebugEnabled()) {
-							plugin.getLogger().info(
-									"Checking world: " + worldName
-											+ ", reard: " + reward
-											+ ", votesite: "
-											+ voteSite.getSiteName());
-						}
-						if (worldName != "") {
-							if (worldName.equals(world)) {
-								if (Config.getInstance().getDebugEnabled()) {
-									plugin.getLogger().info("Giving reward...");
-								}
-								int worldRewards = Data.getInstance()
-										.getOfflineVotesWorld(this,
-												voteSite.getSiteName(), reward,
-												worldName);
-
-								while (worldRewards > 0) {
-									voteSite.giveExtraRewardReward(this,
-											reward, 100);
-									worldRewards--;
-								}
-
-								Data.getInstance().setOfflineVotesWorld(this,
-										voteSite.getSiteName(), reward,
-										worldName, 0);
-
+					if (ConfigVoteSites.getInstance()
+							.getExtraRewardGiveInEachWorld(voteSite.getSiteName(), reward)) {
+						for (String worldName : worlds) {
+							if (Config.getInstance().getDebugEnabled()) {
+								plugin.getLogger().info(
+										"Checking world: " + worldName
+												+ ", reard: " + reward
+												+ ", votesite: "
+												+ voteSite.getSiteName());
 							}
-						}
+							if (worldName != "") {
+								if (worldName.equals(world)) {
+									if (Config.getInstance().getDebugEnabled()) {
+										plugin.getLogger().info(
+												"Giving reward...");
+									}
+									int worldRewards = Data.getInstance()
+											.getOfflineVotesWorld(this,
+													voteSite.getSiteName(),
+													reward, worldName);
 
+									while (worldRewards > 0) {
+										voteSite.giveExtraRewardReward(this,
+												reward, 100);
+										worldRewards--;
+									}
+
+									Data.getInstance().setOfflineVotesWorld(
+											this, voteSite.getSiteName(),
+											reward, worldName, 0);
+
+								}
+							}
+
+						}
+					} else {
+						if (worlds.contains(world)) {
+							int worldRewards = Data.getInstance()
+									.getOfflineVotesExtraReward(this,
+											voteSite.getSiteName(),
+											reward);
+
+							while (worldRewards > 0) {
+								voteSite.giveExtraRewardReward(this,
+										reward, 100);
+								worldRewards--;
+							}
+
+							Data.getInstance().setOfflineVotesExtraReward(
+									this, voteSite.getSiteName(),
+									reward, 0);
+						}
 					}
 				}
 			}

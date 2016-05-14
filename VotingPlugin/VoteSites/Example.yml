@@ -101,6 +101,9 @@ ExtraReward:
     World:
     - 'world1'
     - 'world2'
+    # If true, the player will be rewarded in each world
+    # If false, the player will be reward in any world once
+    GiveInEachWorld: false
     Items:
       Diamond:
         ID: 264

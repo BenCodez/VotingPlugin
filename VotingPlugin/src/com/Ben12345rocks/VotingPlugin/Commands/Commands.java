@@ -327,6 +327,10 @@ public class Commands {
 					msg.add("&cWorlds: "
 							+ Utils.getInstance().makeStringList(worlds));
 				}
+				msg.add("GiveInEachWorld: "
+						+ ConfigVoteSites.getInstance()
+								.getExtraRewardGiveInEachWorld(
+										voteSite.getSiteName(), reward));
 
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));

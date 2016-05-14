@@ -256,6 +256,19 @@ public class Data {
 				+ reward + "." + world, value);
 	}
 
+	public void setOfflineVotesExtraReward(User user, String voteSite,
+			String reward, int value) {
+		set(user, user.getUUID() + ".OfflineVotesWorldReward." + voteSite + "."
+				+ reward, value);
+	}
+
+	public int getOfflineVotesExtraReward(User user, String voteSite,
+			String reward) {
+		return getData(user).getInt(
+				user.getUUID() + ".OfflineVotesWorldReward." + voteSite + "."
+						+ reward);
+	}
+
 	public void setSiteMonthTotal(User user, String voteSiteName, int amount) {
 		set(user, user.getUUID() + ".TotalMonth." + voteSiteName, amount);
 	}
