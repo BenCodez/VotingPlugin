@@ -72,6 +72,8 @@ public class Main extends JavaPlugin {
 
 	public String[] voteToday;
 
+	public ArrayList<String> addons;
+
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
@@ -150,6 +152,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+		addons = new ArrayList<String>();
 		Files.getInstance().loadFileEditngThread();
 		setupFiles();
 		registerCommands();
@@ -313,6 +316,11 @@ public class Main extends JavaPlugin {
 					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
+	}
+
+	public void loadAddon(String pluginName) {
+		addons.add(pluginName);
+		plugin.getLogger().info("Detected Addon: " + pluginName);
 	}
 
 }

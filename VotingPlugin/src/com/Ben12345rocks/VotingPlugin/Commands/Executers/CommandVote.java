@@ -308,4 +308,18 @@ public class CommandVote implements CommandExecutor {
 	public void voteURLs(CommandSender sender) {
 		sender.sendMessage(Commands.getInstance().voteURLs());
 	}
+
+	public void voteGUI(CommandSender sender) {
+		if (plugin.addons.contains("VotingPluginAddon VoteGUI")) {
+			if (sender instanceof Player) {
+				com.Ben12345rocks.VotingPluginAddon.VoteGUI.Commands.Commands
+						.getInstance().openVoteGUI((Player) sender);
+			} else {
+				sender.sendMessage("Must be a player to do this!");
+			}
+		} else {
+			sender.sendMessage("Addon not instaled/loaded");
+		}
+
+	}
 }

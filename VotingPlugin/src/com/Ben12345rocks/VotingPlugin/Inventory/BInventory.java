@@ -19,6 +19,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
+
 public class BInventory implements Listener {
 
 	private String inventoryName;
@@ -35,6 +37,9 @@ public class BInventory implements Listener {
 	// event handling
 	@EventHandler
 	public void onInventoryClick(InventoryClickEvent event) {
+		if (!(event.getWhoClicked() instanceof Player)) {
+			return;
+		}
 		ItemStack clickedItem = event.getCurrentItem();
 		Inventory inv = event.getInventory();
 		if (inv.getName().equalsIgnoreCase(this.getInventoryName())) {
@@ -83,7 +88,7 @@ public class BInventory implements Listener {
 	}
 
 	public void setInventoryName(String inventoryName) {
-		this.inventoryName = inventoryName;
+		this.inventoryName = Utils.getInstance().colorize(inventoryName);
 	}
 
 	public int getInventorySize() {

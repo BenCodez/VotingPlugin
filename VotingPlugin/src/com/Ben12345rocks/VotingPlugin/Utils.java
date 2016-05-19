@@ -83,6 +83,17 @@ public class Utils {
 		return list;
 	}
 
+	public String[] colorize(String[] list) {
+		if (list == null) {
+			return null;
+		}
+
+		for (int i = 0; i < list.length; i++) {
+			list[i] = colorize(list[i]);
+		}
+		return list;
+	}
+
 	public List<String> colorize(List<String> list) {
 		if (list == null) {
 			return null;

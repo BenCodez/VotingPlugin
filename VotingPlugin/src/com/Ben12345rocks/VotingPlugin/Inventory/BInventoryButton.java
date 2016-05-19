@@ -6,6 +6,8 @@ package com.Ben12345rocks.VotingPlugin.Inventory;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
+
 public abstract class BInventoryButton {
 
 	private String name;
@@ -32,7 +34,7 @@ public abstract class BInventoryButton {
 	 *            the name to set
 	 */
 	public void setName(String name) {
-		this.name = name;
+		this.name = Utils.getInstance().colorize(name);
 	}
 
 	/**
@@ -47,7 +49,7 @@ public abstract class BInventoryButton {
 	 *            the lore to set
 	 */
 	public void setLore(String[] lore) {
-		this.lore = lore;
+		this.lore = Utils.getInstance().colorize(lore);
 	}
 
 	/**
