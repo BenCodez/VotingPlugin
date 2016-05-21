@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
@@ -32,6 +33,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -55,6 +57,8 @@ public class Main extends JavaPlugin {
 	public static Config config;
 
 	public static ConfigBonusReward configBonusReward;
+
+	public static ConfigGUI configGUI;
 
 	public static ConfigFormat configFormat;
 
@@ -190,6 +194,9 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
+		// /votegui, /vgui
+		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
+
 		// /votehelp, /vhelp
 		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
 
@@ -238,6 +245,7 @@ public class Main extends JavaPlugin {
 
 	public void reload() {
 		config.reloadData();
+		configGUI.reloadData();
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
@@ -264,11 +272,12 @@ public class Main extends JavaPlugin {
 		configVoteSites = ConfigVoteSites.getInstance();
 		configFormat = ConfigFormat.getInstance();
 		configBonusReward = ConfigBonusReward.getInstance();
+		configGUI = ConfigGUI.getInstance();
 
 		config.setup(this);
-		// configVoteSites.setup(this);
 		configFormat.setup(this);
 		configBonusReward.setup(this);
+		configGUI.setup(plugin);
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 

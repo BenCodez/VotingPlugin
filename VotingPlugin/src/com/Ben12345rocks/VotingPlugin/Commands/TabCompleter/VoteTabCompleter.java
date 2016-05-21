@@ -32,6 +32,7 @@ public class VoteTabCompleter implements TabCompleter {
 				cmds.add("Top");
 				cmds.add("Info");
 				cmds.add("Help");
+				cmds.add("GUI");
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

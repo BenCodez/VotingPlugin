@@ -34,6 +34,9 @@ commands:
   votetoday:
     description: See who voted today
     aliases: vtoday
+  votegui:
+    description: Open VoteGUI
+    aliases: vgui
 permissions:
   VotingPlugin.*:
     description: Gives access to all VotingPlugin commands
@@ -60,10 +63,12 @@ permissions:
       VotingPlugin.Commands.Vote.Info.Other: true
       VotingPlugin.Commands.Vote.Today: true
       VotingPlugin.Commands.Vote.Help: true
+      VotingPlugin.Commands.Vote.GUI: true
   VotingPlugin.Commands.AdminVote.*:
     description: Allows access to admin commands
     children:
       VotingPlugin.Commands.AdminVote.Help: true
+      VotingPlugin.Commands.AdminVote.GUI: true
       VotingPlugin.Commands.AdminVote.Vote: true
       VotingPlugin.Commands.AdminVote.BungeeVote: true
       VotingPlugin.Commands.AdminVote.ServerVote: true
@@ -83,6 +88,7 @@ permissions:
     children:
       VotingPlugin.Login.RemindVotes: true
       VotingPlugin.Commands.Vote.Next: true
+      VotingPlugin.Commands.Vote.GUI: true
       VotingPlugin.Commands.Vote.Total: true
       VotingPlugin.Commands.Vote.Last: true
       VotingPlugin.Commands.Vote.Info: true
@@ -98,6 +104,8 @@ permissions:
     default: true
   VotingPlugin.Commands.Vote.Next: 
     description: Allows access to /vote next
+  VotingPlugin.Commands.Vote.GUI: 
+    description: Allows access to /vote GUI
   VotingPlugin.Commands.Vote.Next.Other: 
     description: Allows access to /vote next <player>
   VotingPlugin.Commands.Vote.Total: 
