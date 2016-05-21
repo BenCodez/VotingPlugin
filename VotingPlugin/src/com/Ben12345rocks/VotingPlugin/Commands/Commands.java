@@ -6,10 +6,9 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -19,6 +18,8 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
+import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -550,7 +551,7 @@ public class Commands {
 		return Utils.getInstance().convertArray(sites);
 	}
 
-	public void openVoteSitesListGUI(Player player, int page) {
+	/*public void openVoteSitesListGUI(Player player, int page) {
 		String guiName = "VotingPlugin: VoteSites";
 
 		ArrayList<ItemStack> items = new ArrayList<ItemStack>();
@@ -619,6 +620,112 @@ public class Commands {
 		inv.setItem(53, back);
 
 		player.openInventory(inv);
+	}*/
+	
+	public void openVoteGUI(Player player) {
+		BInventory inv = new BInventory("VoteGUI", 9);
+
+		inv.addButton(0, new BInventoryButton("&4URL",
+				com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
+						.voteURLs(), new ItemStack(Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(1, new BInventoryButton("&4Next",
+				com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
+						.voteCommandNext(new User(player)), new ItemStack(
+						Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote next");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(2, new BInventoryButton("&4Last",
+				com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
+						.voteCommandLast(new User(player)), new ItemStack(
+						Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote last");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(3, new BInventoryButton("&4Total",
+				com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
+						.voteCommandTotal(new User(player)), new ItemStack(
+						Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote total");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(4, new BInventoryButton("&4Top", plugin.topVoter,
+				new ItemStack(Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote top");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(5, new BInventoryButton("&4Today", plugin.voteToday,
+				new ItemStack(Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote today");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		inv.addButton(6, new BInventoryButton("&4Help",
+				com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
+						.voteHelpTextColored(),
+				new ItemStack(Material.STONE, 1)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (player != null) {
+					player.performCommand("vote help");
+					player.closeInventory();
+				}
+
+			}
+		});
+
+		BInventory.openInventory(player, inv);
 	}
 
 }

@@ -318,9 +318,4 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void loadAddon(String pluginName) {
-		addons.add(pluginName);
-		plugin.getLogger().info("Detected Addon: " + pluginName);
-	}
-
 }

@@ -174,6 +174,11 @@ public class CommandVote implements CommandExecutor {
 				return true;
 			}
 
+			if (args[0].equalsIgnoreCase("gui")) {
+				voteGUI(sender);
+				return true;
+			}
+
 		}
 
 		if (args.length == 2) {
@@ -310,16 +315,17 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void voteGUI(CommandSender sender) {
-		if (plugin.addons.contains("VotingPluginAddon VoteGUI")) {
-			if (sender instanceof Player) {
-				com.Ben12345rocks.VotingPluginAddon.VoteGUI.Commands.Commands
-						.getInstance().openVoteGUI((Player) sender);
+
+		if (sender instanceof Player) {
+			if (Utils.getInstance().hasPermission(sender, "Commands.Vote.GUI")
+					|| Utils.getInstance().hasPermission(sender, "Player")) {
+				Commands.getInstance().openVoteGUI((Player) sender);
 			} else {
-				sender.sendMessage("Must be a player to do this!");
+				sender.sendMessage(Messages.getInstance().noPerms());
 			}
 		} else {
-			sender.sendMessage("Addon not instaled/loaded");
+			sender.sendMessage("Must be a player to do this!");
 		}
-
 	}
+
 }
