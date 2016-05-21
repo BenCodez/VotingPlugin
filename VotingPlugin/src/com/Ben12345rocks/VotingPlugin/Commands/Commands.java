@@ -22,6 +22,7 @@ import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class Commands {
 
@@ -619,28 +620,43 @@ public class Commands {
 
 		int count = 0;
 		for (String slot : ConfigGUI.getInstance().getVoteGUISlots()) {
-			inv.addButton(
-					count,
-					new BInventoryButton(ConfigGUI.getInstance()
-							.getVoteGUISlotName(slot),
-							com.Ben12345rocks.VotingPlugin.Commands.Commands
-									.getInstance().voteURLs(), new ItemStack(
-									ConfigGUI.getInstance().getVoteGUISlotID(
-											slot), ConfigGUI.getInstance()
-											.getVoteGUISlotAmount(slot),
-									(short) ConfigGUI.getInstance()
-											.getVoteGUISlotData(slot))) {
+			ItemStack item = new ItemStack(ConfigGUI.getInstance()
+					.getVoteGUISlotID(slot), ConfigGUI.getInstance()
+					.getVoteGUISlotAmount(slot), (short) ConfigGUI
+					.getInstance().getVoteGUISlotData(slot));
 
-						@Override
-						public void onClick(InventoryClickEvent event) {
-							if (player != null) {
-								player.performCommand(ConfigGUI.getInstance()
-										.getVoteGUISlotCommand(slot));
-								player.closeInventory();
-							}
+			String[] lore = new String[1];
 
-						}
-					});
+			if (slot.equalsIgnoreCase("url")) {
+				lore = Commands.getInstance().voteURLs();
+			} else if (slot.equalsIgnoreCase("next")) {
+				lore = Commands.getInstance().voteCommandNext(new User(player));
+			} else if (slot.equalsIgnoreCase("last")) {
+				lore = Commands.getInstance().voteCommandLast(new User(player));
+			} else if (slot.equalsIgnoreCase("total")) {
+				lore = Commands.getInstance()
+						.voteCommandTotal(new User(player));
+			} else if (slot.equalsIgnoreCase("top")) {
+				lore = TopVoter.getInstance().topVoter(1);
+			} else if (slot.equalsIgnoreCase("today")) {
+				lore = plugin.voteToday;
+			} else if (slot.equalsIgnoreCase("help")) {
+				lore = Commands.getInstance().voteHelpTextColored();
+			}
+
+			inv.addButton(count, new BInventoryButton(ConfigGUI.getInstance()
+					.getVoteGUISlotName(slot), lore, item) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (player != null) {
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
+						player.closeInventory();
+					}
+
+				}
+			});
 			count++;
 		}
 
@@ -718,5 +734,4 @@ public class Commands {
 
 		BInventory.openInventory(player, inv);
 	}
-
 }
