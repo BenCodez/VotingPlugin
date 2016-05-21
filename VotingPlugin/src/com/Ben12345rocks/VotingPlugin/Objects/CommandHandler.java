@@ -13,8 +13,9 @@ public abstract class CommandHandler {
 	}
 
 	private boolean argsMatch(String arg, int i) {
-		if (arg.equalsIgnoreCase("PLAYER") || arg.equalsIgnoreCase("SITENAME")
-				|| arg.equalsIgnoreCase("number")
+		if (args[i].equalsIgnoreCase("player")
+				|| args[i].equalsIgnoreCase("SITENAME")
+				|| args[i].equalsIgnoreCase("number")
 				|| arg.equalsIgnoreCase(args[i])) {
 			return true;
 		}
@@ -34,7 +35,7 @@ public abstract class CommandHandler {
 			execute(sender, args);
 			return true;
 		}
-		return true;
+		return false;
 	}
 
 }

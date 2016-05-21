@@ -144,9 +144,11 @@ public class VotiferEvent implements Listener {
 			plugin.getLogger().info("PlayerUsername: " + voteUsername);
 			plugin.getLogger().info("VoteSite: " + voteSite);
 		}
+		
+		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSite);
 
 		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-				plugin.getVoteSite(voteSite), new User(voteUsername));
+				plugin.getVoteSite(voteSiteName), new User(voteUsername));
 		Bukkit.getServer().getPluginManager().callEvent(voteEvent);
 
 		if (voteEvent.isCancelled()) {
