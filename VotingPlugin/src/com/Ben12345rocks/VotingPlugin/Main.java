@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import net.milkbowl.vault.economy.Economy;
 
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -44,6 +45,7 @@ import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
+import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -71,6 +73,8 @@ public class Main extends JavaPlugin {
 	public String[] topVoter;
 
 	public Updater updater;
+
+	public ArrayList<CommandHandler> voteCommand;
 
 	public ArrayList<VoteSite> voteSites;
 
@@ -182,6 +186,173 @@ public class Main extends JavaPlugin {
 	}
 
 	private void registerCommands() {
+		voteCommand = new ArrayList<CommandHandler>();
+		voteCommand.add(new CommandHandler(new String[] { "help" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().help(sender);
+				
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "info" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().infoSelf(sender);
+				
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "info", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().infoOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "last", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().lastOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "last" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().lastSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "next", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().nextOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "next" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().nextSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "gui" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteGUI(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "today", "number" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().today(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "today" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().today(sender, 1);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "top", "number" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().today(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "top" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().today(sender, 1);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "total", "all" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalAll(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "total", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "total" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] {}) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().voteURLs(sender);
+
+			}
+		});
+
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
 		getCommand("vote").setTabCompleter(new VoteTabCompleter());
