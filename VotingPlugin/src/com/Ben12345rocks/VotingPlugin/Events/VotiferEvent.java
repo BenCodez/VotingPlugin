@@ -53,10 +53,10 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)) {
 						plugin.getLogger()
-								.warning(
-										"VoteSite "
-												+ voteSiteName
-												+ " doe not exist, generaterating one...");
+						.warning(
+								"VoteSite "
+										+ voteSiteName
+										+ " doe not exist, generaterating one...");
 
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
@@ -67,9 +67,9 @@ public class VotiferEvent implements Listener {
 				} else {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-									+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-							.generateVoteSite(voteSiteName);
+					.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
 					return;

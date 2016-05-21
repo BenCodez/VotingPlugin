@@ -20,7 +20,19 @@ public abstract class BInventoryButton {
 		setItem(item);
 	}
 
-	public abstract void onClick(InventoryClickEvent event);
+	/**
+	 * @return the item
+	 */
+	public ItemStack getItem() {
+		return item;
+	}
+
+	/**
+	 * @return the lore
+	 */
+	public String[] getLore() {
+		return lore;
+	}
 
 	/**
 	 * @return the name
@@ -29,19 +41,14 @@ public abstract class BInventoryButton {
 		return name;
 	}
 
-	/**
-	 * @param name
-	 *            the name to set
-	 */
-	public void setName(String name) {
-		this.name = Utils.getInstance().colorize(name);
-	}
+	public abstract void onClick(InventoryClickEvent event);
 
 	/**
-	 * @return the lore
+	 * @param item
+	 *            the item to set
 	 */
-	public String[] getLore() {
-		return lore;
+	public void setItem(ItemStack item) {
+		this.item = item;
 	}
 
 	/**
@@ -53,18 +60,11 @@ public abstract class BInventoryButton {
 	}
 
 	/**
-	 * @return the item
+	 * @param name
+	 *            the name to set
 	 */
-	public ItemStack getItem() {
-		return item;
-	}
-
-	/**
-	 * @param item
-	 *            the item to set
-	 */
-	public void setItem(ItemStack item) {
-		this.item = item;
+	public void setName(String name) {
+		this.name = Utils.getInstance().colorize(name);
 	}
 
 }

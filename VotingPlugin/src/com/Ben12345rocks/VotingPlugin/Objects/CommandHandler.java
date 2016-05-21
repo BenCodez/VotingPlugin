@@ -12,6 +12,17 @@ public abstract class CommandHandler {
 		this.args = args;
 	}
 
+	private boolean argsMatch(String arg, int i) {
+		if (arg.equalsIgnoreCase("PLAYER") || arg.equalsIgnoreCase("SITENAME")
+				|| arg.equalsIgnoreCase("number")
+				|| arg.equalsIgnoreCase(args[i])) {
+			return true;
+		}
+		return false;
+	}
+
+	public abstract void execute(CommandSender sender, String[] args);
+
 	public boolean runCommand(CommandSender sender, String[] args) {
 		if (args.length == this.args.length) {
 			for (int i = 0; i < args.length; i++) {
@@ -24,17 +35,6 @@ public abstract class CommandHandler {
 			return true;
 		}
 		return true;
-	}
-
-	public abstract void execute(CommandSender sender, String[] args);
-
-	private boolean argsMatch(String arg, int i) {
-		if (arg.equalsIgnoreCase("PLAYER") || arg.equalsIgnoreCase("SITENAME")
-				|| arg.equalsIgnoreCase("number")
-				|| arg.equalsIgnoreCase(args[i])) {
-			return true;
-		}
-		return false;
 	}
 
 }

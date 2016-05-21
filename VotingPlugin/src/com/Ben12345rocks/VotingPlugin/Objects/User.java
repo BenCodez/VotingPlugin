@@ -253,7 +253,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -300,7 +300,7 @@ public class User {
 				.getData(user)
 				.getLong(
 						uuid + ".LastVote." + voteSite.getSiteName()
-								+ ".Miliseconds");
+						+ ".Miliseconds");
 		return mills;
 	}
 
@@ -473,7 +473,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -536,9 +536,9 @@ public class User {
 				playSound = true;
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
+					.info("Offline Vote Reward on Site '"
+							+ voteSite.getSiteName()
+							+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -561,7 +561,7 @@ public class User {
 		setBonusOfflineVotes(0);
 
 		if (playSound) {
-			this.playVoteSound();
+			playVoteSound();
 		}
 
 		int place = getOfflineTopVoter();
@@ -585,14 +585,15 @@ public class User {
 
 				if (worlds != null) {
 					if (ConfigVoteSites.getInstance()
-							.getExtraRewardGiveInEachWorld(voteSite.getSiteName(), reward)) {
+							.getExtraRewardGiveInEachWorld(
+									voteSite.getSiteName(), reward)) {
 						for (String worldName : worlds) {
 							if (Config.getInstance().getDebugEnabled()) {
 								plugin.getLogger().info(
 										"Checking world: " + worldName
-												+ ", reard: " + reward
-												+ ", votesite: "
-												+ voteSite.getSiteName());
+										+ ", reard: " + reward
+										+ ", votesite: "
+										+ voteSite.getSiteName());
 							}
 							if (worldName != "") {
 								if (worldName.equals(world)) {
@@ -623,18 +624,16 @@ public class User {
 						if (worlds.contains(world)) {
 							int worldRewards = Data.getInstance()
 									.getOfflineVotesExtraReward(this,
-											voteSite.getSiteName(),
-											reward);
+											voteSite.getSiteName(), reward);
 
 							while (worldRewards > 0) {
-								voteSite.giveExtraRewardReward(this,
-										reward, 100);
+								voteSite.giveExtraRewardReward(this, reward,
+										100);
 								worldRewards--;
 							}
 
-							Data.getInstance().setOfflineVotesExtraReward(
-									this, voteSite.getSiteName(),
-									reward, 0);
+							Data.getInstance().setOfflineVotesExtraReward(this,
+									voteSite.getSiteName(), reward, 0);
 						}
 					}
 				}
@@ -651,6 +650,30 @@ public class User {
 	 */
 	public void playerVote(VoteSite voteSite) {
 		voteSite.giveSiteReward(this);
+	}
+
+	public void playSound(String soundName, float volume, float pitch) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			Sound sound = Sound.valueOf(soundName);
+			if (sound != null) {
+				player.playSound(player.getLocation(), sound, volume, pitch);
+			} else if (Config.getInstance().getDebugEnabled()) {
+				plugin.getLogger().info("Invalid sound: " + soundName);
+			}
+		}
+	}
+
+	public void playVoteSound() {
+		if (Config.getInstance().getVoteSoundEnabled()) {
+			try {
+				playSound(Config.getInstance().getVoteSoundSound(), Config
+						.getInstance().getVoteSoundVolume(), Config
+						.getInstance().getVoteSoundPitch());
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
 	}
 
 	/**
@@ -775,30 +798,6 @@ public class User {
 		User user = this;
 		Data.getInstance().set(user,
 				user.getUUID() + ".Total." + voteSite.getSiteName(), amount);
-	}
-
-	public void playSound(String soundName, float volume, float pitch) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			Sound sound = Sound.valueOf(soundName);
-			if (sound != null) {
-				player.playSound(player.getLocation(), sound, volume, pitch);
-			} else if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("Invalid sound: " + soundName);
-			}
-		}
-	}
-
-	public void playVoteSound() {
-		if (Config.getInstance().getVoteSoundEnabled()) {
-			try {
-				playSound(Config.getInstance().getVoteSoundSound(), Config
-						.getInstance().getVoteSoundVolume(), Config
-						.getInstance().getVoteSoundPitch());
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
 	}
 
 	/**

@@ -34,6 +34,30 @@ public class ConfigGUI {
 		ConfigGUI.plugin = plugin;
 	}
 
+	public int getVoteGUISlotAmount(String slot) {
+		return data.getInt("GUI.VoteGUI." + slot + ".Item.Amount");
+	}
+
+	public String getVoteGUISlotCommand(String slot) {
+		return data.getString("GUI.VoteGUI." + slot + ".Command");
+	}
+
+	public int getVoteGUISlotData(String slot) {
+		return data.getInt("GUI.VoteGUI." + slot + ".Item.Data");
+	}
+
+	public int getVoteGUISlotID(String slot) {
+		return data.getInt("GUI.VoteGUI." + slot + ".Item.ID");
+	}
+
+	public String getVoteGUISlotName(String slot) {
+		return data.getString("GUI.VoteGUI." + slot + ".Item.Name");
+	}
+
+	public Set<String> getVoteGUISlots() {
+		return data.getConfigurationSection("GUI.VoteGUI").getKeys(false);
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
@@ -55,35 +79,11 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public Set<String> getVoteGUISlots() {
-		return data.getConfigurationSection("GUI.VoteGUI").getKeys(false);
-	}
-
-	public int getVoteGUISlotID(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.ID");
-	}
-
-	public int getVoteGUISlotData(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.Data");
-	}
-
-	public int getVoteGUISlotAmount(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.Amount");
-	}
-
-	public String getVoteGUISlotName(String slot) {
-		return data.getString("GUI.VoteGUI." + slot + ".Item.Name");
-	}
-
-	public String getVoteGUISlotCommand(String slot) {
-		return data.getString("GUI.VoteGUI." + slot + ".Command");
 	}
 
 }

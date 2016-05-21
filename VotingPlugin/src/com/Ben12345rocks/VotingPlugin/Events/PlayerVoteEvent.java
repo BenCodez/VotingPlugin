@@ -14,16 +14,8 @@ public class PlayerVoteEvent extends Event {
 
 	public PlayerVoteEvent(VoteSite voteSite, User player) {
 		super();
-		this.setPlayer(player);
-		this.setVoteSite(voteSite);
-	}
-
-	public boolean isCancelled() {
-		return cancelled;
-	}
-
-	public void setCancelled(boolean bln) {
-		this.cancelled = bln;
+		setPlayer(player);
+		setVoteSite(voteSite);
 	}
 
 	@Override
@@ -31,20 +23,28 @@ public class PlayerVoteEvent extends Event {
 		return null;
 	}
 
-	public VoteSite getVoteSite() {
-		return voteSite;
-	}
-
-	public void setVoteSite(VoteSite voteSite) {
-		this.voteSite = voteSite;
-	}
-
 	public User getPlayer() {
 		return player;
 	}
 
+	public VoteSite getVoteSite() {
+		return voteSite;
+	}
+
+	public boolean isCancelled() {
+		return cancelled;
+	}
+
+	public void setCancelled(boolean bln) {
+		cancelled = bln;
+	}
+
 	public void setPlayer(User player) {
 		this.player = player;
+	}
+
+	public void setVoteSite(VoteSite voteSite) {
+		this.voteSite = voteSite;
 	}
 
 }

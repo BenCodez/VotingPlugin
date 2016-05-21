@@ -23,52 +23,13 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 
 public class BInventory implements Listener {
 
-	private String inventoryName;
-	private int inventorySize;
-	private Map<Integer, BInventoryButton> buttons = new HashMap<Integer, BInventoryButton>();
-
-	public BInventory(String name, int size) {
-		setInventoryName(name);
-		setInventorySize(size);
-		Bukkit.getPluginManager().registerEvents(this,
-				Bukkit.getPluginManager().getPlugins()[0]);
-	}
-
-	// event handling
-	@EventHandler
-	public void onInventoryClick(InventoryClickEvent event) {
-		if (!(event.getWhoClicked() instanceof Player)) {
-			return;
-		}
-		ItemStack clickedItem = event.getCurrentItem();
-		Inventory inv = event.getInventory();
-		if (inv.getName().equalsIgnoreCase(this.getInventoryName())) {
-			for (BInventoryButton button : this.getButtons().values()) {
-				if (clickedItem.getItemMeta() != null)
-					if (clickedItem.getItemMeta().getDisplayName()
-							.equals(button.getName())
-							&& clickedItem.getType() == button.getItem()
-									.getType()) {
-						button.onClick(event);
-						event.setCancelled(true);
-						return;
-					}
-			}
-		}
-	}
-
-	public void addButton(int position, BInventoryButton button) {
-		this.getButtons().put(position, button);
-	}
-
 	public static void openInventory(Player player, BInventory inventory) {
 		Inventory inv = Bukkit.createInventory(player,
 				inventory.getInventorySize(), inventory.getInventoryName());
 		Iterator<Entry<Integer, BInventoryButton>> it = inventory.getButtons()
 				.entrySet().iterator();
 		while (it.hasNext()) {
-			Map.Entry<Integer, BInventoryButton> pair = (Map.Entry<Integer, BInventoryButton>) it
-					.next();
+			Map.Entry<Integer, BInventoryButton> pair = it.next();
 			{
 				ItemStack item = pair.getValue().getItem();
 				ItemMeta meta = item.getItemMeta();
@@ -83,20 +44,20 @@ public class BInventory implements Listener {
 		player.openInventory(inv);
 	}
 
-	public String getInventoryName() {
-		return inventoryName;
+	private String inventoryName;
+	private int inventorySize;
+
+	private Map<Integer, BInventoryButton> buttons = new HashMap<Integer, BInventoryButton>();
+
+	public BInventory(String name, int size) {
+		setInventoryName(name);
+		setInventorySize(size);
+		Bukkit.getPluginManager().registerEvents(this,
+				Bukkit.getPluginManager().getPlugins()[0]);
 	}
 
-	public void setInventoryName(String inventoryName) {
-		this.inventoryName = Utils.getInstance().colorize(inventoryName);
-	}
-
-	public int getInventorySize() {
-		return inventorySize;
-	}
-
-	public void setInventorySize(int inventorySize) {
-		this.inventorySize = inventorySize;
+	public void addButton(int position, BInventoryButton button) {
+		getButtons().put(position, button);
 	}
 
 	/**
@@ -104,6 +65,46 @@ public class BInventory implements Listener {
 	 */
 	public Map<Integer, BInventoryButton> getButtons() {
 		return buttons;
+	}
+
+	public String getInventoryName() {
+		return inventoryName;
+	}
+
+	public int getInventorySize() {
+		return inventorySize;
+	}
+
+	// event handling
+	@EventHandler
+	public void onInventoryClick(InventoryClickEvent event) {
+		if (!(event.getWhoClicked() instanceof Player)) {
+			return;
+		}
+		ItemStack clickedItem = event.getCurrentItem();
+		Inventory inv = event.getInventory();
+		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
+			for (BInventoryButton button : getButtons().values()) {
+				if (clickedItem.getItemMeta() != null) {
+					if (clickedItem.getItemMeta().getDisplayName()
+							.equals(button.getName())
+							&& clickedItem.getType() == button.getItem()
+							.getType()) {
+						button.onClick(event);
+						event.setCancelled(true);
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	public void setInventoryName(String inventoryName) {
+		this.inventoryName = Utils.getInstance().colorize(inventoryName);
+	}
+
+	public void setInventorySize(int inventorySize) {
+		this.inventorySize = inventorySize;
 	}
 
 }
