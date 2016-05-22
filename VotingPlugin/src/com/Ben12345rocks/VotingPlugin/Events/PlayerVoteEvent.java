@@ -7,7 +7,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class PlayerVoteEvent extends Event {
-
+	private static final HandlerList handlers = new HandlerList();
 	private User player;
 	private VoteSite voteSite;
 	private boolean cancelled;
@@ -20,7 +20,7 @@ public class PlayerVoteEvent extends Event {
 
 	@Override
 	public HandlerList getHandlers() {
-		return null;
+		return handlers;
 	}
 
 	public User getPlayer() {

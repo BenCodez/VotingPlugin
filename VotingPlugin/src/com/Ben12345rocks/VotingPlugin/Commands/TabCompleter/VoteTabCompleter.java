@@ -73,7 +73,7 @@ public class VoteTabCompleter implements TabCompleter {
 								cmds.addAll(ConfigVoteSites.getInstance()
 										.getVoteSitesNames());
 							} else {
-								cmds.add(cmdArgs[0]);
+								cmds.add(cmdArgs[1]);
 							}
 
 						}
