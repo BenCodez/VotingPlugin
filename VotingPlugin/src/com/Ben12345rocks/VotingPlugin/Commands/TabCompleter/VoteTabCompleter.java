@@ -33,7 +33,9 @@ public class VoteTabCompleter implements TabCompleter {
 				for (CommandHandler commandHandler : plugin.voteCommand) {
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 0) {
-						cmds.add(cmdArgs[0]);
+						if (!cmds.contains(cmdArgs[0])) {
+							cmds.add(cmdArgs[0]);
+						}
 					}
 				}
 
@@ -57,27 +59,30 @@ public class VoteTabCompleter implements TabCompleter {
 				List<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.voteCommand) {
+
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 1) {
-						if (cmdArgs[1].equalsIgnoreCase("player")) {
-							for (Object playerOb : Bukkit.getOnlinePlayers()
-									.toArray()) {
-								Player player = (Player) playerOb;
-								cmds.add(player.getName());
+						if (cmdArgs[0].equalsIgnoreCase(args[0])) {
+							if (cmdArgs[1].equalsIgnoreCase("player")) {
+								for (Object playerOb : Bukkit
+										.getOnlinePlayers().toArray()) {
+									Player player = (Player) playerOb;
+									cmds.add(player.getName());
+								}
+							} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
+								cmds.addAll(ConfigVoteSites.getInstance()
+										.getVoteSitesNames());
+							} else {
+								cmds.add(cmdArgs[0]);
 							}
-						} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
-							cmds.addAll(ConfigVoteSites.getInstance()
-									.getVoteSitesNames());
-						} else {
-							cmds.add(cmdArgs[0]);
+
 						}
-						
 					}
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[0])) {
+							args[1])) {
 						tab.add(cmds.get(i));
 					}
 				}
