@@ -9,9 +9,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
 public class VoteTabCompleter implements TabCompleter {
+	Main plugin = Main.plugin;
 
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
@@ -26,13 +30,18 @@ public class VoteTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				cmds.add("Next");
-				cmds.add("Total");
-				cmds.add("Last");
-				cmds.add("Top");
-				cmds.add("Info");
-				cmds.add("Help");
-				cmds.add("GUI");
+				for (CommandHandler commandHandler : plugin.voteCommand) {
+					String[] cmdArgs = commandHandler.getArgs();
+					if (cmdArgs.length > 0) {
+						cmds.add(cmdArgs[0]);
+					}
+				}
+
+				/*
+				 * cmds.add("Next"); cmds.add("Total"); cmds.add("Last");
+				 * cmds.add("Top"); cmds.add("Info"); cmds.add("Help");
+				 * cmds.add("GUI");
+				 */
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -47,13 +56,23 @@ public class VoteTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				if (args[0].equalsIgnoreCase("total")) {
-					cmds.add("All");
-				}
-
-				for (Object playerOb : Bukkit.getOnlinePlayers().toArray()) {
-					Player player = (Player) playerOb;
-					cmds.add(player.getName());
+				for (CommandHandler commandHandler : plugin.voteCommand) {
+					String[] cmdArgs = commandHandler.getArgs();
+					if (cmdArgs.length > 1) {
+						if (cmdArgs[1].equalsIgnoreCase("player")) {
+							for (Object playerOb : Bukkit.getOnlinePlayers()
+									.toArray()) {
+								Player player = (Player) playerOb;
+								cmds.add(player.getName());
+							}
+						} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
+							cmds.addAll(ConfigVoteSites.getInstance()
+									.getVoteSitesNames());
+						} else {
+							cmds.add(cmdArgs[0]);
+						}
+						
+					}
 				}
 
 				for (int i = 0; i < cmds.size(); i++) {

@@ -37,5 +37,9 @@ public abstract class CommandHandler {
 		}
 		return false;
 	}
+	
+	public String[] getArgs() {
+		return args;
+	}
 
 }

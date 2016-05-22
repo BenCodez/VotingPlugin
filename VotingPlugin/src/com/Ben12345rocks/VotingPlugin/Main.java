@@ -187,7 +187,7 @@ public class Main extends JavaPlugin {
 
 	private void registerCommands() {
 		voteCommand = new ArrayList<CommandHandler>();
-		voteCommand.add(new CommandHandler(new String[] { "help" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Help" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -196,7 +196,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "info" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Info" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -205,7 +205,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "info", "player" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Info", "player" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -215,7 +215,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "last", "player" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Last", "player" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -225,7 +225,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "last" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Last" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -234,7 +234,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "next", "player" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Next", "player" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -244,7 +244,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "next" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Next" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -253,7 +253,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "gui" }) {
+		voteCommand.add(new CommandHandler(new String[] { "GUI" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -262,7 +262,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "today", "number" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Today", "number" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -278,7 +278,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "today" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Today" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -288,7 +288,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "top", "number" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Top", "number" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -303,7 +303,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "top" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Top" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -313,7 +313,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "total", "all" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Total", "All" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -323,7 +323,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "total", "player" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Total", "player" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -333,7 +333,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		voteCommand.add(new CommandHandler(new String[] { "total" }) {
+		voteCommand.add(new CommandHandler(new String[] { "Total" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
