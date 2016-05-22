@@ -27,6 +27,12 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class CommandAdminVote implements CommandExecutor {
 
+	private static CommandAdminVote instance = new CommandAdminVote();
+
+	public static CommandAdminVote getInstance() {
+		return instance;
+	}
+
 	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
 
 	Config config = Config.getInstance();
@@ -37,17 +43,11 @@ public class CommandAdminVote implements CommandExecutor {
 
 	ConfigVoteSites voteSites = ConfigVoteSites.getInstance();
 
+	private CommandAdminVote() {
+	}
+
 	public CommandAdminVote(Main plugin) {
 		this.plugin = plugin;
-	}
-
-	private static CommandAdminVote instance = new CommandAdminVote();
-
-	public static CommandAdminVote getInstance() {
-		return instance;
-	}
-
-	private CommandAdminVote() {
 	}
 
 	public void addBonusRewardCommandConsole(CommandSender sender, String cmd) {
@@ -123,23 +123,23 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigBonusReward
-											.getInstance()
-											.addExtraRewardItem(
-													reward,
+						@Override
+						public void run() {
+							ConfigBonusReward
+							.getInstance()
+							.addExtraRewardItem(
+									reward,
 
-													item,
-													player.getInventory()
-															.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded extra reward item &c&l"
-															+ item));
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded extra reward item &c&l"
+													+ item));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -165,19 +165,19 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigBonusReward.getInstance().addItem(
+						@Override
+						public void run() {
+							ConfigBonusReward.getInstance().addItem(
 
-											item,
-											player.getInventory()
-													.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded item &c&l" + item));
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded item &c&l" + item));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -234,7 +234,7 @@ public class CommandAdminVote implements CommandExecutor {
 					voteSite, reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded extra reward console command &c&l" + cmd
-							+ "&c on &c&l" + voteSite));
+					+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -251,7 +251,7 @@ public class CommandAdminVote implements CommandExecutor {
 					voteSite, reward, cmds);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cAdded extra reward player command &c&l" + cmd
-							+ "&c on &c&l" + voteSite));
+					+ "&c on &c&l" + voteSite));
 		} else {
 			sender.sendMessage(Messages.getInstance().noPerms());
 		}
@@ -270,24 +270,24 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigVoteSites
-											.getInstance()
-											.addExtraRewardItem(
-													voteSite,
-													reward,
-													item,
-													player.getInventory()
-															.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded extra reward item &c&l"
-															+ item + " &cto "
-															+ voteSite));
+						@Override
+						public void run() {
+							ConfigVoteSites
+							.getInstance()
+							.addExtraRewardItem(
+									voteSite,
+									reward,
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded extra reward item &c&l"
+													+ item + " &cto "
+													+ voteSite));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -314,21 +314,21 @@ public class CommandAdminVote implements CommandExecutor {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									ConfigVoteSites.getInstance().addItem(
-											voteSite,
-											item,
-											player.getInventory()
-													.getItemInMainHand());
-									sender.sendMessage(Utils.getInstance()
-											.colorize(
-													"&cAdded item &c&l" + item
-															+ " &cto "
-															+ voteSite));
+						@Override
+						public void run() {
+							ConfigVoteSites.getInstance().addItem(
+									voteSite,
+									item,
+									player.getInventory()
+									.getItemInMainHand());
+							sender.sendMessage(Utils.getInstance()
+									.colorize(
+											"&cAdded item &c&l" + item
+											+ " &cto "
+											+ voteSite));
 
-								}
-							});
+						}
+					});
 
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
@@ -404,173 +404,6 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 		}
 
-		/*
-		 * if (args.length == 0) { help(sender); return true; }
-		 * 
-		 * if (args.length == 1) { if (args[0].equalsIgnoreCase("help") ||
-		 * args[0].equalsIgnoreCase("?")) { help(sender); return true; } if
-		 * (args[0].equalsIgnoreCase("reload")) { reload(sender); return true; }
-		 * if (args[0].equalsIgnoreCase("version")) { version(sender); return
-		 * true; }
-		 * 
-		 * if (args[0].equalsIgnoreCase("sites")) { sites(sender); return true;
-		 * }
-		 * 
-		 * }
-		 * 
-		 * if (args.length == 2) { if (args[0].equalsIgnoreCase("sites")) {
-		 * site(sender, args[1]); return true; } if
-		 * (args[0].equalsIgnoreCase("uuid")) { uuid(sender, args[1]); return
-		 * true; }
-		 * 
-		 * if (args[0].equalsIgnoreCase("reset")) { if
-		 * (args[1].equalsIgnoreCase("top")) { resetTop(sender); } return true;
-		 * }
-		 * 
-		 * }
-		 * 
-		 * if (args.length >= 3) { if (args.length == 3) { if
-		 * (args[0].equalsIgnoreCase("vote")) { globalVote(sender, args[1],
-		 * args[2]); return true; } if (args[0].equalsIgnoreCase("bungeevote"))
-		 * { bungeeVote(sender, args[1], args[2]); return true; }
-		 * 
-		 * if (args[0].equalsIgnoreCase("servervote")) { serverVote(sender,
-		 * args[1], args[2]); return true; } if
-		 * (args[0].equalsIgnoreCase("VoteSite")) { if
-		 * (args[2].equalsIgnoreCase("Create")) { createVoteSite(sender,
-		 * args[1]); return true; } } if
-		 * (args[0].equalsIgnoreCase("BonusReward")) { if
-		 * (args[1].equalsIgnoreCase("AddItem")) { addBonusRewardItem(sender,
-		 * args[2]); return true; } if (args[1].equalsIgnoreCase("SetMoney")) {
-		 * if (Utils.getInstance().isInt(args[2])) { setBonusRewardMoney(sender,
-		 * Integer.parseInt(args[2])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[2] + ", number expected")); } return true; }
-		 * 
-		 * if (args[1].equalsIgnoreCase("SetGiveBonusReward")) {
-		 * setGiveBonusReward(sender, Boolean.parseBoolean(args[2])); return
-		 * true; }
-		 * 
-		 * } if (args[0].equalsIgnoreCase("Config")) { if
-		 * (args[1].equalsIgnoreCase("SetDebug")) { setConfigDebug(sender,
-		 * Boolean.parseBoolean(args[2])); return true; } if
-		 * (args[1].equalsIgnoreCase("SetBroadcastVote")) {
-		 * setConfigBroadcastVote(sender, Boolean.parseBoolean(args[2])); return
-		 * true; } if (args[1].equalsIgnoreCase("SetUpdateReminder")) {
-		 * setConfigUpdateReminder(sender, Boolean.parseBoolean(args[2]));
-		 * return true; } if (args[1].equalsIgnoreCase("SetAllowUnjoined")) {
-		 * setConfigAllowUnjoined(sender, Boolean.parseBoolean(args[2])); return
-		 * true; } if (args[1].equalsIgnoreCase("SetDisableTopVoterAwards")) {
-		 * setConfigDisableTopVoterAwards(sender,
-		 * Boolean.parseBoolean(args[2])); return true; } }
-		 * 
-		 * if (args[0].equalsIgnoreCase("ServerData")) { if
-		 * (args[1].equalsIgnoreCase("SetPrevMonth")) { if
-		 * (Utils.getInstance().isInt(args[2])) { setServerDataPrevMonth(sender,
-		 * Integer.parseInt(args[2])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[2] + ", number expected")); } return true; } }
-		 * 
-		 * } if (args[0].equalsIgnoreCase("BonusReward")) { if
-		 * (args[1].equalsIgnoreCase("AddCommandPlayer")) {
-		 * addBonusRewardCommandPlayer(sender, Utils.getInstance()
-		 * .makeString(2, args)); return true; } if
-		 * (args[1].equalsIgnoreCase("AddCommandConsole")) {
-		 * addBonusRewardCommandConsole(sender, Utils.getInstance()
-		 * .makeString(2, args)); return true; }
-		 * 
-		 * } }
-		 * 
-		 * if (args.length >= 4) { if (args.length == 4) { if
-		 * (args[0].equalsIgnoreCase("BonusReward")) { if
-		 * (args[1].equalsIgnoreCase("AddExtraRewardItem")) {
-		 * addBonusRewardExtraRewardItem(sender, args[2], args[3]); return true;
-		 * } if (args[1].equalsIgnoreCase("SetExtraRewardMoney")) { if
-		 * (Utils.getInstance().isInt(args[3])) {
-		 * setBonusRewardExtraRewardMoney(sender, args[2],
-		 * Integer.parseInt(args[3])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; }
-		 * 
-		 * if (args[1].equalsIgnoreCase("SetExtraRewardChance")) { if
-		 * (Utils.getInstance().isInt(args[3])) {
-		 * setBonusRewardExtraRewardChance(sender, args[2],
-		 * Integer.parseInt(args[3])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; } } if
-		 * (args[0].equalsIgnoreCase("settotal")) { if
-		 * (Utils.getInstance().isInt(args[3])) { setTotal(sender, args[1],
-		 * args[2], Integer.parseInt(args[3])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; } if
-		 * (args[0].equalsIgnoreCase("VoteSite")) { if
-		 * (args[2].equalsIgnoreCase("AddItem")) { addVoteSiteItem(sender,
-		 * args[1], args[3]); return true; } if
-		 * (args[2].equalsIgnoreCase("SetMoney")) { if
-		 * (Utils.getInstance().isInt(args[3])) { setVoteSiteMoney(sender,
-		 * args[1], Integer.parseInt(args[3])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; }
-		 * 
-		 * if (args[2].equalsIgnoreCase("SetServiceSite")) {
-		 * setVoteSiteServiceSite(sender, args[1], args[3]); return true; } if
-		 * (args[2].equalsIgnoreCase("SetVoteURL")) { setVoteSiteVoteURL(sender,
-		 * args[1], args[3]); return true; } if
-		 * (args[2].equalsIgnoreCase("SetDisabled")) {
-		 * setVoteSiteDsiabled(sender, args[1], Boolean.parseBoolean(args[3]));
-		 * return true; } if (args[2].equalsIgnoreCase("SetPriority")) { if
-		 * (Utils.getInstance().isInt(args[3])) { setVoteSitePriority(sender,
-		 * args[1], Integer.parseInt(args[3])); } else { sender.sendMessage("&c"
-		 * + args[3] + " is not an int"); } return true; } if
-		 * (args[2].equalsIgnoreCase("SetVoteDelay")) { if
-		 * (Utils.getInstance().isInt(args[3])) { setVoteSiteVoteDelay(sender,
-		 * args[1], Integer.parseInt(args[3])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; } }
-		 * 
-		 * } if (args[0].equalsIgnoreCase("VoteSite")) { if
-		 * (args[2].equalsIgnoreCase("AddCommandPlayer")) {
-		 * addVoteSiteCommandPlayer(sender, args[1], Utils
-		 * .getInstance().makeString(3, args)); return true; } if
-		 * (args[2].equalsIgnoreCase("AddCommandConsole")) {
-		 * addVoteSiteCommandConsole(sender, args[1], Utils
-		 * .getInstance().makeString(3, args)); return true; }
-		 * 
-		 * } if (args[0].equalsIgnoreCase("BonusReward")) { if
-		 * (args[1].equalsIgnoreCase("AddExtraRewardCommandPlayer")) {
-		 * addBonusRewardExtraRewardCommandPlayer(sender, args[2],
-		 * Utils.getInstance().makeString(3, args)); return true; } if
-		 * (args[1].equalsIgnoreCase("AddExtraRewardCommandConsole")) {
-		 * addBonusRewardExtraRewardCommandConsole(sender, args[2],
-		 * Utils.getInstance().makeString(3, args)); return true; } }
-		 * 
-		 * }
-		 * 
-		 * if (args.length >= 5) { if (args.length == 5) { if
-		 * (args[0].equalsIgnoreCase("VoteSite")) { if
-		 * (args[2].equalsIgnoreCase("SetExtraRewardChance")) { if
-		 * (Utils.getInstance().isInt(args[3])) {
-		 * setVoteSiteExtraRewardChance(sender, args[1], args[3],
-		 * Integer.parseInt(args[4])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[3] + ", number expected")); } return true; }
-		 * 
-		 * if (args[2].equalsIgnoreCase("AddExtraRewardItem")) {
-		 * addVoteSiteExtraRewardItem(sender, args[1], args[3], args[4]); return
-		 * true; } if (args[2].equalsIgnoreCase("SetExtraRewardMoney")) { if
-		 * (Utils.getInstance().isInt(args[4])) {
-		 * setVoteSiteExtraRewardMoney(sender, args[1], args[3],
-		 * Integer.parseInt(args[4])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[4] + ", number expected")); } return true; } } } if
-		 * (args[2].equalsIgnoreCase("AddExtraRewardCommandPlayer")) {
-		 * addVoteSiteExtraRewardCommandPlayer(sender, args[1], args[3],
-		 * Utils.getInstance().makeString(4, args)); return true; } if
-		 * (args[2].equalsIgnoreCase("AddExtraRewardCommandConsole")) {
-		 * addVoteSiteExtraRewardCommandConsole(sender, args[1], args[3],
-		 * Utils.getInstance().makeString(4, args)); return true; } }
-		 */
-
 		// invalid command
 		sender.sendMessage(ChatColor.RED
 				+ "No valid arguments, see /adminvote help!");
@@ -634,7 +467,7 @@ public class CommandAdminVote implements CommandExecutor {
 		if (Utils.getInstance().hasPermission(sender,
 				"Commands.AdminVote.BonusReward.Edit")) {
 			ConfigBonusReward.getInstance()
-					.setExtraRewardChance(reward, chance);
+			.setExtraRewardChance(reward, chance);
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cSet chance to &c&l" + chance));
 		} else {

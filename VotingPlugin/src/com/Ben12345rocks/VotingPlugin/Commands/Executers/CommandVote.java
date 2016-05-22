@@ -66,14 +66,14 @@ public class CommandVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						sender.sendMessage(Utils.getInstance()
-								.colorize("&cGetting info..."));
-						sender.sendMessage(Commands.getInstance()
-								.playerInfo(new User(sender.getName())));
-					}
-				});
+							@Override
+							public void run() {
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cGetting info..."));
+								sender.sendMessage(Commands.getInstance()
+										.playerInfo(new User(sender.getName())));
+							}
+						});
 			} else {
 				sender.sendMessage(Messages.getInstance().noPerms());
 			}
@@ -141,53 +141,6 @@ public class CommandVote implements CommandExecutor {
 				return true;
 			}
 		}
-
-		/*
-		 * if (args.length == 0) { voteURLs(sender); return true; }
-		 *
-		 * if (args.length == 1) { if (args[0].equalsIgnoreCase("help") ||
-		 * args[0].equalsIgnoreCase("?")) { help(sender); return true; } if
-		 * (args[0].equalsIgnoreCase("total")) { totalSelf(sender); return true;
-		 * } if (args[0].equalsIgnoreCase("last")) { lastSelf(sender); return
-		 * true; } if (args[0].equalsIgnoreCase("next")) { nextSelf(sender);
-		 * return true; }
-		 *
-		 * if (args[0].equalsIgnoreCase("top")) { topVoter(sender, 1); return
-		 * true; }
-		 *
-		 * if (args[0].equalsIgnoreCase("info")) { infoSelf(sender); return
-		 * true; }
-		 *
-		 * if (args[0].equalsIgnoreCase("today")) { today(sender, 1); return
-		 * true; }
-		 *
-		 * if (args[0].equalsIgnoreCase("gui")) { voteGUI(sender); return true;
-		 * }
-		 *
-		 * }
-		 *
-		 * if (args.length == 2) { if (args[0].equalsIgnoreCase("info")) {
-		 * infoOther(sender, args[1]); return true; } if
-		 * (args[0].equalsIgnoreCase("total")) { if
-		 * (args[1].equalsIgnoreCase("all")) { totalAll(sender); } else {
-		 * totalOther(sender, args[1]); } return true; } if
-		 * (args[0].equalsIgnoreCase("last")) { lastOther(sender, args[1]);
-		 * return true; } if (args[0].equalsIgnoreCase("next")) {
-		 * nextOther(sender, args[1]); return true; } if
-		 * (args[0].equalsIgnoreCase("top")) { if
-		 * (Utils.getInstance().isInt(args[1])) { topVoter(sender,
-		 * Integer.parseInt(args[1])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[1] + ", number expected")); } return true; }
-		 *
-		 * if (args[0].equalsIgnoreCase("today")) { if
-		 * (Utils.getInstance().isInt(args[1])) { today(sender,
-		 * Integer.parseInt(args[1])); } else {
-		 * sender.sendMessage(Utils.getInstance().colorize( "&cError on " +
-		 * args[1] + ", number expected")); }
-		 *
-		 * return true; } }
-		 */
 
 		// invalid command
 		sender.sendMessage(ChatColor.RED

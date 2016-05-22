@@ -85,7 +85,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-					.warning("Votifier not found, votes may not work");
+			.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -104,253 +104,6 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return new VoteSite(siteName);
-	}
-
-	public void loadBungee() {
-		BungeeVote.getInstance().registerBungeeVoting();
-	}
-
-	public void loadReminders() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
-
-									user.loginMessage();
-								}
-							}
-						}
-					}
-				}, 50, 60 * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Reminders");
-		}
-	}
-
-	public void loadVoteSites() {
-		configVoteSites.setup("Example");
-		voteSites = configVoteSites.getVoteSitesLoad();
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded VoteSites");
-		}
-	}
-
-	private void metrics() {
-		try {
-			Metrics metrics = new Metrics(this);
-			metrics.start();
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info("Loaded Metrics");
-			}
-		} catch (IOException e) {
-			plugin.getLogger().info("Can't submit metrics stats");
-		}
-	}
-
-	@Override
-	public void onDisable() {
-		plugin = null;
-	}
-
-	@Override
-	public void onEnable() {
-		plugin = this;
-		Files.getInstance().loadFileEditngThread();
-		setupFiles();
-		registerCommands();
-		registerEvents();
-		setupEconomy();
-		checkVotifier();
-		metrics();
-
-		CheckUpdate.getInstance().startUp();
-
-		loadVoteSites();
-		loadBungee();
-
-		if (Config.getInstance().getRemindVotesEnabled()) {
-			loadReminders();
-		}
-
-		topVoter = new String[1];
-		voteToday = new String[1];
-		startTimer();
-		plugin.getLogger().info(
-				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
-	}
-
-	private void loadVoteCommand() {
-		voteCommand = new ArrayList<CommandHandler>();
-		voteCommand.add(new CommandHandler(new String[] { "Help" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().help(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Info" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().infoSelf(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Info", "player" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().infoOther(sender, args[1]);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Last", "player" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().lastOther(sender, args[1]);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Last" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().lastSelf(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Next", "player" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().nextOther(sender, args[1]);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Next" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().nextSelf(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "GUI" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().voteGUI(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Today", "number" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				if (Utils.getInstance().isInt(args[1])) {
-					CommandVote.getInstance().today(sender,
-							Integer.parseInt(args[1]));
-				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cError on " + args[1] + ", number expected"));
-				}
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Today" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().today(sender, 1);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Top", "number" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
-					CommandVote.getInstance().today(sender,
-							Integer.parseInt(args[1]));
-				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cError on " + args[1] + ", number expected"));
-				}
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Top" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().today(sender, 1);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Total", "All" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().totalAll(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Total", "player" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().totalOther(sender, args[1]);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] { "Total" }) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().totalSelf(sender);
-
-			}
-		});
-
-		voteCommand.add(new CommandHandler(new String[] {}) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().voteURLs(sender);
-
-			}
-		});
 	}
 
 	private void loadAdminVoteCommand() {
@@ -409,7 +162,7 @@ public class Main extends JavaPlugin {
 		});
 
 		adminVoteCommand.add(new CommandHandler(new String[] { "Sites",
-				"sitename" }) {
+		"sitename" }) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -429,14 +182,14 @@ public class Main extends JavaPlugin {
 		});
 
 		adminVoteCommand
-				.add(new CommandHandler(new String[] { "Reset", "Top" }) {
+		.add(new CommandHandler(new String[] { "Reset", "Top" }) {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().resetTop(sender);
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().resetTop(sender);
 
-					}
-				});
+			}
+		});
 
 		adminVoteCommand.add(new CommandHandler(new String[] { "Vote",
 				"sitename", "player" }) {
@@ -627,8 +380,8 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 				if (Utils.getInstance().isInt(args[3])) {
 					CommandAdminVote.getInstance()
-							.setBonusRewardExtraRewardMoney(sender, args[2],
-									Integer.parseInt(args[3]));
+					.setBonusRewardExtraRewardMoney(sender, args[2],
+							Integer.parseInt(args[3]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cError on " + args[3] + ", number expected"));
@@ -644,8 +397,8 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 				if (Utils.getInstance().isInt(args[3])) {
 					CommandAdminVote.getInstance()
-							.setBonusRewardExtraRewardChance(sender, args[2],
-									Integer.parseInt(args[3]));
+					.setBonusRewardExtraRewardChance(sender, args[2],
+							Integer.parseInt(args[3]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cError on " + args[3] + ", number expected"));
@@ -793,9 +546,9 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandAdminVote.getInstance()
-						.addBonusRewardExtraRewardCommandPlayer(sender,
-								args[2],
-								Utils.getInstance().makeString(3, args));
+				.addBonusRewardExtraRewardCommandPlayer(sender,
+						args[2],
+						Utils.getInstance().makeString(3, args));
 
 			}
 		});
@@ -807,9 +560,9 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandAdminVote.getInstance()
-						.addBonusRewardExtraRewardCommandConsole(sender,
-								args[2],
-								Utils.getInstance().makeString(3, args));
+				.addBonusRewardExtraRewardCommandConsole(sender,
+						args[2],
+						Utils.getInstance().makeString(3, args));
 
 			}
 		});
@@ -821,8 +574,8 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 				if (Utils.getInstance().isInt(args[3])) {
 					CommandAdminVote.getInstance()
-							.setVoteSiteExtraRewardChance(sender, args[1],
-									args[3], Integer.parseInt(args[4]));
+					.setVoteSiteExtraRewardChance(sender, args[1],
+							args[3], Integer.parseInt(args[4]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cError on " + args[3] + ", number expected"));
@@ -849,8 +602,8 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 				if (Utils.getInstance().isInt(args[4])) {
 					CommandAdminVote.getInstance()
-							.setVoteSiteExtraRewardMoney(sender, args[1],
-									args[3], Integer.parseInt(args[4]));
+					.setVoteSiteExtraRewardMoney(sender, args[1],
+							args[3], Integer.parseInt(args[4]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
 							"&cError on " + args[4] + ", number expected"));
@@ -865,29 +618,276 @@ public class Main extends JavaPlugin {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandAdminVote.getInstance()
-						.addVoteSiteExtraRewardCommandPlayer(sender, args[1],
-								args[3],
-								Utils.getInstance().makeString(4, args));
+				.addVoteSiteExtraRewardCommandPlayer(sender, args[1],
+						args[3],
+						Utils.getInstance().makeString(4, args));
 
 			}
 		});
 
 		adminVoteCommand
-				.add(new CommandHandler(new String[] { "VoteSite", "sitename",
-						"AddExtraRewardCommandConsole", "string", "list" }) {
+		.add(new CommandHandler(new String[] { "VoteSite", "sitename",
+				"AddExtraRewardCommandConsole", "string", "list" }) {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote
-								.getInstance()
-								.addVoteSiteExtraRewardCommandConsole(sender,
-										args[1], args[3],
-										Utils.getInstance().makeString(4, args));
+				CommandAdminVote
+				.getInstance()
+				.addVoteSiteExtraRewardCommandConsole(sender,
+						args[1], args[3],
+						Utils.getInstance().makeString(4, args));
 
+			}
+		});
+
+	}
+
+	public void loadBungee() {
+		BungeeVote.getInstance().registerBungeeVoting();
+	}
+
+	public void loadReminders() {
+		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
+				new Runnable() {
+
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
+
+							user.loginMessage();
+						}
 					}
-				});
+				}
+			}
+		}, 50, 60 * 20);
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded Reminders");
+		}
+	}
 
+	private void loadVoteCommand() {
+		voteCommand = new ArrayList<CommandHandler>();
+		voteCommand.add(new CommandHandler(new String[] { "Help" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().help(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Info" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().infoSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Info", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().infoOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Last", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().lastOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Last" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().lastSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Next", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().nextOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Next" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().nextSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "GUI" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteGUI(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Today", "number" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().today(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Today" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().today(sender, 1);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Top", "number" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().today(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Top" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().today(sender, 1);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Total", "All" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalAll(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Total", "player" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalOther(sender, args[1]);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] { "Total" }) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().totalSelf(sender);
+
+			}
+		});
+
+		voteCommand.add(new CommandHandler(new String[] {}) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().voteURLs(sender);
+
+			}
+		});
+	}
+
+	public void loadVoteSites() {
+		configVoteSites.setup("Example");
+		voteSites = configVoteSites.getVoteSitesLoad();
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded VoteSites");
+		}
+	}
+
+	private void metrics() {
+		try {
+			Metrics metrics = new Metrics(this);
+			metrics.start();
+			if (config.getDebugEnabled()) {
+				plugin.getLogger().info("Loaded Metrics");
+			}
+		} catch (IOException e) {
+			plugin.getLogger().info("Can't submit metrics stats");
+		}
+	}
+
+	@Override
+	public void onDisable() {
+		plugin = null;
+	}
+
+	@Override
+	public void onEnable() {
+		plugin = this;
+		Files.getInstance().loadFileEditngThread();
+		setupFiles();
+		registerCommands();
+		registerEvents();
+		setupEconomy();
+		checkVotifier();
+		metrics();
+
+		CheckUpdate.getInstance().startUp();
+
+		loadVoteSites();
+		loadBungee();
+
+		if (Config.getInstance().getRemindVotesEnabled()) {
+			loadReminders();
+		}
+
+		topVoter = new String[1];
+		voteToday = new String[1];
+		startTimer();
+		plugin.getLogger().info(
+				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 	}
 
 	private void registerCommands() {
@@ -1007,11 +1007,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateTopUpdater();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				updateTopUpdater();
+			}
+		}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -1034,7 +1034,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
