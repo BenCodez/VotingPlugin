@@ -31,19 +31,28 @@ public class VoteTabCompleter implements TabCompleter {
 				List<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.voteCommand) {
+
 					String[] cmdArgs = commandHandler.getArgs();
-					if (cmdArgs.length > 0) {
-						if (!cmds.contains(cmdArgs[0])) {
+					if (cmdArgs.length > 1) {
+
+						if (cmdArgs[0].equalsIgnoreCase("player")) {
+							for (Object playerOb : Bukkit.getOnlinePlayers()
+									.toArray()) {
+								Player player = (Player) playerOb;
+								cmds.add(player.getName());
+							}
+						} else if (cmdArgs[0].equalsIgnoreCase("sitename")) {
+							cmds.addAll(ConfigVoteSites.getInstance()
+									.getVoteSitesNames());
+						} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
+							cmds.add("True");
+							cmds.add("False");
+						} else {
 							cmds.add(cmdArgs[0]);
 						}
+
 					}
 				}
-
-				/*
-				 * cmds.add("Next"); cmds.add("Total"); cmds.add("Last");
-				 * cmds.add("Top"); cmds.add("Info"); cmds.add("Help");
-				 * cmds.add("GUI");
-				 */
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -62,7 +71,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 1) {
-						if (cmdArgs[0].equalsIgnoreCase(args[0])) {
+						if (commandHandler.argsMatch(args[0], 0)) {
 							if (cmdArgs[1].equalsIgnoreCase("player")) {
 								for (Object playerOb : Bukkit
 										.getOnlinePlayers().toArray()) {
@@ -72,11 +81,14 @@ public class VoteTabCompleter implements TabCompleter {
 							} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
 								cmds.addAll(ConfigVoteSites.getInstance()
 										.getVoteSitesNames());
+							} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
+								cmds.add("True");
+								cmds.add("False");
 							} else {
 								cmds.add(cmdArgs[1]);
 							}
-
 						}
+
 					}
 				}
 
