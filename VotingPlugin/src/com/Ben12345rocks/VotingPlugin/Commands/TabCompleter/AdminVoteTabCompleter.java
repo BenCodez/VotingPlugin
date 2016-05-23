@@ -30,7 +30,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
+				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 1) {
@@ -67,7 +67,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 				List<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
+				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 1) {
@@ -103,7 +103,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 			} else if (args.length == 3) {
 				List<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
+				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 2) {
@@ -144,7 +144,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 			} else if (args.length == 4) {
 				List<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
+				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
 					String[] cmdArgs = commandHandler.getArgs();
 					if (cmdArgs.length > 3) {

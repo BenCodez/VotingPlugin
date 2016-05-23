@@ -17,14 +17,17 @@ public abstract class CommandHandler {
 	}
 
 	public boolean argsMatch(String arg, int i) {
-		if (args[i].equalsIgnoreCase("player")
-				|| args[i].equalsIgnoreCase("SITENAME")
-				|| args[i].equalsIgnoreCase("number")
-				|| args[i].equalsIgnoreCase("string")
-				|| args[i].equalsIgnoreCase("boolean")
-				|| args[i].equalsIgnoreCase("list")
-				|| arg.equalsIgnoreCase(args[i])) {
-			return true;
+		if (i < args.length) {
+			if (args[i].equalsIgnoreCase("player")
+					|| args[i].equalsIgnoreCase("SITENAME")
+					|| args[i].equalsIgnoreCase("number")
+					|| args[i].equalsIgnoreCase("string")
+					|| args[i].equalsIgnoreCase("boolean")
+					|| args[i].equalsIgnoreCase("list")
+					|| arg.equalsIgnoreCase(args[i])) {
+				return true;
+			}
+			return false;
 		}
 		return false;
 	}
