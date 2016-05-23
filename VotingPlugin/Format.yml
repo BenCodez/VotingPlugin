@@ -138,3 +138,7 @@ Format:
       Line2: '#%position%'
       Line3: '%player%'
       Line4: '%votes% Votes'
+      
+  NoPerms: '&cYou do not have enough permission!'
+  
+  NotNumber: '&cError on &6%arg%&c, number expected!'

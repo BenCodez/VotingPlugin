@@ -276,6 +276,24 @@ public class ConfigFormat {
 		}
 	}
 
+	public String getNoPerms() {
+		String str = getData().getString("Format.NoPerms");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cYou do not have enough permission!";
+		}
+	}
+
+	public String getNotNumber() {
+		String str = getData().getString("Format.NotNumber");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cError on &6%arg%&c, number expected!";
+		}
+	}
+
 	public int getPageSize() {
 		int size = getData().getInt("Format.pagesize");
 		if (size == 0) {

@@ -88,9 +88,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -131,12 +131,12 @@ public class ConfigVoteSites {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
 					"CumulativeReward.Items." + item + ".Enchants").getKeys(
-					false);
+							false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant,
-								getCumulativeRewardEnchantLevel(siteName, item,
-										enchant));
+				.put(enchant,
+						getCumulativeRewardEnchantLevel(siteName, item,
+								enchant));
 			}
 
 			return enchantments;
