@@ -28,7 +28,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 			if (args.length == 1) {
 
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
@@ -53,6 +53,8 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
+				
+				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -65,7 +67,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 			} else if (args.length == 2) {
 
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
@@ -91,6 +93,8 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
+				
+				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -101,7 +105,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				return tab;
 
 			} else if (args.length == 3) {
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
@@ -131,6 +135,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
+				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -142,7 +147,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				return tab;
 
 			} else if (args.length == 4) {
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
@@ -175,6 +180,8 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
+				
+				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

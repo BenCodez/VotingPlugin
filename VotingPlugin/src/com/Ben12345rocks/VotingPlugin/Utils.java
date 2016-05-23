@@ -94,6 +94,11 @@ public class Utils {
 		return list;
 	}
 
+	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
+		Set<String> set = new HashSet<String>(list);
+		return new ArrayList<String>(set);
+	}
+
 	public String colorize(String format) {
 		if (format == null) {
 			return null;

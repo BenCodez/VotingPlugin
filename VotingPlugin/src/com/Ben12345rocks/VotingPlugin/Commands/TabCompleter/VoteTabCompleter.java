@@ -24,11 +24,11 @@ public class VoteTabCompleter implements TabCompleter {
 		if (cmd.getName().equalsIgnoreCase("vote")
 				|| cmd.getName().equalsIgnoreCase("v")) {
 
-			List<String> tab = new ArrayList<String>();
+			ArrayList<String> tab = new ArrayList<String>();
 
 			if (args.length == 1) {
 
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.voteCommand) {
 
@@ -54,6 +54,8 @@ public class VoteTabCompleter implements TabCompleter {
 					}
 				}
 
+				cmds = Utils.getInstance().removeDuplicates(cmds);
+
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
 							args[0])) {
@@ -65,7 +67,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 			} else if (args.length == 2) {
 
-				List<String> cmds = new ArrayList<String>();
+				ArrayList<String> cmds = new ArrayList<String>();
 
 				for (CommandHandler commandHandler : plugin.voteCommand) {
 
@@ -91,6 +93,8 @@ public class VoteTabCompleter implements TabCompleter {
 
 					}
 				}
+
+				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
