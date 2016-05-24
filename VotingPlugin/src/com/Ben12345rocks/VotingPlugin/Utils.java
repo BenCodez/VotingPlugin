@@ -94,11 +94,6 @@ public class Utils {
 		return list;
 	}
 
-	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
-		Set<String> set = new HashSet<String>(list);
-		return new ArrayList<String>(set);
-	}
-
 	public String colorize(String format) {
 		if (format == null) {
 			return null;
@@ -377,6 +372,11 @@ public class Utils {
 		al.addAll(hs);
 
 		return al;
+	}
+
+	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
+		Set<String> set = new HashSet<String>(list);
+		return new ArrayList<String>(set);
 	}
 
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,

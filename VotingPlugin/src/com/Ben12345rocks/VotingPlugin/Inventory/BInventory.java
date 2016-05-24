@@ -89,7 +89,7 @@ public class BInventory implements Listener {
 					if (clickedItem.getItemMeta().getDisplayName()
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
-									.getType()) {
+							.getType()) {
 						button.onClick(event);
 						event.setCancelled(true);
 						return;

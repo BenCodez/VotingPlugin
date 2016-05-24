@@ -53,7 +53,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
-				
+
 				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
@@ -93,7 +93,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
-				
+
 				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
@@ -180,7 +180,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 					}
 				}
-				
+
 				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {

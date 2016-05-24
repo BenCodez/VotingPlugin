@@ -188,71 +188,71 @@ public class Commands {
 		 * inv.addButton(0, new BInventoryButton("&4URL",
 		 * com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
 		 * .voteURLs(), new ItemStack(Material.STONE, 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote"); player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(1, new BInventoryButton("&4Next",
 		 * com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
 		 * .voteCommandNext(new User(player)), new ItemStack( Material.STONE,
 		 * 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote next");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(2, new BInventoryButton("&4Last",
 		 * com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
 		 * .voteCommandLast(new User(player)), new ItemStack( Material.STONE,
 		 * 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote last");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(3, new BInventoryButton("&4Total",
 		 * com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
 		 * .voteCommandTotal(new User(player)), new ItemStack( Material.STONE,
 		 * 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote total");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(4, new BInventoryButton("&4Top", plugin.topVoter, new
 		 * ItemStack(Material.STONE, 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote top");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(5, new BInventoryButton("&4Today", plugin.voteToday,
 		 * new ItemStack(Material.STONE, 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote today");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
-		 * 
+		 *
 		 * inv.addButton(6, new BInventoryButton("&4Help",
 		 * com.Ben12345rocks.VotingPlugin.Commands.Commands.getInstance()
 		 * .voteHelpTextColored(), new ItemStack(Material.STONE, 1)) {
-		 * 
+		 *
 		 * @Override public void onClick(InventoryClickEvent event) { if (player
 		 * != null) { player.performCommand("vote help");
 		 * player.closeInventory(); }
-		 * 
+		 *
 		 * } });
 		 */
 
@@ -296,7 +296,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -306,7 +306,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		.format(date);
 		return timeString;
 	}
 
@@ -452,8 +452,8 @@ public class Commands {
 				}
 				msg.add("&cGiveInEachWorld: &6"
 						+ ConfigVoteSites.getInstance()
-								.getExtraRewardGiveInEachWorld(
-										voteSite.getSiteName(), reward));
+						.getExtraRewardGiveInEachWorld(
+								voteSite.getSiteName(), reward));
 
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));
