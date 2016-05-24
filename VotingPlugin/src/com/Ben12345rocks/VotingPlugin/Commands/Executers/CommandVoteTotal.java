@@ -25,7 +25,7 @@ public class CommandVoteTotal implements CommandExecutor {
 		}
 
 		if (args.length == 1) {
-			if (args[1].equalsIgnoreCase("all")) {
+			if (args[0].equalsIgnoreCase("all")) {
 				CommandVote.getInstance().totalAll(sender);
 			} else {
 				CommandVote.getInstance().totalOther(sender, args[1]);
