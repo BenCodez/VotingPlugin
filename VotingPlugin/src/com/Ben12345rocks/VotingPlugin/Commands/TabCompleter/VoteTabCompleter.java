@@ -39,22 +39,32 @@ public class VoteTabCompleter implements TabCompleter {
 							for (Object playerOb : Bukkit.getOnlinePlayers()
 									.toArray()) {
 								Player player = (Player) playerOb;
-								cmds.add(player.getName());
+								if (!cmds.contains(player.getName())) {
+									cmds.add(player.getName());
+								}
 							}
 						} else if (cmdArgs[0].equalsIgnoreCase("sitename")) {
-							cmds.addAll(ConfigVoteSites.getInstance()
-									.getVoteSitesNames());
+							for (String siteName : ConfigVoteSites
+									.getInstance().getVoteSitesNames()) {
+								if (!cmds.contains(siteName)) {
+									cmds.add(siteName);
+								}
+							}
 						} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
-							cmds.add("True");
-							cmds.add("False");
+							if (!cmds.contains("True")) {
+								cmds.add("True");
+							}
+							if (!cmds.contains("False")) {
+								cmds.add("False");
+							}
 						} else {
-							cmds.add(cmdArgs[0]);
+							if (!cmds.contains(cmdArgs[0])) {
+								cmds.add(cmdArgs[0]);
+							}
 						}
 
 					}
 				}
-
-				cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -78,23 +88,36 @@ public class VoteTabCompleter implements TabCompleter {
 								for (Object playerOb : Bukkit
 										.getOnlinePlayers().toArray()) {
 									Player player = (Player) playerOb;
-									cmds.add(player.getName());
+									if (!cmds.contains(player.getName())) {
+										cmds.add(player.getName());
+									}
 								}
 							} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
-								cmds.addAll(ConfigVoteSites.getInstance()
-										.getVoteSitesNames());
+								for (String siteName : ConfigVoteSites
+										.getInstance().getVoteSitesNames()) {
+									if (!cmds.contains(siteName)) {
+										cmds.add(siteName);
+									}
+								}
+
 							} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
-								cmds.add("True");
-								cmds.add("False");
+								if (!cmds.contains("True")) {
+									cmds.add("True");
+								}
+								if (!cmds.contains("False")) {
+									cmds.add("False");
+								}
 							} else {
-								cmds.add(cmdArgs[1]);
+								if (!cmds.contains(cmdArgs[1])) {
+									cmds.add(cmdArgs[1]);
+								}
 							}
 						}
 
 					}
 				}
 
-				cmds = Utils.getInstance().removeDuplicates(cmds);
+				// cmds = Utils.getInstance().removeDuplicates(cmds);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
