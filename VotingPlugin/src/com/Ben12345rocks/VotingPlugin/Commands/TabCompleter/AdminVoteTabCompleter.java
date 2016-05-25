@@ -33,7 +33,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 
 					String[] cmdArgs = commandHandler.getArgs();
-					if (cmdArgs.length > 1) {
+					if (cmdArgs.length > 0) {
 
 						if (cmdArgs[0].equalsIgnoreCase("player")) {
 							for (Object playerOb : Bukkit.getOnlinePlayers()
