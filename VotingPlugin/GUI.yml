@@ -5,49 +5,49 @@ GUI:
     URL:
       # Standard item format, lore is automaticly applied
       Item:
-        ID: 1
+        ID: 261
         Data: 0
         Amount: 1
         Name: '&4URL'
       Command: 'vote'
     Next:
       Item:
-        ID: 1
+        ID: 345
         Data: 0
         Amount: 1
         Name: '&4Next'
       Command: 'vote next'
     Last:
       Item:
-        ID: 1
+        ID: 347
         Data: 0
         Amount: 1
         Name: '&4Last'
       Command: 'vote last'
     Total:
       Item:
-        ID: 1
+        ID: 54
         Data: 0
         Amount: 1
         Name: '&4Total'
       Command: 'vote total'
     Top:
       Item:
-        ID: 1
+        ID: 323
         Data: 0
         Amount: 1
         Name: '&4Top'
       Command: 'vote top'
     Today:
       Item:
-        ID: 1
+        ID: 340
         Data: 0
         Amount: 1
         Name: '&4Today'
       Command: 'vote today'
     Help:
       Item:
-        ID: 1
+        ID: 386
         Data: 0
         Amount: 1
         Name: '&4Help'
