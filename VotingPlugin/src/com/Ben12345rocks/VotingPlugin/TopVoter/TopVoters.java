@@ -72,7 +72,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}

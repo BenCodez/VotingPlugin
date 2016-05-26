@@ -101,6 +101,17 @@ public class Utils {
 		return ChatColor.translateAlternateColorCodes('&', format);
 	}
 
+	public String[] colorize(String[] list) {
+		if (list == null) {
+			return null;
+		}
+
+		for (int i = 0; i < list.length; i++) {
+			list[i] = colorize(list[i]);
+		}
+		return list;
+	}
+
 	public ArrayList<String> convert(Set<String> set) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String st : set) {
@@ -361,6 +372,11 @@ public class Utils {
 		al.addAll(hs);
 
 		return al;
+	}
+
+	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
+		Set<String> set = new HashSet<String>(list);
+		return new ArrayList<String>(set);
 	}
 
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,

@@ -6,10 +6,8 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -17,10 +15,14 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
+import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class Commands {
 
@@ -134,6 +136,55 @@ public class Commands {
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
 
+	}
+
+	@SuppressWarnings("deprecation")
+	public void openVoteGUI(Player player) {
+		BInventory inv = new BInventory("VoteGUI", 9);
+
+		int count = 0;
+		for (String slot : ConfigGUI.getInstance().getVoteGUISlots()) {
+			ItemStack item = new ItemStack(ConfigGUI.getInstance()
+					.getVoteGUISlotID(slot), ConfigGUI.getInstance()
+					.getVoteGUISlotAmount(slot), (short) ConfigGUI
+					.getInstance().getVoteGUISlotData(slot));
+
+			String[] lore = new String[1];
+
+			if (slot.equalsIgnoreCase("url")) {
+				lore = Commands.getInstance().voteURLs();
+			} else if (slot.equalsIgnoreCase("next")) {
+				lore = Commands.getInstance().voteCommandNext(new User(player));
+			} else if (slot.equalsIgnoreCase("last")) {
+				lore = Commands.getInstance().voteCommandLast(new User(player));
+			} else if (slot.equalsIgnoreCase("total")) {
+				lore = Commands.getInstance()
+						.voteCommandTotal(new User(player));
+			} else if (slot.equalsIgnoreCase("top")) {
+				lore = TopVoter.getInstance().topVoter(1);
+			} else if (slot.equalsIgnoreCase("today")) {
+				lore = plugin.voteToday;
+			} else if (slot.equalsIgnoreCase("help")) {
+				lore = Commands.getInstance().voteHelpTextColored();
+			}
+
+			inv.addButton(count, new BInventoryButton(ConfigGUI.getInstance()
+					.getVoteGUISlotName(slot), lore, item) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (player != null) {
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
+						player.closeInventory();
+					}
+
+				}
+			});
+			count++;
+		}
+
+		BInventory.openInventory(player, inv);
 	}
 
 	public String[] playerInfo(User user) {
@@ -549,76 +600,4 @@ public class Commands {
 		sites = Utils.getInstance().colorize(sites);
 		return Utils.getInstance().convertArray(sites);
 	}
-
-	public void openVoteSitesListGUI(Player player, int page) {
-		String guiName = "VotingPlugin: VoteSites";
-
-		ArrayList<ItemStack> items = new ArrayList<ItemStack>();
-
-		for (VoteSite voteSite : plugin.voteSites) {
-			ItemStack item = new ItemStack(Material.STONE);
-			item = Utils.getInstance().nameItem(item, voteSite.getSiteName());
-			items.add(item);
-		}
-
-		Inventory inv = Bukkit.createInventory(null, 54, guiName);
-
-		int slot = 0;
-
-		for (int i = (page - 1) * 45; i < items.size() && slot <= 54; i++) {
-			try {
-				inv.setItem(slot, items.get(i));
-				slot++;
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
-
-		ItemStack placeHolder = new ItemStack(Material.STAINED_GLASS_PANE, 1,
-				(short) 7);
-
-		ItemStack prevPage = new ItemStack(Material.STAINED_GLASS_PANE, 1,
-				(short) 5);
-
-		int maxPages = 1 + page / 45;
-
-		List<String> lore = new ArrayList<String>();
-		lore.add("&bCurrent Page: &6" + page);
-		lore.add("&bMax Pages: &6" + maxPages);
-
-		prevPage = Utils.getInstance()
-				.addLore(
-						Utils.getInstance().nameItem(prevPage,
-								"&cPrevious Page"), lore);
-
-		ItemStack nextPage = new ItemStack(Material.STAINED_GLASS_PANE, 1,
-				(short) 5);
-
-		nextPage = Utils.getInstance().addLore(
-				Utils.getInstance().nameItem(nextPage, "&cNext Page"), lore);
-
-		ItemStack back = new ItemStack(Material.STAINED_GLASS_PANE, 1,
-				(short) 12);
-
-		back = Utils.getInstance().nameItem(back, "&cBack");
-
-		inv.setItem(45, placeHolder);
-
-		inv.setItem(46, placeHolder);
-
-		inv.setItem(47, prevPage);
-
-		inv.setItem(48, placeHolder);
-		inv.setItem(49, placeHolder);
-		inv.setItem(50, placeHolder);
-
-		inv.setItem(51, nextPage);
-
-		inv.setItem(52, placeHolder);
-
-		inv.setItem(53, back);
-
-		player.openInventory(inv);
-	}
-
 }

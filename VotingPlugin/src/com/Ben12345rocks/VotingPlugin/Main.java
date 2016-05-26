@@ -12,9 +12,11 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
+import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
@@ -32,6 +34,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -42,6 +45,7 @@ import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
+import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -56,6 +60,8 @@ public class Main extends JavaPlugin {
 
 	public static ConfigBonusReward configBonusReward;
 
+	public static ConfigGUI configGUI;
+
 	public static ConfigFormat configFormat;
 
 	public static ConfigVoteSites configVoteSites;
@@ -68,6 +74,10 @@ public class Main extends JavaPlugin {
 
 	public Updater updater;
 
+	public ArrayList<CommandHandler> voteCommand;
+
+	public ArrayList<CommandHandler> adminVoteCommand;
+
 	public ArrayList<VoteSite> voteSites;
 
 	public String[] voteToday;
@@ -75,7 +85,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-					.warning("Votifier not found, votes may not work");
+			.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -104,19 +114,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
 
-									user.loginMessage();
-								}
-							}
+							user.loginMessage();
 						}
 					}
-				}, 50, 60 * 20);
+				}
+			}
+		}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -175,6 +185,8 @@ public class Main extends JavaPlugin {
 	}
 
 	private void registerCommands() {
+		CommandLoader.getInstance().loadCommands();
+
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
 		getCommand("vote").setTabCompleter(new VoteTabCompleter());
@@ -186,6 +198,9 @@ public class Main extends JavaPlugin {
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+
+		// /votegui, /vgui
+		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
 
 		// /votehelp, /vhelp
 		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
@@ -235,6 +250,7 @@ public class Main extends JavaPlugin {
 
 	public void reload() {
 		config.reloadData();
+		configGUI.reloadData();
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
@@ -261,11 +277,12 @@ public class Main extends JavaPlugin {
 		configVoteSites = ConfigVoteSites.getInstance();
 		configFormat = ConfigFormat.getInstance();
 		configBonusReward = ConfigBonusReward.getInstance();
+		configGUI = ConfigGUI.getInstance();
 
 		config.setup(this);
-		// configVoteSites.setup(this);
 		configFormat.setup(this);
 		configBonusReward.setup(this);
+		configGUI.setup(plugin);
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
@@ -283,11 +300,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateTopUpdater();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				updateTopUpdater();
+			}
+		}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -310,7 +327,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

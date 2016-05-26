@@ -53,10 +53,10 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)) {
 						plugin.getLogger()
-						.warning(
-								"VoteSite "
-										+ voteSiteName
-										+ " doe not exist, generaterating one...");
+								.warning(
+										"VoteSite "
+												+ voteSiteName
+												+ " doe not exist, generaterating one...");
 
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
@@ -67,9 +67,9 @@ public class VotiferEvent implements Listener {
 				} else {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
+									+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-					.generateVoteSite(voteSiteName);
+							.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
 					return;
@@ -98,7 +98,7 @@ public class VotiferEvent implements Listener {
 					if (allVotes) {
 						user.giveBonus();
 					}
-					
+
 					user.playVoteSound();
 				} else {
 					if (allVotes) {
@@ -143,6 +143,16 @@ public class VotiferEvent implements Listener {
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("PlayerUsername: " + voteUsername);
 			plugin.getLogger().info("VoteSite: " + voteSite);
+		}
+
+		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSite);
+
+		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+				plugin.getVoteSite(voteSiteName), new User(voteUsername));
+		plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+		if (voteEvent.isCancelled()) {
+			return;
 		}
 
 		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);

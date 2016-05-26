@@ -5,7 +5,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Messages.Messages;
 
 public class CommandVoteNext implements CommandExecutor {
 
@@ -32,7 +31,7 @@ public class CommandVoteNext implements CommandExecutor {
 		}
 
 		// invalid command
-		sender.sendMessage(Messages.getInstance().invalidCommand());
+		sender.sendMessage("Invalid Command, see /vote help");
 
 		return true;
 	}
