@@ -50,7 +50,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 									cmds.add(siteName);
 								}
 							}
-						} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
+						} else if (cmdArgs[0].equalsIgnoreCase("boolean")) {
 							if (!cmds.contains("True")) {
 								cmds.add("True");
 							}
