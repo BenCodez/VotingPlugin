@@ -81,6 +81,11 @@ public class BInventory implements Listener {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
+		// Main.plugin.getLogger().info("Event trigger");
+		if (event.isCancelled()) {
+			// Main.plugin.getLogger().info("Event cancelled");
+			return;
+		}
 		ItemStack clickedItem = event.getCurrentItem();
 		Inventory inv = event.getInventory();
 		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
@@ -90,8 +95,10 @@ public class BInventory implements Listener {
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
 							.getType()) {
+						// Main.plugin.getLogger().info("Running code");
 						button.onClick(event);
 						event.setCancelled(true);
+
 						return;
 					}
 				}
