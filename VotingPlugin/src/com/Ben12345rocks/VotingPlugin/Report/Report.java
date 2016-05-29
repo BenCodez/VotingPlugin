@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class Report {
@@ -73,11 +74,17 @@ public class Report {
 			for (File file : files) {
 				fileList.add(file);
 				if (file.isDirectory()) {
-					plugin.getLogger().info(
-							"directory:" + file.getCanonicalPath());
+					if (Config.getInstance().getDebugEnabled()) {
+						plugin.getLogger().info(
+								"directory:" + file.getCanonicalPath());
+					}
 					getAllFiles(file, fileList);
 				} else {
-					plugin.getLogger().info("file:" + file.getCanonicalPath());
+
+					if (Config.getInstance().getDebugEnabled()) {
+						plugin.getLogger().info(
+								"file:" + file.getCanonicalPath());
+					}
 				}
 			}
 		} catch (IOException e) {
@@ -90,10 +97,19 @@ public class Report {
 		try {
 			Date date = new Date();
 			@SuppressWarnings("deprecation")
-			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder().getAbsolutePath()
-					+ File.separator  + "Report"
-					+ (date.getYear() + 1900) + "." + (date.getMonth() + 1)
-					+ "." + date.getDate() + ".zip");
+			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
+					.getAbsolutePath()
+					+ File.separator
+					+ "Report"
+					+ (date.getYear() + 1900)
+					+ "."
+					+ (date.getMonth() + 1)
+					+ "."
+					+ date.getDate()
+					+ "."
+					+ date.getHours()
+					+ "."
+					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
 			ZipOutputStream zos = new ZipOutputStream(fos);
 
 			for (File file : fileList) {
@@ -117,7 +133,10 @@ public class Report {
 		FileInputStream fis = new FileInputStream(file);
 
 		String zipFilePath = file.getPath();
-		plugin.getLogger().info("Writing '" + zipFilePath + "' to zip file");
+		if (Config.getInstance().getDebugEnabled()) {
+			plugin.getLogger()
+					.info("Writing '" + zipFilePath + "' to zip file");
+		}
 		ZipEntry zipEntry = new ZipEntry(zipFilePath);
 		zos.putNextEntry(zipEntry);
 

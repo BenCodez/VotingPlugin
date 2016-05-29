@@ -613,7 +613,7 @@ public class Commands {
 						.getInstance().getVoteURLCanVoteItemData());
 			} else {
 				lore.add(ConfigGUI.getInstance().getVoteURLNextVote()
-						.replace("%Info", voteCommandNextInfo(user, voteSite)));
+						.replace("%Info%", voteCommandNextInfo(user, voteSite)));
 			}
 
 			inv.addButton(
