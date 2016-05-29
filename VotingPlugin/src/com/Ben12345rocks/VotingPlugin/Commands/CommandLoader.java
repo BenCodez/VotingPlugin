@@ -67,6 +67,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				Report.getInstance().create();
+				sender.sendMessage("Created Zip File!");
 
 			}
 		});
