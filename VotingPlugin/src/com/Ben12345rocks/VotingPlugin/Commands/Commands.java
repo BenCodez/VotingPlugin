@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -9,6 +10,7 @@ import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -56,6 +58,7 @@ public class Commands {
 		msg.add("() = Needed");
 		msg.add("Aliases: adminvote, av");
 		msg.add("/adminvote help - See this page");
+		msg.add("/adminvote perms - See list of perms");
 		msg.add("/adminvote vote (player) (sitename) - Trigger vote");
 		msg.add("/adminvote bungeevote (player) (sitename) - Trigger bungee only vote");
 		msg.add("/adminvote servervote (player) (sitename) - Trigger server only vote");
@@ -95,6 +98,19 @@ public class Commands {
 		msg.add("/adminvote Config SetDisableTopVoterAwards (true/false) - Set disabletopvoterawards");
 		msg.add("/adminvote ServerData SetPrevMonth - Set prevmonth, DO NOT USE");
 		return msg;
+	}
+
+	public String[] listPerms() {
+		ArrayList<String> msg = new ArrayList<String>();
+
+		for (Permission perm : plugin.getDescription().getPermissions()) {
+			msg.add(perm.getName());
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		Collections.sort(msg, String.CASE_INSENSITIVE_ORDER);
+
+		return Utils.getInstance().convertArray(msg);
 	}
 
 	public String[] adminHelpTextColored() {
@@ -224,7 +240,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -234,7 +250,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-		.format(date);
+				.format(date);
 		return timeString;
 	}
 
@@ -380,8 +396,8 @@ public class Commands {
 				}
 				msg.add("&cGiveInEachWorld: &6"
 						+ ConfigVoteSites.getInstance()
-						.getExtraRewardGiveInEachWorld(
-								voteSite.getSiteName(), reward));
+								.getExtraRewardGiveInEachWorld(
+										voteSite.getSiteName(), reward));
 
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));

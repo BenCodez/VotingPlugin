@@ -59,6 +59,16 @@ public class CommandLoader {
 
 			}
 		});
+		
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Perms" },
+				"VotingPlugin.Commands.AdminVote.Perms") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().permList(sender);
+
+			}
+		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "?" },
 				"VotingPlugin.Commands.AdminVote.Help") {

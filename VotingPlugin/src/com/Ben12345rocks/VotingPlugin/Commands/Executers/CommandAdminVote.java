@@ -598,4 +598,10 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	public void permList(CommandSender sender) {
+
+		sender.sendMessage(Commands.getInstance().listPerms());
+
+	}
+
 }

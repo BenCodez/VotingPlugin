@@ -128,6 +128,8 @@ permissions:
     description: Allows access to /vote help
   VotingPlugin.Commands.AdminVote.Help: 
     description: Allows access to /adminvote help
+  VotingPlugin.Commands.AdminVote.Perms: 
+    description: Allows access to /adminvote Perms
   VotingPlugin.Commands.AdminVote.Vote: 
     description: Allows access to /adminvote vote <player> <site>
   VotingPlugin.Commands.AdminVote.BungeeVote: 
