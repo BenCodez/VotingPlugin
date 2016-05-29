@@ -13,6 +13,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
+import com.Ben12345rocks.VotingPlugin.Report.Report;
 
 public class CommandLoader {
 
@@ -56,6 +57,16 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandAdminVote.getInstance().help(sender);
+
+			}
+		});
+		
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Report" },
+				"VotingPlugin.Commands.AdminVote.Report") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				Report.getInstance().create();
 
 			}
 		});
