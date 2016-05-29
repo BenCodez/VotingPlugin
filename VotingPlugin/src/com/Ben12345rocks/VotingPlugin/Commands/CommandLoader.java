@@ -13,6 +13,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
+import com.Ben12345rocks.VotingPlugin.Report.Report;
 
 public class CommandLoader {
 
@@ -56,6 +57,27 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandAdminVote.getInstance().help(sender);
+
+			}
+		});
+		
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Report" },
+				"VotingPlugin.Commands.AdminVote.Report") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				Report.getInstance().create();
+				sender.sendMessage("Created Zip File!");
+
+			}
+		});
+		
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Perms" },
+				"VotingPlugin.Commands.AdminVote.Perms") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().permList(sender);
 
 			}
 		});
@@ -593,6 +615,15 @@ public class CommandLoader {
 
 			}
 		});
+		plugin.voteCommand.add(new CommandHandler(new String[] { "URL" },
+				"VotingPlugin.Commands.Vote.Help") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteURL(sender);
+
+			}
+		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Info" },
 				"VotingPlugin.Commands.Vote.Info") {
@@ -755,8 +786,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().voteURLs(sender);
+				if (!Config.getInstance().getVoteURLDefault()) {
+					CommandVote.getInstance().voteURLs(sender);
+				} else {
+					CommandVote.getInstance().voteURL(sender);
+				}
 
 			}
 		});

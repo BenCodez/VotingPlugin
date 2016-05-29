@@ -196,6 +196,17 @@ public class CommandVote implements CommandExecutor {
 
 	}
 
+	public void voteURL(CommandSender sender) {
+
+		if (sender instanceof Player) {
+
+			Commands.getInstance().voteURL((Player) sender);
+
+		} else {
+			sender.sendMessage("Must be a player to do this!");
+		}
+	}
+
 	public void voteURLs(CommandSender sender) {
 		sender.sendMessage(Commands.getInstance().voteURLs());
 	}

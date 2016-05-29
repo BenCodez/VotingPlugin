@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.TabCompleter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.bukkit.Bukkit;
@@ -66,6 +67,8 @@ public class VoteTabCompleter implements TabCompleter {
 					}
 				}
 
+				Collections.sort(cmds, String.CASE_INSENSITIVE_ORDER);
+
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
 							args[0])) {
@@ -117,7 +120,7 @@ public class VoteTabCompleter implements TabCompleter {
 					}
 				}
 
-				// cmds = Utils.getInstance().removeDuplicates(cmds);
+				Collections.sort(cmds, String.CASE_INSENSITIVE_ORDER);
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

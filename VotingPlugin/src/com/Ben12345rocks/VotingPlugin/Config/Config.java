@@ -73,6 +73,10 @@ public class Config {
 		return (float) getData().getDouble("VoteSound.Volume");
 	}
 
+	public boolean getVoteURLDefault() {
+		return getData().getBoolean("VoteURLDefault");
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
@@ -119,7 +123,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

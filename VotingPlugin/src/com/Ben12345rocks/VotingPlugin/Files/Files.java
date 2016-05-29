@@ -17,15 +17,15 @@ public class Files {
 				data.save(file);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not save "
-								+ file.getName());
+				.getLogger()
+				.severe(ChatColor.RED + "Could not save "
+						+ file.getName());
 			}
 		}
 
 		@Override
 		public void run() {
-			plugin.getLogger().info("File Editng Thread Loaded!");
+			plugin.getLogger().info("File Editing Thread Loaded!");
 		}
 	}
 

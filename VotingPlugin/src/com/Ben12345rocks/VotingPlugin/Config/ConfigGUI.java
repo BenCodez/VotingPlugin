@@ -34,28 +34,113 @@ public class ConfigGUI {
 		ConfigGUI.plugin = plugin;
 	}
 
+	public FileConfiguration getData() {
+		return data;
+	}
+
 	public int getVoteGUISlotAmount(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.Amount");
+		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Amount");
 	}
 
 	public String getVoteGUISlotCommand(String slot) {
-		return data.getString("GUI.VoteGUI." + slot + ".Command");
+		return getData().getString("GUI.VoteGUI." + slot + ".Command");
 	}
 
 	public int getVoteGUISlotData(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.Data");
+		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Data");
 	}
 
 	public int getVoteGUISlotID(String slot) {
-		return data.getInt("GUI.VoteGUI." + slot + ".Item.ID");
+		return getData().getInt("GUI.VoteGUI." + slot + ".Item.ID");
 	}
 
 	public String getVoteGUISlotName(String slot) {
-		return data.getString("GUI.VoteGUI." + slot + ".Item.Name");
+		return getData().getString("GUI.VoteGUI." + slot + ".Item.Name");
 	}
 
 	public Set<String> getVoteGUISlots() {
-		return data.getConfigurationSection("GUI.VoteGUI").getKeys(false);
+		return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
+	}
+
+	public int getVoteURLAlreadyVotedItemAmount() {
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Amount");
+		if (num != 0) {
+			return num;
+		} else {
+			return 1;
+		}
+	}
+
+	public int getVoteURLAlreadyVotedItemData() {
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
+		if (num != 0) {
+			return num;
+		} else {
+			return 0;
+		}
+	}
+
+	public int getVoteURLAlreadyVotedItemID() {
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.ID");
+		if (num != 0) {
+			return num;
+		} else {
+			return 152;
+		}
+	}
+
+	public int getVoteURLCanVoteItemAmount() {
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Amount");
+		if (num != 0) {
+			return num;
+		} else {
+			return 1;
+		}
+	}
+
+	public int getVoteURLCanVoteItemData() {
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Data");
+		if (num != 0) {
+			return num;
+		} else {
+			return 0;
+		}
+	}
+
+	public int getVoteURLCanVoteItemID() {
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.ID");
+		if (num != 0) {
+			return num;
+		} else {
+			return 133;
+		}
+	}
+
+	public String getVoteURLNextVote() {
+		String str = getData().getString("GUI.VoteURL.NextVote");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cCan Vote In: %Info%";
+		}
+	}
+
+	public String getVoteURLSeeURL() {
+		String str = getData().getString("GUI.VoteURL.SeeURL");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cClick to see URL";
+		}
+	}
+
+	public String getVoteURLSiteName() {
+		String str = getData().getString("GUI.VoteURL.SiteName");
+		if (str != null) {
+			return str;
+		} else {
+			return "&c%Name%";
+		}
 	}
 
 	public void reloadData() {

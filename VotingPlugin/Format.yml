@@ -97,6 +97,7 @@ Format:
         - '/vote info [Player] - See player info'
         - '/vote today [Page] - See who voted today'
         - '/vote gui - Open GUI for player'
+        - '/vote url - Oepn GUI for links'
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  

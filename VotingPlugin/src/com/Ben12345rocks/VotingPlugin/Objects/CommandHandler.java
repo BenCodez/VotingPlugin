@@ -10,10 +10,12 @@ public abstract class CommandHandler {
 	static Main plugin = Main.plugin;
 	private String[] args;
 	private String perm;
+	private String helpMessage;
 
 	public CommandHandler(String[] args, String perm) {
 		this.args = args;
 		this.perm = perm;
+		this.helpMessage = "";
 	}
 
 	public boolean argsMatch(String arg, int i) {
@@ -52,7 +54,7 @@ public abstract class CommandHandler {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-										.replace("%arg%", args[i])));
+								.replace("%arg%", args[i])));
 						return true;
 					}
 				}
@@ -74,6 +76,14 @@ public abstract class CommandHandler {
 
 	public void setPerm(String perm) {
 		this.perm = perm;
+	}
+
+	public String getHelpMessage() {
+		return helpMessage;
+	}
+
+	public void setHelpMessage(String helpMessage) {
+		this.helpMessage = helpMessage;
 	}
 
 }
