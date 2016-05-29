@@ -25,7 +25,7 @@ public class Files {
 
 		@Override
 		public void run() {
-			plugin.getLogger().info("File Editng Thread Loaded!");
+			plugin.getLogger().info("File Editing Thread Loaded!");
 		}
 	}
 
