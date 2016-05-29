@@ -63,39 +63,84 @@ public class ConfigGUI {
 	}
 
 	public int getVoteURLAlreadyVotedItemAmount() {
-		return getData().getInt("GUI.VoteURL.AlreadyVotedItem.Amount");
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Amount");
+		if (num != 0) {
+			return num;
+		} else {
+			return 1;
+		}
 	}
 
 	public int getVoteURLAlreadyVotedItemData() {
-		return getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
+		if (num != 0) {
+			return num;
+		} else {
+			return 0;
+		}
 	}
 
 	public int getVoteURLAlreadyVotedItemID() {
-		return getData().getInt("GUI.VoteURL.AlreadyVotedItem.ID");
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.ID");
+		if (num != 0) {
+			return num;
+		} else {
+			return 152;
+		}
 	}
 
 	public int getVoteURLCanVoteItemAmount() {
-		return getData().getInt("GUI.VoteURL.CanVoteItem.Amount");
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Amount");
+		if (num != 0) {
+			return num;
+		} else {
+			return 1;
+		}
 	}
 
 	public int getVoteURLCanVoteItemData() {
-		return getData().getInt("GUI.VoteURL.CanVoteItem.Data");
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Data");
+		if (num != 0) {
+			return num;
+		} else {
+			return 0;
+		}
 	}
 
 	public int getVoteURLCanVoteItemID() {
-		return getData().getInt("GUI.VoteURL.CanVoteItem.ID");
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.ID");
+		if (num != 0) {
+			return num;
+		} else {
+			return 133;
+		}
 	}
 
 	public String getVoteURLNextVote() {
-		return getData().getString("GUI.VoteURL.NextVote");
+		String str = getData().getString("GUI.VoteURL.NextVote");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cCan Vote In: %Info%";
+		}
 	}
 
 	public String getVoteURLSeeURL() {
-		return getData().getString("GUI.VoteURL.SeeURL");
+		String str = getData().getString("GUI.VoteURL.SeeURL");
+		if (str != null) {
+			return str;
+		} else {
+			return "&cClick to see URL";
+		}
 	}
 
 	public String getVoteURLSiteName() {
-		return getData().getString("GUI.VoteURL.SiteName");
+		String str = getData().getString("GUI.VoteURL.SiteName");
+		if (str != null) {
+			return str;
+		} else {
+			return "&c%Name%";
+		}
 	}
 
 	public void reloadData() {
@@ -119,7 +164,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 
