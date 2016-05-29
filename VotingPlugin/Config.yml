@@ -25,6 +25,9 @@ AllowUnjoined: false
 # Disable Montly Top Voter Awards
 DisableTopVoterAwards: true
 
+# If true /vote will open VoteURL GUI
+VoteURLDefault: false
+
 # Sound on vote
 VoteSound:
   # Enable or Disable Sound

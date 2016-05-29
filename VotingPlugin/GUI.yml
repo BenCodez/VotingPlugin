@@ -52,3 +52,15 @@ GUI:
         Amount: 1
         Name: '&4Help'
       Command: 'vote help'
+  VoteURL:
+    SiteName: '&c%Name%'
+    SeeURL: '&cClick to see URL'
+    NextVote: '&cCan Vote In: %Info%'
+    AlreadyVotedItem:
+      ID: 152
+      Data: 0 
+      Amount: 1
+    CanVoteItem:
+      ID: 133
+      Data: 0
+      Amount: 1

@@ -593,6 +593,15 @@ public class CommandLoader {
 
 			}
 		});
+		plugin.voteCommand.add(new CommandHandler(new String[] { "URL" },
+				"VotingPlugin.Commands.Vote.Help") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteURL(sender);
+
+			}
+		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Info" },
 				"VotingPlugin.Commands.Vote.Info") {
@@ -755,8 +764,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().voteURLs(sender);
+				if (!Config.getInstance().getVoteURLDefault()) {
+					CommandVote.getInstance().voteURLs(sender);
+				} else {
+					CommandVote.getInstance().voteURL(sender);
+				}
 
 			}
 		});

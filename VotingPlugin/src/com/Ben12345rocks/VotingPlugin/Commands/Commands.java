@@ -576,6 +576,52 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	@SuppressWarnings("deprecation")
+	public void voteURL(Player player) {
+		BInventory inv = new BInventory("VoteURL", 9);
+
+		int count = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			ItemStack item = new ItemStack(ConfigGUI.getInstance()
+					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
+					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
+					.getInstance().getVoteURLAlreadyVotedItemData());
+			ArrayList<String> lore = new ArrayList<String>();
+			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
+
+			User user = new User(player);
+			if (user.canVoteSite(voteSite)) {
+				item = new ItemStack(ConfigGUI.getInstance()
+						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
+						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
+						.getInstance().getVoteURLCanVoteItemData());
+			} else {
+				lore.add(ConfigGUI.getInstance().getVoteURLNextVote()
+						.replace("%Info", voteCommandNextInfo(user, voteSite)));
+			}
+
+			inv.addButton(
+					count,
+					new BInventoryButton(ConfigGUI.getInstance()
+							.getVoteURLSiteName()
+							.replace("%Name%", voteSite.getSiteName()), Utils
+							.getInstance().convertArray(lore), item) {
+
+						@Override
+						public void onClick(InventoryClickEvent event) {
+							if (player != null) {
+								player.sendMessage(voteSite.getVoteURL());
+								player.closeInventory();
+							}
+
+						}
+					});
+			count++;
+		}
+
+		BInventory.openInventory(player, inv);
+	}
+
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
