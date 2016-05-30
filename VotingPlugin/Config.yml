@@ -28,6 +28,10 @@ DisableTopVoterAwards: true
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false
 
+# If true, plugin will not automaticly
+# generate votesites
+DisableAutoCreateVoteSites: false
+
 # Sound on vote
 VoteSound:
   # Enable or Disable Sound

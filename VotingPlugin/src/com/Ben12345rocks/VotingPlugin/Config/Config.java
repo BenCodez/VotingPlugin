@@ -49,6 +49,10 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
+	public boolean getDisableAutoCreateVoteSites() {
+		return getData().getBoolean("DisableAutoCreateVoteSites");
+	}
+
 	public boolean getRemindVotesEnabled() {
 		return getData().getBoolean("RemindVotes");
 	}
@@ -123,7 +127,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
