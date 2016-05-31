@@ -257,12 +257,17 @@ public class Utils {
 	public String getVoteSiteName(String url) {
 		ArrayList<String> sites = ConfigVoteSites.getInstance()
 				.getVoteSitesNames();
+		if (url == null) {
+			return null;
+		}
 		if (sites != null) {
 			for (String siteName : sites) {
 				String URL = ConfigVoteSites.getInstance().getServiceSite(
 						siteName);
-				if (URL.equals(url)) {
-					return siteName;
+				if (URL != null) {
+					if (URL.equals(url)) {
+						return siteName;
+					}
 				}
 			}
 		}

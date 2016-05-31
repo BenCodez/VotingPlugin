@@ -41,6 +41,11 @@ public class VotiferEvent implements Listener {
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
 
+		if (voteSiteName == null) {
+			plugin.getLogger().info("SiteName = null");
+			return;
+		}
+
 		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
