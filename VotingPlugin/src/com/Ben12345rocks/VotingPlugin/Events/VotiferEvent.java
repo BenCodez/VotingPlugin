@@ -41,6 +41,11 @@ public class VotiferEvent implements Listener {
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
 
+		if (voteSiteName == null) {
+			plugin.getLogger().info("SiteName = null");
+			return;
+		}
+
 		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
@@ -51,7 +56,9 @@ public class VotiferEvent implements Listener {
 
 				// check if a valid site
 				if (sites != null) {
-					if (!sites.contains(voteSiteName)) {
+					if (!sites.contains(voteSiteName)
+							&& !Config.getInstance()
+									.getDisableAutoCreateVoteSites()) {
 						plugin.getLogger()
 								.warning(
 										"VoteSite "
