@@ -579,7 +579,11 @@ public class Commands {
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
 					if (new Date().getDate() == Utils.getInstance()
-							.getDayFromMili(time)) {
+							.getDayFromMili(time)
+							&& new Date().getMonth() == Utils.getInstance()
+									.getMonthFromMili(time)
+							&& new Date().getYear() == Utils.getInstance()
+									.getYearFromMili(time)) {
 
 						String timeString = new SimpleDateFormat(
 								format.getTimeFormat()).format(new Date(time));
