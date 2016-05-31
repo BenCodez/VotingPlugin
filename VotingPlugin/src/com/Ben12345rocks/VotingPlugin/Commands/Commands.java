@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -632,6 +633,72 @@ public class Commands {
 
 						}
 					});
+			count++;
+		}
+
+		BInventory.openInventory(player, inv);
+	}
+
+	public void voteReward(Player player, String siteName) {
+		BInventory inv = new BInventory("VoteReward", 9);
+
+		int count = 0;
+		if (siteName == null || siteName == "") {
+			for (VoteSite voteSite : plugin.voteSites) {
+				ItemStack item = new ItemStack(Material.STONE);
+
+				inv.addButton(count,
+						new BInventoryButton("&c" + voteSite.getSiteName(),
+								new String[] {}, item) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								if (player != null) {
+									player.performCommand("vote reward "
+											+ voteSite.getSiteName());
+									player.closeInventory();
+								}
+
+							}
+						});
+				count++;
+			}
+		} else {
+			ItemStack item = new ItemStack(Material.STONE);
+
+			if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
+				player.sendMessage("Invalid votesite name!");
+				return;
+			}
+
+			VoteSite voteSite = plugin.getVoteSite(siteName);
+			if (voteSite == null) {
+				player.sendMessage("Invalid votesite name!");
+				return;
+			}
+
+			ArrayList<String> lore = new ArrayList<String>();
+
+			lore.add("Money: " + voteSite.getMoney());
+
+			lore.add("Items: ");
+
+			for (ItemStack itemReward : voteSite.getItems()) {
+				lore.add("- " + itemReward.getType() + ": "
+						+ itemReward.getItemMeta().getDisplayName());
+			}
+
+			inv.addButton(count, new BInventoryButton("&cBase Rewards",
+					new String[] {}, item) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (player != null) {
+						player.closeInventory();
+					}
+
+				}
+			});
 			count++;
 		}
 
