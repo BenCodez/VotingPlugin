@@ -56,7 +56,9 @@ public class VotiferEvent implements Listener {
 
 				// check if a valid site
 				if (sites != null) {
-					if (!sites.contains(voteSiteName)) {
+					if (!sites.contains(voteSiteName)
+							&& !Config.getInstance()
+									.getDisableAutoCreateVoteSites()) {
 						plugin.getLogger()
 								.warning(
 										"VoteSite "
