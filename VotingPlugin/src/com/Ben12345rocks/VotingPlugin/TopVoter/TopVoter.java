@@ -113,6 +113,7 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	@SuppressWarnings("deprecation")
 	public String[] topVoterNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
@@ -120,6 +121,13 @@ public class TopVoter {
 			ArrayList<User> users = Utils.getInstance().convertSet(users1);
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+
+				OfflinePlayer player = Bukkit.getOfflinePlayer(users.get(i)
+						.getPlayerName());
+				if (player.getPlayer().hasPermission(
+						"VotingPlugin.TopVoter.Ignore")) {
 					users.remove(i);
 				}
 			}
