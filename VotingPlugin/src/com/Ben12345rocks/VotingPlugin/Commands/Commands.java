@@ -190,6 +190,7 @@ public class Commands {
 
 				@Override
 				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
 					if (player != null) {
 						player.performCommand(ConfigGUI.getInstance()
 								.getVoteGUISlotCommand(slot));
@@ -630,6 +631,7 @@ public class Commands {
 
 						@Override
 						public void onClick(InventoryClickEvent event) {
+							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
 								player.sendMessage(voteSite.getVoteURL());
 								player.closeInventory();
@@ -657,6 +659,7 @@ public class Commands {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
+								Player player = (Player) event.getWhoClicked();
 								if (player != null) {
 									player.performCommand("vote reward "
 											+ voteSite.getSiteName());
@@ -697,6 +700,7 @@ public class Commands {
 
 				@Override
 				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
 					if (player != null) {
 						player.closeInventory();
 					}

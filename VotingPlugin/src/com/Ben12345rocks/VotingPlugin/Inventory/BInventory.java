@@ -13,12 +13,14 @@ import java.util.Map.Entry;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 
 public class BInventory implements Listener {
@@ -76,14 +78,14 @@ public class BInventory implements Listener {
 	}
 
 	// event handling
-	@EventHandler
+	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
-		// Main.plugin.getLogger().info("Event trigger");
+		Main.plugin.getLogger().info("Event trigger");
 		if (event.isCancelled()) {
-			// Main.plugin.getLogger().info("Event cancelled");
+			Main.plugin.getLogger().info("Event cancelled");
 			return;
 		}
 		ItemStack clickedItem = event.getCurrentItem();
@@ -95,7 +97,7 @@ public class BInventory implements Listener {
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
 									.getType()) {
-						// Main.plugin.getLogger().info("Running code");
+						Main.plugin.getLogger().info("Running code");
 						button.onClick(event);
 						event.setCancelled(true);
 

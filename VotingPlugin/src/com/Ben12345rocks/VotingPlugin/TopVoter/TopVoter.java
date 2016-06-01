@@ -6,6 +6,9 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -47,9 +50,14 @@ public class TopVoter {
 						.getPossibleRewardPlaces();
 				int i = 0;
 				for (User user : topVotersSortedAll()) {
-					i++;
-					if (places.contains(Integer.toString(i))) {
-						user.topVoterAward(i);
+					OfflinePlayer player = Bukkit.getOfflinePlayer(user
+							.getPlayerName());
+					if (!player.getPlayer().hasPermission(
+							"VotingPlugin.TopVoter.Ignore")) {
+						i++;
+						if (places.contains(Integer.toString(i))) {
+							user.topVoterAward(i);
+						}
 					}
 				}
 			}

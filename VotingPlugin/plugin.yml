@@ -160,5 +160,7 @@ permissions:
     description: Allows access to commands which edit ServerData.yml
   VotingPlugin.Signs.Create:
     description: Allows access to create signs
+  VotingPlugin.TopVoter.Ignore:
+    description: Allows you to be exempt from top voter
 
   
