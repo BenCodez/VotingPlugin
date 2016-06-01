@@ -24,8 +24,66 @@ public class Report {
 
 	static Main plugin = Main.plugin;
 
+	public static void addToZip(File directoryToZip, File file,
+			ZipOutputStream zos) throws FileNotFoundException, IOException {
+
+		FileInputStream fis = new FileInputStream(file);
+
+		String zipFilePath = file.getPath();
+		if (Config.getInstance().getDebugEnabled()) {
+			plugin.getLogger()
+			.info("Writing '" + zipFilePath + "' to zip file");
+		}
+		ZipEntry zipEntry = new ZipEntry(zipFilePath);
+		zos.putNextEntry(zipEntry);
+
+		byte[] bytes = new byte[1024];
+		int length;
+		while ((length = fis.read(bytes)) >= 0) {
+			zos.write(bytes, 0, length);
+		}
+
+		zos.closeEntry();
+		fis.close();
+	}
+
 	public static Report getInstance() {
 		return instance;
+	}
+
+	public static void writeZipFile(File directoryToZip, List<File> fileList) {
+
+		try {
+			Date date = new Date();
+			@SuppressWarnings("deprecation")
+			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
+					.getAbsolutePath()
+					+ File.separator
+					+ "Report"
+					+ (date.getYear() + 1900)
+					+ "."
+					+ (date.getMonth() + 1)
+					+ "."
+					+ date.getDate()
+					+ "."
+					+ date.getHours()
+					+ "."
+					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
+			ZipOutputStream zos = new ZipOutputStream(fos);
+
+			for (File file : fileList) {
+				if (!file.isDirectory()) { // we only zip files, not directories
+					addToZip(directoryToZip, file, zos);
+				}
+			}
+
+			zos.close();
+			fos.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	FileConfiguration data;
@@ -37,18 +95,6 @@ public class Report {
 
 	public Report(Main plugin) {
 		Report.plugin = plugin;
-	}
-
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
 	}
 
 	public void create() {
@@ -92,61 +138,15 @@ public class Report {
 		}
 	}
 
-	public static void writeZipFile(File directoryToZip, List<File> fileList) {
-
-		try {
-			Date date = new Date();
-			@SuppressWarnings("deprecation")
-			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
-					.getAbsolutePath()
-					+ File.separator
-					+ "Report"
-					+ (date.getYear() + 1900)
-					+ "."
-					+ (date.getMonth() + 1)
-					+ "."
-					+ date.getDate()
-					+ "."
-					+ date.getHours()
-					+ "."
-					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
-			ZipOutputStream zos = new ZipOutputStream(fos);
-
-			for (File file : fileList) {
-				if (!file.isDirectory()) { // we only zip files, not directories
-					addToZip(directoryToZip, file, zos);
-				}
-			}
-
-			zos.close();
-			fos.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+	public FileConfiguration getData() {
+		return data;
 	}
 
-	public static void addToZip(File directoryToZip, File file,
-			ZipOutputStream zos) throws FileNotFoundException, IOException {
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
 
-		FileInputStream fis = new FileInputStream(file);
-
-		String zipFilePath = file.getPath();
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger()
-					.info("Writing '" + zipFilePath + "' to zip file");
-		}
-		ZipEntry zipEntry = new ZipEntry(zipFilePath);
-		zos.putNextEntry(zipEntry);
-
-		byte[] bytes = new byte[1024];
-		int length;
-		while ((length = fis.read(bytes)) >= 0) {
-			zos.write(bytes, 0, length);
-		}
-
-		zos.closeEntry();
-		fis.close();
+	public void saveData() {
+		Files.getInstance().editFile(dFile, data);
 	}
 }

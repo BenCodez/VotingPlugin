@@ -113,8 +113,9 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	@SuppressWarnings("deprecation")
 	public String[] topVoterNoColor() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
@@ -124,11 +125,13 @@ public class TopVoter {
 					users.remove(i);
 				}
 
-				OfflinePlayer player = Bukkit.getOfflinePlayer(users.get(i)
-						.getPlayerName());
-				if (player.getPlayer().hasPermission(
-						"VotingPlugin.TopVoter.Ignore")) {
-					users.remove(i);
+			}
+
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
 				}
 			}
 			Collections.sort(users, new Comparator<User>() {
@@ -160,6 +163,8 @@ public class TopVoter {
 	}
 
 	public String[] topVoters() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
@@ -167,6 +172,15 @@ public class TopVoter {
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalVotes() == 0) {
 					users.remove(i);
+				}
+
+			}
+
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
 				}
 			}
 			Collections.sort(users, new Comparator<User>() {

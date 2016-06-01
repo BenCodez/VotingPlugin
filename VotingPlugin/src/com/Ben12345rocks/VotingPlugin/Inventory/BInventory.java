@@ -105,7 +105,7 @@ public class BInventory implements Listener {
 					if (clickedItem.getItemMeta().getDisplayName()
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
-									.getType()) {
+							.getType()) {
 						if (Config.getInstance().getDebugEnabled()) {
 							Main.plugin.getLogger().info("Running code");
 						}

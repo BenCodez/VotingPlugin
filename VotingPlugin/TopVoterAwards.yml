@@ -1,3 +1,5 @@
+BlackList:
+- 'Notch'
 Awards:
   1:
     Money: 5000
