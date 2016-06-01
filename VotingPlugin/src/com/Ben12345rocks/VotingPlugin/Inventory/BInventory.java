@@ -22,6 +22,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 
 public class BInventory implements Listener {
 
@@ -35,9 +36,13 @@ public class BInventory implements Listener {
 			{
 				ItemStack item = pair.getValue().getItem();
 				ItemMeta meta = item.getItemMeta();
-				meta.setDisplayName(pair.getValue().getName());
-				meta.setLore(new ArrayList<String>(Arrays.asList(pair
-						.getValue().getLore())));
+				if (pair.getValue().getName() != null) {
+					meta.setDisplayName(pair.getValue().getName());
+				}
+				if (pair.getValue().getLore() != null) {
+					meta.setLore(new ArrayList<String>(Arrays.asList(pair
+							.getValue().getLore())));
+				}
 				item.setItemMeta(meta);
 				inv.setItem(pair.getKey(), item);
 			}
@@ -83,9 +88,13 @@ public class BInventory implements Listener {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
-		Main.plugin.getLogger().info("Event trigger");
+		if (Config.getInstance().getDebugEnabled()) {
+			Main.plugin.getLogger().info("Event trigger");
+		}
 		if (event.isCancelled()) {
-			Main.plugin.getLogger().info("Event cancelled");
+			if (Config.getInstance().getDebugEnabled()) {
+				Main.plugin.getLogger().info("Event cancelled");
+			}
 			return;
 		}
 		ItemStack clickedItem = event.getCurrentItem();
@@ -97,7 +106,9 @@ public class BInventory implements Listener {
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
 									.getType()) {
-						Main.plugin.getLogger().info("Running code");
+						if (Config.getInstance().getDebugEnabled()) {
+							Main.plugin.getLogger().info("Running code");
+						}
 						button.onClick(event);
 						event.setCancelled(true);
 

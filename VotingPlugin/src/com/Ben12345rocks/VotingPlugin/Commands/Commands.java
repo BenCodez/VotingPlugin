@@ -662,20 +662,23 @@ public class Commands {
 						count,
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
-										siteName),
-								Utils.getInstance().convertArray(
-										(ArrayList<String>) ConfigGUI
-												.getInstance()
-												.getVoteSiteItemLore(siteName)),
+										voteSite.getSiteName()),
+								Utils.getInstance()
+										.convertArray(
+												(ArrayList<String>) ConfigGUI
+														.getInstance()
+														.getVoteSiteItemLore(
+																voteSite.getSiteName())),
 								item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
 								Player player = (Player) event.getWhoClicked();
 								if (player != null) {
+									player.closeInventory();
 									player.performCommand("vote reward "
 											+ voteSite.getSiteName());
-									player.closeInventory();
+
 								}
 
 							}
