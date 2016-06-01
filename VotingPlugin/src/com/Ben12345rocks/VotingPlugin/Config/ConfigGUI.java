@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -169,6 +170,59 @@ public class ConfigGUI {
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public int getVoteSiteItemID(String siteName) {
+		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
+	}
+
+	public int getVoteSiteItemData(String siteName) {
+		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
+	}
+
+	public int getVoteSiteItemAmount(String siteName) {
+		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
+	}
+
+	public String getVoteSiteItemName(String siteName) {
+		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getVoteSiteItemLore(String siteName) {
+		return (List<String>) getData().getList(
+				"GUI.VoteReward." + siteName + ".Item.Lore");
+	}
+
+	public int getVoteSiteItemsID(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
+	}
+
+	public int getVoteSiteItemsData(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
+	}
+
+	public int getVoteSiteItemsAmount(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
+	}
+
+	public String getVoteSiteItemsName(String siteName, String item) {
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<String> getVoteSiteItemsLore(String siteName, String item) {
+		return (List<String>) getData().getList(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Lore");
+	}
+
+	public Set<String> getVoteSiteItems(String siteName) {
+		return getData().getConfigurationSection(
+				"GUI.VoteReward." + siteName + ".Items").getKeys(false);
 	}
 
 }

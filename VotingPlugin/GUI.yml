@@ -65,7 +65,7 @@ GUI:
       Data: 0
       Amount: 1
   # Customize /vote reward
-  VoteRewards:
+  VoteReward:
     # Name of votesite
     # If your site name contains a dot, you will need
     # to rename it (recommened) 

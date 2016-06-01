@@ -207,6 +207,17 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
+	public void voteReward(CommandSender sender, String siteName) {
+
+		if (sender instanceof Player) {
+
+			Commands.getInstance().voteReward((Player) sender, siteName);
+
+		} else {
+			sender.sendMessage("Must be a player to do this!");
+		}
+	}
+
 	public void voteURLs(CommandSender sender) {
 		sender.sendMessage(Commands.getInstance().voteURLs());
 	}

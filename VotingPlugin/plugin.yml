@@ -89,6 +89,8 @@ permissions:
       VotingPlugin.Login.RemindVotes: true
       VotingPlugin.Commands.Vote.Next: true
       VotingPlugin.Commands.Vote.GUI: true
+      VotingPlugin.Commands.Vote.URL: true
+      VotingPlugin.Commands.Vote.Reward: true
       VotingPlugin.Commands.Vote.Total: true
       VotingPlugin.Commands.Vote.Last: true
       VotingPlugin.Commands.Vote.Info: true
@@ -106,6 +108,10 @@ permissions:
     description: Allows access to /vote next
   VotingPlugin.Commands.Vote.GUI: 
     description: Allows access to /vote GUI
+  VotingPlugin.Commands.Vote.Reward: 
+    description: Allows access to /vote Reward
+  VotingPlugin.Commands.Vote.URL: 
+    description: Allows access to /vote URL
   VotingPlugin.Commands.Vote.Next.Other: 
     description: Allows access to /vote next <player>
   VotingPlugin.Commands.Vote.Total: 

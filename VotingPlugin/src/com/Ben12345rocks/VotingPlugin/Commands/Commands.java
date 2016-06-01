@@ -7,7 +7,6 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -645,17 +644,30 @@ public class Commands {
 		BInventory.openInventory(player, inv);
 	}
 
+	@SuppressWarnings("deprecation")
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward", 9);
 
 		int count = 0;
 		if (siteName == null || siteName == "") {
 			for (VoteSite voteSite : plugin.voteSites) {
-				ItemStack item = new ItemStack(Material.STONE);
+				ItemStack item = new ItemStack(ConfigGUI.getInstance()
+						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
+						.getInstance().getVoteSiteItemAmount(
+								voteSite.getSiteName()), (short) ConfigGUI
+						.getInstance().getVoteSiteItemData(
+								voteSite.getSiteName()));
 
-				inv.addButton(count,
-						new BInventoryButton("&c" + voteSite.getSiteName(),
-								new String[] {}, item) {
+				inv.addButton(
+						count,
+						new BInventoryButton(
+								ConfigGUI.getInstance().getVoteSiteItemName(
+										siteName),
+								Utils.getInstance().convertArray(
+										(ArrayList<String>) ConfigGUI
+												.getInstance()
+												.getVoteSiteItemLore(siteName)),
+								item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -671,43 +683,35 @@ public class Commands {
 				count++;
 			}
 		} else {
-			ItemStack item = new ItemStack(Material.STONE);
+			for (String itemName : ConfigGUI.getInstance().getVoteSiteItems(
+					siteName)) {
+				ItemStack item = new ItemStack(ConfigGUI.getInstance()
+						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
+						.getInstance().getVoteSiteItemsAmount(siteName,
+								itemName), (short) ConfigGUI.getInstance()
+						.getVoteSiteItemsData(siteName, itemName));
 
-			if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
-				player.sendMessage("Invalid votesite name!");
-				return;
+				inv.addButton(
+						count,
+						new BInventoryButton(ConfigGUI.getInstance()
+								.getVoteSiteItemsName(siteName, itemName),
+								Utils.getInstance().convertArray(
+										(ArrayList<String>) ConfigGUI
+												.getInstance()
+												.getVoteSiteItemsLore(siteName,
+														itemName)), item) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								Player player = (Player) event.getWhoClicked();
+								if (player != null) {
+									player.closeInventory();
+								}
+
+							}
+						});
+				count++;
 			}
-
-			VoteSite voteSite = plugin.getVoteSite(siteName);
-			if (voteSite == null) {
-				player.sendMessage("Invalid votesite name!");
-				return;
-			}
-
-			ArrayList<String> lore = new ArrayList<String>();
-
-			lore.add("Money: " + voteSite.getMoney());
-
-			lore.add("Items: ");
-
-			for (ItemStack itemReward : voteSite.getItems()) {
-				lore.add("- " + itemReward.getType() + ": "
-						+ itemReward.getItemMeta().getDisplayName());
-			}
-
-			inv.addButton(count, new BInventoryButton("&cBase Rewards",
-					new String[] {}, item) {
-
-				@Override
-				public void onClick(InventoryClickEvent event) {
-					Player player = (Player) event.getWhoClicked();
-					if (player != null) {
-						player.closeInventory();
-					}
-
-				}
-			});
-			count++;
 		}
 
 		BInventory.openInventory(player, inv);
