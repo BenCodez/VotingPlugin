@@ -60,8 +60,9 @@ public class CommandLoader {
 
 			}
 		});
-		
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Report" },
+
+		plugin.adminVoteCommand.add(new CommandHandler(
+				new String[] { "Report" },
 				"VotingPlugin.Commands.AdminVote.Report") {
 
 			@Override
@@ -71,8 +72,9 @@ public class CommandLoader {
 
 			}
 		});
-		
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Perms" },
+
+		plugin.adminVoteCommand.add(new CommandHandler(
+				new String[] { "Perms" },
 				"VotingPlugin.Commands.AdminVote.Perms") {
 
 			@Override
@@ -616,11 +618,31 @@ public class CommandLoader {
 			}
 		});
 		plugin.voteCommand.add(new CommandHandler(new String[] { "URL" },
-				"VotingPlugin.Commands.Vote.Help") {
+				"VotingPlugin.Commands.Vote.URL") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandVote.getInstance().voteURL(sender);
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Reward" },
+				"VotingPlugin.Commands.Vote.Reward") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteReward(sender, "");
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Reward",
+		"SiteName" }, "VotingPlugin.Commands.Vote.Reward") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandVote.getInstance().voteReward(sender, args[1]);
 
 			}
 		});
@@ -698,6 +720,33 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top" },
+				"VotingPlugin.Commands.Vote.Top") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance().topVoter(sender, 1);
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
+		"number" }, "VotingPlugin.Commands.Vote.Top") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().topVoter(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Today",
 		"number" }, "VotingPlugin.Commands.Vote.Today") {
 
@@ -712,33 +761,6 @@ public class CommandLoader {
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Today" },
 				"VotingPlugin.Commands.Vote.Today") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().today(sender, 1);
-
-			}
-		});
-
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
-		"number" }, "VotingPlugin.Commands.Vote.Top") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
-					CommandVote.getInstance().today(sender,
-							Integer.parseInt(args[1]));
-				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cError on " + args[1] + ", number expected"));
-				}
-
-			}
-		});
-
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Top" },
-				"VotingPlugin.Commands.Vote.Top") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {

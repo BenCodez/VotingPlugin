@@ -6,6 +6,9 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -47,9 +50,14 @@ public class TopVoter {
 						.getPossibleRewardPlaces();
 				int i = 0;
 				for (User user : topVotersSortedAll()) {
-					i++;
-					if (places.contains(Integer.toString(i))) {
-						user.topVoterAward(i);
+					OfflinePlayer player = Bukkit.getOfflinePlayer(user
+							.getPlayerName());
+					if (!player.getPlayer().hasPermission(
+							"VotingPlugin.TopVoter.Ignore")) {
+						i++;
+						if (places.contains(Integer.toString(i))) {
+							user.topVoterAward(i);
+						}
 					}
 				}
 			}
@@ -106,6 +114,8 @@ public class TopVoter {
 	}
 
 	public String[] topVoterNoColor() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
@@ -113,6 +123,15 @@ public class TopVoter {
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalVotes() == 0) {
 					users.remove(i);
+				}
+
+			}
+
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
 				}
 			}
 			Collections.sort(users, new Comparator<User>() {
@@ -144,6 +163,8 @@ public class TopVoter {
 	}
 
 	public String[] topVoters() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
@@ -151,6 +172,15 @@ public class TopVoter {
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalVotes() == 0) {
 					users.remove(i);
+				}
+
+			}
+
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
 				}
 			}
 			Collections.sort(users, new Comparator<User>() {

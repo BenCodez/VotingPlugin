@@ -58,12 +58,12 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)
 							&& !Config.getInstance()
-									.getDisableAutoCreateVoteSites()) {
+							.getDisableAutoCreateVoteSites()) {
 						plugin.getLogger()
-								.warning(
-										"VoteSite "
-												+ voteSiteName
-												+ " doe not exist, generaterating one...");
+						.warning(
+								"VoteSite "
+										+ voteSiteName
+										+ " doe not exist, generaterating one...");
 
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
@@ -71,14 +71,17 @@ public class VotiferEvent implements Listener {
 								voteSiteName, voteSiteURL);
 						return;
 					}
-				} else {
+				} else if (!Config.getInstance()
+						.getDisableAutoCreateVoteSites()) {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-									+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-							.generateVoteSite(voteSiteName);
+					.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
+					return;
+				} else {
 					return;
 				}
 

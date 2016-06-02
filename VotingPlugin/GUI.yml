@@ -64,3 +64,47 @@ GUI:
       ID: 133
       Data: 0
       Amount: 1
+  # Customize /vote reward
+  VoteReward:
+    # Name of votesite
+    # If your site name contains a dot, you will need
+    # to rename it (recommened) 
+    # or at every dot add : and move 1 down and 2 spaces over (not recommened)
+    SiteName:
+      # Item to display as vote site in /vote reward
+      Item:
+        # Item ID
+        ID: 264
+        # Item Data (Eg 1:4, data is 4)
+        Data: 0
+        # Amount of items
+        # Should be greater than 0
+        Amount: 1
+        # Item name
+        # Remove this line for no name
+        Name: '&4Example'
+        # Lore
+        # Remove this line for no lore
+        Lore:
+        - '&4Line 1'
+      # items in /vote reward sitename
+      Items:
+        # Item
+        # This is not the item display name
+        # Do not have 2 of the same items
+        Diamond:
+          # Item ID
+          ID: 264
+          # Item Data (Eg 1:4, data is 4)
+          Data: 0
+          # Amount of items
+          # Should be greater than 0
+          Amount: 1
+          # Item name
+          # Remove this line for no name
+          Name: '&4Example'
+          # Lore
+          # Remove this line for no lore
+          Lore:
+          - '&4Line 1'
+    

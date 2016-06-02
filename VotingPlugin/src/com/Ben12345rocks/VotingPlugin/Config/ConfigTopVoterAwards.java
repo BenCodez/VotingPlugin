@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -78,6 +79,11 @@ public class ConfigTopVoterAwards {
 	}
 
 	@SuppressWarnings("unchecked")
+	public List<String> getBlackList() {
+		return (List<String>) getData().getList("BlackList");
+	}
+
+	@SuppressWarnings("unchecked")
 	public ArrayList<String> getConsoleCommands(int place) {
 		return (ArrayList<String>) getData().getList(
 				"Awards." + place + ".Commands.Console");
@@ -114,7 +120,7 @@ public class ConfigTopVoterAwards {
 					.getKeys(false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant, getEnchantLevel(place, item, enchant));
+				.put(enchant, getEnchantLevel(place, item, enchant));
 			}
 
 			return enchantments;
@@ -254,9 +260,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 
