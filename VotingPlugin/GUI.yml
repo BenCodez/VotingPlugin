@@ -52,6 +52,13 @@ GUI:
         Amount: 1
         Name: '&4Help'
       Command: 'vote help'
+    Rewards:
+      Item:
+        ID: 264
+        Data: 0
+        Amount: 1
+        Name: '&4Voting Rewards'
+      Command: 'vote reward'
   VoteURL:
     SiteName: '&c%Name%'
     SeeURL: '&cClick to see URL'
