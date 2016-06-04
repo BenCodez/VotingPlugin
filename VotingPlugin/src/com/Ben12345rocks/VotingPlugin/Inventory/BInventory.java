@@ -52,6 +52,7 @@ public class BInventory implements Listener {
 	}
 
 	private String inventoryName;
+	@SuppressWarnings("unused")
 	private int inventorySize;
 
 	private Map<Integer, BInventoryButton> buttons = new HashMap<Integer, BInventoryButton>();
@@ -79,7 +80,19 @@ public class BInventory implements Listener {
 	}
 
 	public int getInventorySize() {
-		return inventorySize;
+		if (buttons.size() <= 9) {
+			return 9;
+		} else if (buttons.size() <= 18) {
+			return 18;
+		} else if (buttons.size() <= 27) {
+			return 27;
+		} else if (buttons.size() <= 36) {
+			return 36;
+		} else if (buttons.size() <= 45) {
+			return 45;
+		} else {
+			return 45;
+		}
 	}
 
 	// event handling
@@ -105,7 +118,7 @@ public class BInventory implements Listener {
 					if (clickedItem.getItemMeta().getDisplayName()
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
-							.getType()) {
+									.getType()) {
 						if (Config.getInstance().getDebugEnabled()) {
 							Main.plugin.getLogger().info("Running code");
 						}
