@@ -68,6 +68,10 @@ public class ConfigFormat {
 
 	}
 
+	public boolean getBroadcastWhenOnline() {
+		return getData().getBoolean("Format.BroadcastWhenOnline");
+	}
+
 	public String getCommandsVoteHelpTitle() {
 		String str = getData().getString("Format.Commands.Vote.Help.Title");
 		if (str != null) {

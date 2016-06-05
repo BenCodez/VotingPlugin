@@ -168,5 +168,6 @@ permissions:
     description: Allows access to create signs
   VotingPlugin.TopVoter.Ignore:
     description: Allows you to be exempt from top voter
-
+  VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent:
+    description: Allows access to trigger player vote event
   
