@@ -18,8 +18,7 @@ public class PlayerVoteEvent extends Event {
 		setVoteSite(voteSite);
 	}
 
-	@Override
-	public HandlerList getHandlers() {
+	public static HandlerList getHandlerList() {
 		return handlers;
 	}
 
@@ -45,6 +44,11 @@ public class PlayerVoteEvent extends Event {
 
 	public void setVoteSite(VoteSite voteSite) {
 		this.voteSite = voteSite;
+	}
+
+	@Override
+	public HandlerList getHandlers() {
+		return handlers;
 	}
 
 }

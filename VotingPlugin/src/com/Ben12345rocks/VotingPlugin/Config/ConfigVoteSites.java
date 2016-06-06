@@ -597,7 +597,8 @@ public class ConfigVoteSites {
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
 				if (!site.equalsIgnoreCase("Example")
-						&& !getVoteSiteDisabled(site)) {
+						&& !getVoteSiteDisabled(site)
+						&& !site.equalsIgnoreCase("null")) {
 					voteSites.add(new VoteSite(site));
 				}
 			}

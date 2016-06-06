@@ -58,12 +58,12 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)
 							&& !Config.getInstance()
-							.getDisableAutoCreateVoteSites()) {
+									.getDisableAutoCreateVoteSites()) {
 						plugin.getLogger()
-						.warning(
-								"VoteSite "
-										+ voteSiteName
-										+ " doe not exist, generaterating one...");
+								.warning(
+										"VoteSite "
+												+ voteSiteName
+												+ " doe not exist, generaterating one...");
 
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
@@ -75,9 +75,9 @@ public class VotiferEvent implements Listener {
 						.getDisableAutoCreateVoteSites()) {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
+									+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-					.generateVoteSite(voteSiteName);
+							.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
 					return;
@@ -86,7 +86,8 @@ public class VotiferEvent implements Listener {
 				}
 
 				// broadcast vote if enabled in config
-				if (config.getBroadCastVotesEnabled()) {
+				if (config.getBroadCastVotesEnabled()
+						&& !ConfigFormat.getInstance().getBroadcastWhenOnline()) {
 					voteSite.broadcastVote(user);
 				}
 

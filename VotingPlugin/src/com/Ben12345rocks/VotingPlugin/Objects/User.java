@@ -649,6 +649,10 @@ public class User {
 	 *            Site player voted on
 	 */
 	public void playerVote(VoteSite voteSite) {
+		if (Config.getInstance().getBroadCastVotesEnabled()
+				&& ConfigFormat.getInstance().getBroadcastWhenOnline()) {
+			voteSite.broadcastVote(this);
+		}
 		voteSite.giveSiteReward(this);
 	}
 

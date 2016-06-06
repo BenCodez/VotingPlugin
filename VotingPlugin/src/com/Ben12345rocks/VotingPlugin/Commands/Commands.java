@@ -22,6 +22,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
+import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -148,6 +149,18 @@ public class Commands {
 			msg.add(perm.getName());
 		}
 
+		for (CommandHandler handle : plugin.voteCommand) {
+			if (!msg.contains(handle.getPerm())) {
+				msg.add(handle.getPerm());
+			}
+		}
+
+		for (CommandHandler handle : plugin.adminVoteCommand) {
+			if (!msg.contains(handle.getPerm())) {
+				msg.add(handle.getPerm());
+			}
+		}
+
 		msg = Utils.getInstance().colorize(msg);
 		Collections.sort(msg, String.CASE_INSENSITIVE_ORDER);
 
@@ -242,7 +255,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -252,7 +265,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-		.format(date);
+				.format(date);
 		return timeString;
 	}
 
@@ -398,8 +411,8 @@ public class Commands {
 				}
 				msg.add("&cGiveInEachWorld: &6"
 						+ ConfigVoteSites.getInstance()
-						.getExtraRewardGiveInEachWorld(
-								voteSite.getSiteName(), reward));
+								.getExtraRewardGiveInEachWorld(
+										voteSite.getSiteName(), reward));
 
 				msg.add("&cPermission: &6"
 						+ voteSite.getExtraRewardsPermission().get(reward));
@@ -578,21 +591,21 @@ public class Commands {
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
 								voteSite.getSiteName()), (short) ConfigGUI
-								.getInstance().getVoteSiteItemData(
-										voteSite.getSiteName()));
+						.getInstance().getVoteSiteItemData(
+								voteSite.getSiteName()));
 
 				inv.addButton(
 						count,
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
 										voteSite.getSiteName()),
-										Utils.getInstance()
+								Utils.getInstance()
 										.convertArray(
 												(ArrayList<String>) ConfigGUI
-												.getInstance()
-												.getVoteSiteItemLore(
-														voteSite.getSiteName())),
-														item) {
+														.getInstance()
+														.getVoteSiteItemLore(
+																voteSite.getSiteName())),
+								item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -615,7 +628,7 @@ public class Commands {
 						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
-								.getVoteSiteItemsData(siteName, itemName));
+						.getVoteSiteItemsData(siteName, itemName));
 
 				inv.addButton(
 						count,
@@ -623,9 +636,9 @@ public class Commands {
 								.getVoteSiteItemsName(siteName, itemName),
 								Utils.getInstance().convertArray(
 										(ArrayList<String>) ConfigGUI
-										.getInstance()
-										.getVoteSiteItemsLore(siteName,
-												itemName)), item) {
+												.getInstance()
+												.getVoteSiteItemsLore(siteName,
+														itemName)), item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -658,9 +671,9 @@ public class Commands {
 					if (new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time)
 							&& new Date().getMonth() == Utils.getInstance()
-							.getMonthFromMili(time)
+									.getMonthFromMili(time)
 							&& new Date().getYear() == Utils.getInstance()
-							.getYearFromMili(time)) {
+									.getYearFromMili(time)) {
 
 						String timeString = new SimpleDateFormat(
 								format.getTimeFormat()).format(new Date(time));
