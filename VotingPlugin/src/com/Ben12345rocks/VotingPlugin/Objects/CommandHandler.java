@@ -40,9 +40,9 @@ public abstract class CommandHandler {
 		return false;
 	}
 
-	public String getHelpLine(String command) {
-		String msg = command;
-		for (int i = 0; i < args.length; i++) {
+	public String getHelpLine() {
+		//String msg = "";
+		/*for (int i = 0; i < args.length; i++) {
 			String arg = args[i];
 			arg = Utils.getInstance().replaceIgnoreCase(arg, "player",
 					"{Player}");
@@ -58,9 +58,9 @@ public abstract class CommandHandler {
 			msg += " " + arg;
 		}
 
-		msg += " - " + helpMessage;
+		msg += " - " + helpMessage;*/
 
-		return msg;
+		return helpMessage;
 	}
 
 	public abstract void execute(CommandSender sender, String[] args);
