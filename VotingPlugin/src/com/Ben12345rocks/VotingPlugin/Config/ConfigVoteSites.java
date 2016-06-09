@@ -79,6 +79,40 @@ public class ConfigVoteSites {
 		setItemEnchants(siteName, item, enchants);
 	}
 
+	public boolean isServerSiteGood(String siteName) {
+		if (getServiceSite(siteName) == null) {
+			return false;
+		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
+	}
+
+	public boolean isVoteURLGood(String siteName) {
+		if (getVoteURL(siteName) == null) {
+			return false;
+		} else if (getVoteURL(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
+	}
+
+	public boolean siteCheck(String siteName) {
+		boolean pass = true;
+		if (!isServerSiteGood(siteName)) {
+			plugin.getLogger().warning(
+					"Issue with service in site " + siteName
+							+ ", votes may not work properly");
+			pass = false;
+		}
+		if (!isVoteURLGood(siteName)) {
+			plugin.getLogger()
+					.warning("Issue with voteURL in site " + siteName);
+			pass = false;
+		}
+		return pass;
+	}
+
 	public void generateVoteSite(String siteName) {
 		setDisabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
@@ -599,6 +633,13 @@ public class ConfigVoteSites {
 				if (!site.equalsIgnoreCase("Example")
 						&& !getVoteSiteDisabled(site)
 						&& !site.equalsIgnoreCase("null")) {
+					if (!this.siteCheck(site)) {
+						plugin.getLogger()
+								.warning(
+										"Some issues may of occoured on loading site "
+												+ site
+												+ ", you can ignore this message if you experience no issues.");
+					}
 					voteSites.add(new VoteSite(site));
 				}
 			}
