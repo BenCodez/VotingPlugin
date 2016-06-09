@@ -38,6 +38,7 @@ public class Signs {
 		Signs.plugin = plugin;
 	}
 
+	@SuppressWarnings("deprecation")
 	public void checkSkulls(Location loc, String playerName) {
 		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
 				loc.getBlockY() - 1, loc.getBlockZ() - 1);
