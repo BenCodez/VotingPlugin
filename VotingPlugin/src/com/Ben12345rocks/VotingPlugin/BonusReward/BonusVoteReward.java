@@ -37,23 +37,6 @@ public class BonusVoteReward {
 	private BonusVoteReward() {
 	}
 
-	public boolean giveBonusRewardUser(User user) {
-		if (ConfigBonusReward.getInstance().getRequirementVoteAllSites()) {
-			return user.checkAllVotes();
-		} else {
-			int votesNeeded = ConfigBonusReward.getInstance()
-					.getRequirementVotes();
-			int userVotes = Data.getInstance().getVotesBonusReward(user);
-			if (userVotes >= votesNeeded) {
-				Data.getInstance().setVotesBonusReward(user,
-						userVotes - votesNeeded);
-				return true;
-			} else {
-				return false;
-			}
-		}
-	}
-
 	public BonusVoteReward(Main plugin) {
 		BonusVoteReward.plugin = plugin;
 	}
@@ -167,6 +150,23 @@ public class BonusVoteReward {
 			}
 		}
 
+	}
+
+	public boolean giveBonusRewardUser(User user) {
+		if (ConfigBonusReward.getInstance().getRequirementVoteAllSites()) {
+			return user.checkAllVotes();
+		} else {
+			int votesNeeded = ConfigBonusReward.getInstance()
+					.getRequirementVotes();
+			int userVotes = Data.getInstance().getVotesBonusReward(user);
+			if (userVotes >= votesNeeded) {
+				Data.getInstance().setVotesBonusReward(user,
+						userVotes - votesNeeded);
+				return true;
+			} else {
+				return false;
+			}
+		}
 	}
 
 	public void giveExtraReward(User user, String reward) {

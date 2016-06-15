@@ -44,6 +44,10 @@ public class ConfigFormat {
 		}
 	}
 
+	public boolean getBroadcastWhenOnline() {
+		return getData().getBoolean("Format.BroadcastWhenOnline");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsVoteHelpLines() {
 
@@ -66,10 +70,6 @@ public class ConfigFormat {
 			return texts;
 		}
 
-	}
-
-	public boolean getBroadcastWhenOnline() {
-		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
 
 	public String getCommandsVoteHelpTitle() {
@@ -396,7 +396,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

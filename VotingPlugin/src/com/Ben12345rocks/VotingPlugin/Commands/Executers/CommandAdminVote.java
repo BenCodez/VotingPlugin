@@ -11,7 +11,6 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
@@ -108,22 +107,22 @@ public class CommandAdminVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						ConfigBonusReward.getInstance()
-						.addExtraRewardItem(
-								reward,
+							@Override
+							public void run() {
+								ConfigBonusReward.getInstance()
+										.addExtraRewardItem(
+												reward,
 
-								item,
-								player.getInventory()
-								.getItemInMainHand());
-						sender.sendMessage(Utils.getInstance()
-								.colorize(
-										"&cAdded extra reward item &c&l"
-												+ item));
+												item,
+												player.getInventory()
+														.getItemInMainHand());
+								sender.sendMessage(Utils.getInstance()
+										.colorize(
+												"&cAdded extra reward item &c&l"
+														+ item));
 
-					}
-				});
+							}
+						});
 
 			} else {
 				sender.sendMessage(Utils.getInstance().colorize(
@@ -146,19 +145,19 @@ public class CommandAdminVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						ConfigBonusReward.getInstance()
-						.addItem(
+							@Override
+							public void run() {
+								ConfigBonusReward.getInstance()
+										.addItem(
 
-								item,
-								player.getInventory()
-								.getItemInMainHand());
-						sender.sendMessage(Utils.getInstance()
-								.colorize("&cAdded item &c&l" + item));
+												item,
+												player.getInventory()
+														.getItemInMainHand());
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cAdded item &c&l" + item));
 
-					}
-				});
+							}
+						});
 
 			} else {
 				sender.sendMessage(Utils.getInstance().colorize(
@@ -204,7 +203,7 @@ public class CommandAdminVote implements CommandExecutor {
 				reward, cmds);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cAdded extra reward console command &c&l" + cmd
-				+ "&c on &c&l" + voteSite));
+						+ "&c on &c&l" + voteSite));
 
 	}
 
@@ -234,23 +233,23 @@ public class CommandAdminVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						ConfigVoteSites.getInstance()
-						.addExtraRewardItem(
-								voteSite,
-								reward,
-								item,
-								player.getInventory()
-								.getItemInMainHand());
-						sender.sendMessage(Utils.getInstance()
-								.colorize(
-										"&cAdded extra reward item &c&l"
-												+ item + " &cto "
-												+ voteSite));
+							@Override
+							public void run() {
+								ConfigVoteSites.getInstance()
+										.addExtraRewardItem(
+												voteSite,
+												reward,
+												item,
+												player.getInventory()
+														.getItemInMainHand());
+								sender.sendMessage(Utils.getInstance()
+										.colorize(
+												"&cAdded extra reward item &c&l"
+														+ item + " &cto "
+														+ voteSite));
 
-					}
-				});
+							}
+						});
 
 			} else {
 				sender.sendMessage(Utils.getInstance().colorize(
@@ -274,20 +273,20 @@ public class CommandAdminVote implements CommandExecutor {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						ConfigVoteSites.getInstance().addItem(
-								voteSite,
-								item,
-								player.getInventory()
-								.getItemInMainHand());
-						sender.sendMessage(Utils.getInstance()
-								.colorize(
-										"&cAdded item &c&l" + item
-										+ " &cto " + voteSite));
+							@Override
+							public void run() {
+								ConfigVoteSites.getInstance().addItem(
+										voteSite,
+										item,
+										player.getInventory()
+												.getItemInMainHand());
+								sender.sendMessage(Utils.getInstance()
+										.colorize(
+												"&cAdded item &c&l" + item
+														+ " &cto " + voteSite));
 
-					}
-				});
+							}
+						});
 
 			} else {
 				sender.sendMessage(Utils.getInstance().colorize(
@@ -313,12 +312,6 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 		});
 
-	}
-
-	public void Vote(CommandSender sender, String voteSite,
-			String playerName) {
-
-		VotiferEvent.playerVote(voteSite, playerName);
 	}
 
 	public void help(CommandSender sender) {
@@ -585,6 +578,11 @@ public class CommandAdminVote implements CommandExecutor {
 			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
 					"bukkit:version " + plugin.getName());
 		}
+	}
+
+	public void Vote(CommandSender sender, String voteSite, String playerName) {
+
+		VotiferEvent.playerVote(voteSite, playerName);
 	}
 
 }

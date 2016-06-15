@@ -61,7 +61,7 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)
 							&& !Config.getInstance()
-									.getDisableAutoCreateVoteSites()) {
+							.getDisableAutoCreateVoteSites()) {
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
 						ConfigVoteSites.getInstance().setServiceSite(
@@ -72,9 +72,9 @@ public class VotiferEvent implements Listener {
 						.getDisableAutoCreateVoteSites()) {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-									+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-							.generateVoteSite(voteSiteName);
+					.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
 					return;

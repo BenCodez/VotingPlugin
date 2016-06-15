@@ -476,11 +476,11 @@ public class VoteSite {
 						.getInstance()
 						.replaceIgnoreCase(
 								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
+										.getCumulativeRewardMsg(),
 								"%votes%",
 								""
 										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+												.getCumulativeRewardVotesAmount(siteName)));
 			}
 
 		} catch (Exception ex) {
@@ -555,9 +555,9 @@ public class VoteSite {
 										reward,
 										world,
 										Data.getInstance()
-										.getOfflineVotesWorld(user,
-												getSiteName(), reward,
-												world) + 1);
+												.getOfflineVotesWorld(user,
+														getSiteName(), reward,
+														world) + 1);
 
 							}
 						}
@@ -570,8 +570,8 @@ public class VoteSite {
 									getSiteName(),
 									reward,
 									Data.getInstance()
-									.getOfflineVotesExtraReward(user,
-											getSiteName(), reward) + 1);
+											.getOfflineVotesExtraReward(user,
+													getSiteName(), reward) + 1);
 						}
 					}
 				} else {
@@ -757,8 +757,8 @@ public class VoteSite {
 			}
 
 			extraRewardsMoney
-			.put(reward, configVoteSites.getExtraRewardMoneyAmount(
-					siteName, reward));
+					.put(reward, configVoteSites.getExtraRewardMoneyAmount(
+							siteName, reward));
 
 			try {
 

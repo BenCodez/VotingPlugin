@@ -40,33 +40,29 @@ public abstract class CommandHandler {
 		return false;
 	}
 
-	public String getHelpLine() {
-		//String msg = "";
-		/*for (int i = 0; i < args.length; i++) {
-			String arg = args[i];
-			arg = Utils.getInstance().replaceIgnoreCase(arg, "player",
-					"{Player}");
-			arg = Utils.getInstance().replaceIgnoreCase(arg, "sitename",
-					"{SiteName}");
-			arg = Utils.getInstance().replaceIgnoreCase(arg, "number",
-					"{Number}");
-			arg = Utils.getInstance()
-					.replaceIgnoreCase(arg, "string", "{Text}");
-			arg = Utils.getInstance().replaceIgnoreCase(arg, "boolean",
-					"{True/False}");
-			arg = Utils.getInstance().replaceIgnoreCase(arg, "list", "{Text}");
-			msg += " " + arg;
-		}
-
-		msg += " - " + helpMessage;*/
-
-		return helpMessage;
-	}
-
 	public abstract void execute(CommandSender sender, String[] args);
 
 	public String[] getArgs() {
 		return args;
+	}
+
+	public String getHelpLine() {
+		// String msg = "";
+		/*
+		 * for (int i = 0; i < args.length; i++) { String arg = args[i]; arg =
+		 * Utils.getInstance().replaceIgnoreCase(arg, "player", "{Player}"); arg
+		 * = Utils.getInstance().replaceIgnoreCase(arg, "sitename",
+		 * "{SiteName}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
+		 * "number", "{Number}"); arg = Utils.getInstance()
+		 * .replaceIgnoreCase(arg, "string", "{Text}"); arg =
+		 * Utils.getInstance().replaceIgnoreCase(arg, "boolean",
+		 * "{True/False}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
+		 * "list", "{Text}"); msg += " " + arg; }
+		 * 
+		 * msg += " - " + helpMessage;
+		 */
+
+		return helpMessage;
 	}
 
 	public String getHelpMessage() {
@@ -87,7 +83,7 @@ public abstract class CommandHandler {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-										.replace("%arg%", args[i])));
+								.replace("%arg%", args[i])));
 						return true;
 					}
 				}

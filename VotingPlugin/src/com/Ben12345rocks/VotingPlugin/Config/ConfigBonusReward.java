@@ -40,14 +40,6 @@ public class ConfigBonusReward {
 		ConfigBonusReward.plugin = plugin;
 	}
 
-	public boolean getRequirementVoteAllSites() {
-		return getData().getBoolean("Requirements.VoteAllSites");
-	}
-
-	public int getRequirementVotes() {
-		return getData().getInt("Requirements.Votes");
-	}
-
 	@SuppressWarnings("deprecation")
 	public void addExtraRewardItem(String reward, String item,
 			ItemStack itemStack) {
@@ -290,6 +282,14 @@ public class ConfigBonusReward {
 		return (ArrayList<String>) getData().getList("Commands.Player");
 	}
 
+	public boolean getRequirementVoteAllSites() {
+		return getData().getBoolean("Requirements.VoteAllSites");
+	}
+
+	public int getRequirementVotes() {
+		return getData().getInt("Requirements.Votes");
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
@@ -427,9 +427,9 @@ public class ConfigBonusReward {
 				plugin.saveResource("BonusReward.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create BonusReward.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create BonusReward.yml!");
 			}
 		}
 

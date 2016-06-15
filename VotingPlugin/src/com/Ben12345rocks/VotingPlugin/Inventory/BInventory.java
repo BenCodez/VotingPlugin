@@ -72,10 +72,6 @@ public class BInventory implements Listener {
 		return buttons;
 	}
 
-	public String getInventoryName() {
-		return inventoryName;
-	}
-
 	public int getHighestSlot() {
 		int highestNum = 0;
 		for (int num : buttons.keySet()) {
@@ -84,6 +80,10 @@ public class BInventory implements Listener {
 			}
 		}
 		return highestNum;
+	}
+
+	public String getInventoryName() {
+		return inventoryName;
 	}
 
 	public int getInventorySize() {
@@ -126,7 +126,7 @@ public class BInventory implements Listener {
 					if (clickedItem.getItemMeta().getDisplayName()
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
-									.getType()) {
+							.getType()) {
 						if (Config.getInstance().getDebugEnabled()) {
 							Main.plugin.getLogger().info("Running code");
 						}

@@ -79,44 +79,10 @@ public class ConfigVoteSites {
 		setItemEnchants(siteName, item, enchants);
 	}
 
-	public boolean isServerSiteGood(String siteName) {
-		if (getServiceSite(siteName) == null) {
-			return false;
-		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
-			return false;
-		}
-		return true;
-	}
-
-	public boolean isVoteURLGood(String siteName) {
-		if (getVoteURL(siteName) == null) {
-			return false;
-		} else if (getVoteURL(siteName).equalsIgnoreCase("")) {
-			return false;
-		}
-		return true;
-	}
-
-	public boolean siteCheck(String siteName) {
-		boolean pass = true;
-		if (!isServerSiteGood(siteName)) {
-			plugin.getLogger().warning(
-					"Issue with ServiceSite in site " + siteName
-							+ ", votes may not work properly");
-			pass = false;
-		}
-		if (!isVoteURLGood(siteName)) {
-			plugin.getLogger()
-					.warning("Issue with VoteURL in site " + siteName);
-			pass = false;
-		}
-		return pass;
-	}
-
 	public void generateVoteSite(String siteName) {
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
-						+ " doe not exist, generaterating one...");
+				+ " doe not exist, generaterating one...");
 		setDisabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
@@ -125,9 +91,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -168,12 +134,12 @@ public class ConfigVoteSites {
 			HashMap<String, Integer> enchantments = new HashMap<String, Integer>();
 			Set<String> enchants = getData(siteName).getConfigurationSection(
 					"CumulativeReward.Items." + item + ".Enchants").getKeys(
-					false);
+							false);
 			for (String enchant : enchants) {
 				enchantments
-						.put(enchant,
-								getCumulativeRewardEnchantLevel(siteName, item,
-										enchant));
+				.put(enchant,
+						getCumulativeRewardEnchantLevel(siteName, item,
+								enchant));
 			}
 
 			return enchantments;
@@ -636,12 +602,12 @@ public class ConfigVoteSites {
 				if (!site.equalsIgnoreCase("Example")
 						&& !getVoteSiteDisabled(site)
 						&& !site.equalsIgnoreCase("null")) {
-					if (!this.siteCheck(site)) {
+					if (!siteCheck(site)) {
 						plugin.getLogger()
-								.warning(
-										"Some issues may of occoured on loading site "
-												+ site
-												+ ", you can ignore this message if you experience no issues.");
+						.warning(
+								"Some issues may of occoured on loading site "
+										+ site
+										+ ", you can ignore this message if you experience no issues.");
 					}
 					voteSites.add(new VoteSite(site));
 				}
@@ -690,6 +656,24 @@ public class ConfigVoteSites {
 
 	public String getVoteURL(String siteName) {
 		return getData(siteName).getString("VoteURL");
+	}
+
+	public boolean isServerSiteGood(String siteName) {
+		if (getServiceSite(siteName) == null) {
+			return false;
+		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
+	}
+
+	public boolean isVoteURLGood(String siteName) {
+		if (getVoteURL(siteName) == null) {
+			return false;
+		} else if (getVoteURL(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
 	}
 
 	public boolean renameVoteSite(String siteName, String newName) {
@@ -857,6 +841,22 @@ public class ConfigVoteSites {
 
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
+	}
+
+	public boolean siteCheck(String siteName) {
+		boolean pass = true;
+		if (!isServerSiteGood(siteName)) {
+			plugin.getLogger().warning(
+					"Issue with ServiceSite in site " + siteName
+					+ ", votes may not work properly");
+			pass = false;
+		}
+		if (!isVoteURLGood(siteName)) {
+			plugin.getLogger()
+			.warning("Issue with VoteURL in site " + siteName);
+			pass = false;
+		}
+		return pass;
 	}
 
 }

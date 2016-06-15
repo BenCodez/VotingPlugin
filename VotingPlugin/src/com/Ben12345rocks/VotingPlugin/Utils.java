@@ -60,14 +60,6 @@ public class Utils {
 
 	}
 
-	public String replacePlaceHolders(Player player, String text) {
-		if (plugin.placeHolderAPIEnabled) {
-			return PlaceholderAPI.setBracketPlaceholders(player, text);
-		} else {
-			return text;
-		}
-	}
-
 	public ItemStack addLore(ItemStack item, List<String> lore) {
 		if (lore == null) {
 			return item;
@@ -412,6 +404,14 @@ public class Utils {
 			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
+	}
+
+	public String replacePlaceHolders(Player player, String text) {
+		if (plugin.placeHolderAPIEnabled) {
+			return PlaceholderAPI.setBracketPlaceholders(player, text);
+		} else {
+			return text;
+		}
 	}
 
 	@SuppressWarnings("unused")

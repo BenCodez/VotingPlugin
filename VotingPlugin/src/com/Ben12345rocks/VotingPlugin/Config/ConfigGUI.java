@@ -43,10 +43,6 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Amount");
 	}
 
-	public int getVoteGUISlotSlot(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
-	}
-
 	public String getVoteGUISlotCommand(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Command");
 	}
@@ -65,6 +61,10 @@ public class ConfigGUI {
 
 	public Set<String> getVoteGUISlots() {
 		return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
+	}
+
+	public int getVoteGUISlotSlot(String slot) {
+		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
 	public int getVoteSiteItemAmount(String siteName) {
@@ -99,11 +99,6 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
 	}
 
-	public int getVoteSiteItemsSlot(String siteName, String item) {
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
-	}
-
 	public int getVoteSiteItemsData(String siteName, String item) {
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
@@ -125,6 +120,11 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
 	}
 
+	public int getVoteSiteItemsSlot(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
+	}
+
 	public int getVoteURLAlreadyVotedItemAmount() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Amount");
 		if (num != 0) {
@@ -132,10 +132,6 @@ public class ConfigGUI {
 		} else {
 			return 1;
 		}
-	}
-
-	public boolean getVoteURLViewAllUrlsButtonEnabled() {
-		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
 	public int getVoteURLAlreadyVotedItemData() {
@@ -210,6 +206,10 @@ public class ConfigGUI {
 		}
 	}
 
+	public boolean getVoteURLViewAllUrlsButtonEnabled() {
+		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
@@ -231,7 +231,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 
