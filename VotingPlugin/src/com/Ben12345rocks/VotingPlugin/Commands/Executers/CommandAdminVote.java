@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 
 import org.bukkit.Bukkit;
@@ -11,6 +13,7 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
@@ -21,7 +24,9 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.vexsoftware.votifier.model.Vote;
 
 public class CommandAdminVote implements CommandExecutor {
 
@@ -583,6 +588,15 @@ public class CommandAdminVote implements CommandExecutor {
 	public void Vote(CommandSender sender, String voteSite, String playerName) {
 
 		VotiferEvent.playerVote(voteSite, playerName);
+
+		Vote vote = new com.vexsoftware.votifier.model.Vote();
+		vote.setServiceName(new VoteSite(voteSite).getServiceSite());
+		vote.setUsername(playerName);
+		try {
+			BungeeVote.getInstance().sendVote(vote);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
 	}
 
 }
