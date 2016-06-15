@@ -299,13 +299,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void bungeeVote(CommandSender sender, String voteSite,
-			String playerName) {
-
-		BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
-
-	}
-
 	public void createVoteSite(CommandSender sender, String voteSite) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
@@ -322,13 +315,10 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void globalVote(CommandSender sender, String voteSite,
+	public void Vote(CommandSender sender, String voteSite,
 			String playerName) {
 
 		VotiferEvent.playerVote(voteSite, playerName);
-
-		BungeeVote.getInstance().sendBungeeVote(voteSite, playerName);
-
 	}
 
 	public void help(CommandSender sender) {
@@ -390,13 +380,6 @@ public class CommandAdminVote implements CommandExecutor {
 				plugin.updateTopUpdater();
 			}
 		});
-
-	}
-
-	public void serverVote(CommandSender sender, String voteSite,
-			String playerName) {
-
-		VotiferEvent.playerVote(voteSite, playerName);
 
 	}
 

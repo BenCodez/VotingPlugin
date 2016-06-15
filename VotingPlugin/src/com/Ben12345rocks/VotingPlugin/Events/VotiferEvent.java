@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
@@ -162,7 +164,11 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
+		try {
+			BungeeVote.getInstance().sendVote(vote);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
 
 		playerVote(voteUsername, voteSite);
 

@@ -177,35 +177,11 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().globalVote(sender,
-								args[1], args[2]);
+						CommandAdminVote.getInstance().Vote(sender, args[1],
+								args[2]);
 
 					}
 				});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"BungeeVote", "player", "sitename" },
-				"VotingPlugin.Commands.AdminVote.BungeeVote") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().bungeeVote(sender, args[1],
-						args[2]);
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"ServerVote", "player", "sitename" },
-				"VotingPlugin.Commands.AdminVote.ServerVote") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().serverVote(sender, args[1],
-						args[2]);
-
-			}
-		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
 				"VoteSites", "sitename", "Create" },

@@ -70,8 +70,6 @@ permissions:
       VotingPlugin.Commands.AdminVote.Help: true
       VotingPlugin.Commands.AdminVote.GUI: true
       VotingPlugin.Commands.AdminVote.Vote: true
-      VotingPlugin.Commands.AdminVote.BungeeVote: true
-      VotingPlugin.Commands.AdminVote.ServerVote: true
       VotingPlugin.Commands.AdminVote.UUID: true
       VotingPlugin.Commands.AdminVote.Reload: true
       VotingPlugin.Commands.AdminVote.Set.Total: true
@@ -140,10 +138,6 @@ permissions:
     description: Allows access to /adminvote Report
   VotingPlugin.Commands.AdminVote.Vote: 
     description: Allows access to /adminvote vote <player> <site>
-  VotingPlugin.Commands.AdminVote.BungeeVote: 
-    description: Allows access to /adminvote bungeevote <player> <site>
-  VotingPlugin.Commands.AdminVote.ServerVote: 
-    description: Allows access to /adminvote servervote <player> <site>  
   VotingPlugin.Commands.AdminVote.UUID: 
     description: Allows access to /adminvote uuid <player>
   VotingPlugin.Commands.AdminVote.Reload: 

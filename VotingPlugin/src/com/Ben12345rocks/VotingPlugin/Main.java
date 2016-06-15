@@ -112,10 +112,6 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void loadBungee() {
-		BungeeVote.getInstance().registerBungeeVoting();
-	}
-
 	public void loadReminders() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
@@ -185,7 +181,6 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		loadVoteSites();
-		loadBungee();
 
 		if (Config.getInstance().getRemindVotesEnabled()) {
 			loadReminders();
