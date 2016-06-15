@@ -1,8 +1,16 @@
 # BonusReward.yml
 # Set bonus reward here
 
-# Give players a bonus reward when all votes have been complete
+# Give players a bonus reward when arequirements are met
 GiveBonusReward: false
+
+Requirements:
+  # If true, bonus reward will be given after voting on all sites
+  # If false, will use number of votes below
+  VoteAllSites: true
+  # Number of votes required to give this reward
+  # Only works if above is false
+  Votes: 0
     
 # money given on reward, use 0 for none
 # Requires Vault

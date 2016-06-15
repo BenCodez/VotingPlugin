@@ -114,6 +114,9 @@ public class ConfigVoteSites {
 	}
 
 	public void generateVoteSite(String siteName) {
+		plugin.getLogger().warning(
+				"VoteSite " + siteName
+						+ " doe not exist, generaterating one...");
 		setDisabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");

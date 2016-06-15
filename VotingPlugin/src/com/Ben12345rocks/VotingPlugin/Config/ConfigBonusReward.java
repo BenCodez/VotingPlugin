@@ -40,6 +40,14 @@ public class ConfigBonusReward {
 		ConfigBonusReward.plugin = plugin;
 	}
 
+	public boolean getRequirementVoteAllSites() {
+		return getData().getBoolean("Requirements.VoteAllSites");
+	}
+
+	public int getRequirementVotes() {
+		return getData().getInt("Requirements.Votes");
+	}
+
 	@SuppressWarnings("deprecation")
 	public void addExtraRewardItem(String reward, String item,
 			ItemStack itemStack) {

@@ -13,6 +13,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class BonusVoteReward {
@@ -34,6 +35,23 @@ public class BonusVoteReward {
 	}
 
 	private BonusVoteReward() {
+	}
+
+	public boolean giveBonusRewardUser(User user) {
+		if (ConfigBonusReward.getInstance().getRequirementVoteAllSites()) {
+			return user.checkAllVotes();
+		} else {
+			int votesNeeded = ConfigBonusReward.getInstance()
+					.getRequirementVotes();
+			int userVotes = Data.getInstance().getVotesBonusReward(user);
+			if (userVotes >= votesNeeded) {
+				Data.getInstance().setVotesBonusReward(user,
+						userVotes - votesNeeded);
+				return true;
+			} else {
+				return false;
+			}
+		}
 	}
 
 	public BonusVoteReward(Main plugin) {

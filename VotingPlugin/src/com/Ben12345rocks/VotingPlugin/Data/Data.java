@@ -49,6 +49,14 @@ public class Data {
 				getTotal(user, voteSite) + 1);
 	}
 
+	public int getVotesBonusReward(User user) {
+		return getData(user).getInt(user.getUUID() + ".BonusRequirement");
+	}
+
+	public void setVotesBonusReward(User user, int value) {
+		set(user, user.getUUID() + ".BonusRequirement", value);
+	}
+
 	public int getBonusOfflineVotes(User user) {
 		return getData(user).getInt(user.getUUID() + ".BonusOfflineVotes");
 	}
