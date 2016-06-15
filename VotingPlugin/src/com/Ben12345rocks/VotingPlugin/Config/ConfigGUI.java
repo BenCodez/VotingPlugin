@@ -43,6 +43,10 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Amount");
 	}
 
+	public int getVoteGUISlotSlot(String slot) {
+		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
+	}
+
 	public String getVoteGUISlotCommand(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Command");
 	}
@@ -95,6 +99,11 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
 	}
 
+	public int getVoteSiteItemsSlot(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
+	}
+
 	public int getVoteSiteItemsData(String siteName, String item) {
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
@@ -123,6 +132,10 @@ public class ConfigGUI {
 		} else {
 			return 1;
 		}
+	}
+
+	public boolean getVoteURLViewAllUrlsButtonEnabled() {
+		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
 	public int getVoteURLAlreadyVotedItemData() {
@@ -218,7 +231,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

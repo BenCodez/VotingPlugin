@@ -169,9 +169,8 @@ public class Commands {
 
 	@SuppressWarnings("deprecation")
 	public void openVoteGUI(Player player) {
-		BInventory inv = new BInventory("VoteGUI", 9);
+		BInventory inv = new BInventory("VoteGUI");
 
-		int count = 0;
 		for (String slot : ConfigGUI.getInstance().getVoteGUISlots()) {
 			ItemStack item = new ItemStack(ConfigGUI.getInstance()
 					.getVoteGUISlotID(slot), ConfigGUI.getInstance()
@@ -197,22 +196,22 @@ public class Commands {
 				lore = Commands.getInstance().voteHelpTextColored();
 			}
 
-			inv.addButton(count, new BInventoryButton(ConfigGUI.getInstance()
-					.getVoteGUISlotName(slot), lore, item) {
+			inv.addButton(ConfigGUI.getInstance().getVoteGUISlotSlot(slot),
+					new BInventoryButton(ConfigGUI.getInstance()
+							.getVoteGUISlotName(slot), lore, item) {
 
-				@Override
-				public void onClick(InventoryClickEvent event) {
-					Player player = (Player) event.getWhoClicked();
-					if (player != null) {
-						player.closeInventory();
-						player.performCommand(ConfigGUI.getInstance()
-								.getVoteGUISlotCommand(slot));
+						@Override
+						public void onClick(InventoryClickEvent event) {
+							Player player = (Player) event.getWhoClicked();
+							if (player != null) {
+								player.closeInventory();
+								player.performCommand(ConfigGUI.getInstance()
+										.getVoteGUISlotCommand(slot));
 
-					}
+							}
 
-				}
-			});
-			count++;
+						}
+					});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -582,10 +581,10 @@ public class Commands {
 
 	@SuppressWarnings("deprecation")
 	public void voteReward(Player player, String siteName) {
-		BInventory inv = new BInventory("VoteReward", 9);
+		BInventory inv = new BInventory("VoteReward");
 
-		int count = 0;
 		if (siteName == null || siteName == "") {
+			int count = 0;
 			for (VoteSite voteSite : plugin.voteSites) {
 				ItemStack item = new ItemStack(ConfigGUI.getInstance()
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
@@ -631,7 +630,8 @@ public class Commands {
 						.getVoteSiteItemsData(siteName, itemName));
 
 				inv.addButton(
-						count,
+						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
+								itemName),
 						new BInventoryButton(ConfigGUI.getInstance()
 								.getVoteSiteItemsName(siteName, itemName),
 								Utils.getInstance().convertArray(
@@ -649,7 +649,6 @@ public class Commands {
 
 							}
 						});
-				count++;
 			}
 		}
 
@@ -689,9 +688,36 @@ public class Commands {
 
 	@SuppressWarnings("deprecation")
 	public void voteURL(Player player) {
-		BInventory inv = new BInventory("VoteURL", 9);
+		BInventory inv = new BInventory("VoteURL");
+
+		User user = new User(player);
 
 		int count = 0;
+		if (ConfigGUI.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
+			ItemStack itemAll = new ItemStack(ConfigGUI.getInstance()
+					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
+					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
+					.getInstance().getVoteURLAlreadyVotedItemData());
+			if (user.canVoteAll()) {
+				itemAll = new ItemStack(ConfigGUI.getInstance()
+						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
+						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
+						.getInstance().getVoteURLCanVoteItemData());
+			}
+
+			inv.addButton(count, new BInventoryButton("&4All Voting Sites",
+					new String[] { "&cClick Me" }, itemAll) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					player.sendMessage(Commands.getInstance().voteURLs());
+
+				}
+			});
+
+			count++;
+		}
+
 		for (VoteSite voteSite : plugin.voteSites) {
 			ItemStack item = new ItemStack(ConfigGUI.getInstance()
 					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
@@ -700,7 +726,6 @@ public class Commands {
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
 
-			User user = new User(player);
 			if (user.canVoteSite(voteSite)) {
 				item = new ItemStack(ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
