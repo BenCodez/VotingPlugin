@@ -101,13 +101,13 @@ public class ConfigVoteSites {
 		boolean pass = true;
 		if (!isServerSiteGood(siteName)) {
 			plugin.getLogger().warning(
-					"Issue with service in site " + siteName
+					"Issue with ServiceSite in site " + siteName
 							+ ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
 			plugin.getLogger()
-					.warning("Issue with voteURL in site " + siteName);
+					.warning("Issue with VoteURL in site " + siteName);
 			pass = false;
 		}
 		return pass;

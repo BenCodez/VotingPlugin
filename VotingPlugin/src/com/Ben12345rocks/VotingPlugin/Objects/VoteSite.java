@@ -61,7 +61,7 @@ public class VoteSite {
 	public VoteSite(String siteName) {
 		setSiteName(siteName);
 		if (!configVoteSites.getVoteSiteFile(siteName).exists()) {
-			if (Config.getInstance().getDisableAutoCreateVoteSites()) {
+			if (!Config.getInstance().getDisableAutoCreateVoteSites()) {
 				configVoteSites.generateVoteSite(siteName);
 			}
 			init();
