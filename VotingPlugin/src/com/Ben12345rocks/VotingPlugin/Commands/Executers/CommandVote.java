@@ -32,8 +32,12 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void help(CommandSender sender) {
-
-		sender.sendMessage(Commands.getInstance().voteHelpTextColored());
+		if (sender instanceof Player) {
+			User user = new User((Player) sender);
+			user.sendMessage(Commands.getInstance().voteHelpTextColored());
+		} else {
+			sender.sendMessage(Commands.getInstance().voteHelpTextColored());
+		}
 
 	}
 
@@ -43,9 +47,10 @@ public class CommandVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				sender.sendMessage(Utils.getInstance().colorize(
+				User user = new User((Player) sender);
+				user.sendMessage(Utils.getInstance().colorize(
 						"&cGetting player info..."));
-				sender.sendMessage(Commands.getInstance().playerInfo(
+				user.sendMessage(Commands.getInstance().playerInfo(
 						new User(playerName)));
 			}
 		});
@@ -59,9 +64,10 @@ public class CommandVote implements CommandExecutor {
 
 				@Override
 				public void run() {
-					sender.sendMessage(Utils.getInstance().colorize(
+					User user = new User((Player) sender);
+					user.sendMessage(Utils.getInstance().colorize(
 							"&cGetting info..."));
-					sender.sendMessage(Commands.getInstance().playerInfo(
+					user.sendMessage(Commands.getInstance().playerInfo(
 							new User(sender.getName())));
 				}
 			});
@@ -74,7 +80,7 @@ public class CommandVote implements CommandExecutor {
 	public void lastOther(CommandSender sender, String playerName) {
 
 		User user = new User(playerName);
-		sender.sendMessage(Commands.getInstance().voteCommandLast(user));
+		user.sendMessage(Commands.getInstance().voteCommandLast(user));
 
 	}
 
@@ -83,7 +89,7 @@ public class CommandVote implements CommandExecutor {
 
 			String playerName = sender.getName();
 			User user = new User(playerName);
-			sender.sendMessage(Commands.getInstance().voteCommandLast(user));
+			user.sendMessage(Commands.getInstance().voteCommandLast(user));
 
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -93,7 +99,7 @@ public class CommandVote implements CommandExecutor {
 	public void nextOther(CommandSender sender, String playerName) {
 
 		User user = new User(playerName);
-		sender.sendMessage(Commands.getInstance().voteCommandNext(user));
+		user.sendMessage(Commands.getInstance().voteCommandNext(user));
 
 	}
 
@@ -102,7 +108,7 @@ public class CommandVote implements CommandExecutor {
 
 			String playerName = sender.getName();
 			User user = new User(playerName);
-			sender.sendMessage(Commands.getInstance().voteCommandNext(user));
+			user.sendMessage(Commands.getInstance().voteCommandNext(user));
 
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -130,9 +136,15 @@ public class CommandVote implements CommandExecutor {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(Commands.getInstance().commandVoteToday(
+							page));
+				} else {
+					sender.sendMessage(Commands.getInstance().commandVoteToday(
+							page));
+				}
 
-				sender.sendMessage(Commands.getInstance()
-						.commandVoteToday(page));
 			}
 		});
 
@@ -144,7 +156,13 @@ public class CommandVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				sender.sendMessage(TopVoter.getInstance().topVoter(page));
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(TopVoter.getInstance().topVoter(page));
+				} else {
+					sender.sendMessage(TopVoter.getInstance().topVoter(page));
+				}
+
 			}
 		});
 
@@ -156,7 +174,15 @@ public class CommandVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				sender.sendMessage(Commands.getInstance().voteCommandTotalAll());
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(Commands.getInstance()
+							.voteCommandTotalAll());
+				} else {
+					sender.sendMessage(Commands.getInstance()
+							.voteCommandTotalAll());
+				}
+
 			}
 		});
 
@@ -165,7 +191,7 @@ public class CommandVote implements CommandExecutor {
 	public void totalOther(CommandSender sender, String playerName) {
 
 		User user = new User(playerName);
-		sender.sendMessage(Commands.getInstance().voteCommandTotal(user));
+		user.sendMessage(Commands.getInstance().voteCommandTotal(user));
 
 	}
 
@@ -174,7 +200,7 @@ public class CommandVote implements CommandExecutor {
 
 			String playerName = sender.getName();
 			User user = new User(playerName);
-			sender.sendMessage(Commands.getInstance().voteCommandTotal(user));
+			user.sendMessage(Commands.getInstance().voteCommandTotal(user));
 
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -219,7 +245,12 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void voteURLs(CommandSender sender) {
-		sender.sendMessage(Commands.getInstance().voteURLs());
+		if (sender instanceof Player) {
+			User user = new User((Player) sender);
+			user.sendMessage(Commands.getInstance().voteURLs());
+		} else {
+			sender.sendMessage(Commands.getInstance().voteURLs());
+		}
 	}
 
 }

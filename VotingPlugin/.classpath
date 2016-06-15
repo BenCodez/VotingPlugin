@@ -6,5 +6,6 @@
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/BungeeCord.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.jar"/>
+	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/PlaceholderAPI.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

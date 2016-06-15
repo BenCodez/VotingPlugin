@@ -82,10 +82,12 @@ public class Main extends JavaPlugin {
 
 	public String[] voteToday;
 
+	public boolean placeHolderAPIEnabled;
+
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+					.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -118,19 +120,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -141,6 +143,14 @@ public class Main extends JavaPlugin {
 		voteSites = configVoteSites.getVoteSitesLoad();
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded VoteSites");
+		}
+	}
+
+	public void checkPlaceHolderAPI() {
+		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
+			placeHolderAPIEnabled = true;
+		} else {
+			placeHolderAPIEnabled = false;
 		}
 	}
 
@@ -304,11 +314,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						updateTopUpdater();
+					}
+				}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -331,7 +341,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

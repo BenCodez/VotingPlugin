@@ -710,7 +710,8 @@ public class Commands {
 
 				@Override
 				public void onClick(InventoryClickEvent event) {
-					player.sendMessage(Commands.getInstance().voteURLs());
+					User user = new User((Player) event.getWhoClicked());
+					user.sendMessage(Commands.getInstance().voteURLs());
 
 				}
 			});
@@ -748,7 +749,8 @@ public class Commands {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								player.sendMessage(voteSite.getVoteURL());
+								User user = new User(player);
+								user.sendMessage(voteSite.getVoteURL());
 
 							}
 

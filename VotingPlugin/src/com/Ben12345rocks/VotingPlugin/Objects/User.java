@@ -701,8 +701,28 @@ public class User {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if ((player != null) && (msg != null)) {
 			if (msg != "") {
-				player.sendMessage(Utils.getInstance().colorize(msg));
+				player.sendMessage(Utils.getInstance().colorize(
+						Utils.getInstance().replacePlaceHolders(player, msg)));
 			}
+		}
+	}
+
+	/**
+	 * Send the user a message
+	 *
+	 * @param msg
+	 *            Message to send
+	 */
+	public void sendMessage(String[] msg) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && (msg != null)) {
+
+			for (int i = 0; i < msg.length; i++) {
+				msg[i] = Utils.getInstance()
+						.replacePlaceHolders(player, msg[i]);
+			}
+			player.sendMessage(Utils.getInstance().colorize(msg));
+
 		}
 	}
 
