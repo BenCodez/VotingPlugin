@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
@@ -9,6 +11,7 @@ import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
@@ -58,13 +61,7 @@ public class VotiferEvent implements Listener {
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)
 							&& !Config.getInstance()
-									.getDisableAutoCreateVoteSites()) {
-						plugin.getLogger()
-								.warning(
-										"VoteSite "
-												+ voteSiteName
-												+ " doe not exist, generaterating one...");
-
+							.getDisableAutoCreateVoteSites()) {
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
 						ConfigVoteSites.getInstance().setServiceSite(
@@ -75,9 +72,9 @@ public class VotiferEvent implements Listener {
 						.getDisableAutoCreateVoteSites()) {
 					plugin.getLogger().warning(
 							"VoteSite " + voteSiteName
-									+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance()
-							.generateVoteSite(voteSiteName);
+					.generateVoteSite(voteSiteName);
 					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 							voteSiteURL);
 					return;
@@ -100,7 +97,8 @@ public class VotiferEvent implements Listener {
 				user.setReminded(false);
 
 				// check if player has voted on all sites in one day
-				boolean allVotes = user.checkAllVotes();
+				boolean allVotes = BonusVoteReward.getInstance()
+						.giveBonusRewardUser(user);
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
@@ -166,7 +164,11 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		BungeeVote.getInstance().sendBungeeVote(voteUsername, voteSite);
+		try {
+			BungeeVote.getInstance().sendVote(vote);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+			e.printStackTrace();
+		}
 
 		playerVote(voteUsername, voteSite);
 

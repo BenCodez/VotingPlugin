@@ -2,8 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -36,49 +34,32 @@ public class ConfigBungeeVoting {
 		ConfigBungeeVoting.plugin = plugin;
 	}
 
-	public String getAdvancedRecieveIP() {
-		return getData().getString("Advanced.RecievePort.IP");
-	}
-
-	public int getAdvancedRecievePort() {
-		return getData().getInt("Advanced.RecievePort.Port");
-
-	}
-
-	public String getAdvancedSendIP(String server) {
-		return getData().getString("Advanced.SendPorts." + server + ".IP");
-
-	}
-
-	public int getAdvancedSendPort(String server) {
-		return getData().getInt("Advanced.SendPorts." + server + ".Port");
-
-	}
-
-	public Set<String> getAdvancedSendServers() {
-		try {
-			return getData().getConfigurationSection("Advanced.SendPorts")
-					.getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
 	public FileConfiguration getData() {
 		return data;
 	}
 
-	public int getRecievePort() {
-		return getData().getInt("RecievePort");
+	public boolean getEnabled() {
+		return getData().getBoolean("Enabled");
 	}
 
-	@SuppressWarnings("unchecked")
-	public List<Integer> getSendPorts() {
-		return (List<Integer>) getData().getList("SendPorts");
+	public String getServerIP(String server) {
+		return getData().getString("Servers." + server + ".IP");
 	}
 
-	public boolean recieveBungeeVotes() {
-		return getData().getBoolean("RecieveBungeeVotes");
+	public String getServerKey(String server) {
+		return getData().getString("Servers." + server + ".Key");
+	}
+
+	public int getServerPort(String server) {
+		return getData().getInt("Servers." + server + ".Port");
+	}
+
+	public Set<String> getServers() {
+		return getData().getConfigurationSection("Servers").getKeys(false);
+	}
+
+	public String getServerServiceSite(String server) {
+		return getData().getString("Servers." + server + ".ServiceSite");
 	}
 
 	public void reloadData() {
@@ -87,10 +68,6 @@ public class ConfigBungeeVoting {
 
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
-	}
-
-	public boolean sendBungeeVotes() {
-		return getData().getBoolean("SendBungeeVotes");
 	}
 
 	public void setup(Plugin p) {
@@ -113,10 +90,6 @@ public class ConfigBungeeVoting {
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public boolean useAdvanced() {
-		return getData().getBoolean("UseAdvanced");
 	}
 
 }

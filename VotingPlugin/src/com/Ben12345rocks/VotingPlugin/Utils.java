@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import me.clip.placeholderapi.PlaceholderAPI;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -402,6 +404,14 @@ public class Utils {
 			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
+	}
+
+	public String replacePlaceHolders(Player player, String text) {
+		if (plugin.placeHolderAPIEnabled) {
+			return PlaceholderAPI.setBracketPlaceholders(player, text);
+		} else {
+			return text;
+		}
 	}
 
 	@SuppressWarnings("unused")

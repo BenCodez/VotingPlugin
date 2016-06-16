@@ -29,7 +29,7 @@ VoteURL: 'link to vote URL here, used in /vote'
 
 # Time between votes in hours (used for /vote next)
 # Most sites are 24 hours
-votedelay: 24
+VoteDelay: 24
 
 # Money given on vote
 # use 0 for none

@@ -63,6 +63,10 @@ public class ConfigGUI {
 		return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
 	}
 
+	public int getVoteGUISlotSlot(String slot) {
+		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
+	}
+
 	public int getVoteSiteItemAmount(String siteName) {
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
 	}
@@ -114,6 +118,11 @@ public class ConfigGUI {
 	public String getVoteSiteItemsName(String siteName, String item) {
 		return getData().getString(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
+	}
+
+	public int getVoteSiteItemsSlot(String siteName, String item) {
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
 	}
 
 	public int getVoteURLAlreadyVotedItemAmount() {
@@ -195,6 +204,10 @@ public class ConfigGUI {
 		} else {
 			return "&c%Name%";
 		}
+	}
+
+	public boolean getVoteURLViewAllUrlsButtonEnabled() {
+		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
 	public void reloadData() {

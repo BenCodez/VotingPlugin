@@ -109,9 +109,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -211,6 +211,10 @@ public class Data {
 		}
 	}
 
+	public int getVotesBonusReward(User user) {
+		return getData(user).getInt(user.getUUID() + ".BonusRequirement");
+	}
+
 	public boolean hasJoinedBefore(User user) {
 		try {
 			return getPlayersUUIDs().contains(user.getUUID());
@@ -227,9 +231,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -357,11 +361,15 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
 
 		// FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void setVotesBonusReward(User user, int value) {
+		set(user, user.getUUID() + ".BonusRequirement", value);
 	}
 }

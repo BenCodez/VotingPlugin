@@ -1,20 +1,15 @@
 # BungeeVoting.yml
 # Please note, this is a beta feature
 # Report any issues
-# If enabled, server will send votes using the port below
-SendBungeeVotes: false
+Enabled: false
 
-# If enabled, server will recieve votes using the port below
-RecieveBungeeVotes: false
-
-# Ports
-# Port to recieve votes on
-# Must match on other servers
-# If port is already in use, change it to a different one
-RecievePort: 1335
-# Ports to send votes
-# You may need to use a different port for each server
-# RecievePort on each server must match one of these
-# and that server must have RecieveBungeeVotes enabled
-SendPorts:
-- 1335
+Servers:
+  Server1:
+    # Votifier IP
+    IP: ''
+    # Votifier port
+    Port: 8129
+    # Votifier key of this server
+    Key: 'PUBLICKEY'
+    # Add custom service site, leave blank to use the service site from the vote
+    ServiceSite: ''

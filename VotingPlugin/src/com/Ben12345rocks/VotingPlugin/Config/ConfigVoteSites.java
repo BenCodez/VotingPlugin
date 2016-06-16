@@ -80,6 +80,9 @@ public class ConfigVoteSites {
 	}
 
 	public void generateVoteSite(String siteName) {
+		plugin.getLogger().warning(
+				"VoteSite " + siteName
+						+ " doe not exist, generaterating one...");
 		setDisabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
@@ -599,7 +602,12 @@ public class ConfigVoteSites {
 				if (!site.equalsIgnoreCase("Example")
 						&& !getVoteSiteDisabled(site)
 						&& !site.equalsIgnoreCase("null")) {
-					voteSites.add(new VoteSite(site));
+					if (!siteCheck(site)) {
+						plugin.getLogger().warning(
+								"Failed to load site " + site + ", see above");
+					} else {
+						voteSites.add(new VoteSite(site));
+					}
 				}
 			}
 		}
@@ -646,6 +654,24 @@ public class ConfigVoteSites {
 
 	public String getVoteURL(String siteName) {
 		return getData(siteName).getString("VoteURL");
+	}
+
+	public boolean isServerSiteGood(String siteName) {
+		if (getServiceSite(siteName) == null) {
+			return false;
+		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
+	}
+
+	public boolean isVoteURLGood(String siteName) {
+		if (getVoteURL(siteName) == null) {
+			return false;
+		} else if (getVoteURL(siteName).equalsIgnoreCase("")) {
+			return false;
+		}
+		return true;
 	}
 
 	public boolean renameVoteSite(String siteName, String newName) {
@@ -813,6 +839,21 @@ public class ConfigVoteSites {
 
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
+	}
+
+	public boolean siteCheck(String siteName) {
+		boolean pass = true;
+		if (!isServerSiteGood(siteName)) {
+			plugin.getLogger().warning(
+					"Issue with ServiceSite in site " + siteName
+							+ ", votes may not work properly");
+			pass = false;
+		}
+		if (!isVoteURLGood(siteName)) {
+			plugin.getLogger()
+					.warning("Issue with VoteURL in site " + siteName);
+		}
+		return pass;
 	}
 
 }

@@ -11,7 +11,6 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -82,6 +81,16 @@ public class Main extends JavaPlugin {
 
 	public String[] voteToday;
 
+	public boolean placeHolderAPIEnabled;
+
+	public void checkPlaceHolderAPI() {
+		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
+			placeHolderAPIEnabled = true;
+		} else {
+			placeHolderAPIEnabled = false;
+		}
+	}
+
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
@@ -108,10 +117,6 @@ public class Main extends JavaPlugin {
 		} else {
 			return null;
 		}
-	}
-
-	public void loadBungee() {
-		BungeeVote.getInstance().registerBungeeVoting();
 	}
 
 	public void loadReminders() {
@@ -175,7 +180,6 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		loadVoteSites();
-		loadBungee();
 
 		if (Config.getInstance().getRemindVotesEnabled()) {
 			loadReminders();

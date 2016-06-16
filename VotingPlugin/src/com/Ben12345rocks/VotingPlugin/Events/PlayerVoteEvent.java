@@ -8,8 +8,14 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class PlayerVoteEvent extends Event {
 	private static final HandlerList handlers = new HandlerList();
+
+	public static HandlerList getHandlerList() {
+		return handlers;
+	}
+
 	private User player;
 	private VoteSite voteSite;
+
 	private boolean cancelled;
 
 	public PlayerVoteEvent(VoteSite voteSite, User player) {
@@ -18,7 +24,8 @@ public class PlayerVoteEvent extends Event {
 		setVoteSite(voteSite);
 	}
 
-	public static HandlerList getHandlerList() {
+	@Override
+	public HandlerList getHandlers() {
 		return handlers;
 	}
 
@@ -44,11 +51,6 @@ public class PlayerVoteEvent extends Event {
 
 	public void setVoteSite(VoteSite voteSite) {
 		this.voteSite = voteSite;
-	}
-
-	@Override
-	public HandlerList getHandlers() {
-		return handlers;
 	}
 
 }

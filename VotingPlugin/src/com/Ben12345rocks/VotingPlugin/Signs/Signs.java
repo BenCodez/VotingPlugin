@@ -38,6 +38,7 @@ public class Signs {
 		Signs.plugin = plugin;
 	}
 
+	@SuppressWarnings("deprecation")
 	public void checkSkulls(Location loc, String playerName) {
 		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
 				loc.getBlockY() - 1, loc.getBlockZ() - 1);
@@ -101,8 +102,8 @@ public class Signs {
 								lines.set(
 										j,
 										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+										.replace("%votes%", "" + votes)
+										.replace("%player%", playerName));
 							}
 						} else {
 							String playerName = "No Player";
@@ -111,8 +112,8 @@ public class Signs {
 								lines.set(
 										j,
 										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+										.replace("%votes%", "" + votes)
+										.replace("%player%", playerName));
 							}
 						}
 
@@ -120,9 +121,9 @@ public class Signs {
 							lines.set(
 									j,
 									lines.get(j)
-											.replace("%SiteName%", data)
-											.replace("%position%",
-													"" + position));
+									.replace("%SiteName%", data)
+									.replace("%position%",
+											"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);
@@ -132,33 +133,33 @@ public class Signs {
 						Bukkit.getScheduler().runTaskLater(plugin,
 								new Runnable() {
 
-									@Override
-									public void run() {
-										BlockState state = loc.getBlock()
-												.getState();
-										if (state instanceof Sign) {
-											Sign s = (Sign) state;
+							@Override
+							public void run() {
+								BlockState state = loc.getBlock()
+										.getState();
+								if (state instanceof Sign) {
+									Sign s = (Sign) state;
 
-											List<String> lines = ServerData
-													.getInstance().getLines(
-															sign);
+									List<String> lines = ServerData
+											.getInstance().getLines(
+													sign);
 
-											for (int j = 0; j < lines.size(); j++) {
-												s.setLine(j, lines.get(j));
-											}
-											s.update();
-
-											if (users.size() >= position) {
-												String playerName = users.get(
-														position - 1)
-														.getPlayerName();
-												checkSkulls(loc, playerName);
-											}
-										}
-
+									for (int j = 0; j < lines.size(); j++) {
+										s.setLine(j, lines.get(j));
 									}
+									s.update();
 
-								}, 10l + i);
+									if (users.size() >= position) {
+										String playerName = users.get(
+												position - 1)
+												.getPlayerName();
+										checkSkulls(loc, playerName);
+									}
+								}
+
+							}
+
+						}, 10l + i);
 					} else {
 						for (VoteSite voteSite : plugin.voteSites) {
 							if (data.equalsIgnoreCase(voteSite.getSiteName())) {
@@ -174,8 +175,8 @@ public class Signs {
 										lines.set(
 												j,
 												lines.get(j)
-														.replace("%votes%",
-																"" + votes)
+												.replace("%votes%",
+														"" + votes)
 														.replace("%player%",
 																playerName));
 									}
@@ -185,9 +186,9 @@ public class Signs {
 									lines.set(
 											j,
 											lines.get(j)
-													.replace("%SiteName%", data)
-													.replace("%position%",
-															"" + position));
+											.replace("%SiteName%", data)
+											.replace("%position%",
+													"" + position));
 								}
 
 								lines = Utils.getInstance().colorize(lines);
@@ -197,36 +198,36 @@ public class Signs {
 								Bukkit.getScheduler().runTaskLater(plugin,
 										new Runnable() {
 
-											@Override
-											public void run() {
-												BlockState state = loc
-														.getBlock().getState();
-												if (state instanceof Sign) {
-													Sign s = (Sign) state;
+									@Override
+									public void run() {
+										BlockState state = loc
+												.getBlock().getState();
+										if (state instanceof Sign) {
+											Sign s = (Sign) state;
 
-													List<String> lines = ServerData
-															.getInstance()
-															.getLines(sign);
+											List<String> lines = ServerData
+													.getInstance()
+													.getLines(sign);
 
-													for (int j = 0; j < lines
-															.size(); j++) {
-														s.setLine(j,
-																lines.get(j));
-													}
-													s.update();
-
-													if (users.size() >= position) {
-														String playerName = users
-																.get(position - 1)
-																.getPlayerName();
-														checkSkulls(loc,
-																playerName);
-													}
-												}
-
+											for (int j = 0; j < lines
+													.size(); j++) {
+												s.setLine(j,
+														lines.get(j));
 											}
+											s.update();
 
-										}, 10l + i);
+											if (users.size() >= position) {
+												String playerName = users
+														.get(position - 1)
+														.getPlayerName();
+												checkSkulls(loc,
+														playerName);
+											}
+										}
+
+									}
+
+								}, 10l + i);
 							}
 
 						}

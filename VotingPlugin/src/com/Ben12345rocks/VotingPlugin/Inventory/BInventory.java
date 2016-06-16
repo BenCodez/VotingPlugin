@@ -52,14 +52,11 @@ public class BInventory implements Listener {
 	}
 
 	private String inventoryName;
-	@SuppressWarnings("unused")
-	private int inventorySize;
 
 	private Map<Integer, BInventoryButton> buttons = new HashMap<Integer, BInventoryButton>();
 
-	public BInventory(String name, int size) {
+	public BInventory(String name) {
 		setInventoryName(name);
-		setInventorySize(size);
 		Bukkit.getPluginManager().registerEvents(this,
 				Bukkit.getPluginManager().getPlugins()[0]);
 	}
@@ -75,20 +72,31 @@ public class BInventory implements Listener {
 		return buttons;
 	}
 
+	public int getHighestSlot() {
+		int highestNum = 0;
+		for (int num : buttons.keySet()) {
+			if (num > highestNum) {
+				highestNum = num;
+			}
+		}
+		return highestNum;
+	}
+
 	public String getInventoryName() {
 		return inventoryName;
 	}
 
 	public int getInventorySize() {
-		if (buttons.size() <= 9) {
+		int highestSlot = getHighestSlot();
+		if (highestSlot <= 9) {
 			return 9;
-		} else if (buttons.size() <= 18) {
+		} else if (highestSlot <= 18) {
 			return 18;
-		} else if (buttons.size() <= 27) {
+		} else if (highestSlot <= 27) {
 			return 27;
-		} else if (buttons.size() <= 36) {
+		} else if (highestSlot <= 36) {
 			return 36;
-		} else if (buttons.size() <= 45) {
+		} else if (highestSlot <= 45) {
 			return 45;
 		} else {
 			return 45;
@@ -118,7 +126,7 @@ public class BInventory implements Listener {
 					if (clickedItem.getItemMeta().getDisplayName()
 							.equals(button.getName())
 							&& clickedItem.getType() == button.getItem()
-									.getType()) {
+							.getType()) {
 						if (Config.getInstance().getDebugEnabled()) {
 							Main.plugin.getLogger().info("Running code");
 						}
@@ -134,10 +142,6 @@ public class BInventory implements Listener {
 
 	public void setInventoryName(String inventoryName) {
 		this.inventoryName = Utils.getInstance().colorize(inventoryName);
-	}
-
-	public void setInventorySize(int inventorySize) {
-		this.inventorySize = inventorySize;
 	}
 
 }
