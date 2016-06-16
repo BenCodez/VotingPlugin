@@ -39,7 +39,7 @@ public class BungeeVote {
 	}
 
 	public void sendVote(Vote vote) throws NoSuchAlgorithmException,
-	InvalidKeySpecException {
+			InvalidKeySpecException {
 		if (ConfigBungeeVoting.getInstance().getEnabled()) {
 			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
 				byte[] encodedPublicKey = DatatypeConverter
@@ -52,20 +52,28 @@ public class BungeeVote {
 				String serverIP = ConfigBungeeVoting.getInstance().getServerIP(
 						server);
 				int serverPort = ConfigBungeeVoting.getInstance()
-						.getServerPort(serverIP);
+						.getServerPort(server);
 				String serviceSite = ConfigBungeeVoting.getInstance()
 						.getServerServiceSite(serverIP);
 				if (serverIP.length() != 0) {
 					try {
-						if (serviceSite.length() > 0) {
-							vote.setServiceName(serviceSite);
+						if (serviceSite != null) {
+							if (serviceSite.length() > 0) {
+								vote.setServiceName(serviceSite);
+							}
 						}
 						String VoteString = "VOTE\n" + vote.getServiceName()
 								+ "\n" + vote.getUsername() + "\n"
 								+ vote.getAddress() + "\n"
 								+ vote.getTimeStamp() + "\n";
+
 						SocketAddress sockAddr = new InetSocketAddress(
 								serverIP, serverPort);
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger()
+									.info(serverIP + ":" + serverPort);
+							plugin.getLogger().info(sockAddr.toString());
+						}
 						Socket socket = new Socket();
 						socket.connect(sockAddr, 1000);
 						OutputStream socketOutputStream = socket
