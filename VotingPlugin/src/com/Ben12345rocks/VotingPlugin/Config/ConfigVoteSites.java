@@ -644,7 +644,8 @@ public class ConfigVoteSites {
 			// plugin.getLogger().info(siteNames.get(i));
 			if (getVoteSiteDisabled(siteNames.get(i))
 					|| siteNames.get(i).equalsIgnoreCase("Example")
-					|| siteNames.get(i).equalsIgnoreCase("null")) {
+					|| siteNames.get(i).equalsIgnoreCase("null")
+					|| !siteCheck(siteNames.get(i))) {
 				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 
