@@ -285,6 +285,10 @@ public class ConfigBonusReward {
 	public boolean getRequirementVoteAllSites() {
 		return getData().getBoolean("Requirements.VoteAllSites");
 	}
+	
+	public boolean getRequirementFirstVote() {
+		return getData().getBoolean("Requirements.FirstVote");
+	}
 
 	public int getRequirementVotes() {
 		return getData().getInt("Requirements.Votes");

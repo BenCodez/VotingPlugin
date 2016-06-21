@@ -155,10 +155,20 @@ public class BonusVoteReward {
 	public boolean giveBonusRewardUser(User user) {
 		if (ConfigBonusReward.getInstance().getRequirementVoteAllSites()) {
 			return user.checkAllVotes();
+
 		} else {
+			int userVotes = Data.getInstance().getVotesBonusReward(user);
+			if (ConfigBonusReward.getInstance().getRequirementFirstVote()) {
+				if (userVotes == 0) {
+					return true;
+				} else {
+					return false;
+				}
+
+			}
 			int votesNeeded = ConfigBonusReward.getInstance()
 					.getRequirementVotes();
-			int userVotes = Data.getInstance().getVotesBonusReward(user);
+
 			if (userVotes >= votesNeeded) {
 				Data.getInstance().setVotesBonusReward(user,
 						userVotes - votesNeeded);
