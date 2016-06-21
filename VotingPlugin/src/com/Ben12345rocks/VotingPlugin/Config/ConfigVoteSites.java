@@ -642,13 +642,16 @@ public class ConfigVoteSites {
 		}
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
 			// plugin.getLogger().info(siteNames.get(i));
-			if (getVoteSiteDisabled(siteNames.get(i))) {
+			if (getVoteSiteDisabled(siteNames.get(i))
+					|| siteNames.get(i).equalsIgnoreCase("Example")
+					|| siteNames.get(i).equalsIgnoreCase("null")) {
 				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 
 			}
 
 		}
+
 		return siteNames;
 	}
 

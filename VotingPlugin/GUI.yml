@@ -83,9 +83,7 @@ GUI:
   # Customize /vote reward
   VoteReward:
     # Name of votesite
-    # If your site name contains a dot, you will need
-    # to rename it (recommened) 
-    # or at every dot add : and move 1 down and 2 spaces over (not recommened)
+    # If your site name contains a dot, replace it with a - and surround the name with ' '
     SiteName:
       # Item to display as vote site in /vote reward
       Item:
