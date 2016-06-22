@@ -68,35 +68,35 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
-	public int getVoteSiteItemAmount(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemAmount(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
 	}
 
-	public int getVoteSiteItemData(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemData(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
 	}
 
-	public int getVoteSiteItemID(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemID(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getVoteSiteItemLore(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public List<String> getVoteSiteItemLore(String site) {
+		String siteName = site.replace(".", "-");
 		return (List<String>) getData().getList(
 				"GUI.VoteReward." + siteName + ".Item.Lore");
 	}
 
-	public String getVoteSiteItemName(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public String getVoteSiteItemName(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
 	}
 
-	public Set<String> getVoteSiteItems(String siteName) {
-		siteName = siteName.replace(".", "_");
+	public Set<String> getVoteSiteItems(String site) {
+		String siteName = site.replace(".", "-");
 		Set<String> set = getData().getConfigurationSection(
 				"GUI.VoteReward." + siteName + ".Items").getKeys(false);
 		if (set != null) {
@@ -106,39 +106,39 @@ public class ConfigGUI {
 		}
 	}
 
-	public int getVoteSiteItemsAmount(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemsAmount(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
 	}
 
-	public int getVoteSiteItemsData(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemsData(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
 	}
 
-	public int getVoteSiteItemsID(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemsID(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getVoteSiteItemsLore(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public List<String> getVoteSiteItemsLore(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return (List<String>) getData().getList(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Lore");
 	}
 
-	public String getVoteSiteItemsName(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public String getVoteSiteItemsName(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getString(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
 	}
 
-	public int getVoteSiteItemsSlot(String siteName, String item) {
-		siteName = siteName.replace(".", "_");
+	public int getVoteSiteItemsSlot(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
 	}
