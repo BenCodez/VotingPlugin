@@ -11,6 +11,8 @@ Requirements:
   # Number of votes required to give this reward
   # Only works if above is false
   Votes: 0
+  # Give reward on first vote
+  FirstVote: false
     
 # money given on reward, use 0 for none
 # Requires Vault

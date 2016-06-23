@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -67,60 +68,77 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
-	public int getVoteSiteItemAmount(String siteName) {
+	public int getVoteSiteItemAmount(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
 	}
 
-	public int getVoteSiteItemData(String siteName) {
+	public int getVoteSiteItemData(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
 	}
 
-	public int getVoteSiteItemID(String siteName) {
+	public int getVoteSiteItemID(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getVoteSiteItemLore(String siteName) {
+	public List<String> getVoteSiteItemLore(String site) {
+		String siteName = site.replace(".", "-");
 		return (List<String>) getData().getList(
 				"GUI.VoteReward." + siteName + ".Item.Lore");
 	}
 
-	public String getVoteSiteItemName(String siteName) {
+	public String getVoteSiteItemName(String site) {
+		String siteName = site.replace(".", "-");
 		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
 	}
 
-	public Set<String> getVoteSiteItems(String siteName) {
-		return getData().getConfigurationSection(
+	public Set<String> getVoteSiteItems(String site) {
+		String siteName = site.replace(".", "-");
+		Set<String> set = getData().getConfigurationSection(
 				"GUI.VoteReward." + siteName + ".Items").getKeys(false);
+		if (set != null) {
+			return set;
+		} else {
+			return new HashSet<String>();
+		}
 	}
 
-	public int getVoteSiteItemsAmount(String siteName, String item) {
+	public int getVoteSiteItemsAmount(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
 	}
 
-	public int getVoteSiteItemsData(String siteName, String item) {
+	public int getVoteSiteItemsData(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
 	}
 
-	public int getVoteSiteItemsID(String siteName, String item) {
+	public int getVoteSiteItemsID(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getVoteSiteItemsLore(String siteName, String item) {
+	public List<String> getVoteSiteItemsLore(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return (List<String>) getData().getList(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Lore");
 	}
 
-	public String getVoteSiteItemsName(String siteName, String item) {
+	public String getVoteSiteItemsName(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getString(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
 	}
 
-	public int getVoteSiteItemsSlot(String siteName, String item) {
+	public int getVoteSiteItemsSlot(String site, String item) {
+		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
 	}
@@ -231,7 +249,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

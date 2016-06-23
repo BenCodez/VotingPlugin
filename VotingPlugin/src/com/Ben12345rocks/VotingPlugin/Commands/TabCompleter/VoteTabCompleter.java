@@ -18,6 +18,61 @@ import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 public class VoteTabCompleter implements TabCompleter {
 	Main plugin = Main.plugin;
 
+	public ArrayList<String> getTabCompleteOptions(CommandSender sender,
+			String[] args, int argNum) {
+		ArrayList<String> cmds = new ArrayList<String>();
+		for (CommandHandler commandHandler : plugin.voteCommand) {
+
+			if (sender.hasPermission(commandHandler.getPerm())) {
+				String[] cmdArgs = commandHandler.getArgs();
+				if (cmdArgs.length > argNum) {
+					boolean argsMatch = true;
+					for (int i = 0; i < argNum; i++) {
+						if (args.length >= i) {
+							if (!commandHandler.argsMatch(args[i], i)) {
+								argsMatch = false;
+							}
+						}
+					}
+
+					if (argsMatch) {
+						if (cmdArgs[argNum].equalsIgnoreCase("player")) {
+							for (Object playerOb : Bukkit.getOnlinePlayers()
+									.toArray()) {
+								Player player = (Player) playerOb;
+								if (!cmds.contains(player.getName())) {
+									cmds.add(player.getName());
+								}
+							}
+						} else if (cmdArgs[argNum].equalsIgnoreCase("sitename")) {
+							for (String siteName : ConfigVoteSites
+									.getInstance().getVoteSitesNames()) {
+								if (!cmds.contains(siteName)) {
+									cmds.add(siteName);
+								}
+							}
+						} else if (cmdArgs[argNum].equalsIgnoreCase("boolean")) {
+							if (!cmds.contains("True")) {
+								cmds.add("True");
+							}
+							if (!cmds.contains("False")) {
+								cmds.add("False");
+							}
+						} else if (cmdArgs[argNum].equalsIgnoreCase("number")) {
+
+						} else if (!cmds.contains(cmdArgs[argNum])) {
+							cmds.add(cmdArgs[argNum]);
+						}
+					}
+				}
+			}
+		}
+
+		Collections.sort(cmds, String.CASE_INSENSITIVE_ORDER);
+
+		return cmds;
+	}
+
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] args) {
@@ -31,43 +86,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 				ArrayList<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
-
-					String[] cmdArgs = commandHandler.getArgs();
-					if (cmdArgs.length > 0) {
-
-						if (cmdArgs[0].equalsIgnoreCase("player")) {
-							for (Object playerOb : Bukkit.getOnlinePlayers()
-									.toArray()) {
-								Player player = (Player) playerOb;
-								if (!cmds.contains(player.getName())) {
-									cmds.add(player.getName());
-								}
-							}
-						} else if (cmdArgs[0].equalsIgnoreCase("sitename")) {
-							for (String siteName : ConfigVoteSites
-									.getInstance().getVoteSitesNames()) {
-								if (!cmds.contains(siteName)) {
-									cmds.add(siteName);
-								}
-							}
-						} else if (cmdArgs[0].equalsIgnoreCase("boolean")) {
-							if (!cmds.contains("True")) {
-								cmds.add("True");
-							}
-							if (!cmds.contains("False")) {
-								cmds.add("False");
-							}
-						} else {
-							if (!cmds.contains(cmdArgs[0])) {
-								cmds.add(cmdArgs[0]);
-							}
-						}
-
-					}
-				}
-
-				Collections.sort(cmds, String.CASE_INSENSITIVE_ORDER);
+				cmds.addAll(getTabCompleteOptions(sender, args, 0));
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
@@ -82,45 +101,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 				ArrayList<String> cmds = new ArrayList<String>();
 
-				for (CommandHandler commandHandler : plugin.voteCommand) {
-
-					String[] cmdArgs = commandHandler.getArgs();
-					if (cmdArgs.length > 1) {
-						if (commandHandler.argsMatch(args[0], 0)) {
-							if (cmdArgs[1].equalsIgnoreCase("player")) {
-								for (Object playerOb : Bukkit
-										.getOnlinePlayers().toArray()) {
-									Player player = (Player) playerOb;
-									if (!cmds.contains(player.getName())) {
-										cmds.add(player.getName());
-									}
-								}
-							} else if (cmdArgs[1].equalsIgnoreCase("sitename")) {
-								for (String siteName : ConfigVoteSites
-										.getInstance().getVoteSitesNames()) {
-									if (!cmds.contains(siteName)) {
-										cmds.add(siteName);
-									}
-								}
-
-							} else if (cmdArgs[1].equalsIgnoreCase("boolean")) {
-								if (!cmds.contains("True")) {
-									cmds.add("True");
-								}
-								if (!cmds.contains("False")) {
-									cmds.add("False");
-								}
-							} else {
-								if (!cmds.contains(cmdArgs[1])) {
-									cmds.add(cmdArgs[1]);
-								}
-							}
-						}
-
-					}
-				}
-
-				Collections.sort(cmds, String.CASE_INSENSITIVE_ORDER);
+				cmds.addAll(getTabCompleteOptions(sender, args, 1));
 
 				for (int i = 0; i < cmds.size(); i++) {
 					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
