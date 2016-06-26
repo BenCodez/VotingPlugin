@@ -13,47 +13,76 @@ Chance: 40
 # Permission is VotingPlugin.Reward.(REWARDNAME)
 # E.g: VotingPlugin.Reward.ExampleReward
 RequirePermission: false
+
 # Worlds to give this reward in
 # Player will be given this world once he is in this world
 # This may not work with money
 Worlds:
 - 'world1'
 - 'world2'
+
 # If true, the player will be rewarded in each world
-# If false, the player will be reward in any world once
+# If false, the player will be reward one of the worlds once
 GiveInEachWorld: false
+
+# Items to give to user
 Items:
+  # Item
+  # This is not item display name
+  # No 2 names the same
   Diamond:
     # Item Material
     # List of material for 1.10: 
     # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
     Material: 'DIAMOND'
-    # Item data value
+    # Item data value (Eg 1:4, data is 4)
     Data: 0
     # Will only give Amount if min and max amounts are 0
     Amount: 1
+    
     # Random amount of items between Min and Max will be given
     # if min and max are not both 0
     # Min amount of items
-    # Same goes for money
     MinAmount: 1
     # Max amount of items
     MaxAmount: 4
+    
+    # Item name
+    # Remove this value to have no name
     Name: '&aSpecial Diamond'
+    
+    # Lore
+    # Remove this value to have no lore
     Lore: 
     - 'Line 1'
+    
+    # Enchants
+    # List of 1.10 Encahants can be found at
+    # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/enchantments/Enchantment.html
     Enchants:
       Durability: 1
+      
+# Amount of money to give, requires vault
+# Use 0 to give none
 Money: 1000
+
+# Pick random number between min and max amount
 MinMoney: 100
 MaxMoney: 3000
+
+# Commands to run
+# Use %player% for player name
 Commands:
+  # Commands here will be run by console
   Console:
   - 'say %player% was lucky'
+  # Commands here are run by player
   Player:
   - 'vote total'
-# The messages give when rewards above are sent to user
+  
+# The messages are sent when rewards above are given to user
+# set to '' to give no message
+# If no value is set, default in Format.yml is used
 Messages:
   Reward: '&aMessage on reward'
-  OfflineReward: '&aMessage when vote was offline'
   

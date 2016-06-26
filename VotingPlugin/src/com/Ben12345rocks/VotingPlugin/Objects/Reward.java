@@ -12,6 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 
@@ -39,7 +40,6 @@ public class Reward {
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
 	private String rewardMsg;
-	private String OfflineRewardMsg;
 
 	public Reward(Main plugin) {
 		Reward.plugin = plugin;
@@ -96,8 +96,6 @@ public class Reward {
 				reward));
 		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
-		setOfflineRewardMsg(ConfigRewards.getInstance()
-				.getMessagesOfflineReward(reward));
 	}
 
 	public boolean checkChance() {
@@ -207,10 +205,6 @@ public class Reward {
 		}
 	}
 
-	public String getOfflineRewardMsg() {
-		return OfflineRewardMsg;
-	}
-
 	public ArrayList<String> getPlayerCommands() {
 		return playerCommands;
 	}
@@ -258,8 +252,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -281,9 +275,25 @@ public class Reward {
 	}
 
 	public void giveRewardUser(User user) {
-		giveMoney(user);
-		giveItems(user);
-		runCommands(user);
+		Player player = Bukkit.getPlayer(user.getPlayerName());
+		if (player != null) {
+			if (!isRequirePermission()
+					|| player.hasPermission("VotingPlugin.Reward." + name)) {
+				giveMoney(user);
+				giveItems(user);
+				runCommands(user);
+				sendMessage(user);
+			}
+		}
+
+	}
+
+	public void sendMessage(User user) {
+		if (rewardMsg != null) {
+			user.sendMessage(rewardMsg);
+		} else {
+			user.sendMessage(ConfigFormat.getInstance().getRewardMsg());
+		}
 	}
 
 	public boolean isGiveInEachWorld() {
@@ -383,10 +393,6 @@ public class Reward {
 
 	public void setMoney(int money) {
 		this.money = money;
-	}
-
-	public void setOfflineRewardMsg(String offlineRewardMsg) {
-		OfflineRewardMsg = offlineRewardMsg;
 	}
 
 	public void setPlayerCommands(ArrayList<String> playerCommands) {

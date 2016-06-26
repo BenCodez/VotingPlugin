@@ -118,15 +118,6 @@ public class ConfigRewards {
 		return getData(reward).getInt("MaxMoney");
 	}
 
-	public String getMessagesOfflineReward(String reward) {
-		String msg = getData(reward).getString("Messages.OfflineReward");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aMessage when vote was offline";
-		}
-	}
-
 	public String getMessagesReward(String reward) {
 		String msg = getData(reward).getString("Messages.Reward");
 		if (msg != null) {
@@ -271,10 +262,6 @@ public class ConfigRewards {
 
 	public void setMaxMoney(String reward, int value) {
 		set(reward, "MaxMoney", value);
-	}
-
-	public void setMessagesOfflineReward(String reward, String value) {
-		set(reward, "Messages.OfflineReward", value);
 	}
 
 	public void setMessagesReward(String reward, String value) {

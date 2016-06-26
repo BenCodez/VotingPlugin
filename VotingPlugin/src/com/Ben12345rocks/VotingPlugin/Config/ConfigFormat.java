@@ -36,7 +36,7 @@ public class ConfigFormat {
 	}
 
 	public String getBroadCastMsg() {
-		String str = getData().getString("Format.broadcastmsg");
+		String str = getData().getString("Format.BroadcastMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -262,17 +262,8 @@ public class ConfigFormat {
 		return data;
 	}
 
-	public String getExtraRewardMsg() {
-		String msg = getData().getString("Format.extrarewardmsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aLooks like you got lucky!";
-		}
-	}
-
 	public String getLoginMsg() {
-		String str = getData().getString("Format.loginmsg");
+		String str = getData().getString("Format.LoginMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -299,7 +290,7 @@ public class ConfigFormat {
 	}
 
 	public int getPageSize() {
-		int size = getData().getInt("Format.pagesize");
+		int size = getData().getInt("Format.PageSize");
 		if (size == 0) {
 			size = 10;
 		}
@@ -307,7 +298,7 @@ public class ConfigFormat {
 	}
 
 	public String getRewardMsg() {
-		String str = getData().getString("Format.rewardmsg");
+		String str = getData().getString("Format.DefaultRewardMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -352,7 +343,7 @@ public class ConfigFormat {
 	}
 
 	public String getTimeFormat() {
-		String string = getData().getString("Format.timeformat");
+		String string = getData().getString("Format.TimeFormat");
 		if (string == null) {
 			return "EEE, d MMM yyyy HH:mm";
 		}
@@ -360,7 +351,7 @@ public class ConfigFormat {
 	}
 
 	public String getTopVoterRewardMsg() {
-		String msg = getData().getString("Format.topvoterawardmsg");
+		String msg = getData().getString("Format.TopVoterAwardMsg");
 		if (msg != null) {
 			return msg;
 		} else {

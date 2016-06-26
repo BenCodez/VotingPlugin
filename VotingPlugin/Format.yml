@@ -10,7 +10,7 @@
 Format:
 
   # Broadcast vote message
-  broadcastmsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
+  BroadcastMsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
   
   # Broadcast only when player is online
   BroadcastWhenOnline: false
@@ -104,16 +104,13 @@ Format:
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
-  loginmsg: '&cRemember to vote!'
+  LoginMsg: '&cRemember to vote!'
   
   # Msg on reward given
   # PlaceHolders:
   # %money% = amount of money given for votesite
   # %items% = string list of items
-  rewardmsg: '&aYou were given rewards!'
-  
-  # Msg on chance reward
-  extrarewardmsg: '&aLooks like you got lucky!'
+  DefaultRewardMsg: '&aYou were given rewards!'
   
   # Msg on cumulative reward
   # %votes% = number of votes required
@@ -121,16 +118,16 @@ Format:
   
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc
-  topvoterawardmsg: '&aYou came in %place% in top voters of the month! Here is an award!'
+  TopVoterAwardMsg: '&aYou came in %place% in top voters of the month! Here is an award!'
   
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
-  timeformat: 'EEE, d MMM yyyy HH:mm'
+  TimeFormat: 'EEE, d MMM yyyy HH:mm'
   
   # Size of Pages
   # Used in /v top, /v today, etc
   # 10 by default
-  pagesize: 10
+  PageSize: 10
   
   # Format for signs
   # SiteName may be all, depending on sign
