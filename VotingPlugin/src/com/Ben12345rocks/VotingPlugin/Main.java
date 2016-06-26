@@ -30,10 +30,11 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteNextTabCompleter
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTotalTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -45,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -57,7 +59,7 @@ public class Main extends JavaPlugin {
 
 	public static Config config;
 
-	public static ConfigBonusReward configBonusReward;
+	public static ConfigOtherRewards configBonusReward;
 
 	public static ConfigGUI configGUI;
 
@@ -82,6 +84,8 @@ public class Main extends JavaPlugin {
 	public String[] voteToday;
 
 	public boolean placeHolderAPIEnabled;
+
+	public ArrayList<Reward> rewards;
 
 	public void checkPlaceHolderAPI() {
 		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
@@ -141,6 +145,15 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void loadRewards() {
+		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
+			rewards.add(new Reward(reward));
+		}
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Loaded rewards");
+		}
+	}
+
 	public void loadVoteSites() {
 		configVoteSites.setup("Example");
 		voteSites = configVoteSites.getVoteSitesLoad();
@@ -180,6 +193,7 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		loadVoteSites();
+		loadRewards();
 
 		if (Config.getInstance().getRemindVotesEnabled()) {
 			loadReminders();
@@ -284,7 +298,7 @@ public class Main extends JavaPlugin {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
 		configFormat = ConfigFormat.getInstance();
-		configBonusReward = ConfigBonusReward.getInstance();
+		configBonusReward = ConfigOtherRewards.getInstance();
 		configGUI = ConfigGUI.getInstance();
 
 		config.setup(this);

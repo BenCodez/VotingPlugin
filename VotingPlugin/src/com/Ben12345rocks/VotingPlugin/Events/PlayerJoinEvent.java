@@ -44,8 +44,6 @@ public class PlayerJoinEvent implements Listener {
 
 				User user = new User(new UUID(player.getUniqueId().toString()));
 
-				userDataFile(user);
-
 				UUIDs.getInstance().setName(playerName,
 						player.getUniqueId().toString());
 
@@ -97,9 +95,4 @@ public class PlayerJoinEvent implements Listener {
 		}
 		}
 	}
-
-	private void userDataFile(User user) {
-		data.setup(user);
-	}
-
 }

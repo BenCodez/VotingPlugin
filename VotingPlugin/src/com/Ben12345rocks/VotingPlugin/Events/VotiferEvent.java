@@ -11,20 +11,21 @@ import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
 public class VotiferEvent implements Listener {
 
-	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
 	static Config config = Config.getInstance();
 
@@ -62,6 +63,11 @@ public class VotiferEvent implements Listener {
 					if (!sites.contains(voteSiteName)
 							&& !Config.getInstance()
 							.getDisableAutoCreateVoteSites()) {
+						plugin.getLogger()
+						.warning(
+								"VoteSite "
+										+ voteSiteName
+										+ " doe not exist, generaterating one...");
 						ConfigVoteSites.getInstance().generateVoteSite(
 								voteSiteName);
 						ConfigVoteSites.getInstance().setServiceSite(
@@ -97,21 +103,55 @@ public class VotiferEvent implements Listener {
 				user.setReminded(false);
 
 				// check if player has voted on all sites in one day
-				boolean allVotes = BonusVoteReward.getInstance()
-						.giveBonusRewardUser(user);
+				boolean firstVote = OtherVoteReward.getInstance()
+						.checkFirstVote(user);
+				boolean allSites = OtherVoteReward.getInstance().checkAllSites(
+						user);
+				boolean numberOfVotes = OtherVoteReward.getInstance()
+						.checkNumberOfVotes(user);
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
 					user.playerVote(voteSite);
 
-					if (allVotes) {
-						user.giveBonus();
+					if (firstVote) {
+						OtherVoteReward.getInstance()
+						.giveFirstVoteRewards(user);
+					}
+
+					if (allSites) {
+						OtherVoteReward.getInstance().giveAllSitesRewards(user);
+					}
+
+					if (numberOfVotes) {
+						OtherVoteReward.getInstance().giveNumberOfVotesRewards(
+								user);
 					}
 
 					user.playVoteSound();
 				} else {
-					if (allVotes) {
-						user.addBonusOfflineVote();
+					if (firstVote) {
+						Data.getInstance()
+						.setFirstVoteOffline(
+								user,
+								Data.getInstance().getFirstVoteOffline(
+										user) + 1);
+					}
+
+					if (allSites) {
+						Data.getInstance()
+						.setAllSitesOffline(
+								user,
+								Data.getInstance().getAllSitesOffline(
+										user) + 1);
+					}
+
+					if (numberOfVotes) {
+						Data.getInstance()
+						.setFirstVoteOffline(
+								user,
+								Data.getInstance().getAllSitesOffline(
+										user) + 1);
 					}
 
 					user.addOfflineVote(voteSite);

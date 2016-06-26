@@ -16,13 +16,12 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -84,13 +83,6 @@ public class User {
 		}
 	}
 
-	/**
-	 * Add offline vote to bonus
-	 */
-	public void addBonusOfflineVote() {
-		setBonusOfflineVotes(getBonusOfflineVotes() + 1);
-	}
-
 	public void addCumulativeReward(VoteSite voteSite) {
 		Data.getInstance().addCumulativeSite(this, voteSite.getSiteName());
 	}
@@ -112,9 +104,7 @@ public class User {
 	 */
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".Total." + voteSite.getSiteName(),
-				Data.getInstance().getTotal(user, voteSite.getSiteName()) + 1);
+		Data.getInstance().addTotal(user, voteSite.getSiteName());
 	}
 
 	/**
@@ -181,14 +171,10 @@ public class User {
 	/**
 	 * Check if user has voted on all sites in one day
 	 *
-	 * @return True if player has voted on all sites in one day, False if bonus
-	 *         reward disabled or player has not voted all sites in one day
+	 * @return True if player has voted on all sites in one day
 	 */
 	public boolean checkAllVotes() {
 		User user = this;
-		if (!ConfigBonusReward.getInstance().getGiveBonusReward()) {
-			return false;
-		}
 
 		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
 				.getVoteSites();
@@ -204,36 +190,19 @@ public class User {
 
 		// check months
 		for (int i = 0; i < months.size(); i++) {
-			if (!months.get(0).equals(months.get(i))
-					|| days.get(i).equals(
-							Utils.getInstance().getMonthFromMili(
-									user.getTimeAll()))) {
+			if (!months.get(0).equals(months.get(i))) {
 				return false;
 			}
 		}
 
 		// check days
 		for (int i = 0; i < days.size(); i++) {
-			if (!days.get(0).equals(days.get(i))
-					|| days.get(i).equals(
-							Utils.getInstance().getDayFromMili(
-									user.getTimeAll()))) {
+			if (!days.get(0).equals(days.get(i))) {
 				return false;
 			}
 		}
 
 		return true;
-	}
-
-	/**
-	 * Get Amount of offline votes
-	 *
-	 * @return Amount of bonus offline votes
-	 */
-	public int getBonusOfflineVotes() {
-		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".BonusOfflineVotes");
 	}
 
 	public int getCumulativeReward(VoteSite voteSite) {
@@ -305,19 +274,6 @@ public class User {
 	}
 
 	/**
-	 * Get time of last bonus vote for user
-	 *
-	 * @return Time in milliseconds when last bonus reward occurred
-	 */
-	public long getTimeAll() {
-		User user = this;
-		long mills = Data.getInstance().getData(user)
-				.getLong(uuid + ".LastBonus.Miliseconds");
-
-		return mills;
-	}
-
-	/**
 	 * Get total from VoteSite for user
 	 *
 	 * @param voteSite
@@ -325,8 +281,7 @@ public class User {
 	 */
 	public int getTotal(VoteSite voteSite) {
 		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".Total." + voteSite.getSiteName());
+		return Data.getInstance().getTotal(user, voteSite.getSiteName());
 	}
 
 	/**
@@ -368,15 +323,6 @@ public class User {
 		}
 		Long last = Collections.max(times);
 		return last;
-	}
-
-	/**
-	 * Trigger Bonus Reward
-	 */
-	public void giveBonus() {
-
-		BonusVoteReward.getInstance().giveBonusReward(this);
-
 	}
 
 	@SuppressWarnings("deprecation")
@@ -452,6 +398,10 @@ public class User {
 				&& (money > 0)) {
 			Main.econ.depositPlayer(playerName, money);
 		}
+	}
+
+	public void giveReward(Reward reward) {
+		reward.giveReward(this);
 	}
 
 	public void giveTopVoterAward(int place) {
@@ -554,11 +504,21 @@ public class User {
 			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
 		}
 
-		for (int i = 0; i < getBonusOfflineVotes(); i++) {
-			BonusVoteReward.getInstance().giveBonusReward(this);
+		for (int i = 0; i < Data.getInstance().getFirstVoteOffline(this); i++) {
+			OtherVoteReward.getInstance().giveFirstVoteRewards(this);
 		}
 
-		setBonusOfflineVotes(0);
+		for (int i = 0; i < Data.getInstance().getAllSitesOffline(this); i++) {
+			OtherVoteReward.getInstance().giveAllSitesRewards(this);
+		}
+
+		for (int i = 0; i < Data.getInstance().getNumberOfVotesOffline(this); i++) {
+			OtherVoteReward.getInstance().giveNumberOfVotesRewards(this);
+		}
+
+		Data.getInstance().setFirstVoteOffline(this, 0);
+		Data.getInstance().setAllSitesOffline(this, 0);
+		Data.getInstance().setNumberOfVotesOffline(this, 0);
 
 		if (playSound) {
 			playVoteSound();
@@ -569,24 +529,14 @@ public class User {
 			giveTopVoterAward(place);
 			Data.getInstance().setTopVoterAwardOffline(this, 0);
 		}
-
 	}
 
 	public void offVoteWorld(String world) {
-		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
-				.getVoteSites();
-
-		for (VoteSite voteSite : voteSites) {
-			for (String reward : ConfigVoteSites.getInstance()
-					.getExtraRewardRewards(voteSite.getSiteName())) {
-
-				ArrayList<String> worlds = ConfigVoteSites.getInstance()
-						.getExtraRewardWorld(voteSite.getSiteName(), reward);
-
-				if (worlds != null) {
-					if (ConfigVoteSites.getInstance()
-							.getExtraRewardGiveInEachWorld(
-									voteSite.getSiteName(), reward)) {
+		for (VoteSite voteSite : plugin.voteSites) {
+			for (Reward reward : plugin.rewards) {
+				ArrayList<String> worlds = reward.getWorlds();
+				if (world != null) {
+					if (reward.isGiveInEachWorld()) {
 						for (String worldName : worlds) {
 							if (Config.getInstance().getDebugEnabled()) {
 								plugin.getLogger().info(
@@ -602,20 +552,17 @@ public class User {
 												"Giving reward...");
 									}
 									int worldRewards = Data.getInstance()
-											.getOfflineVotesWorld(this,
-													voteSite.getSiteName(),
-													reward, worldName);
+											.getOfflineVotesSiteWorld(this,
+													reward.name, worldName);
 
 									while (worldRewards > 0) {
-										voteSite.giveExtraRewardReward(this,
-												reward, 100);
+										reward.giveRewardUser(this);
 										worldRewards--;
 									}
 
-									Data.getInstance().setOfflineVotesWorld(
-											this, voteSite.getSiteName(),
-											reward, worldName, 0);
-
+									Data.getInstance()
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -623,22 +570,20 @@ public class User {
 					} else {
 						if (worlds.contains(world)) {
 							int worldRewards = Data.getInstance()
-									.getOfflineVotesExtraReward(this,
-											voteSite.getSiteName(), reward);
+									.getOfflineVotesSiteWorld(this,
+											reward.name, world);
 
 							while (worldRewards > 0) {
-								voteSite.giveExtraRewardReward(this, reward,
-										100);
+								reward.giveRewardUser(this);
 								worldRewards--;
 							}
 
-							Data.getInstance().setOfflineVotesExtraReward(this,
-									voteSite.getSiteName(), reward, 0);
+							Data.getInstance().setOfflineVotesSiteWorld(this,
+									reward.name, world, 0);
 						}
 					}
 				}
 			}
-
 		}
 	}
 
@@ -687,8 +632,7 @@ public class User {
 	 */
 	public boolean reminded() {
 		User user = this;
-		return Data.getInstance().getData(user)
-				.getBoolean(user.getUUID() + ".Reminded");
+		return Data.getInstance().getReminded(user);
 	}
 
 	/**
@@ -726,18 +670,6 @@ public class User {
 		}
 	}
 
-	/**
-	 * Set Bonus offline votes
-	 *
-	 * @param amount
-	 *            Amount of set
-	 */
-	public void setBonusOfflineVotes(int amount) {
-		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".BonusOfflineVotes",
-				amount);
-	}
-
 	public void setCumulativeReward(VoteSite voteSite, int value) {
 		Data.getInstance().setCumulativeSite(this, voteSite.getSiteName(),
 				value);
@@ -748,8 +680,7 @@ public class User {
 	 */
 	public void setName() {
 		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".Name",
-				user.getPlayerName());
+		Data.getInstance().setName(user);
 	}
 
 	public void setOfflineTopVoter(int place) {
@@ -766,8 +697,7 @@ public class User {
 	 */
 	public void setOfflineVotes(VoteSite voteSite, int amount) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".OfflineVotes." + voteSite.getSiteName(),
+		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
 	}
 
@@ -789,7 +719,7 @@ public class User {
 	 */
 	public void setReminded(boolean reminded) {
 		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".Reminded", reminded);
+		Data.getInstance().setReminded(user, reminded);
 	}
 
 	/**
@@ -803,14 +733,6 @@ public class User {
 	}
 
 	/**
-	 * Set time of bonus reward
-	 */
-	public void setTimeBonus() {
-		User user = this;
-		Data.getInstance().setTimeAll(user);
-	}
-
-	/**
 	 * Set total for VoteSite for user
 	 *
 	 * @param voteSite
@@ -820,8 +742,7 @@ public class User {
 	 */
 	public void setTotal(VoteSite voteSite, int amount) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".Total." + voteSite.getSiteName(), amount);
+		Data.getInstance().setTotal(user, voteSite.getSiteName(), amount);
 	}
 
 	/**

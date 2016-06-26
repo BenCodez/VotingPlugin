@@ -15,9 +15,9 @@ import org.bukkit.permissions.Permission;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
@@ -29,7 +29,7 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class Commands {
 
-	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
 	static Config config = Config.getInstance();
 
@@ -200,18 +200,18 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-						@Override
-						public void onClick(InventoryClickEvent event) {
-							Player player = (Player) event.getWhoClicked();
-							if (player != null) {
-								player.closeInventory();
-								player.performCommand(ConfigGUI.getInstance()
-										.getVoteGUISlotCommand(slot));
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
+					if (player != null) {
+						player.closeInventory();
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
 
-							}
+					}
 
-						}
-					});
+				}
+			});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -254,7 +254,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -264,7 +264,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		.format(date);
 		return timeString;
 	}
 
@@ -365,114 +365,9 @@ public class Commands {
 			msg.add("&cSite: &6" + voteSite.getServiceSite());
 			msg.add("&cVoteURL: &6" + voteSite.getVoteURL());
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
-			msg.add("&cMoney: &6" + voteSite.getMoney());
 			msg.add("&cPriority: &6"
 					+ ConfigVoteSites.getInstance().getPriority(voteSiteName));
 
-			msg.add("&cItems:");
-			for (String item : ConfigVoteSites.getInstance().getItems(
-					voteSite.getSiteName())) {
-				msg.add("&c- &6" + item);
-			}
-
-			msg.add("&cPlayer Commands:");
-
-			try {
-				for (String playerCommands : voteSite.getPlayerCommands()) {
-					msg.add("&c- " + playerCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&cConsole Commands:");
-
-			try {
-				for (String consoleCommands : voteSite.getConsoleCommands()) {
-					msg.add("&c- " + consoleCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&4&l&nExtra Rewards:");
-			for (String reward : configVoteSites
-					.getExtraRewardRewards(voteSiteName)) {
-				msg.add("&4&lReward: &c" + reward);
-				msg.add("&cChance: &6"
-						+ voteSite.getExtraRewardsChance().get(reward));
-				msg.add("&cMoney: &6"
-						+ voteSite.getExtraRewardsMoney().get(reward));
-
-				ArrayList<String> worlds = voteSite.getExtraRewardsWorld().get(
-						reward);
-				if (worlds != null) {
-					msg.add("&cWorlds: "
-							+ Utils.getInstance().makeStringList(worlds));
-				}
-				msg.add("&cGiveInEachWorld: &6"
-						+ ConfigVoteSites.getInstance()
-								.getExtraRewardGiveInEachWorld(
-										voteSite.getSiteName(), reward));
-
-				msg.add("&cPermission: &6"
-						+ voteSite.getExtraRewardsPermission().get(reward));
-
-				msg.add("&cItems:");
-				for (String item : ConfigVoteSites.getInstance()
-						.getExtraRewardItems(voteSite.getSiteName(), reward)) {
-					msg.add("&c- &6" + item);
-				}
-
-				msg.add("&cPlayer Commands:");
-
-				try {
-					for (String playerCommands : voteSite
-							.getExtraRewardsPlayerCommands().get(reward)) {
-						msg.add("&c- " + playerCommands);
-					}
-				} catch (Exception ex) {
-				}
-
-				msg.add("&cConsole Commands:");
-
-				try {
-					for (String consoleCommands : voteSite
-							.getExtraRewardsConsoleCommands().get(reward)) {
-						msg.add("&c- " + consoleCommands);
-					}
-				} catch (Exception ex) {
-				}
-			}
-
-			msg.add("&c&lCumulative Rewards:");
-
-			msg.add("&cVotes: &6" + voteSite.getCumulativeVotes());
-			msg.add("&cMoney: &6" + voteSite.getCumulativeMoney());
-
-			msg.add("&cItems:");
-			for (String item : ConfigVoteSites.getInstance()
-					.getCumulativeRewardItems(voteSite.getSiteName())) {
-				msg.add("&c- &6" + item);
-			}
-
-			msg.add("&cPlayer Commands:");
-
-			try {
-				for (String playerCommands : voteSite
-						.getCumulativePlayerCommands()) {
-					msg.add("&c- " + playerCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&cConsole Commands:");
-
-			try {
-				for (String consoleCommands : voteSite
-						.getCumulativeConsoleCommands()) {
-					msg.add("&c- " + consoleCommands);
-				}
-			} catch (Exception ex) {
-			}
 		}
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
@@ -593,21 +488,21 @@ public class Commands {
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
 								voteSite.getSiteName()), (short) ConfigGUI
-						.getInstance().getVoteSiteItemData(
-								voteSite.getSiteName()));
+								.getInstance().getVoteSiteItemData(
+										voteSite.getSiteName()));
 
 				inv.addButton(
 						count,
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
 										voteSite.getSiteName()),
-								Utils.getInstance()
+										Utils.getInstance()
 										.convertArray(
 												(ArrayList<String>) ConfigGUI
-														.getInstance()
-														.getVoteSiteItemLore(
-																voteSite.getSiteName())),
-								item) {
+												.getInstance()
+												.getVoteSiteItemLore(
+														voteSite.getSiteName())),
+														item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -630,15 +525,15 @@ public class Commands {
 						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
-						.getVoteSiteItemsData(siteName, itemName));
+								.getVoteSiteItemsData(siteName, itemName));
 
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-						new BInventoryButton(ConfigGUI.getInstance()
-								.getVoteSiteItemsName(siteName, itemName),
-								Utils.getInstance().convertArray(
-										(ArrayList<String>) ConfigGUI
+								new BInventoryButton(ConfigGUI.getInstance()
+										.getVoteSiteItemsName(siteName, itemName),
+										Utils.getInstance().convertArray(
+												(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -673,9 +568,9 @@ public class Commands {
 					if (new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time)
 							&& new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time)
+							.getMonthFromMili(time)
 							&& new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time)) {
+							.getYearFromMili(time)) {
 
 						String timeString = new SimpleDateFormat(
 								format.getTimeFormat()).format(new Date(time));

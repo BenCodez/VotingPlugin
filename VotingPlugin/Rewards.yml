@@ -1,0 +1,17 @@
+# Other rewards other than vote sites rewards are set here 
+# To disable reward set value to []
+# Eg:
+# FirstVote: [] (No new line)
+
+# First vote rewards
+FirstVote:
+- 'ExampleReward'
+
+# All vote rewards
+AllSites:
+- 'ExampleReward'
+
+# Give rewards after certain number of votes
+VotesRequired: 0
+NumberOfVotes:
+- 'ExampleReward'

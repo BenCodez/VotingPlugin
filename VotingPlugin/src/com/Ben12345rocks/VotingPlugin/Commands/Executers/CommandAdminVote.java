@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.List;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -16,8 +15,8 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -36,7 +35,7 @@ public class CommandAdminVote implements CommandExecutor {
 		return instance;
 	}
 
-	ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
 	Config config = Config.getInstance();
 
@@ -51,256 +50,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	public CommandAdminVote(Main plugin) {
 		this.plugin = plugin;
-	}
-
-	public void addBonusRewardCommandConsole(CommandSender sender, String cmd) {
-
-		List<String> cmds = ConfigBonusReward.getInstance()
-				.getConsoleCommands();
-		cmds.add(cmd);
-		ConfigBonusReward.getInstance().setConsoleCommands(cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded console command &c&l" + cmd));
-
-	}
-
-	public void addBonusRewardCommandPlayer(CommandSender sender, String cmd) {
-
-		List<String> cmds = ConfigBonusReward.getInstance().getPlayerCommands();
-		cmds.add(cmd);
-		ConfigBonusReward.getInstance().setPlayerCommands(cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded player command &c&l" + cmd));
-
-	}
-
-	public void addBonusRewardExtraRewardCommandConsole(CommandSender sender,
-			String reward, String cmd) {
-
-		List<String> cmds = ConfigBonusReward.getInstance()
-				.getExtraRewardConsoleCommands(reward);
-		cmds.add(cmd);
-		ConfigBonusReward.getInstance().setExtraRewardConsoleCommands(reward,
-				cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded extra reward console command &c&l" + cmd));
-
-	}
-
-	public void addBonusRewardExtraRewardCommandPlayer(CommandSender sender,
-			String reward, String cmd) {
-
-		List<String> cmds = ConfigBonusReward.getInstance()
-				.getExtraRewardPlayerCommands(reward);
-		cmds.add(cmd);
-		ConfigBonusReward.getInstance().setExtraRewardPlayerCommands(reward,
-				cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded extra reward player command &c&l" + cmd));
-
-	}
-
-	public void addBonusRewardExtraRewardItem(CommandSender sender,
-			String reward, String item) {
-
-		if (Utils.getInstance().isPlayer(sender)) {
-			Player player = (Player) sender;
-			if (player.getInventory().getItemInMainHand() != null) {
-
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cTrying to add item..."));
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-							@Override
-							public void run() {
-								ConfigBonusReward.getInstance()
-										.addExtraRewardItem(
-												reward,
-
-												item,
-												player.getInventory()
-														.getItemInMainHand());
-								sender.sendMessage(Utils.getInstance()
-										.colorize(
-												"&cAdded extra reward item &c&l"
-														+ item));
-
-							}
-						});
-
-			} else {
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cHold an item"));
-			}
-		} else {
-			sender.sendMessage("You must be a player to do this!");
-		}
-
-	}
-
-	public void addBonusRewardItem(CommandSender sender, String item) {
-
-		if (Utils.getInstance().isPlayer(sender)) {
-			Player player = (Player) sender;
-			if (player.getInventory().getItemInMainHand() != null) {
-
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cTrying to add item..."));
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-							@Override
-							public void run() {
-								ConfigBonusReward.getInstance()
-										.addItem(
-
-												item,
-												player.getInventory()
-														.getItemInMainHand());
-								sender.sendMessage(Utils.getInstance()
-										.colorize("&cAdded item &c&l" + item));
-
-							}
-						});
-
-			} else {
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cHold an item"));
-			}
-		} else {
-			sender.sendMessage("You must be a player to do this!");
-		}
-
-	}
-
-	public void addVoteSiteCommandConsole(CommandSender sender,
-			String voteSite, String cmd) {
-
-		List<String> cmds = ConfigVoteSites.getInstance().getConsoleCommands(
-				voteSite);
-		cmds.add(cmd);
-		ConfigVoteSites.getInstance().setConsoleCommands(voteSite, cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded console command &c&l" + cmd + "&c on &c&l" + voteSite));
-
-	}
-
-	public void addVoteSiteCommandPlayer(CommandSender sender, String voteSite,
-			String cmd) {
-
-		List<String> cmds = ConfigVoteSites.getInstance().getPlayerCommands(
-				voteSite);
-		cmds.add(cmd);
-		ConfigVoteSites.getInstance().setPlayerCommands(voteSite, cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded player command &c&l" + cmd + "&c on &c&l" + voteSite));
-
-	}
-
-	public void addVoteSiteExtraRewardCommandConsole(CommandSender sender,
-			String voteSite, String reward, String cmd) {
-
-		List<String> cmds = ConfigVoteSites.getInstance()
-				.getExtraRewardConsoleCommands(voteSite, reward);
-		cmds.add(cmd);
-		ConfigVoteSites.getInstance().setExtraRewardConsoleCommands(voteSite,
-				reward, cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded extra reward console command &c&l" + cmd
-						+ "&c on &c&l" + voteSite));
-
-	}
-
-	public void addVoteSiteExtraRewardCommandPlayer(CommandSender sender,
-			String voteSite, String reward, String cmd) {
-
-		List<String> cmds = ConfigVoteSites.getInstance()
-				.getExtraRewardPlayerCommands(voteSite, reward);
-		cmds.add(cmd);
-		ConfigVoteSites.getInstance().setExtraRewardPlayerCommands(voteSite,
-				reward, cmds);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cAdded extra reward player command &c&l" + cmd + "&c on &c&l"
-						+ voteSite));
-
-	}
-
-	public void addVoteSiteExtraRewardItem(CommandSender sender,
-			String voteSite, String reward, String item) {
-
-		if (Utils.getInstance().isPlayer(sender)) {
-			Player player = (Player) sender;
-			if (player.getInventory().getItemInMainHand() != null) {
-
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cTrying to add item..."));
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-							@Override
-							public void run() {
-								ConfigVoteSites.getInstance()
-										.addExtraRewardItem(
-												voteSite,
-												reward,
-												item,
-												player.getInventory()
-														.getItemInMainHand());
-								sender.sendMessage(Utils.getInstance()
-										.colorize(
-												"&cAdded extra reward item &c&l"
-														+ item + " &cto "
-														+ voteSite));
-
-							}
-						});
-
-			} else {
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cHold an item"));
-			}
-		} else {
-			sender.sendMessage("You must be a player to do this!");
-		}
-
-	}
-
-	public void addVoteSiteItem(CommandSender sender, String voteSite,
-			String item) {
-
-		if (Utils.getInstance().isPlayer(sender)) {
-			Player player = (Player) sender;
-			if (player.getInventory().getItemInMainHand() != null) {
-
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cTrying to add item..."));
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-							@Override
-							public void run() {
-								ConfigVoteSites.getInstance().addItem(
-										voteSite,
-										item,
-										player.getInventory()
-												.getItemInMainHand());
-								sender.sendMessage(Utils.getInstance()
-										.colorize(
-												"&cAdded item &c&l" + item
-														+ " &cto " + voteSite));
-
-							}
-						});
-
-			} else {
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cHold an item"));
-			}
-		} else {
-			sender.sendMessage("You must be a player to do this!");
-		}
-
 	}
 
 	public void createVoteSite(CommandSender sender, String voteSite) {
@@ -381,32 +130,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void setBonusRewardExtraRewardChance(CommandSender sender,
-			String reward, int chance) {
-
-		ConfigBonusReward.getInstance().setExtraRewardChance(reward, chance);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet chance to &c&l" + chance));
-
-	}
-
-	public void setBonusRewardExtraRewardMoney(CommandSender sender,
-			String reward, int money) {
-
-		ConfigBonusReward.getInstance().setExtraRewardMoney(reward, money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet extra reward money to &c&l" + money));
-
-	}
-
-	public void setBonusRewardMoney(CommandSender sender, int money) {
-
-		ConfigBonusReward.getInstance().setMoney(money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet money to &c&l" + money));
-
-	}
-
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
 
 		Config.getInstance().setAllowUnJoined(value);
@@ -448,14 +171,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void setGiveBonusReward(CommandSender sender, boolean value) {
-
-		ConfigBonusReward.getInstance().setGiveBonusReward(value);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet GiveBonusReward to &c&l" + value));
-
-	}
-
 	public void setServerDataPrevMonth(CommandSender sender, int month) {
 
 		ServerData.getInstance().setPrevMonth(month);
@@ -471,45 +186,6 @@ public class CommandAdminVote implements CommandExecutor {
 		sender.sendMessage(ChatColor.GREEN + playerName + " total votes for "
 				+ voteSite + " has been set to " + amount);
 		plugin.updateTopUpdater();
-
-	}
-
-	public void setVoteSiteDsiabled(CommandSender sender, String voteSite,
-			boolean disabled) {
-
-		ConfigVoteSites.getInstance().setDisabled(voteSite, disabled);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet priority to &c&l" + disabled + "&c on &c&l" + voteSite));
-
-	}
-
-	public void setVoteSiteExtraRewardChance(CommandSender sender,
-			String siteName, String reward, int chance) {
-
-		ConfigVoteSites.getInstance().setExtraRewardChance(siteName, reward,
-				chance);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet chance to &c&l" + chance));
-
-	}
-
-	public void setVoteSiteExtraRewardMoney(CommandSender sender,
-			String voteSite, String reward, int money) {
-
-		ConfigVoteSites.getInstance().setExtraRewardMoney(voteSite, reward,
-				money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet extra reward money to &c&l" + money + "&c on &c&l"
-						+ voteSite));
-
-	}
-
-	public void setVoteSiteMoney(CommandSender sender, String voteSite,
-			int money) {
-
-		ConfigVoteSites.getInstance().setMoney(voteSite, money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet money to &c&l" + money + "&c on &c&l" + voteSite));
 
 	}
 

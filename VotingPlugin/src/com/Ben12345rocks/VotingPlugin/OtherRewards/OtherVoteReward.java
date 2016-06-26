@@ -1,0 +1,95 @@
+package com.Ben12345rocks.VotingPlugin.OtherRewards;
+
+import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
+
+public class OtherVoteReward {
+
+	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
+
+	static Config config = Config.getInstance();
+
+	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
+
+	static ConfigFormat format = ConfigFormat.getInstance();
+
+	static OtherVoteReward instance = new OtherVoteReward();
+
+	static Main plugin = Main.plugin;
+
+	public static OtherVoteReward getInstance() {
+		return instance;
+	}
+
+	private OtherVoteReward() {
+	}
+
+	public OtherVoteReward(Main plugin) {
+		OtherVoteReward.plugin = plugin;
+	}
+
+	public boolean checkAllSites(User user) {
+		int userVotes = Data.getInstance().getNumberOfVotesOffline(user);
+		int votesNeeded = ConfigOtherRewards.getInstance().getVotesRequired();
+
+		if (userVotes >= votesNeeded && votesNeeded != 0) {
+			return true;
+		}
+		return false;
+
+	}
+
+	public boolean checkFirstVote(User user) {
+		int userVotesTotal = user.getTotalVotes();
+		if (ConfigOtherRewards.getInstance().getFirstVoteRewards().size() != 0) {
+			if (userVotesTotal == 1) {
+				return true;
+			}
+
+		}
+		return false;
+	}
+
+	public boolean checkNumberOfVotes(User user) {
+		if (ConfigOtherRewards.getInstance().getAllSitesReward().size() != 0) {
+			if (user.checkAllVotes()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void giveAllSitesRewards(User user) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getAllSitesReward()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+			}
+		}
+	}
+
+	public void giveFirstVoteRewards(User user) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getFirstVoteRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+			}
+		}
+	}
+
+	public void giveNumberOfVotesRewards(User user) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getNumberOfVotes()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+			}
+		}
+	}
+
+}

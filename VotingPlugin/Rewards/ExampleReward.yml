@@ -1,0 +1,59 @@
+# This is a reward file
+# Define rewards in here
+# File name is the reward name, without file extention
+# This reward is named "ExampleReward"
+# DO NOT HAVE DUPLICATE NAMES!!
+
+# Chance out of 100
+# Must be an integer
+# Set to 0 or 100 for always, or delete this line
+Chance: 40
+
+# Require permission to give this reward file
+# Permission is VotingPlugin.Reward.(REWARDNAME)
+# E.g: VotingPlugin.Reward.ExampleReward
+RequirePermission: false
+# Worlds to give this reward in
+# Player will be given this world once he is in this world
+# This may not work with money
+Worlds:
+- 'world1'
+- 'world2'
+# If true, the player will be rewarded in each world
+# If false, the player will be reward in any world once
+GiveInEachWorld: false
+Items:
+  Diamond:
+    # Item Material
+    # List of material for 1.10: 
+    # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+    Material: 'DIAMOND'
+    # Item data value
+    Data: 0
+    # Will only give Amount if min and max amounts are 0
+    Amount: 1
+    # Random amount of items between Min and Max will be given
+    # if min and max are not both 0
+    # Min amount of items
+    # Same goes for money
+    MinAmount: 1
+    # Max amount of items
+    MaxAmount: 4
+    Name: '&aSpecial Diamond'
+    Lore: 
+    - 'Line 1'
+    Enchants:
+      Durability: 1
+Money: 1000
+MinMoney: 100
+MaxMoney: 3000
+Commands:
+  Console:
+  - 'say %player% was lucky'
+  Player:
+  - 'vote total'
+# The messages give when rewards above are sent to user
+Messages:
+  Reward: '&aMessage on reward'
+  OfflineReward: '&aMessage when vote was offline'
+  
