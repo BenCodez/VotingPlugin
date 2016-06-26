@@ -35,7 +35,7 @@ public class ConfigVoteSites {
 	public void generateVoteSite(String siteName) {
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
-				+ " doe not exist, generaterating one...");
+						+ " doe not exist, generaterating one...");
 		setEnabled(siteName, false);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
@@ -44,9 +44,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Disabled to false, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -257,9 +257,9 @@ public class ConfigVoteSites {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				if (siteName.equalsIgnoreCase("Example")) {
+				if (siteName.equalsIgnoreCase("ExampleVoteSite")) {
 					plugin.saveResource("VoteSites" + File.separator
-							+ "Example.yml", true);
+							+ "ExampleVoteSite.yml", true);
 				}
 			} catch (IOException e) {
 				plugin.getLogger().severe(
@@ -267,8 +267,6 @@ public class ConfigVoteSites {
 								+ siteName + ".yml!");
 			}
 		}
-
-		// data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
 	public void setVoteDelay(String siteName, int voteDelay) {
@@ -284,12 +282,12 @@ public class ConfigVoteSites {
 		if (!isServerSiteGood(siteName)) {
 			plugin.getLogger().warning(
 					"Issue with ServiceSite in site " + siteName
-					+ ", votes may not work properly");
+							+ ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
 			plugin.getLogger()
-			.warning("Issue with VoteURL in site " + siteName);
+					.warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
 	}

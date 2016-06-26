@@ -114,24 +114,25 @@ public class VoteSite {
 
 			user.addCumulativeReward(this);
 
-			if ((user.getCumulativeReward(this) >= configVoteSites
-					.getCumulativeRewardVotesAmount(siteName))
-					&& (configVoteSites
-							.getCumulativeRewardVotesAmount(siteName) != 0)) {
+			if (configVoteSites.getCumulativeRewardVotesAmount(siteName) != 0) {
+				user.addCumulativeReward(this);
+				if ((user.getCumulativeReward(this) >= configVoteSites
+						.getCumulativeRewardVotesAmount(siteName))) {
 
-				giveCulumativeRewards(user);
+					giveCulumativeRewards(user);
 
-				user.setCumulativeReward(this, 0);
+					user.setCumulativeReward(this, 0);
 
-				user.sendMessage(Utils
-						.getInstance()
-						.replaceIgnoreCase(
-								ConfigFormat.getInstance()
-								.getCumulativeRewardMsg(),
-								"%votes%",
-								""
-										+ configVoteSites
-										.getCumulativeRewardVotesAmount(siteName)));
+					user.sendMessage(Utils
+							.getInstance()
+							.replaceIgnoreCase(
+									ConfigFormat.getInstance()
+											.getCumulativeRewardMsg(),
+									"%votes%",
+									""
+											+ configVoteSites
+													.getCumulativeRewardVotesAmount(siteName)));
+				}
 			}
 
 		} catch (Exception ex) {

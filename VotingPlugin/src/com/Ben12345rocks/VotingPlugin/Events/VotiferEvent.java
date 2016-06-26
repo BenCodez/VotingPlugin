@@ -148,9 +148,9 @@ public class VotiferEvent implements Listener {
 
 					if (numberOfVotes) {
 						Data.getInstance()
-						.setFirstVoteOffline(
+						.setNumberOfVotesOffline(
 								user,
-								Data.getInstance().getAllSitesOffline(
+								Data.getInstance().getNumberOfVotesOffline(
 										user) + 1);
 					}
 

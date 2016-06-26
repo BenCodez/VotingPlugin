@@ -71,6 +71,20 @@ public class ConfigRewards {
 		return getData(reward).getInt("Items." + item + ".Amount");
 	}
 
+	public void setupExample() {
+		if (!plugin.getDataFolder().exists()) {
+			plugin.getDataFolder().mkdir();
+		}
+
+		File file = new File(plugin.getDataFolder(), "Rewards" + File.separator
+				+ "ExampleReward.yml");
+		if (!file.exists()) {
+			plugin.saveResource("Rewards" + File.separator
+					+ "ExampleReward.yml", true);
+		}
+
+	}
+
 	public int getItemData(String reward, String item) {
 		return getData(reward).getInt("Items." + item + ".Data");
 	}
@@ -164,7 +178,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}

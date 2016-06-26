@@ -146,6 +146,8 @@ public class Main extends JavaPlugin {
 	}
 
 	public void loadRewards() {
+		ConfigRewards.getInstance().setupExample();
+		rewards = new ArrayList<Reward>();
 		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
 			rewards.add(new Reward(reward));
 		}
@@ -155,7 +157,7 @@ public class Main extends JavaPlugin {
 	}
 
 	public void loadVoteSites() {
-		configVoteSites.setup("Example");
+		configVoteSites.setup("ExampleVoteSite");
 		voteSites = configVoteSites.getVoteSitesLoad();
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded VoteSites");
@@ -278,6 +280,7 @@ public class Main extends JavaPlugin {
 		configBonusReward.reloadData();
 		plugin.setupFiles();
 		plugin.update();
+		loadRewards();
 		ServerData.getInstance().reloadData();
 	}
 

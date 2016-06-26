@@ -58,8 +58,14 @@ public class OtherVoteReward {
 
 	public boolean checkNumberOfVotes(User user) {
 		if (ConfigOtherRewards.getInstance().getAllSitesReward().size() != 0) {
-			if (user.checkAllVotes()) {
-				return true;
+			int votesRequired = ConfigOtherRewards.getInstance()
+					.getVotesRequired();
+
+			if (votesRequired != 0) {
+				int userVotesTotal = user.getTotalVotes();
+				if (userVotesTotal % votesRequired == 0) {
+					return true;
+				}
 			}
 		}
 		return false;

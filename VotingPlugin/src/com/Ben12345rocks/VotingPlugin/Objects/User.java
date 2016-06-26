@@ -222,7 +222,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -239,11 +239,8 @@ public class User {
 	 */
 	public int getOfflineVotes(VoteSite voteSite) {
 		User user = this;
-		return Data
-				.getInstance()
-				.getData(user)
-				.getInt(user.getUUID() + ".OfflineVotes."
-						+ voteSite.getSiteName());
+		return Data.getInstance().getOfflineVotesSite(user,
+				voteSite.getSiteName());
 	}
 
 	/**
@@ -263,14 +260,7 @@ public class User {
 	 * @return Time in milliseconds when last vote occurred
 	 */
 	public long getTime(VoteSite voteSite) {
-		User user = this;
-		long mills = Data
-				.getInstance()
-				.getData(user)
-				.getLong(
-						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
-		return mills;
+		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
 
 	/**
@@ -423,7 +413,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -486,9 +476,9 @@ public class User {
 				playSound = true;
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -535,15 +525,15 @@ public class User {
 		for (VoteSite voteSite : plugin.voteSites) {
 			for (Reward reward : plugin.rewards) {
 				ArrayList<String> worlds = reward.getWorlds();
-				if (world != null) {
+				if (world != null && worlds != null) {
 					if (reward.isGiveInEachWorld()) {
 						for (String worldName : worlds) {
 							if (Config.getInstance().getDebugEnabled()) {
 								plugin.getLogger().info(
 										"Checking world: " + worldName
-										+ ", reard: " + reward
-										+ ", votesite: "
-										+ voteSite.getSiteName());
+												+ ", reard: " + reward
+												+ ", votesite: "
+												+ voteSite.getSiteName());
 							}
 							if (worldName != "") {
 								if (worldName.equals(world)) {
@@ -561,8 +551,8 @@ public class User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 

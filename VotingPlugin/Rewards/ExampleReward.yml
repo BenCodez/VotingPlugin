@@ -60,7 +60,7 @@ Items:
     # List of 1.10 Encahants can be found at
     # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/enchantments/Enchantment.html
     Enchants:
-      Durability: 1
+      DURABILITY: 1
       
 # Amount of money to give, requires vault
 # Use 0 to give none

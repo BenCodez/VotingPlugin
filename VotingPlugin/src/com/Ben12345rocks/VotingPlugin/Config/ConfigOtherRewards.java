@@ -70,17 +70,17 @@ public class ConfigOtherRewards {
 			p.getDataFolder().mkdir();
 		}
 
-		dFile = new File(p.getDataFolder(), "BonusReward.yml");
+		dFile = new File(p.getDataFolder(), "Rewards.yml");
 
 		if (!dFile.exists()) {
 			try {
 				dFile.createNewFile();
-				plugin.saveResource("BonusReward.yml", true);
+				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
 				.getLogger()
 				.severe(ChatColor.RED
-						+ "Could not create BonusReward.yml!");
+						+ "Could not create Rewards.yml!");
 			}
 		}
 

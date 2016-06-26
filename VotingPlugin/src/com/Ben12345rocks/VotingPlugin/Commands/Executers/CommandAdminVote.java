@@ -261,9 +261,9 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
-	public void Vote(CommandSender sender, String voteSite, String playerName) {
+	public void Vote(CommandSender sender, String playerName, String voteSite) {
 
-		VotiferEvent.playerVote(voteSite, playerName);
+		VotiferEvent.playerVote(playerName, voteSite);
 
 		Vote vote = new com.vexsoftware.votifier.model.Vote();
 		vote.setServiceName(new VoteSite(voteSite).getServiceSite());
