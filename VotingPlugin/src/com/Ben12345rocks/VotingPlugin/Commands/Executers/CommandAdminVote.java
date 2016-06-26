@@ -124,7 +124,7 @@ public class CommandAdminVote implements CommandExecutor {
 				TopVoter.getInstance().resetTopVoter();
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cDone resseting top voter"));
-				plugin.updateTopUpdater();
+				plugin.update();
 			}
 		});
 
@@ -185,7 +185,7 @@ public class CommandAdminVote implements CommandExecutor {
 		Data.getInstance().setTotal(new User(playerName), voteSite, amount);
 		sender.sendMessage(ChatColor.GREEN + playerName + " total votes for "
 				+ voteSite + " has been set to " + amount);
-		plugin.updateTopUpdater();
+		plugin.update();
 
 	}
 

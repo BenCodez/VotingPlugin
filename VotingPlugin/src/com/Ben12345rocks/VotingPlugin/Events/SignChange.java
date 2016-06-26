@@ -34,7 +34,7 @@ public class SignChange implements Listener {
 
 								@Override
 								public void run() {
-									plugin.updateTopUpdater();
+									plugin.update();
 								}
 							});
 				} catch (Exception ex) {

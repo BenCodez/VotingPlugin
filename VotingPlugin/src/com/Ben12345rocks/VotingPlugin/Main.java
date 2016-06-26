@@ -98,7 +98,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+					.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -127,19 +127,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -277,7 +277,7 @@ public class Main extends JavaPlugin {
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
 		plugin.setupFiles();
-		plugin.updateTopUpdater();
+		plugin.update();
 		ServerData.getInstance().reloadData();
 	}
 
@@ -322,18 +322,18 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
+					@Override
+					public void run() {
+						update();
+					}
+				}, 50, 600 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
 		}
 	}
 
-	public void updateTopUpdater() {
+	public void update() {
 		try {
 			topVoter = TopVoter.getInstance().topVoters();
 			updater = new Updater(this, 15358, false);
@@ -344,12 +344,11 @@ public class Main extends JavaPlugin {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
 			if (config.getDebugEnabled()) {
-				plugin.getLogger().info(
-						"Updated VoteTop, Updater, and VoteToday");
+				plugin.getLogger().info("Background task ran");
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
