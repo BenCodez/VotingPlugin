@@ -62,6 +62,7 @@ public class BInventory implements Listener {
 	}
 
 	public void addButton(int position, BInventoryButton button) {
+		button.setSlot(position);
 		getButtons().put(position, button);
 	}
 
@@ -127,7 +128,8 @@ public class BInventory implements Listener {
 						if (clickedItem.getItemMeta().getDisplayName()
 								.equals(button.getName())
 								&& clickedItem.getType() == button.getItem()
-										.getType()) {
+										.getType()
+								&& event.getSlot() == button.getSlot()) {
 							if (Config.getInstance().getDebugEnabled()) {
 								Main.plugin.getLogger().info("Running code");
 							}
@@ -135,6 +137,11 @@ public class BInventory implements Listener {
 							event.setCancelled(true);
 
 							return;
+						}
+					} else {
+						if (clickedItem.getType() == button.getItem().getType()
+								&& event.getSlot() == button.getSlot()) {
+
 						}
 					}
 				}

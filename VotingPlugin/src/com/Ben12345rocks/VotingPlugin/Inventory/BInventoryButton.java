@@ -13,6 +13,7 @@ public abstract class BInventoryButton {
 	private String name;
 	private String[] lore;
 	private ItemStack item;
+	private int slot;
 
 	public BInventoryButton(String name, String[] lore, ItemStack item) {
 		setName(name);
@@ -65,6 +66,14 @@ public abstract class BInventoryButton {
 	 */
 	public void setName(String name) {
 		this.name = Utils.getInstance().colorize(name);
+	}
+
+	public int getSlot() {
+		return slot;
+	}
+
+	public void setSlot(int slot) {
+		this.slot = slot;
 	}
 
 }
