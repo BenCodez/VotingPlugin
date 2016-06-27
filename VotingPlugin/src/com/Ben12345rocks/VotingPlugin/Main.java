@@ -343,6 +343,7 @@ public class Main extends JavaPlugin {
 			voteToday = Commands.getInstance().voteToday();
 			TopVoter.getInstance().checkTopVoterAward();
 			Signs.getInstance().refreshSigns();
+			ServerData.getInstance().updateValues();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
