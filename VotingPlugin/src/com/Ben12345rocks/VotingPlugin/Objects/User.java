@@ -14,6 +14,8 @@ import org.bukkit.Effect;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -712,6 +714,15 @@ public class User {
 					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
 			// player.getWorld().spigot().playEffect(player.getLocation(),
 			// effect);
+		}
+	}
+
+	public void givePotionEffect(String potionName, int duration, int amplifier) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.addPotionEffect(
+					new PotionEffect(PotionEffectType.getByName(potionName),
+							20 * duration, amplifier), true);
 		}
 	}
 

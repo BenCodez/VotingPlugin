@@ -25,6 +25,7 @@ public class Reward {
 	private boolean requirePermission;
 	private ArrayList<String> worlds;
 	private boolean giveInEachWorld;
+
 	private Set<String> items;
 	private HashMap<String, String> itemMaterial;
 	private HashMap<String, Integer> itemData;
@@ -34,11 +35,42 @@ public class Reward {
 	private HashMap<String, String> itemName;
 	private HashMap<String, ArrayList<String>> itemLore;
 	private HashMap<String, HashMap<String, Integer>> itemEnchants;
+
 	private int money;
 	private int MinMoney;
 	private int MaxMoney;
+
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
+
+	private Set<String> potions;
+	private HashMap<String, Integer> potionsDuration;
+	private HashMap<String, Integer> potionsAmplifier;
+
+	public Set<String> getPotions() {
+		return potions;
+	}
+
+	public void setPotions(Set<String> potions) {
+		this.potions = potions;
+	}
+
+	public HashMap<String, Integer> getPotionsDuration() {
+		return potionsDuration;
+	}
+
+	public void setPotionsDuration(HashMap<String, Integer> potionsDuration) {
+		this.potionsDuration = potionsDuration;
+	}
+
+	public HashMap<String, Integer> getPotionsAmplifier() {
+		return potionsAmplifier;
+	}
+
+	public void setPotionsAmplifier(HashMap<String, Integer> potionsAmplifier) {
+		this.potionsAmplifier = potionsAmplifier;
+	}
+
 	private String rewardMsg;
 
 	public Reward(Main plugin) {
@@ -94,8 +126,18 @@ public class Reward {
 		setMaxMoney(ConfigRewards.getInstance().getMaxMoney(reward));
 		setConsoleCommands(ConfigRewards.getInstance().getCommandsConsole(
 				reward));
+		potions = ConfigRewards.getInstance().getPotions(reward);
+		potionsDuration = new HashMap<String, Integer>();
+		potionsAmplifier = new HashMap<String, Integer>();
+		for (String potion : potions) {
+			potionsDuration.put(potion, ConfigRewards.getInstance()
+					.getPotionsDuration(reward, potion));
+			potionsAmplifier.put(potion, ConfigRewards.getInstance()
+					.getPotionsAmplifier(reward, potion));
+		}
 		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
+
 	}
 
 	public boolean checkChance() {
@@ -127,6 +169,14 @@ public class Reward {
 
 	public HashMap<String, Integer> getItemAmount() {
 		return itemAmount;
+	}
+
+	public void givePotions(User user) {
+		for (String potionName : getPotions()) {
+			user.givePotionEffect(potionName,
+					getPotionsDuration().get(potionName), getPotionsAmplifier()
+							.get(potionName));
+		}
 	}
 
 	public int getItemAmount(String item) {
@@ -282,6 +332,7 @@ public class Reward {
 				giveMoney(user);
 				giveItems(user);
 				runCommands(user);
+				givePotions(user);
 				sendMessage(user);
 			}
 		}

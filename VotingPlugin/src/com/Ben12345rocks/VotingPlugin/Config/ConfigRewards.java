@@ -298,4 +298,25 @@ public class ConfigRewards {
 		set(reward, "Worlds", value);
 	}
 
+	public Set<String> getPotions(String reward) {
+		return getData(reward).getConfigurationSection("Potions")
+				.getKeys(false);
+	}
+
+	public int getPotionsDuration(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Duration");
+	}
+
+	public void setPotionsDuration(String reward, String potion, int value) {
+		set(reward, "Potions." + potion + ".Duration", value);
+	}
+
+	public int getPotionsAmplifier(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Amplifier");
+	}
+
+	public void setPotionsAmplifier(String reward, String potion, int value) {
+		set(reward, "Potions." + potion + ".Amplifier", value);
+	}
+
 }

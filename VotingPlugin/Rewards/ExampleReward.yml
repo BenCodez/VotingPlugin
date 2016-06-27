@@ -80,6 +80,18 @@ Commands:
   Player:
   - 'vote total'
   
+# Potion to give on reward
+Potions:
+  # Potion effect name
+  # 1.10 potions can be found here:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/potion/PotionEffectType.html
+  ABSORPTION:
+    # Duration in seconds
+    Duration: 100
+    # Amplifier
+    Amplifier: 1
+  
+  
 # The messages are sent when rewards above are given to user
 # set to '' to give no message
 # If no value is set, default in Format.yml is used
