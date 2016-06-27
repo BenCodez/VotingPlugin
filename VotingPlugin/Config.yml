@@ -63,6 +63,7 @@ VoteEffect:
 # Download here: 
 # https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
 VoteTitle:
+  Enabled: false
   Title: 'Thanks for voting!'
   TitleColor: red
   SubTitle: 'You voted on %votesite%'

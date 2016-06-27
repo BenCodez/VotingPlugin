@@ -436,10 +436,10 @@ public class Utils {
 	}
 
 	public void sendTitle(Player player, String titleText, String subTitleText,
-			String titleColor, String subTitleColor) {
+			String titleColor, String subTitleColor, int fadeIn, int showTime, int fadeOut) {
 		if (plugin.titleAPIEnabled) {
 
-			TitleAPI.sendTimings(player, 20, 40, 20);
+			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
 
 			if (subTitleText != null && subTitleText != "") {
 				TextComponent subTitle = new TextComponent(subTitleText);

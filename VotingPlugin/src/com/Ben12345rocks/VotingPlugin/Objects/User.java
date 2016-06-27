@@ -516,6 +516,7 @@ public class User {
 		if (playSound) {
 			playVoteSound();
 			playVoteEffect();
+			playVoteTitle();
 		}
 
 		int place = getOfflineTopVoter();
@@ -661,6 +662,25 @@ public class User {
 			}
 			player.sendMessage(Utils.getInstance().colorize(msg));
 
+		}
+	}
+
+	public void playVoteTitle() {
+		sendTitle(Config.getInstance().getVoteTitleTitle(), Config
+				.getInstance().getVoteTitleTitleColor(), Config.getInstance()
+				.getVoteTitleSubTitle(), Config.getInstance()
+				.getVoteTitleSubTitleColor(), Config.getInstance()
+				.getVoteTitleFadeIn(), Config.getInstance()
+				.getVoteTitleShowTime(), Config.getInstance()
+				.getVoteTitleFadeOut());
+	}
+
+	public void sendTitle(String title, String titleColor, String subTitle,
+			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null && Config.getInstance().getVoteTitleEnabled()) {
+			Utils.getInstance().sendTitle(player, title, subTitle, titleColor,
+					subTitleColor, fadeIn, showTime, fadeOut);
 		}
 	}
 

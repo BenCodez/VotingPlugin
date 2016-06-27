@@ -130,6 +130,7 @@ public class VotiferEvent implements Listener {
 
 					user.playVoteSound();
 					user.playVoteEffect();
+					user.playVoteTitle();
 				} else {
 					if (firstVote) {
 						Data.getInstance()

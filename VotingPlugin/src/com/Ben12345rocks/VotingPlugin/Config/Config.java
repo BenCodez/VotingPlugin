@@ -154,15 +154,45 @@ public class Config {
 	public int getVoteEffectData() {
 		return getData().getInt("VoteEffect.Data");
 	}
-	
+
 	public int getVoteEffectParticles() {
 		return getData().getInt("VoteEffect.Particles");
 	}
-	
+
 	public int getVoteEffectRadius() {
 		return getData().getInt("VoteEffect.Radius");
 	}
+
+	public boolean getVoteTitleEnabled() {
+		return getData().getBoolean("VoteTitle.Enabled");
+	}
+
+	public String getVoteTitleTitle() {
+		return getData().getString("VoteTitle.Title");
+	}
 	
+	public String getVoteTitleSubTitle() {
+		return getData().getString("VoteTitle.SubTitle");
+	}
 	
+	public String getVoteTitleTitleColor() {
+		return getData().getString("VoteTitle.TitleColor");
+	}
 	
+	public String getVoteTitleSubTitleColor() {
+		return getData().getString("VoteTitle.SubTitleColor");
+	}
+	
+	public int getVoteTitleFadeIn() {
+		return getData().getInt("VoteTitle.FadeIn");
+	}
+	
+	public int getVoteTitleShowTime() {
+		return getData().getInt("VoteTitle.ShowTime");
+	}
+	
+	public int getVoteTitleFadeOut() {
+		return getData().getInt("VoteTitle.FadeOut");
+	}
+
 }
