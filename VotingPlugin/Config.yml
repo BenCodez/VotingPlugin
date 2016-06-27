@@ -57,3 +57,16 @@ VoteEffect:
   Data: 0
   Particles: 10
   Radius: 5
+  
+# Title to run on vote
+# Requires TitleAPI (and all of its requirements)
+# Download here: 
+# https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
+VoteTitle:
+  Title: 'Thanks for voting!'
+  TitleColor: red
+  SubTitle: 'You voted on %votesite%'
+  SubTitleColor: blue
+  FadeIn: 10
+  ShowTime: 50
+  FadeOut: 10

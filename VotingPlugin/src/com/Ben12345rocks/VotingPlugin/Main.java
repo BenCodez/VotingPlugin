@@ -86,12 +86,22 @@ public class Main extends JavaPlugin {
 	public boolean placeHolderAPIEnabled;
 
 	public ArrayList<Reward> rewards;
+	
+	public boolean titleAPIEnabled;
 
 	public void checkPlaceHolderAPI() {
 		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
 			placeHolderAPIEnabled = true;
 		} else {
 			placeHolderAPIEnabled = false;
+		}
+	}
+	
+	public void checkTitleAPI() {
+		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
+			titleAPIEnabled = true;
+		} else {
+			titleAPIEnabled = false;
 		}
 	}
 
@@ -193,6 +203,9 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		CheckUpdate.getInstance().startUp();
+		
+		checkPlaceHolderAPI();
+		checkTitleAPI();
 
 		loadVoteSites();
 		loadRewards();

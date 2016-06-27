@@ -10,9 +10,10 @@ import java.util.Set;
 import java.util.UUID;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -21,6 +22,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.inventivetalent.title.TitleAPI;
 
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -432,4 +434,25 @@ public class Utils {
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
+
+	public void sendTitle(Player player, String titleText, String subTitleText,
+			String titleColor, String subTitleColor) {
+		if (plugin.titleAPIEnabled) {
+
+			TitleAPI.sendTimings(player, 20, 40, 20);
+
+			if (subTitleText != null && subTitleText != "") {
+				TextComponent subTitle = new TextComponent(subTitleText);
+				subTitle.setColor(ChatColor.valueOf(subTitleColor));
+				TitleAPI.sendSubTitle(player, subTitle);
+			}
+
+			if (titleText != null && titleText != "") {
+				TextComponent title = new TextComponent(titleText);
+				title.setColor(ChatColor.valueOf(titleColor));
+				TitleAPI.sendTitle(player, title);
+			}
+		}
+	}
+
 }

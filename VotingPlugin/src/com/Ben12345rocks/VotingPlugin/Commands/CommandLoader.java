@@ -184,7 +184,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSites", "sitename", "Create" },
+				"VoteSite", "sitename", "Create" },
 				"VotingPlugin.Commands.AdminVote.VoteSite.Edit") {
 
 			@Override
