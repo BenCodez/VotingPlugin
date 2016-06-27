@@ -24,6 +24,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
 
+import com.Ben12345rocks.VotingPlugin.Config.Config;
+
 /**
  * <p>
  * The metrics class obtains data about a plugin and submits statistics about it
@@ -239,9 +241,9 @@ public class Metrics {
 	 */
 	private static void encodeDataPair(final StringBuilder buffer,
 			final String key, final String value)
-					throws UnsupportedEncodingException {
+			throws UnsupportedEncodingException {
 		buffer.append('&').append(encode(key)).append('=')
-		.append(encode(value));
+				.append(encode(value));
 	}
 
 	/**
@@ -304,7 +306,7 @@ public class Metrics {
 		// Do we need to create the file?
 		if (configuration.get("guid", null) == null) {
 			configuration.options().header("http://mcstats.org")
-			.copyDefaults(true);
+					.copyDefaults(true);
 			configuration.save(configurationFile);
 		}
 
@@ -428,12 +430,16 @@ public class Metrics {
 				// Reload the metrics file
 				configuration.load(CONFIG_FILE);
 			} catch (IOException ex) {
-				Bukkit.getLogger().log(Level.INFO,
-						"[Metrics] " + ex.getMessage());
+				if (Config.getInstance().getDebugEnabled()) {
+					Bukkit.getLogger().log(Level.INFO,
+							"[Metrics] " + ex.getMessage());
+				}
 				return true;
 			} catch (InvalidConfigurationException ex) {
-				Bukkit.getLogger().log(Level.INFO,
-						"[Metrics] " + ex.getMessage());
+				if (Config.getInstance().getDebugEnabled()) {
+					Bukkit.getLogger().log(Level.INFO,
+							"[Metrics] " + ex.getMessage());
+				}
 				return true;
 			}
 			return configuration.getBoolean("opt-out", false);
@@ -582,7 +588,7 @@ public class Metrics {
 									// server owner decided to opt-out
 									if (isOptOut() && (taskId > 0)) {
 										plugin.getServer().getScheduler()
-										.cancelTask(taskId);
+												.cancelTask(taskId);
 										taskId = -1;
 									}
 								}
@@ -600,8 +606,10 @@ public class Metrics {
 								// Each post thereafter will be a ping
 								firstPost = false;
 							} catch (IOException e) {
-								Bukkit.getLogger().log(Level.INFO,
-										"[Metrics] " + e.getMessage());
+								if (Config.getInstance().getDebugEnabled()) {
+									Bukkit.getLogger().log(Level.INFO,
+											"[Metrics] " + e.getMessage());
+								}
 							}
 						}
 					}, 0, PING_INTERVAL * 1200);
