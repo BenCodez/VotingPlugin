@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Effect;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -512,6 +513,7 @@ public class User {
 
 		if (playSound) {
 			playVoteSound();
+			playVoteEffect();
 		}
 
 		int place = getOfflineTopVoter();
@@ -689,6 +691,28 @@ public class User {
 		User user = this;
 		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
+	}
+
+	public void playVoteEffect() {
+		if (Config.getInstance().getVoteEffectEnabled()) {
+			playParticleEffect(Config.getInstance().getVoteEffectEffect(),
+					Config.getInstance().getVoteEffectData(), Config
+							.getInstance().getVoteEffectParticles(), Config
+							.getInstance().getVoteEffectRadius());
+		}
+	}
+
+	@SuppressWarnings("deprecation")
+	public void playParticleEffect(String effectName, int data, int particles,
+			int radius) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null && effectName != null) {
+			Effect effect = Effect.valueOf(effectName);
+			player.spigot().playEffect(player.getLocation(), effect,
+					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
+			// player.getWorld().spigot().playEffect(player.getLocation(),
+			// effect);
+		}
 	}
 
 	/**

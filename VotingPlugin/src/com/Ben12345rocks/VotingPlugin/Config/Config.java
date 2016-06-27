@@ -127,7 +127,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
@@ -142,4 +142,27 @@ public class Config {
 	public boolean updateReminder() {
 		return getData().getBoolean("UpdateReminder");
 	}
+
+	public String getVoteEffectEffect() {
+		return getData().getString("VoteEffect.Effect");
+	}
+
+	public boolean getVoteEffectEnabled() {
+		return getData().getBoolean("VoteEffect.Enabled");
+	}
+
+	public int getVoteEffectData() {
+		return getData().getInt("VoteEffect.Data");
+	}
+	
+	public int getVoteEffectParticles() {
+		return getData().getInt("VoteEffect.Particles");
+	}
+	
+	public int getVoteEffectRadius() {
+		return getData().getInt("VoteEffect.Radius");
+	}
+	
+	
+	
 }

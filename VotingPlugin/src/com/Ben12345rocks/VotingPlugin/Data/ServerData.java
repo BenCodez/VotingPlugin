@@ -130,6 +130,14 @@ public class ServerData {
 		saveData();
 	}
 
+	public void setVersion() {
+		getData().set("Version", Bukkit.getVersion());
+	}
+
+	public void setPluginVersion() {
+		getData().set("PluginVersion", plugin.getDescription().getVersion());
+	}
+
 	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {

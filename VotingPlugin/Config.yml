@@ -30,6 +30,7 @@ VoteURLDefault: false
 
 # If true, plugin will not automaticly
 # generate votesites
+# Useful if you experience issues with sites being created
 DisableAutoCreateVoteSites: false
 
 # Sound on vote
@@ -46,4 +47,13 @@ VoteSound:
   # Pitch
   # Range: 0.0 to 1.0
   Pitch: 1.0
-
+  
+# Play particle effect on vote
+# 1.10 Effects can be found here:
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Effect.html
+VoteEffect:
+  Enabled: false
+  Effect: 'EXPLOSION'
+  Data: 0
+  Particles: 10
+  Radius: 5
