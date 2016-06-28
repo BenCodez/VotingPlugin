@@ -90,6 +90,20 @@ Potions:
     Duration: 100
     # Amplifier
     Amplifier: 1
+    
+# Title to send to voter
+# Requires TitleAPI (and all of its requirements)
+# Download here: 
+# https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
+Title:
+  Enabled: false
+  Title: 'Thanks for voting!'
+  TitleColor: red
+  SubTitle: 'You voted on %votesite%'
+  SubTitleColor: blue
+  FadeIn: 10
+  ShowTime: 50
+  FadeOut: 10
   
   
 # The messages are sent when rewards above are given to user

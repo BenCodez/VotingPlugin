@@ -212,7 +212,7 @@ public class ConfigRewards {
 		return (ArrayList<String>) getData(reward).getList("Worlds");
 	}
 
-	public boolean renameVoteSite(String reward, String newName) {
+	public boolean renameReward(String reward, String newName) {
 		return getRewardFile(reward).renameTo(
 				new File(plugin.getDataFolder() + File.separator + "Rewards",
 						newName + ".yml"));
@@ -317,6 +317,38 @@ public class ConfigRewards {
 
 	public void setPotionsAmplifier(String reward, String potion, int value) {
 		set(reward, "Potions." + potion + ".Amplifier", value);
+	}
+
+	public boolean getTitleEnabled(String reward) {
+		return getData(reward).getBoolean("Title.Enabled");
+	}
+
+	public String getTitleTitle(String reward) {
+		return getData(reward).getString("Title.Title");
+	}
+
+	public String getTitleSubTitle(String reward) {
+		return getData(reward).getString("Title.SubTitle");
+	}
+
+	public String getTitleTitleColor(String reward) {
+		return getData(reward).getString("Title.TitleColor");
+	}
+
+	public String getTitleSubTitleColor(String reward) {
+		return getData(reward).getString("Title.SubTitleColor");
+	}
+
+	public int getTitleFadeIn(String reward) {
+		return getData(reward).getInt("Title.FadeIn");
+	}
+
+	public int getTitleShowTime(String reward) {
+		return getData(reward).getInt("Title.ShowTime");
+	}
+
+	public int getTitleFadeOut(String reward) {
+		return getData(reward).getInt("Title.FadeOut");
 	}
 
 }

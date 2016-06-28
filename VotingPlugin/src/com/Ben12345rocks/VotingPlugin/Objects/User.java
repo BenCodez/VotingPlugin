@@ -21,6 +21,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -398,20 +399,10 @@ public class User {
 	}
 
 	public void giveTopVoterAward(int place) {
-		giveMoney(ConfigTopVoterAwards.getInstance().getTopVoterAwardMoney(
-				place));
-		try {
-			for (String item : ConfigTopVoterAwards.getInstance().getItems(
-					place)) {
-				this.giveItem(ConfigTopVoterAwards.getInstance()
-						.getTopVoterAwardItemStack(place, item));
-			}
-		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
 		}
-		ConfigTopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
@@ -666,19 +657,21 @@ public class User {
 	}
 
 	public void playVoteTitle() {
-		sendTitle(Config.getInstance().getVoteTitleTitle(), Config
-				.getInstance().getVoteTitleTitleColor(), Config.getInstance()
-				.getVoteTitleSubTitle(), Config.getInstance()
-				.getVoteTitleSubTitleColor(), Config.getInstance()
-				.getVoteTitleFadeIn(), Config.getInstance()
-				.getVoteTitleShowTime(), Config.getInstance()
-				.getVoteTitleFadeOut());
+		if (Config.getInstance().getVoteTitleEnabled()) {
+			sendTitle(Config.getInstance().getVoteTitleTitle(), Config
+					.getInstance().getVoteTitleTitleColor(), Config
+					.getInstance().getVoteTitleSubTitle(), Config.getInstance()
+					.getVoteTitleSubTitleColor(), Config.getInstance()
+					.getVoteTitleFadeIn(), Config.getInstance()
+					.getVoteTitleShowTime(), Config.getInstance()
+					.getVoteTitleFadeOut());
+		}
 	}
 
 	public void sendTitle(String title, String titleColor, String subTitle,
 			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null && Config.getInstance().getVoteTitleEnabled()) {
+		if (player != null) {
 			Utils.getInstance().sendTitle(player, title, subTitle, titleColor,
 					subTitleColor, fadeIn, showTime, fadeOut);
 		}

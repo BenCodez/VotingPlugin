@@ -334,9 +334,21 @@ public class Reward {
 				runCommands(user);
 				givePotions(user);
 				sendMessage(user);
+				runTitle(user);
 			}
 		}
+	}
 
+	public void runTitle(User user) {
+		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
+			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
+					ConfigRewards.getInstance().getTitleTitleColor(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitleColor(name),
+					ConfigRewards.getInstance().getTitleFadeIn(name),
+					ConfigRewards.getInstance().getTitleShowTime(name),
+					ConfigRewards.getInstance().getTitleFadeOut(name));
+		}
 	}
 
 	public void sendMessage(User user) {
