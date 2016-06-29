@@ -144,30 +144,29 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public void sendVoteTodayScoreBoard(Player player, int page) {
-
+	public void sendTopVoterScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
-		if (page < 1) {
-			page = 1;
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				TopVoter.getInstance().topVoters());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
 		}
 
-		String[] voteToday = voteToday();
-		int maxPage = voteToday.length / pagesize;
-		if ((voteToday.length % pagesize) != 0) {
-			maxPage++;
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize);
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoter.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + i + "." + users.get(i).getPlayerName(),
+					plugin.topVoter.get(users.get(i)));
 		}
-
-		SimpleScoreboard scoreboard = new SimpleScoreboard("VoteToday " + page
-				+ "/" + maxPage);
-
-		scoreboard.blankLine();
-		for (int i = pagesize * page; (i < voteToday.length)
-				&& (i < ((page + 1) * pagesize)); i++) {
-			// scoreboard.add(, score);
-		}
-
-		scoreboard.build();
-		scoreboard.send(player);
 	}
 
 	public String[] listPerms() {
