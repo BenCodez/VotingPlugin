@@ -15,7 +15,7 @@ public abstract class CommandHandler {
 	public CommandHandler(String[] args, String perm) {
 		this.args = args;
 		this.perm = perm;
-		helpMessage = "";
+		helpMessage = "Unknown Help Message";
 	}
 
 	public CommandHandler(String[] args, String perm, String helpMessage) {
@@ -41,12 +41,12 @@ public abstract class CommandHandler {
 					if (args[i].split("|")[j].equalsIgnoreCase("player")
 							|| args[i].split("|")[j]
 									.equalsIgnoreCase("SITENAME")
-									|| args[i].split("|")[j].equalsIgnoreCase("number")
-									|| args[i].split("|")[j].equalsIgnoreCase("string")
-									|| args[i].split("|")[j]
-											.equalsIgnoreCase("boolean")
-											|| args[i].split("|")[j].equalsIgnoreCase("list")
-											|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
+							|| args[i].split("|")[j].equalsIgnoreCase("number")
+							|| args[i].split("|")[j].equalsIgnoreCase("string")
+							|| args[i].split("|")[j]
+									.equalsIgnoreCase("boolean")
+							|| args[i].split("|")[j].equalsIgnoreCase("list")
+							|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
 						return true;
 					}
 				}
@@ -66,6 +66,28 @@ public abstract class CommandHandler {
 		return helpMessage;
 	}
 
+	public String getHelpLine(String command) {
+		String line = command;
+		for (String arg : args) {
+			if (arg.equalsIgnoreCase("player")) {
+				line += " (Player)";
+			} else if (arg.equalsIgnoreCase("sitename")) {
+				line += " (SiteName)";
+			} else if (arg.equalsIgnoreCase("boolean")) {
+				line += " (True/False)";
+			} else if (arg.equalsIgnoreCase("number")) {
+				line += " (Number)";
+			} else {
+				line += " " + arg;
+			}
+		}
+		if (getHelpMessage() != "") {
+			line += " - " + getHelpMessage();
+		}
+		return line;
+
+	}
+
 	public String getPerm() {
 		return perm;
 	}
@@ -80,7 +102,7 @@ public abstract class CommandHandler {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-								.replace("%arg%", args[i])));
+										.replace("%arg%", args[i])));
 						return true;
 					}
 				}

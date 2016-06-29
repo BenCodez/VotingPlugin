@@ -48,26 +48,13 @@ public class ConfigFormat {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCommandsVoteHelpLines() {
+	public String getCommandsVoteHelpLine() {
 
-		ArrayList<String> str = (ArrayList<String>) getData().getList(
-				"Format.Commands.Vote.Help.Lines");
+		String str = getData().getString("Format.Commands.Vote.Help.Line");
 		if (str != null) {
 			return str;
 		} else {
-			ArrayList<String> texts = new ArrayList<String>();
-			texts.add("[] = Optional");
-			texts.add("Aliases: vote, v");
-			texts.add("/vote - List vote URLs");
-			texts.add("/vote help - See this page");
-			texts.add("/vote total [Player/All] - See total votes");
-			texts.add("/vote next [Player] - See next time you can vote");
-			texts.add("/vote last [Player] - See last vote");
-			texts.add("/vote top [Page] - See top voters");
-			texts.add("/vote info [Player] - See player info");
-			texts.add("/vote today [Page] - See who voted today");
-			return texts;
+			return "&3&l%Command% - &3%HelpMessage%";
 		}
 
 	}
@@ -387,7 +374,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

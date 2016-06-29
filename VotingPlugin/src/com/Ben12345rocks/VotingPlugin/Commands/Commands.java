@@ -57,49 +57,11 @@ public class Commands {
 	public ArrayList<String> adminHelpText() {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("VotingPlugin Admin Help");
-		msg.add("[] = Optional");
 		msg.add("() = Needed");
 		msg.add("Aliases: adminvote, av");
-		msg.add("/adminvote help - See this page");
-		msg.add("/adminvote perms - See list of perms");
-		msg.add("/adminvote vote (player) (sitename) - Trigger vote");
-		msg.add("/adminvote bungeevote (player) (sitename) - Trigger bungee only vote");
-		msg.add("/adminvote servervote (player) (sitename) - Trigger server only vote");
-		msg.add("/adminvote settotal (player) (sitename) (amount) - Set total votes of a player on votesite");
-		msg.add("/adminvote reload - Reload the plugin");
-		msg.add("/adminvote uuid (playername) - See uuid of player");
-		msg.add("/adminvote version - Version info");
-		msg.add("/adminvote sites [site] - List of sites and site info");
-		msg.add("Editing Commands");
-		msg.add("/adminvote VoteSite (SiteName) Create - Gernerate a votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddItem (Item) - Add item in hand to votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite) - Set servicesite on votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetDisabled (Disabled) - Set votesite disabled");
-		msg.add("/adminvote VoteSite (SiteName) SetVoteDelay (Delay) - Set votesite votedelay");
-		msg.add("/adminvote VoteSite (SiteName) AddCommandPlayer (Command) - Add player command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddCommandConsole (Command) - Add console command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardItem (Reward) (Item) - Add ExtraReward item in hand to votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetExtraRewardMoney (Reward) (Money) - Set ExtraReward money for votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetExtraRewardChance (Reward) (Chance) - Set ExtraReward chance");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardCommandPlayer (Reward) (Command) - Add ExtraReward player command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardCommandConsole (Reward) (Command) - Add ExtraReward console command to votesite");
-		msg.add("/adminvote BonusReward AddItem (Item) - Add item in hand");
-		msg.add("/adminvote BonusReward SetMoney (Money) - Set money");
-		msg.add("/adminvote BonusReward SetGiveBonusReward (Disabled) - Set bonus reward enabled");
-		msg.add("/adminvote BonusReward AddCommandPlayer (Command) - Add player command");
-		msg.add("/adminvote BonusReward AddCommandConsole (Command) - Add console command");
-		msg.add("/adminvote BonusReward AddExtraRewardItem (Reward) (Item) - Add ExtraReward item in hand");
-		msg.add("/adminvote BonusReward SetExtraRewardMoney (Reward) (Money) - Set ExtraReward money");
-		msg.add("/adminvote BonusReward SetExtraRewardChance (Reward) (Chance) - Set ExtraReward chance");
-		msg.add("/adminvote BonusReward AddExtraRewardCommandPlayer (Reward) (Command) - Add ExtraReward player command");
-		msg.add("/adminvote BonusReward AddExtraRewardCommandConsole (Reward) (Command) - Add ExtraReward console command");
-		msg.add("/adminvote Config SetDebug (true/false) - Set debug");
-		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
-		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
-		msg.add("/adminvote Config SetAllowUnjoined (true/false) - Set allowunjoined");
-		msg.add("/adminvote Config SetDisableTopVoterAwards (true/false) - Set disabletopvoterawards");
-		msg.add("/adminvote ServerData SetPrevMonth - Set prevmonth, DO NOT USE");
+		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+			msg.add(cmdHandle.getHelpLine("/av"));
+		}
 		return msg;
 	}
 
@@ -482,18 +444,24 @@ public class Commands {
 	public ArrayList<String> voteHelpText() {
 		ArrayList<String> texts = new ArrayList<String>();
 		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
-		texts.addAll(ConfigFormat.getInstance().getCommandsVoteHelpLines());
+		for (CommandHandler cmdHandle : plugin.voteCommand) {
+			texts.add(cmdHandle.getHelpLine("/v"));
+		}
 		return texts;
 	}
 
 	public String[] voteHelpTextColored() {
 		ArrayList<String> texts = new ArrayList<String>();
+		String helpLine = ConfigFormat.getInstance().getCommandsVoteHelpLine();
 		for (String msg : voteHelpText()) {
 			if (msg.split("-").length > 1) {
-				texts.add("&3&l" + msg.split("-")[0] + "-&3"
-						+ msg.split("-")[1]);
+				String command = msg.split("-")[0];
+				String helpMessage = msg.split("-")[1];
+				texts.add(helpLine.replace("%Command%", command).replace(
+						"%HelpMessage%", helpMessage));
 			} else {
-				texts.add("&3&l" + msg.split("-")[0]);
+				String command = msg.split("-")[0];
+				texts.add(helpLine.replace("%Command%", command));
 			}
 		}
 		texts = Utils.getInstance().colorize(texts);

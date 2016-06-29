@@ -87,20 +87,8 @@ Format:
       Help:
         # Title of /vote help, color is automaticly applied
         Title: 'Voting Player Help'
-        # Colors will automaticly be applied if there are none
-        Lines:
-        - '[] = Optional'
-        - 'Aliases: vote, v'
-        - '/vote - List vote URLs'
-        - '/vote help - See this page'
-        - '/vote total [Player/All] - See total votes'
-        - '/vote next [Player] - See next time you can vote'
-        - '/vote last [Player] - See last vote'
-        - '/vote top [Page] - See top voters'
-        - '/vote info [Player] - See player info'
-        - '/vote today [Page] - See who voted today'
-        - '/vote gui - Open GUI for player'
-        - '/vote url - Oepn GUI for links'
+        # Format for help message in /v help
+        Line: '&3&l%Command% - &3%HelpMessage%'
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
