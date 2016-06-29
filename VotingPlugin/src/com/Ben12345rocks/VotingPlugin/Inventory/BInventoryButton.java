@@ -42,6 +42,10 @@ public abstract class BInventoryButton {
 		return name;
 	}
 
+	public int getSlot() {
+		return slot;
+	}
+
 	public abstract void onClick(InventoryClickEvent event);
 
 	/**
@@ -66,10 +70,6 @@ public abstract class BInventoryButton {
 	 */
 	public void setName(String name) {
 		this.name = Utils.getInstance().colorize(name);
-	}
-
-	public int getSlot() {
-		return slot;
 	}
 
 	public void setSlot(int slot) {

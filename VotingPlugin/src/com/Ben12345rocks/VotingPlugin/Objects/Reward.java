@@ -47,30 +47,6 @@ public class Reward {
 	private HashMap<String, Integer> potionsDuration;
 	private HashMap<String, Integer> potionsAmplifier;
 
-	public Set<String> getPotions() {
-		return potions;
-	}
-
-	public void setPotions(Set<String> potions) {
-		this.potions = potions;
-	}
-
-	public HashMap<String, Integer> getPotionsDuration() {
-		return potionsDuration;
-	}
-
-	public void setPotionsDuration(HashMap<String, Integer> potionsDuration) {
-		this.potionsDuration = potionsDuration;
-	}
-
-	public HashMap<String, Integer> getPotionsAmplifier() {
-		return potionsAmplifier;
-	}
-
-	public void setPotionsAmplifier(HashMap<String, Integer> potionsAmplifier) {
-		this.potionsAmplifier = potionsAmplifier;
-	}
-
 	private String rewardMsg;
 
 	public Reward(Main plugin) {
@@ -143,7 +119,7 @@ public class Reward {
 	public boolean checkChance() {
 		int chance = getChance();
 
-		if (chance == 0 || chance == 100) {
+		if ((chance == 0) || (chance == 100)) {
 			return true;
 		}
 
@@ -169,14 +145,6 @@ public class Reward {
 
 	public HashMap<String, Integer> getItemAmount() {
 		return itemAmount;
-	}
-
-	public void givePotions(User user) {
-		for (String potionName : getPotions()) {
-			user.givePotionEffect(potionName,
-					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
-		}
 	}
 
 	public int getItemAmount(String item) {
@@ -259,6 +227,18 @@ public class Reward {
 		return playerCommands;
 	}
 
+	public Set<String> getPotions() {
+		return potions;
+	}
+
+	public HashMap<String, Integer> getPotionsAmplifier() {
+		return potionsAmplifier;
+	}
+
+	public HashMap<String, Integer> getPotionsDuration() {
+		return potionsDuration;
+	}
+
 	public String getRewardMsg() {
 		return rewardMsg;
 	}
@@ -287,6 +267,14 @@ public class Reward {
 		user.giveMoney(getMoneyToGive());
 	}
 
+	public void givePotions(User user) {
+		for (String potionName : getPotions()) {
+			user.givePotionEffect(potionName,
+					getPotionsDuration().get(potionName), getPotionsAmplifier()
+					.get(potionName));
+		}
+	}
+
 	public void giveReward(User user) {
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
@@ -302,8 +290,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -336,26 +324,6 @@ public class Reward {
 				sendMessage(user);
 				runTitle(user);
 			}
-		}
-	}
-
-	public void runTitle(User user) {
-		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
-			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
-					ConfigRewards.getInstance().getTitleTitleColor(name),
-					ConfigRewards.getInstance().getTitleSubTitle(name),
-					ConfigRewards.getInstance().getTitleSubTitleColor(name),
-					ConfigRewards.getInstance().getTitleFadeIn(name),
-					ConfigRewards.getInstance().getTitleShowTime(name),
-					ConfigRewards.getInstance().getTitleFadeOut(name));
-		}
-	}
-
-	public void sendMessage(User user) {
-		if (rewardMsg != null) {
-			user.sendMessage(rewardMsg);
-		} else {
-			user.sendMessage(ConfigFormat.getInstance().getRewardMsg());
 		}
 	}
 
@@ -394,6 +362,26 @@ public class Reward {
 					player.performCommand(playercmd);
 				}
 			}
+		}
+	}
+
+	public void runTitle(User user) {
+		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
+			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
+					ConfigRewards.getInstance().getTitleTitleColor(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitleColor(name),
+					ConfigRewards.getInstance().getTitleFadeIn(name),
+					ConfigRewards.getInstance().getTitleShowTime(name),
+					ConfigRewards.getInstance().getTitleFadeOut(name));
+		}
+	}
+
+	public void sendMessage(User user) {
+		if (rewardMsg != null) {
+			user.sendMessage(rewardMsg);
+		} else {
+			user.sendMessage(ConfigFormat.getInstance().getRewardMsg());
 		}
 	}
 
@@ -460,6 +448,18 @@ public class Reward {
 
 	public void setPlayerCommands(ArrayList<String> playerCommands) {
 		this.playerCommands = playerCommands;
+	}
+
+	public void setPotions(Set<String> potions) {
+		this.potions = potions;
+	}
+
+	public void setPotionsAmplifier(HashMap<String, Integer> potionsAmplifier) {
+		this.potionsAmplifier = potionsAmplifier;
+	}
+
+	public void setPotionsDuration(HashMap<String, Integer> potionsDuration) {
+		this.potionsDuration = potionsDuration;
 	}
 
 	public void setRequirePermission(boolean requirePermission) {

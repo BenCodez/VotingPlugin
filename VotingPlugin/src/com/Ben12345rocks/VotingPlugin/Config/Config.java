@@ -37,6 +37,14 @@ public class Config {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
+	public int getBackgroundTaskDelay() {
+		int num = getData().getInt("BackgroundTaskDelay");
+		if (num == 0) {
+			num = 600;
+		}
+		return num;
+	}
+
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
 	}
@@ -61,6 +69,26 @@ public class Config {
 		return getData().getBoolean("DisableTopVoterAwards");
 	}
 
+	public int getVoteEffectData() {
+		return getData().getInt("VoteEffect.Data");
+	}
+
+	public String getVoteEffectEffect() {
+		return getData().getString("VoteEffect.Effect");
+	}
+
+	public boolean getVoteEffectEnabled() {
+		return getData().getBoolean("VoteEffect.Enabled");
+	}
+
+	public int getVoteEffectParticles() {
+		return getData().getInt("VoteEffect.Particles");
+	}
+
+	public int getVoteEffectRadius() {
+		return getData().getInt("VoteEffect.Radius");
+	}
+
 	public boolean getVoteSoundEnabled() {
 		return getData().getBoolean("VoteSound.Enabled");
 	}
@@ -75,6 +103,38 @@ public class Config {
 
 	public float getVoteSoundVolume() {
 		return (float) getData().getDouble("VoteSound.Volume");
+	}
+
+	public boolean getVoteTitleEnabled() {
+		return getData().getBoolean("VoteTitle.Enabled");
+	}
+
+	public int getVoteTitleFadeIn() {
+		return getData().getInt("VoteTitle.FadeIn");
+	}
+
+	public int getVoteTitleFadeOut() {
+		return getData().getInt("VoteTitle.FadeOut");
+	}
+
+	public int getVoteTitleShowTime() {
+		return getData().getInt("VoteTitle.ShowTime");
+	}
+
+	public String getVoteTitleSubTitle() {
+		return getData().getString("VoteTitle.SubTitle");
+	}
+
+	public String getVoteTitleSubTitleColor() {
+		return getData().getString("VoteTitle.SubTitleColor");
+	}
+
+	public String getVoteTitleTitle() {
+		return getData().getString("VoteTitle.Title");
+	}
+
+	public String getVoteTitleTitleColor() {
+		return getData().getString("VoteTitle.TitleColor");
 	}
 
 	public boolean getVoteURLDefault() {
@@ -127,7 +187,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
@@ -141,58 +201,6 @@ public class Config {
 
 	public boolean updateReminder() {
 		return getData().getBoolean("UpdateReminder");
-	}
-
-	public String getVoteEffectEffect() {
-		return getData().getString("VoteEffect.Effect");
-	}
-
-	public boolean getVoteEffectEnabled() {
-		return getData().getBoolean("VoteEffect.Enabled");
-	}
-
-	public int getVoteEffectData() {
-		return getData().getInt("VoteEffect.Data");
-	}
-
-	public int getVoteEffectParticles() {
-		return getData().getInt("VoteEffect.Particles");
-	}
-
-	public int getVoteEffectRadius() {
-		return getData().getInt("VoteEffect.Radius");
-	}
-
-	public boolean getVoteTitleEnabled() {
-		return getData().getBoolean("VoteTitle.Enabled");
-	}
-
-	public String getVoteTitleTitle() {
-		return getData().getString("VoteTitle.Title");
-	}
-	
-	public String getVoteTitleSubTitle() {
-		return getData().getString("VoteTitle.SubTitle");
-	}
-	
-	public String getVoteTitleTitleColor() {
-		return getData().getString("VoteTitle.TitleColor");
-	}
-	
-	public String getVoteTitleSubTitleColor() {
-		return getData().getString("VoteTitle.SubTitleColor");
-	}
-	
-	public int getVoteTitleFadeIn() {
-		return getData().getInt("VoteTitle.FadeIn");
-	}
-	
-	public int getVoteTitleShowTime() {
-		return getData().getInt("VoteTitle.ShowTime");
-	}
-	
-	public int getVoteTitleFadeOut() {
-		return getData().getInt("VoteTitle.FadeOut");
 	}
 
 }

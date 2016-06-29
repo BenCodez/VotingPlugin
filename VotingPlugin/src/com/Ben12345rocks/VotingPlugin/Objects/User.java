@@ -226,7 +226,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -394,6 +394,15 @@ public class User {
 		}
 	}
 
+	public void givePotionEffect(String potionName, int duration, int amplifier) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.addPotionEffect(
+					new PotionEffect(PotionEffectType.getByName(potionName),
+							20 * duration, amplifier), true);
+		}
+	}
+
 	public void giveReward(Reward reward) {
 		reward.giveReward(this);
 	}
@@ -407,7 +416,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -470,9 +479,9 @@ public class User {
 				playSound = true;
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
+					.info("Offline Vote Reward on Site '"
+							+ voteSite.getSiteName()
+							+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -521,15 +530,15 @@ public class User {
 		for (VoteSite voteSite : plugin.voteSites) {
 			for (Reward reward : plugin.rewards) {
 				ArrayList<String> worlds = reward.getWorlds();
-				if (world != null && worlds != null) {
+				if ((world != null) && (worlds != null)) {
 					if (reward.isGiveInEachWorld()) {
 						for (String worldName : worlds) {
 							if (Config.getInstance().getDebugEnabled()) {
 								plugin.getLogger().info(
 										"Checking world: " + worldName
-												+ ", reard: " + reward
-												+ ", votesite: "
-												+ voteSite.getSiteName());
+										+ ", reard: " + reward
+										+ ", votesite: "
+										+ voteSite.getSiteName());
 							}
 							if (worldName != "") {
 								if (worldName.equals(world)) {
@@ -547,8 +556,8 @@ public class User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -587,6 +596,19 @@ public class User {
 		voteSite.giveSiteReward(this);
 	}
 
+	@SuppressWarnings("deprecation")
+	public void playParticleEffect(String effectName, int data, int particles,
+			int radius) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && (effectName != null)) {
+			Effect effect = Effect.valueOf(effectName);
+			player.spigot().playEffect(player.getLocation(), effect,
+					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
+			// player.getWorld().spigot().playEffect(player.getLocation(),
+			// effect);
+		}
+	}
+
 	public void playSound(String soundName, float volume, float pitch) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
@@ -599,6 +621,15 @@ public class User {
 		}
 	}
 
+	public void playVoteEffect() {
+		if (Config.getInstance().getVoteEffectEnabled()) {
+			playParticleEffect(Config.getInstance().getVoteEffectEffect(),
+					Config.getInstance().getVoteEffectData(), Config
+					.getInstance().getVoteEffectParticles(), Config
+					.getInstance().getVoteEffectRadius());
+		}
+	}
+
 	public void playVoteSound() {
 		if (Config.getInstance().getVoteSoundEnabled()) {
 			try {
@@ -608,6 +639,18 @@ public class User {
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
+		}
+	}
+
+	public void playVoteTitle() {
+		if (Config.getInstance().getVoteTitleEnabled()) {
+			sendTitle(Config.getInstance().getVoteTitleTitle(), Config
+					.getInstance().getVoteTitleTitleColor(), Config
+					.getInstance().getVoteTitleSubTitle(), Config.getInstance()
+					.getVoteTitleSubTitleColor(), Config.getInstance()
+					.getVoteTitleFadeIn(), Config.getInstance()
+					.getVoteTitleShowTime(), Config.getInstance()
+					.getVoteTitleFadeOut());
 		}
 	}
 
@@ -656,18 +699,6 @@ public class User {
 		}
 	}
 
-	public void playVoteTitle() {
-		if (Config.getInstance().getVoteTitleEnabled()) {
-			sendTitle(Config.getInstance().getVoteTitleTitle(), Config
-					.getInstance().getVoteTitleTitleColor(), Config
-					.getInstance().getVoteTitleSubTitle(), Config.getInstance()
-					.getVoteTitleSubTitleColor(), Config.getInstance()
-					.getVoteTitleFadeIn(), Config.getInstance()
-					.getVoteTitleShowTime(), Config.getInstance()
-					.getVoteTitleFadeOut());
-		}
-	}
-
 	public void sendTitle(String title, String titleColor, String subTitle,
 			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -706,37 +737,6 @@ public class User {
 		User user = this;
 		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
-	}
-
-	public void playVoteEffect() {
-		if (Config.getInstance().getVoteEffectEnabled()) {
-			playParticleEffect(Config.getInstance().getVoteEffectEffect(),
-					Config.getInstance().getVoteEffectData(), Config
-							.getInstance().getVoteEffectParticles(), Config
-							.getInstance().getVoteEffectRadius());
-		}
-	}
-
-	@SuppressWarnings("deprecation")
-	public void playParticleEffect(String effectName, int data, int particles,
-			int radius) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null && effectName != null) {
-			Effect effect = Effect.valueOf(effectName);
-			player.spigot().playEffect(player.getLocation(), effect,
-					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
-			// player.getWorld().spigot().playEffect(player.getLocation(),
-			// effect);
-		}
-	}
-
-	public void givePotionEffect(String potionName, int duration, int amplifier) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			player.addPotionEffect(
-					new PotionEffect(PotionEffectType.getByName(potionName),
-							20 * duration, amplifier), true);
-		}
 	}
 
 	/**

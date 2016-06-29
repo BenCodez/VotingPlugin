@@ -71,9 +71,9 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
@@ -125,22 +125,13 @@ public class ServerData {
 		saveData();
 	}
 
+	public void setPluginVersion() {
+		getData().set("PluginVersion", plugin.getDescription().getVersion());
+	}
+
 	public void setPrevMonth(int value) {
 		getData().set("PrevMonth", value);
 		saveData();
-	}
-	
-	public void updateValues() {
-		setVersion();
-		setPluginVersion();
-	}
-
-	public void setVersion() {
-		getData().set("Version", Bukkit.getVersion());
-	}
-
-	public void setPluginVersion() {
-		getData().set("PluginVersion", plugin.getDescription().getVersion());
 	}
 
 	@SuppressWarnings("deprecation")
@@ -159,9 +150,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 
@@ -171,5 +162,14 @@ public class ServerData {
 			setPrevMonth(new Date().getMonth());
 		}
 		saveData();
+	}
+
+	public void setVersion() {
+		getData().set("Version", Bukkit.getVersion());
+	}
+
+	public void updateValues() {
+		setVersion();
+		setPluginVersion();
 	}
 }

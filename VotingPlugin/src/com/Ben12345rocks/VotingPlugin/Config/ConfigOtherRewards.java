@@ -78,9 +78,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create Rewards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

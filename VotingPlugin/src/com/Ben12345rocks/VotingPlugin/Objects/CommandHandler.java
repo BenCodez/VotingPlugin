@@ -41,12 +41,12 @@ public abstract class CommandHandler {
 					if (args[i].split("|")[j].equalsIgnoreCase("player")
 							|| args[i].split("|")[j]
 									.equalsIgnoreCase("SITENAME")
-							|| args[i].split("|")[j].equalsIgnoreCase("number")
-							|| args[i].split("|")[j].equalsIgnoreCase("string")
-							|| args[i].split("|")[j]
-									.equalsIgnoreCase("boolean")
-							|| args[i].split("|")[j].equalsIgnoreCase("list")
-							|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
+									|| args[i].split("|")[j].equalsIgnoreCase("number")
+									|| args[i].split("|")[j].equalsIgnoreCase("string")
+									|| args[i].split("|")[j]
+											.equalsIgnoreCase("boolean")
+											|| args[i].split("|")[j].equalsIgnoreCase("list")
+											|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
 						return true;
 					}
 				}
@@ -80,7 +80,7 @@ public abstract class CommandHandler {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-										.replace("%arg%", args[i])));
+								.replace("%arg%", args[i])));
 						return true;
 					}
 				}

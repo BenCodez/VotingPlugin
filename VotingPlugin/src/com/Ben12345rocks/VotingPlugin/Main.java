@@ -74,7 +74,7 @@ public class Main extends JavaPlugin {
 	public boolean placeHolderAPIEnabled;
 
 	public ArrayList<Reward> rewards;
-	
+
 	public boolean titleAPIEnabled;
 
 	public void checkPlaceHolderAPI() {
@@ -84,7 +84,7 @@ public class Main extends JavaPlugin {
 			placeHolderAPIEnabled = false;
 		}
 	}
-	
+
 	public void checkTitleAPI() {
 		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
 			titleAPIEnabled = true;
@@ -96,7 +96,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-					.warning("Votifier not found, votes may not work");
+			.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -125,19 +125,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player != null) {
+						User user = new User(player);
+						if (user.canVoteAll() && !user.reminded()) {
 
-									user.loginMessage();
-								}
-							}
+							user.loginMessage();
 						}
 					}
-				}, 50, 60 * 20);
+				}
+			}
+		}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -191,7 +191,7 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		CheckUpdate.getInstance().startUp();
-		
+
 		checkPlaceHolderAPI();
 		checkTitleAPI();
 
@@ -224,34 +224,6 @@ public class Main extends JavaPlugin {
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
-
-		/*// /votegui, /vgui
-		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
-
-		// /votehelp, /vhelp
-		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
-
-		// /voteinfo, /vinfo
-		getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
-		getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
-
-		// /votelast, /vlast
-		getCommand("votelast").setExecutor(new CommandVoteLast(this));
-		getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
-
-		// /votenext, /vnext
-		getCommand("votenext").setExecutor(new CommandVoteNext(this));
-		getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
-
-		// /votetoday, /vtoday
-		getCommand("votetoday").setExecutor(new CommandVoteToday(this));
-
-		// /votetop, /vtop
-		getCommand("votetop").setExecutor(new CommandVoteTop(this));
-
-		// /votetotal, /vtotal
-		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());*/
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Commands");
@@ -327,11 +299,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						update();
-					}
-				}, 50, 600 * 20);
+			@Override
+			public void run() {
+				update();
+			}
+		}, 50, config.getBackgroundTaskDelay() * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -354,7 +326,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

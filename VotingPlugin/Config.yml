@@ -1,8 +1,5 @@
 # VotingPlugin by Ben12345rocks
 # Main Config
-# To set Format, see Format.yml
-# Set Bonus Reward in BonusReward.yml
-# Set VoteSites in the folder VoteSites
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
@@ -32,6 +29,10 @@ VoteURLDefault: false
 # generate votesites
 # Useful if you experience issues with sites being created
 DisableAutoCreateVoteSites: false
+
+# Number of seconds between background updates
+# Default: 600 (10 minutes)
+BackgroundTaskDelay: 600
 
 # Sound on vote
 VoteSound:

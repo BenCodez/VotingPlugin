@@ -95,7 +95,7 @@ public class TopVoter {
 				plugin.topVoter);
 
 		int pageSize = (topVoters.size() / pagesize);
-		if (topVoters.size() % pagesize != 0) {
+		if ((topVoters.size() % pagesize) != 0) {
 			pageSize++;
 		}
 

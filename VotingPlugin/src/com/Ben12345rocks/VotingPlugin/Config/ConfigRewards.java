@@ -71,20 +71,6 @@ public class ConfigRewards {
 		return getData(reward).getInt("Items." + item + ".Amount");
 	}
 
-	public void setupExample() {
-		if (!plugin.getDataFolder().exists()) {
-			plugin.getDataFolder().mkdir();
-		}
-
-		File file = new File(plugin.getDataFolder(), "Rewards" + File.separator
-				+ "ExampleReward.yml");
-		if (!file.exists()) {
-			plugin.saveResource("Rewards" + File.separator
-					+ "ExampleReward.yml", true);
-		}
-
-	}
-
 	public int getItemData(String reward, String item) {
 		return getData(reward).getInt("Items." + item + ".Data");
 	}
@@ -153,6 +139,19 @@ public class ConfigRewards {
 		return "VotingPlugin.Reward." + reward;
 	}
 
+	public Set<String> getPotions(String reward) {
+		return getData(reward).getConfigurationSection("Potions")
+				.getKeys(false);
+	}
+
+	public int getPotionsAmplifier(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Amplifier");
+	}
+
+	public int getPotionsDuration(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Duration");
+	}
+
 	public boolean getRequirePermission(String reward) {
 		return getData(reward).getBoolean("RequirePermission");
 	}
@@ -178,7 +177,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
@@ -205,6 +204,38 @@ public class ConfigRewards {
 		Collections.sort(rewardFiles, String.CASE_INSENSITIVE_ORDER);
 
 		return rewardFiles;
+	}
+
+	public boolean getTitleEnabled(String reward) {
+		return getData(reward).getBoolean("Title.Enabled");
+	}
+
+	public int getTitleFadeIn(String reward) {
+		return getData(reward).getInt("Title.FadeIn");
+	}
+
+	public int getTitleFadeOut(String reward) {
+		return getData(reward).getInt("Title.FadeOut");
+	}
+
+	public int getTitleShowTime(String reward) {
+		return getData(reward).getInt("Title.ShowTime");
+	}
+
+	public String getTitleSubTitle(String reward) {
+		return getData(reward).getString("Title.SubTitle");
+	}
+
+	public String getTitleSubTitleColor(String reward) {
+		return getData(reward).getString("Title.SubTitleColor");
+	}
+
+	public String getTitleTitle(String reward) {
+		return getData(reward).getString("Title.Title");
+	}
+
+	public String getTitleTitleColor(String reward) {
+		return getData(reward).getString("Title.TitleColor");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -290,65 +321,34 @@ public class ConfigRewards {
 		set(reward, "Money", value);
 	}
 
-	public void setRequirePermission(String reward, boolean value) {
-		set(reward, "RequirePermission", value);
-	}
-
-	public void setWorlds(String reward, ArrayList<String> value) {
-		set(reward, "Worlds", value);
-	}
-
-	public Set<String> getPotions(String reward) {
-		return getData(reward).getConfigurationSection("Potions")
-				.getKeys(false);
-	}
-
-	public int getPotionsDuration(String reward, String potion) {
-		return getData(reward).getInt("Potions." + potion + ".Duration");
+	public void setPotionsAmplifier(String reward, String potion, int value) {
+		set(reward, "Potions." + potion + ".Amplifier", value);
 	}
 
 	public void setPotionsDuration(String reward, String potion, int value) {
 		set(reward, "Potions." + potion + ".Duration", value);
 	}
 
-	public int getPotionsAmplifier(String reward, String potion) {
-		return getData(reward).getInt("Potions." + potion + ".Amplifier");
+	public void setRequirePermission(String reward, boolean value) {
+		set(reward, "RequirePermission", value);
 	}
 
-	public void setPotionsAmplifier(String reward, String potion, int value) {
-		set(reward, "Potions." + potion + ".Amplifier", value);
+	public void setupExample() {
+		if (!plugin.getDataFolder().exists()) {
+			plugin.getDataFolder().mkdir();
+		}
+
+		File file = new File(plugin.getDataFolder(), "Rewards" + File.separator
+				+ "ExampleReward.yml");
+		if (!file.exists()) {
+			plugin.saveResource("Rewards" + File.separator
+					+ "ExampleReward.yml", true);
+		}
+
 	}
 
-	public boolean getTitleEnabled(String reward) {
-		return getData(reward).getBoolean("Title.Enabled");
-	}
-
-	public String getTitleTitle(String reward) {
-		return getData(reward).getString("Title.Title");
-	}
-
-	public String getTitleSubTitle(String reward) {
-		return getData(reward).getString("Title.SubTitle");
-	}
-
-	public String getTitleTitleColor(String reward) {
-		return getData(reward).getString("Title.TitleColor");
-	}
-
-	public String getTitleSubTitleColor(String reward) {
-		return getData(reward).getString("Title.SubTitleColor");
-	}
-
-	public int getTitleFadeIn(String reward) {
-		return getData(reward).getInt("Title.FadeIn");
-	}
-
-	public int getTitleShowTime(String reward) {
-		return getData(reward).getInt("Title.ShowTime");
-	}
-
-	public int getTitleFadeOut(String reward) {
-		return getData(reward).getInt("Title.FadeOut");
+	public void setWorlds(String reward, ArrayList<String> value) {
+		set(reward, "Worlds", value);
 	}
 
 }

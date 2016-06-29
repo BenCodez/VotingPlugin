@@ -377,6 +377,25 @@ public class Utils {
 
 	}
 
+	public void registerCmd(String commandPrefix, CommandHandler cmdHandle) {
+		try {
+			final Field bukkitCommandMap = Bukkit.getServer().getClass()
+					.getDeclaredField("commandMap");
+
+			bukkitCommandMap.setAccessible(true);
+			CommandMap commandMap = (CommandMap) bukkitCommandMap.get(Bukkit
+					.getServer());
+
+			if (cmdHandle.getArgs().length > 0) {
+				String cmd = commandPrefix + cmdHandle.getArgs()[0];
+				commandMap.register(cmd, new CommandAliases(commandPrefix,
+						cmdHandle));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();
@@ -406,7 +425,7 @@ public class Utils {
 		if (str == null) {
 			return "";
 		}
-		if (toReplace == null || replaceWith == null) {
+		if ((toReplace == null) || (replaceWith == null)) {
 			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
@@ -417,6 +436,27 @@ public class Utils {
 			return PlaceholderAPI.setBracketPlaceholders(player, text);
 		} else {
 			return text;
+		}
+	}
+
+	public void sendTitle(Player player, String titleText, String subTitleText,
+			String titleColor, String subTitleColor, int fadeIn, int showTime,
+			int fadeOut) {
+		if (plugin.titleAPIEnabled) {
+
+			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
+
+			if ((subTitleText != null) && (subTitleText != "")) {
+				TextComponent subTitle = new TextComponent(subTitleText);
+				subTitle.setColor(ChatColor.valueOf(subTitleColor));
+				TitleAPI.sendSubTitle(player, subTitle);
+			}
+
+			if ((titleText != null) && (titleText != "")) {
+				TextComponent title = new TextComponent(titleText);
+				title.setColor(ChatColor.valueOf(titleColor));
+				TitleAPI.sendTitle(player, title);
+			}
 		}
 	}
 
@@ -437,45 +477,5 @@ public class Utils {
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
-	}
-
-	public void sendTitle(Player player, String titleText, String subTitleText,
-			String titleColor, String subTitleColor, int fadeIn, int showTime,
-			int fadeOut) {
-		if (plugin.titleAPIEnabled) {
-
-			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
-
-			if (subTitleText != null && subTitleText != "") {
-				TextComponent subTitle = new TextComponent(subTitleText);
-				subTitle.setColor(ChatColor.valueOf(subTitleColor));
-				TitleAPI.sendSubTitle(player, subTitle);
-			}
-
-			if (titleText != null && titleText != "") {
-				TextComponent title = new TextComponent(titleText);
-				title.setColor(ChatColor.valueOf(titleColor));
-				TitleAPI.sendTitle(player, title);
-			}
-		}
-	}
-
-	public void registerCmd(String commandPrefix, CommandHandler cmdHandle) {
-		try {
-			final Field bukkitCommandMap = Bukkit.getServer().getClass()
-					.getDeclaredField("commandMap");
-
-			bukkitCommandMap.setAccessible(true);
-			CommandMap commandMap = (CommandMap) bukkitCommandMap.get(Bukkit
-					.getServer());
-
-			if (cmdHandle.getArgs().length > 0) {
-				String cmd = commandPrefix + cmdHandle.getArgs()[0];
-				commandMap.register(cmd, new CommandAliases(commandPrefix,
-						cmdHandle));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 }

@@ -20,10 +20,6 @@ public class AliasesTabCompleter implements TabCompleter {
 
 	private CommandHandler cmdHandle;
 
-	public void setTabCompleter(CommandHandler cmdHandle) {
-		this.cmdHandle = cmdHandle;
-	}
-
 	public ArrayList<String> getTabCompleteOptions(CommandSender sender,
 			String[] args, int argNum) {
 		ArrayList<String> cmds = new ArrayList<String>();
@@ -88,12 +84,17 @@ public class AliasesTabCompleter implements TabCompleter {
 		cmds.addAll(getTabCompleteOptions(sender, args, args.length));
 
 		for (int i = 0; i < cmds.size(); i++) {
-			if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i), args[args.length-1])) {
+			if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+					args[args.length - 1])) {
 				tab.add(cmds.get(i));
 			}
 		}
 
 		return tab;
+	}
+
+	public void setTabCompleter(CommandHandler cmdHandle) {
+		this.cmdHandle = cmdHandle;
 	}
 
 }

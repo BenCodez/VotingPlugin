@@ -124,7 +124,7 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		int maxPage = plugin.voteToday.length / pagesize;
-		if (plugin.voteToday.length % pagesize != 0) {
+		if ((plugin.voteToday.length % pagesize) != 0) {
 			maxPage++;
 		}
 
@@ -200,18 +200,18 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-				@Override
-				public void onClick(InventoryClickEvent event) {
-					Player player = (Player) event.getWhoClicked();
-					if (player != null) {
-						player.closeInventory();
-						player.performCommand(ConfigGUI.getInstance()
-								.getVoteGUISlotCommand(slot));
+						@Override
+						public void onClick(InventoryClickEvent event) {
+							Player player = (Player) event.getWhoClicked();
+							if (player != null) {
+								player.closeInventory();
+								player.performCommand(ConfigGUI.getInstance()
+										.getVoteGUISlotCommand(slot));
 
-					}
+							}
 
-				}
-			});
+						}
+					});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -254,7 +254,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -264,7 +264,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-		.format(date);
+				.format(date);
 		return timeString;
 	}
 
@@ -478,7 +478,7 @@ public class Commands {
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward");
 
-		if (siteName == null || siteName == "") {
+		if ((siteName == null) || (siteName == "")) {
 			int count = 0;
 			for (VoteSite voteSite : plugin.voteSites) {
 				if (Config.getInstance().getDebugEnabled()) {
@@ -488,21 +488,21 @@ public class Commands {
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
 								voteSite.getSiteName()), (short) ConfigGUI
-								.getInstance().getVoteSiteItemData(
-										voteSite.getSiteName()));
+						.getInstance().getVoteSiteItemData(
+								voteSite.getSiteName()));
 
 				inv.addButton(
 						count,
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
 										voteSite.getSiteName()),
-										Utils.getInstance()
+								Utils.getInstance()
 										.convertArray(
 												(ArrayList<String>) ConfigGUI
-												.getInstance()
-												.getVoteSiteItemLore(
-														voteSite.getSiteName())),
-														item) {
+														.getInstance()
+														.getVoteSiteItemLore(
+																voteSite.getSiteName())),
+								item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -525,15 +525,15 @@ public class Commands {
 						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
-								.getVoteSiteItemsData(siteName, itemName));
+						.getVoteSiteItemsData(siteName, itemName));
 
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-								new BInventoryButton(ConfigGUI.getInstance()
-										.getVoteSiteItemsName(siteName, itemName),
-										Utils.getInstance().convertArray(
-												(ArrayList<String>) ConfigGUI
+						new BInventoryButton(ConfigGUI.getInstance()
+								.getVoteSiteItemsName(siteName, itemName),
+								Utils.getInstance().convertArray(
+										(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -565,12 +565,12 @@ public class Commands {
 			for (User user : users) {
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
-					if (new Date().getDate() == Utils.getInstance()
-							.getDayFromMili(time)
-							&& new Date().getMonth() == Utils.getInstance()
-							.getMonthFromMili(time)
-							&& new Date().getYear() == Utils.getInstance()
-							.getYearFromMili(time)) {
+					if ((new Date().getDate() == Utils.getInstance()
+							.getDayFromMili(time))
+							&& (new Date().getMonth() == Utils.getInstance()
+									.getMonthFromMili(time))
+							&& (new Date().getYear() == Utils.getInstance()
+									.getYearFromMili(time))) {
 
 						String timeString = new SimpleDateFormat(
 								format.getTimeFormat()).format(new Date(time));

@@ -19,15 +19,15 @@ public class CommandAliases extends BukkitCommand {
 
 	public CommandAliases(String commandPrefix, CommandHandler cmdHandle) {
 		super(commandPrefix + cmdHandle.getArgs()[0]);
-		this.setPermission(cmdHandle.getPerm());
-		this.setDescription("");
-		this.setUsage("");
-		this.setAliases(new ArrayList<String>());
+		setPermission(cmdHandle.getPerm());
+		setDescription("");
+		setUsage("");
+		setAliases(new ArrayList<String>());
 		this.cmdHandle = cmdHandle;
 		TabCompleter tab = new AliasesTabCompleter();
 		((AliasesTabCompleter) tab).setTabCompleter(cmdHandle);
 		plugin.getCommand(commandPrefix + cmdHandle.getArgs()[0])
-				.setTabCompleter(tab);
+		.setTabCompleter(tab);
 	}
 
 	@Override

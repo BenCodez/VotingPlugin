@@ -104,7 +104,7 @@ public class BInventory implements Listener {
 	}
 
 	// event handling
-	
+
 	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
@@ -124,8 +124,8 @@ public class BInventory implements Listener {
 		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
 			for (BInventoryButton button : getButtons().values()) {
 				if (clickedItem != null) {
-					if (clickedItem.getType() == button.getItem().getType()
-							&& event.getSlot() == button.getSlot()) {
+					if ((clickedItem.getType() == button.getItem().getType())
+							&& (event.getSlot() == button.getSlot())) {
 						if (Config.getInstance().getDebugEnabled()) {
 							Main.plugin.getLogger().info("Running code");
 						}

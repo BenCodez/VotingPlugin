@@ -38,7 +38,7 @@ public class OtherVoteReward {
 		int userVotes = Data.getInstance().getNumberOfVotesOffline(user);
 		int votesNeeded = ConfigOtherRewards.getInstance().getVotesRequired();
 
-		if (userVotes >= votesNeeded && votesNeeded != 0) {
+		if ((userVotes >= votesNeeded) && (votesNeeded != 0)) {
 			return true;
 		}
 		return false;
@@ -63,7 +63,7 @@ public class OtherVoteReward {
 
 			if (votesRequired != 0) {
 				int userVotesTotal = user.getTotalVotes();
-				if (userVotesTotal % votesRequired == 0) {
+				if ((userVotesTotal % votesRequired) == 0) {
 					return true;
 				}
 			}
