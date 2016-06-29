@@ -271,7 +271,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -290,8 +290,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -323,6 +323,8 @@ public class Reward {
 				givePotions(user);
 				sendMessage(user);
 				runTitle(user);
+				playSound(user);
+				playEffect(user);
 			}
 		}
 	}
@@ -374,6 +376,28 @@ public class Reward {
 					ConfigRewards.getInstance().getTitleFadeIn(name),
 					ConfigRewards.getInstance().getTitleShowTime(name),
 					ConfigRewards.getInstance().getTitleFadeOut(name));
+		}
+	}
+
+	public void playSound(User user) {
+		if (ConfigRewards.getInstance().getSoundEnabled(name)) {
+			try {
+				user.playSound(ConfigRewards.getInstance().getSoundSound(name),
+						ConfigRewards.getInstance().getSoundVolume(name),
+						ConfigRewards.getInstance().getSoundPitch(name));
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+	}
+
+	public void playEffect(User user) {
+		if (ConfigRewards.getInstance().getEffectEnabled(name)) {
+			user.playParticleEffect(ConfigRewards.getInstance()
+					.getEffectEffect(name), ConfigRewards.getInstance()
+					.getEffectData(name), ConfigRewards.getInstance()
+					.getEffectParticles(name), ConfigRewards.getInstance()
+					.getEffectRadius(name));
 		}
 	}
 

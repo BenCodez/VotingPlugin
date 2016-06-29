@@ -105,6 +105,31 @@ Title:
   ShowTime: 50
   FadeOut: 10
   
+# Sound on reward
+Sound:
+  # Enable or Disable Sound
+  Enabled: false
+  # Sound to play
+  # 1.9 Sounds: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+  # 1.8: https://jd.bukkit.org/org/bukkit/Sound.html 
+  Sound: 'BLOCK_ANVIL_USE'
+  # Volume
+  # Range: 0.0 to 1.0
+  Volume: 1.0
+  # Pitch
+  # Range: 0.0 to 1.0
+  Pitch: 1.0
+  
+# Play particle effect on reward
+# 1.10 Effects can be found here:
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Effect.html
+Effect:
+  Enabled: false
+  Effect: 'EXPLOSION'
+  Data: 0
+  Particles: 10
+  Radius: 5
+  
   
 # The messages are sent when rewards above are given to user
 # set to '' to give no message

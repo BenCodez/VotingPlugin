@@ -226,7 +226,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -416,7 +416,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -471,17 +471,14 @@ public class User {
 
 		String playerName = getPlayerName();
 
-		boolean playSound = false;
-
 		for (VoteSite voteSite : voteSites) {
 			int offvotes = getOfflineVotes(voteSite);
 			if (offvotes > 0) {
-				playSound = true;
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
+							.info("Offline Vote Reward on Site '"
+									+ voteSite.getSiteName()
+									+ "' given for player '" + playerName + "'");
 				}
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
@@ -513,12 +510,6 @@ public class User {
 		Data.getInstance().setAllSitesOffline(this, 0);
 		Data.getInstance().setNumberOfVotesOffline(this, 0);
 
-		if (playSound) {
-			playVoteSound();
-			playVoteEffect();
-			playVoteTitle();
-		}
-
 		int place = getOfflineTopVoter();
 		if (place > 0) {
 			giveTopVoterAward(place);
@@ -536,9 +527,9 @@ public class User {
 							if (Config.getInstance().getDebugEnabled()) {
 								plugin.getLogger().info(
 										"Checking world: " + worldName
-										+ ", reard: " + reward
-										+ ", votesite: "
-										+ voteSite.getSiteName());
+												+ ", reard: " + reward
+												+ ", votesite: "
+												+ voteSite.getSiteName());
 							}
 							if (worldName != "") {
 								if (worldName.equals(world)) {
@@ -556,8 +547,8 @@ public class User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 
@@ -588,7 +579,7 @@ public class User {
 	 * @param voteSite
 	 *            Site player voted on
 	 */
-	public void playerVote(VoteSite voteSite) {
+	public synchronized void playerVote(VoteSite voteSite) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
 				&& ConfigFormat.getInstance().getBroadcastWhenOnline()) {
 			voteSite.broadcastVote(this);
@@ -597,8 +588,8 @@ public class User {
 	}
 
 	@SuppressWarnings("deprecation")
-	public void playParticleEffect(String effectName, int data, int particles,
-			int radius) {
+	public synchronized void playParticleEffect(String effectName, int data,
+			int particles, int radius) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if ((player != null) && (effectName != null)) {
 			Effect effect = Effect.valueOf(effectName);
@@ -609,7 +600,8 @@ public class User {
 		}
 	}
 
-	public void playSound(String soundName, float volume, float pitch) {
+	public synchronized void playSound(String soundName, float volume,
+			float pitch) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			Sound sound = Sound.valueOf(soundName);
@@ -618,39 +610,6 @@ public class User {
 			} else if (Config.getInstance().getDebugEnabled()) {
 				plugin.getLogger().info("Invalid sound: " + soundName);
 			}
-		}
-	}
-
-	public void playVoteEffect() {
-		if (Config.getInstance().getVoteEffectEnabled()) {
-			playParticleEffect(Config.getInstance().getVoteEffectEffect(),
-					Config.getInstance().getVoteEffectData(), Config
-					.getInstance().getVoteEffectParticles(), Config
-					.getInstance().getVoteEffectRadius());
-		}
-	}
-
-	public void playVoteSound() {
-		if (Config.getInstance().getVoteSoundEnabled()) {
-			try {
-				playSound(Config.getInstance().getVoteSoundSound(), Config
-						.getInstance().getVoteSoundVolume(), Config
-						.getInstance().getVoteSoundPitch());
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
-	}
-
-	public void playVoteTitle() {
-		if (Config.getInstance().getVoteTitleEnabled()) {
-			sendTitle(Config.getInstance().getVoteTitleTitle(), Config
-					.getInstance().getVoteTitleTitleColor(), Config
-					.getInstance().getVoteTitleSubTitle(), Config.getInstance()
-					.getVoteTitleSubTitleColor(), Config.getInstance()
-					.getVoteTitleFadeIn(), Config.getInstance()
-					.getVoteTitleShowTime(), Config.getInstance()
-					.getVoteTitleFadeOut());
 		}
 	}
 
