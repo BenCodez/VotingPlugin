@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin;
 
+import java.lang.reflect.Field;
 import java.text.DateFormatSymbols;
 import java.util.ArrayList;
 import java.util.Date;
@@ -17,6 +18,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -24,10 +26,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.inventivetalent.title.TitleAPI;
 
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
+import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class Utils {
@@ -436,7 +440,8 @@ public class Utils {
 	}
 
 	public void sendTitle(Player player, String titleText, String subTitleText,
-			String titleColor, String subTitleColor, int fadeIn, int showTime, int fadeOut) {
+			String titleColor, String subTitleColor, int fadeIn, int showTime,
+			int fadeOut) {
 		if (plugin.titleAPIEnabled) {
 
 			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
@@ -455,4 +460,22 @@ public class Utils {
 		}
 	}
 
+	public void registerCmd(String commandPrefix, CommandHandler cmdHandle) {
+		try {
+			final Field bukkitCommandMap = Bukkit.getServer().getClass()
+					.getDeclaredField("commandMap");
+
+			bukkitCommandMap.setAccessible(true);
+			CommandMap commandMap = (CommandMap) bukkitCommandMap.get(Bukkit
+					.getServer());
+
+			if (cmdHandle.getArgs().length > 0) {
+				String cmd = commandPrefix + cmdHandle.getArgs()[0];
+				commandMap.register(cmd, new CommandAliases(commandPrefix,
+						cmdHandle));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 }

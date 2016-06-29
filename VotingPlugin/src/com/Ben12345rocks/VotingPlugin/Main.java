@@ -15,20 +15,8 @@ import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteGUI;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteNext;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteToday;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTop;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTotal;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteInfoTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteLastTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteNextTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTotalTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -223,6 +211,7 @@ public class Main extends JavaPlugin {
 
 	private void registerCommands() {
 		CommandLoader.getInstance().loadCommands();
+		CommandLoader.getInstance().loadAliases();
 
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
@@ -236,7 +225,7 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
-		// /votegui, /vgui
+		/*// /votegui, /vgui
 		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
 
 		// /votehelp, /vhelp
@@ -262,7 +251,7 @@ public class Main extends JavaPlugin {
 
 		// /votetotal, /vtotal
 		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());
+		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());*/
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Commands");

@@ -26,14 +26,30 @@ public abstract class CommandHandler {
 
 	public boolean argsMatch(String arg, int i) {
 		if (i < args.length) {
-			if (args[i].equalsIgnoreCase("player")
-					|| args[i].equalsIgnoreCase("SITENAME")
-					|| args[i].equalsIgnoreCase("number")
-					|| args[i].equalsIgnoreCase("string")
-					|| args[i].equalsIgnoreCase("boolean")
-					|| args[i].equalsIgnoreCase("list")
-					|| arg.equalsIgnoreCase(args[i])) {
-				return true;
+			if (args[i].split("|").length <= 1) {
+				if (args[i].equalsIgnoreCase("player")
+						|| args[i].equalsIgnoreCase("SITENAME")
+						|| args[i].equalsIgnoreCase("number")
+						|| args[i].equalsIgnoreCase("string")
+						|| args[i].equalsIgnoreCase("boolean")
+						|| args[i].equalsIgnoreCase("list")
+						|| arg.equalsIgnoreCase(args[i])) {
+					return true;
+				}
+			} else {
+				for (int j = 0; j < args[j].split("|").length; j++) {
+					if (args[i].split("|")[j].equalsIgnoreCase("player")
+							|| args[i].split("|")[j]
+									.equalsIgnoreCase("SITENAME")
+							|| args[i].split("|")[j].equalsIgnoreCase("number")
+							|| args[i].split("|")[j].equalsIgnoreCase("string")
+							|| args[i].split("|")[j]
+									.equalsIgnoreCase("boolean")
+							|| args[i].split("|")[j].equalsIgnoreCase("list")
+							|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
+						return true;
+					}
+				}
 			}
 			return false;
 		}
@@ -44,25 +60,6 @@ public abstract class CommandHandler {
 
 	public String[] getArgs() {
 		return args;
-	}
-
-	public String getHelpLine() {
-		// String msg = "";
-		/*
-		 * for (int i = 0; i < args.length; i++) { String arg = args[i]; arg =
-		 * Utils.getInstance().replaceIgnoreCase(arg, "player", "{Player}"); arg
-		 * = Utils.getInstance().replaceIgnoreCase(arg, "sitename",
-		 * "{SiteName}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
-		 * "number", "{Number}"); arg = Utils.getInstance()
-		 * .replaceIgnoreCase(arg, "string", "{Text}"); arg =
-		 * Utils.getInstance().replaceIgnoreCase(arg, "boolean",
-		 * "{True/False}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
-		 * "list", "{Text}"); msg += " " + arg; }
-		 *
-		 * msg += " - " + helpMessage;
-		 */
-
-		return helpMessage;
 	}
 
 	public String getHelpMessage() {
