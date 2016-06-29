@@ -92,7 +92,7 @@ public class TopVoter {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				plugin.topVoter);
+				topVoters());
 
 		int pageSize = (topVoters.size() / pagesize);
 		if ((topVoters.size() % pagesize) != 0) {
@@ -114,99 +114,40 @@ public class TopVoter {
 	}
 
 	public String[] topVoterNoColor() {
-		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
-				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = Utils.getInstance().convertSet(users1);
-			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalVotes() == 0) {
-					users.remove(i);
-				}
-
-			}
-
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalVotes();
-					int p2Total = p2.getTotalVotes();
-
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
-				}
-			});
-			for (int i = 0; i < users.size(); i++) {
-				String line = "%num%: %player%, %votes%"
-						.replace("%num%", "" + (i + 1))
-						.replace("%player%", users.get(i).getPlayerName())
-						.replace("%votes%", "" + users.get(i).getTotalVotes());
-				msg.add(line);
-			}
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoter.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = "%num%: %player%, %votes%"
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%", "" + plugin.topVoter.get(users.get(i)));
+			msg.add(line);
 		}
 
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	public void updateTopVoters() {
+		plugin.topVoter.clear();
+		ArrayList<User> users = topVotersSortedAll();
+		if (users != null) {
+			for (User user : users) {
+				plugin.topVoter.put(user, user.getTotalVotes());
+			}
+		}
+	}
+
 	public String[] topVoters() {
-		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
-				.getInstance().getBlackList();
 		ArrayList<String> msg = new ArrayList<String>();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = Utils.getInstance().convertSet(users1);
-			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalVotes() == 0) {
-					users.remove(i);
-				}
-
-			}
-
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalVotes();
-					int p2Total = p2.getTotalVotes();
-
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
-				}
-			});
-			for (int i = 0; i < users.size(); i++) {
-				String line = format.getCommandVoteTopLine()
-						.replace("%num%", "" + (i + 1))
-						.replace("%player%", users.get(i).getPlayerName())
-						.replace("%votes%", "" + users.get(i).getTotalVotes());
-				msg.add(line);
-			}
-
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoter.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = format.getCommandVoteTopLine()
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%", "" + plugin.topVoter.get(users.get(i)));
+			msg.add(line);
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -214,31 +155,44 @@ public class TopVoter {
 	}
 
 	public ArrayList<User> topVotersSortedAll() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
 		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		for (int i = users.size() - 1; i >= 0; i--) {
-			if (users.get(i).getTotalVotes() == 0) {
-				users.remove(i);
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
 			}
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
+				}
+			}
+			Collections.sort(users, new Comparator<User>() {
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalVotes();
+					int p2Total = p2.getTotalVotes();
+
+					if (p1Total < p2Total) {
+						return 1;
+					}
+					if (p1Total > p2Total) {
+						return -1;
+					}
+
+					return 0;
+				}
+			});
+
+			return users;
 		}
-		Collections.sort(users, new Comparator<User>() {
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalVotes();
-				int p2Total = p2.getTotalVotes();
-
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
-
-				return 0;
-			}
-		});
-
-		return users;
+		return null;
 	}
 
 	public ArrayList<User> topVotersSortedVoteSite(VoteSite voteSite) {

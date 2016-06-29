@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.lang3.time.DateUtils;
@@ -25,6 +26,7 @@ import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class Commands {
@@ -122,9 +124,10 @@ public class Commands {
 			page = 1;
 		}
 		ArrayList<String> msg = new ArrayList<String>();
+		String[] voteToday = voteToday();
 
-		int maxPage = plugin.voteToday.length / pagesize;
-		if ((plugin.voteToday.length % pagesize) != 0) {
+		int maxPage = voteToday.length / pagesize;
+		if ((voteToday.length % pagesize) != 0) {
 			maxPage++;
 		}
 
@@ -132,14 +135,39 @@ public class Commands {
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
-		for (int i = pagesize * page; (i < plugin.voteToday.length)
+		for (int i = pagesize * page; (i < voteToday.length)
 				&& (i < ((page + 1) * pagesize)); i++) {
-			msg.add(plugin.voteToday[i]);
+			msg.add(voteToday[i]);
 		}
 
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
+	}
 
+	public void sendVoteTodayScoreBoard(Player player, int page) {
+
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		if (page < 1) {
+			page = 1;
+		}
+
+		String[] voteToday = voteToday();
+		int maxPage = voteToday.length / pagesize;
+		if ((voteToday.length % pagesize) != 0) {
+			maxPage++;
+		}
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard("VoteToday " + page
+				+ "/" + maxPage);
+
+		scoreboard.blankLine();
+		for (int i = pagesize * page; (i < voteToday.length)
+				&& (i < ((page + 1) * pagesize)); i++) {
+			// scoreboard.add(, score);
+		}
+
+		scoreboard.build();
+		scoreboard.send(player);
 	}
 
 	public String[] listPerms() {
@@ -191,7 +219,7 @@ public class Commands {
 			} else if (slot.equalsIgnoreCase("top")) {
 				lore = TopVoter.getInstance().topVoter(1);
 			} else if (slot.equalsIgnoreCase("today")) {
-				lore = plugin.voteToday;
+				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
 				lore = Commands.getInstance().voteHelpTextColored();
 			}
@@ -554,15 +582,14 @@ public class Commands {
 	}
 
 	@SuppressWarnings("deprecation")
-	public String[] voteToday() {
-		ArrayList<String> msg = new ArrayList<String>();
-
+	public void updateVoteToday() {
 		ArrayList<User> users = Utils.getInstance().convertSet(
 				Data.getInstance().getUsers());
+		plugin.voteToday.clear();
 
 		if (users != null) {
-
 			for (User user : users) {
+				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
 					if ((new Date().getDate() == Utils.getInstance()
@@ -572,12 +599,26 @@ public class Commands {
 							&& (new Date().getYear() == Utils.getInstance()
 									.getYearFromMili(time))) {
 
-						String timeString = new SimpleDateFormat(
-								format.getTimeFormat()).format(new Date(time));
-						msg.add("&6" + user.getPlayerName() + " : "
-								+ voteSite.getSiteName() + " : " + timeString);
+						times.put(voteSite, new Date(time));
+
 					}
 				}
+				if (times.keySet().size() > 0) {
+					plugin.voteToday.put(user, times);
+				}
+			}
+		}
+	}
+
+	public String[] voteToday() {
+		ArrayList<String> msg = new ArrayList<String>();
+		for (User user : plugin.voteToday.keySet()) {
+
+			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+				String timeString = new SimpleDateFormat(format.getTimeFormat())
+						.format(plugin.voteToday.get(user).get(voteSite));
+				msg.add("&6" + user.getPlayerName() + " : "
+						+ voteSite.getSiteName() + " : " + timeString);
 			}
 		}
 		msg = Utils.getInstance().colorize(msg);

@@ -2,6 +2,8 @@ package com.Ben12345rocks.VotingPlugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 
 import net.milkbowl.vault.economy.Economy;
 
@@ -59,7 +61,7 @@ public class Main extends JavaPlugin {
 
 	public static Main plugin;
 
-	public String[] topVoter;
+	public HashMap<User, Integer> topVoter;
 
 	public Updater updater;
 
@@ -69,7 +71,7 @@ public class Main extends JavaPlugin {
 
 	public ArrayList<VoteSite> voteSites;
 
-	public String[] voteToday;
+	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
 
 	public boolean placeHolderAPIEnabled;
 
@@ -96,7 +98,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+					.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -125,19 +127,19 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
+					@Override
+					public void run() {
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							if (player != null) {
+								User user = new User(player);
+								if (user.canVoteAll() && !user.reminded()) {
 
-							user.loginMessage();
+									user.loginMessage();
+								}
+							}
 						}
 					}
-				}
-			}
-		}, 50, 60 * 20);
+				}, 50, 60 * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Reminders");
 		}
@@ -202,8 +204,8 @@ public class Main extends JavaPlugin {
 			loadReminders();
 		}
 
-		topVoter = new String[1];
-		voteToday = new String[1];
+		topVoter = new HashMap<User, Integer>();
+		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -299,11 +301,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				update();
-			}
-		}, 50, config.getBackgroundTaskDelay() * 20);
+					@Override
+					public void run() {
+						update();
+					}
+				}, 50, config.getBackgroundTaskDelay() * 20);
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info(
 					"Loaded Timer for VoteTop, Updater, and VoteToday");
@@ -312,9 +314,9 @@ public class Main extends JavaPlugin {
 
 	public void update() {
 		try {
-			topVoter = TopVoter.getInstance().topVoters();
+			TopVoter.getInstance().updateTopVoters();
 			updater = new Updater(this, 15358, false);
-			voteToday = Commands.getInstance().voteToday();
+			Commands.getInstance().updateVoteToday();
 			TopVoter.getInstance().checkTopVoterAward();
 			Signs.getInstance().refreshSigns();
 			ServerData.getInstance().updateValues();
@@ -326,7 +328,7 @@ public class Main extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
