@@ -122,12 +122,13 @@ Format:
   # %position% = position of player, set by sign
   # %votes% = Number of votes
   Signs:
-    
     TopVoterSign:
       Line1: 'TopVoter: %SiteName%'
       Line2: '#%position%'
       Line3: '%player%'
       Line4: '%votes% Votes'
+    # Message when right clicking sign, uses same placeholders as above
+    RightClickMessage: '%player% is at position %position% with %votes% in %SiteName%'
       
   NoPerms: '&cYou do not have enough permission!'
   

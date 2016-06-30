@@ -328,6 +328,15 @@ public class ConfigFormat {
 			return "%votes% Votes";
 		}
 	}
+	
+	public String getSignTopVoterSignRightClickMessage() {
+		String str = getData().getString("Format.Signs.TopVoterSign.RightClickMessage");
+		if (str != null) {
+			return str;
+		} else {
+			return "%player% is at position %position% with %votes% in %SiteName%";
+		}
+	}
 
 	public String getTimeFormat() {
 		String string = getData().getString("Format.TimeFormat");

@@ -30,6 +30,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
@@ -37,6 +38,7 @@ import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
+import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -78,6 +80,8 @@ public class Main extends JavaPlugin {
 	public ArrayList<Reward> rewards;
 
 	public boolean titleAPIEnabled;
+
+	public ArrayList<SignHandler> signs;
 
 	public void checkPlaceHolderAPI() {
 		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
@@ -200,6 +204,8 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 		loadRewards();
 
+		Signs.getInstance().loadSigns();
+
 		if (Config.getInstance().getRemindVotesEnabled()) {
 			loadReminders();
 		}
@@ -242,6 +248,8 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new SignChange(this), this);
 
 		pm.registerEvents(new BlockBreak(this), this);
+
+		pm.registerEvents(new PlayerInteract(this), this);
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Events");
@@ -318,7 +326,6 @@ public class Main extends JavaPlugin {
 			updater = new Updater(this, 15358, false);
 			Commands.getInstance().updateVoteToday();
 			TopVoter.getInstance().checkTopVoterAward();
-			Signs.getInstance().refreshSigns();
 			ServerData.getInstance().updateValues();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
