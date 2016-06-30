@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.chat.ComponentSerializer;
+
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Effect;
@@ -636,6 +639,29 @@ public class User {
 				player.sendMessage(Utils.getInstance().colorize(
 						Utils.getInstance().replacePlaceHolders(player, msg)));
 			}
+		}
+	}
+
+	public void sendJson(TextComponent message) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && message != null) {
+			player.spigot().sendMessage(message);
+		}
+	}
+
+	public void sendJson(ArrayList<TextComponent> messages) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && messages != null) {
+			TextComponent msg = new TextComponent();
+			TextComponent newLine = new TextComponent(
+					ComponentSerializer.parse("{text: \"\n\"}"));
+			for (int i = 0; i < messages.size(); i++) {
+				msg.addExtra(messages.get(i));
+				if (i != messages.size() - 1) {
+					msg.addExtra(newLine);
+				}
+			}
+			player.spigot().sendMessage(msg);
 		}
 	}
 

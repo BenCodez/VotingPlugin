@@ -34,9 +34,11 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
-			user.sendMessage(Commands.getInstance().voteHelpTextColored());
+			user.sendJson(Commands.getInstance().voteHelpText());
 		} else {
-			sender.sendMessage(Commands.getInstance().voteHelpTextColored());
+			sender.sendMessage(Utils.getInstance().convertArray(
+					Utils.getInstance().comptoString(
+							Commands.getInstance().voteHelpText())));
 		}
 
 	}

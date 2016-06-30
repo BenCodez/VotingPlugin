@@ -1,5 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.bukkit.command.CommandSender;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -66,25 +72,33 @@ public abstract class CommandHandler {
 		return helpMessage;
 	}
 
-	public String getHelpLine(String command) {
-		String line = command;
+	public TextComponent getHelpLine(String command) {
+		String line = ConfigFormat.getInstance().getCommandsVoteHelpLine();
+		String commandText = command;
 		for (String arg : args) {
 			if (arg.equalsIgnoreCase("player")) {
-				line += " (Player)";
+				command += " (Player)";
 			} else if (arg.equalsIgnoreCase("sitename")) {
-				line += " (SiteName)";
+				command += " (SiteName)";
 			} else if (arg.equalsIgnoreCase("boolean")) {
-				line += " (True/False)";
+				command += " (True/False)";
 			} else if (arg.equalsIgnoreCase("number")) {
-				line += " (Number)";
+				command += " (Number)";
 			} else {
-				line += " " + arg;
+				command += " " + arg;
 			}
 		}
+		line.replace("%Command%", commandText);
 		if (getHelpMessage() != "") {
-			line += " - " + getHelpMessage();
+			line.replace("%HelpMessage%", getHelpMessage());
 		}
-		return line;
+		TextComponent txt = Utils.getInstance().stringToComp(line);
+		txt.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				commandText));
+		txt.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder(getHelpMessage()).color(ChatColor.AQUA)
+						.create()));
+		return txt;
 
 	}
 

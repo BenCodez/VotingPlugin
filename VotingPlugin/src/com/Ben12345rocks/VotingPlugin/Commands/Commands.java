@@ -7,6 +7,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -54,31 +56,27 @@ public class Commands {
 		Commands.plugin = plugin;
 	}
 
-	public ArrayList<String> adminHelpText() {
-		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("VotingPlugin Admin Help");
-		msg.add("() = Needed");
-		msg.add("Aliases: adminvote, av");
+	public ArrayList<TextComponent> adminHelpText() {
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		msg.add(Utils.getInstance().stringToComp("&3&lVotingPlugin Admin Help"));
+		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
+		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			msg.add(cmdHandle.getHelpLine("/av"));
 		}
 		return msg;
 	}
 
-	public String[] adminHelpTextColored() {
-		ArrayList<String> texts = new ArrayList<String>();
-		for (String msg : adminHelpText()) {
-			if (msg.split("-").length > 1) {
-				texts.add("&3&l" + msg.split("-")[0] + "-&3"
-						+ msg.split("-")[1]);
-			} else {
-				texts.add("&3&l" + msg.split("-")[0]);
-			}
-		}
-		texts = Utils.getInstance().colorize(texts);
-		return Utils.getInstance().convertArray(texts);
-
-	}
+	/*
+	 * public String[] adminHelpTextColored() { ArrayList<String> texts = new
+	 * ArrayList<String>(); for (TextComponent msg : adminHelpText()) { if
+	 * (msg.split("-").length > 1) { texts.add("&3&l" + msg.split("-")[0] +
+	 * "-&3" + msg.split("-")[1]); } else { texts.add("&3&l" +
+	 * msg.split("-")[0]); } } texts = Utils.getInstance().colorize(texts);
+	 * return Utils.getInstance().convertArray(texts);
+	 * 
+	 * }
+	 */
 
 	public String[] commandVoteToday(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
@@ -182,7 +180,11 @@ public class Commands {
 			} else if (slot.equalsIgnoreCase("today")) {
 				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
-				lore = Commands.getInstance().voteHelpTextColored();
+				ArrayList<String> loreSt = new ArrayList<String>();
+				for (TextComponent txt : Commands.getInstance().voteHelpText()) {
+					loreSt.add(txt.getText());
+				}
+				lore = Utils.getInstance().convertArray(loreSt);
 			}
 
 			inv.addButton(ConfigGUI.getInstance().getVoteGUISlotSlot(slot),
@@ -441,33 +443,30 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public ArrayList<String> voteHelpText() {
-		ArrayList<String> texts = new ArrayList<String>();
-		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
+	public ArrayList<TextComponent> voteHelpText() {
+		ArrayList<TextComponent> texts = new ArrayList<TextComponent>();
+		texts.add(Utils.getInstance().stringToComp(
+				ConfigFormat.getInstance().getCommandsVoteHelpTitle()));
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			texts.add(cmdHandle.getHelpLine("/v"));
 		}
 		return texts;
 	}
 
-	public String[] voteHelpTextColored() {
-		ArrayList<String> texts = new ArrayList<String>();
-		String helpLine = ConfigFormat.getInstance().getCommandsVoteHelpLine();
-		for (String msg : voteHelpText()) {
-			if (msg.split("-").length > 1) {
-				String command = msg.split("-")[0];
-				String helpMessage = msg.split("-")[1];
-				texts.add(helpLine.replace("%Command%", command).replace(
-						"%HelpMessage%", helpMessage));
-			} else {
-				String command = msg.split("-")[0];
-				texts.add(helpLine.replace("%Command%", command));
-			}
-		}
-		texts = Utils.getInstance().colorize(texts);
-		return Utils.getInstance().convertArray(texts);
-
-	}
+	/*
+	 * public String[] voteHelpTextColored() { ArrayList<String> texts = new
+	 * ArrayList<String>(); String helpLine =
+	 * ConfigFormat.getInstance().getCommandsVoteHelpLine(); for (String msg :
+	 * voteHelpText()) { if (msg.split("-").length > 1) { String command =
+	 * msg.split("-")[0]; String helpMessage = msg.split("-")[1];
+	 * texts.add(helpLine.replace("%Command%", command).replace(
+	 * "%HelpMessage%", helpMessage)); } else { String command =
+	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
+	 * texts = Utils.getInstance().colorize(texts); return
+	 * Utils.getInstance().convertArray(texts);
+	 * 
+	 * }
+	 */
 
 	@SuppressWarnings("deprecation")
 	public void voteReward(Player player, String siteName) {

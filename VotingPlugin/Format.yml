@@ -85,8 +85,8 @@ Format:
         
       # Format for /vote help
       Help:
-        # Title of /vote help, color is automaticly applied
-        Title: 'Voting Player Help'
+        # Title of /vote help
+        Title: '&3&lVoting Player Help'
         # Format for help message in /v help
         Line: '&3&l%Command% - &3%HelpMessage%'
       
