@@ -68,14 +68,14 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void help(CommandSender sender) {
+	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
-			user.sendJson(Commands.getInstance().adminHelpText());
+			user.sendJson(Commands.getInstance().adminHelp(page));
 		} else {
 			sender.sendMessage(Utils.getInstance().convertArray(
 					Utils.getInstance().comptoString(
-							Commands.getInstance().adminHelpText())));
+							Commands.getInstance().adminHelp(page))));
 		}
 
 	}

@@ -63,7 +63,19 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().help(sender);
+				CommandAdminVote.getInstance().help(sender, 1);
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help|?",
+				"number" }, "VotingPlugin.Commands.AdminVote.Help",
+				"See this page") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().help(sender,
+						Integer.parseInt(args[1]));
 
 			}
 		});

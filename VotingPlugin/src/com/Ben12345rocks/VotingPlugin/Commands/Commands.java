@@ -58,12 +58,33 @@ public class Commands {
 
 	public ArrayList<TextComponent> adminHelpText() {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		msg.add(Utils.getInstance().stringToComp("&3&lVotingPlugin Admin Help"));
-		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
-		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
+
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			msg.add(cmdHandle.getHelpLine("/av"));
 		}
+		return msg;
+	}
+
+	public ArrayList<TextComponent> adminHelp(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		ArrayList<TextComponent> text = adminHelpText();
+
+		int maxPage = text.size() / pagesize;
+		if ((text.size() % pagesize) != 0) {
+			maxPage++;
+		}
+
+		msg.add(Utils.getInstance().stringToComp(
+				"&3&lVotingPlugin Admin Help " + page + "/" + maxPage));
+		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
+		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
+
+		for (int i = pagesize * page; (i < text.size())
+				&& (i < ((page + 1) * pagesize)); i++) {
+			msg.add(text.get(i));
+		}
+
 		return msg;
 	}
 
