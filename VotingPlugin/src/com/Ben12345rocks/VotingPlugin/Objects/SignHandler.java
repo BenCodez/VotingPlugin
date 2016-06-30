@@ -27,26 +27,88 @@ public class SignHandler {
 	private boolean isValid;
 
 	public SignHandler(String sign, Location location, String data, int position) {
-		this.setSign(sign);
-		this.setLocation(location);
-		this.setData(data);
+		setSign(sign);
+		setLocation(location);
+		setData(data);
 		this.position = position;
 	}
 
-	public Location getLocation() {
-		return location;
+	@SuppressWarnings("deprecation")
+	public void checkSkulls() {
+		Location loc = location;
+		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
+				loc.getBlockY() - 1, loc.getBlockZ() - 1);
+		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1,
+				loc.getBlockY() + 1, loc.getBlockZ() + 1);
+		for (Block block : Utils.getInstance().getRegionBlocks(loc.getWorld(),
+				loc1, loc2)) {
+			if (block.getState() instanceof Skull) {
+				Skull skull = (Skull) block.getState();
+				skull.setOwner(playerName);
+				skull.update();
+			}
+		}
 	}
 
-	public void setLocation(Location location) {
-		this.location = location;
+	public void checkValidSign() {
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				setValid(getLocation().getBlock().getState() instanceof Sign);
+			}
+		});
+
 	}
 
 	public String getData() {
 		return data;
 	}
 
+	public Location getLocation() {
+		return location;
+	}
+
+	public String getRightClickMessage() {
+		String msg = ConfigFormat.getInstance()
+				.getSignTopVoterSignRightClickMessage();
+		msg = msg.replace("%player%", playerName);
+		msg = msg.replace("%position%", "" + position);
+		msg = msg.replace("%votes%", "" + votes);
+		msg = msg.replace("%SiteName%", data);
+		return msg;
+	}
+
+	public String getSign() {
+		return sign;
+	}
+
+	public boolean isLocationSame(Location loc) {
+		return loc.equals(getLocation());
+	}
+
+	public boolean isValid() {
+		return isValid;
+	}
+
+	public void removeSign() {
+		ServerData.getInstance().removeSign(sign);
+	}
+
 	public void setData(String data) {
 		this.data = data;
+	}
+
+	public void setLocation(Location location) {
+		this.location = location;
+	}
+
+	public void setSign(String sign) {
+		this.sign = sign;
+	}
+
+	public void setValid(boolean isValid) {
+		this.isValid = isValid;
 	}
 
 	public void storeSign() {
@@ -78,7 +140,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+								.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -86,7 +148,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+								.replace("%player%", playerName));
 					}
 				}
 
@@ -111,8 +173,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+										.replace("%votes%", "" + votes)
+										.replace("%player%", playerName));
 							}
 						}
 
@@ -120,9 +182,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-											.replace("%SiteName%", data)
-											.replace("%position%",
-													"" + position));
+									.replace("%SiteName%", data)
+									.replace("%position%",
+											"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);
@@ -151,68 +213,6 @@ public class SignHandler {
 			}
 
 		}, delay);
-	}
-
-	public void checkValidSign() {
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				setValid(getLocation().getBlock().getState() instanceof Sign);
-			}
-		});
-
-	}
-
-	@SuppressWarnings("deprecation")
-	public void checkSkulls() {
-		Location loc = location;
-		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
-				loc.getBlockY() - 1, loc.getBlockZ() - 1);
-		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1,
-				loc.getBlockY() + 1, loc.getBlockZ() + 1);
-		for (Block block : Utils.getInstance().getRegionBlocks(loc.getWorld(),
-				loc1, loc2)) {
-			if (block.getState() instanceof Skull) {
-				Skull skull = (Skull) block.getState();
-				skull.setOwner(playerName);
-				skull.update();
-			}
-		}
-	}
-
-	public String getSign() {
-		return sign;
-	}
-
-	public void removeSign() {
-		ServerData.getInstance().removeSign(sign);
-	}
-
-	public void setSign(String sign) {
-		this.sign = sign;
-	}
-
-	public boolean isLocationSame(Location loc) {
-		return loc.equals(getLocation());
-	}
-
-	public String getRightClickMessage() {
-		String msg = ConfigFormat.getInstance()
-				.getSignTopVoterSignRightClickMessage();
-		msg = msg.replace("%player%", playerName);
-		msg = msg.replace("%position%", "" + position);
-		msg = msg.replace("%votes%", "" + votes);
-		msg = msg.replace("%SiteName%", data);
-		return msg;
-	}
-
-	public boolean isValid() {
-		return isValid;
-	}
-
-	public void setValid(boolean isValid) {
-		this.isValid = isValid;
 	}
 
 }

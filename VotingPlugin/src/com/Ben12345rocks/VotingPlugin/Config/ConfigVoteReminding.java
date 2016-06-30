@@ -34,36 +34,8 @@ public class ConfigVoteReminding {
 		ConfigVoteReminding.plugin = plugin;
 	}
 
-	public boolean getEnabled() {
-		return getData().getBoolean("Enabled");
-	}
-
-	public boolean getRemindOnlyOnce() {
-		return getData().getBoolean("RemindOnlyOnce");
-	}
-
-	public int getRemindDelay() {
-		int num = getData().getInt("RemindDelay");
-		if (num != 0) {
-			return num;
-		}
-		return 30;
-	}
-
 	public int getChance() {
 		return getData().getInt("Chance");
-	}
-
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -75,11 +47,6 @@ public class ConfigVoteReminding {
 		}
 	}
 
-	public void set(String path, Object value) {
-		getData().set(path, value);
-		saveData();
-	}
-
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsPlayer() {
 		try {
@@ -89,6 +56,34 @@ public class ConfigVoteReminding {
 		}
 	}
 
+	public FileConfiguration getData() {
+		return data;
+	}
+
+	public int getEffectData() {
+		return getData().getInt("Effect.Data");
+	}
+
+	public String getEffectEffect() {
+		return getData().getString("Effect.Effect");
+	}
+
+	public boolean getEffectEnabled() {
+		return getData().getBoolean("Effect.Enabled");
+	}
+
+	public int getEffectParticles() {
+		return getData().getInt("Effect.Particles");
+	}
+
+	public int getEffectRadius() {
+		return getData().getInt("Effect.Radius");
+	}
+
+	public boolean getEnabled() {
+		return getData().getBoolean("Enabled");
+	}
+
 	public String getMessagesRemind() {
 		String msg = getData().getString("Messages.Remind");
 		if (msg != null) {
@@ -96,6 +91,34 @@ public class ConfigVoteReminding {
 		} else {
 			return "&aMessage on ";
 		}
+	}
+
+	public int getRemindDelay() {
+		int num = getData().getInt("RemindDelay");
+		if (num != 0) {
+			return num;
+		}
+		return 30;
+	}
+
+	public boolean getRemindOnlyOnce() {
+		return getData().getBoolean("RemindOnlyOnce");
+	}
+
+	public boolean getSoundEnabled() {
+		return getData().getBoolean("Sound.Enabled");
+	}
+
+	public float getSoundPitch() {
+		return (float) getData().getDouble("Sound.Pitch");
+	}
+
+	public String getSoundSound() {
+		return getData().getString("Sound.Sound");
+	}
+
+	public float getSoundVolume() {
+		return (float) getData().getDouble("Sound.Volume");
 	}
 
 	public boolean getTitleEnabled() {
@@ -130,6 +153,19 @@ public class ConfigVoteReminding {
 		return getData().getString("Title.TitleColor");
 	}
 
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void saveData() {
+		Files.getInstance().editFile(dFile, data);
+	}
+
+	public void set(String path, Object value) {
+		getData().set(path, value);
+		saveData();
+	}
+
 	public void setCommandsConsole(ArrayList<String> value) {
 		set("Commands.Console", value);
 	}
@@ -140,42 +176,6 @@ public class ConfigVoteReminding {
 
 	public void setMessagesReward(String value) {
 		set("Messages.Reward", value);
-	}
-
-	public int getEffectData() {
-		return getData().getInt("Effect.Data");
-	}
-
-	public String getEffectEffect() {
-		return getData().getString("Effect.Effect");
-	}
-
-	public boolean getEffectEnabled() {
-		return getData().getBoolean("Effect.Enabled");
-	}
-
-	public int getEffectParticles() {
-		return getData().getInt("Effect.Particles");
-	}
-
-	public int getEffectRadius() {
-		return getData().getInt("Effect.Radius");
-	}
-
-	public boolean getSoundEnabled() {
-		return getData().getBoolean("Sound.Enabled");
-	}
-
-	public float getSoundPitch() {
-		return (float) getData().getDouble("Sound.Pitch");
-	}
-
-	public String getSoundSound() {
-		return getData().getString("Sound.Sound");
-	}
-
-	public float getSoundVolume() {
-		return (float) getData().getDouble("Sound.Volume");
 	}
 
 	public void setup(Plugin p) {
@@ -191,9 +191,9 @@ public class ConfigVoteReminding {
 				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create VoteReminding.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create VoteReminding.yml!");
 			}
 		}
 

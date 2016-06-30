@@ -32,31 +32,30 @@ public abstract class CommandHandler {
 
 	public boolean argsMatch(String arg, int i) {
 		if (i < args.length) {
-			if (args[i].split("|").length <= 1) {
-				if (args[i].equalsIgnoreCase("player")
-						|| args[i].equalsIgnoreCase("SITENAME")
-						|| args[i].equalsIgnoreCase("number")
-						|| args[i].equalsIgnoreCase("string")
-						|| args[i].equalsIgnoreCase("boolean")
-						|| args[i].equalsIgnoreCase("list")
-						|| arg.equalsIgnoreCase(args[i])) {
+			String[] cmdArgs = args[i].split("&");
+			for (String cmdArg : cmdArgs) {
+				if (cmdArg.equalsIgnoreCase("player")
+						|| cmdArg.equalsIgnoreCase("SITENAME")
+						|| cmdArg.equalsIgnoreCase("number")
+						|| cmdArg.equalsIgnoreCase("string")
+						|| cmdArg.equalsIgnoreCase("boolean")
+						|| cmdArg.equalsIgnoreCase("list")
+						|| arg.equalsIgnoreCase(cmdArg)) {
 					return true;
 				}
-			} else {
-				for (int j = 0; j < args[j].split("|").length; j++) {
-					if (args[i].split("|")[j].equalsIgnoreCase("player")
-							|| args[i].split("|")[j]
-									.equalsIgnoreCase("SITENAME")
-							|| args[i].split("|")[j].equalsIgnoreCase("number")
-							|| args[i].split("|")[j].equalsIgnoreCase("string")
-							|| args[i].split("|")[j]
-									.equalsIgnoreCase("boolean")
-							|| args[i].split("|")[j].equalsIgnoreCase("list")
-							|| arg.equalsIgnoreCase(args[i].split("|")[j])) {
-						return true;
-					}
-				}
 			}
+			/*
+			 * if (args[i].split("|").length <= 1) { if
+			 * (args[i].equalsIgnoreCase("player") ||
+			 * args[i].equalsIgnoreCase("SITENAME") ||
+			 * args[i].equalsIgnoreCase("number") ||
+			 * args[i].equalsIgnoreCase("string") ||
+			 * args[i].equalsIgnoreCase("boolean") ||
+			 * args[i].equalsIgnoreCase("list") ||
+			 * arg.equalsIgnoreCase(args[i])) { return true; } } else {
+			 * 
+			 * }
+			 */
 			return false;
 		}
 		return false;
@@ -68,29 +67,53 @@ public abstract class CommandHandler {
 		return args;
 	}
 
-	public String getHelpMessage() {
-		return helpMessage;
+	public String getHelpLineCommand(String command) {
+		String commandText = command;
+		for (String arg1 : args) {
+			int count = 1;
+			for (String arg : arg1.split("&")) {
+				if (count == 1) {
+					if (arg.equalsIgnoreCase("player")) {
+						commandText += " (Player)";
+					} else if (arg.equalsIgnoreCase("sitename")) {
+						commandText += " (SiteName)";
+					} else if (arg.equalsIgnoreCase("boolean")) {
+						commandText += " (True/False)";
+					} else if (arg.equalsIgnoreCase("number")) {
+						commandText += " (Number)";
+					} else if (arg.equalsIgnoreCase("string")) {
+						commandText += " (Text)";
+					} else {
+						commandText += " " + arg;
+					}
+				} else {
+					if (arg.equalsIgnoreCase("player")) {
+						commandText += "/(Player)";
+					} else if (arg.equalsIgnoreCase("sitename")) {
+						commandText += "/(SiteName)";
+					} else if (arg.equalsIgnoreCase("boolean")) {
+						commandText += "/(True/False)";
+					} else if (arg.equalsIgnoreCase("number")) {
+						commandText += "/(Number)";
+					} else if (arg.equalsIgnoreCase("string")) {
+						commandText += "/(Text)";
+					} else {
+						commandText += " " + arg;
+					}
+				}
+				count++;
+			}
+		}
+		return commandText;
 	}
 
 	public TextComponent getHelpLine(String command) {
 		String line = ConfigFormat.getInstance().getCommandsVoteHelpLine();
-		String commandText = command;
-		for (String arg : args) {
-			if (arg.equalsIgnoreCase("player")) {
-				command += " (Player)";
-			} else if (arg.equalsIgnoreCase("sitename")) {
-				command += " (SiteName)";
-			} else if (arg.equalsIgnoreCase("boolean")) {
-				command += " (True/False)";
-			} else if (arg.equalsIgnoreCase("number")) {
-				command += " (Number)";
-			} else {
-				command += " " + arg;
-			}
-		}
-		line.replace("%Command%", commandText);
+
+		String commandText = getHelpLineCommand(command);
+		line = line.replace("%Command%", commandText);
 		if (getHelpMessage() != "") {
-			line.replace("%HelpMessage%", getHelpMessage());
+			line = line.replace("%HelpMessage%", getHelpMessage());
 		}
 		TextComponent txt = Utils.getInstance().stringToComp(line);
 		txt.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
@@ -100,6 +123,10 @@ public abstract class CommandHandler {
 						.create()));
 		return txt;
 
+	}
+
+	public String getHelpMessage() {
+		return helpMessage;
 	}
 
 	public String getPerm() {

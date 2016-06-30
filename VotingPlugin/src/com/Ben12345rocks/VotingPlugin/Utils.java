@@ -120,6 +120,18 @@ public class Utils {
 		return list;
 	}
 
+	public ArrayList<String> comptoString(ArrayList<TextComponent> comps) {
+		ArrayList<String> txt = new ArrayList<String>();
+		for (TextComponent comp : comps) {
+			txt.add(compToString(comp));
+		}
+		return txt;
+	}
+
+	public String compToString(TextComponent comp) {
+		return colorize(comp.toPlainText());
+	}
+
 	public ArrayList<String> convert(Set<String> set) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String st : set) {
@@ -477,18 +489,6 @@ public class Utils {
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
-	}
-
-	public String compToString(TextComponent comp) {
-		return colorize(comp.getText());
-	}
-
-	public ArrayList<String> comptoString(ArrayList<TextComponent> comps) {
-		ArrayList<String> txt = new ArrayList<String>();
-		for (TextComponent comp : comps) {
-			txt.add(compToString(comp));
-		}
-		return txt;
 	}
 
 	public TextComponent stringToComp(String string) {

@@ -44,16 +44,21 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void infoOther(CommandSender sender, String playerName) {
-
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				User user = new User((Player) sender);
-				user.sendMessage(Utils.getInstance().colorize(
-						"&cGetting player info..."));
-				user.sendMessage(Commands.getInstance().playerInfo(
-						new User(playerName)));
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(Utils.getInstance().colorize(
+							"&cGetting player info..."));
+					user.sendMessage(Commands.getInstance().playerInfo(
+							new User(playerName)));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							Commands.getInstance().playerInfo(
+									new User(playerName))));
+				}
 			}
 		});
 
@@ -61,7 +66,6 @@ public class CommandVote implements CommandExecutor {
 
 	public void infoSelf(CommandSender sender) {
 		if (sender instanceof Player) {
-
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -81,16 +85,21 @@ public class CommandVote implements CommandExecutor {
 
 	public void lastOther(CommandSender sender, String playerName) {
 
-		User user = new User(playerName);
-		user.sendMessage(Commands.getInstance().voteCommandLast(user));
+		if (sender instanceof Player) {
+			User user = new User((Player) sender);
+			user.sendMessage(Commands.getInstance().voteCommandLast(
+					new User(playerName)));
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(
+					Commands.getInstance()
+							.voteCommandLast(new User(playerName))));
+		}
 
 	}
 
 	public void lastSelf(CommandSender sender) {
 		if (sender instanceof Player) {
-
-			String playerName = sender.getName();
-			User user = new User(playerName);
+			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(user));
 
 		} else {
@@ -99,15 +108,20 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void nextOther(CommandSender sender, String playerName) {
-
-		User user = new User(playerName);
-		user.sendMessage(Commands.getInstance().voteCommandNext(user));
+		if (sender instanceof Player) {
+			User user = new User((Player) sender);
+			user.sendMessage(Commands.getInstance().voteCommandNext(
+					new User(playerName)));
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(
+					Commands.getInstance()
+							.voteCommandNext(new User(playerName))));
+		}
 
 	}
 
 	public void nextSelf(CommandSender sender) {
 		if (sender instanceof Player) {
-
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandNext(user));
@@ -193,15 +207,20 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void totalOther(CommandSender sender, String playerName) {
-
-		User user = new User(playerName);
-		user.sendMessage(Commands.getInstance().voteCommandTotal(user));
+		if (sender instanceof Player) {
+			User user = new User((Player) sender);
+			user.sendMessage(Commands.getInstance().voteCommandTotal(
+					new User(playerName)));
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(
+					Commands.getInstance().voteCommandTotal(
+							new User(playerName))));
+		}
 
 	}
 
 	public void totalSelf(CommandSender sender) {
 		if (sender instanceof Player) {
-
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(user));
@@ -212,37 +231,24 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	public void voteGUI(CommandSender sender) {
-
 		if (sender instanceof Player) {
-
 			Commands.getInstance().openVoteGUI((Player) sender);
-
 		} else {
 			sender.sendMessage("Must be a player to do this!");
 		}
 	}
 
 	public void voteReward(CommandSender sender, String siteName) {
-
 		if (sender instanceof Player) {
-
 			Commands.getInstance().voteReward((Player) sender, siteName);
-
 		} else {
 			sender.sendMessage("Must be a player to do this!");
 		}
 	}
 
-	public void voteTopSite(CommandSender sender, String siteName) {
-
-	}
-
 	public void voteURL(CommandSender sender) {
-
 		if (sender instanceof Player) {
-
 			Commands.getInstance().voteURL((Player) sender);
-
 		} else {
 			sender.sendMessage("Must be a player to do this!");
 		}

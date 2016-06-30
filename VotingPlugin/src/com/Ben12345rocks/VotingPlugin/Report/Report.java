@@ -32,7 +32,7 @@ public class Report {
 		String zipFilePath = file.getPath();
 		if (Config.getInstance().getDebugEnabled()) {
 			plugin.getLogger()
-					.info("Writing '" + zipFilePath + "' to zip file");
+			.info("Writing '" + zipFilePath + "' to zip file");
 		}
 		ZipEntry zipEntry = new ZipEntry(zipFilePath);
 		zos.putNextEntry(zipEntry);

@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.bukkit.command.CommandSender;
 
@@ -42,6 +43,8 @@ public class CommandLoader {
 		CommandLoader.plugin = plugin;
 	}
 
+	private HashMap<String, CommandHandler> commands;
+
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
@@ -58,7 +61,7 @@ public class CommandLoader {
 			}
 		});
 		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Help|?" },
+				new String[] { "Help&?" },
 				"VotingPlugin.Commands.AdminVote.Help", "See this page") {
 
 			@Override
@@ -68,7 +71,7 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help|?",
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help&?",
 				"number" }, "VotingPlugin.Commands.AdminVote.Help",
 				"See this page") {
 
@@ -209,7 +212,8 @@ public class CommandLoader {
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
 				"ServerData", "SetPrevMonth", "number" },
-				"VotingPlugin.Commands.AdminVote.ServerDta.Edit") {
+				"VotingPlugin.Commands.AdminVote.ServerDta.Edit",
+				"Edit PrevMonth, ADVANCED USERS ONLY") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -289,10 +293,13 @@ public class CommandLoader {
 	}
 
 	public void loadAliases() {
+		commands = new HashMap<String, CommandHandler>();
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (cmdHandle.getArgs().length > 0) {
 				Utils.getInstance().registerCmd("vote", cmdHandle);
 				Utils.getInstance().registerCmd("v", cmdHandle);
+				commands.put("v" + cmdHandle.getArgs()[0], cmdHandle);
+				commands.put("vote" + cmdHandle.getArgs()[0], cmdHandle);
 			}
 		}
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
@@ -300,6 +307,8 @@ public class CommandLoader {
 			if (cmdHandle.getArgs().length > 0) {
 				Utils.getInstance().registerCmd("adminvote", cmdHandle);
 				Utils.getInstance().registerCmd("av", cmdHandle);
+				commands.put("av" + cmdHandle.getArgs()[0], cmdHandle);
+				commands.put("adminvote" + cmdHandle.getArgs()[0], cmdHandle);
 			}
 		}
 	}
@@ -311,7 +320,7 @@ public class CommandLoader {
 
 	private void loadVoteCommand() {
 		plugin.voteCommand = new ArrayList<CommandHandler>();
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Help|?" },
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help", "View this page") {
 
 			@Override
@@ -529,5 +538,13 @@ public class CommandLoader {
 
 			}
 		});
+	}
+
+	public HashMap<String, CommandHandler> getCommands() {
+		return commands;
+	}
+
+	public void setCommands(HashMap<String, CommandHandler> commands) {
+		this.commands = commands;
 	}
 }

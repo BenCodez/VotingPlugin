@@ -4,9 +4,9 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Votifier.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/BungeeCord.jar"/>
-	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/PlaceholderAPI.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/TitleAPI_v2.1.2.jar"/>
+	<classpathentry kind="lib" path="D:/programming/Liabaries/brettwooldridge-HikariCP-HikariCP-2.4.4-1-ga7e0d35.zip"/>
+	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

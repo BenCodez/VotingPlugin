@@ -18,6 +18,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
@@ -26,6 +27,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
@@ -227,6 +229,7 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 
 		pm.registerEvents(new PlayerInteract(this), this);
+		pm.registerEvents(new AliasesTabCompleter(), this);
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Events");
@@ -239,6 +242,7 @@ public class Main extends JavaPlugin {
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
+		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
 		plugin.update();
 		loadRewards();
@@ -269,6 +273,7 @@ public class Main extends JavaPlugin {
 		configFormat.setup(this);
 		configBonusReward.setup(this);
 		configGUI.setup(plugin);
+		ConfigVoteReminding.getInstance().setup(plugin);
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 

@@ -33,11 +33,11 @@ public class SignChange implements Listener {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									Signs.getInstance().updateSigns();
-								}
-							});
+						@Override
+						public void run() {
+							Signs.getInstance().updateSigns();
+						}
+					});
 				} catch (Exception ex) {
 					event.getPlayer().sendMessage(
 							Utils.getInstance().colorize(

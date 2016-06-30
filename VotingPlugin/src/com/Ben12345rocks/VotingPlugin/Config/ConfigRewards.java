@@ -63,6 +63,26 @@ public class ConfigRewards {
 		return data;
 	}
 
+	public int getEffectData(String reward) {
+		return getData(reward).getInt("Effect.Data");
+	}
+
+	public String getEffectEffect(String reward) {
+		return getData(reward).getString("Effect.Effect");
+	}
+
+	public boolean getEffectEnabled(String reward) {
+		return getData(reward).getBoolean("Effect.Enabled");
+	}
+
+	public int getEffectParticles(String reward) {
+		return getData(reward).getInt("Effect.Particles");
+	}
+
+	public int getEffectRadius(String reward) {
+		return getData(reward).getInt("Effect.Radius");
+	}
+
 	public boolean getGiveInEachWorld(String reward) {
 		return getData(reward).getBoolean("GiveInEachWorld");
 	}
@@ -177,7 +197,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
@@ -204,6 +224,22 @@ public class ConfigRewards {
 		Collections.sort(rewardFiles, String.CASE_INSENSITIVE_ORDER);
 
 		return rewardFiles;
+	}
+
+	public boolean getSoundEnabled(String reward) {
+		return getData(reward).getBoolean("Sound.Enabled");
+	}
+
+	public float getSoundPitch(String reward) {
+		return (float) getData(reward).getDouble("Sound.Pitch");
+	}
+
+	public String getSoundSound(String reward) {
+		return getData(reward).getString("Sound.Sound");
+	}
+
+	public float getSoundVolume(String reward) {
+		return (float) getData(reward).getDouble("Sound.Volume");
 	}
 
 	public boolean getTitleEnabled(String reward) {
@@ -349,42 +385,6 @@ public class ConfigRewards {
 
 	public void setWorlds(String reward, ArrayList<String> value) {
 		set(reward, "Worlds", value);
-	}
-
-	public int getEffectData(String reward) {
-		return getData(reward).getInt("Effect.Data");
-	}
-
-	public String getEffectEffect(String reward) {
-		return getData(reward).getString("Effect.Effect");
-	}
-
-	public boolean getEffectEnabled(String reward) {
-		return getData(reward).getBoolean("Effect.Enabled");
-	}
-
-	public int getEffectParticles(String reward) {
-		return getData(reward).getInt("Effect.Particles");
-	}
-
-	public int getEffectRadius(String reward) {
-		return getData(reward).getInt("Effect.Radius");
-	}
-
-	public boolean getSoundEnabled(String reward) {
-		return getData(reward).getBoolean("Sound.Enabled");
-	}
-
-	public float getSoundPitch(String reward) {
-		return (float) getData(reward).getDouble("Sound.Pitch");
-	}
-
-	public String getSoundSound(String reward) {
-		return getData(reward).getString("Sound.Sound");
-	}
-
-	public float getSoundVolume(String reward) {
-		return (float) getData(reward).getDouble("Sound.Volume");
 	}
 
 }

@@ -29,14 +29,10 @@ public class SimpleScoreboard {
 	private List<Team> teams;
 
 	public SimpleScoreboard(String title) {
-		this.scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
+		scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
 		this.title = title;
-		this.scores = Maps.newLinkedHashMap();
-		this.teams = Lists.newArrayList();
-	}
-
-	public void blankLine() {
-		add(" ");
+		scores = Maps.newLinkedHashMap();
+		teams = Lists.newArrayList();
 	}
 
 	public void add(String text) {
@@ -50,28 +46,8 @@ public class SimpleScoreboard {
 		scores.put(text, score);
 	}
 
-	private String fixDuplicates(String text) {
-		while (scores.containsKey(text))
-			text += "§r";
-		if (text.length() > 48)
-			text = text.substring(0, 47);
-		return text;
-	}
-
-	private Map.Entry<Team, String> createTeam(String text) {
-		String result = "";
-		if (text.length() <= 16)
-			return new AbstractMap.SimpleEntry<>(null, text);
-		Team team = scoreboard.registerNewTeam("text-"
-				+ scoreboard.getTeams().size());
-		Iterator<String> iterator = Splitter.fixedLength(16).split(text)
-				.iterator();
-		team.setPrefix(iterator.next());
-		result = iterator.next();
-		if (text.length() > 32)
-			team.setSuffix(iterator.next());
-		teams.add(team);
-		return new AbstractMap.SimpleEntry<>(team, result);
+	public void blankLine() {
+		add(" ");
 	}
 
 	@SuppressWarnings("deprecation")
@@ -89,28 +65,59 @@ public class SimpleScoreboard {
 			Map.Entry<Team, String> team = createTeam(text.getKey());
 			Integer score = text.getValue() != null ? text.getValue() : index;
 			OfflinePlayer player = Bukkit.getOfflinePlayer(team.getValue());
-			if (team.getKey() != null)
+			if (team.getKey() != null) {
 				team.getKey().addPlayer(player);
+			}
 			obj.getScore(player).setScore(score);
 			index -= 1;
 		}
 	}
 
-	public void reset() {
-		title = null;
-		scores.clear();
-		for (Team t : teams)
-			t.unregister();
-		teams.clear();
+	private Map.Entry<Team, String> createTeam(String text) {
+		String result = "";
+		if (text.length() <= 16) {
+			return new AbstractMap.SimpleEntry<>(null, text);
+		}
+		Team team = scoreboard.registerNewTeam("text-"
+				+ scoreboard.getTeams().size());
+		Iterator<String> iterator = Splitter.fixedLength(16).split(text)
+				.iterator();
+		team.setPrefix(iterator.next());
+		result = iterator.next();
+		if (text.length() > 32) {
+			team.setSuffix(iterator.next());
+		}
+		teams.add(team);
+		return new AbstractMap.SimpleEntry<>(team, result);
+	}
+
+	private String fixDuplicates(String text) {
+		while (scores.containsKey(text)) {
+			text += "§r";
+		}
+		if (text.length() > 48) {
+			text = text.substring(0, 47);
+		}
+		return text;
 	}
 
 	public Scoreboard getScoreboard() {
 		return scoreboard;
 	}
 
+	public void reset() {
+		title = null;
+		scores.clear();
+		for (Team t : teams) {
+			t.unregister();
+		}
+		teams.clear();
+	}
+
 	public void send(Player... players) {
-		for (Player p : players)
+		for (Player p : players) {
 			p.setScoreboard(scoreboard);
+		}
 	}
 
 }

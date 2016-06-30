@@ -27,91 +27,6 @@ public class VoteReminding {
 		VoteReminding.plugin = plugin;
 	}
 
-	public void runCommands(User user) {
-		String playerName = user.getPlayerName();
-
-		// Console commands
-		ArrayList<String> consolecmds = ConfigVoteReminding.getInstance()
-				.getCommandsConsole();
-
-		if (consolecmds != null) {
-			for (String consolecmd : consolecmds) {
-				if (consolecmd.length() > 0) {
-					consolecmd = consolecmd.replace("%player%", playerName);
-					Bukkit.getServer().dispatchCommand(
-							Bukkit.getConsoleSender(), consolecmd);
-				}
-			}
-		}
-
-		// Player commands
-		ArrayList<String> playercmds = ConfigVoteReminding.getInstance()
-				.getCommandsPlayer();
-
-		Player player = Bukkit.getPlayer(playerName);
-		if (playercmds != null) {
-			for (String playercmd : playercmds) {
-				if ((player != null) && (playercmd.length() > 0)) {
-					playercmd = playercmd.replace("%player%", playerName);
-					player.performCommand(playercmd);
-				}
-			}
-		}
-	}
-
-	public void runTitle(User user) {
-		if (ConfigVoteReminding.getInstance().getTitleEnabled()) {
-			user.sendTitle(ConfigVoteReminding.getInstance().getTitleTitle(),
-					ConfigVoteReminding.getInstance().getTitleTitleColor(),
-					ConfigVoteReminding.getInstance().getTitleSubTitle(),
-					ConfigVoteReminding.getInstance().getTitleSubTitleColor(),
-					ConfigVoteReminding.getInstance().getTitleFadeIn(),
-					ConfigVoteReminding.getInstance().getTitleShowTime(),
-					ConfigVoteReminding.getInstance().getTitleFadeOut());
-		}
-	}
-
-	public void playSound(User user) {
-		if (ConfigVoteReminding.getInstance().getSoundEnabled()) {
-			try {
-				user.playSound(ConfigVoteReminding.getInstance()
-						.getSoundSound(), ConfigVoteReminding.getInstance()
-						.getSoundVolume(), ConfigVoteReminding.getInstance()
-						.getSoundPitch());
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
-	}
-
-	public void playEffect(User user) {
-		if (ConfigVoteReminding.getInstance().getEffectEnabled()) {
-			user.playParticleEffect(ConfigVoteReminding.getInstance()
-					.getEffectEffect(), ConfigVoteReminding.getInstance()
-					.getEffectData(), ConfigVoteReminding.getInstance()
-					.getEffectParticles(), ConfigVoteReminding.getInstance()
-					.getEffectRadius());
-		}
-	}
-
-	public void sendMessage(User user) {
-		String remindMsg = ConfigVoteReminding.getInstance()
-				.getMessagesRemind();
-		if (remindMsg != null) {
-			user.sendMessage(remindMsg);
-		}
-	}
-
-	public void runRemind(User user) {
-		if (ConfigVoteReminding.getInstance().getEnabled()) {
-			runCommands(user);
-			runTitle(user);
-			playSound(user);
-			playEffect(user);
-			sendMessage(user);
-		}
-	}
-
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
 
@@ -151,5 +66,90 @@ public class VoteReminding {
 					}
 				}, 10,
 				ConfigVoteReminding.getInstance().getRemindDelay() * 20 * 60);
+	}
+
+	public void playEffect(User user) {
+		if (ConfigVoteReminding.getInstance().getEffectEnabled()) {
+			user.playParticleEffect(ConfigVoteReminding.getInstance()
+					.getEffectEffect(), ConfigVoteReminding.getInstance()
+					.getEffectData(), ConfigVoteReminding.getInstance()
+					.getEffectParticles(), ConfigVoteReminding.getInstance()
+					.getEffectRadius());
+		}
+	}
+
+	public void playSound(User user) {
+		if (ConfigVoteReminding.getInstance().getSoundEnabled()) {
+			try {
+				user.playSound(ConfigVoteReminding.getInstance()
+						.getSoundSound(), ConfigVoteReminding.getInstance()
+						.getSoundVolume(), ConfigVoteReminding.getInstance()
+						.getSoundPitch());
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+	}
+
+	public void runCommands(User user) {
+		String playerName = user.getPlayerName();
+
+		// Console commands
+		ArrayList<String> consolecmds = ConfigVoteReminding.getInstance()
+				.getCommandsConsole();
+
+		if (consolecmds != null) {
+			for (String consolecmd : consolecmds) {
+				if (consolecmd.length() > 0) {
+					consolecmd = consolecmd.replace("%player%", playerName);
+					Bukkit.getServer().dispatchCommand(
+							Bukkit.getConsoleSender(), consolecmd);
+				}
+			}
+		}
+
+		// Player commands
+		ArrayList<String> playercmds = ConfigVoteReminding.getInstance()
+				.getCommandsPlayer();
+
+		Player player = Bukkit.getPlayer(playerName);
+		if (playercmds != null) {
+			for (String playercmd : playercmds) {
+				if ((player != null) && (playercmd.length() > 0)) {
+					playercmd = playercmd.replace("%player%", playerName);
+					player.performCommand(playercmd);
+				}
+			}
+		}
+	}
+
+	public void runRemind(User user) {
+		if (ConfigVoteReminding.getInstance().getEnabled()) {
+			runCommands(user);
+			runTitle(user);
+			playSound(user);
+			playEffect(user);
+			sendMessage(user);
+		}
+	}
+
+	public void runTitle(User user) {
+		if (ConfigVoteReminding.getInstance().getTitleEnabled()) {
+			user.sendTitle(ConfigVoteReminding.getInstance().getTitleTitle(),
+					ConfigVoteReminding.getInstance().getTitleTitleColor(),
+					ConfigVoteReminding.getInstance().getTitleSubTitle(),
+					ConfigVoteReminding.getInstance().getTitleSubTitleColor(),
+					ConfigVoteReminding.getInstance().getTitleFadeIn(),
+					ConfigVoteReminding.getInstance().getTitleShowTime(),
+					ConfigVoteReminding.getInstance().getTitleFadeOut());
+		}
+	}
+
+	public void sendMessage(User user) {
+		String remindMsg = ConfigVoteReminding.getInstance()
+				.getMessagesRemind();
+		if (remindMsg != null) {
+			user.sendMessage(remindMsg);
+		}
 	}
 }

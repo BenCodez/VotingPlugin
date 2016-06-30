@@ -39,7 +39,7 @@ public class BungeeVote {
 	}
 
 	public void sendVote(Vote vote) throws NoSuchAlgorithmException,
-			InvalidKeySpecException {
+	InvalidKeySpecException {
 		if (ConfigBungeeVoting.getInstance().getEnabled()) {
 			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
 				byte[] encodedPublicKey = DatatypeConverter
@@ -71,7 +71,7 @@ public class BungeeVote {
 								serverIP, serverPort);
 						if (Config.getInstance().getDebugEnabled()) {
 							plugin.getLogger()
-									.info(serverIP + ":" + serverPort);
+							.info(serverIP + ":" + serverPort);
 							plugin.getLogger().info(sockAddr.toString());
 						}
 						Socket socket = new Socket();

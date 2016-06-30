@@ -128,16 +128,6 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public void updateTopVoters() {
-		plugin.topVoter.clear();
-		ArrayList<User> users = topVotersSortedAll();
-		if (users != null) {
-			for (User user : users) {
-				plugin.topVoter.put(user, user.getTotalVotes());
-			}
-		}
-	}
-
 	public String[] topVoters() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -230,5 +220,15 @@ public class TopVoter {
 			}
 		});
 		return users;
+	}
+
+	public void updateTopVoters() {
+		plugin.topVoter.clear();
+		ArrayList<User> users = topVotersSortedAll();
+		if (users != null) {
+			for (User user : users) {
+				plugin.topVoter.put(user, user.getTotalVotes());
+			}
+		}
 	}
 }
