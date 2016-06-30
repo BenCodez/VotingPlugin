@@ -1,0 +1,74 @@
+# Options for vote reminding
+
+# Enable vote reminding
+# This will remind player when he can vote on all sites
+# Requires VoteDelay's to be setup properly
+# Use /vote next to see when you can be reminded
+# Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
+Enabled: true
+
+# Wether or not to remind only once
+RemindOnlyOnce: true
+
+# Delay to remind votes
+# Only works if above is false
+# In minutes
+RemindDelay: 30
+
+# Commands to run
+# Use %player% for player name
+# Set to Console: [] for no commands
+Commands:
+  # Commands here will be run by console
+  Console:
+  - 'say %player% was lucky'
+  # Commands here are run by player
+  Player:
+  - 'vote total'
+
+# Title to send user on remind
+# Requires TitleAPI (and all of its requirements)
+# Download here: 
+# https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
+Title:
+  Enabled: false
+  Title: 'Thanks for voting!'
+  TitleColor: red
+  SubTitle: 'You voted on %votesite%'
+  SubTitleColor: blue
+  FadeIn: 10
+  ShowTime: 50
+  FadeOut: 10
+  
+# Sound on remind
+Sound:
+  # Enable or Disable Sound
+  Enabled: false
+  # Sound to play
+  # 1.9 Sounds: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+  # 1.8: https://jd.bukkit.org/org/bukkit/Sound.html 
+  Sound: 'BLOCK_ANVIL_USE'
+  # Volume
+  # Range: 0.0 to 1.0
+  Volume: 1.0
+  # Pitch
+  # Range: 0.0 to 1.0
+  Pitch: 1.0
+  
+# Play particle effect on remind
+# 1.10 Effects can be found here:
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Effect.html
+Effect:
+  Enabled: false
+  Effect: 'EXPLOSION'
+  Data: 0
+  Particles: 10
+  Radius: 5
+  
+  
+# The messages are sent when user is reminded
+# set to '' to give no message
+# If no value is set, default in Format.yml is used
+Messages:
+  Remind: 
+  - '&cRemember to vote'

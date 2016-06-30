@@ -61,10 +61,6 @@ public class Config {
 		return getData().getBoolean("DisableAutoCreateVoteSites");
 	}
 
-	public boolean getRemindVotesEnabled() {
-		return getData().getBoolean("RemindVotes");
-	}
-
 	public boolean getTopVoterAwardsDisabled() {
 		return getData().getBoolean("DisableTopVoterAwards");
 	}
@@ -93,11 +89,6 @@ public class Config {
 
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setRemindVotesEnabled(boolean value) {
-		getData().set("RemindVotes", value);
 		saveData();
 	}
 

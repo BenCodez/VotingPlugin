@@ -46,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class Main extends JavaPlugin {
 
@@ -127,28 +128,6 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void loadReminders() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getOnlinePlayers()) {
-							if (player != null) {
-								User user = new User(player);
-								if (user.canVoteAll() && !user.reminded()) {
-
-									user.loginMessage();
-								}
-							}
-						}
-					}
-				}, 50, 60 * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Reminders");
-		}
-	}
-
 	public void loadRewards() {
 		ConfigRewards.getInstance().setupExample();
 		rewards = new ArrayList<Reward>();
@@ -204,11 +183,9 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 		loadRewards();
 
-		Signs.getInstance().loadSigns();
+		VoteReminding.getInstance().loadRemindChecking();
 
-		if (Config.getInstance().getRemindVotesEnabled()) {
-			loadReminders();
-		}
+		Signs.getInstance().loadSigns();
 
 		topVoter = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();

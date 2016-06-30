@@ -29,6 +29,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -442,25 +443,11 @@ public class User {
 	 * Login message if player can vote
 	 */
 	public void loginMessage() {
-		String playerName = getPlayerName();
-		if (Config.getInstance().getRemindVotesEnabled()) {
-			if (Utils.getInstance().hasPermission(playerName,
-					"VotingPlugin.Login.RemindVotes")
-					|| Utils.getInstance().hasPermission(playerName,
-							"VotingPlugin.Player")) {
-				if (canVoteAll()) {
-					Player player = Bukkit.getPlayer(playerName);
-					if (player != null) {
-						String msg = Utils.getInstance().colorize(
-								ConfigFormat.getInstance().getLoginMsg());
-						msg = msg.replace("%player%", playerName);
-						player.sendMessage(msg);
-						setReminded(true);
-					}
+		VoteReminding.getInstance().checkRemind(this);
+	}
 
-				}
-			}
-		}
+	public boolean getReminded() {
+		return Data.getInstance().getReminded(this);
 	}
 
 	/**

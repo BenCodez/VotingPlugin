@@ -9,9 +9,6 @@ Debug: false
 # Broadcast votes
 BroadcastVote: true
 
-# Remind players when they can vote
-RemindVotes: true
-
 # Give players with permission "VotingPlugin.remindupdate" update reminder
 # When a update is available on login
 UpdateReminder: true

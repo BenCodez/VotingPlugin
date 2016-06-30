@@ -72,6 +72,7 @@ MaxMoney: 3000
 
 # Commands to run
 # Use %player% for player name
+# Set to Console: [] for no commands
 Commands:
   # Commands here will be run by console
   Console:
