@@ -121,6 +121,7 @@ public class ServerData {
 
 	public void setPluginVersion() {
 		getData().set("PluginVersion", plugin.getDescription().getVersion());
+		saveData();
 	}
 
 	public void setPrevMonth(int value) {
@@ -173,6 +174,7 @@ public class ServerData {
 
 	public void setVersion() {
 		getData().set("Version", Bukkit.getVersion());
+		saveData();
 	}
 
 	public void updateValues() {

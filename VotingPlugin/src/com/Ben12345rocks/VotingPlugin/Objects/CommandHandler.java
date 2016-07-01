@@ -98,7 +98,7 @@ public abstract class CommandHandler {
 					} else if (arg.equalsIgnoreCase("string")) {
 						commandText += "/(Text)";
 					} else {
-						commandText += " " + arg;
+						commandText += "/" + arg;
 					}
 				}
 				count++;
