@@ -48,23 +48,23 @@ public class PlayerJoinEvent implements Listener {
 						player.getUniqueId().toString());
 
 				plugin.getServer().getScheduler()
-				.runTaskLaterAsynchronously(plugin, new Runnable() {
-					@Override
-					public void run() {
-						// msg player if there is a update
-						if (Config.getInstance().updateReminder()) {
-							updateCheckLogin(player);
-						}
+						.runTaskLaterAsynchronously(plugin, new Runnable() {
+							@Override
+							public void run() {
+								// msg player if there is a update
+								if (Config.getInstance().updateReminder()) {
+									updateCheckLogin(player);
+								}
 
-						user.offVoteWorld(player.getWorld().getName());
+								user.offVoteWorld(player.getWorld().getName());
 
-						// give offline vote (if they voted offline)
-						user.offVote();
+								// give offline vote (if they voted offline)
+								user.offVote();
 
-						// msg player if he can vote
-						user.loginMessage();
-					}
-				}, 100L);
+								// msg player if he can vote
+								user.loginMessage();
+							}
+						}, 100L);
 			}
 		}, 20L);
 
@@ -72,27 +72,34 @@ public class PlayerJoinEvent implements Listener {
 
 	private void updateCheckLogin(Player player) {
 		Updater updater = plugin.updater;
+		if (updater != null) {
 
-		switch (updater.getResult()) {
-		case FAIL_SPIGOT: {
-			break;
-		}
-		case NO_UPDATE: {
-			break;
-		}
-		case UPDATE_AVAILABLE: {
-			if (player.hasPermission("VotingPlugin.remindupdate")) {
-				player.sendMessage(Utils.getInstance().colorize(
-						"&a" + plugin.getName()
-						+ " has an update available! Your Version: &c"
-						+ plugin.getDescription().getVersion()
-						+ "&a New Version: &c" + updater.getVersion()));
+			switch (updater.getResult()) {
+			case FAIL_SPIGOT: {
+				break;
 			}
-			break;
-		}
-		default: {
-			break;
-		}
+			case NO_UPDATE: {
+				break;
+			}
+			case UPDATE_AVAILABLE: {
+				if (player.hasPermission("VotingPlugin.remindupdate")) {
+					player.sendMessage(Utils
+							.getInstance()
+							.colorize(
+									"&a"
+											+ plugin.getName()
+											+ " has an update available! Your Version: &c"
+											+ plugin.getDescription()
+													.getVersion()
+											+ "&a New Version: &c"
+											+ updater.getVersion()));
+				}
+				break;
+			}
+			default: {
+				break;
+			}
+			}
 		}
 	}
 }

@@ -10,6 +10,7 @@ import java.util.List;
 import net.md_5.bungee.api.chat.TextComponent;
 
 import org.apache.commons.lang3.time.DateUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -67,7 +68,7 @@ public class Commands {
 		}
 
 		msg.add(Utils.getInstance().stringToComp(
-				"&3&lVotingPlugin Admin Help " + (page+1) + "/" + maxPage));
+				"&3&lVotingPlugin Admin Help " + (page + 1) + "/" + maxPage));
 		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
 		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 
@@ -243,9 +244,9 @@ public class Commands {
 			pageSize++;
 		}
 
-		String title = format.getCommandVoteTopTitle()
-				.replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize);
+		String title = Utils.getInstance().colorize(
+				format.getCommandVoteTopTitle().replace("%page%", "" + page)
+						.replace("%maxpages%", "" + pageSize));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -253,9 +254,21 @@ public class Commands {
 				plugin.topVoter.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			scoreboard.add("" + i + "." + users.get(i).getPlayerName(),
+			scoreboard.add("" + (i + 1) + "." + users.get(i).getPlayerName(),
 					plugin.topVoter.get(users.get(i)));
 		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
 	}
 
 	@SuppressWarnings("deprecation")

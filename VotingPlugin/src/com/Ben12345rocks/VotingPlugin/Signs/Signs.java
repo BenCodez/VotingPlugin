@@ -51,11 +51,12 @@ public class Signs {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateSigns();
-			}
-		}, 10, 30 * 20 * 60);
+					@Override
+					public void run() {
+						updateSigns();
+						storeSigns();
+					}
+				}, 10, 30 * 20 * 60);
 	}
 
 	public void storeSigns() {
@@ -70,9 +71,10 @@ public class Signs {
 				plugin.signs.get(i).removeSign();
 				plugin.signs.remove(i);
 
+			} else {
+				plugin.signs.get(i).updateLines();
+				plugin.signs.get(i).updateSign(i * 3);
 			}
-			plugin.signs.get(i).updateLines();
-			plugin.signs.get(i).updateSign(i * 3);
 		}
 		if (Config.getInstance().getDebugEnabled()) {
 			plugin.getLogger().info("Signs updated");

@@ -131,7 +131,12 @@ public class ConfigRewards {
 	}
 
 	public Set<String> getItems(String reward) {
-		return getData(reward).getConfigurationSection("Items").getKeys(false);
+		try {
+			return getData(reward).getConfigurationSection("Items").getKeys(
+					false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	public int getMaxMoney(String reward) {
@@ -160,8 +165,12 @@ public class ConfigRewards {
 	}
 
 	public Set<String> getPotions(String reward) {
+		try {
 		return getData(reward).getConfigurationSection("Potions")
 				.getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	public int getPotionsAmplifier(String reward, String potion) {
@@ -197,7 +206,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}

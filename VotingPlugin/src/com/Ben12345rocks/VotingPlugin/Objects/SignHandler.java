@@ -11,6 +11,7 @@ import org.bukkit.block.Skull;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -31,6 +32,9 @@ public class SignHandler {
 		setLocation(location);
 		setData(data);
 		this.position = position;
+		setValid(true);
+		lines = new ArrayList<String>();
+		checkValidSign();
 	}
 
 	@SuppressWarnings("deprecation")
@@ -55,7 +59,11 @@ public class SignHandler {
 
 			@Override
 			public void run() {
-				setValid(getLocation().getBlock().getState() instanceof Sign);
+				try {
+					setValid(getLocation().getBlock().getState() instanceof Sign);
+				} catch (Exception ex) {
+					setValid(false);
+				}
 			}
 		});
 
@@ -116,6 +124,8 @@ public class SignHandler {
 	}
 
 	public void updateLines() {
+		lines = new ArrayList<String>();
+		checkValidSign();
 		if (position != 0) {
 			String line1 = ConfigFormat.getInstance()
 					.getSignTopVoterSignLine1();
@@ -140,7 +150,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -148,7 +158,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				}
 
@@ -173,8 +183,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						}
 
@@ -182,9 +192,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-									.replace("%SiteName%", data)
-									.replace("%position%",
-											"" + position));
+											.replace("%SiteName%", data)
+											.replace("%position%",
+													"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);
@@ -200,19 +210,23 @@ public class SignHandler {
 
 			@Override
 			public void run() {
-				BlockState state = getLocation().getBlock().getState();
-				if (state instanceof Sign) {
-					Sign s = (Sign) state;
+				try {
+					BlockState state = getLocation().getBlock().getState();
+					if (state instanceof Sign) {
+						Sign s = (Sign) state;
 
-					for (int j = 0; j < lines.size(); j++) {
-						s.setLine(j, lines.get(j));
+						for (int j = 0; j < lines.size() && j < 4; j++) {
+							s.setLine(j, lines.get(j));
+						}
+						s.update();
 					}
-					s.update();
+
+				} catch (Exception ex) {
+					if (Config.getInstance().getDebugEnabled()) {
+						ex.printStackTrace();
+					}
 				}
-
 			}
-
 		}, delay);
 	}
-
 }

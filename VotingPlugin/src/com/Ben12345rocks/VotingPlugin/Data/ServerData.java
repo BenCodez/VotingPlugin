@@ -70,9 +70,9 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-						"Signs." + sign + ".X"), getData().getDouble(
-								"Signs." + sign + ".Y"), getData().getDouble(
-										"Signs." + sign + ".Z"));
+				"Signs." + sign + ".X"), getData().getDouble(
+				"Signs." + sign + ".Y"), getData().getDouble(
+				"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
@@ -134,9 +134,11 @@ public class ServerData {
 
 		getData().set("Signs." + count + ".World",
 				location.getWorld().getName());
-		getData().set("Signs." + count + ".X", location.getBlockX());
-		getData().set("Signs." + count + ".Y", location.getBlockY());
-		getData().set("Signs." + count + ".Z", location.getBlockZ());
+		int x = (int) location.getX();
+		int z = (int) location.getZ();
+		getData().set("Signs." + count + ".X", x);
+		getData().set("Signs." + count + ".Y", location.getY());
+		getData().set("Signs." + count + ".Z", z);
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
@@ -158,9 +160,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create ServerData.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create ServerData.yml!");
 			}
 		}
 

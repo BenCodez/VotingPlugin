@@ -163,6 +163,7 @@ public class Main extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		Signs.getInstance().storeSigns();
 		plugin = null;
 	}
 
@@ -309,6 +310,7 @@ public class Main extends JavaPlugin {
 			Commands.getInstance().updateVoteToday();
 			TopVoter.getInstance().checkTopVoterAward();
 			ServerData.getInstance().updateValues();
+			Signs.getInstance().updateSigns();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}

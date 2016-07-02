@@ -50,43 +50,13 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
+		// ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-
-				// check if a valid site
-				if (sites != null) {
-					if (!sites.contains(voteSiteName)
-							&& !Config.getInstance()
-							.getDisableAutoCreateVoteSites()) {
-						plugin.getLogger()
-						.warning(
-								"VoteSite "
-										+ voteSiteName
-										+ " doe not exist, generaterating one...");
-						ConfigVoteSites.getInstance().generateVoteSite(
-								voteSiteName);
-						ConfigVoteSites.getInstance().setServiceSite(
-								voteSiteName, voteSiteURL);
-						return;
-					}
-				} else if (!Config.getInstance()
-						.getDisableAutoCreateVoteSites()) {
-					plugin.getLogger().warning(
-							"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
-					ConfigVoteSites.getInstance()
-					.generateVoteSite(voteSiteName);
-					ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
-							voteSiteURL);
-					return;
-				} else {
-					return;
-				}
 
 				// broadcast vote if enabled in config
 				if (config.getBroadCastVotesEnabled()
@@ -116,7 +86,7 @@ public class VotiferEvent implements Listener {
 
 					if (firstVote) {
 						OtherVoteReward.getInstance()
-						.giveFirstVoteRewards(user);
+								.giveFirstVoteRewards(user);
 					}
 
 					if (allSites) {
@@ -130,25 +100,25 @@ public class VotiferEvent implements Listener {
 				} else {
 					if (firstVote) {
 						Data.getInstance()
-						.setFirstVoteOffline(
-								user,
-								Data.getInstance().getFirstVoteOffline(
-										user) + 1);
+								.setFirstVoteOffline(
+										user,
+										Data.getInstance().getFirstVoteOffline(
+												user) + 1);
 					}
 
 					if (allSites) {
 						Data.getInstance()
-						.setAllSitesOffline(
-								user,
-								Data.getInstance().getAllSitesOffline(
-										user) + 1);
+								.setAllSitesOffline(
+										user,
+										Data.getInstance().getAllSitesOffline(
+												user) + 1);
 					}
 
 					if (numberOfVotes) {
 						Data.getInstance().setNumberOfVotesOffline(
 								user,
 								Data.getInstance()
-								.getNumberOfVotesOffline(user) + 1);
+										.getNumberOfVotesOffline(user) + 1);
 					}
 
 					user.addOfflineVote(voteSite);
@@ -198,6 +168,28 @@ public class VotiferEvent implements Listener {
 		plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		if (voteEvent.isCancelled()) {
+			return;
+		}
+
+		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
+		if (sites != null) {
+			if (!sites.contains(voteSiteName)
+					&& !Config.getInstance().getDisableAutoCreateVoteSites()) {
+				plugin.getLogger().warning(
+						"VoteSite " + voteSiteName
+								+ " doe not exist, generaterating one...");
+				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
+						voteSite);
+				return;
+			}
+		} else if (!Config.getInstance().getDisableAutoCreateVoteSites()) {
+			plugin.getLogger().warning(
+					"VoteSite " + voteSiteName
+							+ " doe not exist, generaterating one...");
+			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+			ConfigVoteSites.getInstance()
+					.setServiceSite(voteSiteName, voteSite);
 			return;
 		}
 

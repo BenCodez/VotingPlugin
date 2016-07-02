@@ -118,6 +118,7 @@ public class SimpleScoreboard {
 		for (Player p : players) {
 			p.setScoreboard(scoreboard);
 		}
+
 	}
 
 }
