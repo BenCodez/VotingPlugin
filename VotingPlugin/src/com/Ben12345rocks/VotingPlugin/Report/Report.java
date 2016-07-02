@@ -32,7 +32,7 @@ public class Report {
 		String zipFilePath = file.getPath();
 		if (Config.getInstance().getDebugEnabled()) {
 			plugin.getLogger()
-			.info("Writing '" + zipFilePath + "' to zip file");
+					.info("Writing '" + zipFilePath + "' to zip file");
 		}
 		ZipEntry zipEntry = new ZipEntry(zipFilePath);
 		zos.putNextEntry(zipEntry);
@@ -59,6 +59,8 @@ public class Report {
 			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
 					.getAbsolutePath()
 					+ File.separator
+					+ "Reports"
+					+ File.separator
 					+ "Report"
 					+ (date.getYear() + 1900)
 					+ "."
@@ -68,7 +70,9 @@ public class Report {
 					+ "."
 					+ date.getHours()
 					+ "."
-					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
+					+ date.getMinutes()
+					+ "."
+					+ date.getSeconds() + ".zip");
 			ZipOutputStream zos = new ZipOutputStream(fos);
 
 			for (File file : fileList) {
