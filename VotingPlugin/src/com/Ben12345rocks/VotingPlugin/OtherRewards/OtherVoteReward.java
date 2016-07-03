@@ -6,7 +6,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class OtherVoteReward {
@@ -35,20 +34,15 @@ public class OtherVoteReward {
 	}
 
 	public boolean checkAllSites(User user) {
-		int userVotes = Data.getInstance().getNumberOfVotesOffline(user);
-		int votesNeeded = ConfigOtherRewards.getInstance().getVotesRequired();
-
-		if ((userVotes >= votesNeeded) && (votesNeeded != 0)) {
-			return true;
-		}
-		return false;
+		return user.canVoteAll();
 
 	}
 
 	public boolean checkFirstVote(User user) {
 		int userVotesTotal = user.getTotalVotes();
 		if (ConfigOtherRewards.getInstance().getFirstVoteRewards().size() != 0) {
-			if (userVotesTotal == 1) {
+			if (userVotesTotal <= 1 && !user.hasGottenFirstVote()) {
+				user.setHasGottenFirstVote(true);
 				return true;
 			}
 
@@ -57,7 +51,7 @@ public class OtherVoteReward {
 	}
 
 	public boolean checkNumberOfVotes(User user) {
-		if (ConfigOtherRewards.getInstance().getAllSitesReward().size() != 0) {
+		if (ConfigOtherRewards.getInstance().getNumberOfVotes().size() != 0) {
 			int votesRequired = ConfigOtherRewards.getInstance()
 					.getVotesRequired();
 

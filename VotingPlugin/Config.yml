@@ -22,10 +22,9 @@ DisableTopVoterAwards: true
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false
 
-# If true, plugin will not automaticly
-# generate votesites
-# Useful if you experience issues with sites being created
-DisableAutoCreateVoteSites: false
+# If true, plugin will automaticly generate votesites
+# Disable if you experience issues with sites being created
+AutoCreateVoteSites: true
 
 # Number of seconds between background updates
 # Default: 600 (10 minutes)

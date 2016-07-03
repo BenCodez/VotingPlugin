@@ -87,7 +87,6 @@ public class Commands {
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			unsorted.put(cmdHandle.getHelpLineCommand("/av"),
 					cmdHandle.getHelpLine("/av"));
-			// msg.add(cmdHandle.getHelpLine("/av"));
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
 		unsortedList.addAll(unsorted.keySet());
@@ -98,17 +97,6 @@ public class Commands {
 
 		return msg;
 	}
-
-	/*
-	 * public String[] adminHelpTextColored() { ArrayList<String> texts = new
-	 * ArrayList<String>(); for (TextComponent msg : adminHelpText()) { if
-	 * (msg.split("-").length > 1) { texts.add("&3&l" + msg.split("-")[0] +
-	 * "-&3" + msg.split("-")[1]); } else { texts.add("&3&l" +
-	 * msg.split("-")[0]); } } texts = Utils.getInstance().colorize(texts);
-	 * return Utils.getInstance().convertArray(texts);
-	 * 
-	 * }
-	 */
 
 	public String[] commandVoteToday(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();

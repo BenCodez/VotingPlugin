@@ -7,11 +7,11 @@ import org.bukkit.command.defaults.BukkitCommand;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
 public class CommandAliases extends BukkitCommand {
 
-	@SuppressWarnings("unused")
 	private Main plugin;
 
 	private CommandHandler cmdHandle;
@@ -32,8 +32,16 @@ public class CommandAliases extends BukkitCommand {
 		for (String arg : args) {
 			argsNew.add(arg);
 		}
+		if (Config.getInstance().getDebugEnabled()) {
+			plugin.getLogger().info("Attempting cmd...");
+			plugin.getLogger()
+					.info(Utils.getInstance().makeStringList(argsNew));
+		}
 		if (cmdHandle.runCommand(sender,
 				Utils.getInstance().convertArray(argsNew))) {
+			if (Config.getInstance().getDebugEnabled()) {
+				plugin.getLogger().info("cmd found, ran cmd");
+			}
 			return true;
 		}
 		return false;

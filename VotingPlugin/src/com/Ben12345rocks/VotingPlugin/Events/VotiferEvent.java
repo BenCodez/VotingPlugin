@@ -39,14 +39,15 @@ public class VotiferEvent implements Listener {
 		User user = new User(playerName);
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
-					"Player " + playerName + " has not joined before");
+					"Player " + playerName
+							+ " has not joined before, disregarding vote");
 			return;
 		}
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSiteURL);
 
 		if (voteSiteName == null) {
-			plugin.getLogger().info("SiteName = null");
+			plugin.getLogger().info("Error on votesite name");
 			return;
 		}
 
@@ -174,23 +175,21 @@ public class VotiferEvent implements Listener {
 		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 		if (sites != null) {
 			if (!sites.contains(voteSiteName)
-					&& !Config.getInstance().getDisableAutoCreateVoteSites()) {
+					&& Config.getInstance().getAutoCreateVoteSites()) {
 				plugin.getLogger().warning(
 						"VoteSite " + voteSiteName
 								+ " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 						voteSite);
-				return;
 			}
-		} else if (!Config.getInstance().getDisableAutoCreateVoteSites()) {
+		} else if (Config.getInstance().getAutoCreateVoteSites()) {
 			plugin.getLogger().warning(
 					"VoteSite " + voteSiteName
 							+ " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 			ConfigVoteSites.getInstance()
 					.setServiceSite(voteSiteName, voteSite);
-			return;
 		}
 
 		try {

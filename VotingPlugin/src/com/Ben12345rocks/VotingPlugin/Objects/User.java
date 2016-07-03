@@ -562,6 +562,14 @@ public class User {
 		}
 	}
 
+	public boolean hasGottenFirstVote() {
+		return Data.getInstance().getHasGottenFirstReward(this);
+	}
+
+	public void setHasGottenFirstVote(boolean value) {
+		Data.getInstance().setHasGottenFirstReward(this, value);
+	}
+
 	/**
 	 * Trigger a vote for the user
 	 *
@@ -768,6 +776,7 @@ public class User {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);
 		}
+		
 		if (Utils.getInstance().isPlayerOnline(playerName)) {
 			// online
 			giveTopVoterAward(place);

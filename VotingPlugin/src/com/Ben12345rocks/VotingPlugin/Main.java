@@ -123,7 +123,8 @@ public class Main extends JavaPlugin {
 				return voteSite;
 			}
 		}
-		if (!config.getDisableAutoCreateVoteSites()) {
+		if (config.getAutoCreateVoteSites()) {
+			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(siteName);
 		} else {
 			return null;

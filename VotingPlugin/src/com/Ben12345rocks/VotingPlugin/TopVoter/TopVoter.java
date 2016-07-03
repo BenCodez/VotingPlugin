@@ -45,7 +45,7 @@ public class TopVoter {
 			plugin.getLogger().info("Month changed!");
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
 					new Date().getMonth() + 1, topVoterNoColor());
-			if (!Config.getInstance().getTopVoterAwardsDisabled()) {
+			if (Config.getInstance().getTopVoterAwardsEnabled()) {
 				Set<String> places = ConfigTopVoterAwards.getInstance()
 						.getPossibleRewardPlaces();
 				int i = 0;

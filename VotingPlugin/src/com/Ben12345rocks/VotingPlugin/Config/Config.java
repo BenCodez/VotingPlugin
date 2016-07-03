@@ -57,12 +57,12 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
-	public boolean getDisableAutoCreateVoteSites() {
-		return getData().getBoolean("DisableAutoCreateVoteSites");
+	public boolean getAutoCreateVoteSites() {
+		return getData().getBoolean("AutoCreateVoteSites");
 	}
 
-	public boolean getTopVoterAwardsDisabled() {
-		return getData().getBoolean("DisableTopVoterAwards");
+	public boolean getTopVoterAwardsEnabled() {
+		return getData().getBoolean("TopVoterAwards");
 	}
 
 	public boolean getVoteURLDefault() {
