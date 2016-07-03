@@ -30,7 +30,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
@@ -222,14 +221,14 @@ public class Utils {
 			return null;
 		}
 
-		String playerName = UUIDs.getInstance().getPlayerName(uuid);
-		if (playerName != null) {
-			return playerName;
-		}
+		// String playerName = UUIDs.getInstance().getPlayerName(uuid);
+		// if (playerName != null) {
+		// return playerName;
+		// }
 
 		User user = new User(new com.Ben12345rocks.VotingPlugin.Objects.UUID(
 				uuid), false);
-		playerName = Data.getInstance().getName(user);
+		String playerName = Data.getInstance().getName(user);
 
 		if (playerName != null) {
 			return playerName;

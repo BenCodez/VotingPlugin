@@ -697,9 +697,9 @@ public class User {
 	/**
 	 * Set name in player's file
 	 */
-	public void setName() {
+	public void setPlayerName() {
 		User user = this;
-		Data.getInstance().setName(user);
+		Data.getInstance().setPlayerName(user);
 	}
 
 	public void setOfflineTopVoter(int place) {

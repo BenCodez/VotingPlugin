@@ -96,7 +96,7 @@ public class Data {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				setName(user);
+				setPlayerName(user);
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger().info(
 							"Created file: " + uuid + ".yml from player: "
@@ -233,8 +233,8 @@ public class Data {
 		set(user, "OtherRewards.FirstVote", value);
 	}
 
-	public void setName(User user) {
-		set(user, "Name", user.getPlayerName());
+	public void setPlayerName(User user) {
+		set(user, "PlayerName", user.getPlayerName());
 	}
 
 	public void setNumberOfVotesOffline(User user, int value) {
@@ -307,7 +307,7 @@ public class Data {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				setName(user);
+				setPlayerName(user);
 				if (Config.getInstance().getDebugEnabled()) {
 					plugin.getLogger().info(
 							"Created file: " + uuid + ".yml from player: "

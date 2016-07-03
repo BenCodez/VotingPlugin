@@ -7,13 +7,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 
 public class PlayerJoinEvent implements Listener {
 
@@ -51,10 +48,7 @@ public class PlayerJoinEvent implements Listener {
 						.runTaskLaterAsynchronously(plugin, new Runnable() {
 							@Override
 							public void run() {
-								// msg player if there is a update
-								if (Config.getInstance().updateReminder()) {
-									updateCheckLogin(player);
-								}
+								user.setPlayerName();
 
 								user.offVoteWorld(player.getWorld().getName());
 
@@ -68,38 +62,5 @@ public class PlayerJoinEvent implements Listener {
 			}
 		}, 20L);
 
-	}
-
-	private void updateCheckLogin(Player player) {
-		Updater updater = plugin.updater;
-		if (updater != null) {
-
-			switch (updater.getResult()) {
-			case FAIL_SPIGOT: {
-				break;
-			}
-			case NO_UPDATE: {
-				break;
-			}
-			case UPDATE_AVAILABLE: {
-				if (player.hasPermission("VotingPlugin.remindupdate")) {
-					player.sendMessage(Utils
-							.getInstance()
-							.colorize(
-									"&a"
-											+ plugin.getName()
-											+ " has an update available! Your Version: &c"
-											+ plugin.getDescription()
-													.getVersion()
-											+ "&a New Version: &c"
-											+ updater.getVersion()));
-				}
-				break;
-			}
-			default: {
-				break;
-			}
-			}
-		}
 	}
 }
