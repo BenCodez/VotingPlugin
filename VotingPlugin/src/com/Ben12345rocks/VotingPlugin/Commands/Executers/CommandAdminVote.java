@@ -25,6 +25,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 import com.vexsoftware.votifier.model.Vote;
 
 public class CommandAdminVote implements CommandExecutor {
@@ -160,20 +161,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void setConfigDisableTopVoterAwards(CommandSender sender,
+	public void setConfigEnableTopVoterAwards(CommandSender sender,
 			boolean value) {
 
-		Config.getInstance().setTopVoterAwardsDisabled(value);
+		Config.getInstance().setTopVoterAwardsEnabled(value);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet DisableTopVoterAwards to &c&l" + value));
-
-	}
-
-	public void setConfigUpdateReminder(CommandSender sender, boolean value) {
-
-		Config.getInstance().setUpdateReminder(value);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet UpdateReminder to &c&l" + value));
 
 	}
 
@@ -202,6 +195,45 @@ public class CommandAdminVote implements CommandExecutor {
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 
+	}
+
+	public void setVoteSiteEnabled(CommandSender sender, String voteSite,
+			boolean value) {
+		ConfigVoteSites.getInstance().setEnabled(voteSite, value);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet votesite " + voteSite + " enabled to " + value));
+	}
+
+	public void checkUpdate(CommandSender sender) {
+		plugin.updater = new Updater(plugin, 15358, false);
+		final Updater.UpdateResult result = plugin.updater.getResult();
+		switch (result) {
+		case FAIL_SPIGOT: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cFailed to check for update for &c&l" + plugin.getName()
+							+ "&c!"));
+			break;
+		}
+		case NO_UPDATE: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&c&l" + plugin.getName()
+							+ " &cis up to date! Version: &c&l"
+							+ plugin.updater.getVersion()));
+			break;
+		}
+		case UPDATE_AVAILABLE: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&c&l" + plugin.getName()
+							+ " &chas an update available! Your Version: &c&l"
+							+ plugin.getDescription().getVersion()
+							+ " New Version: &c&l"
+							+ plugin.updater.getVersion()));
+			break;
+		}
+		default: {
+			break;
+		}
+		}
 	}
 
 	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,

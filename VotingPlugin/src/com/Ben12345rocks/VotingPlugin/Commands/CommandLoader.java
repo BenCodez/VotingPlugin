@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -286,6 +287,43 @@ public class CommandLoader {
 
 				CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender,
 						args[1], Integer.parseInt(args[3]));
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(
+				new String[] { "UpdateCheck" },
+				"VotingPlugin.Commands.AdminVote.UpdateCheck",
+				"Check for update") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				Bukkit.getScheduler().runTaskAsynchronously(plugin,
+						new Runnable() {
+
+							@Override
+							public void run() {
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cCheck for update..."));
+								CommandAdminVote.getInstance().checkUpdate(
+										sender);
+							}
+						});
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
+				"VoteSite", "sitename", "SetEnabled", "boolean" },
+				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
+				"Set VoteSite Enabled") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setVoteSiteEnabled(sender,
+						args[1], Boolean.parseBoolean(args[2]));
 
 			}
 		});

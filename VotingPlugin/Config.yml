@@ -9,15 +9,11 @@ Debug: false
 # Broadcast votes
 BroadcastVote: true
 
-# Give players with permission "VotingPlugin.remindupdate" update reminder
-# When a update is available on login
-UpdateReminder: true
-
 # Let players who never joined before vote
 AllowUnjoined: false
 
-# Disable Montly Top Voter Awards
-DisableTopVoterAwards: true
+# Enable Montly Top Voter Awards
+TopVoterAwards: false
 
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false

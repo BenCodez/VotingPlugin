@@ -92,8 +92,8 @@ public class Config {
 		saveData();
 	}
 
-	public void setTopVoterAwardsDisabled(boolean value) {
-		getData().set("DisableTopVoterAwards", value);
+	public void setTopVoterAwardsEnabled(boolean value) {
+		getData().set("TopVoterAwards", value);
 		saveData();
 	}
 
@@ -115,15 +115,6 @@ public class Config {
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setUpdateReminder(boolean value) {
-		getData().set("UpdateReminder", value);
-		saveData();
-	}
-
-	public boolean updateReminder() {
-		return getData().getBoolean("UpdateReminder");
 	}
 
 }
