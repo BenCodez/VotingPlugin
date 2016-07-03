@@ -25,6 +25,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
@@ -445,7 +446,9 @@ public class User {
 	 * Login message if player can vote
 	 */
 	public void loginMessage() {
-		VoteReminding.getInstance().checkRemind(this);
+		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
+			VoteReminding.getInstance().runRemind(this);
+		}
 	}
 
 	/**

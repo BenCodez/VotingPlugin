@@ -10,6 +10,10 @@ Enabled: true
 # Wether or not to remind only once
 RemindOnlyOnce: true
 
+# Will remind player on login if he can vote
+# Ignores value above
+RemindOnLogin: true
+
 # Delay to remind votes
 # Only works if above is false
 # In minutes

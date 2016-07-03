@@ -104,6 +104,10 @@ public class ConfigVoteReminding {
 	public boolean getRemindOnlyOnce() {
 		return getData().getBoolean("RemindOnlyOnce");
 	}
+	
+	public boolean getRemindOnLogin() {
+		return getData().getBoolean("RemindOnLogin");
+	}
 
 	public boolean getSoundEnabled() {
 		return getData().getBoolean("Sound.Enabled");

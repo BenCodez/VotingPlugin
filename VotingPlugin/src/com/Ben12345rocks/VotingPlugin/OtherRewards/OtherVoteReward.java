@@ -34,7 +34,7 @@ public class OtherVoteReward {
 	}
 
 	public boolean checkAllSites(User user) {
-		return user.canVoteAll();
+		return user.checkAllVotes();
 
 	}
 
