@@ -148,7 +148,7 @@ public class ConfigRewards {
 		if (msg != null) {
 			return msg;
 		} else {
-			return "&aMessage on reward";
+			return ConfigFormat.getInstance().getRewardMsg();
 		}
 	}
 

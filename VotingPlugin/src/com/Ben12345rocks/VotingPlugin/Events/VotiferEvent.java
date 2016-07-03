@@ -54,10 +54,18 @@ public class VotiferEvent implements Listener {
 		// ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
+		if (voteSite == null) {
+			if (Config.getInstance().getDebugEnabled()) {
+				plugin.getLogger().info("VoteSite is null");
+			}
+			return;
+		}
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
+				
+				
 
 				// broadcast vote if enabled in config
 				if (config.getBroadCastVotesEnabled()

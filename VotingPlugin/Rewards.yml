@@ -8,6 +8,7 @@ FirstVote:
 - 'ExampleReward'
 
 # All vote rewards
+# Reward for voting on all sites in one day
 AllSites:
 - 'ExampleReward'
 

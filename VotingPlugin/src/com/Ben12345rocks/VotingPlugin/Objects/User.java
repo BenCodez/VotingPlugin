@@ -183,8 +183,7 @@ public class User {
 	public boolean checkAllVotes() {
 		User user = this;
 
-		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
-				.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.voteSites;
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 

@@ -189,7 +189,14 @@ public class Main extends JavaPlugin {
 
 		VoteReminding.getInstance().loadRemindChecking();
 
-		Signs.getInstance().loadSigns();
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+			
+			@Override
+			public void run() {
+				Signs.getInstance().loadSigns();
+			}
+		});
+		
 
 		topVoter = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
