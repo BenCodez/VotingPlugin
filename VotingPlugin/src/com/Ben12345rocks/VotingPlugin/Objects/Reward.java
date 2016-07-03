@@ -11,7 +11,6 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -124,10 +123,9 @@ public class Reward {
 		}
 
 		int randomNum = (int) (Math.random() * 100) + 1;
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger().info(
-					"Random: " + randomNum + ", Chance: " + chance);
-		}
+
+		plugin.debug("Random: " + randomNum + ", Chance: " + chance);
+
 		if (randomNum <= chance) {
 			return true;
 		} else {
@@ -271,15 +269,15 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
 	public void giveReward(User user) {
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger().info(
-					"Attempting to give " + user.getPlayerName() + " reward " + name);
-		}
+
+		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
+				+ name);
+
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
 			Player player = Bukkit.getPlayer(user.getPlayerName());
@@ -294,8 +292,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -329,10 +327,10 @@ public class Reward {
 				runTitle(user);
 				playSound(user);
 				playEffect(user);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Giving " + user.getPlayerName() + " reward " + name);
-				}
+
+				plugin.debug("Giving " + user.getPlayerName() + " reward "
+						+ name);
+
 			}
 		}
 	}

@@ -67,6 +67,10 @@ public class Data {
 		return getData(user).getInt("OtherRewards.FirstVote");
 	}
 
+	public boolean getHasGottenFirstReward(User user) {
+		return getData(user).getBoolean("FirstVoteGotten");
+	}
+
 	public String getName(User user) {
 		return getData(user).getString("Name");
 	}
@@ -104,9 +108,9 @@ public class Data {
 				}
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -207,9 +211,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -233,8 +237,8 @@ public class Data {
 		set(user, "OtherRewards.FirstVote", value);
 	}
 
-	public void setPlayerName(User user) {
-		set(user, "PlayerName", user.getPlayerName());
+	public void setHasGottenFirstReward(User user, boolean value) {
+		set(user, "FirstVoteGotten", value);
 	}
 
 	public void setNumberOfVotesOffline(User user, int value) {
@@ -253,17 +257,21 @@ public class Data {
 		set(user, "OfflineVotesWorld." + reward + "." + world, value);
 	}
 
-	public void setReminded(User user, boolean value) {
-		set(user, "Reminded", value);
-	}
-
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 * 
+	 *
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
+
+	public void setPlayerName(User user) {
+		set(user, "PlayerName", user.getPlayerName());
+	}
+
+	public void setReminded(User user, boolean value) {
+		set(user, "Reminded", value);
+	}
 
 	public void setTime(String siteName, User user) {
 		set(user, "LastVote." + siteName + ".Miliseconds",
@@ -316,17 +324,9 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
-	}
-
-	public void setHasGottenFirstReward(User user, boolean value) {
-		set(user, "FirstVoteGotten", value);
-	}
-
-	public boolean getHasGottenFirstReward(User user) {
-		return getData(user).getBoolean("FirstVoteGotten");
 	}
 }

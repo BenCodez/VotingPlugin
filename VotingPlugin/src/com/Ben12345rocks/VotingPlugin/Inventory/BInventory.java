@@ -22,7 +22,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 
 public class BInventory implements Listener {
 
@@ -110,13 +109,13 @@ public class BInventory implements Listener {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
-		if (Config.getInstance().getDebugEnabled()) {
-			Main.plugin.getLogger().info("Event trigger");
-		}
+
+		Main.plugin.debug("Event trigger");
+
 		if (event.isCancelled()) {
-			if (Config.getInstance().getDebugEnabled()) {
-				Main.plugin.getLogger().info("Event cancelled");
-			}
+
+			Main.plugin.debug("Event cancelled");
+
 			return;
 		}
 		ItemStack clickedItem = event.getCurrentItem();
@@ -126,9 +125,9 @@ public class BInventory implements Listener {
 				if (clickedItem != null) {
 					if ((clickedItem.getType() == button.getItem().getType())
 							&& (event.getSlot() == button.getSlot())) {
-						if (Config.getInstance().getDebugEnabled()) {
-							Main.plugin.getLogger().info("Running code");
-						}
+
+						Main.plugin.debug("Running code");
+
 						button.onClick(event);
 						event.setCancelled(true);
 

@@ -15,7 +15,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class Report {
@@ -30,10 +29,9 @@ public class Report {
 		FileInputStream fis = new FileInputStream(file);
 
 		String zipFilePath = file.getPath();
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger()
-					.info("Writing '" + zipFilePath + "' to zip file");
-		}
+
+		plugin.debug("Writing '" + zipFilePath + "' to zip file");
+
 		ZipEntry zipEntry = new ZipEntry(zipFilePath);
 		zos.putNextEntry(zipEntry);
 
@@ -124,17 +122,14 @@ public class Report {
 			for (File file : files) {
 				fileList.add(file);
 				if (file.isDirectory()) {
-					if (Config.getInstance().getDebugEnabled()) {
-						plugin.getLogger().info(
-								"directory:" + file.getCanonicalPath());
-					}
+
+					plugin.debug("directory:" + file.getCanonicalPath());
+
 					getAllFiles(file, fileList);
 				} else {
 
-					if (Config.getInstance().getDebugEnabled()) {
-						plugin.getLogger().info(
-								"file:" + file.getCanonicalPath());
-					}
+					plugin.debug("file:" + file.getCanonicalPath());
+
 				}
 			}
 		} catch (IOException e) {

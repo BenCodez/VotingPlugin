@@ -144,9 +144,9 @@ public class AliasesTabCompleter implements TabCompleter {
 
 		return tab;
 	}
-	
+
 	public AliasesTabCompleter setCMDHandle(CommandHandler cmd) {
-		this.cmdHandle = cmd;
+		cmdHandle = cmd;
 		return this;
 	}
 

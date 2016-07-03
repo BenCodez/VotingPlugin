@@ -101,12 +101,12 @@ public class ConfigVoteReminding {
 		return 30;
 	}
 
-	public boolean getRemindOnlyOnce() {
-		return getData().getBoolean("RemindOnlyOnce");
-	}
-	
 	public boolean getRemindOnLogin() {
 		return getData().getBoolean("RemindOnLogin");
+	}
+
+	public boolean getRemindOnlyOnce() {
+		return getData().getBoolean("RemindOnlyOnce");
 	}
 
 	public boolean getSoundEnabled() {
@@ -195,9 +195,9 @@ public class ConfigVoteReminding {
 				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create VoteReminding.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create VoteReminding.yml!");
 			}
 		}
 

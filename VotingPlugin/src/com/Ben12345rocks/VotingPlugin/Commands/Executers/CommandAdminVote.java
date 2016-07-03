@@ -53,6 +53,38 @@ public class CommandAdminVote implements CommandExecutor {
 		this.plugin = plugin;
 	}
 
+	public void checkUpdate(CommandSender sender) {
+		plugin.updater = new Updater(plugin, 15358, false);
+		final Updater.UpdateResult result = plugin.updater.getResult();
+		switch (result) {
+		case FAIL_SPIGOT: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cFailed to check for update for &c&l" + plugin.getName()
+					+ "&c!"));
+			break;
+		}
+		case NO_UPDATE: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&c&l" + plugin.getName()
+					+ " &cis up to date! Version: &c&l"
+					+ plugin.updater.getVersion()));
+			break;
+		}
+		case UPDATE_AVAILABLE: {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&c&l" + plugin.getName()
+					+ " &chas an update available! Your Version: &c&l"
+					+ plugin.getDescription().getVersion()
+					+ " New Version: &c&l"
+					+ plugin.updater.getVersion()));
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+	}
+
 	public void createVoteSite(CommandSender sender, String voteSite) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
@@ -120,6 +152,21 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	public void resetPlayerTotals(CommandSender sender, String playerName) {
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cResseting totals for player &c&l" + playerName));
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				TopVoter.getInstance().resetTotalsPlayer(new User(playerName));
+				sender.sendMessage(Utils.getInstance().colorize(
+						"&cDone resseting totals for &c&l" + playerName));
+				plugin.update();
+			}
+		});
+	}
+
 	public void resetTotals(CommandSender sender) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
@@ -135,21 +182,6 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 		});
 
-	}
-
-	public void resetPlayerTotals(CommandSender sender, String playerName) {
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cResseting totals for player &c&l" + playerName));
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				TopVoter.getInstance().resetTotalsPlayer(new User(playerName));
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cDone resseting totals for &c&l" + playerName));
-				plugin.update();
-			}
-		});
 	}
 
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
@@ -203,15 +235,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void setVoteSitePriority(CommandSender sender, String voteSite,
-			int value) {
-
-		ConfigVoteSites.getInstance().setPriority(voteSite, value);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
-
-	}
-
 	public void setVoteSiteEnabled(CommandSender sender, String voteSite,
 			boolean value) {
 		ConfigVoteSites.getInstance().setEnabled(voteSite, value);
@@ -219,36 +242,13 @@ public class CommandAdminVote implements CommandExecutor {
 				"&cSet votesite " + voteSite + " enabled to " + value));
 	}
 
-	public void checkUpdate(CommandSender sender) {
-		plugin.updater = new Updater(plugin, 15358, false);
-		final Updater.UpdateResult result = plugin.updater.getResult();
-		switch (result) {
-		case FAIL_SPIGOT: {
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&cFailed to check for update for &c&l" + plugin.getName()
-							+ "&c!"));
-			break;
-		}
-		case NO_UPDATE: {
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&c&l" + plugin.getName()
-							+ " &cis up to date! Version: &c&l"
-							+ plugin.updater.getVersion()));
-			break;
-		}
-		case UPDATE_AVAILABLE: {
-			sender.sendMessage(Utils.getInstance().colorize(
-					"&c&l" + plugin.getName()
-							+ " &chas an update available! Your Version: &c&l"
-							+ plugin.getDescription().getVersion()
-							+ " New Version: &c&l"
-							+ plugin.updater.getVersion()));
-			break;
-		}
-		default: {
-			break;
-		}
-		}
+	public void setVoteSitePriority(CommandSender sender, String voteSite,
+			int value) {
+
+		ConfigVoteSites.getInstance().setPriority(voteSite, value);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
+
 	}
 
 	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,

@@ -39,8 +39,8 @@ public class VoteTabCompleter implements TabCompleter {
 						String[] cmdArgsList = cmdArgs[argNum].split("&");
 						for (String arg : cmdArgsList) {
 							if (arg.equalsIgnoreCase("player")) {
-								for (Object playerOb : Bukkit.getOnlinePlayers()
-										.toArray()) {
+								for (Object playerOb : Bukkit
+										.getOnlinePlayers().toArray()) {
 									Player player = (Player) playerOb;
 									if (!cmds.contains(player.getName())) {
 										cmds.add(player.getName());
@@ -66,7 +66,7 @@ public class VoteTabCompleter implements TabCompleter {
 								cmds.add(arg);
 							}
 						}
-						
+
 					}
 				}
 			}

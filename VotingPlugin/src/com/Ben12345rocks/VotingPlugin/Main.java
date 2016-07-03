@@ -108,6 +108,12 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void debug(String message) {
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Debug: " + message);
+		}
+	}
+
 	public User getUser(String playerName) {
 		return new User(playerName);
 	}
@@ -136,26 +142,23 @@ public class Main extends JavaPlugin {
 		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
 			rewards.add(new Reward(reward));
 		}
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded rewards");
-		}
+		plugin.debug("Loaded rewards");
+
 	}
 
 	public void loadVoteSites() {
 		configVoteSites.setup("ExampleVoteSite");
 		voteSites = configVoteSites.getVoteSitesLoad();
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded VoteSites");
-		}
+
+		plugin.debug("Loaded VoteSites");
+
 	}
 
 	private void metrics() {
 		try {
 			Metrics metrics = new Metrics(this);
 			metrics.start();
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info("Loaded Metrics");
-			}
+			plugin.debug("Loaded Metrics");
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
@@ -219,9 +222,7 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Commands");
-		}
+		plugin.debug("Loaded Commands");
 
 	}
 
@@ -237,9 +238,8 @@ public class Main extends JavaPlugin {
 
 		pm.registerEvents(new PlayerInteract(this), this);
 
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Events");
-		}
+		plugin.debug("Loaded Events");
+
 	}
 
 	public void reload() {
@@ -288,9 +288,9 @@ public class Main extends JavaPlugin {
 		ConfigTopVoterAwards.getInstance().setup(plugin);
 
 		UUIDs.getInstance().setup(plugin);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Files");
-		}
+
+		plugin.debug("Loaded Files");
+
 	}
 
 	public void startTimer() {
@@ -302,10 +302,9 @@ public class Main extends JavaPlugin {
 						update();
 					}
 				}, 50, config.getBackgroundTaskDelay() * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info(
-					"Loaded Timer for VoteTop, Updater, and VoteToday");
-		}
+
+		plugin.debug("Loaded Timer for VoteTop, Updater, and VoteToday");
+
 	}
 
 	public void update() {
@@ -319,9 +318,8 @@ public class Main extends JavaPlugin {
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info("Background task ran");
-			}
+			plugin.debug("Background task ran");
+
 		} catch (Exception ex) {
 			plugin.getLogger()
 					.info("Looks like there are no data files or something went wrong.");

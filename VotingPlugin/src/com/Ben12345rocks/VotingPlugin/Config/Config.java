@@ -37,6 +37,10 @@ public class Config {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
+	public boolean getAutoCreateVoteSites() {
+		return getData().getBoolean("AutoCreateVoteSites");
+	}
+
 	public int getBackgroundTaskDelay() {
 		int num = getData().getInt("BackgroundTaskDelay");
 		if (num == 0) {
@@ -55,10 +59,6 @@ public class Config {
 
 	public boolean getDebugEnabled() {
 		return getData().getBoolean("Debug");
-	}
-
-	public boolean getAutoCreateVoteSites() {
-		return getData().getBoolean("AutoCreateVoteSites");
 	}
 
 	public boolean getTopVoterAwardsEnabled() {
@@ -110,7 +110,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

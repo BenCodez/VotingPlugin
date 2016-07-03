@@ -229,7 +229,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -423,8 +423,12 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
+	}
+
+	public boolean hasGottenFirstVote() {
+		return Data.getInstance().getHasGottenFirstReward(this);
 	}
 
 	/**
@@ -465,12 +469,11 @@ public class User {
 		for (VoteSite voteSite : voteSites) {
 			int offvotes = getOfflineVotes(voteSite);
 			if (offvotes > 0) {
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger()
-							.info("Offline Vote Reward on Site '"
-									+ voteSite.getSiteName()
-									+ "' given for player '" + playerName + "'");
-				}
+
+				plugin.debug("Offline Vote Reward on Site '"
+						+ voteSite.getSiteName() + "' given for player '"
+						+ playerName + "'");
+
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
 				}
@@ -515,19 +518,16 @@ public class User {
 				if ((world != null) && (worlds != null)) {
 					if (reward.isGiveInEachWorld()) {
 						for (String worldName : worlds) {
-							if (Config.getInstance().getDebugEnabled()) {
-								plugin.getLogger().info(
-										"Checking world: " + worldName
-												+ ", reard: " + reward
-												+ ", votesite: "
-												+ voteSite.getSiteName());
-							}
+
+							plugin.debug("Checking world: " + worldName
+									+ ", reard: " + reward + ", votesite: "
+									+ voteSite.getSiteName());
+
 							if (worldName != "") {
 								if (worldName.equals(world)) {
-									if (Config.getInstance().getDebugEnabled()) {
-										plugin.getLogger().info(
-												"Giving reward...");
-									}
+
+									plugin.debug("Giving reward...");
+
 									int worldRewards = Data.getInstance()
 											.getOfflineVotesSiteWorld(this,
 													reward.name, worldName);
@@ -538,8 +538,8 @@ public class User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -562,14 +562,6 @@ public class User {
 				}
 			}
 		}
-	}
-
-	public boolean hasGottenFirstVote() {
-		return Data.getInstance().getHasGottenFirstReward(this);
-	}
-
-	public void setHasGottenFirstVote(boolean value) {
-		Data.getInstance().setHasGottenFirstReward(this, value);
 	}
 
 	/**
@@ -606,8 +598,8 @@ public class User {
 			Sound sound = Sound.valueOf(soundName);
 			if (sound != null) {
 				player.playSound(player.getLocation(), sound, volume, pitch);
-			} else if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("Invalid sound: " + soundName);
+			} else {
+				plugin.debug("Invalid sound: " + soundName);
 			}
 		}
 	}
@@ -694,12 +686,8 @@ public class User {
 				value);
 	}
 
-	/**
-	 * Set name in player's file
-	 */
-	public void setPlayerName() {
-		User user = this;
-		Data.getInstance().setPlayerName(user);
+	public void setHasGottenFirstVote(boolean value) {
+		Data.getInstance().setHasGottenFirstReward(this, value);
 	}
 
 	public void setOfflineTopVoter(int place) {
@@ -718,6 +706,14 @@ public class User {
 		User user = this;
 		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
+	}
+
+	/**
+	 * Set name in player's file
+	 */
+	public void setPlayerName() {
+		User user = this;
+		Data.getInstance().setPlayerName(user);
 	}
 
 	/**
@@ -778,7 +774,7 @@ public class User {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);
 		}
-		
+
 		if (Utils.getInstance().isPlayerOnline(playerName)) {
 			// online
 			giveTopVoterAward(place);

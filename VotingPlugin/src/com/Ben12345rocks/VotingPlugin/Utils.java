@@ -24,7 +24,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.inventivetalent.title.TitleAPI;
 
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -211,9 +210,9 @@ public class Utils {
 
 	public String getPlayerName(String uuid) {
 		if ((uuid == null) || uuid.equalsIgnoreCase("null")) {
-			if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("Null UUID");
-			}
+
+			plugin.debug("Null UUID");
+
 			return null;
 		}
 

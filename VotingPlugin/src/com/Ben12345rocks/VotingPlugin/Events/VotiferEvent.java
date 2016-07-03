@@ -40,7 +40,7 @@ public class VotiferEvent implements Listener {
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
 					"Player " + playerName
-							+ " has not joined before, disregarding vote");
+					+ " has not joined before, disregarding vote");
 			return;
 		}
 
@@ -55,9 +55,9 @@ public class VotiferEvent implements Listener {
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 		if (voteSite == null) {
-			if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("VoteSite is null");
-			}
+
+			plugin.debug("VoteSite is null");
+
 			return;
 		}
 
@@ -96,7 +96,7 @@ public class VotiferEvent implements Listener {
 
 					if (firstVote) {
 						OtherVoteReward.getInstance()
-								.giveFirstVoteRewards(user);
+						.giveFirstVoteRewards(user);
 					}
 
 					if (allSites) {
@@ -110,34 +110,32 @@ public class VotiferEvent implements Listener {
 				} else {
 					if (firstVote) {
 						Data.getInstance()
-								.setFirstVoteOffline(
-										user,
-										Data.getInstance().getFirstVoteOffline(
-												user) + 1);
+						.setFirstVoteOffline(
+								user,
+								Data.getInstance().getFirstVoteOffline(
+										user) + 1);
 					}
 
 					if (allSites) {
 						Data.getInstance()
-								.setAllSitesOffline(
-										user,
-										Data.getInstance().getAllSitesOffline(
-												user) + 1);
+						.setAllSitesOffline(
+								user,
+								Data.getInstance().getAllSitesOffline(
+										user) + 1);
 					}
 
 					if (numberOfVotes) {
 						Data.getInstance().setNumberOfVotesOffline(
 								user,
 								Data.getInstance()
-										.getNumberOfVotesOffline(user) + 1);
+								.getNumberOfVotesOffline(user) + 1);
 					}
 
 					user.addOfflineVote(voteSite);
 
-					if (config.getDebugEnabled()) {
-						plugin.getLogger().info(
-								"Offline vote set for " + playerName + " on "
-										+ voteSiteName);
-					}
+					plugin.debug("Offline vote set for " + playerName + " on "
+							+ voteSiteName);
+
 				}
 
 				plugin.update();
@@ -166,10 +164,8 @@ public class VotiferEvent implements Listener {
 				"Recieved a vote from '" + voteSite + "' by player '"
 						+ voteUsername + "'!");
 
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("PlayerUsername: " + voteUsername);
-			plugin.getLogger().info("VoteSite: " + voteSite);
-		}
+		plugin.debug("PlayerUsername: " + voteUsername);
+		plugin.debug("VoteSite: " + voteSite);
 
 		String voteSiteName = Utils.getInstance().getVoteSiteName(voteSite);
 
@@ -187,7 +183,7 @@ public class VotiferEvent implements Listener {
 					&& Config.getInstance().getAutoCreateVoteSites()) {
 				plugin.getLogger().warning(
 						"VoteSite " + voteSiteName
-								+ " doe not exist, generaterating one...");
+						+ " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 						voteSite);
@@ -195,10 +191,10 @@ public class VotiferEvent implements Listener {
 		} else if (Config.getInstance().getAutoCreateVoteSites()) {
 			plugin.getLogger().warning(
 					"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
+					+ " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 			ConfigVoteSites.getInstance()
-					.setServiceSite(voteSiteName, voteSite);
+			.setServiceSite(voteSiteName, voteSite);
 		}
 
 		try {

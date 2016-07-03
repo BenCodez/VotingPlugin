@@ -6,7 +6,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
@@ -43,7 +42,7 @@ public class Signs {
 	public void loadSigns() {
 		plugin.signs = new ArrayList<SignHandler>();
 		for (String sign : ServerData.getInstance().getSigns()) {
-			//plugin.getLogger().info("Loading sign " + sign);
+			// plugin.getLogger().info("Loading sign " + sign);
 			plugin.signs.add(new SignHandler(sign, ServerData.getInstance()
 					.getSignLocation(sign), ServerData.getInstance()
 					.getSignData(sign), ServerData.getInstance()
@@ -52,12 +51,12 @@ public class Signs {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						updateSigns();
-						storeSigns();
-					}
-				}, 10, 30 * 20 * 60);
+			@Override
+			public void run() {
+				updateSigns();
+				storeSigns();
+			}
+		}, 10, 30 * 20 * 60);
 	}
 
 	public void storeSigns() {
@@ -77,8 +76,8 @@ public class Signs {
 				plugin.signs.get(i).updateSign(i * 3);
 			}
 		}
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger().info("Signs updated");
-		}
+
+		plugin.debug("Signs updated");
 	}
+
 }
