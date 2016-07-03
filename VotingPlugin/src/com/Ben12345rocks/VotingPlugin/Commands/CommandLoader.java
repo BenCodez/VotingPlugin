@@ -165,12 +165,25 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset",
-				"Top" }, "VotingPlugin.Commands.AdminVote.Reset.Top",
-				"Reset top voter") {
+				"Totals" }, "VotingPlugin.Commands.AdminVote.Reset.Total",
+				"Reset totals for all players") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().resetTop(sender);
+				CommandAdminVote.getInstance().resetTotals(sender);
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset",
+				"Totals", "player" },
+				"VotingPlugin.Commands.AdminVote.Reset.Total.Player",
+				"Reset total for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().resetPlayerTotals(sender,
+						args[2]);
 
 			}
 		});

@@ -120,21 +120,36 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
-	public void resetTop(CommandSender sender) {
+	public void resetTotals(CommandSender sender) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
-				"&cResseting top voter..."));
+				"&cResseting totals for all players..."));
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTopVoter();
+				TopVoter.getInstance().resetTotals();
 				sender.sendMessage(Utils.getInstance().colorize(
-						"&cDone resseting top voter"));
+						"&cDone resseting totals"));
 				plugin.update();
 			}
 		});
 
+	}
+
+	public void resetPlayerTotals(CommandSender sender, String playerName) {
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cResseting totals for player &c&l" + playerName));
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				TopVoter.getInstance().resetTotalsPlayer(new User(playerName));
+				sender.sendMessage(Utils.getInstance().colorize(
+						"&cDone resseting totals for &c&l" + playerName));
+				plugin.update();
+			}
+		});
 	}
 
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {

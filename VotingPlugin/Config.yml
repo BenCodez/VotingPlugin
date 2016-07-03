@@ -20,6 +20,7 @@ VoteURLDefault: false
 
 # If true, plugin will automaticly generate votesites
 # Disable if you experience issues with sites being created
+# randomly
 AutoCreateVoteSites: true
 
 # Number of seconds between background updates

@@ -44,7 +44,7 @@ public class TopVoter {
 		if (hasMonthChanged()) {
 			plugin.getLogger().info("Month changed!");
 			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
-					new Date().getMonth() + 1, topVoterNoColor());
+					new Date().getMonth(), topVoterNoColor());
 			if (Config.getInstance().getTopVoterAwardsEnabled()) {
 				Set<String> places = ConfigTopVoterAwards.getInstance()
 						.getPossibleRewardPlaces();
@@ -61,7 +61,7 @@ public class TopVoter {
 					}
 				}
 			}
-			resetTopVoter();
+			resetTotals();
 
 		}
 	}
@@ -79,12 +79,18 @@ public class TopVoter {
 		return false;
 	}
 
-	public void resetTopVoter() {
+	public void resetTotals() {
 		for (User user : Data.getInstance().getUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
 				user.setTotal(voteSite, 0);
 			}
+		}
+	}
+
+	public void resetTotalsPlayer(User user) {
+		for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
+			user.setTotal(voteSite, 0);
 		}
 	}
 

@@ -64,13 +64,14 @@ public class VotiferEvent implements Listener {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-				
-				
 
 				// broadcast vote if enabled in config
-				if (config.getBroadCastVotesEnabled()
-						&& !ConfigFormat.getInstance().getBroadcastWhenOnline()) {
-					voteSite.broadcastVote(user);
+				if (config.getBroadCastVotesEnabled()) {
+					if (!ConfigFormat.getInstance().getBroadcastWhenOnline()) {
+						voteSite.broadcastVote(user);
+					} else if (Utils.getInstance().isPlayerOnline(playerName)) {
+						voteSite.broadcastVote(user);
+					}
 				}
 
 				// update last vote time
