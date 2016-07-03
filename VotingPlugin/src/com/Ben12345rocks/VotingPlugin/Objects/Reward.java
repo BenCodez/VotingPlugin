@@ -278,7 +278,7 @@ public class Reward {
 	public void giveReward(User user) {
 		if (Config.getInstance().getDebugEnabled()) {
 			plugin.getLogger().info(
-					"Giving " + user.getPlayerName() + " reward " + name);
+					"Attempting to give " + user.getPlayerName() + " reward " + name);
 		}
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
@@ -329,6 +329,10 @@ public class Reward {
 				runTitle(user);
 				playSound(user);
 				playEffect(user);
+				if (Config.getInstance().getDebugEnabled()) {
+					plugin.getLogger().info(
+							"Giving " + user.getPlayerName() + " reward " + name);
+				}
 			}
 		}
 	}

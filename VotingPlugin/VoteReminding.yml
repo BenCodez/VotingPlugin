@@ -17,14 +17,13 @@ RemindDelay: 30
 
 # Commands to run
 # Use %player% for player name
-# Set to Console: [] for no commands
+# Set to [] for no commands
+# E.g: Console: []
 Commands:
   # Commands here will be run by console
-  Console:
-  - 'say %player% was lucky'
+  Console: []
   # Commands here are run by player
-  Player:
-  - 'vote total'
+  Player: []
 
 # Title to send user on remind
 # Requires TitleAPI (and all of its requirements)
@@ -32,9 +31,9 @@ Commands:
 # https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
 Title:
   Enabled: false
-  Title: 'Thanks for voting!'
+  Title: 'Remember to vote!'
   TitleColor: red
-  SubTitle: 'You voted on %votesite%'
+  SubTitle: ''
   SubTitleColor: blue
   FadeIn: 10
   ShowTime: 50
@@ -70,5 +69,4 @@ Effect:
 # set to '' to give no message
 # If no value is set, default in Format.yml is used
 Messages:
-  Remind: 
-  - '&cRemember to vote'
+  Remind: '&cRemember to vote'

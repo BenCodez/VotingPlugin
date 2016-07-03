@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
@@ -130,6 +131,10 @@ public class VoteReminding {
 			playSound(user);
 			playEffect(user);
 			sendMessage(user);
+			if (Config.getInstance().getDebugEnabled()) {
+				plugin.getLogger()
+						.info(user.getPlayerName() + " was reminded!");
+			}
 		}
 	}
 
