@@ -9,7 +9,9 @@ import org.bukkit.command.CommandSender;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -347,21 +349,36 @@ public class CommandLoader {
 		commands = new HashMap<String, CommandHandler>();
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (cmdHandle.getArgs().length > 0) {
-				Utils.getInstance().registerCmd("vote", cmdHandle);
-				Utils.getInstance().registerCmd("v", cmdHandle);
-				commands.put("v" + cmdHandle.getArgs()[0], cmdHandle);
-				commands.put("vote" + cmdHandle.getArgs()[0], cmdHandle);
-			}
-		}
-		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+				String[] args = cmdHandle.getArgs()[0].split("&");
+				for (String arg : args) {
+					// Utils.getInstance().registerCmd("vote", cmdHandle);
+					// Utils.getInstance().registerCmd("v", cmdHandle);
+					try {
+						plugin.getCommand("vote" + arg).setExecutor(
+								new CommandAliases(cmdHandle));
 
-			if (cmdHandle.getArgs().length > 0) {
-				Utils.getInstance().registerCmd("adminvote", cmdHandle);
-				Utils.getInstance().registerCmd("av", cmdHandle);
-				commands.put("av" + cmdHandle.getArgs()[0], cmdHandle);
-				commands.put("adminvote" + cmdHandle.getArgs()[0], cmdHandle);
+						plugin.getCommand("vote" + arg).setTabCompleter(
+								new AliasesTabCompleter()
+										.setCMDHandle(cmdHandle));
+					} catch (Exception ex) {
+						if (Config.getInstance().getDebugEnabled()) {
+							plugin.getLogger().info(
+									"Failed to load command and tab completer for /vote"
+											+ arg);
+						}
+					}
+				}
+
 			}
 		}
+		/*
+		 * for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+		 * 
+		 * if (cmdHandle.getArgs().length > 0) {
+		 * Utils.getInstance().registerCmd("adminvote", cmdHandle);
+		 * Utils.getInstance().registerCmd("av", cmdHandle);
+		 * plugin.getCommand("adminvote" + cmdHandle.getArgs()[0]); } }
+		 */
 	}
 
 	public void loadCommands() {

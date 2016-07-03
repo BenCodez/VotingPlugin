@@ -2,31 +2,30 @@ package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
 import java.util.ArrayList;
 
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.defaults.BukkitCommand;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
-public class CommandAliases extends BukkitCommand {
+public class CommandAliases implements CommandExecutor {
 
-	private Main plugin;
+	private Main plugin = Main.plugin;
 
 	private CommandHandler cmdHandle;
 
-	public CommandAliases(String commandPrefix, CommandHandler cmdHandle) {
-		super(commandPrefix + cmdHandle.getArgs()[0]);
-		setPermission(cmdHandle.getPerm());
-		setDescription("");
-		setUsage("");
-		setAliases(new ArrayList<String>());
+	public CommandAliases(CommandHandler cmdHandle) {
 		this.cmdHandle = cmdHandle;
 	}
 
 	@Override
-	public boolean execute(CommandSender sender, String alias, String[] args) {
+	public boolean onCommand(CommandSender sender, Command cmd, String label,
+			String[] args) {
+
 		ArrayList<String> argsNew = new ArrayList<String>();
 		argsNew.add(cmdHandle.getArgs()[0]);
 		for (String arg : args) {
@@ -36,14 +35,25 @@ public class CommandAliases extends BukkitCommand {
 			plugin.getLogger().info("Attempting cmd...");
 			plugin.getLogger()
 					.info(Utils.getInstance().makeStringList(argsNew));
+			plugin.getLogger().info(
+					Utils.getInstance().makeStringList(
+							Utils.getInstance().convertArray(
+									cmdHandle.getArgs())));
 		}
-		if (cmdHandle.runCommand(sender,
-				Utils.getInstance().convertArray(argsNew))) {
-			if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("cmd found, ran cmd");
+		for (String arg : cmdHandle.getArgs()[0].split("&")) {
+			argsNew.set(0, arg);
+			if (cmdHandle.runCommand(sender,
+					Utils.getInstance().convertArray(argsNew))) {
+				if (Config.getInstance().getDebugEnabled()) {
+					plugin.getLogger().info("cmd found, ran cmd");
+				}
+				return true;
 			}
-			return true;
 		}
-		return false;
+
+		// invalid command
+		sender.sendMessage(ChatColor.RED
+				+ "No valid arguments, see /vote help!");
+		return true;
 	}
 }

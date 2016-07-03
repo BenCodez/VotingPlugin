@@ -6,7 +6,6 @@
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/PlaceholderAPI.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/TitleAPI_v2.1.2.jar"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/brettwooldridge-HikariCP-HikariCP-2.4.4-1-ga7e0d35.zip"/>
 	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

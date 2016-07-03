@@ -37,6 +37,12 @@ commands:
   votegui:
     description: Open VoteGUI
     aliases: vgui
+  voteurl:
+    description: Open VoteURL
+    aliases: vurl
+  votereward:
+    description: Open VoteReward GUI
+    aliases: vreward
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

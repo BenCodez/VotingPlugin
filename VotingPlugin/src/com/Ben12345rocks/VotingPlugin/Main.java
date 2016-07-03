@@ -18,7 +18,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
@@ -190,13 +189,12 @@ public class Main extends JavaPlugin {
 		VoteReminding.getInstance().loadRemindChecking();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-			
+
 			@Override
 			public void run() {
 				Signs.getInstance().loadSigns();
 			}
 		});
-		
 
 		topVoter = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
@@ -238,7 +236,6 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 
 		pm.registerEvents(new PlayerInteract(this), this);
-		pm.registerEvents(new AliasesTabCompleter(), this);
 
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Loaded Events");
