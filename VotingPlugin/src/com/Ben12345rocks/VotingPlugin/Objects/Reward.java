@@ -241,6 +241,10 @@ public class Reward {
 		return rewardMsg;
 	}
 
+	public String getRewardName() {
+		return name;
+	}
+
 	public ArrayList<String> getWorlds() {
 		return worlds;
 	}
@@ -334,8 +338,7 @@ public class Reward {
 				playSound(user);
 				playEffect(user);
 
-				plugin.debug("Gave " + user.getPlayerName() + " reward "
-						+ name);
+				plugin.debug("Gave " + user.getPlayerName() + " reward " + name);
 
 			}
 		}

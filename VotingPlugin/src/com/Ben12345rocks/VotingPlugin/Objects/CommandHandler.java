@@ -95,6 +95,8 @@ public abstract class CommandHandler {
 						commandText += " (Player)";
 					} else if (arg.equalsIgnoreCase("sitename")) {
 						commandText += " (SiteName)";
+					} else if (arg.equalsIgnoreCase("reward")) {
+						commandText += " (Reward)";
 					} else if (arg.equalsIgnoreCase("boolean")) {
 						commandText += " (True/False)";
 					} else if (arg.equalsIgnoreCase("number")) {

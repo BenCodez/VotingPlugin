@@ -159,6 +159,29 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(
+				new String[] { "Rewards" },
+				"VotingPlugin.Commands.AdminVote.Rewards", "List VoteSites") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().rewards(sender);
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
+				"Rewards", "reward" },
+				"VotingPlugin.Commands.AdminVote.Rewards.Reward",
+				"View Site Info") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().reward(sender, args[1]);
+
+			}
+		});
+
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UUID",
 				"player" }, "VotingPlugin.Commands.AdminVote.UUID",
 				"View UUID of player") {
@@ -343,6 +366,19 @@ public class CommandLoader {
 
 				CommandAdminVote.getInstance().setVoteSiteEnabled(sender,
 						args[1], Boolean.parseBoolean(args[2]));
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
+				"VoteSite", "sitename", "Check" },
+				"VotingPlugin.Commands.AdminVote.VoteSite.Check",
+				"Check to see if VoteSite is valid") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().checkVoteSite(sender, args[1]);
 
 			}
 		});

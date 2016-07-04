@@ -101,6 +101,17 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	public void checkVoteSite(CommandSender sender, String siteName) {
+		if (ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"ServiceSite is invalid, votes may not work properly"));
+		}
+		if (ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cVoteURL is invalid"));
+		}
+	}
+
 	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
@@ -280,17 +291,26 @@ public class CommandAdminVote implements CommandExecutor {
 	}
 
 	public void site(CommandSender sender, String site) {
-		if (Utils.getInstance().hasPermission(sender,
-				"Commands.AdminVote.Sites.Site")) {
-			sender.sendMessage(Commands.getInstance().voteCommandSiteInfo(site));
-		} else {
 
-		}
+		sender.sendMessage(Commands.getInstance().voteCommandSiteInfo(site));
+
 	}
 
 	public void sites(CommandSender sender) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandSites());
+
+	}
+
+	public void reward(CommandSender sender, String reward) {
+
+		sender.sendMessage(Commands.getInstance().voteCommandRewardInfo(reward));
+
+	}
+
+	public void rewards(CommandSender sender) {
+
+		sender.sendMessage(Commands.getInstance().voteCommandRewards());
 
 	}
 

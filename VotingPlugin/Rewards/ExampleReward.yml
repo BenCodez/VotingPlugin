@@ -81,7 +81,7 @@ Commands:
   Player:
   - 'vote total'
   
-# Potion to give on reward
+# Potions to give on reward
 Potions:
   # Potion effect name
   # 1.10 potions can be found here:
