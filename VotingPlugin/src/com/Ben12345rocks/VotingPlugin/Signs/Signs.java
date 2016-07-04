@@ -51,12 +51,12 @@ public class Signs {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateSigns();
-				storeSigns();
-			}
-		}, 10, 30 * 20 * 60);
+					@Override
+					public void run() {
+						updateSigns();
+						storeSigns();
+					}
+				}, 10, 30 * 20 * 60);
 	}
 
 	public void storeSigns() {

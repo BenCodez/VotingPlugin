@@ -229,7 +229,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -423,7 +423,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -538,8 +538,8 @@ public class User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 

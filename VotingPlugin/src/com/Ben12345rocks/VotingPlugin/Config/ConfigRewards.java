@@ -206,7 +206,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}

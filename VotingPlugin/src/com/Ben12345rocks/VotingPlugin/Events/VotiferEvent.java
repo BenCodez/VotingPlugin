@@ -40,7 +40,7 @@ public class VotiferEvent implements Listener {
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
 					"Player " + playerName
-					+ " has not joined before, disregarding vote");
+							+ " has not joined before, disregarding vote");
 			return;
 		}
 
@@ -96,7 +96,7 @@ public class VotiferEvent implements Listener {
 
 					if (firstVote) {
 						OtherVoteReward.getInstance()
-						.giveFirstVoteRewards(user);
+								.giveFirstVoteRewards(user);
 					}
 
 					if (allSites) {
@@ -110,25 +110,25 @@ public class VotiferEvent implements Listener {
 				} else {
 					if (firstVote) {
 						Data.getInstance()
-						.setFirstVoteOffline(
-								user,
-								Data.getInstance().getFirstVoteOffline(
-										user) + 1);
+								.setFirstVoteOffline(
+										user,
+										Data.getInstance().getFirstVoteOffline(
+												user) + 1);
 					}
 
 					if (allSites) {
 						Data.getInstance()
-						.setAllSitesOffline(
-								user,
-								Data.getInstance().getAllSitesOffline(
-										user) + 1);
+								.setAllSitesOffline(
+										user,
+										Data.getInstance().getAllSitesOffline(
+												user) + 1);
 					}
 
 					if (numberOfVotes) {
 						Data.getInstance().setNumberOfVotesOffline(
 								user,
 								Data.getInstance()
-								.getNumberOfVotesOffline(user) + 1);
+										.getNumberOfVotesOffline(user) + 1);
 					}
 
 					user.addOfflineVote(voteSite);
@@ -183,7 +183,7 @@ public class VotiferEvent implements Listener {
 					&& Config.getInstance().getAutoCreateVoteSites()) {
 				plugin.getLogger().warning(
 						"VoteSite " + voteSiteName
-						+ " doe not exist, generaterating one...");
+								+ " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 						voteSite);
@@ -191,10 +191,10 @@ public class VotiferEvent implements Listener {
 		} else if (Config.getInstance().getAutoCreateVoteSites()) {
 			plugin.getLogger().warning(
 					"VoteSite " + voteSiteName
-					+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 			ConfigVoteSites.getInstance()
-			.setServiceSite(voteSiteName, voteSite);
+					.setServiceSite(voteSiteName, voteSite);
 		}
 
 		try {

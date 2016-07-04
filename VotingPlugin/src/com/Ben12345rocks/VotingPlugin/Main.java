@@ -29,7 +29,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
@@ -104,7 +103,7 @@ public class Main extends JavaPlugin {
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.getLogger()
-					.warning("Votifier not found, votes may not work");
+			.warning("Votifier not found, votes may not work");
 		}
 	}
 
@@ -287,8 +286,6 @@ public class Main extends JavaPlugin {
 
 		ConfigTopVoterAwards.getInstance().setup(plugin);
 
-		UUIDs.getInstance().setup(plugin);
-
 		plugin.debug("Loaded Files");
 
 	}
@@ -297,11 +294,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						update();
-					}
-				}, 50, config.getBackgroundTaskDelay() * 20);
+			@Override
+			public void run() {
+				update();
+			}
+		}, 50, config.getBackgroundTaskDelay() * 20);
 
 		plugin.debug("Loaded Timer for VoteTop, Updater, and VoteToday");
 
@@ -322,7 +319,7 @@ public class Main extends JavaPlugin {
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
