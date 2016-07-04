@@ -35,14 +35,30 @@ public class CommandAliases implements CommandExecutor {
 		plugin.debug(Utils.getInstance().makeStringList(
 				Utils.getInstance().convertArray(cmdHandle.getArgs())));
 
-		for (String arg : cmdHandle.getArgs()[0].split("&")) {
-			argsNew.set(0, arg);
-			if (cmdHandle.runCommand(sender,
-					Utils.getInstance().convertArray(argsNew))) {
-				plugin.debug("cmd found, ran cmd");
-				return true;
+		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
+		cmdHandlers.addAll(plugin.voteCommand);
+		cmdHandlers.addAll(plugin.adminVoteCommand);
+		for (CommandHandler cmdHandle : cmdHandlers) {
+			if (cmdHandle.getArgs().length > 0) {
+				for (String arg : cmdHandle.getArgs()[0].split("&")) {
+					if (cmd.getName() == "vote" + arg) {
+						argsNew.set(0, arg);
+						if (cmdHandle.runCommand(sender, Utils.getInstance()
+								.convertArray(argsNew))) {
+							plugin.debug("cmd found, ran cmd");
+							return true;
+						}
+					}
+				}
 			}
 		}
+
+		/*
+		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0,
+		 * arg); if (cmdHandle.runCommand(sender,
+		 * Utils.getInstance().convertArray(argsNew))) {
+		 * plugin.debug("cmd found, ran cmd"); return true; } }
+		 */
 
 		// invalid command
 		sender.sendMessage(ChatColor.RED

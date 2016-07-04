@@ -123,7 +123,7 @@ Format:
       Line3: '%player%'
       Line4: '%votes% Votes'
     # Message when right clicking sign, uses same placeholders as above
-    RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%'
+    RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cvotes in &c&l%SiteName%'
       
   NoPerms: '&cYou do not have enough permission!'
   
