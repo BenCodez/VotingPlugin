@@ -35,6 +35,7 @@ public class SignHandler {
 		setValid(true);
 		lines = new ArrayList<String>();
 		checkValidSign();
+		playerName = "";
 	}
 
 	@SuppressWarnings("deprecation")

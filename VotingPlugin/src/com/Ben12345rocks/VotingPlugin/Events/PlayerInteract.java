@@ -10,6 +10,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class PlayerInteract implements Listener {
 
@@ -23,13 +24,16 @@ public class PlayerInteract implements Listener {
 	public void onPlayerInteract(PlayerInteractEvent event) {
 		Player player = event.getPlayer();
 		if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-			//plugin.debug("Checking for sign click");
+			// plugin.debug("Checking for sign click");
 			if (event.getClickedBlock().getState() instanceof Sign) {
-				//plugin.debug(player.getName() + " right clicked a sign");
+				// plugin.debug(player.getName() + " right clicked a sign");
 				for (SignHandler sign : plugin.signs) {
-					if (sign.isLocationSame(event.getClickedBlock().getLocation())) {
-					//	plugin.debug(player.getName() + " right clicked a top voter sign, sending message");
-						player.sendMessage(sign.getRightClickMessage());
+					if (sign.isLocationSame(event.getClickedBlock()
+							.getLocation())) {
+						// plugin.debug(player.getName() +
+						// " right clicked a top voter sign, sending message");
+						new User(player.getName()).sendMessage(sign
+								.getRightClickMessage());
 					}
 				}
 
