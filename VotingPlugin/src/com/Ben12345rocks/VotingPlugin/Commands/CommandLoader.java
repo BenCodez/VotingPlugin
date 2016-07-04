@@ -391,8 +391,6 @@ public class CommandLoader {
 			if (cmdHandle.getArgs().length > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
-					// Utils.getInstance().registerCmd("vote", cmdHandle);
-					// Utils.getInstance().registerCmd("v", cmdHandle);
 					try {
 						plugin.getCommand("vote" + arg).setExecutor(
 								new CommandAliases(cmdHandle));
@@ -401,8 +399,27 @@ public class CommandLoader {
 								new AliasesTabCompleter()
 										.setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
-
 						plugin.debug("Failed to load command and tab completer for /vote"
+								+ arg);
+					}
+				}
+
+			}
+		}
+
+		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+			if (cmdHandle.getArgs().length > 0) {
+				String[] args = cmdHandle.getArgs()[0].split("&");
+				for (String arg : args) {
+					try {
+						plugin.getCommand("adminvote" + arg).setExecutor(
+								new CommandAliases(cmdHandle));
+
+						plugin.getCommand("adminvote" + arg).setTabCompleter(
+								new AliasesTabCompleter()
+										.setCMDHandle(cmdHandle));
+					} catch (Exception ex) {
+						plugin.debug("Failed to load command and tab completer for /adminvote"
 								+ arg);
 
 					}
@@ -410,14 +427,6 @@ public class CommandLoader {
 
 			}
 		}
-		/*
-		 * for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
-		 * 
-		 * if (cmdHandle.getArgs().length > 0) {
-		 * Utils.getInstance().registerCmd("adminvote", cmdHandle);
-		 * Utils.getInstance().registerCmd("av", cmdHandle);
-		 * plugin.getCommand("adminvote" + cmdHandle.getArgs()[0]); } }
-		 */
 	}
 
 	public void loadCommands() {

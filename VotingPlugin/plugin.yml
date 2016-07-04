@@ -43,6 +43,60 @@ commands:
   votereward:
     description: Open VoteReward GUI
     aliases: vreward
+  vote?:
+    description: View Help
+    aliases: v?
+  adminvotehelp:
+    description: Open adminvote help
+    aliases: avhelp
+  adminvote?:
+    description: Open adminvote help
+    aliases: av?
+  adminvotereport:
+    description: Command Alias
+    aliases: avreport
+  adminvoteperms:
+    description: Command Alias
+    aliases: avperms
+  adminvotereload:
+    description: Command Alias
+    aliases: avreload
+  adminvoteversion:
+    description: Command Alias
+    aliases: avversion
+  adminvotesites:
+    description: Command Alias
+    aliases: avsites
+  adminvoterewards:
+    description: Command Alias
+    aliases: avrewards
+  adminvoteuuid:
+    description: Command Alias
+    aliases: avuuid
+  adminvotereset:
+    description: Command Alias
+    aliases: avreset
+  adminvotevotesite:
+    description: Command Alias
+    aliases: avvotesite
+  adminvoteconfig:
+    description: Command Alias
+    aliases: avconfig
+  adminvoteserverdata:
+    description: Command Alias
+    aliases: avserverdata
+  adminvotesettotal:
+    description: Command Alias
+    aliases: avsettotal
+  adminvoteupdatecheck:
+    description: Command Alias
+    aliases: avupdatecheck
+  adminvotevote:
+    description: Command Alias
+    aliases: avvote
+  adminvoteTriggerPlayerVoteEvent:
+    description: Command Alias
+    aliases: avTriggerPlayerVoteEvent
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

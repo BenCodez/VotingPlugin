@@ -85,12 +85,12 @@ public class Main extends JavaPlugin {
 	public ArrayList<SignHandler> signs;
 
 	public void checkPlaceHolderAPI() {
-		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
+		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
 			placeHolderAPIEnabled = true;
-			plugin.debug("PlaceHolderAPI found, will attempt to parse placeholders");
+			plugin.debug("PlaceholderAPI found, will attempt to parse placeholders");
 		} else {
 			placeHolderAPIEnabled = false;
-			plugin.debug("PlaceHolderAPI not found, PlaceHolderAPI placeholders will not work");
+			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
 		}
 	}
 
@@ -308,7 +308,7 @@ public class Main extends JavaPlugin {
 					}
 				}, 50, config.getBackgroundTaskDelay() * 20);
 
-		plugin.debug("Loaded time for background task");
+		plugin.debug("Loaded timer for background task");
 
 	}
 
