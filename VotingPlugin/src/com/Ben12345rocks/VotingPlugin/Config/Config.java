@@ -117,4 +117,72 @@ public class Config {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public int getEffectData() {
+		return getData().getInt("Effect.Data");
+	}
+
+	public String getEffectEffect() {
+		return getData().getString("Effect.Effect");
+	}
+
+	public boolean getEffectEnabled() {
+		return getData().getBoolean("Effect.Enabled");
+	}
+
+	public int getEffectParticles() {
+		return getData().getInt("Effect.Particles");
+	}
+
+	public int getEffectRadius() {
+		return getData().getInt("Effect.Radius");
+	}
+
+	public boolean getSoundEnabled() {
+		return getData().getBoolean("Sound.Enabled");
+	}
+
+	public float getSoundPitch() {
+		return (float) getData().getDouble("Sound.Pitch");
+	}
+
+	public String getSoundSound() {
+		return getData().getString("Sound.Sound");
+	}
+
+	public float getSoundVolume() {
+		return (float) getData().getDouble("Sound.Volume");
+	}
+
+	public boolean getTitleEnabled() {
+		return getData().getBoolean("Title.Enabled");
+	}
+
+	public int getTitleFadeIn() {
+		return getData().getInt("Title.FadeIn");
+	}
+
+	public int getTitleFadeOut() {
+		return getData().getInt("Title.FadeOut");
+	}
+
+	public int getTitleShowTime() {
+		return getData().getInt("Title.ShowTime");
+	}
+
+	public String getTitleSubTitle() {
+		return getData().getString("Title.SubTitle");
+	}
+
+	public String getTitleSubTitleColor() {
+		return getData().getString("Title.SubTitleColor");
+	}
+
+	public String getTitleTitle() {
+		return getData().getString("Title.Title");
+	}
+
+	public String getTitleTitleColor() {
+		return getData().getString("Title.TitleColor");
+	}
+
 }

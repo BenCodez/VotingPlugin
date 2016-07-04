@@ -95,7 +95,6 @@ public class VotiferEvent implements Listener {
 					user.playerVote(voteSite);
 
 					if (firstVote) {
-
 						OtherVoteReward.getInstance()
 								.giveFirstVoteRewards(user);
 
@@ -111,6 +110,7 @@ public class VotiferEvent implements Listener {
 								user);
 
 					}
+					user.sendVoteEffects();
 				} else {
 					if (firstVote) {
 						Data.getInstance()

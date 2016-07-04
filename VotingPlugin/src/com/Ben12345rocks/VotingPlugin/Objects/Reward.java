@@ -314,6 +314,12 @@ public class Reward {
 		}
 	}
 
+	/**
+	 * Give the user rewards
+	 * 
+	 * @param user
+	 *            User to give rewards to
+	 */
 	public void giveRewardUser(User user) {
 		Player player = Bukkit.getPlayer(user.getPlayerName());
 		if (player != null) {
@@ -324,11 +330,11 @@ public class Reward {
 				runCommands(user);
 				givePotions(user);
 				sendMessage(user);
-				runTitle(user);
+				sendTitle(user);
 				playSound(user);
 				playEffect(user);
 
-				plugin.debug("Giving " + user.getPlayerName() + " reward "
+				plugin.debug("Gave " + user.getPlayerName() + " reward "
 						+ name);
 
 			}
@@ -395,7 +401,7 @@ public class Reward {
 		}
 	}
 
-	public void runTitle(User user) {
+	public void sendTitle(User user) {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 					ConfigRewards.getInstance().getTitleTitleColor(name),

@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Signs;
 
 import java.util.ArrayList;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -48,15 +47,6 @@ public class Signs {
 					.getSignData(sign), ServerData.getInstance()
 					.getSignPosition(sign)));
 		}
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-					@Override
-					public void run() {
-						updateSigns();
-						storeSigns();
-					}
-				}, 10, 30 * 20 * 60);
 	}
 
 	public void storeSigns() {
@@ -70,7 +60,8 @@ public class Signs {
 			if (!plugin.signs.get(i).isValid()) {
 				plugin.signs.get(i).removeSign();
 				plugin.signs.remove(i);
-
+				plugin.debug("Sign " + plugin.signs.get(i).getSign()
+						+ " invalid, removing from data.");
 			} else {
 				plugin.signs.get(i).updateLines();
 				plugin.signs.get(i).updateSign(i * 3);

@@ -87,23 +87,26 @@ public class Main extends JavaPlugin {
 	public void checkPlaceHolderAPI() {
 		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
 			placeHolderAPIEnabled = true;
+			plugin.debug("PlaceHolderAPI found, will attempt to parse placeholders");
 		} else {
 			placeHolderAPIEnabled = false;
+			plugin.debug("PlaceHolderAPI not found, PlaceHolderAPI placeholders will not work");
 		}
 	}
 
 	public void checkTitleAPI() {
 		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
 			titleAPIEnabled = true;
+			plugin.debug("Found TitleAPI, will attempt to send titles");
 		} else {
 			titleAPIEnabled = false;
+			plugin.debug("TitleAPI not found, titles will not send");
 		}
 	}
 
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
-			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+			plugin.debug("Votifier not found, votes may not work");
 		}
 	}
 
@@ -176,7 +179,12 @@ public class Main extends JavaPlugin {
 		setupFiles();
 		registerCommands();
 		registerEvents();
-		setupEconomy();
+		if (setupEconomy()) {
+			plugin.debug("Succesfully hooked into vault");
+		} else {
+			plugin.getLogger()
+					.info("Failed to load vault, giving players money directy will not work");
+		}
 		checkVotifier();
 		metrics();
 
@@ -294,13 +302,13 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				update();
-			}
-		}, 50, config.getBackgroundTaskDelay() * 20);
+					@Override
+					public void run() {
+						update();
+					}
+				}, 50, config.getBackgroundTaskDelay() * 20);
 
-		plugin.debug("Loaded Timer for VoteTop, Updater, and VoteToday");
+		plugin.debug("Loaded time for background task");
 
 	}
 
@@ -319,7 +327,7 @@ public class Main extends JavaPlugin {
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
