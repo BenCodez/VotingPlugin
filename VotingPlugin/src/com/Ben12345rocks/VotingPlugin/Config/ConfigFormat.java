@@ -277,11 +277,7 @@ public class ConfigFormat {
 	}
 
 	public int getPageSize() {
-		int size = getData().getInt("Format.PageSize");
-		if (size == 0) {
-			size = 10;
-		}
-		return size;
+		return 10;
 	}
 
 	public String getRewardMsg() {
@@ -331,11 +327,11 @@ public class ConfigFormat {
 
 	public String getSignTopVoterSignRightClickMessage() {
 		String str = getData().getString(
-				"Format.Signs.TopVoterSign.RightClickMessage");
+				"Format.Signs.RightClickMessage");
 		if (str != null) {
 			return str;
 		} else {
-			return "%player% is at position %position% with %votes% in %SiteName%";
+			return "&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%";
 		}
 	}
 

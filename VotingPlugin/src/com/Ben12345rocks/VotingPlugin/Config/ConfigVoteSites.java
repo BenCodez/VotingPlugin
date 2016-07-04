@@ -194,7 +194,7 @@ public class ConfigVoteSites {
 		return getData(siteName).getString("VoteURL");
 	}
 
-	public boolean isServerSiteGood(String siteName) {
+	public boolean isServiceSiteGood(String siteName) {
 		if (getServiceSite(siteName) == null) {
 			return false;
 		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
@@ -279,7 +279,7 @@ public class ConfigVoteSites {
 
 	public boolean siteCheck(String siteName) {
 		boolean pass = true;
-		if (!isServerSiteGood(siteName)) {
+		if (!isServiceSiteGood(siteName)) {
 			plugin.getLogger().warning(
 					"Issue with ServiceSite in site " + siteName
 							+ ", votes may not work properly");

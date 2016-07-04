@@ -216,11 +216,6 @@ public class Utils {
 			return null;
 		}
 
-		// String playerName = UUIDs.getInstance().getPlayerName(uuid);
-		// if (playerName != null) {
-		// return playerName;
-		// }
-
 		User user = new User(new com.Ben12345rocks.VotingPlugin.Objects.UUID(
 				uuid), false);
 		String playerName = Data.getInstance().getName(user);

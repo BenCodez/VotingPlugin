@@ -112,11 +112,6 @@ Format:
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   TimeFormat: 'EEE, d MMM yyyy HH:mm'
   
-  # Size of Pages
-  # Used in /v top, /v today, etc
-  # 10 by default
-  PageSize: 10
-  
   # Format for signs
   # SiteName may be all, depending on sign
   # %position% = position of player, set by sign
@@ -128,7 +123,7 @@ Format:
       Line3: '%player%'
       Line4: '%votes% Votes'
     # Message when right clicking sign, uses same placeholders as above
-    RightClickMessage: '%player% is at position %position% with %votes% in %SiteName%'
+    RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%'
       
   NoPerms: '&cYou do not have enough permission!'
   

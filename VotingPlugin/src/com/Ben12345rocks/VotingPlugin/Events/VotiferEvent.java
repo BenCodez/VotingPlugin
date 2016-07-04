@@ -95,17 +95,21 @@ public class VotiferEvent implements Listener {
 					user.playerVote(voteSite);
 
 					if (firstVote) {
+
 						OtherVoteReward.getInstance()
 								.giveFirstVoteRewards(user);
+
 					}
 
 					if (allSites) {
 						OtherVoteReward.getInstance().giveAllSitesRewards(user);
+
 					}
 
 					if (numberOfVotes) {
 						OtherVoteReward.getInstance().giveNumberOfVotesRewards(
 								user);
+
 					}
 				} else {
 					if (firstVote) {
@@ -114,6 +118,8 @@ public class VotiferEvent implements Listener {
 										user,
 										Data.getInstance().getFirstVoteOffline(
 												user) + 1);
+						plugin.debug("Offline first vote reward set for "
+								+ playerName);
 					}
 
 					if (allSites) {
@@ -122,6 +128,8 @@ public class VotiferEvent implements Listener {
 										user,
 										Data.getInstance().getAllSitesOffline(
 												user) + 1);
+						plugin.debug("Offline bonus reward set for "
+								+ playerName);
 					}
 
 					if (numberOfVotes) {
@@ -129,6 +137,8 @@ public class VotiferEvent implements Listener {
 								user,
 								Data.getInstance()
 										.getNumberOfVotesOffline(user) + 1);
+						plugin.debug("Offline number of votes reward set for "
+								+ playerName);
 					}
 
 					user.addOfflineVote(voteSite);

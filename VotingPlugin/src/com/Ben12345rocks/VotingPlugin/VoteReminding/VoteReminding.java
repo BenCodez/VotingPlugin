@@ -124,7 +124,7 @@ public class VoteReminding {
 	}
 
 	public void runRemind(User user) {
-		if (ConfigVoteReminding.getInstance().getEnabled()) {
+		if (ConfigVoteReminding.getInstance().getEnabled() && user.canVoteAll()) {
 			runCommands(user);
 			runTitle(user);
 			playSound(user);

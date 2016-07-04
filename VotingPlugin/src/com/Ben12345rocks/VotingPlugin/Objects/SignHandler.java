@@ -145,7 +145,7 @@ public class SignHandler {
 						.topVotersSortedAll();
 
 				if (users.size() >= position) {
-					String playerName = users.get(position - 1).getPlayerName();
+					playerName = users.get(position - 1).getPlayerName();
 					votes = users.get(position - 1).getTotalVotes();
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,

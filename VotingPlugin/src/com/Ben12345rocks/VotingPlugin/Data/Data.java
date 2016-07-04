@@ -14,7 +14,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
@@ -101,11 +100,10 @@ public class Data {
 			try {
 				data.save(dFile);
 				setPlayerName(user);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + uuid + ".yml from player: "
-									+ playerName);
-				}
+
+				plugin.debug("Created file: " + uuid + ".yml from player: "
+						+ playerName);
+
 			} catch (IOException e) {
 				Bukkit.getServer()
 						.getLogger()
@@ -308,6 +306,10 @@ public class Data {
 		if (playerName == null) {
 			Utils.getInstance().getPlayerName(uuid);
 		}
+		
+		if (playerName == null) {
+			return;
+		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
 				uuid + ".yml");
@@ -316,11 +318,10 @@ public class Data {
 			try {
 				data.save(dFile);
 				setPlayerName(user);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + uuid + ".yml from player: "
-									+ playerName);
-				}
+
+				plugin.debug("Created file: " + uuid + ".yml from player: "
+						+ playerName);
+
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid

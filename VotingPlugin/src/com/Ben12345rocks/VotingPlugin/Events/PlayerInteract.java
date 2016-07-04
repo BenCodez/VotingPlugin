@@ -19,13 +19,16 @@ public class PlayerInteract implements Listener {
 		PlayerInteract.plugin = plugin;
 	}
 
-	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onPlayerInteract(PlayerInteractEvent event) {
 		Player player = event.getPlayer();
 		if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+			//plugin.debug("Checking for sign click");
 			if (event.getClickedBlock().getState() instanceof Sign) {
+				//plugin.debug(player.getName() + " right clicked a sign");
 				for (SignHandler sign : plugin.signs) {
-					if (sign.isLocationSame(player.getLocation())) {
+					if (sign.isLocationSame(event.getClickedBlock().getLocation())) {
+					//	plugin.debug(player.getName() + " right clicked a top voter sign, sending message");
 						player.sendMessage(sign.getRightClickMessage());
 					}
 				}

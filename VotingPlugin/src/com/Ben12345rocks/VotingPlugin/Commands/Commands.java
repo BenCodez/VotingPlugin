@@ -242,7 +242,7 @@ public class Commands {
 				plugin.topVoter.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			scoreboard.add("" + (i + 1) + "." + users.get(i).getPlayerName(),
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 					plugin.topVoter.get(users.get(i)));
 		}
 		scoreboard.build();
