@@ -40,17 +40,29 @@ public class CommandAliases implements CommandExecutor {
 		cmdHandlers.addAll(plugin.voteCommand);
 		cmdHandlers.addAll(plugin.adminVoteCommand);
 		for (CommandHandler cmdHandle : cmdHandlers) {
-			if (cmdHandle.getArgs().length > 0) {
+			if (cmdHandle.getArgs().length > args.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
 									.equalsIgnoreCase("adminvote" + arg)) {
-						
+
 						argsNew.set(0, arg);
-						if (cmdHandle.runCommand(sender, Utils.getInstance()
-								.convertArray(argsNew))) {
-							plugin.debug("cmd found, ran cmd");
-							return true;
+
+						boolean argsMatch = true;
+						for (int i = 0; i < args.length; i++) {
+							if (args.length >= i) {
+								if (!cmdHandle.argsMatch(args[i], i)) {
+									argsMatch = false;
+								}
+							}
+						}
+
+						if (argsMatch) {
+							if (cmdHandle.runCommand(sender, Utils
+									.getInstance().convertArray(argsNew))) {
+								plugin.debug("cmd found, ran cmd");
+								return true;
+							}
 						}
 					}
 				}

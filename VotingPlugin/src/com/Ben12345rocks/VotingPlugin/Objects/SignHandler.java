@@ -155,7 +155,7 @@ public class SignHandler {
 					}
 				} else {
 					playerName = "No Player";
-					int votes = 0;
+					votes = 0;
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
@@ -177,9 +177,19 @@ public class SignHandler {
 								.topVotersSortedVoteSite(voteSite);
 
 						if (users.size() >= position) {
-							String playerName = users.get(position - 1)
+							playerName = users.get(position - 1)
 									.getPlayerName();
-							votes = users.get(position - 1).getTotalVotes();
+							votes = users.get(position - 1).getTotal(voteSite);
+							for (int j = 0; j < lines.size(); j++) {
+								lines.set(
+										j,
+										lines.get(j)
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
+							}
+						} else {
+							playerName = "No Player";
+							votes = 0;
 							for (int j = 0; j < lines.size(); j++) {
 								lines.set(
 										j,

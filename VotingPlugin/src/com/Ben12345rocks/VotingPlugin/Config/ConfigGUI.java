@@ -61,7 +61,12 @@ public class ConfigGUI {
 	}
 
 	public Set<String> getVoteGUISlots() {
-		return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
+		try {
+			return getData().getConfigurationSection("GUI.VoteGUI").getKeys(
+					false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	public int getVoteGUISlotSlot(String slot) {
@@ -97,11 +102,10 @@ public class ConfigGUI {
 
 	public Set<String> getVoteSiteItems(String site) {
 		String siteName = site.replace(".", "-");
-		Set<String> set = getData().getConfigurationSection(
-				"GUI.VoteReward." + siteName + ".Items").getKeys(false);
-		if (set != null) {
-			return set;
-		} else {
+		try {
+			return getData().getConfigurationSection(
+					"GUI.VoteReward." + siteName + ".Items").getKeys(false);
+		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
 	}
@@ -249,7 +253,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

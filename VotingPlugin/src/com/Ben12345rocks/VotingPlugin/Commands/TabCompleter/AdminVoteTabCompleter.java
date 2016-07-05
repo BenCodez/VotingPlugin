@@ -38,7 +38,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 					if (argsMatch) {
 						String[] cmdArgsList = cmdArgs[argNum].split("&");
 						for (String arg : cmdArgsList) {
-							if (arg.equalsIgnoreCase("player")) {
+							if (arg.equalsIgnoreCase("(player)")) {
 								for (Object playerOb : Bukkit
 										.getOnlinePlayers().toArray()) {
 									Player player = (Player) playerOb;
@@ -46,28 +46,28 @@ public class AdminVoteTabCompleter implements TabCompleter {
 										cmds.add(player.getName());
 									}
 								}
-							} else if (arg.equalsIgnoreCase("sitename")) {
+							} else if (arg.equalsIgnoreCase("(sitename)")) {
 								for (String siteName : ConfigVoteSites
 										.getInstance().getVoteSitesNames()) {
 									if (!cmds.contains(siteName)) {
 										cmds.add(siteName);
 									}
 								}
-							} else if (arg.equalsIgnoreCase("reward")) {
+							} else if (arg.equalsIgnoreCase("(reward0")) {
 								for (String reward : ConfigRewards
 										.getInstance().getRewardNames()) {
 									if (!cmds.contains(reward)) {
 										cmds.add(reward);
 									}
 								}
-							} else if (arg.equalsIgnoreCase("boolean")) {
+							} else if (arg.equalsIgnoreCase("(boolean)")) {
 								if (!cmds.contains("True")) {
 									cmds.add("True");
 								}
 								if (!cmds.contains("False")) {
 									cmds.add("False");
 								}
-							} else if (arg.equalsIgnoreCase("number")) {
+							} else if (arg.equalsIgnoreCase("(number)")) {
 
 							} else if (!cmds.contains(arg)) {
 								cmds.add(arg);

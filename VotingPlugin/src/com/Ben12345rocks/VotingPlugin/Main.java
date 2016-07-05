@@ -257,9 +257,9 @@ public class Main extends JavaPlugin {
 		configBonusReward.reloadData();
 		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
-		plugin.update();
 		loadRewards();
 		ServerData.getInstance().reloadData();
+		plugin.update();
 	}
 
 	private boolean setupEconomy() {

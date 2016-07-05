@@ -34,13 +34,13 @@ public abstract class CommandHandler {
 		if (i < args.length) {
 			String[] cmdArgs = args[i].split("&");
 			for (String cmdArg : cmdArgs) {
-				if (cmdArg.equalsIgnoreCase("player")
-						|| cmdArg.equalsIgnoreCase("SITENAME")
-						|| cmdArg.equalsIgnoreCase("reward")
-						|| cmdArg.equalsIgnoreCase("number")
-						|| cmdArg.equalsIgnoreCase("string")
-						|| cmdArg.equalsIgnoreCase("boolean")
-						|| cmdArg.equalsIgnoreCase("list")
+				if (cmdArg.equalsIgnoreCase("(player)")
+						|| cmdArg.equalsIgnoreCase("(SITENAME)")
+						|| cmdArg.equalsIgnoreCase("(reward)")
+						|| cmdArg.equalsIgnoreCase("(number)")
+						|| cmdArg.equalsIgnoreCase("(string)")
+						|| cmdArg.equalsIgnoreCase("(boolean)")
+						|| cmdArg.equalsIgnoreCase("(list)")
 						|| arg.equalsIgnoreCase(cmdArg)) {
 					return true;
 				}
@@ -92,33 +92,33 @@ public abstract class CommandHandler {
 			int count = 1;
 			for (String arg : arg1.split("&")) {
 				if (count == 1) {
-					if (arg.equalsIgnoreCase("player")) {
+					if (arg.equalsIgnoreCase("(player)")) {
 						commandText += " (Player)";
-					} else if (arg.equalsIgnoreCase("sitename")) {
+					} else if (arg.equalsIgnoreCase("(sitename)")) {
 						commandText += " (SiteName)";
-					} else if (arg.equalsIgnoreCase("reward")) {
+					} else if (arg.equalsIgnoreCase("(reward)")) {
 						commandText += " (Reward)";
-					} else if (arg.equalsIgnoreCase("boolean")) {
+					} else if (arg.equalsIgnoreCase("(boolean)")) {
 						commandText += " (True/False)";
-					} else if (arg.equalsIgnoreCase("number")) {
+					} else if (arg.equalsIgnoreCase("(number)")) {
 						commandText += " (Number)";
-					} else if (arg.equalsIgnoreCase("string")) {
+					} else if (arg.equalsIgnoreCase("(string)")) {
 						commandText += " (Text)";
 					} else {
 						commandText += " " + arg;
 					}
 				} else {
-					if (arg.equalsIgnoreCase("player")) {
+					if (arg.equalsIgnoreCase("(player)")) {
 						commandText += "/(Player)";
-					} else if (arg.equalsIgnoreCase("sitename")) {
+					} else if (arg.equalsIgnoreCase("(sitename)")) {
 						commandText += "/(SiteName)";
-					} else if (arg.equalsIgnoreCase("reward")) {
+					} else if (arg.equalsIgnoreCase("(reward)")) {
 						commandText += "/(Reward)";
-					} else if (arg.equalsIgnoreCase("boolean")) {
+					} else if (arg.equalsIgnoreCase("(boolean)")) {
 						commandText += "/(True/False)";
-					} else if (arg.equalsIgnoreCase("number")) {
+					} else if (arg.equalsIgnoreCase("(number)")) {
 						commandText += "/(Number)";
-					} else if (arg.equalsIgnoreCase("string")) {
+					} else if (arg.equalsIgnoreCase("(string)")) {
 						commandText += "/(Text)";
 					} else {
 						commandText += "/" + arg;
@@ -144,7 +144,7 @@ public abstract class CommandHandler {
 				if (!argsMatch(args[i], i)) {
 					return false;
 				}
-				if (this.args[i].equalsIgnoreCase("number")) {
+				if (this.args[i].equalsIgnoreCase("(number)")) {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()

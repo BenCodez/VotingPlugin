@@ -37,7 +37,7 @@ public class AliasesTabCompleter implements TabCompleter {
 				}
 
 				if (argsMatch) {
-					if (cmdArgs[argNum].equalsIgnoreCase("player")) {
+					if (cmdArgs[argNum].equalsIgnoreCase("(player)")) {
 						for (Object playerOb : Bukkit.getOnlinePlayers()
 								.toArray()) {
 							Player player = (Player) playerOb;
@@ -45,28 +45,28 @@ public class AliasesTabCompleter implements TabCompleter {
 								cmds.add(player.getName());
 							}
 						}
-					} else if (cmdArgs[argNum].equalsIgnoreCase("reward")) {
+					} else if (cmdArgs[argNum].equalsIgnoreCase("(reward)")) {
 						for (String reward : ConfigRewards.getInstance()
 								.getRewardNames()) {
 							if (!cmds.contains(reward)) {
 								cmds.add(reward);
 							}
 						}
-					} else if (cmdArgs[argNum].equalsIgnoreCase("sitename")) {
+					} else if (cmdArgs[argNum].equalsIgnoreCase("(sitename)")) {
 						for (String siteName : ConfigVoteSites.getInstance()
 								.getVoteSitesNames()) {
 							if (!cmds.contains(siteName)) {
 								cmds.add(siteName);
 							}
 						}
-					} else if (cmdArgs[argNum].equalsIgnoreCase("boolean")) {
+					} else if (cmdArgs[argNum].equalsIgnoreCase("(boolean)")) {
 						if (!cmds.contains("True")) {
 							cmds.add("True");
 						}
 						if (!cmds.contains("False")) {
 							cmds.add("False");
 						}
-					} else if (cmdArgs[argNum].equalsIgnoreCase("number")) {
+					} else if (cmdArgs[argNum].equalsIgnoreCase("(number)")) {
 
 					} else if (!cmds.contains(cmdArgs[argNum])) {
 						cmds.add(cmdArgs[argNum]);
@@ -100,16 +100,27 @@ public class AliasesTabCompleter implements TabCompleter {
 		cmdHandlers.addAll(plugin.voteCommand);
 		cmdHandlers.addAll(plugin.adminVoteCommand);
 		for (CommandHandler cmdHandle : cmdHandlers) {
-			if (cmdHandle.getArgs().length > 0) {
+			if (cmdHandle.getArgs().length >= argsIn.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
 									.equalsIgnoreCase("adminvote" + arg)) {
-						//plugin.debug("Found cmd... attempting to get tab complete");
+						// plugin.debug("Found cmd... attempting to get tab complete");
 						args[0] = arg;
+						boolean argsMatch = true;
+						for (int i = 0; i < argsIn.length; i++) {
+							if (args.length >= i) {
+								if (!cmdHandle.argsMatch(args[i], i)) {
+									argsMatch = false;
+								}
+							}
+						}
 
-						cmds.addAll(getTabCompleteOptions(sender, args,
-								argsIn.length, cmdHandle));
+						if (argsMatch) {
+
+							cmds.addAll(getTabCompleteOptions(sender, args,
+									argsIn.length, cmdHandle));
+						}
 
 					}
 				}

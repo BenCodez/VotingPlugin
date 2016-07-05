@@ -8,7 +8,6 @@ import org.bukkit.event.player.PlayerLoginEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class PlayerJoinEvent implements Listener {
@@ -36,7 +35,7 @@ public class PlayerJoinEvent implements Listener {
 					plugin.getDataFolder().mkdir();
 				}
 
-				User user = new User(new UUID(player.getUniqueId().toString()));
+				User user = new User(player);
 
 				plugin.getServer().getScheduler()
 						.runTaskLaterAsynchronously(plugin, new Runnable() {
