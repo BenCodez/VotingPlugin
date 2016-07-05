@@ -1,7 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Commands.TabCompleter;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -10,12 +9,9 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.PlayerChatTabCompleteEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
@@ -85,63 +81,40 @@ public class AliasesTabCompleter implements TabCompleter {
 		return cmds;
 	}
 
-	@EventHandler
-	public void onChatTab(PlayerChatTabCompleteEvent event) {
-		Player sender = event.getPlayer();
-		Collection<String> msg = event.getTabCompletions();
-		String[] msgs = event.getChatMessage().split(" ");
-		String cmd = msgs[0];
-		CommandHandler cmdHandle = null;
-		for (String command : CommandLoader.getInstance().getCommands()
-				.keySet()) {
-			if (CommandLoader.getInstance().getCommands().get(command)
-					.equals(cmd)) {
-				cmdHandle = CommandLoader.getInstance().getCommands()
-						.get(command);
-			}
-		}
-		if (cmdHandle == null) {
-			return;
-		}
-		ArrayList<String> msgArray = new ArrayList<String>();
-		for (int i = 1; i < msgs.length; i++) {
-			msgArray.add(msgs[i]);
-		}
-		String[] args = Utils.getInstance().convertArray(msgArray);
-
-		ArrayList<String> tab = new ArrayList<String>();
-
-		ArrayList<String> cmds = new ArrayList<String>();
-
-		cmds.addAll(getTabCompleteOptions(sender, args, args.length + 1,
-				cmdHandle));
-
-		for (int i = 0; i < cmds.size(); i++) {
-			if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-					args[args.length - 1])) {
-				tab.add(cmds.get(i));
-			}
-		}
-
-		msg.addAll(tab);
-
-	}
-
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] argsIn) {
 		ArrayList<String> msgArray = new ArrayList<String>();
-		msgArray.add(cmdHandle.getArgs()[0]);
-		for (int i = 1; i < argsIn.length; i++) {
-			msgArray.add(argsIn[i]);
+		msgArray.add("");
+		for (String arg : argsIn) {
+			msgArray.add(arg);
 		}
+
 		String[] args = Utils.getInstance().convertArray(msgArray);
 
 		ArrayList<String> tab = new ArrayList<String>();
 
 		ArrayList<String> cmds = new ArrayList<String>();
 
-		cmds.addAll(getTabCompleteOptions(sender, args, args.length, cmdHandle));
+		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
+		cmdHandlers.addAll(plugin.voteCommand);
+		cmdHandlers.addAll(plugin.adminVoteCommand);
+		for (CommandHandler cmdHandle : cmdHandlers) {
+			if (cmdHandle.getArgs().length > 0) {
+				for (String arg : cmdHandle.getArgs()[0].split("&")) {
+					if (cmd.getName().equalsIgnoreCase("vote" + arg)
+							|| cmd.getName()
+									.equalsIgnoreCase("adminvote" + arg)) {
+						//plugin.debug("Found cmd... attempting to get tab complete");
+						args[0] = arg;
+
+						cmds.addAll(getTabCompleteOptions(sender, args,
+								argsIn.length, cmdHandle));
+
+					}
+				}
+			}
+		}
 
 		for (int i = 0; i < cmds.size(); i++) {
 			if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

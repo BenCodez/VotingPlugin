@@ -31,9 +31,10 @@ public class CommandAliases implements CommandExecutor {
 			argsNew.add(arg);
 		}
 		plugin.debug("Attempting cmd...");
-		plugin.debug(Utils.getInstance().makeStringList(argsNew));
-		plugin.debug(Utils.getInstance().makeStringList(
-				Utils.getInstance().convertArray(cmdHandle.getArgs())));
+		plugin.debug("Inputed args: "
+				+ Utils.getInstance().makeStringList(argsNew));
+		// plugin.debug(Utils.getInstance().makeStringList(
+		// Utils.getInstance().convertArray(cmdHandle.getArgs())));
 
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
 		cmdHandlers.addAll(plugin.voteCommand);
@@ -41,7 +42,10 @@ public class CommandAliases implements CommandExecutor {
 		for (CommandHandler cmdHandle : cmdHandlers) {
 			if (cmdHandle.getArgs().length > 0) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
-					if (cmd.getName() == "vote" + arg) {
+					if (cmd.getName().equalsIgnoreCase("vote" + arg)
+							|| cmd.getName()
+									.equalsIgnoreCase("adminvote" + arg)) {
+						
 						argsNew.set(0, arg);
 						if (cmdHandle.runCommand(sender, Utils.getInstance()
 								.convertArray(argsNew))) {

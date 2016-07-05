@@ -102,13 +102,19 @@ public class CommandAdminVote implements CommandExecutor {
 	}
 
 	public void checkVoteSite(CommandSender sender, String siteName) {
-		if (ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
+		if (!ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
 			sender.sendMessage(Utils.getInstance().colorize(
-					"ServiceSite is invalid, votes may not work properly"));
+					"&cServiceSite is invalid, votes may not work properly"));
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cServiceSite is properly setup"));
 		}
-		if (ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
+		if (!ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cVoteURL is invalid"));
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(
+					"&cVoteURL is properly setup"));
 		}
 	}
 

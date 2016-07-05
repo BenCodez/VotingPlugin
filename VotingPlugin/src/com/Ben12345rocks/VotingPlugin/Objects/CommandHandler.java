@@ -36,6 +36,7 @@ public abstract class CommandHandler {
 			for (String cmdArg : cmdArgs) {
 				if (cmdArg.equalsIgnoreCase("player")
 						|| cmdArg.equalsIgnoreCase("SITENAME")
+						|| cmdArg.equalsIgnoreCase("reward")
 						|| cmdArg.equalsIgnoreCase("number")
 						|| cmdArg.equalsIgnoreCase("string")
 						|| cmdArg.equalsIgnoreCase("boolean")
@@ -111,6 +112,8 @@ public abstract class CommandHandler {
 						commandText += "/(Player)";
 					} else if (arg.equalsIgnoreCase("sitename")) {
 						commandText += "/(SiteName)";
+					} else if (arg.equalsIgnoreCase("reward")) {
+						commandText += "/(Reward)";
 					} else if (arg.equalsIgnoreCase("boolean")) {
 						commandText += "/(True/False)";
 					} else if (arg.equalsIgnoreCase("number")) {
