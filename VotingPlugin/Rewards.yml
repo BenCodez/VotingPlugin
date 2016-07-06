@@ -5,14 +5,14 @@
 
 # First vote rewards
 FirstVote:
-- 'ExampleReward'
+- 'FirstVote'
 
 # All vote rewards
 # Reward for voting on all sites in one day
 AllSites:
-- 'ExampleReward'
+- 'AllSites'
 
 # Give rewards after certain number of votes
 VotesRequired: 0
 NumberOfVotes:
-- 'ExampleReward'
+- 'NumberOfVotes'

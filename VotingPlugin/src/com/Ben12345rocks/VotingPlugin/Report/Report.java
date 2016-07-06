@@ -49,11 +49,20 @@ public class Report {
 		return instance;
 	}
 
-	public static void writeZipFile(File directoryToZip, List<File> fileList) {
+	@SuppressWarnings("deprecation")
+	public void writeZipFile(File directoryToZip, List<File> fileList) {
 
 		try {
 			Date date = new Date();
-			@SuppressWarnings("deprecation")
+			File fileZip = new File(plugin.getDataFolder().getAbsolutePath()
+					+ File.separator + "Reports" + File.separator + "Report"
+					+ (date.getYear() + 1900) + "." + (date.getMonth() + 1)
+					+ "." + date.getDate() + "." + date.getHours() + "."
+					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
+			if (!fileZip.exists()) {
+				fileZip.mkdirs();
+			}
+
 			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
 					.getAbsolutePath()
 					+ File.separator

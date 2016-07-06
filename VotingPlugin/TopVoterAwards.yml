@@ -3,7 +3,7 @@ BlackList:
 Awards:
   1:
     Rewards:
-    - 'ExampleReward'
+    - 'TopVoter1'
   2:
     Rewards:
-    - 'ExampleReward'
+    - 'TopVoter2'

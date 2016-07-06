@@ -69,11 +69,6 @@ public class BungeeVote {
 
 						SocketAddress sockAddr = new InetSocketAddress(
 								serverIP, serverPort);
-						if (Config.getInstance().getDebugEnabled()) {
-							plugin.getLogger()
-									.info(serverIP + ":" + serverPort);
-							plugin.getLogger().info(sockAddr.toString());
-						}
 						Socket socket = new Socket();
 						socket.connect(sockAddr, 1000);
 						OutputStream socketOutputStream = socket
@@ -82,14 +77,15 @@ public class BungeeVote {
 								VoteString.getBytes(), publicKey));
 						socketOutputStream.close();
 						socket.close();
-						if (Config.getInstance().getDebugEnabled()) {
-							plugin.getLogger().info(
-									"Sending vote to " + server + ": "
-											+ vote.toString());
-						}
+
+						plugin.debug("Sending vote to " + server + "("
+								+ sockAddr.toString() + "): " + vote.toString());
+
 					} catch (Exception e) {
 						plugin.getLogger().info(
-								"Failed to send vote to " + server
+								"Failed to send vote to " + server + "("
+										+ serverIP + ":" + serverPort + "): "
+										+ vote.toString()
 										+ ", ignore this if server is offline");
 						if (Config.getInstance().getDebugEnabled()) {
 							e.printStackTrace();

@@ -218,7 +218,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Vote",
-				"player", "(sitename)" },
+				"(player)", "(sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote", "Trigger manual vote") {
 
 			@Override

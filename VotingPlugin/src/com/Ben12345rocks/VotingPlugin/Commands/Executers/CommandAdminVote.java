@@ -162,7 +162,7 @@ public class CommandAdminVote implements CommandExecutor {
 				sender.sendMessage(ChatColor.RED + "Reloading "
 						+ plugin.getName() + "...");
 				plugin.reload();
-				sender.sendMessage(ChatColor.RED + plugin.getName() + " "
+				sender.sendMessage(ChatColor.RED + plugin.getName() + " v"
 						+ plugin.getDescription().getVersion() + " reloaded!");
 			}
 		});

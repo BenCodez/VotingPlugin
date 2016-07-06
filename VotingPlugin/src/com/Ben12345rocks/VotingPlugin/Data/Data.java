@@ -57,7 +57,7 @@ public class Data {
 	}
 
 	public ArrayList<String> getFiles() {
-		File folder = new File(plugin.getDataFolder() + File.separator + "Data");
+		File folder = new File(plugin.getDataFolder() + File.separator +  "Data");
 		String[] fileNames = folder.list();
 		return Utils.getInstance().convertArray(fileNames);
 	}
@@ -93,6 +93,8 @@ public class Data {
 	public File getPlayerFile(User user) {
 		String playerName = user.getPlayerName();
 		String uuid = user.getUUID();
+		//plugin.debug(playerName + ":" + uuid);
+		//plugin.debug(plugin.toString());
 		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
 				uuid + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
