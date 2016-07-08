@@ -288,6 +288,7 @@ public class Commands {
 				}
 			}
 		}
+		plugin.debug("Updated VoteToday");
 	}
 
 	public String[] voteCommandLast(User user) {

@@ -236,5 +236,6 @@ public class TopVoter {
 				plugin.topVoter.put(user, user.getTotalVotes());
 			}
 		}
+		plugin.debug("Updated TopVoter");
 	}
 }

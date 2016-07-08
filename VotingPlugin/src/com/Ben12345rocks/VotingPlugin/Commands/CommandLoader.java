@@ -642,7 +642,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] {}, "",
-				"see this page") {
+				"See voting URLs") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
