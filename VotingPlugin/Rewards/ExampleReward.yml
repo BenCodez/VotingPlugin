@@ -7,6 +7,7 @@
 # Chance out of 100
 # Must be an integer
 # Set to 0 or 100 for always, or delete this line to disable chance
+# Will not give any rewards below unless chance is lucky or disabled
 Chance: 40
 
 Random:
@@ -16,8 +17,10 @@ Random:
   Chance: 40
   # When this reward file is being given, a random reward in the list below
   # will be given, if chance is lucky
+  # Don't set this reward as a possible reward, may cause infinite loop
   Rewards: []
   # A list of fall back rewards if chance is unlucky
+  # Don't set this reward as a reward, may cause infinite loop
   FallBack: [] 
 
 # Require permission to give this reward file

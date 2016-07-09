@@ -68,7 +68,11 @@ public class ConfigRewards {
 	}
 
 	public String getEffectEffect(String reward) {
-		return getData(reward).getString("Effect.Effect");
+		String str = getData(reward).getString("Effect.Effect");
+		if (str != null) {
+			return str;
+		}
+		return "";
 	}
 
 	public boolean getEffectEnabled(String reward) {
