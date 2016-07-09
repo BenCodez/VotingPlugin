@@ -175,6 +175,19 @@ public class User {
 		return false;
 	}
 
+	@SuppressWarnings("deprecation")
+	public int getTotalVotesToday() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			Date date = new Date(getTime(voteSite));
+			if (date.getDate() == new Date().getDate()) {
+				total++;
+			}
+		}
+		return total;
+
+	}
+
 	/**
 	 * @return True if player has voted on all sites in one day
 	 */

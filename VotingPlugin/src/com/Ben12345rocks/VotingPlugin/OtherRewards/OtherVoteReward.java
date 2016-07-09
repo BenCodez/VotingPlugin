@@ -54,11 +54,19 @@ public class OtherVoteReward {
 		if (ConfigOtherRewards.getInstance().getNumberOfVotes().size() != 0) {
 			int votesRequired = ConfigOtherRewards.getInstance()
 					.getVotesRequired();
-
 			if (votesRequired != 0) {
-				int userVotesTotal = user.getTotalVotes();
-				if ((userVotesTotal % votesRequired) == 0) {
-					return true;
+				if (ConfigOtherRewards.getInstance()
+						.getNumberOfVotesVotesInSameDay()) {
+					int userVotesTotal = user.getTotalVotesToday();
+					if ((userVotesTotal % votesRequired) == 0) {
+						return true;
+					}
+				} else {
+
+					int userVotesTotal = user.getTotalVotes();
+					if ((userVotesTotal % votesRequired) == 0) {
+						return true;
+					}
 				}
 			}
 		}
