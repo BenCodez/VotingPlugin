@@ -21,6 +21,34 @@ public class Reward {
 	public String name;
 
 	private int chance;
+	private int randomChance;
+	private ArrayList<String> randomRewards;
+	private ArrayList<String> randomFallBack;
+
+	public int getRandomChance() {
+		return randomChance;
+	}
+
+	public void setRandomChance(int randomChance) {
+		this.randomChance = randomChance;
+	}
+
+	public ArrayList<String> getRandomRewards() {
+		return randomRewards;
+	}
+
+	public void setRandomRewards(ArrayList<String> randomRewards) {
+		this.randomRewards = randomRewards;
+	}
+
+	public ArrayList<String> getRandomFallBack() {
+		return randomFallBack;
+	}
+
+	public void setRandomFallBack(ArrayList<String> randomFallBack) {
+		this.randomFallBack = randomFallBack;
+	}
+
 	private boolean requirePermission;
 	private ArrayList<String> worlds;
 	private boolean giveInEachWorld;
@@ -55,6 +83,10 @@ public class Reward {
 	public Reward(String reward) {
 		name = reward;
 		setChance(ConfigRewards.getInstance().getChance(reward));
+		setRandomChance(ConfigRewards.getInstance().getRandomChance(reward));
+		setRandomRewards(ConfigRewards.getInstance().getRandomRewards(reward));
+		setRandomFallBack(ConfigRewards.getInstance().getRandomFallBack(reward));
+
 		setRequirePermission(ConfigRewards.getInstance().getRequirePermission(
 				reward));
 		setWorlds(ConfigRewards.getInstance().getWorlds(reward));
@@ -130,6 +162,36 @@ public class Reward {
 			return true;
 		} else {
 			return false;
+		}
+	}
+
+	public boolean checkRandomChance() {
+		int chance = getRandomChance();
+
+		if ((chance == 0) || (chance == 100)) {
+			return true;
+		}
+
+		int randomNum = (int) (Math.random() * 100) + 1;
+
+		plugin.debug("Random: Random: " + randomNum + ", Chance: " + chance);
+
+		if (randomNum <= chance) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	public void giveRandom(User user) {
+		if (checkRandomChance()) {
+			ArrayList<String> rewards = getRandomRewards();
+			user.giveReward(ConfigRewards.getInstance().getReward(
+					rewards.get((int) Math.random() * rewards.size())));
+		} else {
+			for (String reward : getRandomFallBack()) {
+				user.giveReward(ConfigRewards.getInstance().getReward(reward));
+			}
 		}
 	}
 
@@ -316,6 +378,7 @@ public class Reward {
 				giveRewardUser(user);
 			}
 		}
+		giveRandom(user);
 	}
 
 	/**

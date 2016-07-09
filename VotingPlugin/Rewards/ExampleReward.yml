@@ -6,8 +6,19 @@
 
 # Chance out of 100
 # Must be an integer
-# Set to 0 or 100 for always, or delete this line
+# Set to 0 or 100 for always, or delete this line to disable chance
 Chance: 40
+
+Random:
+  # Chance to give a randomly selected reward below, will only give random reward
+  # if lucky (according to chance)
+  # Works same as chance above
+  Chance: 40
+  # When this reward file is being given, a random reward in the list below
+  # will be given, if chance is lucky
+  Rewards: []
+  # A list of fall back rewards if chance is unlucky
+  FallBack: [] 
 
 # Require permission to give this reward file
 # Permission is VotingPlugin.Reward.(REWARDNAME)

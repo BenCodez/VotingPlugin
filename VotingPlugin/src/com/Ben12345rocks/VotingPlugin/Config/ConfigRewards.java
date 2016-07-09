@@ -173,6 +173,30 @@ public class ConfigRewards {
 		}
 	}
 
+	public int getRandomChance(String reward) {
+		return getData(reward).getInt("Random.Chance");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRandomRewards(String reward) {
+		try {
+			return (ArrayList<String>) getData(reward)
+					.getList("Random.Rewards");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRandomFallBack(String reward) {
+		try {
+			return (ArrayList<String>) getData(reward).getList(
+					"Random.FallBack");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
 	public int getPotionsAmplifier(String reward, String potion) {
 		return getData(reward).getInt("Potions." + potion + ".Amplifier");
 	}
@@ -285,7 +309,11 @@ public class ConfigRewards {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getWorlds(String reward) {
-		return (ArrayList<String>) getData(reward).getList("Worlds");
+		try {
+			return (ArrayList<String>) getData(reward).getList("Worlds");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public boolean renameReward(String reward, String newName) {
