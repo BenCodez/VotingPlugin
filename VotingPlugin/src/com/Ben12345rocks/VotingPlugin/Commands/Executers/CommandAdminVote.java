@@ -75,7 +75,7 @@ public class CommandAdminVote implements CommandExecutor {
 					"&c&l" + plugin.getName()
 					+ " &chas an update available! Your Version: &c&l"
 					+ plugin.getDescription().getVersion()
-					+ " New Version: &c&l"
+					+ " &cNew Version: &c&l"
 					+ plugin.updater.getVersion()));
 			break;
 		}
