@@ -20,7 +20,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 
 public class BInventory implements Listener {
@@ -104,20 +103,12 @@ public class BInventory implements Listener {
 
 	// event handling
 
-	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
 
-		Main.plugin.debug("Event trigger");
-
-		if (event.isCancelled()) {
-
-			Main.plugin.debug("Event cancelled");
-
-			return;
-		}
 		ItemStack clickedItem = event.getCurrentItem();
 		Inventory inv = event.getInventory();
 		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
@@ -125,8 +116,6 @@ public class BInventory implements Listener {
 				if (clickedItem != null) {
 					if ((clickedItem.getType() == button.getItem().getType())
 							&& (event.getSlot() == button.getSlot())) {
-
-						Main.plugin.debug("Running code");
 
 						button.onClick(event);
 						event.setCancelled(true);
