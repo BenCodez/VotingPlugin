@@ -326,8 +326,7 @@ public class ConfigFormat {
 	}
 
 	public String getSignTopVoterSignRightClickMessage() {
-		String str = getData().getString(
-				"Format.Signs.RightClickMessage");
+		String str = getData().getString("Format.Signs.RightClickMessage");
 		if (str != null) {
 			return str;
 		} else {
@@ -380,7 +379,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

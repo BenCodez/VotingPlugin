@@ -61,62 +61,6 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
-	public boolean getTopVoterAwardsEnabled() {
-		return getData().getBoolean("TopVoterAwards");
-	}
-
-	public boolean getVoteURLDefault() {
-		return getData().getBoolean("VoteURLDefault");
-	}
-
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
-	}
-
-	public void setAllowUnJoined(boolean value) {
-		getData().set("AllowUnjoined", value);
-		saveData();
-	}
-
-	public void setBroadcastVoteEnabled(boolean value) {
-		getData().set("BroadcastVote", value);
-		saveData();
-	}
-
-	public void setDebugEnabled(boolean value) {
-		getData().set("Debug", value);
-		saveData();
-	}
-
-	public void setTopVoterAwardsEnabled(boolean value) {
-		getData().set("TopVoterAwards", value);
-		saveData();
-	}
-
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "Config.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("Config.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
 	public int getEffectData() {
 		return getData().getInt("Effect.Data");
 	}
@@ -183,6 +127,62 @@ public class Config {
 
 	public String getTitleTitleColor() {
 		return getData().getString("Title.TitleColor");
+	}
+
+	public boolean getTopVoterAwardsEnabled() {
+		return getData().getBoolean("TopVoterAwards");
+	}
+
+	public boolean getVoteURLDefault() {
+		return getData().getBoolean("VoteURLDefault");
+	}
+
+	public void reloadData() {
+		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public void saveData() {
+		Files.getInstance().editFile(dFile, data);
+	}
+
+	public void setAllowUnJoined(boolean value) {
+		getData().set("AllowUnjoined", value);
+		saveData();
+	}
+
+	public void setBroadcastVoteEnabled(boolean value) {
+		getData().set("BroadcastVote", value);
+		saveData();
+	}
+
+	public void setDebugEnabled(boolean value) {
+		getData().set("Debug", value);
+		saveData();
+	}
+
+	public void setTopVoterAwardsEnabled(boolean value) {
+		getData().set("TopVoterAwards", value);
+		saveData();
+	}
+
+	public void setup(Plugin p) {
+		if (!p.getDataFolder().exists()) {
+			p.getDataFolder().mkdir();
+		}
+
+		dFile = new File(p.getDataFolder(), "Config.yml");
+
+		if (!dFile.exists()) {
+			try {
+				dFile.createNewFile();
+				plugin.saveResource("Config.yml", true);
+			} catch (IOException e) {
+				Bukkit.getServer().getLogger()
+				.severe(ChatColor.RED + "Could not create Config.yml!");
+			}
+		}
+
+		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
 }

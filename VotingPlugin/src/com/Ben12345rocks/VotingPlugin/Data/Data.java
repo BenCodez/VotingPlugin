@@ -57,7 +57,7 @@ public class Data {
 	}
 
 	public ArrayList<String> getFiles() {
-		File folder = new File(plugin.getDataFolder() + File.separator +  "Data");
+		File folder = new File(plugin.getDataFolder() + File.separator + "Data");
 		String[] fileNames = folder.list();
 		return Utils.getInstance().convertArray(fileNames);
 	}
@@ -93,8 +93,8 @@ public class Data {
 	public File getPlayerFile(User user) {
 		String playerName = user.getPlayerName();
 		String uuid = user.getUUID();
-		//plugin.debug(playerName + ":" + uuid);
-		//plugin.debug(plugin.toString());
+		// plugin.debug(playerName + ":" + uuid);
+		// plugin.debug(plugin.toString());
 		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
 				uuid + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
@@ -108,9 +108,9 @@ public class Data {
 
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -211,9 +211,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -260,7 +260,7 @@ public class Data {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 * 
+	 *
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -308,7 +308,7 @@ public class Data {
 		if (playerName == null) {
 			Utils.getInstance().getPlayerName(uuid);
 		}
-		
+
 		if (playerName == null) {
 			return;
 		}
@@ -327,7 +327,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}

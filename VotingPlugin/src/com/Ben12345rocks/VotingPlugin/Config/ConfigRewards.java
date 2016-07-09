@@ -173,18 +173,16 @@ public class ConfigRewards {
 		}
 	}
 
-	public int getRandomChance(String reward) {
-		return getData(reward).getInt("Random.Chance");
+	public int getPotionsAmplifier(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Amplifier");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRandomRewards(String reward) {
-		try {
-			return (ArrayList<String>) getData(reward)
-					.getList("Random.Rewards");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+	public int getPotionsDuration(String reward, String potion) {
+		return getData(reward).getInt("Potions." + potion + ".Duration");
+	}
+
+	public int getRandomChance(String reward) {
+		return getData(reward).getInt("Random.Chance");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -197,12 +195,14 @@ public class ConfigRewards {
 		}
 	}
 
-	public int getPotionsAmplifier(String reward, String potion) {
-		return getData(reward).getInt("Potions." + potion + ".Amplifier");
-	}
-
-	public int getPotionsDuration(String reward, String potion) {
-		return getData(reward).getInt("Potions." + potion + ".Duration");
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRandomRewards(String reward) {
+		try {
+			return (ArrayList<String>) getData(reward)
+					.getList("Random.Rewards");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public boolean getRequirePermission(String reward) {
@@ -230,7 +230,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}

@@ -60,45 +60,29 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-							+ "&c!"));
+					+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &cis up to date! Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &cis up to date! Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &chas an update available! Your Version: &c&l"
-							+ plugin.getDescription().getVersion()
-							+ " New Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &chas an update available! Your Version: &c&l"
+					+ plugin.getDescription().getVersion()
+					+ " New Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
 			break;
 		}
 		}
-	}
-
-	public void createVoteSite(CommandSender sender, String voteSite) {
-
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cCreating VoteSite..."));
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				ConfigVoteSites.getInstance().generateVoteSite(voteSite);
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cCreated VoteSite: &c&l" + voteSite));
-			}
-		});
-
 	}
 
 	public void checkVoteSite(CommandSender sender, String siteName) {
@@ -116,6 +100,22 @@ public class CommandAdminVote implements CommandExecutor {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&aVoteURL is properly setup"));
 		}
+	}
+
+	public void createVoteSite(CommandSender sender, String voteSite) {
+
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cCreating VoteSite..."));
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				ConfigVoteSites.getInstance().generateVoteSite(voteSite);
+				sender.sendMessage(Utils.getInstance().colorize(
+						"&cCreated VoteSite: &c&l" + voteSite));
+			}
+		});
+
 	}
 
 	public void help(CommandSender sender, int page) {
@@ -198,6 +198,18 @@ public class CommandAdminVote implements CommandExecutor {
 				plugin.update();
 			}
 		});
+
+	}
+
+	public void reward(CommandSender sender, String reward) {
+
+		sender.sendMessage(Commands.getInstance().voteCommandRewardInfo(reward));
+
+	}
+
+	public void rewards(CommandSender sender) {
+
+		sender.sendMessage(Commands.getInstance().voteCommandRewards());
 
 	}
 
@@ -305,18 +317,6 @@ public class CommandAdminVote implements CommandExecutor {
 	public void sites(CommandSender sender) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandSites());
-
-	}
-
-	public void reward(CommandSender sender, String reward) {
-
-		sender.sendMessage(Commands.getInstance().voteCommandRewardInfo(reward));
-
-	}
-
-	public void rewards(CommandSender sender) {
-
-		sender.sendMessage(Commands.getInstance().voteCommandRewards());
 
 	}
 

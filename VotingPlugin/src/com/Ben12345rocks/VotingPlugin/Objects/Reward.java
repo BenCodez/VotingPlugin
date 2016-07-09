@@ -25,55 +25,34 @@ public class Reward {
 	private ArrayList<String> randomRewards;
 	private ArrayList<String> randomFallBack;
 
-	public int getRandomChance() {
-		return randomChance;
-	}
-
-	public void setRandomChance(int randomChance) {
-		this.randomChance = randomChance;
-	}
-
-	public ArrayList<String> getRandomRewards() {
-		return randomRewards;
-	}
-
-	public void setRandomRewards(ArrayList<String> randomRewards) {
-		this.randomRewards = randomRewards;
-	}
-
-	public ArrayList<String> getRandomFallBack() {
-		return randomFallBack;
-	}
-
-	public void setRandomFallBack(ArrayList<String> randomFallBack) {
-		this.randomFallBack = randomFallBack;
-	}
-
 	private boolean requirePermission;
+
 	private ArrayList<String> worlds;
+
 	private boolean giveInEachWorld;
 
 	private Set<String> items;
+
 	private HashMap<String, String> itemMaterial;
+
 	private HashMap<String, Integer> itemData;
+
 	private HashMap<String, Integer> itemAmount;
 	private HashMap<String, Integer> itemMinAmount;
 	private HashMap<String, Integer> itemMaxAmount;
+
 	private HashMap<String, String> itemName;
 	private HashMap<String, ArrayList<String>> itemLore;
 	private HashMap<String, HashMap<String, Integer>> itemEnchants;
-
 	private int money;
 	private int MinMoney;
 	private int MaxMoney;
-
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
-
 	private Set<String> potions;
+
 	private HashMap<String, Integer> potionsDuration;
 	private HashMap<String, Integer> potionsAmplifier;
-
 	private String rewardMsg;
 
 	public Reward(Main plugin) {
@@ -183,18 +162,6 @@ public class Reward {
 		}
 	}
 
-	public void giveRandom(User user) {
-		if (checkRandomChance()) {
-			ArrayList<String> rewards = getRandomRewards();
-			user.giveReward(ConfigRewards.getInstance().getReward(
-					rewards.get((int) Math.random() * rewards.size())));
-		} else {
-			for (String reward : getRandomFallBack()) {
-				user.giveReward(ConfigRewards.getInstance().getReward(reward));
-			}
-		}
-	}
-
 	public int getChance() {
 		return chance;
 	}
@@ -299,6 +266,18 @@ public class Reward {
 		return potionsDuration;
 	}
 
+	public int getRandomChance() {
+		return randomChance;
+	}
+
+	public ArrayList<String> getRandomFallBack() {
+		return randomFallBack;
+	}
+
+	public ArrayList<String> getRandomRewards() {
+		return randomRewards;
+	}
+
 	public String getRewardMsg() {
 		return rewardMsg;
 	}
@@ -335,7 +314,19 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
+		}
+	}
+
+	public void giveRandom(User user) {
+		if (checkRandomChance()) {
+			ArrayList<String> rewards = getRandomRewards();
+			user.giveReward(ConfigRewards.getInstance().getReward(
+					rewards.get((int) Math.random() * rewards.size())));
+		} else {
+			for (String reward : getRandomFallBack()) {
+				user.giveReward(ConfigRewards.getInstance().getReward(reward));
+			}
 		}
 	}
 
@@ -358,8 +349,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -383,7 +374,7 @@ public class Reward {
 
 	/**
 	 * Give the user rewards
-	 * 
+	 *
 	 * @param user
 	 *            User to give rewards to
 	 */
@@ -467,6 +458,14 @@ public class Reward {
 		}
 	}
 
+	public void sendMessage(User user) {
+		if (rewardMsg != null) {
+			user.sendMessage(rewardMsg);
+		} else {
+			user.sendMessage(ConfigFormat.getInstance().getRewardMsg());
+		}
+	}
+
 	public void sendTitle(User user) {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
@@ -476,14 +475,6 @@ public class Reward {
 					ConfigRewards.getInstance().getTitleFadeIn(name),
 					ConfigRewards.getInstance().getTitleShowTime(name),
 					ConfigRewards.getInstance().getTitleFadeOut(name));
-		}
-	}
-
-	public void sendMessage(User user) {
-		if (rewardMsg != null) {
-			user.sendMessage(rewardMsg);
-		} else {
-			user.sendMessage(ConfigFormat.getInstance().getRewardMsg());
 		}
 	}
 
@@ -562,6 +553,18 @@ public class Reward {
 
 	public void setPotionsDuration(HashMap<String, Integer> potionsDuration) {
 		this.potionsDuration = potionsDuration;
+	}
+
+	public void setRandomChance(int randomChance) {
+		this.randomChance = randomChance;
+	}
+
+	public void setRandomFallBack(ArrayList<String> randomFallBack) {
+		this.randomFallBack = randomFallBack;
+	}
+
+	public void setRandomRewards(ArrayList<String> randomRewards) {
+		this.randomRewards = randomRewards;
 	}
 
 	public void setRequirePermission(boolean requirePermission) {

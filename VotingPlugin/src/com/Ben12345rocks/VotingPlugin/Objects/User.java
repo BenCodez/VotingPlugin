@@ -175,19 +175,6 @@ public class User {
 		return false;
 	}
 
-	@SuppressWarnings("deprecation")
-	public int getTotalVotesToday() {
-		int total = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
-			Date date = new Date(getTime(voteSite));
-			if (date.getDate() == new Date().getDate()) {
-				total++;
-			}
-		}
-		return total;
-
-	}
-
 	/**
 	 * @return True if player has voted on all sites in one day
 	 */
@@ -224,7 +211,7 @@ public class User {
 
 	/**
 	 * Get offline cumulative rewards
-	 * 
+	 *
 	 * @param voteSite
 	 * @return
 	 */
@@ -245,12 +232,12 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
 	/**
-	 * 
+	 *
 	 * @return Offline top voter awards
 	 */
 	public int getOfflineTopVoter() {
@@ -326,6 +313,19 @@ public class User {
 	 */
 	public int getTotalVotesSite(VoteSite voteSite) {
 		return Data.getInstance().getTotal(this, voteSite.getSiteName());
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getTotalVotesToday() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			Date date = new Date(getTime(voteSite));
+			if (date.getDate() == new Date().getDate()) {
+				total++;
+			}
+		}
+		return total;
+
 	}
 
 	/**
@@ -423,7 +423,7 @@ public class User {
 
 	/**
 	 * Give user potion effect
-	 * 
+	 *
 	 * @param potionName
 	 * @param duration
 	 * @param amplifier
@@ -439,7 +439,7 @@ public class User {
 
 	/**
 	 * Give user reward
-	 * 
+	 *
 	 * @param reward
 	 */
 	public void giveReward(Reward reward) {
@@ -448,7 +448,7 @@ public class User {
 
 	/**
 	 * Give top voter award
-	 * 
+	 *
 	 * @param place
 	 */
 	public void giveTopVoterAward(int place) {
@@ -460,12 +460,12 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
 	/**
-	 * 
+	 *
 	 * @return True if user has gotten first vote reward
 	 */
 	public boolean hasGottenFirstVote() {
@@ -561,7 +561,7 @@ public class User {
 
 	/**
 	 * Check offline world rewards
-	 * 
+	 *
 	 * @param world
 	 */
 	public void offVoteWorld(String world) {
@@ -591,8 +591,8 @@ public class User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -652,6 +652,26 @@ public class User {
 	}
 
 	/**
+	 * Send a send to the user
+	 *
+	 * @param soundName
+	 * @param volume
+	 * @param pitch
+	 */
+	public synchronized void playSound(String soundName, float volume,
+			float pitch) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			Sound sound = Sound.valueOf(soundName);
+			if (sound != null) {
+				player.playSound(player.getLocation(), sound, volume, pitch);
+			} else {
+				plugin.debug("Invalid sound: " + soundName);
+			}
+		}
+	}
+
+	/**
 	 * Send vote effect
 	 */
 	public void playVoteEffect() {
@@ -679,50 +699,6 @@ public class User {
 	}
 
 	/**
-	 * Send the user the voting effects
-	 */
-	public void sendVoteEffects() {
-		sendVoteTitle();
-		playVoteEffect();
-		playVoteSound();
-	}
-
-	/**
-	 * send vote title
-	 * 
-	 */
-	public void sendVoteTitle() {
-		if (Config.getInstance().getTitleEnabled()) {
-			sendTitle(Config.getInstance().getTitleTitle(), Config
-					.getInstance().getTitleTitleColor(), Config.getInstance()
-					.getTitleSubTitle(), Config.getInstance()
-					.getTitleSubTitleColor(), Config.getInstance()
-					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
-					Config.getInstance().getTitleFadeOut());
-		}
-	}
-
-	/**
-	 * Send a send to the user
-	 * 
-	 * @param soundName
-	 * @param volume
-	 * @param pitch
-	 */
-	public synchronized void playSound(String soundName, float volume,
-			float pitch) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			Sound sound = Sound.valueOf(soundName);
-			if (sound != null) {
-				player.playSound(player.getLocation(), sound, volume, pitch);
-			} else {
-				plugin.debug("Invalid sound: " + soundName);
-			}
-		}
-	}
-
-	/**
 	 * Get whether or not user has been reminded to vote
 	 *
 	 * @return T
@@ -734,7 +710,7 @@ public class User {
 
 	/**
 	 * Send the player json messages
-	 * 
+	 *
 	 * @param messages
 	 */
 	public void sendJson(ArrayList<TextComponent> messages) {
@@ -755,7 +731,7 @@ public class User {
 
 	/**
 	 * Send the player json messages
-	 * 
+	 *
 	 * @param message
 	 */
 	public void sendJson(TextComponent message) {
@@ -802,7 +778,7 @@ public class User {
 
 	/**
 	 * Send the user a message if TitleAPI is installed
-	 * 
+	 *
 	 * @param title
 	 * @param titleColor
 	 * @param subTitle
@@ -821,8 +797,32 @@ public class User {
 	}
 
 	/**
+	 * Send the user the voting effects
+	 */
+	public void sendVoteEffects() {
+		sendVoteTitle();
+		playVoteEffect();
+		playVoteSound();
+	}
+
+	/**
+	 * send vote title
+	 *
+	 */
+	public void sendVoteTitle() {
+		if (Config.getInstance().getTitleEnabled()) {
+			sendTitle(Config.getInstance().getTitleTitle(), Config
+					.getInstance().getTitleTitleColor(), Config.getInstance()
+					.getTitleSubTitle(), Config.getInstance()
+					.getTitleSubTitleColor(), Config.getInstance()
+					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
+					Config.getInstance().getTitleFadeOut());
+		}
+	}
+
+	/**
 	 * Set offline cumulative rewards
-	 * 
+	 *
 	 * @param voteSite
 	 * @param value
 	 */
@@ -833,7 +833,7 @@ public class User {
 
 	/**
 	 * Set has gotten first vote
-	 * 
+	 *
 	 * @param value
 	 */
 	public void setHasGottenFirstVote(boolean value) {
@@ -842,7 +842,7 @@ public class User {
 
 	/**
 	 * Set offline top voter awards
-	 * 
+	 *
 	 * @param place
 	 */
 	public void setOfflineTopVoter(int place) {
@@ -927,7 +927,7 @@ public class User {
 
 	/**
 	 * Give top voter award
-	 * 
+	 *
 	 * @param place
 	 */
 	public void topVoterAward(int place) {

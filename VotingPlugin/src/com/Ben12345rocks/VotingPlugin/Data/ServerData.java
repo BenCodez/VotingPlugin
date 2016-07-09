@@ -70,9 +70,9 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
@@ -160,9 +160,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 

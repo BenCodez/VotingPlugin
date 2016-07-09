@@ -49,51 +49,6 @@ public class Report {
 		return instance;
 	}
 
-	@SuppressWarnings("deprecation")
-	public void writeZipFile(File directoryToZip, List<File> fileList) {
-
-		try {
-			Date date = new Date();
-			File fileZipFolder = new File(plugin.getDataFolder().getAbsolutePath()
-					+ File.separator + "Reports");
-			if (!fileZipFolder.exists()) {
-				fileZipFolder.mkdirs();
-			}
-
-			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
-					.getAbsolutePath()
-					+ File.separator
-					+ "Reports"
-					+ File.separator
-					+ "Report"
-					+ (date.getYear() + 1900)
-					+ "."
-					+ (date.getMonth() + 1)
-					+ "."
-					+ date.getDate()
-					+ "."
-					+ date.getHours()
-					+ "."
-					+ date.getMinutes()
-					+ "."
-					+ date.getSeconds() + ".zip");
-			ZipOutputStream zos = new ZipOutputStream(fos);
-
-			for (File file : fileList) {
-				if (!file.isDirectory()) { // we only zip files, not directories
-					addToZip(directoryToZip, file, zos);
-				}
-			}
-
-			zos.close();
-			fos.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
 	FileConfiguration data;
 
 	File dFile;
@@ -153,5 +108,50 @@ public class Report {
 
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void writeZipFile(File directoryToZip, List<File> fileList) {
+
+		try {
+			Date date = new Date();
+			File fileZipFolder = new File(plugin.getDataFolder()
+					.getAbsolutePath() + File.separator + "Reports");
+			if (!fileZipFolder.exists()) {
+				fileZipFolder.mkdirs();
+			}
+
+			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
+					.getAbsolutePath()
+					+ File.separator
+					+ "Reports"
+					+ File.separator
+					+ "Report"
+					+ (date.getYear() + 1900)
+					+ "."
+					+ (date.getMonth() + 1)
+					+ "."
+					+ date.getDate()
+					+ "."
+					+ date.getHours()
+					+ "."
+					+ date.getMinutes()
+					+ "."
+					+ date.getSeconds() + ".zip");
+			ZipOutputStream zos = new ZipOutputStream(fos);
+
+			for (File file : fileList) {
+				if (!file.isDirectory()) { // we only zip files, not directories
+					addToZip(directoryToZip, file, zos);
+				}
+			}
+
+			zos.close();
+			fos.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }

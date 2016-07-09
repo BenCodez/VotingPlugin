@@ -127,11 +127,11 @@ public class VoteSite {
 							.getInstance()
 							.replaceIgnoreCase(
 									ConfigFormat.getInstance()
-											.getCumulativeRewardMsg(),
+									.getCumulativeRewardMsg(),
 									"%votes%",
 									""
 											+ configVoteSites
-													.getCumulativeRewardVotesAmount(siteName)));
+											.getCumulativeRewardVotesAmount(siteName)));
 				}
 			}
 
