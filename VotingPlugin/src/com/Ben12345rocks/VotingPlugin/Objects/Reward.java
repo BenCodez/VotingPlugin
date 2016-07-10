@@ -321,11 +321,22 @@ public class Reward {
 	public void giveRandom(User user) {
 		if (checkRandomChance()) {
 			ArrayList<String> rewards = getRandomRewards();
-			user.giveReward(ConfigRewards.getInstance().getReward(
-					rewards.get((int) Math.random() * rewards.size())));
+			if (rewards != null) {
+				if (rewards.size() > 0) {
+					String reward = rewards.get((int) Math.random()
+							* rewards.size());
+					if (reward.equalsIgnoreCase("")) {
+						user.giveReward(ConfigRewards.getInstance().getReward(
+								reward));
+					}
+				}
+			}
 		} else {
 			for (String reward : getRandomFallBack()) {
-				user.giveReward(ConfigRewards.getInstance().getReward(reward));
+				if (reward.equalsIgnoreCase("")) {
+					user.giveReward(ConfigRewards.getInstance().getReward(
+							reward));
+				}
 			}
 		}
 	}
