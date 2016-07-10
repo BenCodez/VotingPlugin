@@ -321,8 +321,10 @@ public class Reward {
 	public void giveRandom(User user) {
 		if (checkRandomChance()) {
 			ArrayList<String> rewards = getRandomRewards();
-			user.giveReward(ConfigRewards.getInstance().getReward(
-					rewards.get((int) Math.random() * rewards.size())));
+			if (rewards.size() > 0) {
+				user.giveReward(ConfigRewards.getInstance().getReward(
+						rewards.get((int) Math.random() * rewards.size())));
+			}
 		} else {
 			for (String reward : getRandomFallBack()) {
 				user.giveReward(ConfigRewards.getInstance().getReward(reward));
