@@ -322,8 +322,12 @@ public class Reward {
 		if (checkRandomChance()) {
 			ArrayList<String> rewards = getRandomRewards();
 			if (rewards.size() > 0) {
-				user.giveReward(ConfigRewards.getInstance().getReward(
-						rewards.get((int) Math.random() * rewards.size())));
+				String reward = rewards.get((int) Math.random()
+						* rewards.size());
+				if (reward.equalsIgnoreCase("")) {
+					user.giveReward(ConfigRewards.getInstance().getReward(
+							reward));
+				}
 			}
 		} else {
 			for (String reward : getRandomFallBack()) {
