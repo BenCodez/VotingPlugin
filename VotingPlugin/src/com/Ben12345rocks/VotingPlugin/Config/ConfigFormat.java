@@ -36,7 +36,7 @@ public class ConfigFormat {
 	}
 
 	public String getBroadCastMsg() {
-		String str = getData().getString("Format.broadcastmsg");
+		String str = getData().getString("Format.BroadcastMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -48,26 +48,13 @@ public class ConfigFormat {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCommandsVoteHelpLines() {
+	public String getCommandsVoteHelpLine() {
 
-		ArrayList<String> str = (ArrayList<String>) getData().getList(
-				"Format.Commands.Vote.Help.Lines");
+		String str = getData().getString("Format.Commands.Vote.Help.Line");
 		if (str != null) {
 			return str;
 		} else {
-			ArrayList<String> texts = new ArrayList<String>();
-			texts.add("[] = Optional");
-			texts.add("Aliases: vote, v");
-			texts.add("/vote - List vote URLs");
-			texts.add("/vote help - See this page");
-			texts.add("/vote total [Player/All] - See total votes");
-			texts.add("/vote next [Player] - See next time you can vote");
-			texts.add("/vote last [Player] - See last vote");
-			texts.add("/vote top [Page] - See top voters");
-			texts.add("/vote info [Player] - See player info");
-			texts.add("/vote today [Page] - See who voted today");
-			return texts;
+			return "&3&l%Command% - &3%HelpMessage%";
 		}
 
 	}
@@ -249,30 +236,12 @@ public class ConfigFormat {
 		}
 	}
 
-	public String getCumulativeRewardMsg() {
-		String msg = getData().getString("Format.CumulativeRewardMsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aYou recieved an extra reward for voting %votes% times!";
-		}
-	}
-
 	public FileConfiguration getData() {
 		return data;
 	}
 
-	public String getExtraRewardMsg() {
-		String msg = getData().getString("Format.extrarewardmsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aLooks like you got lucky!";
-		}
-	}
-
 	public String getLoginMsg() {
-		String str = getData().getString("Format.loginmsg");
+		String str = getData().getString("Format.LoginMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -299,15 +268,11 @@ public class ConfigFormat {
 	}
 
 	public int getPageSize() {
-		int size = getData().getInt("Format.pagesize");
-		if (size == 0) {
-			size = 10;
-		}
-		return size;
+		return 10;
 	}
 
 	public String getRewardMsg() {
-		String str = getData().getString("Format.rewardmsg");
+		String str = getData().getString("Format.DefaultRewardMsg");
 		if (str != null) {
 			return str;
 		} else {
@@ -351,8 +316,17 @@ public class ConfigFormat {
 		}
 	}
 
+	public String getSignTopVoterSignRightClickMessage() {
+		String str = getData().getString("Format.Signs.RightClickMessage");
+		if (str != null) {
+			return str;
+		} else {
+			return "&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%";
+		}
+	}
+
 	public String getTimeFormat() {
-		String string = getData().getString("Format.timeformat");
+		String string = getData().getString("Format.TimeFormat");
 		if (string == null) {
 			return "EEE, d MMM yyyy HH:mm";
 		}
@@ -360,7 +334,7 @@ public class ConfigFormat {
 	}
 
 	public String getTopVoterRewardMsg() {
-		String msg = getData().getString("Format.topvoterawardmsg");
+		String msg = getData().getString("Format.TopVoterAwardMsg");
 		if (msg != null) {
 			return msg;
 		} else {

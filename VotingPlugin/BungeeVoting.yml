@@ -1,9 +1,13 @@
 # BungeeVoting.yml
-# Please note, this is a beta feature
-# Report any issues
+# On vote, plugin will forward the votifier vote to the following servers
+# Put in the votifier information for each server below
+# ServiceSite is not needed. Leave blank.
+
+# Send bungee votes
 Enabled: false
 
 Servers:
+  # Server, don't have 2 names the same
   Server1:
     # Votifier IP
     IP: ''

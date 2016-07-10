@@ -8,21 +8,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Effect;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.BonusReward.BonusVoteReward;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class User {
 	static Main plugin = Main.plugin;
@@ -84,13 +91,6 @@ public class User {
 		}
 	}
 
-	/**
-	 * Add offline vote to bonus
-	 */
-	public void addBonusOfflineVote() {
-		setBonusOfflineVotes(getBonusOfflineVotes() + 1);
-	}
-
 	public void addCumulativeReward(VoteSite voteSite) {
 		Data.getInstance().addCumulativeSite(this, voteSite.getSiteName());
 	}
@@ -112,9 +112,7 @@ public class User {
 	 */
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".Total." + voteSite.getSiteName(),
-				Data.getInstance().getTotal(user, voteSite.getSiteName()) + 1);
+		Data.getInstance().addTotal(user, voteSite.getSiteName());
 	}
 
 	/**
@@ -136,7 +134,6 @@ public class User {
 
 	@SuppressWarnings("deprecation")
 	/**
-	 *
 	 * @param voteSite	VoteSite
 	 * @return			True if player can vote on specified site
 	 */
@@ -179,19 +176,12 @@ public class User {
 	}
 
 	/**
-	 * Check if user has voted on all sites in one day
-	 *
-	 * @return True if player has voted on all sites in one day, False if bonus
-	 *         reward disabled or player has not voted all sites in one day
+	 * @return True if player has voted on all sites in one day
 	 */
 	public boolean checkAllVotes() {
 		User user = this;
-		if (!ConfigBonusReward.getInstance().getGiveBonusReward()) {
-			return false;
-		}
 
-		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
-				.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.voteSites;
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
@@ -204,20 +194,14 @@ public class User {
 
 		// check months
 		for (int i = 0; i < months.size(); i++) {
-			if (!months.get(0).equals(months.get(i))
-					|| days.get(i).equals(
-							Utils.getInstance().getMonthFromMili(
-									user.getTimeAll()))) {
+			if (!months.get(0).equals(months.get(i))) {
 				return false;
 			}
 		}
 
 		// check days
 		for (int i = 0; i < days.size(); i++) {
-			if (!days.get(0).equals(days.get(i))
-					|| days.get(i).equals(
-							Utils.getInstance().getDayFromMili(
-									user.getTimeAll()))) {
+			if (!days.get(0).equals(days.get(i))) {
 				return false;
 			}
 		}
@@ -226,16 +210,11 @@ public class User {
 	}
 
 	/**
-	 * Get Amount of offline votes
+	 * Get offline cumulative rewards
 	 *
-	 * @return Amount of bonus offline votes
+	 * @param voteSite
+	 * @return
 	 */
-	public int getBonusOfflineVotes() {
-		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".BonusOfflineVotes");
-	}
-
 	public int getCumulativeReward(VoteSite voteSite) {
 		return Data.getInstance().getCumulativeSite(this,
 				voteSite.getSiteName());
@@ -253,10 +232,14 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
+	/**
+	 *
+	 * @return Offline top voter awards
+	 */
 	public int getOfflineTopVoter() {
 		return Data.getInstance().getTopVoterAwardOffline(this);
 	}
@@ -270,11 +253,8 @@ public class User {
 	 */
 	public int getOfflineVotes(VoteSite voteSite) {
 		User user = this;
-		return Data
-				.getInstance()
-				.getData(user)
-				.getInt(user.getUUID() + ".OfflineVotes."
-						+ voteSite.getSiteName());
+		return Data.getInstance().getOfflineVotesSite(user,
+				voteSite.getSiteName());
 	}
 
 	/**
@@ -286,6 +266,10 @@ public class User {
 
 	}
 
+	public boolean getReminded() {
+		return Data.getInstance().getReminded(this);
+	}
+
 	/**
 	 * Get time of last vote from VoteSite for user
 	 *
@@ -294,27 +278,7 @@ public class User {
 	 * @return Time in milliseconds when last vote occurred
 	 */
 	public long getTime(VoteSite voteSite) {
-		User user = this;
-		long mills = Data
-				.getInstance()
-				.getData(user)
-				.getLong(
-						uuid + ".LastVote." + voteSite.getSiteName()
-						+ ".Miliseconds");
-		return mills;
-	}
-
-	/**
-	 * Get time of last bonus vote for user
-	 *
-	 * @return Time in milliseconds when last bonus reward occurred
-	 */
-	public long getTimeAll() {
-		User user = this;
-		long mills = Data.getInstance().getData(user)
-				.getLong(uuid + ".LastBonus.Miliseconds");
-
-		return mills;
+		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
 
 	/**
@@ -325,8 +289,7 @@ public class User {
 	 */
 	public int getTotal(VoteSite voteSite) {
 		User user = this;
-		return Data.getInstance().getData(user)
-				.getInt(user.getUUID() + ".Total." + voteSite.getSiteName());
+		return Data.getInstance().getTotal(user, voteSite.getSiteName());
 	}
 
 	/**
@@ -352,6 +315,19 @@ public class User {
 		return Data.getInstance().getTotal(this, voteSite.getSiteName());
 	}
 
+	@SuppressWarnings("deprecation")
+	public int getTotalVotesToday() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			Date date = new Date(getTime(voteSite));
+			if (date.getDate() == new Date().getDate()) {
+				total++;
+			}
+		}
+		return total;
+
+	}
+
 	/**
 	 * Get user's uuid
 	 *
@@ -368,15 +344,6 @@ public class User {
 		}
 		Long last = Collections.max(times);
 		return last;
-	}
-
-	/**
-	 * Trigger Bonus Reward
-	 */
-	public void giveBonus() {
-
-		BonusVoteReward.getInstance().giveBonusReward(this);
-
 	}
 
 	@SuppressWarnings("deprecation")
@@ -454,27 +421,55 @@ public class User {
 		}
 	}
 
-	public void giveTopVoterAward(int place) {
-		giveMoney(ConfigTopVoterAwards.getInstance().getTopVoterAwardMoney(
-				place));
-		try {
-			for (String item : ConfigTopVoterAwards.getInstance().getItems(
-					place)) {
-				this.giveItem(ConfigTopVoterAwards.getInstance()
-						.getTopVoterAwardItemStack(place, item));
-			}
-		} catch (Exception ex) {
-			if (Config.getInstance().getDebugEnabled()) {
-				ex.printStackTrace();
-			}
+	/**
+	 * Give user potion effect
+	 *
+	 * @param potionName
+	 * @param duration
+	 * @param amplifier
+	 */
+	public void givePotionEffect(String potionName, int duration, int amplifier) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.addPotionEffect(
+					new PotionEffect(PotionEffectType.getByName(potionName),
+							20 * duration, amplifier), true);
 		}
-		ConfigTopVoterAwards.getInstance().doTopVoterAwardCommands(this, place);
+	}
+
+	/**
+	 * Give user reward
+	 *
+	 * @param reward
+	 */
+	public void giveReward(Reward reward) {
+		reward.giveReward(this);
+	}
+
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
+	public void giveTopVoterAward(int place) {
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
+		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
+	}
+
+	/**
+	 *
+	 * @return True if user has gotten first vote reward
+	 */
+	public boolean hasGottenFirstVote() {
+		return Data.getInstance().getHasGottenFirstReward(this);
 	}
 
 	/**
@@ -496,24 +491,8 @@ public class User {
 	 * Login message if player can vote
 	 */
 	public void loginMessage() {
-		String playerName = getPlayerName();
-		if (Config.getInstance().getRemindVotesEnabled()) {
-			if (Utils.getInstance().hasPermission(playerName,
-					"VotingPlugin.Login.RemindVotes")
-					|| Utils.getInstance().hasPermission(playerName,
-							"VotingPlugin.Player")) {
-				if (canVoteAll()) {
-					Player player = Bukkit.getPlayer(playerName);
-					if (player != null) {
-						String msg = Utils.getInstance().colorize(
-								ConfigFormat.getInstance().getLoginMsg());
-						msg = msg.replace("%player%", playerName);
-						player.sendMessage(msg);
-						setReminded(true);
-					}
-
-				}
-			}
+		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
+			VoteReminding.getInstance().runRemind(this);
 		}
 	}
 
@@ -528,23 +507,25 @@ public class User {
 
 		String playerName = getPlayerName();
 
-		boolean playSound = false;
+		boolean sendEffects = false;
 
 		for (VoteSite voteSite : voteSites) {
 			int offvotes = getOfflineVotes(voteSite);
 			if (offvotes > 0) {
-				playSound = true;
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger()
-					.info("Offline Vote Reward on Site '"
-							+ voteSite.getSiteName()
-							+ "' given for player '" + playerName + "'");
-				}
+				sendEffects = true;
+
+				plugin.debug("Offline Vote Reward on Site '"
+						+ voteSite.getSiteName() + "' given for player '"
+						+ playerName + "'");
+
 				for (int i = 0; i < offvotes; i++) {
 					offlineVotes.add(voteSite.getSiteName());
 				}
 			}
+		}
 
+		if (sendEffects) {
+			sendVoteEffects();
 		}
 
 		for (int i = 0; i < offlineVotes.size(); i++) {
@@ -554,15 +535,21 @@ public class User {
 			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
 		}
 
-		for (int i = 0; i < getBonusOfflineVotes(); i++) {
-			BonusVoteReward.getInstance().giveBonusReward(this);
+		for (int i = 0; i < Data.getInstance().getFirstVoteOffline(this); i++) {
+			OtherVoteReward.getInstance().giveFirstVoteRewards(this);
 		}
 
-		setBonusOfflineVotes(0);
-
-		if (playSound) {
-			playVoteSound();
+		for (int i = 0; i < Data.getInstance().getAllSitesOffline(this); i++) {
+			OtherVoteReward.getInstance().giveAllSitesRewards(this);
 		}
+
+		for (int i = 0; i < Data.getInstance().getNumberOfVotesOffline(this); i++) {
+			OtherVoteReward.getInstance().giveNumberOfVotesRewards(this);
+		}
+
+		Data.getInstance().setFirstVoteOffline(this, 0);
+		Data.getInstance().setAllSitesOffline(this, 0);
+		Data.getInstance().setNumberOfVotesOffline(this, 0);
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {
@@ -572,50 +559,40 @@ public class User {
 
 	}
 
+	/**
+	 * Check offline world rewards
+	 *
+	 * @param world
+	 */
 	public void offVoteWorld(String world) {
-		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
-				.getVoteSites();
-
-		for (VoteSite voteSite : voteSites) {
-			for (String reward : ConfigVoteSites.getInstance()
-					.getExtraRewardRewards(voteSite.getSiteName())) {
-
-				ArrayList<String> worlds = ConfigVoteSites.getInstance()
-						.getExtraRewardWorld(voteSite.getSiteName(), reward);
-
-				if (worlds != null) {
-					if (ConfigVoteSites.getInstance()
-							.getExtraRewardGiveInEachWorld(
-									voteSite.getSiteName(), reward)) {
+		for (VoteSite voteSite : plugin.voteSites) {
+			for (Reward reward : plugin.rewards) {
+				ArrayList<String> worlds = reward.getWorlds();
+				if ((world != null) && (worlds != null)) {
+					if (reward.isGiveInEachWorld()) {
 						for (String worldName : worlds) {
-							if (Config.getInstance().getDebugEnabled()) {
-								plugin.getLogger().info(
-										"Checking world: " + worldName
-										+ ", reard: " + reward
-										+ ", votesite: "
-										+ voteSite.getSiteName());
-							}
+
+							plugin.debug("Checking world: " + worldName
+									+ ", reard: " + reward + ", votesite: "
+									+ voteSite.getSiteName());
+
 							if (worldName != "") {
 								if (worldName.equals(world)) {
-									if (Config.getInstance().getDebugEnabled()) {
-										plugin.getLogger().info(
-												"Giving reward...");
-									}
+
+									plugin.debug("Giving reward...");
+
 									int worldRewards = Data.getInstance()
-											.getOfflineVotesWorld(this,
-													voteSite.getSiteName(),
-													reward, worldName);
+											.getOfflineVotesSiteWorld(this,
+													reward.name, worldName);
 
 									while (worldRewards > 0) {
-										voteSite.giveExtraRewardReward(this,
-												reward, 100);
+										reward.giveRewardUser(this);
 										worldRewards--;
 									}
 
-									Data.getInstance().setOfflineVotesWorld(
-											this, voteSite.getSiteName(),
-											reward, worldName, 0);
-
+									Data.getInstance()
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 
@@ -623,22 +600,20 @@ public class User {
 					} else {
 						if (worlds.contains(world)) {
 							int worldRewards = Data.getInstance()
-									.getOfflineVotesExtraReward(this,
-											voteSite.getSiteName(), reward);
+									.getOfflineVotesSiteWorld(this,
+											reward.name, world);
 
 							while (worldRewards > 0) {
-								voteSite.giveExtraRewardReward(this, reward,
-										100);
+								reward.giveRewardUser(this);
 								worldRewards--;
 							}
 
-							Data.getInstance().setOfflineVotesExtraReward(this,
-									voteSite.getSiteName(), reward, 0);
+							Data.getInstance().setOfflineVotesSiteWorld(this,
+									reward.name, world, 0);
 						}
 					}
 				}
 			}
-
 		}
 	}
 
@@ -648,7 +623,7 @@ public class User {
 	 * @param voteSite
 	 *            Site player voted on
 	 */
-	public void playerVote(VoteSite voteSite) {
+	public synchronized void playerVote(VoteSite voteSite) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
 				&& ConfigFormat.getInstance().getBroadcastWhenOnline()) {
 			voteSite.broadcastVote(this);
@@ -656,24 +631,67 @@ public class User {
 		voteSite.giveSiteReward(this);
 	}
 
-	public void playSound(String soundName, float volume, float pitch) {
+	@SuppressWarnings("deprecation")
+	/**
+	 * Send a particle effect to the user
+	 * @param effectName
+	 * @param data
+	 * @param particles
+	 * @param radius
+	 */
+	public synchronized void playParticleEffect(String effectName, int data,
+			int particles, int radius) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && (effectName != null)) {
+			Effect effect = Effect.valueOf(effectName);
+			player.spigot().playEffect(player.getLocation(), effect,
+					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
+			// player.getWorld().spigot().playEffect(player.getLocation(),
+			// effect);
+		}
+	}
+
+	/**
+	 * Send a send to the user
+	 *
+	 * @param soundName
+	 * @param volume
+	 * @param pitch
+	 */
+	public synchronized void playSound(String soundName, float volume,
+			float pitch) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			Sound sound = Sound.valueOf(soundName);
 			if (sound != null) {
 				player.playSound(player.getLocation(), sound, volume, pitch);
-			} else if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("Invalid sound: " + soundName);
+			} else {
+				plugin.debug("Invalid sound: " + soundName);
 			}
 		}
 	}
 
+	/**
+	 * Send vote effect
+	 */
+	public void playVoteEffect() {
+		if (Config.getInstance().getEffectEnabled()) {
+			playParticleEffect(Config.getInstance().getEffectEffect(), Config
+					.getInstance().getEffectData(), Config.getInstance()
+					.getEffectParticles(), Config.getInstance()
+					.getEffectRadius());
+		}
+	}
+
+	/**
+	 * send vote sound
+	 */
 	public void playVoteSound() {
-		if (Config.getInstance().getVoteSoundEnabled()) {
+		if (Config.getInstance().getSoundEnabled()) {
 			try {
-				playSound(Config.getInstance().getVoteSoundSound(), Config
-						.getInstance().getVoteSoundVolume(), Config
-						.getInstance().getVoteSoundPitch());
+				playSound(Config.getInstance().getSoundSound(), Config
+						.getInstance().getSoundVolume(), Config.getInstance()
+						.getSoundPitch());
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
@@ -687,8 +705,40 @@ public class User {
 	 */
 	public boolean reminded() {
 		User user = this;
-		return Data.getInstance().getData(user)
-				.getBoolean(user.getUUID() + ".Reminded");
+		return Data.getInstance().getReminded(user);
+	}
+
+	/**
+	 * Send the player json messages
+	 *
+	 * @param messages
+	 */
+	public void sendJson(ArrayList<TextComponent> messages) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && (messages != null)) {
+			/*
+			 * TextComponent msg = new TextComponent(); TextComponent newLine =
+			 * new TextComponent( ComponentSerializer.parse("{text: \"\n\"}"));
+			 * for (int i = 0; i < messages.size(); i++) {
+			 * msg.addExtra(messages.get(i)); if (i != (messages.size() - 1)) {
+			 * msg.addExtra(newLine); } } player.spigot().sendMessage(msg);
+			 */
+			for (TextComponent txt : messages) {
+				player.spigot().sendMessage(txt);
+			}
+		}
+	}
+
+	/**
+	 * Send the player json messages
+	 *
+	 * @param message
+	 */
+	public void sendJson(TextComponent message) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if ((player != null) && (message != null)) {
+			player.spigot().sendMessage(message);
+		}
 	}
 
 	/**
@@ -727,31 +777,74 @@ public class User {
 	}
 
 	/**
-	 * Set Bonus offline votes
+	 * Send the user a message if TitleAPI is installed
 	 *
-	 * @param amount
-	 *            Amount of set
+	 * @param title
+	 * @param titleColor
+	 * @param subTitle
+	 * @param subTitleColor
+	 * @param fadeIn
+	 * @param showTime
+	 * @param fadeOut
 	 */
-	public void setBonusOfflineVotes(int amount) {
-		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".BonusOfflineVotes",
-				amount);
+	public void sendTitle(String title, String titleColor, String subTitle,
+			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			Utils.getInstance().sendTitle(player, title, subTitle, titleColor,
+					subTitleColor, fadeIn, showTime, fadeOut);
+		}
 	}
 
+	/**
+	 * Send the user the voting effects
+	 */
+	public void sendVoteEffects() {
+		sendVoteTitle();
+		playVoteEffect();
+		playVoteSound();
+	}
+
+	/**
+	 * send vote title
+	 *
+	 */
+	public void sendVoteTitle() {
+		if (Config.getInstance().getTitleEnabled()) {
+			sendTitle(Config.getInstance().getTitleTitle(), Config
+					.getInstance().getTitleTitleColor(), Config.getInstance()
+					.getTitleSubTitle(), Config.getInstance()
+					.getTitleSubTitleColor(), Config.getInstance()
+					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
+					Config.getInstance().getTitleFadeOut());
+		}
+	}
+
+	/**
+	 * Set offline cumulative rewards
+	 *
+	 * @param voteSite
+	 * @param value
+	 */
 	public void setCumulativeReward(VoteSite voteSite, int value) {
 		Data.getInstance().setCumulativeSite(this, voteSite.getSiteName(),
 				value);
 	}
 
 	/**
-	 * Set name in player's file
+	 * Set has gotten first vote
+	 *
+	 * @param value
 	 */
-	public void setName() {
-		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".Name",
-				user.getPlayerName());
+	public void setHasGottenFirstVote(boolean value) {
+		Data.getInstance().setHasGottenFirstReward(this, value);
 	}
 
+	/**
+	 * Set offline top voter awards
+	 *
+	 * @param place
+	 */
 	public void setOfflineTopVoter(int place) {
 		Data.getInstance().setTopVoterAwardOffline(this, place);
 	}
@@ -766,9 +859,16 @@ public class User {
 	 */
 	public void setOfflineVotes(VoteSite voteSite, int amount) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".OfflineVotes." + voteSite.getSiteName(),
+		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
+	}
+
+	/**
+	 * Set name in player's file
+	 */
+	public void setPlayerName() {
+		User user = this;
+		Data.getInstance().setPlayerName(user);
 	}
 
 	/**
@@ -789,7 +889,7 @@ public class User {
 	 */
 	public void setReminded(boolean reminded) {
 		User user = this;
-		Data.getInstance().set(user, user.getUUID() + ".Reminded", reminded);
+		Data.getInstance().setReminded(user, reminded);
 	}
 
 	/**
@@ -803,14 +903,6 @@ public class User {
 	}
 
 	/**
-	 * Set time of bonus reward
-	 */
-	public void setTimeBonus() {
-		User user = this;
-		Data.getInstance().setTimeAll(user);
-	}
-
-	/**
 	 * Set total for VoteSite for user
 	 *
 	 * @param voteSite
@@ -820,8 +912,7 @@ public class User {
 	 */
 	public void setTotal(VoteSite voteSite, int amount) {
 		User user = this;
-		Data.getInstance().set(user,
-				user.getUUID() + ".Total." + voteSite.getSiteName(), amount);
+		Data.getInstance().setTotal(user, voteSite.getSiteName(), amount);
 	}
 
 	/**
@@ -834,17 +925,22 @@ public class User {
 		this.uuid = uuid;
 	}
 
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
 	public void topVoterAward(int place) {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);
 		}
+
 		if (Utils.getInstance().isPlayerOnline(playerName)) {
 			// online
 			giveTopVoterAward(place);
 		} else {
 			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
-
 	}
 
 }

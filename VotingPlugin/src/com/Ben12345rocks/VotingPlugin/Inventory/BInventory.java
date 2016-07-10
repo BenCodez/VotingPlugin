@@ -20,9 +20,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 
 public class BInventory implements Listener {
 
@@ -62,7 +60,6 @@ public class BInventory implements Listener {
 	}
 
 	public void addButton(int position, BInventoryButton button) {
-		button.setSlot(position);
 		getButtons().put(position, button);
 	}
 
@@ -105,30 +102,21 @@ public class BInventory implements Listener {
 	}
 
 	// event handling
-	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+
+	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
-		if (Config.getInstance().getDebugEnabled()) {
-			Main.plugin.getLogger().info("Event trigger");
-		}
-		if (event.isCancelled()) {
-			if (Config.getInstance().getDebugEnabled()) {
-				Main.plugin.getLogger().info("Event cancelled");
-			}
-			return;
-		}
+
 		ItemStack clickedItem = event.getCurrentItem();
 		Inventory inv = event.getInventory();
 		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
 			for (BInventoryButton button : getButtons().values()) {
 				if (clickedItem != null) {
-					if (clickedItem.getType() == button.getItem().getType()
-							&& event.getSlot() == button.getSlot()) {
-						if (Config.getInstance().getDebugEnabled()) {
-							Main.plugin.getLogger().info("Running code");
-						}
+					if ((clickedItem.getType() == button.getItem().getType())
+							&& (event.getSlot() == button.getSlot())) {
+
 						button.onClick(event);
 						event.setCancelled(true);
 

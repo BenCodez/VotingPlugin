@@ -3,7 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Data;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -15,6 +15,7 @@ import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
 public class ServerData {
 
@@ -49,15 +50,13 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
+		plugin.signs.add(new SignHandler("" + count,
+				getSignLocation("" + count), getSignData("" + count),
+				getSignPosition("" + count)));
 	}
 
 	public FileConfiguration getData() {
 		return data;
-	}
-
-	@SuppressWarnings("unchecked")
-	public List<String> getLines(String sign) {
-		return (List<String>) getData().getList("Signs." + sign + ".Lines");
 	}
 
 	public int getPrevMonth() {
@@ -71,9 +70,9 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-						"Signs." + sign + ".X"), getData().getDouble(
-								"Signs." + sign + ".Y"), getData().getDouble(
-										"Signs." + sign + ".Z"));
+				"Signs." + sign + ".X"), getData().getDouble(
+				"Signs." + sign + ".Y"), getData().getDouble(
+				"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
@@ -84,7 +83,7 @@ public class ServerData {
 		try {
 			return getData().getConfigurationSection("Signs").getKeys(false);
 		} catch (Exception ex) {
-			return null;
+			return new HashSet<String>();
 		}
 	}
 
@@ -92,7 +91,7 @@ public class ServerData {
 		Set<String> signs = getSigns();
 
 		if (signs != null) {
-			for (int i = 0; i < 10000; i++) {
+			for (int i = 0; i < 100000; i++) {
 				if (!signs.contains(Integer.toString(i))) {
 					return i;
 				}
@@ -120,13 +119,28 @@ public class ServerData {
 		Files.getInstance().editFile(dFile, data);
 	}
 
-	public void setLines(String sign, List<String> lines) {
-		getData().set("Signs." + sign + ".Lines", lines);
+	public void setPluginVersion() {
+		getData().set("PluginVersion", plugin.getDescription().getVersion());
 		saveData();
 	}
 
 	public void setPrevMonth(int value) {
 		getData().set("PrevMonth", value);
+		saveData();
+	}
+
+	public void setSign(String count, Location location, String data,
+			int position) {
+
+		getData().set("Signs." + count + ".World",
+				location.getWorld().getName());
+		int x = (int) location.getX();
+		int z = (int) location.getZ();
+		getData().set("Signs." + count + ".X", x);
+		getData().set("Signs." + count + ".Y", location.getY());
+		getData().set("Signs." + count + ".Z", z);
+		getData().set("Signs." + count + ".Data", data);
+		getData().set("Signs." + count + ".Position", position);
 		saveData();
 	}
 
@@ -146,9 +160,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create ServerData.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create ServerData.yml!");
 			}
 		}
 
@@ -158,5 +172,15 @@ public class ServerData {
 			setPrevMonth(new Date().getMonth());
 		}
 		saveData();
+	}
+
+	public void setVersion() {
+		getData().set("Version", Bukkit.getVersion());
+		saveData();
+	}
+
+	public void updateValues() {
+		setVersion();
+		setPluginVersion();
 	}
 }

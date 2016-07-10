@@ -9,6 +9,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 
 public class SignChange implements Listener {
 
@@ -34,7 +35,7 @@ public class SignChange implements Listener {
 
 						@Override
 						public void run() {
-							plugin.updateTopUpdater();
+							Signs.getInstance().updateSigns();
 						}
 					});
 				} catch (Exception ex) {

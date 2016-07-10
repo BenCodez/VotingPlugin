@@ -1,5 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.bukkit.command.CommandSender;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -15,7 +21,7 @@ public abstract class CommandHandler {
 	public CommandHandler(String[] args, String perm) {
 		this.args = args;
 		this.perm = perm;
-		helpMessage = "";
+		helpMessage = "Unknown Help Message";
 	}
 
 	public CommandHandler(String[] args, String perm, String helpMessage) {
@@ -26,15 +32,31 @@ public abstract class CommandHandler {
 
 	public boolean argsMatch(String arg, int i) {
 		if (i < args.length) {
-			if (args[i].equalsIgnoreCase("player")
-					|| args[i].equalsIgnoreCase("SITENAME")
-					|| args[i].equalsIgnoreCase("number")
-					|| args[i].equalsIgnoreCase("string")
-					|| args[i].equalsIgnoreCase("boolean")
-					|| args[i].equalsIgnoreCase("list")
-					|| arg.equalsIgnoreCase(args[i])) {
-				return true;
+			String[] cmdArgs = args[i].split("&");
+			for (String cmdArg : cmdArgs) {
+				if (cmdArg.equalsIgnoreCase("(player)")
+						|| cmdArg.equalsIgnoreCase("(SITENAME)")
+						|| cmdArg.equalsIgnoreCase("(reward)")
+						|| cmdArg.equalsIgnoreCase("(number)")
+						|| cmdArg.equalsIgnoreCase("(string)")
+						|| cmdArg.equalsIgnoreCase("(boolean)")
+						|| cmdArg.equalsIgnoreCase("(list)")
+						|| arg.equalsIgnoreCase(cmdArg)) {
+					return true;
+				}
 			}
+			/*
+			 * if (args[i].split("|").length <= 1) { if
+			 * (args[i].equalsIgnoreCase("player") ||
+			 * args[i].equalsIgnoreCase("SITENAME") ||
+			 * args[i].equalsIgnoreCase("number") ||
+			 * args[i].equalsIgnoreCase("string") ||
+			 * args[i].equalsIgnoreCase("boolean") ||
+			 * args[i].equalsIgnoreCase("list") ||
+			 * arg.equalsIgnoreCase(args[i])) { return true; } } else {
+			 * 
+			 * }
+			 */
 			return false;
 		}
 		return false;
@@ -46,23 +68,66 @@ public abstract class CommandHandler {
 		return args;
 	}
 
-	public String getHelpLine() {
-		// String msg = "";
-		/*
-		 * for (int i = 0; i < args.length; i++) { String arg = args[i]; arg =
-		 * Utils.getInstance().replaceIgnoreCase(arg, "player", "{Player}"); arg
-		 * = Utils.getInstance().replaceIgnoreCase(arg, "sitename",
-		 * "{SiteName}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
-		 * "number", "{Number}"); arg = Utils.getInstance()
-		 * .replaceIgnoreCase(arg, "string", "{Text}"); arg =
-		 * Utils.getInstance().replaceIgnoreCase(arg, "boolean",
-		 * "{True/False}"); arg = Utils.getInstance().replaceIgnoreCase(arg,
-		 * "list", "{Text}"); msg += " " + arg; }
-		 * 
-		 * msg += " - " + helpMessage;
-		 */
+	public TextComponent getHelpLine(String command) {
+		String line = ConfigFormat.getInstance().getCommandsVoteHelpLine();
 
-		return helpMessage;
+		String commandText = getHelpLineCommand(command);
+		line = line.replace("%Command%", commandText);
+		if (getHelpMessage() != "") {
+			line = line.replace("%HelpMessage%", getHelpMessage());
+		}
+		TextComponent txt = Utils.getInstance().stringToComp(line);
+		txt.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+				commandText));
+		txt.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+				new ComponentBuilder(getHelpMessage()).color(ChatColor.AQUA)
+						.create()));
+		return txt;
+
+	}
+
+	public String getHelpLineCommand(String command) {
+		String commandText = command;
+		for (String arg1 : args) {
+			int count = 1;
+			for (String arg : arg1.split("&")) {
+				if (count == 1) {
+					if (arg.equalsIgnoreCase("(player)")) {
+						commandText += " (Player)";
+					} else if (arg.equalsIgnoreCase("(sitename)")) {
+						commandText += " (SiteName)";
+					} else if (arg.equalsIgnoreCase("(reward)")) {
+						commandText += " (Reward)";
+					} else if (arg.equalsIgnoreCase("(boolean)")) {
+						commandText += " (True/False)";
+					} else if (arg.equalsIgnoreCase("(number)")) {
+						commandText += " (Number)";
+					} else if (arg.equalsIgnoreCase("(string)")) {
+						commandText += " (Text)";
+					} else {
+						commandText += " " + arg;
+					}
+				} else {
+					if (arg.equalsIgnoreCase("(player)")) {
+						commandText += "/(Player)";
+					} else if (arg.equalsIgnoreCase("(sitename)")) {
+						commandText += "/(SiteName)";
+					} else if (arg.equalsIgnoreCase("(reward)")) {
+						commandText += "/(Reward)";
+					} else if (arg.equalsIgnoreCase("(boolean)")) {
+						commandText += "/(True/False)";
+					} else if (arg.equalsIgnoreCase("(number)")) {
+						commandText += "/(Number)";
+					} else if (arg.equalsIgnoreCase("(string)")) {
+						commandText += "/(Text)";
+					} else {
+						commandText += "/" + arg;
+					}
+				}
+				count++;
+			}
+		}
+		return commandText;
 	}
 
 	public String getHelpMessage() {
@@ -79,11 +144,11 @@ public abstract class CommandHandler {
 				if (!argsMatch(args[i], i)) {
 					return false;
 				}
-				if (this.args[i].equalsIgnoreCase("number")) {
+				if (this.args[i].equalsIgnoreCase("(number)")) {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-								.replace("%arg%", args[i])));
+										.replace("%arg%", args[i])));
 						return true;
 					}
 				}

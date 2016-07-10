@@ -2,6 +2,8 @@ package com.Ben12345rocks.VotingPlugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 
 import net.milkbowl.vault.economy.Economy;
 
@@ -15,36 +17,28 @@ import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteGUI;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteHelp;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteInfo;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteLast;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteNext;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteToday;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTop;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVoteTotal;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteInfoTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteLastTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteNextTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
-import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTotalTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
+import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -52,12 +46,13 @@ import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class Main extends JavaPlugin {
 
 	public static Config config;
 
-	public static ConfigBonusReward configBonusReward;
+	public static ConfigOtherRewards configBonusReward;
 
 	public static ConfigGUI configGUI;
 
@@ -69,7 +64,7 @@ public class Main extends JavaPlugin {
 
 	public static Main plugin;
 
-	public String[] topVoter;
+	public HashMap<User, Integer> topVoter;
 
 	public Updater updater;
 
@@ -79,22 +74,45 @@ public class Main extends JavaPlugin {
 
 	public ArrayList<VoteSite> voteSites;
 
-	public String[] voteToday;
+	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
 
 	public boolean placeHolderAPIEnabled;
 
+	public ArrayList<Reward> rewards;
+
+	public boolean titleAPIEnabled;
+
+	public ArrayList<SignHandler> signs;
+
 	public void checkPlaceHolderAPI() {
-		if (Bukkit.getPluginManager().getPlugin("PlaceHolderAPI") != null) {
+		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
 			placeHolderAPIEnabled = true;
+			plugin.debug("PlaceholderAPI found, will attempt to parse placeholders");
 		} else {
 			placeHolderAPIEnabled = false;
+			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
+		}
+	}
+
+	public void checkTitleAPI() {
+		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
+			titleAPIEnabled = true;
+			plugin.debug("Found TitleAPI, will attempt to send titles");
+		} else {
+			titleAPIEnabled = false;
+			plugin.debug("TitleAPI not found, titles will not send");
 		}
 	}
 
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
-			plugin.getLogger()
-			.warning("Votifier not found, votes may not work");
+			plugin.debug("Votifier not found, votes may not work");
+		}
+	}
+
+	public void debug(String message) {
+		if (config.getDebugEnabled()) {
+			plugin.getLogger().info("Debug: " + message);
 		}
 	}
 
@@ -112,50 +130,37 @@ public class Main extends JavaPlugin {
 				return voteSite;
 			}
 		}
-		if (!config.getDisableAutoCreateVoteSites()) {
+		if (config.getAutoCreateVoteSites()) {
+			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(siteName);
 		} else {
 			return null;
 		}
 	}
 
-	public void loadReminders() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player != null) {
-						User user = new User(player);
-						if (user.canVoteAll() && !user.reminded()) {
-
-							user.loginMessage();
-						}
-					}
-				}
-			}
-		}, 50, 60 * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Reminders");
+	public void loadRewards() {
+		ConfigRewards.getInstance().setupExample();
+		rewards = new ArrayList<Reward>();
+		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
+			rewards.add(new Reward(reward));
 		}
+		plugin.debug("Loaded rewards");
+
 	}
 
 	public void loadVoteSites() {
-		configVoteSites.setup("Example");
+		configVoteSites.setup("ExampleVoteSite");
 		voteSites = configVoteSites.getVoteSitesLoad();
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded VoteSites");
-		}
+
+		plugin.debug("Loaded VoteSites");
+
 	}
 
 	private void metrics() {
 		try {
 			Metrics metrics = new Metrics(this);
 			metrics.start();
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info("Loaded Metrics");
-			}
+			plugin.debug("Loaded Metrics");
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
@@ -163,6 +168,7 @@ public class Main extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		Signs.getInstance().storeSigns();
 		plugin = null;
 	}
 
@@ -173,20 +179,35 @@ public class Main extends JavaPlugin {
 		setupFiles();
 		registerCommands();
 		registerEvents();
-		setupEconomy();
+		if (setupEconomy()) {
+			plugin.debug("Succesfully hooked into vault");
+		} else {
+			plugin.getLogger()
+					.info("Failed to load vault, giving players money directy will not work");
+		}
 		checkVotifier();
 		metrics();
 
 		CheckUpdate.getInstance().startUp();
 
+		checkPlaceHolderAPI();
+		checkTitleAPI();
+
 		loadVoteSites();
+		loadRewards();
 
-		if (Config.getInstance().getRemindVotesEnabled()) {
-			loadReminders();
-		}
+		VoteReminding.getInstance().loadRemindChecking();
 
-		topVoter = new String[1];
-		voteToday = new String[1];
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				Signs.getInstance().loadSigns();
+			}
+		});
+
+		topVoter = new HashMap<User, Integer>();
+		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -194,6 +215,7 @@ public class Main extends JavaPlugin {
 
 	private void registerCommands() {
 		CommandLoader.getInstance().loadCommands();
+		CommandLoader.getInstance().loadAliases();
 
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
@@ -207,37 +229,7 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
-		// /votegui, /vgui
-		getCommand("votegui").setExecutor(new CommandVoteGUI(this));
-
-		// /votehelp, /vhelp
-		getCommand("votehelp").setExecutor(new CommandVoteHelp(this));
-
-		// /voteinfo, /vinfo
-		getCommand("voteinfo").setExecutor(new CommandVoteInfo(this));
-		getCommand("voteinfo").setTabCompleter(new VoteInfoTabCompleter());
-
-		// /votelast, /vlast
-		getCommand("votelast").setExecutor(new CommandVoteLast(this));
-		getCommand("votelast").setTabCompleter(new VoteLastTabCompleter());
-
-		// /votenext, /vnext
-		getCommand("votenext").setExecutor(new CommandVoteNext(this));
-		getCommand("votenext").setTabCompleter(new VoteNextTabCompleter());
-
-		// /votetoday, /vtoday
-		getCommand("votetoday").setExecutor(new CommandVoteToday(this));
-
-		// /votetop, /vtop
-		getCommand("votetop").setExecutor(new CommandVoteTop(this));
-
-		// /votetotal, /vtotal
-		getCommand("votetotal").setExecutor(new CommandVoteTotal(this));
-		getCommand("votetotal").setTabCompleter(new VoteTotalTabCompleter());
-
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Commands");
-		}
+		plugin.debug("Loaded Commands");
 
 	}
 
@@ -251,9 +243,10 @@ public class Main extends JavaPlugin {
 
 		pm.registerEvents(new BlockBreak(this), this);
 
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Events");
-		}
+		pm.registerEvents(new PlayerInteract(this), this);
+
+		plugin.debug("Loaded Events");
+
 	}
 
 	public void reload() {
@@ -262,9 +255,11 @@ public class Main extends JavaPlugin {
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
+		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
-		plugin.updateTopUpdater();
+		loadRewards();
 		ServerData.getInstance().reloadData();
+		plugin.update();
 	}
 
 	private boolean setupEconomy() {
@@ -284,13 +279,14 @@ public class Main extends JavaPlugin {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
 		configFormat = ConfigFormat.getInstance();
-		configBonusReward = ConfigBonusReward.getInstance();
+		configBonusReward = ConfigOtherRewards.getInstance();
 		configGUI = ConfigGUI.getInstance();
 
 		config.setup(this);
 		configFormat.setup(this);
 		configBonusReward.setup(this);
 		configGUI.setup(plugin);
+		ConfigVoteReminding.getInstance().setup(plugin);
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
@@ -298,44 +294,40 @@ public class Main extends JavaPlugin {
 
 		ConfigTopVoterAwards.getInstance().setup(plugin);
 
-		UUIDs.getInstance().setup(plugin);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Loaded Files");
-		}
+		plugin.debug("Loaded Files");
+
 	}
 
 	public void startTimer() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				updateTopUpdater();
-			}
-		}, 50, 600 * 20);
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info(
-					"Loaded Timer for VoteTop, Updater, and VoteToday");
-		}
+					@Override
+					public void run() {
+						update();
+					}
+				}, 50, config.getBackgroundTaskDelay() * 20);
+
+		plugin.debug("Loaded timer for background task");
+
 	}
 
-	public void updateTopUpdater() {
+	public void update() {
 		try {
-			topVoter = TopVoter.getInstance().topVoters();
+			TopVoter.getInstance().updateTopVoters();
 			updater = new Updater(this, 15358, false);
-			voteToday = Commands.getInstance().voteToday();
+			Commands.getInstance().updateVoteToday();
 			TopVoter.getInstance().checkTopVoterAward();
-			Signs.getInstance().refreshSigns();
+			ServerData.getInstance().updateValues();
+			Signs.getInstance().updateSigns();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
-			if (config.getDebugEnabled()) {
-				plugin.getLogger().info(
-						"Updated VoteTop, Updater, and VoteToday");
-			}
+			plugin.debug("Background task ran");
+
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

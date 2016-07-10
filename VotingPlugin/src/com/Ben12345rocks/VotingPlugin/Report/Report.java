@@ -15,7 +15,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
 public class Report {
@@ -30,10 +29,9 @@ public class Report {
 		FileInputStream fis = new FileInputStream(file);
 
 		String zipFilePath = file.getPath();
-		if (Config.getInstance().getDebugEnabled()) {
-			plugin.getLogger()
-					.info("Writing '" + zipFilePath + "' to zip file");
-		}
+
+		plugin.debug("Writing '" + zipFilePath + "' to zip file");
+
 		ZipEntry zipEntry = new ZipEntry(zipFilePath);
 		zos.putNextEntry(zipEntry);
 
@@ -49,41 +47,6 @@ public class Report {
 
 	public static Report getInstance() {
 		return instance;
-	}
-
-	public static void writeZipFile(File directoryToZip, List<File> fileList) {
-
-		try {
-			Date date = new Date();
-			@SuppressWarnings("deprecation")
-			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
-					.getAbsolutePath()
-					+ File.separator
-					+ "Report"
-					+ (date.getYear() + 1900)
-					+ "."
-					+ (date.getMonth() + 1)
-					+ "."
-					+ date.getDate()
-					+ "."
-					+ date.getHours()
-					+ "."
-					+ date.getMinutes() + "." + date.getSeconds() + ".zip");
-			ZipOutputStream zos = new ZipOutputStream(fos);
-
-			for (File file : fileList) {
-				if (!file.isDirectory()) { // we only zip files, not directories
-					addToZip(directoryToZip, file, zos);
-				}
-			}
-
-			zos.close();
-			fos.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 	}
 
 	FileConfiguration data;
@@ -120,17 +83,14 @@ public class Report {
 			for (File file : files) {
 				fileList.add(file);
 				if (file.isDirectory()) {
-					if (Config.getInstance().getDebugEnabled()) {
-						plugin.getLogger().info(
-								"directory:" + file.getCanonicalPath());
-					}
+
+					plugin.debug("directory:" + file.getCanonicalPath());
+
 					getAllFiles(file, fileList);
 				} else {
 
-					if (Config.getInstance().getDebugEnabled()) {
-						plugin.getLogger().info(
-								"file:" + file.getCanonicalPath());
-					}
+					plugin.debug("file:" + file.getCanonicalPath());
+
 				}
 			}
 		} catch (IOException e) {
@@ -148,5 +108,50 @@ public class Report {
 
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void writeZipFile(File directoryToZip, List<File> fileList) {
+
+		try {
+			Date date = new Date();
+			File fileZipFolder = new File(plugin.getDataFolder()
+					.getAbsolutePath() + File.separator + "Reports");
+			if (!fileZipFolder.exists()) {
+				fileZipFolder.mkdirs();
+			}
+
+			FileOutputStream fos = new FileOutputStream(plugin.getDataFolder()
+					.getAbsolutePath()
+					+ File.separator
+					+ "Reports"
+					+ File.separator
+					+ "Report"
+					+ (date.getYear() + 1900)
+					+ "."
+					+ (date.getMonth() + 1)
+					+ "."
+					+ date.getDate()
+					+ "."
+					+ date.getHours()
+					+ "."
+					+ date.getMinutes()
+					+ "."
+					+ date.getSeconds() + ".zip");
+			ZipOutputStream zos = new ZipOutputStream(fos);
+
+			for (File file : fileList) {
+				if (!file.isDirectory()) { // we only zip files, not directories
+					addToZip(directoryToZip, file, zos);
+				}
+			}
+
+			zos.close();
+			fos.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }

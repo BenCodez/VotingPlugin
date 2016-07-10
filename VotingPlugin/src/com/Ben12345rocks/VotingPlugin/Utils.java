@@ -10,9 +10,10 @@ import java.util.Set;
 import java.util.UUID;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -21,11 +22,10 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.inventivetalent.title.TitleAPI;
 
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Data.UUIDs;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class Utils {
@@ -114,6 +114,18 @@ public class Utils {
 		return list;
 	}
 
+	public ArrayList<String> comptoString(ArrayList<TextComponent> comps) {
+		ArrayList<String> txt = new ArrayList<String>();
+		for (TextComponent comp : comps) {
+			txt.add(compToString(comp));
+		}
+		return txt;
+	}
+
+	public String compToString(TextComponent comp) {
+		return colorize(comp.toPlainText());
+	}
+
 	public ArrayList<String> convert(Set<String> set) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String st : set) {
@@ -198,20 +210,15 @@ public class Utils {
 
 	public String getPlayerName(String uuid) {
 		if ((uuid == null) || uuid.equalsIgnoreCase("null")) {
-			if (Config.getInstance().getDebugEnabled()) {
-				plugin.getLogger().info("Null UUID");
-			}
-			return null;
-		}
 
-		String playerName = UUIDs.getInstance().getPlayerName(uuid);
-		if (playerName != null) {
-			return playerName;
+			plugin.debug("Null UUID");
+
+			return null;
 		}
 
 		User user = new User(new com.Ben12345rocks.VotingPlugin.Objects.UUID(
 				uuid), false);
-		playerName = Data.getInstance().getName(user);
+		String playerName = Data.getInstance().getName(user);
 
 		if (playerName != null) {
 			return playerName;
@@ -400,7 +407,7 @@ public class Utils {
 		if (str == null) {
 			return "";
 		}
-		if (toReplace == null || replaceWith == null) {
+		if ((toReplace == null) || (replaceWith == null)) {
 			return str;
 		}
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
@@ -411,6 +418,27 @@ public class Utils {
 			return PlaceholderAPI.setBracketPlaceholders(player, text);
 		} else {
 			return text;
+		}
+	}
+
+	public void sendTitle(Player player, String titleText, String subTitleText,
+			String titleColor, String subTitleColor, int fadeIn, int showTime,
+			int fadeOut) {
+		if (plugin.titleAPIEnabled) {
+
+			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
+
+			if ((subTitleText != null) && (subTitleText != "")) {
+				TextComponent subTitle = new TextComponent(subTitleText);
+				subTitle.setColor(ChatColor.valueOf(subTitleColor));
+				TitleAPI.sendSubTitle(player, subTitle);
+			}
+
+			if ((titleText != null) && (titleText != "")) {
+				TextComponent title = new TextComponent(titleText);
+				title.setColor(ChatColor.valueOf(titleColor));
+				TitleAPI.sendTitle(player, title);
+			}
 		}
 	}
 
@@ -431,5 +459,212 @@ public class Utils {
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
+	}
+
+	public TextComponent stringToComp(String string) {
+		TextComponent base = new TextComponent("");
+		boolean previousLetter = false;
+		ChatColor currentColor = null;
+		boolean bold = false;
+		boolean italic = false;
+		boolean underline = false;
+		boolean strike = false;
+		boolean magic = false;
+		String currentstring = "";
+		for (int i = 0; i < string.length(); i++) {
+			char c = string.charAt(i);
+			if (c == '&') {
+				if (string.charAt(i + 1) == 'l') {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentstring = "";
+						currentColor = null;
+						i++;
+						previousLetter = false;
+					} else {
+						bold = true;
+						i++;
+					}
+				} else if (string.charAt(i + 1) == 'k') {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentstring = "";
+						currentColor = null;
+						i++;
+						previousLetter = false;
+					} else {
+						magic = true;
+						i++;
+					}
+				} else if (string.charAt(i + 1) == 'm') {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentstring = "";
+						currentColor = null;
+						i++;
+						previousLetter = false;
+					} else {
+						strike = true;
+						i++;
+					}
+				} else if (string.charAt(i + 1) == 'n') {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentstring = "";
+						currentColor = null;
+						i++;
+						previousLetter = false;
+					} else {
+						underline = true;
+						i++;
+					}
+				} else if (string.charAt(i + 1) == 'o') {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentstring = "";
+						currentColor = null;
+						i++;
+						previousLetter = false;
+					} else {
+						italic = true;
+						i++;
+					}
+				} else if (string.charAt(i + 1) == 'r') {
+					TextComponent newTC = new TextComponent(currentstring);
+					if (currentColor != null) {
+						newTC.setColor(currentColor);
+					}
+					newTC.setBold(bold);
+					newTC.setItalic(italic);
+					newTC.setUnderlined(underline);
+					newTC.setStrikethrough(strike);
+					newTC.setObfuscated(magic);
+					base.addExtra(newTC);
+					bold = false;
+					italic = false;
+					underline = false;
+					strike = false;
+					magic = false;
+					currentstring = "";
+					currentColor = null;
+					i++;
+					previousLetter = false;
+				} else if (ChatColor.getByChar(string.charAt(i + 1)) != null) {
+					if (previousLetter) {
+						TextComponent newTC = new TextComponent(currentstring);
+						if (currentColor != null) {
+							newTC.setColor(currentColor);
+						}
+						newTC.setBold(bold);
+						newTC.setItalic(italic);
+						newTC.setUnderlined(underline);
+						newTC.setStrikethrough(strike);
+						newTC.setObfuscated(magic);
+						base.addExtra(newTC);
+						bold = false;
+						italic = false;
+						underline = false;
+						strike = false;
+						magic = false;
+						currentColor = ChatColor
+								.getByChar(string.charAt(i + 1));
+						currentstring = "";
+						i++;
+						previousLetter = false;
+					} else {
+						currentColor = ChatColor
+								.getByChar(string.charAt(i + 1));
+						i++;
+					}
+				} else {
+					previousLetter = true;
+					currentstring = currentstring + c;
+				}
+			} else {
+				previousLetter = true;
+				currentstring = currentstring + c;
+			}
+		}
+		TextComponent newTC = new TextComponent(currentstring);
+		if (currentColor != null) {
+			newTC.setColor(currentColor);
+		}
+		newTC.setBold(bold);
+		newTC.setItalic(italic);
+		newTC.setUnderlined(underline);
+		newTC.setStrikethrough(strike);
+		newTC.setObfuscated(magic);
+		base.addExtra(newTC);
+		return base;
 	}
 }

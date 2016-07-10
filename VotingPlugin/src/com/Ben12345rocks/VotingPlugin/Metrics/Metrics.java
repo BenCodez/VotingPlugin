@@ -16,7 +16,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -24,7 +23,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
 
-import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Main;
 
 /**
  * <p>
@@ -430,16 +429,13 @@ public class Metrics {
 				// Reload the metrics file
 				configuration.load(CONFIG_FILE);
 			} catch (IOException ex) {
-				if (Config.getInstance().getDebugEnabled()) {
-					Bukkit.getLogger().log(Level.INFO,
-							"[Metrics] " + ex.getMessage());
-				}
+
+				Main.plugin.debug("[Metrics] " + ex.getMessage());
+
 				return true;
 			} catch (InvalidConfigurationException ex) {
-				if (Config.getInstance().getDebugEnabled()) {
-					Bukkit.getLogger().log(Level.INFO,
-							"[Metrics] " + ex.getMessage());
-				}
+				Main.plugin.debug("[Metrics] " + ex.getMessage());
+
 				return true;
 			}
 			return configuration.getBoolean("opt-out", false);
@@ -606,10 +602,9 @@ public class Metrics {
 								// Each post thereafter will be a ping
 								firstPost = false;
 							} catch (IOException e) {
-								if (Config.getInstance().getDebugEnabled()) {
-									Bukkit.getLogger().log(Level.INFO,
-											"[Metrics] " + e.getMessage());
-								}
+
+								Main.plugin.debug("[Metrics] " + e.getMessage());
+
 							}
 						}
 					}, 0, PING_INTERVAL * 1200);

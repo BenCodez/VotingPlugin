@@ -4,9 +4,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
+import net.md_5.bungee.api.chat.TextComponent;
+
 import org.apache.commons.lang3.time.DateUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -15,21 +19,24 @@ import org.bukkit.permissions.Permission;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBonusReward;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
 import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 public class Commands {
 
-	static ConfigBonusReward bonusReward = ConfigBonusReward.getInstance();
+	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
 	static Config config = Config.getInstance();
 
@@ -52,68 +59,45 @@ public class Commands {
 		Commands.plugin = plugin;
 	}
 
-	public ArrayList<String> adminHelpText() {
-		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("VotingPlugin Admin Help");
-		msg.add("[] = Optional");
-		msg.add("() = Needed");
-		msg.add("Aliases: adminvote, av");
-		msg.add("/adminvote help - See this page");
-		msg.add("/adminvote perms - See list of perms");
-		msg.add("/adminvote vote (player) (sitename) - Trigger vote");
-		msg.add("/adminvote bungeevote (player) (sitename) - Trigger bungee only vote");
-		msg.add("/adminvote servervote (player) (sitename) - Trigger server only vote");
-		msg.add("/adminvote settotal (player) (sitename) (amount) - Set total votes of a player on votesite");
-		msg.add("/adminvote reload - Reload the plugin");
-		msg.add("/adminvote uuid (playername) - See uuid of player");
-		msg.add("/adminvote version - Version info");
-		msg.add("/adminvote sites [site] - List of sites and site info");
-		msg.add("Editing Commands");
-		msg.add("/adminvote VoteSite (SiteName) Create - Gernerate a votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddItem (Item) - Add item in hand to votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetMoney (Money) - Set money for votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetServiceSite (ServiceSite) - Set servicesite on votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetDisabled (Disabled) - Set votesite disabled");
-		msg.add("/adminvote VoteSite (SiteName) SetVoteDelay (Delay) - Set votesite votedelay");
-		msg.add("/adminvote VoteSite (SiteName) AddCommandPlayer (Command) - Add player command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddCommandConsole (Command) - Add console command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardItem (Reward) (Item) - Add ExtraReward item in hand to votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetExtraRewardMoney (Reward) (Money) - Set ExtraReward money for votesite");
-		msg.add("/adminvote VoteSite (SiteName) SetExtraRewardChance (Reward) (Chance) - Set ExtraReward chance");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardCommandPlayer (Reward) (Command) - Add ExtraReward player command to votesite");
-		msg.add("/adminvote VoteSite (SiteName) AddExtraRewardCommandConsole (Reward) (Command) - Add ExtraReward console command to votesite");
-		msg.add("/adminvote BonusReward AddItem (Item) - Add item in hand");
-		msg.add("/adminvote BonusReward SetMoney (Money) - Set money");
-		msg.add("/adminvote BonusReward SetGiveBonusReward (Disabled) - Set bonus reward enabled");
-		msg.add("/adminvote BonusReward AddCommandPlayer (Command) - Add player command");
-		msg.add("/adminvote BonusReward AddCommandConsole (Command) - Add console command");
-		msg.add("/adminvote BonusReward AddExtraRewardItem (Reward) (Item) - Add ExtraReward item in hand");
-		msg.add("/adminvote BonusReward SetExtraRewardMoney (Reward) (Money) - Set ExtraReward money");
-		msg.add("/adminvote BonusReward SetExtraRewardChance (Reward) (Chance) - Set ExtraReward chance");
-		msg.add("/adminvote BonusReward AddExtraRewardCommandPlayer (Reward) (Command) - Add ExtraReward player command");
-		msg.add("/adminvote BonusReward AddExtraRewardCommandConsole (Reward) (Command) - Add ExtraReward console command");
-		msg.add("/adminvote Config SetDebug (true/false) - Set debug");
-		msg.add("/adminvote Config SetBroadcastVote (true/false) - Set broadcastvote");
-		msg.add("/adminvote Config SetUpdateReminder (true/false) - Set updatereminder");
-		msg.add("/adminvote Config SetAllowUnjoined (true/false) - Set allowunjoined");
-		msg.add("/adminvote Config SetDisableTopVoterAwards (true/false) - Set disabletopvoterawards");
-		msg.add("/adminvote ServerData SetPrevMonth - Set prevmonth, DO NOT USE");
+	public ArrayList<TextComponent> adminHelp(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		ArrayList<TextComponent> text = adminHelpText();
+
+		int maxPage = text.size() / pagesize;
+		if ((text.size() % pagesize) != 0) {
+			maxPage++;
+		}
+
+		msg.add(Utils.getInstance().stringToComp(
+				"&3&lVotingPlugin Admin Help " + (page + 1) + "/" + maxPage));
+		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
+		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
+
+		for (int i = pagesize * page; (i < text.size())
+				&& (i < ((page + 1) * pagesize)); i++) {
+			msg.add(text.get(i));
+		}
+
 		return msg;
 	}
 
-	public String[] adminHelpTextColored() {
-		ArrayList<String> texts = new ArrayList<String>();
-		for (String msg : adminHelpText()) {
-			if (msg.split("-").length > 1) {
-				texts.add("&3&l" + msg.split("-")[0] + "-&3"
-						+ msg.split("-")[1]);
-			} else {
-				texts.add("&3&l" + msg.split("-")[0]);
-			}
-		}
-		texts = Utils.getInstance().colorize(texts);
-		return Utils.getInstance().convertArray(texts);
+	public ArrayList<TextComponent> adminHelpText() {
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
+		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+			unsorted.put(cmdHandle.getHelpLineCommand("/av"),
+					cmdHandle.getHelpLine("/av"));
+		}
+		ArrayList<String> unsortedList = new ArrayList<String>();
+		unsortedList.addAll(unsorted.keySet());
+		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
+		for (String cmd : unsortedList) {
+			msg.add(unsorted.get(cmd));
+		}
+
+		return msg;
 	}
 
 	public String[] commandVoteToday(int page) {
@@ -122,9 +106,10 @@ public class Commands {
 			page = 1;
 		}
 		ArrayList<String> msg = new ArrayList<String>();
+		String[] voteToday = voteToday();
 
-		int maxPage = plugin.voteToday.length / pagesize;
-		if (plugin.voteToday.length % pagesize != 0) {
+		int maxPage = voteToday.length / pagesize;
+		if ((voteToday.length % pagesize) != 0) {
 			maxPage++;
 		}
 
@@ -132,14 +117,13 @@ public class Commands {
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
-		for (int i = pagesize * page; (i < plugin.voteToday.length)
+		for (int i = pagesize * page; (i < voteToday.length)
 				&& (i < ((page + 1) * pagesize)); i++) {
-			msg.add(plugin.voteToday[i]);
+			msg.add(voteToday[i]);
 		}
 
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
-
 	}
 
 	public String[] listPerms() {
@@ -191,9 +175,13 @@ public class Commands {
 			} else if (slot.equalsIgnoreCase("top")) {
 				lore = TopVoter.getInstance().topVoter(1);
 			} else if (slot.equalsIgnoreCase("today")) {
-				lore = plugin.voteToday;
+				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
-				lore = Commands.getInstance().voteHelpTextColored();
+				ArrayList<String> loreSt = new ArrayList<String>();
+				for (TextComponent txt : Commands.getInstance().voteHelpText()) {
+					loreSt.add(txt.getText());
+				}
+				lore = Utils.getInstance().convertArray(loreSt);
 			}
 
 			inv.addButton(ConfigGUI.getInstance().getVoteGUISlotSlot(slot),
@@ -234,6 +222,73 @@ public class Commands {
 
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
+	}
+
+	public void sendTopVoterScoreBoard(Player player, int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				TopVoter.getInstance().topVoters());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = Utils.getInstance().colorize(
+				format.getCommandVoteTopTitle().replace("%page%", "" + page)
+						.replace("%maxpages%", "" + pageSize));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoter.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+					plugin.topVoter.get(users.get(i)));
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	@SuppressWarnings("deprecation")
+	public void updateVoteToday() {
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				Data.getInstance().getUsers());
+		plugin.voteToday.clear();
+
+		if (users != null) {
+			for (User user : users) {
+				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
+				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
+					long time = user.getTime(voteSite);
+					if ((new Date().getDate() == Utils.getInstance()
+							.getDayFromMili(time))
+							&& (new Date().getMonth() == Utils.getInstance()
+									.getMonthFromMili(time))
+							&& (new Date().getYear() == Utils.getInstance()
+									.getYearFromMili(time))) {
+
+						times.put(voteSite, new Date(time));
+
+					}
+				}
+				if (times.keySet().size() > 0) {
+					plugin.voteToday.put(user, times);
+				}
+			}
+		}
+		plugin.debug("Updated VoteToday");
 	}
 
 	public String[] voteCommandLast(User user) {
@@ -350,6 +405,147 @@ public class Commands {
 		return info;
 	}
 
+	public String[] voteCommandRewardInfo(String rewardName) {
+		ArrayList<String> msg = new ArrayList<String>();
+
+		if (!ConfigRewards.getInstance().getRewardFile(rewardName).exists()) {
+			msg.add("&cInvalid reward, see /av rewards!");
+		} else {
+
+			Reward reward = ConfigRewards.getInstance().getReward(rewardName);
+
+			msg.add("&c&lReward Info for " + reward.getRewardName() + ":");
+
+			msg.add("&cChance: &6" + reward.getChance());
+			msg.add("&cRequirePermission: &6" + reward.isRequirePermission());
+			msg.add("&cWorlds: &6"
+					+ Utils.getInstance().makeStringList(reward.getWorlds()));
+			msg.add("&cGive in each world: &6" + reward.isGiveInEachWorld());
+
+			// items
+			msg.add("&cItems:");
+			for (String item : reward.getItems()) {
+				msg.add("  &c" + item + ":");
+				msg.add("    &cMaterial: &6"
+						+ reward.getItemMaterial().get(item));
+				msg.add("    &cData: &6" + reward.getItemData().get(item));
+				msg.add("    &cAmount: &6" + reward.getItemAmount().get(item));
+				msg.add("    &cMinAmount: &6"
+						+ reward.getItemMinAmount().get(item));
+				msg.add("    &cMaxAmount: &6"
+						+ reward.getItemMaxAmount().get(item));
+				msg.add("    &cName: &6" + reward.getItemName().get(item));
+				msg.add("    &cLore: &6"
+						+ Utils.getInstance().makeStringList(
+								reward.getItemLore().get(item)));
+				msg.add("    &cEnchants:");
+				for (String enchant : reward.getItemEnchants().get(item)
+						.keySet()) {
+					msg.add("      &c" + enchant + ": &6"
+							+ reward.getItemEnchants().get(item).get(enchant));
+				}
+
+			}
+
+			// money
+			msg.add("&cMoney: &6" + reward.getMoney());
+			msg.add("&cMinMoney: &6" + reward.getMinMoney());
+			msg.add("&cMaxMoney: &6" + reward.getMaxMoney());
+
+			// commands
+			msg.add("&cConsole Commands:");
+			for (String consoleCommand : reward.getConsoleCommands()) {
+				msg.add("- &6" + consoleCommand);
+			}
+
+			msg.add("&cPlayer Commands:");
+			for (String playerCommand : reward.getPlayerCommands()) {
+				msg.add("- &6" + playerCommand);
+			}
+
+			// potions
+			msg.add("&cPotions:");
+			for (String potion : reward.getPotions()) {
+				msg.add("&c- " + potion);
+				msg.add("  &cDuration: &6"
+						+ reward.getPotionsDuration().get(potion));
+				msg.add("  &cAmplifier: &6"
+						+ reward.getPotionsAmplifier().get(potion));
+			}
+
+			// title
+			msg.add("&cTitle:");
+			msg.add("  &cEnabled: &6"
+					+ ConfigRewards.getInstance().getTitleEnabled(rewardName));
+			msg.add("  &cTitle: &6"
+					+ ConfigRewards.getInstance().getTitleTitle(rewardName));
+			msg.add("  &cTitleColor: &6"
+					+ ConfigRewards.getInstance()
+							.getTitleTitleColor(rewardName));
+			msg.add("  &cSubTitle: &6"
+					+ ConfigRewards.getInstance().getTitleSubTitle(rewardName));
+			msg.add("  &cSubTitleColor: &6"
+					+ ConfigRewards.getInstance().getTitleSubTitleColor(
+							rewardName));
+			msg.add("  &cFadeIn: &6"
+					+ ConfigRewards.getInstance().getTitleFadeIn(rewardName));
+			msg.add("  &cShowTime: &6"
+					+ ConfigRewards.getInstance().getTitleShowTime(rewardName));
+			msg.add("  &cFadeOut: &6"
+					+ ConfigRewards.getInstance().getTitleFadeOut(rewardName));
+
+			// sound
+			msg.add("&cSound:");
+			msg.add("  &cEnabled: &6"
+					+ ConfigRewards.getInstance().getSoundEnabled(rewardName));
+			msg.add("  &cSound: &6"
+					+ ConfigRewards.getInstance().getSoundSound(rewardName));
+			msg.add("  &cVolume: &6"
+					+ ConfigRewards.getInstance().getSoundVolume(rewardName));
+			msg.add("  &cPitch: &6"
+					+ ConfigRewards.getInstance().getSoundPitch(rewardName));
+
+			// effect
+			msg.add("&cEffect:");
+			msg.add("  &cEnabled: &6"
+					+ ConfigRewards.getInstance().getEffectEnabled(rewardName));
+			msg.add("  &cEffect: &6"
+					+ ConfigRewards.getInstance().getEffectEffect(rewardName));
+			msg.add("  &cData: &6"
+					+ ConfigRewards.getInstance().getEffectData(rewardName));
+			msg.add("  &cParticles: &6"
+					+ ConfigRewards.getInstance()
+							.getEffectParticles(rewardName));
+			msg.add("  &cRadius: &6"
+					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
+
+			// messages
+			msg.add("&cMessages:");
+			msg.add("  &cReward: &6" + reward.getRewardMsg());
+
+		}
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] voteCommandRewards() {
+		ArrayList<String> msg = new ArrayList<String>();
+
+		msg.add("&c&lRewards:");
+
+		int count = 1;
+		ArrayList<Reward> rewards = plugin.rewards;
+		if (rewards != null) {
+			for (Reward reward : rewards) {
+				msg.add("&c" + count + ". &6" + reward.getRewardName());
+				count++;
+			}
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
 	public String[] voteCommandSiteInfo(String voteSiteName) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -365,114 +561,9 @@ public class Commands {
 			msg.add("&cSite: &6" + voteSite.getServiceSite());
 			msg.add("&cVoteURL: &6" + voteSite.getVoteURL());
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
-			msg.add("&cMoney: &6" + voteSite.getMoney());
 			msg.add("&cPriority: &6"
 					+ ConfigVoteSites.getInstance().getPriority(voteSiteName));
 
-			msg.add("&cItems:");
-			for (String item : ConfigVoteSites.getInstance().getItems(
-					voteSite.getSiteName())) {
-				msg.add("&c- &6" + item);
-			}
-
-			msg.add("&cPlayer Commands:");
-
-			try {
-				for (String playerCommands : voteSite.getPlayerCommands()) {
-					msg.add("&c- " + playerCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&cConsole Commands:");
-
-			try {
-				for (String consoleCommands : voteSite.getConsoleCommands()) {
-					msg.add("&c- " + consoleCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&4&l&nExtra Rewards:");
-			for (String reward : configVoteSites
-					.getExtraRewardRewards(voteSiteName)) {
-				msg.add("&4&lReward: &c" + reward);
-				msg.add("&cChance: &6"
-						+ voteSite.getExtraRewardsChance().get(reward));
-				msg.add("&cMoney: &6"
-						+ voteSite.getExtraRewardsMoney().get(reward));
-
-				ArrayList<String> worlds = voteSite.getExtraRewardsWorld().get(
-						reward);
-				if (worlds != null) {
-					msg.add("&cWorlds: "
-							+ Utils.getInstance().makeStringList(worlds));
-				}
-				msg.add("&cGiveInEachWorld: &6"
-						+ ConfigVoteSites.getInstance()
-								.getExtraRewardGiveInEachWorld(
-										voteSite.getSiteName(), reward));
-
-				msg.add("&cPermission: &6"
-						+ voteSite.getExtraRewardsPermission().get(reward));
-
-				msg.add("&cItems:");
-				for (String item : ConfigVoteSites.getInstance()
-						.getExtraRewardItems(voteSite.getSiteName(), reward)) {
-					msg.add("&c- &6" + item);
-				}
-
-				msg.add("&cPlayer Commands:");
-
-				try {
-					for (String playerCommands : voteSite
-							.getExtraRewardsPlayerCommands().get(reward)) {
-						msg.add("&c- " + playerCommands);
-					}
-				} catch (Exception ex) {
-				}
-
-				msg.add("&cConsole Commands:");
-
-				try {
-					for (String consoleCommands : voteSite
-							.getExtraRewardsConsoleCommands().get(reward)) {
-						msg.add("&c- " + consoleCommands);
-					}
-				} catch (Exception ex) {
-				}
-			}
-
-			msg.add("&c&lCumulative Rewards:");
-
-			msg.add("&cVotes: &6" + voteSite.getCumulativeVotes());
-			msg.add("&cMoney: &6" + voteSite.getCumulativeMoney());
-
-			msg.add("&cItems:");
-			for (String item : ConfigVoteSites.getInstance()
-					.getCumulativeRewardItems(voteSite.getSiteName())) {
-				msg.add("&c- &6" + item);
-			}
-
-			msg.add("&cPlayer Commands:");
-
-			try {
-				for (String playerCommands : voteSite
-						.getCumulativePlayerCommands()) {
-					msg.add("&c- " + playerCommands);
-				}
-			} catch (Exception ex) {
-			}
-
-			msg.add("&cConsole Commands:");
-
-			try {
-				for (String consoleCommands : voteSite
-						.getCumulativeConsoleCommands()) {
-					msg.add("&c- " + consoleCommands);
-				}
-			} catch (Exception ex) {
-			}
 		}
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
@@ -557,38 +648,49 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public ArrayList<String> voteHelpText() {
-		ArrayList<String> texts = new ArrayList<String>();
-		texts.add(ConfigFormat.getInstance().getCommandsVoteHelpTitle());
-		texts.addAll(ConfigFormat.getInstance().getCommandsVoteHelpLines());
-		return texts;
-	}
+	/*
+	 * public String[] voteHelpTextColored() { ArrayList<String> texts = new
+	 * ArrayList<String>(); String helpLine =
+	 * ConfigFormat.getInstance().getCommandsVoteHelpLine(); for (String msg :
+	 * voteHelpText()) { if (msg.split("-").length > 1) { String command =
+	 * msg.split("-")[0]; String helpMessage = msg.split("-")[1];
+	 * texts.add(helpLine.replace("%Command%", command).replace(
+	 * "%HelpMessage%", helpMessage)); } else { String command =
+	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
+	 * texts = Utils.getInstance().colorize(texts); return
+	 * Utils.getInstance().convertArray(texts);
+	 * 
+	 * }
+	 */
 
-	public String[] voteHelpTextColored() {
-		ArrayList<String> texts = new ArrayList<String>();
-		for (String msg : voteHelpText()) {
-			if (msg.split("-").length > 1) {
-				texts.add("&3&l" + msg.split("-")[0] + "-&3"
-						+ msg.split("-")[1]);
-			} else {
-				texts.add("&3&l" + msg.split("-")[0]);
-			}
+	public ArrayList<TextComponent> voteHelpText() {
+		ArrayList<TextComponent> texts = new ArrayList<TextComponent>();
+		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
+		texts.add(Utils.getInstance().stringToComp(
+				ConfigFormat.getInstance().getCommandsVoteHelpTitle()));
+		for (CommandHandler cmdHandle : plugin.voteCommand) {
+			unsorted.put(cmdHandle.getHelpLineCommand("/v"),
+					cmdHandle.getHelpLine("/v"));
 		}
-		texts = Utils.getInstance().colorize(texts);
-		return Utils.getInstance().convertArray(texts);
 
+		ArrayList<String> unsortedList = new ArrayList<String>();
+		unsortedList.addAll(unsorted.keySet());
+		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
+		for (String cmd : unsortedList) {
+			texts.add(unsorted.get(cmd));
+		}
+		return texts;
 	}
 
 	@SuppressWarnings("deprecation")
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward");
 
-		if (siteName == null || siteName == "") {
+		if ((siteName == null) || (siteName == "")) {
 			int count = 0;
 			for (VoteSite voteSite : plugin.voteSites) {
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(voteSite.getSiteName());
-				}
+				plugin.debug(voteSite.getSiteName());
+
 				ItemStack item = new ItemStack(ConfigGUI.getInstance()
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
@@ -658,31 +760,15 @@ public class Commands {
 		BInventory.openInventory(player, inv);
 	}
 
-	@SuppressWarnings("deprecation")
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
+		for (User user : plugin.voteToday.keySet()) {
 
-		ArrayList<User> users = Utils.getInstance().convertSet(
-				Data.getInstance().getUsers());
-
-		if (users != null) {
-
-			for (User user : users) {
-				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
-					long time = user.getTime(voteSite);
-					if (new Date().getDate() == Utils.getInstance()
-							.getDayFromMili(time)
-							&& new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time)
-							&& new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time)) {
-
-						String timeString = new SimpleDateFormat(
-								format.getTimeFormat()).format(new Date(time));
-						msg.add("&6" + user.getPlayerName() + " : "
-								+ voteSite.getSiteName() + " : " + timeString);
-					}
-				}
+			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+				String timeString = new SimpleDateFormat(format.getTimeFormat())
+						.format(plugin.voteToday.get(user).get(voteSite));
+				msg.add("&6" + user.getPlayerName() + " : "
+						+ voteSite.getSiteName() + " : " + timeString);
 			}
 		}
 		msg = Utils.getInstance().colorize(msg);

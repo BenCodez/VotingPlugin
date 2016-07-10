@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -12,13 +13,13 @@ import org.bukkit.plugin.Plugin;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
-public class Config {
+public class ConfigVoteReminding {
 
-	static Config instance = new Config();
+	static ConfigVoteReminding instance = new ConfigVoteReminding();
 
 	static Main plugin = Main.plugin;
 
-	public static Config getInstance() {
+	public static ConfigVoteReminding getInstance() {
 		return instance;
 	}
 
@@ -26,39 +27,37 @@ public class Config {
 
 	File dFile;
 
-	private Config() {
+	private ConfigVoteReminding() {
 	}
 
-	public Config(Main plugin) {
-		Config.plugin = plugin;
+	public ConfigVoteReminding(Main plugin) {
+		ConfigVoteReminding.plugin = plugin;
 	}
 
-	public boolean allowUnJoined() {
-		return getData().getBoolean("AllowUnjoined");
+	public int getChance() {
+		return getData().getInt("Chance");
 	}
 
-	public boolean getAutoCreateVoteSites() {
-		return getData().getBoolean("AutoCreateVoteSites");
-	}
-
-	public int getBackgroundTaskDelay() {
-		int num = getData().getInt("BackgroundTaskDelay");
-		if (num == 0) {
-			num = 600;
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsConsole() {
+		try {
+			return (ArrayList<String>) getData().getList("Commands.Console");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
 		}
-		return num;
 	}
 
-	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("BroadcastVote");
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsPlayer() {
+		try {
+			return (ArrayList<String>) getData().getList("Commands.Player");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public FileConfiguration getData() {
 		return data;
-	}
-
-	public boolean getDebugEnabled() {
-		return getData().getBoolean("Debug");
 	}
 
 	public int getEffectData() {
@@ -79,6 +78,35 @@ public class Config {
 
 	public int getEffectRadius() {
 		return getData().getInt("Effect.Radius");
+	}
+
+	public boolean getEnabled() {
+		return getData().getBoolean("Enabled");
+	}
+
+	public String getMessagesRemind() {
+		String msg = getData().getString("Messages.Remind");
+		if (msg != null) {
+			return msg;
+		} else {
+			return "&cRemember to vote";
+		}
+	}
+
+	public int getRemindDelay() {
+		int num = getData().getInt("RemindDelay");
+		if (num != 0) {
+			return num;
+		}
+		return 30;
+	}
+
+	public boolean getRemindOnLogin() {
+		return getData().getBoolean("RemindOnLogin");
+	}
+
+	public boolean getRemindOnlyOnce() {
+		return getData().getBoolean("RemindOnlyOnce");
 	}
 
 	public boolean getSoundEnabled() {
@@ -129,14 +157,6 @@ public class Config {
 		return getData().getString("Title.TitleColor");
 	}
 
-	public boolean getTopVoterAwardsEnabled() {
-		return getData().getBoolean("TopVoterAwards");
-	}
-
-	public boolean getVoteURLDefault() {
-		return getData().getBoolean("VoteURLDefault");
-	}
-
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
@@ -145,24 +165,21 @@ public class Config {
 		Files.getInstance().editFile(dFile, data);
 	}
 
-	public void setAllowUnJoined(boolean value) {
-		getData().set("AllowUnjoined", value);
+	public void set(String path, Object value) {
+		getData().set(path, value);
 		saveData();
 	}
 
-	public void setBroadcastVoteEnabled(boolean value) {
-		getData().set("BroadcastVote", value);
-		saveData();
+	public void setCommandsConsole(ArrayList<String> value) {
+		set("Commands.Console", value);
 	}
 
-	public void setDebugEnabled(boolean value) {
-		getData().set("Debug", value);
-		saveData();
+	public void setCommandsPlater(ArrayList<String> value) {
+		set("Commands.Player", value);
 	}
 
-	public void setTopVoterAwardsEnabled(boolean value) {
-		getData().set("TopVoterAwards", value);
-		saveData();
+	public void setMessagesReward(String value) {
+		set("Messages.Reward", value);
 	}
 
 	public void setup(Plugin p) {
@@ -170,15 +187,17 @@ public class Config {
 			p.getDataFolder().mkdir();
 		}
 
-		dFile = new File(p.getDataFolder(), "Config.yml");
+		dFile = new File(p.getDataFolder(), "VoteReminding.yml");
 
 		if (!dFile.exists()) {
 			try {
 				dFile.createNewFile();
-				plugin.saveResource("Config.yml", true);
+				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				Bukkit.getServer()
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create VoteReminding.yml!");
 			}
 		}
 

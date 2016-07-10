@@ -1,7 +1,7 @@
 name: VotingPlugin
-version: 3.6.2
+version: 4.0
 main: com.Ben12345rocks.VotingPlugin.Main
-description: Highly Customizable VotingPlugin!
+description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
 commands:
@@ -37,49 +37,67 @@ commands:
   votegui:
     description: Open VoteGUI
     aliases: vgui
+  voteurl:
+    description: Open VoteURL
+    aliases: vurl
+  votereward:
+    description: Open VoteReward GUI
+    aliases: vreward
+  vote?:
+    description: View Help
+    aliases: v?
+  adminvotehelp:
+    description: Open adminvote help
+    aliases: avhelp
+  adminvote?:
+    description: Open adminvote help
+    aliases: av?
+  adminvotereport:
+    description: Command Alias
+    aliases: avreport
+  adminvoteperms:
+    description: Command Alias
+    aliases: avperms
+  adminvotereload:
+    description: Command Alias
+    aliases: avreload
+  adminvoteversion:
+    description: Command Alias
+    aliases: avversion
+  adminvotesites:
+    description: Command Alias
+    aliases: avsites
+  adminvoterewards:
+    description: Command Alias
+    aliases: avrewards
+  adminvoteuuid:
+    description: Command Alias
+    aliases: avuuid
+  adminvotereset:
+    description: Command Alias
+    aliases: avreset
+  adminvotevotesite:
+    description: Command Alias
+    aliases: avvotesite
+  adminvoteconfig:
+    description: Command Alias
+    aliases: avconfig
+  adminvoteserverdata:
+    description: Command Alias
+    aliases: avserverdata
+  adminvotesettotal:
+    description: Command Alias
+    aliases: avsettotal
+  adminvoteupdatecheck:
+    description: Command Alias
+    aliases: avupdatecheck
+  adminvotevote:
+    description: Command Alias
+    aliases: avvote
+  adminvoteTriggerPlayerVoteEvent:
+    description: Command Alias
+    aliases: avTriggerPlayerVoteEvent
 permissions:
-  VotingPlugin.*:
-    description: Gives access to all VotingPlugin commands
-    children:
-      VotingPlugin.Player: true
-      VotingPlugin.Admin: true
-      VotingPlugin.Commands.*: true
-  VotingPlugin.Commands.*:
-    description: Allows access to all commands
-    children:
-      VotingPlugin.Commands.Vote.*: true
-      VotingPlugin.Commands.AdminVote.*: true  
-  VotingPlugin.Commands.Vote.*:
-    description: Allows access to all /vote commands
-    children:
-      VotingPlugin.Commands.Vote.Next: true
-      VotingPlugin.Commands.Vote.Next.Other: true
-      VotingPlugin.Commands.Vote.Total: true
-      VotingPlugin.Commands.Vote.Total.Other: true
-      VotingPlugin.Commands.Vote.Total.All: true
-      VotingPlugin.Commands.Vote.Last: true
-      VotingPlugin.Commands.Vote.Last.Other: true
-      VotingPlugin.Commands.Vote.Info: true
-      VotingPlugin.Commands.Vote.Info.Other: true
-      VotingPlugin.Commands.Vote.Today: true
-      VotingPlugin.Commands.Vote.Help: true
-      VotingPlugin.Commands.Vote.GUI: true
-  VotingPlugin.Commands.AdminVote.*:
-    description: Allows access to admin commands
-    children:
-      VotingPlugin.Commands.AdminVote.Help: true
-      VotingPlugin.Commands.AdminVote.GUI: true
-      VotingPlugin.Commands.AdminVote.Vote: true
-      VotingPlugin.Commands.AdminVote.UUID: true
-      VotingPlugin.Commands.AdminVote.Reload: true
-      VotingPlugin.Commands.AdminVote.Set.Total: true
-      VotingPlugin.Commands.AdminVote.Version: true
-      VotingPlugin.Commands.AdminVote.Sites: true
-      VotingPlugin.Commands.AdminVote.Sites.Site: true
-      VotingPlugin.Commands.AdminVote.VoteSite.Edit: true
-      VotingPlugin.Commands.AdminVote.BonusReward.Edit: true
-      VotingPlugin.Commands.AdminVote.Config.Edit: true
-      VotingPlugin.Commands.AdminVote.ServerData.Edit: true
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
@@ -93,75 +111,12 @@ permissions:
       VotingPlugin.Commands.Vote.Last: true
       VotingPlugin.Commands.Vote.Info: true
       VotingPlugin.Commands.Vote.Help: true
-  VotingPlugin.Admin:
-    description: Allows full access to admin commands
-    children:
-      VotingPlugin.Commands.AdminVote.*: true
-      VotingPlugin.Player: true
-      VotingPlugin.Signs.Create: true
+      VotingPlugin.Commands.Vote.Top: true
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
-  VotingPlugin.Commands.Vote.Next: 
-    description: Allows access to /vote next
-  VotingPlugin.Commands.Vote.GUI: 
-    description: Allows access to /vote GUI
-  VotingPlugin.Commands.Vote.Reward: 
-    description: Allows access to /vote Reward
-  VotingPlugin.Commands.Vote.URL: 
-    description: Allows access to /vote URL
-  VotingPlugin.Commands.Vote.Next.Other: 
-    description: Allows access to /vote next <player>
-  VotingPlugin.Commands.Vote.Total: 
-    description: Allows access to /vote total
-  VotingPlugin.Commands.Vote.Total.Other: 
-    description: Allows access to /vote total <player>
-  VotingPlugin.Commands.Vote.Total.All: 
-    description: Allows access to /vote total all
-  VotingPlugin.Commands.Vote.Last: 
-    description: Allows access to /vote last
-  VotingPlugin.Commands.Vote.Last.Other: 
-    description: Allows access to /vote last <player>
-  VotingPlugin.Commands.Vote.Info: 
-    description: Allows access to /vote info
-  VotingPlugin.Commands.Vote.Info.Other: 
-    description: Allows access to /vote info <player>
-  VotingPlugin.Commands.Vote.Today: 
-    description: Allows access to /vote today
-  VotingPlugin.Commands.Vote.Help: 
-    description: Allows access to /vote help
-  VotingPlugin.Commands.AdminVote.Help: 
-    description: Allows access to /adminvote help
-  VotingPlugin.Commands.AdminVote.Perms: 
-    description: Allows access to /adminvote Perms
-  VotingPlugin.Commands.AdminVote.Report: 
-    description: Allows access to /adminvote Report
-  VotingPlugin.Commands.AdminVote.Vote: 
-    description: Allows access to /adminvote vote <player> <site>
-  VotingPlugin.Commands.AdminVote.UUID: 
-    description: Allows access to /adminvote uuid <player>
-  VotingPlugin.Commands.AdminVote.Reload: 
-    description: Allows access to /adminvote reload
-  VotingPlugin.Commands.AdminVote.Set.Total:
-    description: Allows access to /adminvote settotal <player> <sitename> <amount> 
-  VotingPlugin.Commands.AdminVote.Version:
-    description: Allows access to /adminvote version
-  VotingPlugin.Commands.AdminVote.Sites: 
-    description: Allows access to /adminvote sites
-  VotingPlugin.Commands.AdminVote.Sites.Site: 
-    description: Allows access to /adminvote sites <site>   
-  VotingPlugin.Commands.AdminVote.VoteSite.Edit:
-    description: Allows access to commands which edit a VoteSite          
-  VotingPlugin.Commands.AdminVote.BonusReward.Edit: 
-    description: Allows access to commands which edit BonusReward.yml
-  VotingPlugin.Commands.AdminVote.Config.Edit: 
-    description: Allows access to commands which edit Config.yml
-  VotingPlugin.Commands.AdminVote.ServerData.Edit: 
-    description: Allows access to commands which edit ServerData.yml
   VotingPlugin.Signs.Create:
     description: Allows access to create signs
   VotingPlugin.TopVoter.Ignore:
     description: Allows you to be exempt from top voter
-  VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent:
-    description: Allows access to trigger player vote event
   
