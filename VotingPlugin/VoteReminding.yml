@@ -36,9 +36,9 @@ Commands:
 Title:
   Enabled: false
   Title: 'Remember to vote!'
-  TitleColor: red
+  TitleColor: RED
   SubTitle: ''
-  SubTitleColor: blue
+  SubTitleColor: BLUE
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10

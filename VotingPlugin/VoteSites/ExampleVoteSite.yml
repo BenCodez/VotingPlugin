@@ -2,8 +2,8 @@
 # This is an Example VoteSite
 # Located in VoteSites folder in plugin directory
 # The file name is the VoteSite name
-# The Main rewards below are always the same
-# Use ExtraRewards for lucky/extra rewards, etc
+# On vote, plugin will attempt to give any reward files listed below
+# Also will attempt cumulative rewards
       
 # Enable voteSite
 # If false, votesite will not be loaded by plugin

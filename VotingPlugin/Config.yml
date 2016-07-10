@@ -19,8 +19,8 @@ TopVoterAwards: false
 VoteURLDefault: false
 
 # If true, plugin will automaticly generate votesites
-# Disable if you experience issues with sites being created
-# randomly
+# Disable this if you experience issues with sites being 
+# created randomly
 AutoCreateVoteSites: true
 
 # Number of seconds between background updates
@@ -32,17 +32,18 @@ BackgroundTaskDelay: 600
 # The following will be sent to voter when the voter is online
 # You can also send the following in each reward file if you wish
 # This will only run once if player has voted offline, regardless of number of votes
+# Setting them here works better for offline votes
 
-# Title to send to voter
+# Title to send to voter on vote
 # Requires TitleAPI (and all of its requirements)
 # Download here: 
 # https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
 Title:
   Enabled: false
   Title: 'Thanks for voting!'
-  TitleColor: red
+  TitleColor: RED
   SubTitle: 'You voted on %votesite%'
-  SubTitleColor: blue
+  SubTitleColor: BLUE
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10
@@ -52,8 +53,7 @@ Sound:
   # Enable or Disable Sound
   Enabled: false
   # Sound to play
-  # 1.9 Sounds: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
-  # 1.8: https://jd.bukkit.org/org/bukkit/Sound.html 
+  # 1.10 Sounds: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
   Sound: 'BLOCK_ANVIL_USE'
   # Volume
   # Range: 0.0 to 1.0

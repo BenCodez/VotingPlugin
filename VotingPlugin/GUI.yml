@@ -1,3 +1,5 @@
+# Configure GUI's here
+# Note: Slots start at 0 instead of 1, max slots 44 (don't go over) (E.g: so last slot in first row of inventory is 8)
 GUI:
   # GUI for /vote gui, /vgui, votegui
   VoteGUI:
@@ -67,6 +69,8 @@ GUI:
         Name: '&4Voting Rewards'
       Command: 'vote reward'
       Slot: 7
+  # GUI for /vote url
+  # And /vote if enabled in Config.yml
   VoteURL:
     SiteName: '&c%Name%'
     SeeURL: '&cClick to see URL'
@@ -81,6 +85,7 @@ GUI:
       Data: 0
       Amount: 1
   # Customize /vote reward
+  # Show players what you get when you vote on each site
   VoteReward:
     # Name of votesite
     # If your site name contains a dot, replace it with a - and surround the name with ' '

@@ -113,9 +113,9 @@ Potions:
 Title:
   Enabled: false
   Title: 'Thanks for voting!'
-  TitleColor: red
+  TitleColor: RED
   SubTitle: 'You voted on %votesite%'
-  SubTitleColor: blue
+  SubTitleColor: BLUE
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10

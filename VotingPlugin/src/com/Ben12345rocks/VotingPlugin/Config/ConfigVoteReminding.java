@@ -195,9 +195,9 @@ public class ConfigVoteReminding {
 				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create VoteReminding.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create VoteReminding.yml!");
 			}
 		}
 

@@ -1,7 +1,7 @@
 # Other rewards other than vote sites rewards are set here 
 # To disable reward set value to []
 # Eg:
-# FirstVote: [] (No new line)
+# FirstVote: [] (All in one line)
 
 # First vote rewards
 FirstVote:

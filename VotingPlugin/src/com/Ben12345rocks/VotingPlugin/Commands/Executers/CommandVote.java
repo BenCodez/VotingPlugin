@@ -92,7 +92,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandLast(new User(playerName))));
+							.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -115,7 +115,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandNext(new User(playerName))));
+							.voteCommandNext(new User(playerName))));
 		}
 
 	}

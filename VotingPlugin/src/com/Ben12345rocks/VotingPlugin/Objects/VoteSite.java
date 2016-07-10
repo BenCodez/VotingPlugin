@@ -122,16 +122,6 @@ public class VoteSite {
 					giveCulumativeRewards(user);
 
 					user.setCumulativeReward(this, 0);
-
-					user.sendMessage(Utils
-							.getInstance()
-							.replaceIgnoreCase(
-									ConfigFormat.getInstance()
-									.getCumulativeRewardMsg(),
-									"%votes%",
-									""
-											+ configVoteSites
-											.getCumulativeRewardVotesAmount(siteName)));
 				}
 			}
 

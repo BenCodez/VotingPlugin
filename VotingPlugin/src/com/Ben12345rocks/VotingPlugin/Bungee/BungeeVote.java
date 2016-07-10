@@ -39,7 +39,7 @@ public class BungeeVote {
 	}
 
 	public void sendVote(Vote vote) throws NoSuchAlgorithmException,
-	InvalidKeySpecException {
+			InvalidKeySpecException {
 		if (ConfigBungeeVoting.getInstance().getEnabled()) {
 			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
 				byte[] encodedPublicKey = DatatypeConverter

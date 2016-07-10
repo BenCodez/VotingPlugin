@@ -188,18 +188,18 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-				@Override
-				public void onClick(InventoryClickEvent event) {
-					Player player = (Player) event.getWhoClicked();
-					if (player != null) {
-						player.closeInventory();
-						player.performCommand(ConfigGUI.getInstance()
-								.getVoteGUISlotCommand(slot));
+						@Override
+						public void onClick(InventoryClickEvent event) {
+							Player player = (Player) event.getWhoClicked();
+							if (player != null) {
+								player.closeInventory();
+								player.performCommand(ConfigGUI.getInstance()
+										.getVoteGUISlotCommand(slot));
 
-					}
+							}
 
-				}
-			});
+						}
+					});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -236,7 +236,7 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize));
+						.replace("%maxpages%", "" + pageSize));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -275,9 +275,9 @@ public class Commands {
 					if ((new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time))
 							&& (new Date().getMonth() == Utils.getInstance()
-							.getMonthFromMili(time))
+									.getMonthFromMili(time))
 							&& (new Date().getYear() == Utils.getInstance()
-							.getYearFromMili(time))) {
+									.getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -309,7 +309,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-							.replace("%SiteName%", voteSite.getSiteName()));
+					.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -319,7 +319,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-		.format(date);
+				.format(date);
 		return timeString;
 	}
 
@@ -481,7 +481,7 @@ public class Commands {
 					+ ConfigRewards.getInstance().getTitleTitle(rewardName));
 			msg.add("  &cTitleColor: &6"
 					+ ConfigRewards.getInstance()
-					.getTitleTitleColor(rewardName));
+							.getTitleTitleColor(rewardName));
 			msg.add("  &cSubTitle: &6"
 					+ ConfigRewards.getInstance().getTitleSubTitle(rewardName));
 			msg.add("  &cSubTitleColor: &6"
@@ -515,7 +515,7 @@ public class Commands {
 					+ ConfigRewards.getInstance().getEffectData(rewardName));
 			msg.add("  &cParticles: &6"
 					+ ConfigRewards.getInstance()
-					.getEffectParticles(rewardName));
+							.getEffectParticles(rewardName));
 			msg.add("  &cRadius: &6"
 					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
 
@@ -659,7 +659,7 @@ public class Commands {
 	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
 	 * texts = Utils.getInstance().colorize(texts); return
 	 * Utils.getInstance().convertArray(texts);
-	 *
+	 * 
 	 * }
 	 */
 
@@ -695,21 +695,21 @@ public class Commands {
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
 								voteSite.getSiteName()), (short) ConfigGUI
-								.getInstance().getVoteSiteItemData(
-										voteSite.getSiteName()));
+						.getInstance().getVoteSiteItemData(
+								voteSite.getSiteName()));
 
 				inv.addButton(
 						count,
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
 										voteSite.getSiteName()),
-										Utils.getInstance()
+								Utils.getInstance()
 										.convertArray(
 												(ArrayList<String>) ConfigGUI
-												.getInstance()
-												.getVoteSiteItemLore(
-														voteSite.getSiteName())),
-														item) {
+														.getInstance()
+														.getVoteSiteItemLore(
+																voteSite.getSiteName())),
+								item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -732,15 +732,15 @@ public class Commands {
 						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
-								.getVoteSiteItemsData(siteName, itemName));
+						.getVoteSiteItemsData(siteName, itemName));
 
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-								new BInventoryButton(ConfigGUI.getInstance()
-										.getVoteSiteItemsName(siteName, itemName),
-										Utils.getInstance().convertArray(
-												(ArrayList<String>) ConfigGUI
+						new BInventoryButton(ConfigGUI.getInstance()
+								.getVoteSiteItemsName(siteName, itemName),
+								Utils.getInstance().convertArray(
+										(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -766,7 +766,7 @@ public class Commands {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(plugin.voteToday.get(user).get(voteSite));
+						.format(plugin.voteToday.get(user).get(voteSite));
 				msg.add("&6" + user.getPlayerName() + " : "
 						+ voteSite.getSiteName() + " : " + timeString);
 			}

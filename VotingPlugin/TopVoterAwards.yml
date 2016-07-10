@@ -1,7 +1,11 @@
+# Top voter blacklist
 BlackList:
 - 'Notch'
+# Rewards to give
 Awards:
+  # Position. 1 is first in top voter, 2 is second, etc...
   1:
+    # Reward files to give
     Rewards:
     - 'TopVoter1'
   2:

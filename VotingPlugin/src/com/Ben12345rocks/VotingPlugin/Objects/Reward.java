@@ -314,7 +314,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -349,8 +349,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
