@@ -209,6 +209,10 @@ public class User {
 		return true;
 	}
 
+	public Player getPlayer() {
+		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+	}
+
 	/**
 	 * Get offline cumulative rewards
 	 *

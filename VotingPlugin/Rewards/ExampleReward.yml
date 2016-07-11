@@ -87,6 +87,9 @@ Money: 1000
 MinMoney: 100
 MaxMoney: 3000
 
+# Give player experience
+EXP: 100
+
 # Commands to run
 # Use %player% for player name
 # Set to Console: [] for no commands

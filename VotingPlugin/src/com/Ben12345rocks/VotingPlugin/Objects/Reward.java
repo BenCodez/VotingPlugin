@@ -45,9 +45,13 @@ public class Reward {
 	private HashMap<String, String> itemName;
 	private HashMap<String, ArrayList<String>> itemLore;
 	private HashMap<String, HashMap<String, Integer>> itemEnchants;
+
 	private int money;
 	private int MinMoney;
 	private int MaxMoney;
+
+	private int exp;
+
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
 	private Set<String> potions;
@@ -76,7 +80,7 @@ public class Reward {
 		setItems(ConfigRewards.getInstance().getItems(reward));
 		itemMaterial = new HashMap<String, String>();
 		itemData = new HashMap<String, Integer>();
-		setItemDurabilty(new HashMap<String, Integer>());
+		itemDurabilty = new HashMap<String, Integer>();
 		itemAmount = new HashMap<String, Integer>();
 		itemMinAmount = new HashMap<String, Integer>();
 		itemMaxAmount = new HashMap<String, Integer>();
@@ -99,6 +103,8 @@ public class Reward {
 					ConfigRewards.getInstance().getItemName(reward, item));
 			itemLore.put(item,
 					ConfigRewards.getInstance().getItemLore(reward, item));
+			itemDurabilty.put(item, ConfigRewards.getInstance()
+					.getItemDurability(reward, item));
 			HashMap<String, Integer> enchants = new HashMap<String, Integer>();
 			for (String enchant : ConfigRewards.getInstance().getItemEnchants(
 					reward, item)) {
@@ -112,8 +118,13 @@ public class Reward {
 		setMoney(ConfigRewards.getInstance().getMoney(reward));
 		setMinMoney(ConfigRewards.getInstance().getMinMoney(reward));
 		setMaxMoney(ConfigRewards.getInstance().getMaxMoney(reward));
+
+		setExp(ConfigRewards.getInstance().getEXP(reward));
+
 		setConsoleCommands(ConfigRewards.getInstance().getCommandsConsole(
 				reward));
+		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
+
 		potions = ConfigRewards.getInstance().getPotions(reward);
 		potionsDuration = new HashMap<String, Integer>();
 		potionsAmplifier = new HashMap<String, Integer>();
@@ -123,7 +134,7 @@ public class Reward {
 			potionsAmplifier.put(potion, ConfigRewards.getInstance()
 					.getPotionsAmplifier(reward, potion));
 		}
-		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
+
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
 
 	}
@@ -400,6 +411,7 @@ public class Reward {
 					|| player.hasPermission("VotingPlugin.Reward." + name)) {
 				giveMoney(user);
 				giveItems(user);
+				giveExp(user);
 				runCommands(user);
 				givePotions(user);
 				sendMessage(user);
@@ -410,6 +422,13 @@ public class Reward {
 				plugin.debug("Gave " + user.getPlayerName() + " reward " + name);
 
 			}
+		}
+	}
+
+	public void giveExp(User user) {
+		Player player = user.getPlayer();
+		if (player != null) {
+			player.giveExp(getExp());
 		}
 	}
 
@@ -600,5 +619,13 @@ public class Reward {
 
 	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
 		this.itemDurabilty = itemDurabilty;
+	}
+
+	public int getExp() {
+		return exp;
+	}
+
+	public void setExp(int exp) {
+		this.exp = exp;
 	}
 }
