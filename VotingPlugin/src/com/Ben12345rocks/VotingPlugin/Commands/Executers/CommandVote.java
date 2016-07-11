@@ -156,6 +156,14 @@ public class CommandVote implements CommandExecutor {
 					User user = new User((Player) sender);
 					user.sendMessage(Commands.getInstance().commandVoteToday(
 							page));
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Commands.getInstance().sendVoteTodayScoreBoard(
+									(Player) sender, page);
+						}
+					});
 				} else {
 					sender.sendMessage(Commands.getInstance().commandVoteToday(
 							page));

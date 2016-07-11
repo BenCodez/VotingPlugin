@@ -264,6 +264,37 @@ public class Commands {
 
 	}
 
+	public void sendVoteTodayScoreBoard(Player player, int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+
+		String[] voteToday = voteToday();
+
+		int maxPage = voteToday.length / pagesize;
+		if ((voteToday.length % pagesize) != 0) {
+			maxPage++;
+		}
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard("&cToday's Votes "
+				+ page + "/" + maxPage);
+
+		for (int i = pagesize * page; (i < voteToday.length)
+				&& (i < ((page + 1) * pagesize)); i++) {
+			scoreboard.add(voteToday[i], i);
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
 	@SuppressWarnings("deprecation")
 	public void updateVoteToday() {
 		ArrayList<User> users = Utils.getInstance().convertSet(
