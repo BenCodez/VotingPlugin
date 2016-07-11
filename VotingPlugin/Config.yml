@@ -18,6 +18,9 @@ TopVoterAwards: false
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false
 
+# If true, plugin will send scoreboards on commands
+SendScoreboards: true
+
 # If true, plugin will automaticly generate votesites
 # Disable this if you experience issues with sites being 
 # created randomly

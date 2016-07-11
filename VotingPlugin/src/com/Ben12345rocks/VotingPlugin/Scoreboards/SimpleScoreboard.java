@@ -15,6 +15,7 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
@@ -115,8 +116,10 @@ public class SimpleScoreboard {
 	}
 
 	public void send(Player... players) {
-		for (Player p : players) {
-			p.setScoreboard(scoreboard);
+		if (Config.getInstance().getSendScoreboards()) {
+			for (Player p : players) {
+				p.setScoreboard(scoreboard);
+			}
 		}
 
 	}

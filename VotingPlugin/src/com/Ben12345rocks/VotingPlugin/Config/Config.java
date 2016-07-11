@@ -48,6 +48,10 @@ public class Config {
 		}
 		return num;
 	}
+	
+	public boolean getSendScoreboards() {
+		return getData().getBoolean("SendScoreboards");
+	}
 
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
