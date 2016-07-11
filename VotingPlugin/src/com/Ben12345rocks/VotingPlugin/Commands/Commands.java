@@ -161,6 +161,9 @@ public class Commands {
 					.getVoteGUISlotAmount(slot), (short) ConfigGUI
 					.getInstance().getVoteGUISlotData(slot));
 
+			item = Utils.getInstance().setDurabilty(item,
+					ConfigGUI.getInstance().getVoteGUISlotDurability(slot));
+
 			String[] lore = new String[1];
 
 			if (slot.equalsIgnoreCase("url")) {
@@ -697,6 +700,10 @@ public class Commands {
 								voteSite.getSiteName()), (short) ConfigGUI
 						.getInstance().getVoteSiteItemData(
 								voteSite.getSiteName()));
+				item = Utils.getInstance().setDurabilty(
+						item,
+						ConfigGUI.getInstance().getVoteSiteItemDurability(
+								voteSite.getSiteName()));
 
 				inv.addButton(
 						count,
@@ -733,6 +740,11 @@ public class Commands {
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
 						.getVoteSiteItemsData(siteName, itemName));
+
+				item = Utils.getInstance().setDurabilty(
+						item,
+						ConfigGUI.getInstance().getVoteSiteItemsDurability(
+								siteName, itemName));
 
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
@@ -787,11 +799,19 @@ public class Commands {
 					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
 					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
 					.getInstance().getVoteURLAlreadyVotedItemData());
+			itemAll = Utils.getInstance().setDurabilty(
+					itemAll,
+					ConfigGUI.getInstance()
+							.getVoteURLAlreadyVotedItemDurability());
 			if (user.canVoteAll()) {
 				itemAll = new ItemStack(ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
 						.getInstance().getVoteURLCanVoteItemData());
+				itemAll = Utils.getInstance().setDurabilty(
+						itemAll,
+						ConfigGUI.getInstance()
+								.getVoteURLCanVoteItemDurability());
 			}
 
 			inv.addButton(count, new BInventoryButton("&4All Voting Sites",
@@ -813,6 +833,10 @@ public class Commands {
 					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
 					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
 					.getInstance().getVoteURLAlreadyVotedItemData());
+			item = Utils.getInstance().setDurabilty(
+					item,
+					ConfigGUI.getInstance()
+							.getVoteURLAlreadyVotedItemDurability());
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
 
@@ -821,6 +845,10 @@ public class Commands {
 						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
 						.getInstance().getVoteURLCanVoteItemData());
+				item = Utils.getInstance().setDurabilty(
+						item,
+						ConfigGUI.getInstance()
+								.getVoteURLCanVoteItemDurability());
 			} else {
 				lore.add(ConfigGUI.getInstance().getVoteURLNextVote()
 						.replace("%Info%", voteCommandNextInfo(user, voteSite)));

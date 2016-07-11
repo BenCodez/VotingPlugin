@@ -36,6 +36,7 @@ public class Reward {
 	private HashMap<String, String> itemMaterial;
 
 	private HashMap<String, Integer> itemData;
+	private HashMap<String, Integer> itemDurabilty;
 
 	private HashMap<String, Integer> itemAmount;
 	private HashMap<String, Integer> itemMinAmount;
@@ -75,6 +76,7 @@ public class Reward {
 		setItems(ConfigRewards.getInstance().getItems(reward));
 		itemMaterial = new HashMap<String, String>();
 		itemData = new HashMap<String, Integer>();
+		setItemDurabilty(new HashMap<String, Integer>());
 		itemAmount = new HashMap<String, Integer>();
 		itemMinAmount = new HashMap<String, Integer>();
 		itemMaxAmount = new HashMap<String, Integer>();
@@ -302,6 +304,8 @@ public class Reward {
 					getItemLore().get(item));
 			itemStack = Utils.getInstance().addEnchants(itemStack,
 					getItemEnchants().get(item));
+			itemStack = Utils.getInstance().setDurabilty(itemStack,
+					getItemDurabilty().get(item));
 			user.giveItem(itemStack);
 		}
 	}
@@ -588,5 +592,13 @@ public class Reward {
 
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
+	}
+
+	public HashMap<String, Integer> getItemDurabilty() {
+		return itemDurabilty;
+	}
+
+	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
+		this.itemDurabilty = itemDurabilty;
 	}
 }

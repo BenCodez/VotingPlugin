@@ -74,6 +74,16 @@ public class Utils {
 		return item;
 	}
 
+	public ItemStack setDurabilty(ItemStack item, int durability) {
+		if (item == null) {
+			return null;
+		}
+		if (durability > 0) {
+			item.setDurability((short) durability);
+		}
+		return item;
+	}
+
 	public ArrayList<String> colorize(ArrayList<String> list) {
 		if (list == null) {
 			return null;

@@ -53,6 +53,9 @@ Items:
     Data: 0
     # Will only give Amount if min and max amounts are 0
     Amount: 1
+    # Set item durability
+    # Set to 0 or remove line for no durability
+    #Durability: 100
     
     # Random amount of items between Min and Max will be given
     # if min and max are not both 0

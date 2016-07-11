@@ -99,6 +99,10 @@ public class ConfigRewards {
 		return getData(reward).getInt("Items." + item + ".Data");
 	}
 
+	public int getItemDurability(String reward, String item) {
+		return getData(reward).getInt("Items." + item + ".Durability");
+	}
+
 	public Set<String> getItemEnchants(String reward, String item) {
 		try {
 			return getData(reward).getConfigurationSection(

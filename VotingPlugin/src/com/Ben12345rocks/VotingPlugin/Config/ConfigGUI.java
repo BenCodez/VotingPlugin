@@ -52,6 +52,10 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Data");
 	}
 
+	public int getVoteGUISlotDurability(String slot) {
+		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Durability");
+	}
+
 	public int getVoteGUISlotID(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.ID");
 	}
@@ -100,6 +104,12 @@ public class ConfigGUI {
 		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
 	}
 
+	public int getVoteSiteItemDurability(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Item.Durability");
+	}
+
 	public Set<String> getVoteSiteItems(String site) {
 		String siteName = site.replace(".", "-");
 		try {
@@ -120,6 +130,13 @@ public class ConfigGUI {
 		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
+	}
+
+	public int getVoteSiteItemsDurability(String site, String item) {
+		String siteName = site.replace(".", "-");
+		return getData()
+				.getInt("GUI.VoteReward." + siteName + ".Items." + item
+						+ ".Durability");
 	}
 
 	public int getVoteSiteItemsID(String site, String item) {
@@ -158,11 +175,16 @@ public class ConfigGUI {
 
 	public int getVoteURLAlreadyVotedItemData() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
-		if (num != 0) {
-			return num;
-		} else {
-			return 0;
-		}
+
+		return num;
+
+	}
+
+	public int getVoteURLAlreadyVotedItemDurability() {
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Durability");
+
+		return num;
+
 	}
 
 	public int getVoteURLAlreadyVotedItemID() {
@@ -185,11 +207,15 @@ public class ConfigGUI {
 
 	public int getVoteURLCanVoteItemData() {
 		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Data");
-		if (num != 0) {
-			return num;
-		} else {
-			return 0;
-		}
+
+		return num;
+
+	}
+
+	public int getVoteURLCanVoteItemDurability() {
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Durability");
+		return num;
+
 	}
 
 	public int getVoteURLCanVoteItemID() {
