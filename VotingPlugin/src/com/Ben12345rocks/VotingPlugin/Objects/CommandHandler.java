@@ -158,6 +158,8 @@ public abstract class CommandHandler {
 				if (!sender.hasPermission(perm)) {
 					sender.sendMessage(Utils.getInstance().colorize(
 							ConfigFormat.getInstance().getNoPerms()));
+					plugin.debug(sender.getName()
+							+ " was denied access to command");
 					return true;
 				}
 			}

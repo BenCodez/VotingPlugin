@@ -237,14 +237,5 @@ public class TopVoter {
 			}
 		}
 		plugin.debug("Updated TopVoter");
-
-		ArrayList<ArrayList<String>> diamondLores = new ArrayList<ArrayList<String>>();
-
-		ArrayList<String> lore1 = new ArrayList<String>();
-		diamondLores.add(lore1);
-
-		ArrayList<ArrayList<String>> swordLores = new ArrayList<ArrayList<String>>();
-		swordLores.add(lore1);
-		swordLores.add(lore1);
 	}
 }
