@@ -89,6 +89,22 @@ public class Data {
 		return getData(user)
 				.getInt("OfflineVotesWorld." + reward + "." + world);
 	}
+	
+	public int getTotalWeek(User user, String voteSite) {
+		return getData(user).getInt("TotalWeek." + voteSite);
+	}
+	
+	public void setTotalWeek(User user, String voteSite, int amount) {
+		set(user, "TotalWeek." + voteSite, amount);
+	}
+	
+	public int getTotalDaily(User user, String voteSite) {
+		return getData(user).getInt("TotalDay." + voteSite);
+	}
+	
+	public void setTotalDaily(User user, String voteSite, int amount) {
+		set(user, "TotalDay." + voteSite, amount);
+	}
 
 	public File getPlayerFile(User user) {
 		String playerName = user.getPlayerName();

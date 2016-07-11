@@ -79,6 +79,24 @@ public class ServerData {
 		return getData().getInt("Signs." + sign + ".Position");
 	}
 
+	public void setPrevWeekDay(int week) {
+		getData().set("PrevWeek", week);
+		saveData();
+	}
+
+	public void setPrevDay(int day) {
+		getData().set("PrevDay", day);
+		saveData();
+	}
+
+	public int getPrevWeekDay() {
+		return getData().getInt("PrevWeek");
+	}
+
+	public int getPrevDay() {
+		return getData().getInt("PrevDay");
+	}
+
 	public Set<String> getSigns() {
 		try {
 			return getData().getConfigurationSection("Signs").getKeys(false);

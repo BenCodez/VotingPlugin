@@ -12,9 +12,6 @@ BroadcastVote: true
 # Let players who never joined before vote
 AllowUnjoined: false
 
-# Enable Montly Top Voter Awards
-TopVoterAwards: false
-
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false
 

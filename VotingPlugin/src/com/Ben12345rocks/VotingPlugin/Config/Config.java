@@ -133,10 +133,6 @@ public class Config {
 		return getData().getString("Title.TitleColor");
 	}
 
-	public boolean getTopVoterAwardsEnabled() {
-		return getData().getBoolean("TopVoterAwards");
-	}
-
 	public boolean getVoteURLDefault() {
 		return getData().getBoolean("VoteURLDefault");
 	}

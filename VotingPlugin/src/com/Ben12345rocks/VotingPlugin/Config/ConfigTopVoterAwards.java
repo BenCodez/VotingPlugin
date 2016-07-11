@@ -37,10 +37,34 @@ public class ConfigTopVoterAwards {
 		ConfigTopVoterAwards.plugin = plugin;
 	}
 
+	public boolean getMonthlyAwardsEnabled() {
+		return getData().getBoolean("EnableMonthlyAwards");
+	}
+
+	public boolean getWeeklyAwardsEnabled() {
+		return getData().getBoolean("EnableWeeklyAwards");
+	}
+
+	public boolean getDailyAwardsEnabled() {
+		return getData().getBoolean("EnableDailyAwards");
+	}
+
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAwardRewards(int pos) {
+	public ArrayList<String> getMonthlyAwardRewards(int pos) {
 		return (ArrayList<String>) getData().getList(
-				"Awards." + pos + ".Rewards");
+				"MonthlyAwards." + pos + ".Rewards");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getWeeklyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"WeeklyAwards." + pos + ".Rewards");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getDailyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"DailyAwards." + pos + ".Rewards");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -52,13 +76,30 @@ public class ConfigTopVoterAwards {
 		return data;
 	}
 
-	public String getMessage(int place) {
-		return getData().getString("Awards." + place + ".Message");
+	public Set<String> getMonthlyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("MonthlyAwards").getKeys(
+					false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
 	}
 
-	public Set<String> getPossibleRewardPlaces() {
+	public Set<String> getWeeklyPossibleRewardPlaces() {
 		try {
-			return getData().getConfigurationSection("Awards").getKeys(false);
+			return getData().getConfigurationSection("WeeklyAwards").getKeys(
+					false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
+	}
+
+	public Set<String> getDailyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("DailyAwards").getKeys(
+					false);
 		} catch (Exception ex) {
 			Set<String> noValues = new HashSet<String>();
 			return noValues;

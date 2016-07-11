@@ -11,7 +11,6 @@ import org.bukkit.OfflinePlayer;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -43,11 +42,12 @@ public class TopVoter {
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
 			plugin.getLogger().info("Month changed!");
-			TopVoters.getInstance().storeTopVoters(new Date().getYear() + 1900,
-					new Date().getMonth(), topVoterNoColor());
-			if (Config.getInstance().getTopVoterAwardsEnabled()) {
+			TopVoters.getInstance().storeMonthlyTopVoters(
+					new Date().getYear() + 1900, new Date().getMonth(),
+					topVoterNoColor());
+			if (ConfigTopVoterAwards.getInstance().getMonthlyAwardsEnabled()) {
 				Set<String> places = ConfigTopVoterAwards.getInstance()
-						.getPossibleRewardPlaces();
+						.getMonthlyPossibleRewardPlaces();
 				int i = 0;
 				for (User user : topVotersSortedAll()) {
 					OfflinePlayer player = Bukkit.getOfflinePlayer(user
@@ -56,7 +56,7 @@ public class TopVoter {
 							"VotingPlugin.TopVoter.Ignore")) {
 						i++;
 						if (places.contains(Integer.toString(i))) {
-							user.topVoterAward(i);
+							user.monthlyTopVoterAward(i);
 						}
 					}
 				}
@@ -64,6 +64,36 @@ public class TopVoter {
 			resetTotals();
 
 		}
+
+		/*
+		 * if (hasWeekChanged()) { plugin.getLogger().info("Week changed!");
+		 * TopVoters.getInstance().storeWeekTopVoters( new Date().getYear() +
+		 * 1900, new Date().getMonth(), topVoterNoColor()); if
+		 * (ConfigTopVoterAwards.getInstance().getWeeklyAwardsEnabled()) {
+		 * Set<String> places = ConfigTopVoterAwards.getInstance()
+		 * .getWeeklyPossibleRewardPlaces(); int i = 0; for (User user :
+		 * topVotersSortedWeeklyAll()) { OfflinePlayer player =
+		 * Bukkit.getOfflinePlayer(user .getPlayerName()); if
+		 * (!player.getPlayer().hasPermission( "VotingPlugin.TopVoter.Ignore"))
+		 * { i++; if (places.contains(Integer.toString(i))) {
+		 * user.weeklyTopVoterAward(i); } } } } resetWeekTotals();
+		 * 
+		 * }
+		 * 
+		 * if (hasDayChanged()) { plugin.getLogger().info("Week changed!");
+		 * TopVoters.getInstance().storeDayTopVoters( new Date().getYear() +
+		 * 1900, new Date().getMonth(), topVoterNoColor()); if
+		 * (ConfigTopVoterAwards.getInstance().getDailyAwardsEnabled()) {
+		 * Set<String> places = ConfigTopVoterAwards.getInstance()
+		 * .getDailyPossibleRewardPlaces(); int i = 0; for (User user :
+		 * topVotersSortedDailyAll()) { OfflinePlayer player =
+		 * Bukkit.getOfflinePlayer(user .getPlayerName()); if
+		 * (!player.getPlayer().hasPermission( "VotingPlugin.TopVoter.Ignore"))
+		 * { i++; if (places.contains(Integer.toString(i))) {
+		 * user.dailyTopVoterAward(i); } } } } resetDayTotals();
+		 * 
+		 * }
+		 */
 	}
 
 	@SuppressWarnings("deprecation")
@@ -74,6 +104,31 @@ public class TopVoter {
 		int month = c.getTime().getMonth();
 		ServerData.getInstance().setPrevMonth(month);
 		if (prevMonth != month) {
+			return true;
+		}
+		return false;
+	}
+
+	@SuppressWarnings("deprecation")
+	public boolean hasWeekChanged() {
+		int prevDate = ServerData.getInstance().getPrevWeekDay();
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.Calendar c = java.util.Calendar.getInstance(tz);
+		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
+		if (prevDate == 0 && c.getTime().getDate() != prevDate) {
+			return true;
+		}
+		return false;
+	}
+
+	@SuppressWarnings("deprecation")
+	public boolean hasDayChanged() {
+		int prevDay = ServerData.getInstance().getPrevDay();
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.Calendar c = java.util.Calendar.getInstance(tz);
+		int day = c.getTime().getDay();
+		ServerData.getInstance().setPrevDay(day);
+		if (prevDay != day) {
 			return true;
 		}
 		return false;

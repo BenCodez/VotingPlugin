@@ -30,13 +30,14 @@ public class TopVoters {
 		TopVoters.plugin = plugin;
 	}
 
-	public void storeTopVoters(int year, int month, String[] topVoters) {
+	public void storeMonthlyTopVoters(int year, int month, String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
-				+ "TopVoters", "TopVoters." + year + "." + month + ".yml");
+				+ "TopVoters" + File.separator + "Monthly", "TopVoters." + year
+				+ "." + month + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		if (!dFile.exists()) {
 			try {
@@ -72,7 +73,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}
