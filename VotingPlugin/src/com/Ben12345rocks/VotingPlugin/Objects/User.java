@@ -597,6 +597,24 @@ public class User {
 			Data.getInstance().setTopVoterAwardOffline(this, 0);
 		}
 
+		for (int i = 0; i <= 6; i++) {
+			int place1 = Data.getInstance().getTopVoterAwardOfflineWeekly(this,
+					i);
+			if (place1 > 0) {
+				giveMonthlyTopVoterAward(place1);
+				Data.getInstance().setTopVoterAwardOffline(this, 0);
+			}
+		}
+
+		for (int i = 0; i <= 31; i++) {
+			int place2 = Data.getInstance()
+					.getTopVoterAwardOfflineDaily(this, i);
+			if (place2 > 0) {
+				giveMonthlyTopVoterAward(place2);
+				Data.getInstance().setTopVoterAwardOffline(this, 0);
+			}
+		}
+
 	}
 
 	/**
@@ -983,20 +1001,64 @@ public class User {
 		}
 	}
 
-	public void setWeeklyTotal(VoteSite voteSite, int amount) {
+	public void weeklyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveWeeklyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
+		}
+	}
+
+	public void dailyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveDailyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOfflineDaily(this, place);
+		}
+	}
+
+	public void setTotalWeekly(VoteSite voteSite, int amount) {
 		Data.getInstance().setTotalWeek(this, voteSite.getSiteName(), amount);
 	}
 
-	public void setDailyTotal(VoteSite voteSite, int amount) {
+	public void setTotalDaily(VoteSite voteSite, int amount) {
 		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
 	}
 
-	public int getWeeklyTotal(VoteSite voteSite) {
+	public int getTotalWeekly(VoteSite voteSite) {
 		return Data.getInstance().getTotalWeek(this, voteSite.getSiteName());
 	}
 
-	public int getDailyTotal(VoteSite voteSite) {
+	public int getTotalDaily(VoteSite voteSite) {
 		return Data.getInstance().getTotalDaily(this, voteSite.getSiteName());
+	}
+
+	public int getTotalWeeklyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalWeekly(voteSite);
+		}
+		return total;
+
+	}
+
+	public int getTotalDailyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalDaily(voteSite);
+		}
+		return total;
+
 	}
 
 }

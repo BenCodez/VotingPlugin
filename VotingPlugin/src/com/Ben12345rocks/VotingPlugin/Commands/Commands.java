@@ -244,11 +244,11 @@ public class Commands {
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
 		ArrayList<User> users = Utils.getInstance().convertSet(
-				plugin.topVoter.keySet());
+				plugin.topVoterMonthly.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-					plugin.topVoter.get(users.get(i)));
+					plugin.topVoterMonthly.get(users.get(i)));
 		}
 		scoreboard.build();
 		scoreboard.send(player);

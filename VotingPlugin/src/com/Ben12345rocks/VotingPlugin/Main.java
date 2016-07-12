@@ -64,7 +64,11 @@ public class Main extends JavaPlugin {
 
 	public static Main plugin;
 
-	public HashMap<User, Integer> topVoter;
+	public HashMap<User, Integer> topVoterMonthly;
+
+	public HashMap<User, Integer> topVoterWeekly;
+
+	public HashMap<User, Integer> topVoterDaily;
 
 	public Updater updater;
 
@@ -206,7 +210,9 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoter = new HashMap<User, Integer>();
+		topVoterMonthly = new HashMap<User, Integer>();
+		topVoterWeekly = new HashMap<User, Integer>();
+		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 		startTimer();
 		plugin.getLogger().info(

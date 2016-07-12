@@ -89,19 +89,19 @@ public class Data {
 		return getData(user)
 				.getInt("OfflineVotesWorld." + reward + "." + world);
 	}
-	
+
 	public int getTotalWeek(User user, String voteSite) {
 		return getData(user).getInt("TotalWeek." + voteSite);
 	}
-	
+
 	public void setTotalWeek(User user, String voteSite, int amount) {
 		set(user, "TotalWeek." + voteSite, amount);
 	}
-	
+
 	public int getTotalDaily(User user, String voteSite) {
 		return getData(user).getInt("TotalDay." + voteSite);
 	}
-	
+
 	public void setTotalDaily(User user, String voteSite, int amount) {
 		set(user, "TotalDay." + voteSite, amount);
 	}
@@ -191,6 +191,20 @@ public class Data {
 		return getData(user).getInt(
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth());
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getTopVoterAwardOfflineWeekly(User user, int day) {
+		return getData(user).getInt(
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + day);
+	}
+
+	@SuppressWarnings("deprecation")
+	public int getTopVoterAwardOfflineDaily(User user, int date) {
+		return getData(user).getInt(
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + date);
 	}
 
 	public int getTotal(User user, String voteSite) {
@@ -308,6 +322,22 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth(), place);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTopVoterAwardOfflineWeekly(User user, int place) {
+		set(user,
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + new Date().getDay(),
+				place);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTopVoterAwardOfflineDaily(User user, int place) {
+		set(user,
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + new Date().getDate(),
+				place);
 	}
 
 	public void setTotal(User user, String voteSite, int amount) {
