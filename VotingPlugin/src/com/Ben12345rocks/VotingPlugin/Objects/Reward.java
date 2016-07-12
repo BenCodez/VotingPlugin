@@ -500,12 +500,12 @@ public class Reward {
 	public void sendTitle(User user) {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
-					ConfigRewards.getInstance().getTitleTitleColor(name),
-					ConfigRewards.getInstance().getTitleSubTitle(name),
-					ConfigRewards.getInstance().getTitleSubTitleColor(name),
-					ConfigRewards.getInstance().getTitleFadeIn(name),
-					ConfigRewards.getInstance().getTitleShowTime(name),
-					ConfigRewards.getInstance().getTitleFadeOut(name));
+
+			ConfigRewards.getInstance().getTitleSubTitle(name),
+
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					.getInstance().getTitleShowTime(name), ConfigRewards
+					.getInstance().getTitleFadeOut(name));
 		}
 	}
 

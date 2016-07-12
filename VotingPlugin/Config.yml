@@ -35,15 +35,13 @@ BackgroundTaskDelay: 600
 # Setting them here works better for offline votes
 
 # Title to send to voter on vote
-# Requires TitleAPI (and all of its requirements)
+# Requires SpigotLib (and all of its requirements)
 # Download here: 
-# https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
+# https://www.spigotmc.org/resources/spigotlib.5925/
 Title:
   Enabled: false
-  Title: 'Thanks for voting!'
-  TitleColor: RED
-  SubTitle: 'You voted on %votesite%'
-  SubTitleColor: BLUE
+  Title: '&cThanks for voting!'
+  SubTitle: '&aYou voted!'
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10

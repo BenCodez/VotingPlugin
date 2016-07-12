@@ -432,24 +432,18 @@ public class Utils {
 		}
 	}
 
-	public void sendTitle(Player player, String titleText, String subTitleText,
-			String titleColor, String subTitleColor, int fadeIn, int showTime,
-			int fadeOut) {
+	public void sendTitle(Player player, String title, String subTitle,
+			int fadeIn, int showTime, int fadeOut) {
 		if (plugin.spigotLibEnabled) {
 
-			TitleAPI.setShowTime(fadeIn, showTime, fadeOut, player);
-
-			if ((subTitleText != null) && (subTitleText != "")) {
-				TextComponent subTitle = new TextComponent(subTitleText);
-				subTitle.setColor(ChatColor.valueOf(subTitleColor));
-				TitleAPI.setSubTitle(compToString(subTitle), player);
+			if (title == null) {
+				title = "";
 			}
-
-			if ((titleText != null) && (titleText != "")) {
-				TextComponent title = new TextComponent(titleText);
-				title.setColor(ChatColor.valueOf(titleColor));
-				TitleAPI.setTitle(compToString(title), player);
+			if (subTitle == null) {
+				subTitle = "";
 			}
+			TitleAPI.set(title, subTitle, fadeIn, showTime, fadeOut, player);
+
 		}
 	}
 

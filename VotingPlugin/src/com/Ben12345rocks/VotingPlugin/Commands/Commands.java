@@ -513,14 +513,9 @@ public class Commands {
 					+ ConfigRewards.getInstance().getTitleEnabled(rewardName));
 			msg.add("  &cTitle: &6"
 					+ ConfigRewards.getInstance().getTitleTitle(rewardName));
-			msg.add("  &cTitleColor: &6"
-					+ ConfigRewards.getInstance()
-							.getTitleTitleColor(rewardName));
 			msg.add("  &cSubTitle: &6"
 					+ ConfigRewards.getInstance().getTitleSubTitle(rewardName));
-			msg.add("  &cSubTitleColor: &6"
-					+ ConfigRewards.getInstance().getTitleSubTitleColor(
-							rewardName));
+
 			msg.add("  &cFadeIn: &6"
 					+ ConfigRewards.getInstance().getTitleFadeIn(rewardName));
 			msg.add("  &cShowTime: &6"

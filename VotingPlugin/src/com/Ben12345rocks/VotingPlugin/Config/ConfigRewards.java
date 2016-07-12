@@ -307,16 +307,8 @@ public class ConfigRewards {
 		return getData(reward).getString("Title.SubTitle");
 	}
 
-	public String getTitleSubTitleColor(String reward) {
-		return getData(reward).getString("Title.SubTitleColor");
-	}
-
 	public String getTitleTitle(String reward) {
 		return getData(reward).getString("Title.Title");
-	}
-
-	public String getTitleTitleColor(String reward) {
-		return getData(reward).getString("Title.TitleColor");
 	}
 
 	@SuppressWarnings("unchecked")

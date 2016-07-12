@@ -428,6 +428,11 @@ public class User {
 		}
 	}
 
+	/**
+	 * Give player EXP
+	 * 
+	 * @param exp
+	 */
 	public void giveExp(int exp) {
 		Player player = getPlayer();
 		if (player != null) {
@@ -855,12 +860,12 @@ public class User {
 	 * @param showTime
 	 * @param fadeOut
 	 */
-	public void sendTitle(String title, String titleColor, String subTitle,
-			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
+	public void sendTitle(String title, String subTitle, int fadeIn,
+			int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			Utils.getInstance().sendTitle(player, title, subTitle, titleColor,
-					subTitleColor, fadeIn, showTime, fadeOut);
+			Utils.getInstance().sendTitle(player, title, subTitle, fadeIn,
+					showTime, fadeOut);
 		}
 	}
 
@@ -879,10 +884,8 @@ public class User {
 	 */
 	public void sendVoteTitle() {
 		if (Config.getInstance().getTitleEnabled()) {
-			sendTitle(Config.getInstance().getTitleTitle(), Config
-					.getInstance().getTitleTitleColor(), Config.getInstance()
+			sendTitle(Config.getInstance().getTitleTitle(), Config.getInstance()
 					.getTitleSubTitle(), Config.getInstance()
-					.getTitleSubTitleColor(), Config.getInstance()
 					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
 					Config.getInstance().getTitleFadeOut());
 		}
