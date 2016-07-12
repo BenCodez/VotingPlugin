@@ -34,63 +34,12 @@ public class ConfigVoteReminding {
 		ConfigVoteReminding.plugin = plugin;
 	}
 
-	public int getChance() {
-		return getData().getInt("Chance");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCommandsConsole() {
-		try {
-			return (ArrayList<String>) getData().getList("Commands.Console");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCommandsPlayer() {
-		try {
-			return (ArrayList<String>) getData().getList("Commands.Player");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
-	}
-
 	public FileConfiguration getData() {
 		return data;
 	}
 
-	public int getEffectData() {
-		return getData().getInt("Effect.Data");
-	}
-
-	public String getEffectEffect() {
-		return getData().getString("Effect.Effect");
-	}
-
-	public boolean getEffectEnabled() {
-		return getData().getBoolean("Effect.Enabled");
-	}
-
-	public int getEffectParticles() {
-		return getData().getInt("Effect.Particles");
-	}
-
-	public int getEffectRadius() {
-		return getData().getInt("Effect.Radius");
-	}
-
 	public boolean getEnabled() {
 		return getData().getBoolean("Enabled");
-	}
-
-	public String getMessagesRemind() {
-		String msg = getData().getString("Messages.Remind");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&cRemember to vote";
-		}
 	}
 
 	public int getRemindDelay() {
@@ -101,60 +50,21 @@ public class ConfigVoteReminding {
 		return 30;
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRewards() {
+		try {
+			return (ArrayList<String>) getData().getList("Rewards");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
 	public boolean getRemindOnLogin() {
 		return getData().getBoolean("RemindOnLogin");
 	}
 
 	public boolean getRemindOnlyOnce() {
 		return getData().getBoolean("RemindOnlyOnce");
-	}
-
-	public boolean getSoundEnabled() {
-		return getData().getBoolean("Sound.Enabled");
-	}
-
-	public float getSoundPitch() {
-		return (float) getData().getDouble("Sound.Pitch");
-	}
-
-	public String getSoundSound() {
-		return getData().getString("Sound.Sound");
-	}
-
-	public float getSoundVolume() {
-		return (float) getData().getDouble("Sound.Volume");
-	}
-
-	public boolean getTitleEnabled() {
-		return getData().getBoolean("Title.Enabled");
-	}
-
-	public int getTitleFadeIn() {
-		return getData().getInt("Title.FadeIn");
-	}
-
-	public int getTitleFadeOut() {
-		return getData().getInt("Title.FadeOut");
-	}
-
-	public int getTitleShowTime() {
-		return getData().getInt("Title.ShowTime");
-	}
-
-	public String getTitleSubTitle() {
-		return getData().getString("Title.SubTitle");
-	}
-
-	public String getTitleSubTitleColor() {
-		return getData().getString("Title.SubTitleColor");
-	}
-
-	public String getTitleTitle() {
-		return getData().getString("Title.Title");
-	}
-
-	public String getTitleTitleColor() {
-		return getData().getString("Title.TitleColor");
 	}
 
 	public void reloadData() {
@@ -168,18 +78,6 @@ public class ConfigVoteReminding {
 	public void set(String path, Object value) {
 		getData().set(path, value);
 		saveData();
-	}
-
-	public void setCommandsConsole(ArrayList<String> value) {
-		set("Commands.Console", value);
-	}
-
-	public void setCommandsPlater(ArrayList<String> value) {
-		set("Commands.Player", value);
-	}
-
-	public void setMessagesReward(String value) {
-		set("Messages.Reward", value);
 	}
 
 	public void setup(Plugin p) {

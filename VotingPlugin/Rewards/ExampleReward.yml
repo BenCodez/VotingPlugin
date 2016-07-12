@@ -81,6 +81,7 @@ Items:
       
 # Amount of money to give, requires vault
 # Use 0 to give none
+# Use negative to take money
 Money: 1000
 
 # Pick random number between min and max amount

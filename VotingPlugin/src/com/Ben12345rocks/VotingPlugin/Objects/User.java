@@ -428,6 +428,13 @@ public class User {
 		}
 	}
 
+	public void giveExp(int exp) {
+		Player player = getPlayer();
+		if (player != null) {
+			player.giveExp(exp);
+		}
+	}
+
 	/**
 	 * Give user potion effect
 	 *

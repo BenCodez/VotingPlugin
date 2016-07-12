@@ -426,10 +426,7 @@ public class Reward {
 	}
 
 	public void giveExp(User user) {
-		Player player = user.getPlayer();
-		if (player != null) {
-			player.giveExp(getExp());
-		}
+		user.giveExp(getExp());
 	}
 
 	public boolean isGiveInEachWorld() {

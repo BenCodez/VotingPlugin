@@ -134,7 +134,7 @@ public class TopVoters {
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
-				+ "TopVoters" + File.separator + "Weekly", "TopVoters." + year
+				+ "TopVoters" + File.separator + "Daily", "TopVoters." + year
 				+ "." + month + "." + date + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		if (!dFile.exists()) {
