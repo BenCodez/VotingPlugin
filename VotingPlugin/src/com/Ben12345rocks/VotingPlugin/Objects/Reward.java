@@ -20,8 +20,8 @@ public class Reward {
 
 	public String name;
 
-	private int chance;
-	private int randomChance;
+	private double chance;
+	private double randomChance;
 	private ArrayList<String> randomRewards;
 	private ArrayList<String> randomFallBack;
 
@@ -140,13 +140,13 @@ public class Reward {
 	}
 
 	public boolean checkChance() {
-		int chance = getChance();
+		double chance = getChance();
 
 		if ((chance == 0) || (chance == 100)) {
 			return true;
 		}
 
-		int randomNum = (int) (Math.random() * 100) + 1;
+		double randomNum = (Math.random() * 100) + 1;
 
 		plugin.debug("Random: " + randomNum + ", Chance: " + chance);
 
@@ -158,13 +158,13 @@ public class Reward {
 	}
 
 	public boolean checkRandomChance() {
-		int chance = getRandomChance();
+		double chance = getRandomChance();
 
 		if ((chance == 0) || (chance == 100)) {
 			return true;
 		}
 
-		int randomNum = (int) (Math.random() * 100) + 1;
+		double randomNum = (Math.random() * 100) + 1;
 
 		plugin.debug("Random: Random: " + randomNum + ", Chance: " + chance);
 
@@ -175,7 +175,7 @@ public class Reward {
 		}
 	}
 
-	public int getChance() {
+	public double getChance() {
 		return chance;
 	}
 
@@ -279,7 +279,7 @@ public class Reward {
 		return potionsDuration;
 	}
 
-	public int getRandomChance() {
+	public double getRandomChance() {
 		return randomChance;
 	}
 
@@ -512,7 +512,7 @@ public class Reward {
 		}
 	}
 
-	public void setChance(int chance) {
+	public void setChance(double chance) {
 		this.chance = chance;
 	}
 
@@ -589,7 +589,7 @@ public class Reward {
 		this.potionsDuration = potionsDuration;
 	}
 
-	public void setRandomChance(int randomChance) {
+	public void setRandomChance(double randomChance) {
 		this.randomChance = randomChance;
 	}
 

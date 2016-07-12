@@ -33,8 +33,8 @@ public class ConfigRewards {
 		ConfigRewards.plugin = plugin;
 	}
 
-	public int getChance(String reward) {
-		return getData(reward).getInt("Chance");
+	public double getChance(String reward) {
+		return getData(reward).getDouble("Chance");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -193,8 +193,8 @@ public class ConfigRewards {
 		return getData(reward).getInt("Potions." + potion + ".Duration");
 	}
 
-	public int getRandomChance(String reward) {
-		return getData(reward).getInt("Random.Chance");
+	public double getRandomChance(String reward) {
+		return getData(reward).getDouble("Random.Chance");
 	}
 
 	@SuppressWarnings("unchecked")

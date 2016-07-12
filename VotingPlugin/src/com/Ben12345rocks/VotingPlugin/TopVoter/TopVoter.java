@@ -7,7 +7,12 @@ import java.util.Date;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -292,5 +297,8 @@ public class TopVoter {
 			}
 		}
 		plugin.debug("Updated TopVoter");
+		
+		
 	}
+	
 }
