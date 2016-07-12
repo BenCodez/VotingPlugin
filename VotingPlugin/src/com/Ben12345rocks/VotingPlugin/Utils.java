@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin;
 
+import gyurix.api.TitleAPI;
+
 import java.text.DateFormatSymbols;
 import java.util.ArrayList;
 import java.util.Date;
@@ -22,7 +24,6 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.inventivetalent.title.TitleAPI;
 
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -434,20 +435,20 @@ public class Utils {
 	public void sendTitle(Player player, String titleText, String subTitleText,
 			String titleColor, String subTitleColor, int fadeIn, int showTime,
 			int fadeOut) {
-		if (plugin.titleAPIEnabled) {
+		if (plugin.spigotLibEnabled) {
 
-			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
+			TitleAPI.setShowTime(fadeIn, showTime, fadeOut, player);
 
 			if ((subTitleText != null) && (subTitleText != "")) {
 				TextComponent subTitle = new TextComponent(subTitleText);
 				subTitle.setColor(ChatColor.valueOf(subTitleColor));
-				TitleAPI.sendSubTitle(player, subTitle);
+				TitleAPI.setSubTitle(compToString(subTitle), player);
 			}
 
 			if ((titleText != null) && (titleText != "")) {
 				TextComponent title = new TextComponent(titleText);
 				title.setColor(ChatColor.valueOf(titleColor));
-				TitleAPI.sendTitle(player, title);
+				TitleAPI.setTitle(compToString(title), player);
 			}
 		}
 	}

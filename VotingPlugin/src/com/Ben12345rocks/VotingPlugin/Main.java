@@ -84,7 +84,7 @@ public class Main extends JavaPlugin {
 
 	public ArrayList<Reward> rewards;
 
-	public boolean titleAPIEnabled;
+	public boolean spigotLibEnabled;
 
 	public ArrayList<SignHandler> signs;
 
@@ -99,12 +99,12 @@ public class Main extends JavaPlugin {
 	}
 
 	public void checkTitleAPI() {
-		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
-			titleAPIEnabled = true;
-			plugin.debug("Found TitleAPI, will attempt to send titles");
+		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
+			spigotLibEnabled = true;
+			plugin.debug("Found SpigotLib, will attempt to send titles");
 		} else {
-			titleAPIEnabled = false;
-			plugin.debug("TitleAPI not found, titles will not send");
+			spigotLibEnabled = false;
+			plugin.debug("SpigotLib not found, titles will not send");
 		}
 	}
 
