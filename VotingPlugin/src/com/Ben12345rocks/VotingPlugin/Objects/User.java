@@ -419,9 +419,12 @@ public class User {
 	 */
 	public void giveMoney(int money) {
 		String playerName = getPlayerName();
-		if ((Bukkit.getServer().getPluginManager().getPlugin("Vault") != null)
-				&& (money > 0)) {
-			Main.econ.depositPlayer(playerName, money);
+		if (Bukkit.getServer().getPluginManager().getPlugin("Vault") != null) {
+			if (money > 0) {
+				plugin.econ.depositPlayer(playerName, money);
+			} else if (money < 0) {
+				plugin.econ.withdrawPlayer(playerName, money);
+			}
 		}
 	}
 
@@ -607,8 +610,8 @@ public class User {
 		}
 
 		for (int i = 0; i <= 31; i++) {
-			int place2 = Data.getInstance()
-					.getTopVoterAwardOfflineDaily(this, i);
+			int place2 = Data.getInstance().getTopVoterAwardOfflineDaily(this,
+					i);
 			if (place2 > 0) {
 				giveMonthlyTopVoterAward(place2);
 				Data.getInstance().setTopVoterAwardOffline(this, 0);

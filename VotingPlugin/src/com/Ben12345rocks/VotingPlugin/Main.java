@@ -60,7 +60,7 @@ public class Main extends JavaPlugin {
 
 	public static ConfigVoteSites configVoteSites;
 
-	public static Economy econ = null;
+	public Economy econ = null;
 
 	public static Main plugin;
 

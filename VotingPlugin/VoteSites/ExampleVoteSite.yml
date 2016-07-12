@@ -1,8 +1,8 @@
-# Example.yml
+# ExampleVoteSite.yml
 # This is an Example VoteSite
 # Located in VoteSites folder in plugin directory
-# The file name is the VoteSite name
-# On vote, plugin will attempt to give any reward files listed below
+# The file name is the VoteSite name (not including the file extenstion)
+# On vote (of this site), plugin will attempt to give any reward files listed below
 # Also will attempt cumulative rewards
       
 # Enable voteSite
