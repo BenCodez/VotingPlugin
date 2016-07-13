@@ -54,6 +54,14 @@ public class Data {
 		return getData(user).getLong("Timed." + reward);
 	}
 
+	public int getVotingPoints(User user) {
+		return getData(user).getInt("Points");
+	}
+
+	public void setVotingPoints(User user, int value) {
+		set(user, "Points", value);
+	}
+
 	public int getCumulativeSite(User user, String voteSite) {
 		return getData(user).getInt("Cumulative." + voteSite);
 	}
@@ -229,7 +237,7 @@ public class Data {
 			}
 			return users;
 		} else {
-			return null;
+			return new HashSet<User>();
 		}
 	}
 

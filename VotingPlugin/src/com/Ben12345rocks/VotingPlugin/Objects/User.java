@@ -115,6 +115,24 @@ public class User {
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
 	}
 
+	public void addTotalWeekly(VoteSite voteSite) {
+		Data.getInstance()
+				.setTotalWeek(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalWeek(this,
+								voteSite.getSiteName()) + 1);
+	}
+
+	public void addTotalDaily(VoteSite voteSite) {
+		Data.getInstance()
+				.setTotalDaily(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalDaily(this,
+								voteSite.getSiteName()) + 1);
+	}
+
 	/**
 	 *
 	 * @return True if player can vote on all sites
@@ -917,6 +935,14 @@ public class User {
 	 */
 	public void setHasGottenFirstVote(boolean value) {
 		Data.getInstance().setHasGottenFirstReward(this, value);
+	}
+
+	public void setVotingPoints(int value) {
+		Data.getInstance().setVotingPoints(this, value);
+	}
+
+	public int getVotingPoints() {
+		return Data.getInstance().getVotingPoints(this);
 	}
 
 	/**

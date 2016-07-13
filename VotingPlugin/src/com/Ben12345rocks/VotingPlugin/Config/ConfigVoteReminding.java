@@ -53,7 +53,13 @@ public class ConfigVoteReminding {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards() {
 		try {
-			return (ArrayList<String>) getData().getList("Rewards");
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Rewards");
+			if (list != null) {
+				return list;
+			} else {
+				return new ArrayList<String>();
+			}
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}

@@ -79,6 +79,8 @@ public class VotiferEvent implements Listener {
 
 				// add to total votes
 				user.addTotal(voteSite);
+				user.addTotalDaily(voteSite);
+				user.addTotalWeekly(voteSite);
 
 				user.setReminded(false);
 

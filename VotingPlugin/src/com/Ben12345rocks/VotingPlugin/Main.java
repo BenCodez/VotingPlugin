@@ -98,7 +98,7 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void checkTitleAPI() {
+	public void checkSpigotLib() {
 		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
 			spigotLibEnabled = true;
 			plugin.debug("Found SpigotLib, will attempt to send titles");
@@ -195,7 +195,7 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		checkPlaceHolderAPI();
-		checkTitleAPI();
+		checkSpigotLib();
 
 		loadVoteSites();
 		loadRewards();

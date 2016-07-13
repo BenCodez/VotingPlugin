@@ -365,7 +365,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandAdminVote.getInstance().setVoteSiteEnabled(sender,
-						args[1], Boolean.parseBoolean(args[2]));
+						args[1], Boolean.parseBoolean(args[3]));
 
 			}
 		});
