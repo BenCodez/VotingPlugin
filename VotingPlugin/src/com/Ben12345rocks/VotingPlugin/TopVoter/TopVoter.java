@@ -613,7 +613,7 @@ public class TopVoter {
 		ArrayList<User> users1 = topVotersSortedAllWeekly();
 		if (users != null) {
 			for (User user : users1) {
-				plugin.topVoterWeekly.put(user, user.getTotalVotes());
+				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
 			}
 		}
 
@@ -621,7 +621,7 @@ public class TopVoter {
 		ArrayList<User> users2 = topVotersSortedAllDaily();
 		if (users != null) {
 			for (User user : users2) {
-				plugin.topVoterDaily.put(user, user.getTotalVotes());
+				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
 			}
 		}
 
