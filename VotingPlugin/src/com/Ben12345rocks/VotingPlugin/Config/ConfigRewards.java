@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,8 +14,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class ConfigRewards {
 
@@ -311,6 +314,30 @@ public class ConfigRewards {
 		return getData(reward).getString("Title.Title");
 	}
 
+	public boolean getDelayedEnabled(String reward) {
+		return getData(reward).getBoolean("Delayed.Enabled");
+	}
+
+	public int getDelayedHours(String reward) {
+		return getData(reward).getInt("Delayed.Hours");
+	}
+
+	public int getDelayedMinutes(String reward) {
+		return getData(reward).getInt("Delayed.Minutes");
+	}
+
+	public int getTimedHour(String reward) {
+		return getData(reward).getInt("Delayed.Hour");
+	}
+
+	public int getTimedMinute(String reward) {
+		return getData(reward).getInt("Delayed.Minute");
+	}
+
+	public boolean getTimedEnabled(String reward) {
+		return getData(reward).getBoolean("Timed.Enabled");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getWorlds(String reward) {
 		try {
@@ -426,6 +453,21 @@ public class ConfigRewards {
 
 	public void setWorlds(String reward, ArrayList<String> value) {
 		set(reward, "Worlds", value);
+	}
+
+	public void checkDelayedTimedRewards() {
+		for (User user : Data.getInstance().getUsers()) {
+			for (Reward reward : plugin.rewards) {
+				long time = user.getTimedReward(reward);
+				if (time != 0) {
+					Date timeDate = new Date(time);
+					if (new Date().after(timeDate)) {
+						reward.giveRewardReward(user);
+						user.setTimedReward(reward, 0);
+					}
+				}
+			}
+		}
 	}
 
 }

@@ -884,8 +884,8 @@ public class User {
 	 */
 	public void sendVoteTitle() {
 		if (Config.getInstance().getTitleEnabled()) {
-			sendTitle(Config.getInstance().getTitleTitle(), Config.getInstance()
-					.getTitleSubTitle(), Config.getInstance()
+			sendTitle(Config.getInstance().getTitleTitle(), Config
+					.getInstance().getTitleSubTitle(), Config.getInstance()
 					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
 					Config.getInstance().getTitleFadeOut());
 		}
@@ -900,6 +900,14 @@ public class User {
 	public void setCumulativeReward(VoteSite voteSite, int value) {
 		Data.getInstance().setCumulativeSite(this, voteSite.getSiteName(),
 				value);
+	}
+
+	public void setTimedReward(Reward reward, long value) {
+		Data.getInstance().setTimedReward(this, reward.getRewardName(), value);
+	}
+
+	public long getTimedReward(Reward reward) {
+		return Data.getInstance().getTimedReward(this, reward.getRewardName());
 	}
 
 	/**

@@ -46,6 +46,14 @@ public class Data {
 		return getData(user).getInt("OtherRewards.AllSites");
 	}
 
+	public void setTimedReward(User user, String reward, long time) {
+		set(user, "Timed." + reward, time);
+	}
+
+	public long getTimedReward(User user, String reward) {
+		return getData(user).getLong("Timed." + reward);
+	}
+
 	public int getCumulativeSite(User user, String voteSite) {
 		return getData(user).getInt("Cumulative." + voteSite);
 	}

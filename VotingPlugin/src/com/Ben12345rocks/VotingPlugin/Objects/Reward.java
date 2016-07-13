@@ -1,9 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
 
+import org.apache.commons.lang.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -19,6 +21,62 @@ public class Reward {
 	static Main plugin = Main.plugin;
 
 	public String name;
+
+	private boolean delayEnabled;
+	private int delayHours;
+	private int delayMinutes;
+
+	private boolean timedEnabled;
+	private int timedHour;
+	private int timedMinute;
+
+	public int getTimedHour() {
+		return timedHour;
+	}
+
+	public void setTimedHour(int timedHour) {
+		this.timedHour = timedHour;
+	}
+
+	public int getTimedMinute() {
+		return timedMinute;
+	}
+
+	public void setTimedMinute(int timedMinute) {
+		this.timedMinute = timedMinute;
+	}
+
+	public boolean isDelayEnabled() {
+		return delayEnabled;
+	}
+
+	public void setDelayEnabled(boolean delayEnabled) {
+		this.delayEnabled = delayEnabled;
+	}
+
+	public int getDelayHours() {
+		return delayHours;
+	}
+
+	public void setDelayHours(int delayHours) {
+		this.delayHours = delayHours;
+	}
+
+	public int getDelayMinutes() {
+		return delayMinutes;
+	}
+
+	public void setDelayMinutes(int delayMinutes) {
+		this.delayMinutes = delayMinutes;
+	}
+
+	public boolean isTimedEnabled() {
+		return timedEnabled;
+	}
+
+	public void setTimedEnabled(boolean timedEnabled) {
+		this.timedEnabled = timedEnabled;
+	}
 
 	private double chance;
 	private double randomChance;
@@ -66,6 +124,15 @@ public class Reward {
 
 	public Reward(String reward) {
 		name = reward;
+
+		setDelayEnabled(ConfigRewards.getInstance().getDelayedEnabled(reward));
+		setDelayHours(ConfigRewards.getInstance().getDelayedHours(reward));
+		setDelayMinutes(ConfigRewards.getInstance().getDelayedMinutes(reward));
+
+		setTimedEnabled(ConfigRewards.getInstance().getTimedEnabled(reward));
+		setTimedHour(ConfigRewards.getInstance().getTimedHour(reward));
+		setTimedMinute(ConfigRewards.getInstance().getTimedMinute(reward));
+
 		setChance(ConfigRewards.getInstance().getChance(reward));
 		setRandomChance(ConfigRewards.getInstance().getRandomChance(reward));
 		setRandomRewards(ConfigRewards.getInstance().getRandomRewards(reward));
@@ -356,8 +423,42 @@ public class Reward {
 		}
 	}
 
-	public void giveReward(User user) {
+	public boolean checkDelayed(User user) {
+		if (!isDelayEnabled()) {
+			return false;
+		}
 
+		Date time = new Date();
+		time = DateUtils.addHours(time, getDelayHours());
+		time = DateUtils.addMinutes(time, getDelayMinutes());
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " in " + getDelayHours()
+				+ " hours " + getDelayMinutes() + " minutes ("
+				+ time.toString() + ")");
+		return true;
+
+	}
+
+	@SuppressWarnings("deprecation")
+	public boolean checkTimed(User user) {
+		if (!isTimedEnabled()) {
+			return false;
+		}
+
+		Date time = new Date();
+		time.setHours(getTimedHour());
+		time.setMinutes(getTimedMinute());
+		if (!new Date().after(time)) {
+			time = DateUtils.addDays(time, 1);
+		}
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " at " + time.toString());
+		return true;
+	}
+
+	public void giveRewardReward(User user) {
 		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
 				+ name);
 
@@ -396,6 +497,19 @@ public class Reward {
 			}
 		}
 		giveRandom(user);
+	}
+
+	public void giveReward(User user) {
+
+		if (checkDelayed(user)) {
+			return;
+		}
+
+		if (checkTimed(user)) {
+			return;
+		}
+
+		giveRewardReward(user);
 	}
 
 	/**

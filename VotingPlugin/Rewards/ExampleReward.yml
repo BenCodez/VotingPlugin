@@ -4,14 +4,31 @@
 # This reward is named "ExampleReward"
 # DO NOT HAVE DUPLICATE NAMES!!
 
+# Reward are run top to bottom (For the most part)
+
+# This will delay the reward file from running
+Delayed:
+  Enabled: false
+  Hours: 1
+  Minutes: 0
+  
+# Specific time of day to give this reward file
+# in 24 hour time, relative to local time zone
+Timed:
+  Enabled: false
+  Hour: 12
+  Minute: 0
+
 # Chance out of 100
 # Must be an integer
 # Set to 0 or 100 for always, or delete this line to disable chance
 # Will not give any rewards below unless chance is lucky or disabled
 Chance: 40
 
+# This is to give random rewards, with fallback
+# Rewards defined in this reward file below are still given
 Random:
-  # Chance to give a randomly selected reward below, will only give random reward
+  # Chance to give a randomly selected reward below (from list), will only give random reward
   # if lucky (according to chance)
   # Works same as chance above
   Chance: 40
@@ -38,6 +55,7 @@ Worlds:
 # If true, the player will be rewarded in each world
 # If false, the player will be reward one of the worlds once
 GiveInEachWorld: false
+
 
 # Items to give to user
 Items:
