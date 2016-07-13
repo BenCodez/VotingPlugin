@@ -192,7 +192,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotals();
+				TopVoter.getInstance().resetTotalsMonthly();
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cDone resseting totals"));
 				plugin.update();

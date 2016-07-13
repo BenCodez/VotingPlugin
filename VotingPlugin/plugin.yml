@@ -112,6 +112,9 @@ permissions:
       VotingPlugin.Commands.Vote.Info: true
       VotingPlugin.Commands.Vote.Help: true
       VotingPlugin.Commands.Vote.Top: true
+      VotingPlugin.Commands.Vote.Top.Monthly: true
+      VotingPlugin.Commands.Vote.Top.Weekly: true
+      VotingPlugin.Commands.Vote.Top.Daily: true
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true

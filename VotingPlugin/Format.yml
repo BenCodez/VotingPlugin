@@ -79,7 +79,8 @@ Format:
         # First line
         # %page% = current page
         # %maxpages% = max number of pages
-        Title: '&3Top Voters %page%/%maxpages%'
+        # %Top% = Monthly/Weekly/Daily (depending on command)
+        Title: '&3Top Voters %Top% %page%/%maxpages%'
         # Line for each player in that page
         Line: '&c%num%: &6%player%, %votes%'
         

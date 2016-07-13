@@ -176,7 +176,7 @@ public class Commands {
 				lore = Commands.getInstance()
 						.voteCommandTotal(new User(player));
 			} else if (slot.equalsIgnoreCase("top")) {
-				lore = TopVoter.getInstance().topVoter(1);
+				lore = TopVoter.getInstance().topVoterMonthly(1);
 			} else if (slot.equalsIgnoreCase("today")) {
 				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
@@ -227,7 +227,7 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public void sendTopVoterScoreBoard(Player player, int page) {
+	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
 				TopVoter.getInstance().topVoters());
@@ -239,7 +239,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize));
+						.replace("%maxpages%", "" + pageSize)
+						.replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -249,6 +250,82 @@ public class Commands {
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 					plugin.topVoterMonthly.get(users.get(i)));
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				TopVoter.getInstance().topVotersWeekly());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = Utils.getInstance().colorize(
+				format.getCommandVoteTopTitle().replace("%page%", "" + page)
+						.replace("%maxpages%", "" + pageSize)
+						.replace("%Top%", "Weekly"));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterWeekly.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+					plugin.topVoterWeekly.get(users.get(i)));
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	public void sendTopVoterDailyScoreBoard(Player player, int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				TopVoter.getInstance().topVotersDaily());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = Utils.getInstance().colorize(
+				format.getCommandVoteTopTitle().replace("%page%", "" + page)
+						.replace("%maxpages%", "" + pageSize)
+						.replace("%Top%", "Daily"));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterDaily.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+					plugin.topVoterDaily.get(users.get(i)));
 		}
 		scoreboard.build();
 		scoreboard.send(player);

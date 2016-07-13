@@ -558,7 +558,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				CommandVote.getInstance().topVoter(sender, 1);
+				CommandVote.getInstance().topVoterMonthly(sender, 1);
 
 			}
 		});
@@ -570,7 +570,60 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Utils.getInstance().isInt(args[1])) {
-					CommandVote.getInstance().topVoter(sender,
+					CommandVote.getInstance().topVoterMonthly(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
+				"(number)", "Monthly" },
+				"VotingPlugin.Commands.Vote.Top.Monthly",
+				"Open page of Top Voters") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().topVoterMonthly(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
+				"(number)", "Weekly" },
+				"VotingPlugin.Commands.Vote.Top.Weekly",
+				"Open page of Top Voters") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().topVoterWeekly(sender,
+							Integer.parseInt(args[1]));
+				} else {
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cError on " + args[1] + ", number expected"));
+				}
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
+				"(number)", "Daily" }, "VotingPlugin.Commands.Vote.Top.Daily",
+				"Open page of Top Voters") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Utils.getInstance().isInt(args[1])) {
+					CommandVote.getInstance().topVoterDaily(sender,
 							Integer.parseInt(args[1]));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(

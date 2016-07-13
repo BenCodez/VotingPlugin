@@ -61,7 +61,7 @@ public class TopVoter {
 					}
 				}
 			}
-			resetTotals();
+			resetTotalsMonthly();
 
 		}
 
@@ -155,7 +155,7 @@ public class TopVoter {
 		return false;
 	}
 
-	public void resetTotals() {
+	public void resetTotalsMonthly() {
 		for (User user : Data.getInstance().getUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
@@ -188,7 +188,7 @@ public class TopVoter {
 		}
 	}
 
-	public String[] topVoter(int page) {
+	public String[] topVoterMonthly(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -201,7 +201,59 @@ public class TopVoter {
 
 		String title = format.getCommandVoteTopTitle()
 				.replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize);
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Monthly");
+		msg.add(Utils.getInstance().colorize(title));
+
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			msg.add(topVoters.get(i));
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVoterWeekly(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				topVotersWeekly());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Weekly");
+		msg.add(Utils.getInstance().colorize(title));
+
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			msg.add(topVoters.get(i));
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVoterDaily(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				topVotersDaily());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily");
 		msg.add(Utils.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
@@ -265,6 +317,41 @@ public class TopVoter {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
 				plugin.topVoterMonthly.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = format
+					.getCommandVoteTopLine()
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%",
+							"" + plugin.topVoterMonthly.get(users.get(i)));
+			msg.add(line);
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVotersWeekly() {
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterWeekly.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = format
+					.getCommandVoteTopLine()
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%",
+							"" + plugin.topVoterMonthly.get(users.get(i)));
+			msg.add(line);
+		}
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVotersDaily() {
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterDaily.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = format
 					.getCommandVoteTopLine()
