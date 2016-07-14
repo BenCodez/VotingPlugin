@@ -442,7 +442,8 @@ public class Utils {
 			if (subTitle == null) {
 				subTitle = "";
 			}
-			TitleAPI.set(title, subTitle, fadeIn, showTime, fadeOut, player);
+			TitleAPI.set(colorize(title), colorize(subTitle), fadeIn, showTime,
+					fadeOut, player);
 
 		}
 	}

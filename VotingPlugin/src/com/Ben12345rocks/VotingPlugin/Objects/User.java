@@ -104,6 +104,10 @@ public class User {
 		setOfflineVotes(voteSite, getOfflineVotes(voteSite) + 1);
 	}
 
+	public void addPoints() {
+		setPoints(getPoints() + 1);
+	}
+
 	/**
 	 * Add total for VoteSite to user
 	 *
@@ -115,21 +119,21 @@ public class User {
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
 	}
 
-	public void addTotalWeekly(VoteSite voteSite) {
-		Data.getInstance()
-				.setTotalWeek(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalWeek(this,
-								voteSite.getSiteName()) + 1);
-	}
-
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
 				.setTotalDaily(
 						this,
 						voteSite.getSiteName(),
 						Data.getInstance().getTotalDaily(this,
+								voteSite.getSiteName()) + 1);
+	}
+
+	public void addTotalWeekly(VoteSite voteSite) {
+		Data.getInstance()
+				.setTotalWeek(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalWeek(this,
 								voteSite.getSiteName()) + 1);
 	}
 
@@ -227,8 +231,17 @@ public class User {
 		return true;
 	}
 
-	public Player getPlayer() {
-		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+	public void dailyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveDailyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOfflineDaily(this, place);
+		}
 	}
 
 	/**
@@ -279,6 +292,10 @@ public class User {
 				voteSite.getSiteName());
 	}
 
+	public Player getPlayer() {
+		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+	}
+
 	/**
 	 *
 	 * @return User's game name
@@ -303,6 +320,10 @@ public class User {
 		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
 
+	public long getTimedReward(Reward reward) {
+		return Data.getInstance().getTimedReward(this, reward.getRewardName());
+	}
+
 	/**
 	 * Get total from VoteSite for user
 	 *
@@ -312,6 +333,19 @@ public class User {
 	public int getTotal(VoteSite voteSite) {
 		User user = this;
 		return Data.getInstance().getTotal(user, voteSite.getSiteName());
+	}
+
+	public int getTotalDaily(VoteSite voteSite) {
+		return Data.getInstance().getTotalDaily(this, voteSite.getSiteName());
+	}
+
+	public int getTotalDailyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalDaily(voteSite);
+		}
+		return total;
+
 	}
 
 	/**
@@ -350,6 +384,19 @@ public class User {
 
 	}
 
+	public int getTotalWeekly(VoteSite voteSite) {
+		return Data.getInstance().getTotalWeek(this, voteSite.getSiteName());
+	}
+
+	public int getTotalWeeklyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalWeekly(voteSite);
+		}
+		return total;
+
+	}
+
 	/**
 	 * Get user's uuid
 	 *
@@ -366,6 +413,40 @@ public class User {
 		}
 		Long last = Collections.max(times);
 		return last;
+	}
+
+	public int getPoints() {
+		return Data.getInstance().getVotingPoints(this);
+	}
+
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
+	public void giveDailyTopVoterAward(int place) {
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getDailyAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
+		}
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+							.replace("%place%", "" + place)));
+		}
+	}
+
+	/**
+	 * Give player EXP
+	 *
+	 * @param exp
+	 */
+	public void giveExp(int exp) {
+		Player player = getPlayer();
+		if (player != null) {
+			player.giveExp(exp);
+		}
 	}
 
 	@SuppressWarnings("deprecation")
@@ -447,14 +528,20 @@ public class User {
 	}
 
 	/**
-	 * Give player EXP
-	 * 
-	 * @param exp
+	 * Give monthly top voter award
+	 *
+	 * @param place
 	 */
-	public void giveExp(int exp) {
-		Player player = getPlayer();
+	public void giveMonthlyTopVoterAward(int place) {
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getMonthlyAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
+		}
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			player.giveExp(exp);
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -484,24 +571,6 @@ public class User {
 	}
 
 	/**
-	 * Give monthly top voter award
-	 *
-	 * @param place
-	 */
-	public void giveMonthlyTopVoterAward(int place) {
-		for (String reward : ConfigTopVoterAwards.getInstance()
-				.getMonthlyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward));
-		}
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			player.sendMessage(Utils.getInstance().colorize(
-					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
-		}
-	}
-
-	/**
 	 * Give top voter award
 	 *
 	 * @param place
@@ -509,24 +578,6 @@ public class User {
 	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getWeeklyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward));
-		}
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			player.sendMessage(Utils.getInstance().colorize(
-					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
-		}
-	}
-
-	/**
-	 * Give top voter award
-	 *
-	 * @param place
-	 */
-	public void giveDailyTopVoterAward(int place) {
-		for (String reward : ConfigTopVoterAwards.getInstance()
-				.getDailyAwardRewards(place)) {
 			giveReward(ConfigRewards.getInstance().getReward(reward));
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -566,6 +617,24 @@ public class User {
 	public void loginMessage() {
 		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
 			VoteReminding.getInstance().runRemind(this);
+		}
+	}
+
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
+	public void monthlyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveMonthlyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
 	}
 
@@ -920,14 +989,6 @@ public class User {
 				value);
 	}
 
-	public void setTimedReward(Reward reward, long value) {
-		Data.getInstance().setTimedReward(this, reward.getRewardName(), value);
-	}
-
-	public long getTimedReward(Reward reward) {
-		return Data.getInstance().getTimedReward(this, reward.getRewardName());
-	}
-
 	/**
 	 * Set has gotten first vote
 	 *
@@ -935,14 +996,6 @@ public class User {
 	 */
 	public void setHasGottenFirstVote(boolean value) {
 		Data.getInstance().setHasGottenFirstReward(this, value);
-	}
-
-	public void setVotingPoints(int value) {
-		Data.getInstance().setVotingPoints(this, value);
-	}
-
-	public int getVotingPoints() {
-		return Data.getInstance().getVotingPoints(this);
 	}
 
 	/**
@@ -1007,6 +1060,10 @@ public class User {
 		Data.getInstance().setTime(voteSite.getSiteName(), user);
 	}
 
+	public void setTimedReward(Reward reward, long value) {
+		Data.getInstance().setTimedReward(this, reward.getRewardName(), value);
+	}
+
 	/**
 	 * Set total for VoteSite for user
 	 *
@@ -1020,6 +1077,14 @@ public class User {
 		Data.getInstance().setTotal(user, voteSite.getSiteName(), amount);
 	}
 
+	public void setTotalDaily(VoteSite voteSite, int amount) {
+		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
+	}
+
+	public void setTotalWeekly(VoteSite voteSite, int amount) {
+		Data.getInstance().setTotalWeek(this, voteSite.getSiteName(), amount);
+	}
+
 	/**
 	 * Set user's uuid
 	 *
@@ -1030,22 +1095,8 @@ public class User {
 		this.uuid = uuid;
 	}
 
-	/**
-	 * Give top voter award
-	 *
-	 * @param place
-	 */
-	public void monthlyTopVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
-		}
-
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
-			// online
-			giveMonthlyTopVoterAward(place);
-		} else {
-			Data.getInstance().setTopVoterAwardOffline(this, place);
-		}
+	public void setPoints(int value) {
+		Data.getInstance().setVotingPoints(this, value);
 	}
 
 	public void weeklyTopVoterAward(int place) {
@@ -1059,53 +1110,6 @@ public class User {
 		} else {
 			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
-	}
-
-	public void dailyTopVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
-		}
-
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
-			// online
-			giveDailyTopVoterAward(place);
-		} else {
-			Data.getInstance().setTopVoterAwardOfflineDaily(this, place);
-		}
-	}
-
-	public void setTotalWeekly(VoteSite voteSite, int amount) {
-		Data.getInstance().setTotalWeek(this, voteSite.getSiteName(), amount);
-	}
-
-	public void setTotalDaily(VoteSite voteSite, int amount) {
-		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
-	}
-
-	public int getTotalWeekly(VoteSite voteSite) {
-		return Data.getInstance().getTotalWeek(this, voteSite.getSiteName());
-	}
-
-	public int getTotalDaily(VoteSite voteSite) {
-		return Data.getInstance().getTotalDaily(this, voteSite.getSiteName());
-	}
-
-	public int getTotalWeeklyAll() {
-		int total = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
-			total += getTotalWeekly(voteSite);
-		}
-		return total;
-
-	}
-
-	public int getTotalDailyAll() {
-		int total = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
-			total += getTotalDaily(voteSite);
-		}
-		return total;
-
 	}
 
 }

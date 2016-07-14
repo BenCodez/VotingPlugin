@@ -26,9 +26,12 @@ public class PlaceHolders {
 	}
 
 	public String playerCanVote(Player player) {
-
 		return Boolean.toString(new User(player).canVoteAll());
 
+	}
+
+	public String playerPoints(Player player) {
+		return Integer.toString(new User(player).getPoints());
 	}
 
 	public String playerLastVote(Player player, String siteName) {
