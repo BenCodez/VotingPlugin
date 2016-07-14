@@ -20,3 +20,14 @@ VotesRequired: 0
 VotesInSameDay: false
 CumulativeRewards:
 - 'NumberOfVotes'
+
+VoteParty:
+  # Wether or not vote party is enabled
+  Enabled: true
+  # Number of votes required to give rewards
+  VotesRequired: 20
+  # If true, players who did not vote to reach the votes required will 
+  # recieve the reward
+  GiveAllPlayers: false
+  Rewards:
+  - 'ExampleReward'

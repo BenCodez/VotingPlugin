@@ -92,6 +92,13 @@ Format:
         Line: '&3&l%Command% - &3%HelpMessage%'
         # Require permission to see command in /v help or /av help
         RequirePermission: true
+
+      # PlaceHolders:
+      # %VotesRequired% = VotesRequired
+      # %NeededVotes% = Number of votes needed to VotesRequired
+      # %Votes% = Number of votes
+      Party:
+      - '&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%'
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  

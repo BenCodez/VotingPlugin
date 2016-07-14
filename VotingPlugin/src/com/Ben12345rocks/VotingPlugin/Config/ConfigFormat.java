@@ -353,6 +353,18 @@ public class ConfigFormat {
 				"Format.Commands.Vote.Help.Lines");
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsVoteParty() {
+		try {
+			return (ArrayList<String>) getData().getList(
+					"Format.Commands.Vote.Party");
+		} catch (Exception ex) {
+			ArrayList<String> msg = new ArrayList<String>();
+			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+			return msg;
+		}
+	}
+
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}

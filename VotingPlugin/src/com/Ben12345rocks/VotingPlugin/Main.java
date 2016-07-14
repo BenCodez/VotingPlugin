@@ -46,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class Main extends JavaPlugin {
@@ -214,6 +215,9 @@ public class Main extends JavaPlugin {
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
+		
+		VoteParty.getInstance().check();
+		
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
