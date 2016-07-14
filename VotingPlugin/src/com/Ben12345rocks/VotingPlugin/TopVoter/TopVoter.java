@@ -91,7 +91,7 @@ public class TopVoter {
 		}
 
 		if (hasDayChanged()) {
-			plugin.getLogger().info("Week changed!");
+			plugin.getLogger().info("Day changed!");
 			TopVoters.getInstance().storeDailyTopVoters(
 					new Date().getYear() + 1900, new Date().getMonth(),
 					new Date().getDate(), topVoterDailyNoColor());
@@ -114,6 +114,8 @@ public class TopVoter {
 			resetTotalsDaily();
 
 		}
+
+		plugin.debug("Checked top voter awards");
 
 	}
 
@@ -149,7 +151,7 @@ public class TopVoter {
 		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
-		if (prevDate == 0 && c.getTime().getDate() != prevDate) {
+		if (c.getTime().getDay() == 0 && c.getTime().getDate() != prevDate) {
 			return true;
 		}
 		return false;
