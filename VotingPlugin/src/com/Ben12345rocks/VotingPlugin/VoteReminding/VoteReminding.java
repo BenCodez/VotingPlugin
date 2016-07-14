@@ -7,6 +7,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class VoteReminding {
@@ -72,8 +73,14 @@ public class VoteReminding {
 			user.setReminded(true);
 			for (String reward : ConfigVoteReminding.getInstance().getRewards()) {
 				if (!reward.equalsIgnoreCase("")) {
-					ConfigRewards.getInstance().getReward(reward)
-							.giveReward(user);
+					if (ConfigRewards.getInstance().getRewardFile(reward)
+							.exists()) {
+
+					}
+					Reward rewardFile = ConfigRewards.getInstance().getReward(
+							reward);
+
+					rewardFile.giveReward(user);
 				}
 			}
 

@@ -36,7 +36,11 @@ public class ConfigOtherRewards {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getAllSitesReward() {
-		return (ArrayList<String>) getData().getList("AllSites");
+		try {
+			return (ArrayList<String>) getData().getList("AllSites");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public FileConfiguration getData() {
@@ -45,12 +49,20 @@ public class ConfigOtherRewards {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFirstVoteRewards() {
-		return (ArrayList<String>) getData().getList("FirstVote");
+		try {
+			return (ArrayList<String>) getData().getList("FirstVote");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getNumberOfVotes() {
-		return (ArrayList<String>) getData().getList("NumberOfVotes");
+		try {
+			return (ArrayList<String>) getData().getList("CumulativeRewards");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public boolean getNumberOfVotesVotesInSameDay() {
