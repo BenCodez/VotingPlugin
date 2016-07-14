@@ -94,64 +94,19 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 			List<String> tab = new ArrayList<String>();
 
-			if (args.length == 1) {
+			ArrayList<String> cmds = new ArrayList<String>();
 
-				ArrayList<String> cmds = new ArrayList<String>();
+			cmds.addAll(getAdminTabCompleteOptions(sender, args,
+					args.length - 1));
 
-				cmds.addAll(getAdminTabCompleteOptions(sender, args, 0));
-
-				for (int i = 0; i < cmds.size(); i++) {
-					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[0])) {
-						tab.add(cmds.get(i));
-					}
+			for (int i = 0; i < cmds.size(); i++) {
+				if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
+						args[args.length - 1])) {
+					tab.add(cmds.get(i));
 				}
-
-				return tab;
-
-			} else if (args.length == 2) {
-
-				ArrayList<String> cmds = new ArrayList<String>();
-
-				cmds.addAll(getAdminTabCompleteOptions(sender, args, 1));
-
-				for (int i = 0; i < cmds.size(); i++) {
-					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[1])) {
-						tab.add(cmds.get(i));
-					}
-				}
-				return tab;
-
-			} else if (args.length == 3) {
-				ArrayList<String> cmds = new ArrayList<String>();
-
-				cmds.addAll(getAdminTabCompleteOptions(sender, args, 2));
-
-				for (int i = 0; i < cmds.size(); i++) {
-					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[2])) {
-						tab.add(cmds.get(i));
-					}
-				}
-
-				return tab;
-
-			} else if (args.length == 4) {
-				ArrayList<String> cmds = new ArrayList<String>();
-
-				cmds.addAll(getAdminTabCompleteOptions(sender, args, 3));
-
-				for (int i = 0; i < cmds.size(); i++) {
-					if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-							args[3])) {
-						tab.add(cmds.get(i));
-					}
-				}
-
-				return tab;
-
 			}
+
+			return tab;
 
 		}
 

@@ -341,7 +341,7 @@ public class TopVoter {
 					.replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
 					.replace("%votes%",
-							"" + plugin.topVoterMonthly.get(users.get(i)));
+							"" + plugin.topVoterWeekly.get(users.get(i)));
 			msg.add(line);
 		}
 		msg = Utils.getInstance().colorize(msg);
@@ -358,7 +358,7 @@ public class TopVoter {
 					.replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
 					.replace("%votes%",
-							"" + plugin.topVoterMonthly.get(users.get(i)));
+							"" + plugin.topVoterDaily.get(users.get(i)));
 			msg.add(line);
 		}
 
