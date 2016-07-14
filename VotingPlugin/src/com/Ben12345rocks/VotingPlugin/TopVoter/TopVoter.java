@@ -69,7 +69,7 @@ public class TopVoter {
 			plugin.getLogger().info("Week changed!");
 			TopVoters.getInstance().storeWeeklyTopVoters(
 					new Date().getYear() + 1900, new Date().getMonth(),
-					new Date().getDay(), topVoterWeeklyNoColor());
+					new Date().getDate(), topVoterWeeklyNoColor());
 			if (ConfigTopVoterAwards.getInstance().getWeeklyAwardsEnabled()) {
 				Set<String> places = ConfigTopVoterAwards.getInstance()
 						.getWeeklyPossibleRewardPlaces();
@@ -151,7 +151,8 @@ public class TopVoter {
 		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
-		if (c.getTime().getDay() == 0 && c.getTime().getDate() != prevDate) {
+		if (ServerData.getInstance().getPrevDay() == 0
+				&& c.getTime().getDate() != prevDate) {
 			return true;
 		}
 		return false;

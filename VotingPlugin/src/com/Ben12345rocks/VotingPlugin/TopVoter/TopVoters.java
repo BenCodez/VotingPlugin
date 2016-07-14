@@ -9,7 +9,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -43,11 +42,10 @@ public class TopVoters {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + "TopVoters." + year + "."
-									+ month + "." + date + ".yml");
-				}
+
+				plugin.debug("Created file: " + "TopVoters." + year + "."
+						+ month + "." + date + ".yml");
+
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create: " + "TopVoters."
@@ -74,7 +72,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + date + ".yml");
+							+ "." + date + ".yml");
 		}
 
 	}
@@ -91,11 +89,10 @@ public class TopVoters {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + "TopVoters." + year + "."
-									+ month + ".yml");
-				}
+
+				plugin.debug("Created file: " + "TopVoters." + year + "."
+						+ month + ".yml");
+
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create: " + "TopVoters."
@@ -122,7 +119,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}
@@ -140,11 +137,10 @@ public class TopVoters {
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
-				if (Config.getInstance().getDebugEnabled()) {
-					plugin.getLogger().info(
-							"Created file: " + "TopVoters." + year + "."
-									+ month + "." + day + ".yml");
-				}
+
+				plugin.debug("Created file: " + "TopVoters." + year + "."
+						+ month + "." + day + ".yml");
+
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create: " + "TopVoters."
@@ -171,7 +167,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + day + ".yml");
+							+ "." + day + ".yml");
 		}
 
 	}
