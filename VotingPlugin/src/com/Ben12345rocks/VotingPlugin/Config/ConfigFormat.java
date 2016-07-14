@@ -44,6 +44,11 @@ public class ConfigFormat {
 		}
 	}
 
+	public boolean getCommandsVoteHelpRequirePermission() {
+		return getData().getBoolean(
+				"Format.Commands.Vote.Help.RequirePermission");
+	}
+
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}

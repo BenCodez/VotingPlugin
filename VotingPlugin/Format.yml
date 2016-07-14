@@ -90,6 +90,8 @@ Format:
         Title: '&3&lVoting Player Help'
         # Format for help message in /v help
         Line: '&3&l%Command% - &3%HelpMessage%'
+        # Require permission to see command in /v help or /av help
+        RequirePermission: true
       
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
