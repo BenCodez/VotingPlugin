@@ -24,6 +24,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -445,6 +446,18 @@ public class Utils {
 		if (durability > 0) {
 			item.setDurability((short) durability);
 		}
+		return item;
+	}
+
+	public ItemStack setSkullOwner(ItemStack item, String playerName) {
+		if (item == null) {
+			return null;
+		}
+		if (playerName == null || playerName.equalsIgnoreCase("")) {
+			return item;
+		}
+		ItemMeta meta = item.getItemMeta();
+		((SkullMeta) meta).setOwner(playerName);
 		return item;
 	}
 

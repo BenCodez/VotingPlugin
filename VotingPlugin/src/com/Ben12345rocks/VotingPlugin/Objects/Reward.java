@@ -47,6 +47,7 @@ public class Reward {
 	private Set<String> items;
 
 	private HashMap<String, String> itemMaterial;
+	private HashMap<String, String> itemSkull;
 
 	private HashMap<String, Integer> itemData;
 
@@ -107,6 +108,7 @@ public class Reward {
 		setItems(ConfigRewards.getInstance().getItems(reward));
 		itemMaterial = new HashMap<String, String>();
 		itemData = new HashMap<String, Integer>();
+		itemSkull = new HashMap<String, String>();
 		itemDurabilty = new HashMap<String, Integer>();
 		itemAmount = new HashMap<String, Integer>();
 		itemMinAmount = new HashMap<String, Integer>();
@@ -132,6 +134,8 @@ public class Reward {
 					ConfigRewards.getInstance().getItemLore(reward, item));
 			itemDurabilty.put(item, ConfigRewards.getInstance()
 					.getItemDurability(reward, item));
+			itemSkull.put(item,
+					ConfigRewards.getInstance().getItemSkull(reward, item));
 			HashMap<String, Integer> enchants = new HashMap<String, Integer>();
 			for (String enchant : ConfigRewards.getInstance().getItemEnchants(
 					reward, item)) {
@@ -407,6 +411,10 @@ public class Reward {
 					getItemEnchants().get(item));
 			itemStack = Utils.getInstance().setDurabilty(itemStack,
 					getItemDurabilty().get(item));
+			itemStack = Utils.getInstance().setSkullOwner(
+					itemStack,
+					getItemSkull().get(item).replace("%Player%",
+							user.getPlayerName()));
 			user.giveItem(itemStack);
 		}
 	}
@@ -419,7 +427,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -477,8 +485,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -607,9 +615,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
@@ -746,5 +754,13 @@ public class Reward {
 
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
+	}
+
+	public HashMap<String, String> getItemSkull() {
+		return itemSkull;
+	}
+
+	public void setItemSkull(HashMap<String, String> itemSkull) {
+		this.itemSkull = itemSkull;
 	}
 }

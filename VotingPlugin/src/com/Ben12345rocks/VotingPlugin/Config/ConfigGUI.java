@@ -10,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -279,11 +280,39 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
+	}
+
+	public String getVoteGUISlotSkull(Player player, String slot) {
+		return getData().getString("GUI.VoteGUI." + slot + ".Item.Skull")
+				.replace("%Player%", player.getName());
+	}
+
+	public String getVoteSiteItemSkull(Player player, String siteName) {
+		return getData()
+				.getString("GUI.VoteReward." + siteName + ".Item.Skull")
+				.replace("%Player%", player.getName());
+	}
+
+	public String getVoteURLAlreadyVotedItemSkull(Player player) {
+		return getData().getString("GUI.VoteURL.AlreadyVotedItem.Skull")
+				.replace("%Player%", player.getName());
+	}
+
+	public String getVoteSiteItemsSkull(Player player, String siteName,
+			String item) {
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Skull")
+				.replace("%Player%", player.getName());
+	}
+
+	public String getVoteURLCanVoteItemSkull(Player player) {
+		return getData().getString("GUI.VoteURL.CanVoteItem.Skull").replace(
+				"%Player%", player.getName());
 	}
 
 }

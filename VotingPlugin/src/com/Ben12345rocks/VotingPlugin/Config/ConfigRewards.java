@@ -160,6 +160,10 @@ public class ConfigRewards {
 		return getData(reward).getString("Items." + item + ".Material");
 	}
 
+	public String getItemSkull(String reward, String item) {
+		return getData(reward).getString("Items." + item + ".Skull");
+	}
+
 	public int getItemMaxAmount(String reward, String item) {
 		return getData(reward).getInt("Items." + item + ".MaxAmount");
 	}

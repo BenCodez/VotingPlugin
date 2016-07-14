@@ -170,6 +170,9 @@ public class Commands {
 					.getVoteGUISlotAmount(slot), (short) ConfigGUI
 					.getInstance().getVoteGUISlotData(slot));
 
+			item = Utils.getInstance().setSkullOwner(item,
+					ConfigGUI.getInstance().getVoteGUISlotSkull(player, slot));
+
 			item = Utils.getInstance().setDurabilty(item,
 					ConfigGUI.getInstance().getVoteGUISlotDurability(slot));
 
@@ -827,6 +830,11 @@ public class Commands {
 						ConfigGUI.getInstance().getVoteSiteItemDurability(
 								voteSite.getSiteName()));
 
+				item = Utils.getInstance().setSkullOwner(
+						item,
+						ConfigGUI.getInstance().getVoteSiteItemSkull(player,
+								voteSite.getSiteName()));
+
 				inv.addButton(
 						count,
 						new BInventoryButton(
@@ -866,6 +874,11 @@ public class Commands {
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance().getVoteSiteItemsDurability(
+								siteName, itemName));
+
+				item = Utils.getInstance().setSkullOwner(
+						item,
+						ConfigGUI.getInstance().getVoteSiteItemsSkull(player,
 								siteName, itemName));
 
 				inv.addButton(
@@ -925,6 +938,10 @@ public class Commands {
 					itemAll,
 					ConfigGUI.getInstance()
 							.getVoteURLAlreadyVotedItemDurability());
+			itemAll = Utils.getInstance().setSkullOwner(
+					itemAll,
+					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
+							player));
 			if (user.canVoteAll()) {
 				itemAll = new ItemStack(ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
@@ -934,6 +951,10 @@ public class Commands {
 						itemAll,
 						ConfigGUI.getInstance()
 								.getVoteURLCanVoteItemDurability());
+				itemAll = Utils.getInstance().setSkullOwner(
+						itemAll,
+						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(
+								player));
 			}
 
 			inv.addButton(count, new BInventoryButton("&4All Voting Sites",
@@ -959,6 +980,10 @@ public class Commands {
 					item,
 					ConfigGUI.getInstance()
 							.getVoteURLAlreadyVotedItemDurability());
+			item = Utils.getInstance().setSkullOwner(
+					item,
+					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
+							player));
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
 
@@ -971,6 +996,10 @@ public class Commands {
 						item,
 						ConfigGUI.getInstance()
 								.getVoteURLCanVoteItemDurability());
+				item = Utils.getInstance().setSkullOwner(
+						item,
+						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(
+								player));
 			} else {
 				lore.add(ConfigGUI.getInstance().getVoteURLNextVote()
 						.replace("%Info%", voteCommandNextInfo(user, voteSite)));
