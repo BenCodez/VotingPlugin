@@ -252,6 +252,7 @@ public class ConfigRewards {
 	}
 
 	public Reward getReward(String reward) {
+		reward = reward.replace(" ", "_");
 		if (plugin.rewards != null) {
 			for (Reward rewardFile : plugin.rewards) {
 				if (rewardFile.name.equals(reward)) {
@@ -272,7 +273,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}
