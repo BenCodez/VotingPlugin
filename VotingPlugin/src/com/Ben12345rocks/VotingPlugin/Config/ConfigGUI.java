@@ -87,6 +87,12 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
 	}
 
+	public int getVoteSiteItemDurability(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Item.Durability");
+	}
+
 	public int getVoteSiteItemID(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
@@ -102,12 +108,6 @@ public class ConfigGUI {
 	public String getVoteSiteItemName(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
-	}
-
-	public int getVoteSiteItemDurability(String site) {
-		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Item.Durability");
 	}
 
 	public Set<String> getVoteSiteItems(String site) {
@@ -279,7 +279,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

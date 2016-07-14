@@ -92,7 +92,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandLast(new User(playerName))));
+					.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -115,7 +115,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandNext(new User(playerName))));
+					.voteCommandNext(new User(playerName))));
 		}
 
 	}
@@ -174,6 +174,33 @@ public class CommandVote implements CommandExecutor {
 
 	}
 
+	public void topVoterDaily(CommandSender sender, int page) {
+
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(TopVoter.getInstance().topVoterDaily(page));
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Commands.getInstance().sendTopVoterDailyScoreBoard(
+									(Player) sender, page);
+						}
+					});
+				} else {
+					sender.sendMessage(TopVoter.getInstance().topVoterDaily(
+							page));
+				}
+
+			}
+		});
+
+	}
+
 	public void topVoterMonthly(CommandSender sender, int page) {
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -189,8 +216,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-									.sendTopVoterMonthlyScoreBoard(
-											(Player) sender, page);
+							.sendTopVoterMonthlyScoreBoard(
+									(Player) sender, page);
 						}
 					});
 				} else {
@@ -218,39 +245,12 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-									.sendTopVoterWeeklyScoreBoard(
-											(Player) sender, page);
-						}
-					});
-				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoterWeekly(
-							page));
-				}
-
-			}
-		});
-
-	}
-
-	public void topVoterDaily(CommandSender sender, int page) {
-
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				if (sender instanceof Player) {
-					User user = new User((Player) sender);
-					user.sendMessage(TopVoter.getInstance().topVoterDaily(page));
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							Commands.getInstance().sendTopVoterDailyScoreBoard(
+							.sendTopVoterWeeklyScoreBoard(
 									(Player) sender, page);
 						}
 					});
 				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoterDaily(
+					sender.sendMessage(TopVoter.getInstance().topVoterWeekly(
 							page));
 				}
 

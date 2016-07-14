@@ -30,10 +30,6 @@ public class PlaceHolders {
 
 	}
 
-	public String playerPoints(Player player) {
-		return Integer.toString(new User(player).getPoints());
-	}
-
 	public String playerLastVote(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
@@ -54,6 +50,10 @@ public class PlaceHolders {
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
+	}
+
+	public String playerPoints(Player player) {
+		return Integer.toString(new User(player).getPoints());
 	}
 
 	public String playerTotalVotes(Player player) {

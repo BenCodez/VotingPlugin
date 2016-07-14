@@ -36,6 +36,21 @@ public class ConfigRewards {
 		ConfigRewards.plugin = plugin;
 	}
 
+	public void checkDelayedTimedRewards() {
+		for (User user : Data.getInstance().getUsers()) {
+			for (Reward reward : plugin.rewards) {
+				long time = user.getTimedReward(reward);
+				if (time != 0) {
+					Date timeDate = new Date(time);
+					if (new Date().after(timeDate)) {
+						reward.giveRewardReward(user);
+						user.setTimedReward(reward, 0);
+					}
+				}
+			}
+		}
+	}
+
 	public double getChance(String reward) {
 		return getData(reward).getDouble("Chance");
 	}
@@ -66,6 +81,18 @@ public class ConfigRewards {
 		return data;
 	}
 
+	public boolean getDelayedEnabled(String reward) {
+		return getData(reward).getBoolean("Delayed.Enabled");
+	}
+
+	public int getDelayedHours(String reward) {
+		return getData(reward).getInt("Delayed.Hours");
+	}
+
+	public int getDelayedMinutes(String reward) {
+		return getData(reward).getInt("Delayed.Minutes");
+	}
+
 	public int getEffectData(String reward) {
 		return getData(reward).getInt("Effect.Data");
 	}
@@ -90,6 +117,10 @@ public class ConfigRewards {
 		return getData(reward).getInt("Effect.Radius");
 	}
 
+	public int getEXP(String reward) {
+		return getData(reward).getInt("EXP");
+	}
+
 	public boolean getGiveInEachWorld(String reward) {
 		return getData(reward).getBoolean("GiveInEachWorld");
 	}
@@ -104,10 +135,6 @@ public class ConfigRewards {
 
 	public int getItemDurability(String reward, String item) {
 		return getData(reward).getInt("Items." + item + ".Durability");
-	}
-
-	public int getEXP(String reward) {
-		return getData(reward).getInt("EXP");
 	}
 
 	public Set<String> getItemEnchants(String reward, String item) {
@@ -245,7 +272,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
@@ -290,6 +317,18 @@ public class ConfigRewards {
 		return (float) getData(reward).getDouble("Sound.Volume");
 	}
 
+	public boolean getTimedEnabled(String reward) {
+		return getData(reward).getBoolean("Timed.Enabled");
+	}
+
+	public int getTimedHour(String reward) {
+		return getData(reward).getInt("Delayed.Hour");
+	}
+
+	public int getTimedMinute(String reward) {
+		return getData(reward).getInt("Delayed.Minute");
+	}
+
 	public boolean getTitleEnabled(String reward) {
 		return getData(reward).getBoolean("Title.Enabled");
 	}
@@ -312,30 +351,6 @@ public class ConfigRewards {
 
 	public String getTitleTitle(String reward) {
 		return getData(reward).getString("Title.Title");
-	}
-
-	public boolean getDelayedEnabled(String reward) {
-		return getData(reward).getBoolean("Delayed.Enabled");
-	}
-
-	public int getDelayedHours(String reward) {
-		return getData(reward).getInt("Delayed.Hours");
-	}
-
-	public int getDelayedMinutes(String reward) {
-		return getData(reward).getInt("Delayed.Minutes");
-	}
-
-	public int getTimedHour(String reward) {
-		return getData(reward).getInt("Delayed.Hour");
-	}
-
-	public int getTimedMinute(String reward) {
-		return getData(reward).getInt("Delayed.Minute");
-	}
-
-	public boolean getTimedEnabled(String reward) {
-		return getData(reward).getBoolean("Timed.Enabled");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -453,21 +468,6 @@ public class ConfigRewards {
 
 	public void setWorlds(String reward, ArrayList<String> value) {
 		set(reward, "Worlds", value);
-	}
-
-	public void checkDelayedTimedRewards() {
-		for (User user : Data.getInstance().getUsers()) {
-			for (Reward reward : plugin.rewards) {
-				long time = user.getTimedReward(reward);
-				if (time != 0) {
-					Date timeDate = new Date(time);
-					if (new Date().after(timeDate)) {
-						reward.giveRewardReward(user);
-						user.setTimedReward(reward, 0);
-					}
-				}
-			}
-		}
 	}
 
 }

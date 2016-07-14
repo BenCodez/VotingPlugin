@@ -50,6 +50,14 @@ public class ConfigVoteReminding {
 		return 30;
 	}
 
+	public boolean getRemindOnLogin() {
+		return getData().getBoolean("RemindOnLogin");
+	}
+
+	public boolean getRemindOnlyOnce() {
+		return getData().getBoolean("RemindOnlyOnce");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards() {
 		try {
@@ -63,14 +71,6 @@ public class ConfigVoteReminding {
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
-	}
-
-	public boolean getRemindOnLogin() {
-		return getData().getBoolean("RemindOnLogin");
-	}
-
-	public boolean getRemindOnlyOnce() {
-		return getData().getBoolean("RemindOnlyOnce");
 	}
 
 	public void reloadData() {
@@ -99,9 +99,9 @@ public class ConfigVoteReminding {
 				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create VoteReminding.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create VoteReminding.yml!");
 			}
 		}
 

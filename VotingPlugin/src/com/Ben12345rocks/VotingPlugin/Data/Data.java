@@ -46,22 +46,6 @@ public class Data {
 		return getData(user).getInt("OtherRewards.AllSites");
 	}
 
-	public void setTimedReward(User user, String reward, long time) {
-		set(user, "Timed." + reward, time);
-	}
-
-	public long getTimedReward(User user, String reward) {
-		return getData(user).getLong("Timed." + reward);
-	}
-
-	public int getVotingPoints(User user) {
-		return getData(user).getInt("Points");
-	}
-
-	public void setVotingPoints(User user, int value) {
-		set(user, "Points", value);
-	}
-
 	public int getCumulativeSite(User user, String voteSite) {
 		return getData(user).getInt("Cumulative." + voteSite);
 	}
@@ -106,22 +90,6 @@ public class Data {
 				.getInt("OfflineVotesWorld." + reward + "." + world);
 	}
 
-	public int getTotalWeek(User user, String voteSite) {
-		return getData(user).getInt("TotalWeek." + voteSite);
-	}
-
-	public void setTotalWeek(User user, String voteSite, int amount) {
-		set(user, "TotalWeek." + voteSite, amount);
-	}
-
-	public int getTotalDaily(User user, String voteSite) {
-		return getData(user).getInt("TotalDay." + voteSite);
-	}
-
-	public void setTotalDaily(User user, String voteSite, int amount) {
-		set(user, "TotalDay." + voteSite, amount);
-	}
-
 	public File getPlayerFile(User user) {
 		String playerName = user.getPlayerName();
 		String uuid = user.getUUID();
@@ -140,9 +108,9 @@ public class Data {
 
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -197,6 +165,10 @@ public class Data {
 		return getData(user).getBoolean("Reminded");
 	}
 
+	public long getTimedReward(User user, String reward) {
+		return getData(user).getLong("Timed." + reward);
+	}
+
 	public long getTimeSite(User user, String voteSite) {
 		return getData(user).getLong("LastVote." + voteSite + ".Miliseconds");
 
@@ -210,21 +182,29 @@ public class Data {
 	}
 
 	@SuppressWarnings("deprecation")
-	public int getTopVoterAwardOfflineWeekly(User user, int day) {
-		return getData(user).getInt(
-				"TopVoter." + new Date().getYear() + "."
-						+ new Date().getMonth() + "." + day);
-	}
-
-	@SuppressWarnings("deprecation")
 	public int getTopVoterAwardOfflineDaily(User user, int date) {
 		return getData(user).getInt(
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + date);
 	}
 
+	@SuppressWarnings("deprecation")
+	public int getTopVoterAwardOfflineWeekly(User user, int day) {
+		return getData(user).getInt(
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + day);
+	}
+
 	public int getTotal(User user, String voteSite) {
 		return getData(user).getInt("Total." + voteSite);
+	}
+
+	public int getTotalDaily(User user, String voteSite) {
+		return getData(user).getInt("TotalDay." + voteSite);
+	}
+
+	public int getTotalWeek(User user, String voteSite) {
+		return getData(user).getInt("TotalWeek." + voteSite);
 	}
 
 	public Set<User> getUsers() {
@@ -239,6 +219,10 @@ public class Data {
 		} else {
 			return new HashSet<User>();
 		}
+	}
+
+	public int getVotingPoints(User user) {
+		return getData(user).getInt("Points");
 	}
 
 	public boolean hasJoinedBefore(User user) {
@@ -257,9 +241,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -303,14 +287,6 @@ public class Data {
 		set(user, "OfflineVotesWorld." + reward + "." + world, value);
 	}
 
-	/*
-	 * public int getVotesBonusReward(User user) { return
-	 * getData(user).getInt("BonusVotes"); }
-	 * 
-	 * public void setVotesBonusReward(User user, int value) { set(user,
-	 * "BonusVotes", value); }
-	 */
-
 	public void setPlayerName(User user) {
 		set(user, "PlayerName", user.getPlayerName());
 	}
@@ -323,6 +299,18 @@ public class Data {
 		set(user, "LastVote." + siteName + ".Miliseconds",
 				System.currentTimeMillis());
 	}
+
+	public void setTimedReward(User user, String reward, long time) {
+		set(user, "Timed." + reward, time);
+	}
+
+	/*
+	 * public int getVotesBonusReward(User user) { return
+	 * getData(user).getInt("BonusVotes"); }
+	 *
+	 * public void setVotesBonusReward(User user, int value) { set(user,
+	 * "BonusVotes", value); }
+	 */
 
 	public void setTimeMill(String siteName, User user, Long mill) {
 		set(user, "LastVote." + siteName + ".Miliseconds", mill);
@@ -341,23 +329,31 @@ public class Data {
 	}
 
 	@SuppressWarnings("deprecation")
-	public void setTopVoterAwardOfflineWeekly(User user, int place) {
-		set(user,
-				"TopVoter." + new Date().getYear() + "."
-						+ new Date().getMonth() + "." + new Date().getDay(),
-				place);
-	}
-
-	@SuppressWarnings("deprecation")
 	public void setTopVoterAwardOfflineDaily(User user, int place) {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-				place);
+						place);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void setTopVoterAwardOfflineWeekly(User user, int place) {
+		set(user,
+				"TopVoter." + new Date().getYear() + "."
+						+ new Date().getMonth() + "." + new Date().getDay(),
+						place);
 	}
 
 	public void setTotal(User user, String voteSite, int amount) {
 		set(user, "Total." + voteSite, amount);
+	}
+
+	public void setTotalDaily(User user, String voteSite, int amount) {
+		set(user, "TotalDay." + voteSite, amount);
+	}
+
+	public void setTotalWeek(User user, String voteSite, int amount) {
+		set(user, "TotalWeek." + voteSite, amount);
 	}
 
 	public void setup(User user) {
@@ -389,9 +385,13 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
+	}
+
+	public void setVotingPoints(User user, int value) {
+		set(user, "Points", value);
 	}
 }

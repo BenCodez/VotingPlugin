@@ -59,8 +59,16 @@ public class ServerData {
 		return data;
 	}
 
+	public int getPrevDay() {
+		return getData().getInt("PrevDay");
+	}
+
 	public int getPrevMonth() {
 		return getData().getInt("PrevMonth");
+	}
+
+	public int getPrevWeekDay() {
+		return getData().getInt("PrevWeek");
 	}
 
 	public String getSignData(String sign) {
@@ -70,31 +78,13 @@ public class ServerData {
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
 	}
 
 	public int getSignPosition(String sign) {
 		return getData().getInt("Signs." + sign + ".Position");
-	}
-
-	public void setPrevWeekDay(int week) {
-		getData().set("PrevWeek", week);
-		saveData();
-	}
-
-	public void setPrevDay(int day) {
-		getData().set("PrevDay", day);
-		saveData();
-	}
-
-	public int getPrevWeekDay() {
-		return getData().getInt("PrevWeek");
-	}
-
-	public int getPrevDay() {
-		return getData().getInt("PrevDay");
 	}
 
 	public Set<String> getSigns() {
@@ -142,8 +132,18 @@ public class ServerData {
 		saveData();
 	}
 
+	public void setPrevDay(int day) {
+		getData().set("PrevDay", day);
+		saveData();
+	}
+
 	public void setPrevMonth(int value) {
 		getData().set("PrevMonth", value);
+		saveData();
+	}
+
+	public void setPrevWeekDay(int week) {
+		getData().set("PrevWeek", week);
 		saveData();
 	}
 
@@ -178,9 +178,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 

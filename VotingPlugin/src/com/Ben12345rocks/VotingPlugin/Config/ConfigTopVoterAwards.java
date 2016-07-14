@@ -37,28 +37,9 @@ public class ConfigTopVoterAwards {
 		ConfigTopVoterAwards.plugin = plugin;
 	}
 
-	public boolean getMonthlyAwardsEnabled() {
-		return getData().getBoolean("EnableMonthlyAwards");
-	}
-
-	public boolean getWeeklyAwardsEnabled() {
-		return getData().getBoolean("EnableWeeklyAwards");
-	}
-
-	public boolean getDailyAwardsEnabled() {
-		return getData().getBoolean("EnableDailyAwards");
-	}
-
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMonthlyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList(
-				"MonthlyAwards." + pos + ".Rewards");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getWeeklyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList(
-				"WeeklyAwards." + pos + ".Rewards");
+	public List<String> getBlackList() {
+		return (List<String>) getData().getList("BlackList");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -67,13 +48,32 @@ public class ConfigTopVoterAwards {
 				"DailyAwards." + pos + ".Rewards");
 	}
 
-	@SuppressWarnings("unchecked")
-	public List<String> getBlackList() {
-		return (List<String>) getData().getList("BlackList");
+	public boolean getDailyAwardsEnabled() {
+		return getData().getBoolean("EnableDailyAwards");
+	}
+
+	public Set<String> getDailyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("DailyAwards").getKeys(
+					false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
 	}
 
 	public FileConfiguration getData() {
 		return data;
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMonthlyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"MonthlyAwards." + pos + ".Rewards");
+	}
+
+	public boolean getMonthlyAwardsEnabled() {
+		return getData().getBoolean("EnableMonthlyAwards");
 	}
 
 	public Set<String> getMonthlyPossibleRewardPlaces() {
@@ -86,19 +86,19 @@ public class ConfigTopVoterAwards {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getWeeklyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"WeeklyAwards." + pos + ".Rewards");
+	}
+
+	public boolean getWeeklyAwardsEnabled() {
+		return getData().getBoolean("EnableWeeklyAwards");
+	}
+
 	public Set<String> getWeeklyPossibleRewardPlaces() {
 		try {
 			return getData().getConfigurationSection("WeeklyAwards").getKeys(
-					false);
-		} catch (Exception ex) {
-			Set<String> noValues = new HashSet<String>();
-			return noValues;
-		}
-	}
-
-	public Set<String> getDailyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("DailyAwards").getKeys(
 					false);
 		} catch (Exception ex) {
 			Set<String> noValues = new HashSet<String>();
@@ -127,9 +127,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

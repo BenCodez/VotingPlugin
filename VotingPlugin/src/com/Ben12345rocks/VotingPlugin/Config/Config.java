@@ -49,10 +49,6 @@ public class Config {
 		return num;
 	}
 
-	public boolean getSendScoreboards() {
-		return getData().getBoolean("SendScoreboards");
-	}
-
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote");
 	}
@@ -83,6 +79,10 @@ public class Config {
 
 	public int getEffectRadius() {
 		return getData().getInt("Effect.Radius");
+	}
+
+	public boolean getSendScoreboards() {
+		return getData().getBoolean("SendScoreboards");
 	}
 
 	public boolean getSoundEnabled() {
@@ -170,7 +170,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

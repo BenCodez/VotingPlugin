@@ -121,20 +121,20 @@ public class User {
 
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalDaily(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalDaily(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalDaily(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalDaily(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	public void addTotalWeekly(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalWeek(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalWeek(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalWeek(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalWeek(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -267,7 +267,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -303,6 +303,10 @@ public class User {
 	public String getPlayerName() {
 		return playerName;
 
+	}
+
+	public int getPoints() {
+		return Data.getInstance().getVotingPoints(this);
 	}
 
 	public boolean getReminded() {
@@ -415,10 +419,6 @@ public class User {
 		return last;
 	}
 
-	public int getPoints() {
-		return Data.getInstance().getVotingPoints(this);
-	}
-
 	/**
 	 * Give top voter award
 	 *
@@ -433,7 +433,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -541,7 +541,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -584,7 +584,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -751,8 +751,8 @@ public class User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -1039,6 +1039,10 @@ public class User {
 		this.playerName = playerName;
 	}
 
+	public void setPoints(int value) {
+		Data.getInstance().setVotingPoints(this, value);
+	}
+
 	/**
 	 * Set whether or not the user has been reminded to vote
 	 *
@@ -1093,10 +1097,6 @@ public class User {
 	 */
 	public void setUUID(String uuid) {
 		this.uuid = uuid;
-	}
-
-	public void setPoints(int value) {
-		Data.getInstance().setVotingPoints(this, value);
 	}
 
 	public void weeklyTopVoterAward(int place) {

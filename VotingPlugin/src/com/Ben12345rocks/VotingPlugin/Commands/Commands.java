@@ -191,18 +191,18 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-						@Override
-						public void onClick(InventoryClickEvent event) {
-							Player player = (Player) event.getWhoClicked();
-							if (player != null) {
-								player.closeInventory();
-								player.performCommand(ConfigGUI.getInstance()
-										.getVoteGUISlotCommand(slot));
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
+					if (player != null) {
+						player.closeInventory();
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
 
-							}
+					}
 
-						}
-					});
+				}
+			});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -227,6 +227,44 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	public void sendTopVoterDailyScoreBoard(Player player, int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				TopVoter.getInstance().topVotersDaily());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = Utils.getInstance().colorize(
+				format.getCommandVoteTopTitle().replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Daily"));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterDaily.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+					plugin.topVoterDaily.get(users.get(i)));
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -239,8 +277,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Monthly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -277,8 +315,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Weekly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Weekly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -288,44 +326,6 @@ public class Commands {
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 					plugin.topVoterWeekly.get(users.get(i)));
-		}
-		scoreboard.build();
-		scoreboard.send(player);
-
-		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				SimpleScoreboard clear = new SimpleScoreboard("Empty");
-				clear.send(player);
-			}
-		}, 90);
-
-	}
-
-	public void sendTopVoterDailyScoreBoard(Player player, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				TopVoter.getInstance().topVotersDaily());
-
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
-			pageSize++;
-		}
-
-		String title = Utils.getInstance().colorize(
-				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Daily"));
-
-		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
-
-		ArrayList<User> users = Utils.getInstance().convertSet(
-				plugin.topVoterDaily.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-					plugin.topVoterDaily.get(users.get(i)));
 		}
 		scoreboard.build();
 		scoreboard.send(player);
@@ -386,9 +386,9 @@ public class Commands {
 					if ((new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time))
 							&& (new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time))
+							.getMonthFromMili(time))
 							&& (new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time))) {
+							.getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -420,7 +420,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -430,7 +430,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		.format(date);
 		return timeString;
 	}
 
@@ -621,7 +621,7 @@ public class Commands {
 					+ ConfigRewards.getInstance().getEffectData(rewardName));
 			msg.add("  &cParticles: &6"
 					+ ConfigRewards.getInstance()
-							.getEffectParticles(rewardName));
+					.getEffectParticles(rewardName));
 			msg.add("  &cRadius: &6"
 					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
 
@@ -765,7 +765,7 @@ public class Commands {
 	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
 	 * texts = Utils.getInstance().colorize(texts); return
 	 * Utils.getInstance().convertArray(texts);
-	 * 
+	 *
 	 * }
 	 */
 
@@ -801,8 +801,8 @@ public class Commands {
 						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
 						.getInstance().getVoteSiteItemAmount(
 								voteSite.getSiteName()), (short) ConfigGUI
-						.getInstance().getVoteSiteItemData(
-								voteSite.getSiteName()));
+								.getInstance().getVoteSiteItemData(
+										voteSite.getSiteName()));
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance().getVoteSiteItemDurability(
@@ -813,13 +813,13 @@ public class Commands {
 						new BInventoryButton(
 								ConfigGUI.getInstance().getVoteSiteItemName(
 										voteSite.getSiteName()),
-								Utils.getInstance()
+										Utils.getInstance()
 										.convertArray(
 												(ArrayList<String>) ConfigGUI
-														.getInstance()
-														.getVoteSiteItemLore(
-																voteSite.getSiteName())),
-								item) {
+												.getInstance()
+												.getVoteSiteItemLore(
+														voteSite.getSiteName())),
+														item) {
 
 							@Override
 							public void onClick(InventoryClickEvent event) {
@@ -842,7 +842,7 @@ public class Commands {
 						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
 						.getInstance().getVoteSiteItemsAmount(siteName,
 								itemName), (short) ConfigGUI.getInstance()
-						.getVoteSiteItemsData(siteName, itemName));
+								.getVoteSiteItemsData(siteName, itemName));
 
 				item = Utils.getInstance().setDurabilty(
 						item,
@@ -852,10 +852,10 @@ public class Commands {
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-						new BInventoryButton(ConfigGUI.getInstance()
-								.getVoteSiteItemsName(siteName, itemName),
-								Utils.getInstance().convertArray(
-										(ArrayList<String>) ConfigGUI
+								new BInventoryButton(ConfigGUI.getInstance()
+										.getVoteSiteItemsName(siteName, itemName),
+										Utils.getInstance().convertArray(
+												(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -881,7 +881,7 @@ public class Commands {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				String timeString = new SimpleDateFormat(format.getTimeFormat())
-						.format(plugin.voteToday.get(user).get(voteSite));
+				.format(plugin.voteToday.get(user).get(voteSite));
 				msg.add("&6" + user.getPlayerName() + " : "
 						+ voteSite.getSiteName() + " : " + timeString);
 			}
@@ -905,7 +905,7 @@ public class Commands {
 			itemAll = Utils.getInstance().setDurabilty(
 					itemAll,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			if (user.canVoteAll()) {
 				itemAll = new ItemStack(ConfigGUI.getInstance()
 						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
@@ -914,7 +914,7 @@ public class Commands {
 				itemAll = Utils.getInstance().setDurabilty(
 						itemAll,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 			}
 
 			inv.addButton(count, new BInventoryButton("&4All Voting Sites",
@@ -939,7 +939,7 @@ public class Commands {
 			item = Utils.getInstance().setDurabilty(
 					item,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
 
@@ -951,7 +951,7 @@ public class Commands {
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 			} else {
 				lore.add(ConfigGUI.getInstance().getVoteURLNextVote()
 						.replace("%Info%", voteCommandNextInfo(user, voteSite)));

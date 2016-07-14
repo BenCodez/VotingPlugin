@@ -118,6 +118,19 @@ public class TopVoter {
 	}
 
 	@SuppressWarnings("deprecation")
+	public boolean hasDayChanged() {
+		int prevDay = ServerData.getInstance().getPrevDay();
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.Calendar c = java.util.Calendar.getInstance(tz);
+		int day = c.getTime().getDay();
+		ServerData.getInstance().setPrevDay(day);
+		if (prevDay != day) {
+			return true;
+		}
+		return false;
+	}
+
+	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
 		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
@@ -142,17 +155,13 @@ public class TopVoter {
 		return false;
 	}
 
-	@SuppressWarnings("deprecation")
-	public boolean hasDayChanged() {
-		int prevDay = ServerData.getInstance().getPrevDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
-		java.util.Calendar c = java.util.Calendar.getInstance(tz);
-		int day = c.getTime().getDay();
-		ServerData.getInstance().setPrevDay(day);
-		if (prevDay != day) {
-			return true;
+	public void resetTotalsDaily() {
+		for (User user : Data.getInstance().getUsers()) {
+			for (VoteSite voteSite : ConfigVoteSites.getInstance()
+					.getVoteSites()) {
+				user.setTotalDaily(voteSite, 0);
+			}
 		}
-		return false;
 	}
 
 	public void resetTotalsMonthly() {
@@ -161,6 +170,12 @@ public class TopVoter {
 					.getVoteSites()) {
 				user.setTotal(voteSite, 0);
 			}
+		}
+	}
+
+	public void resetTotalsPlayer(User user) {
+		for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
+			user.setTotal(voteSite, 0);
 		}
 	}
 
@@ -173,19 +188,45 @@ public class TopVoter {
 		}
 	}
 
-	public void resetTotalsDaily() {
-		for (User user : Data.getInstance().getUsers()) {
-			for (VoteSite voteSite : ConfigVoteSites.getInstance()
-					.getVoteSites()) {
-				user.setTotalDaily(voteSite, 0);
-			}
+	public String[] topVoterDaily(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				topVotersDaily());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
 		}
+
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily");
+		msg.add(Utils.getInstance().colorize(title));
+
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			msg.add(topVoters.get(i));
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
 	}
 
-	public void resetTotalsPlayer(User user) {
-		for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
-			user.setTotal(voteSite, 0);
+	public String[] topVoterDailyNoColor() {
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterDaily.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = "%num%: %player%, %votes%"
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%",
+							"" + plugin.topVoterDaily.get(users.get(i)));
+			msg.add(line);
 		}
+
+		return Utils.getInstance().convertArray(msg);
 	}
 
 	public String[] topVoterMonthly(int page) {
@@ -214,57 +255,6 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	public String[] topVoterWeekly(int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				topVotersWeekly());
-
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
-			pageSize++;
-		}
-
-		String title = format.getCommandVoteTopTitle()
-				.replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize)
-				.replace("%Top%", "Weekly");
-		msg.add(Utils.getInstance().colorize(title));
-
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			msg.add(topVoters.get(i));
-		}
-
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	public String[] topVoterDaily(int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				topVotersDaily());
-
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
-			pageSize++;
-		}
-
-		String title = format.getCommandVoteTopTitle()
-				.replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily");
-		msg.add(Utils.getInstance().colorize(title));
-
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			msg.add(topVoters.get(i));
-		}
-
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
 	public String[] topVoterNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -275,38 +265,6 @@ public class TopVoter {
 					.replace("%player%", users.get(i).getPlayerName())
 					.replace("%votes%",
 							"" + plugin.topVoterMonthly.get(users.get(i)));
-			msg.add(line);
-		}
-
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	public String[] topVoterWeeklyNoColor() {
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = Utils.getInstance().convertSet(
-				plugin.topVoterWeekly.keySet());
-		for (int i = 0; i < users.size(); i++) {
-			String line = "%num%: %player%, %votes%"
-					.replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%",
-							"" + plugin.topVoterWeekly.get(users.get(i)));
-			msg.add(line);
-		}
-
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	public String[] topVoterDailyNoColor() {
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = Utils.getInstance().convertSet(
-				plugin.topVoterDaily.keySet());
-		for (int i = 0; i < users.size(); i++) {
-			String line = "%num%: %player%, %votes%"
-					.replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%",
-							"" + plugin.topVoterDaily.get(users.get(i)));
 			msg.add(line);
 		}
 
@@ -327,23 +285,6 @@ public class TopVoter {
 			msg.add(line);
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	public String[] topVotersWeekly() {
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = Utils.getInstance().convertSet(
-				plugin.topVoterWeekly.keySet());
-		for (int i = 0; i < users.size(); i++) {
-			String line = format
-					.getCommandVoteTopLine()
-					.replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%",
-							"" + plugin.topVoterWeekly.get(users.get(i)));
-			msg.add(line);
-		}
 		msg = Utils.getInstance().colorize(msg);
 		return Utils.getInstance().convertArray(msg);
 	}
@@ -407,47 +348,6 @@ public class TopVoter {
 		return null;
 	}
 
-	public ArrayList<User> topVotersSortedAllWeekly() {
-		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
-				.getInstance().getBlackList();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = Utils.getInstance().convertSet(users1);
-
-			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalWeeklyAll() == 0) {
-					users.remove(i);
-				}
-			}
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalWeeklyAll();
-					int p2Total = p2.getTotalWeeklyAll();
-
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
-				}
-			});
-
-			return users;
-		}
-		return null;
-	}
-
 	public ArrayList<User> topVotersSortedAllDaily() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
@@ -472,6 +372,47 @@ public class TopVoter {
 				public int compare(User p1, User p2) {
 					int p1Total = p1.getTotalDailyAll();
 					int p2Total = p2.getTotalDailyAll();
+
+					if (p1Total < p2Total) {
+						return 1;
+					}
+					if (p1Total > p2Total) {
+						return -1;
+					}
+
+					return 0;
+				}
+			});
+
+			return users;
+		}
+		return null;
+	}
+
+	public ArrayList<User> topVotersSortedAllWeekly() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
+		Set<User> users1 = Data.getInstance().getUsers();
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalWeeklyAll() == 0) {
+					users.remove(i);
+				}
+			}
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
+				}
+			}
+			Collections.sort(users, new Comparator<User>() {
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalWeeklyAll();
+					int p2Total = p2.getTotalWeeklyAll();
 
 					if (p1Total < p2Total) {
 						return 1;
@@ -526,6 +467,43 @@ public class TopVoter {
 		return users;
 	}
 
+	public ArrayList<User> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
+		Set<User> users1 = Data.getInstance().getUsers();
+		ArrayList<User> users = Utils.getInstance().convertSet(users1);
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalDaily(voteSite) == 0) {
+				users.remove(i);
+			}
+		}
+		for (int i = users.size() - 1; i >= 0; i--) {
+			for (int j = users.size() - 1; j >= 0; j--) {
+				if (i != j) {
+					if (users.get(i).getPlayerName() == users.get(j)
+							.getPlayerName()) {
+						users.remove(j);
+					}
+				}
+			}
+		}
+		Collections.sort(users, new Comparator<User>() {
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotalDaily(voteSite);
+				int p2Total = p2.getTotalDaily(voteSite);
+
+				if (p1Total < p2Total) {
+					return 1;
+				}
+				if (p1Total > p2Total) {
+					return -1;
+				}
+
+				return 0;
+			}
+		});
+		return users;
+	}
+
 	public ArrayList<User> topVotersSortedVoteSiteWeekly(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
@@ -563,41 +541,63 @@ public class TopVoter {
 		return users;
 	}
 
-	public ArrayList<User> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = Utils.getInstance().convertSet(users1);
-		for (int i = users.size() - 1; i >= 0; i--) {
-			if (users.get(i).getTotalDaily(voteSite) == 0) {
-				users.remove(i);
-			}
+	public String[] topVotersWeekly() {
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterWeekly.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = format
+					.getCommandVoteTopLine()
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%",
+							"" + plugin.topVoterWeekly.get(users.get(i)));
+			msg.add(line);
 		}
-		for (int i = users.size() - 1; i >= 0; i--) {
-			for (int j = users.size() - 1; j >= 0; j--) {
-				if (i != j) {
-					if (users.get(i).getPlayerName() == users.get(j)
-							.getPlayerName()) {
-						users.remove(j);
-					}
-				}
-			}
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVoterWeekly(int page) {
+		int pagesize = ConfigFormat.getInstance().getPageSize();
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+				topVotersWeekly());
+
+		int pageSize = (topVoters.size() / pagesize);
+		if ((topVoters.size() % pagesize) != 0) {
+			pageSize++;
 		}
-		Collections.sort(users, new Comparator<User>() {
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalDaily(voteSite);
-				int p2Total = p2.getTotalDaily(voteSite);
 
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
+		String title = format.getCommandVoteTopTitle()
+				.replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Weekly");
+		msg.add(Utils.getInstance().colorize(title));
 
-				return 0;
-			}
-		});
-		return users;
+		for (int i = (page - 1) * pagesize; (i < topVoters.size())
+				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+			msg.add(topVoters.get(i));
+		}
+
+		msg = Utils.getInstance().colorize(msg);
+		return Utils.getInstance().convertArray(msg);
+	}
+
+	public String[] topVoterWeeklyNoColor() {
+		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<User> users = Utils.getInstance().convertSet(
+				plugin.topVoterWeekly.keySet());
+		for (int i = 0; i < users.size(); i++) {
+			String line = "%num%: %player%, %votes%"
+					.replace("%num%", "" + (i + 1))
+					.replace("%player%", users.get(i).getPlayerName())
+					.replace("%votes%",
+							"" + plugin.topVoterWeekly.get(users.get(i)));
+			msg.add(line);
+		}
+
+		return Utils.getInstance().convertArray(msg);
 	}
 
 	public void updateTopVoters() {

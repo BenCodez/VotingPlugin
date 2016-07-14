@@ -30,57 +30,12 @@ public class Reward {
 	private int timedHour;
 	private int timedMinute;
 
-	public int getTimedHour() {
-		return timedHour;
-	}
-
-	public void setTimedHour(int timedHour) {
-		this.timedHour = timedHour;
-	}
-
-	public int getTimedMinute() {
-		return timedMinute;
-	}
-
-	public void setTimedMinute(int timedMinute) {
-		this.timedMinute = timedMinute;
-	}
-
-	public boolean isDelayEnabled() {
-		return delayEnabled;
-	}
-
-	public void setDelayEnabled(boolean delayEnabled) {
-		this.delayEnabled = delayEnabled;
-	}
-
-	public int getDelayHours() {
-		return delayHours;
-	}
-
-	public void setDelayHours(int delayHours) {
-		this.delayHours = delayHours;
-	}
-
-	public int getDelayMinutes() {
-		return delayMinutes;
-	}
-
-	public void setDelayMinutes(int delayMinutes) {
-		this.delayMinutes = delayMinutes;
-	}
-
-	public boolean isTimedEnabled() {
-		return timedEnabled;
-	}
-
-	public void setTimedEnabled(boolean timedEnabled) {
-		this.timedEnabled = timedEnabled;
-	}
-
 	private double chance;
+
 	private double randomChance;
+
 	private ArrayList<String> randomRewards;
+
 	private ArrayList<String> randomFallBack;
 
 	private boolean requirePermission;
@@ -94,28 +49,33 @@ public class Reward {
 	private HashMap<String, String> itemMaterial;
 
 	private HashMap<String, Integer> itemData;
+
 	private HashMap<String, Integer> itemDurabilty;
 
 	private HashMap<String, Integer> itemAmount;
+
 	private HashMap<String, Integer> itemMinAmount;
 	private HashMap<String, Integer> itemMaxAmount;
-
 	private HashMap<String, String> itemName;
 	private HashMap<String, ArrayList<String>> itemLore;
+
 	private HashMap<String, HashMap<String, Integer>> itemEnchants;
 
 	private int money;
+
 	private int MinMoney;
+
 	private int MaxMoney;
 
 	private int exp;
 
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
-	private Set<String> potions;
 
+	private Set<String> potions;
 	private HashMap<String, Integer> potionsDuration;
 	private HashMap<String, Integer> potionsAmplifier;
+
 	private String rewardMsg;
 
 	public Reward(Main plugin) {
@@ -224,6 +184,23 @@ public class Reward {
 		}
 	}
 
+	public boolean checkDelayed(User user) {
+		if (!isDelayEnabled()) {
+			return false;
+		}
+
+		Date time = new Date();
+		time = DateUtils.addHours(time, getDelayHours());
+		time = DateUtils.addMinutes(time, getDelayMinutes());
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " in " + getDelayHours()
+				+ " hours " + getDelayMinutes() + " minutes ("
+				+ time.toString() + ")");
+		return true;
+
+	}
+
 	public boolean checkRandomChance() {
 		double chance = getRandomChance();
 
@@ -242,12 +219,42 @@ public class Reward {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
+	public boolean checkTimed(User user) {
+		if (!isTimedEnabled()) {
+			return false;
+		}
+
+		Date time = new Date();
+		time.setHours(getTimedHour());
+		time.setMinutes(getTimedMinute());
+		if (!new Date().after(time)) {
+			time = DateUtils.addDays(time, 1);
+		}
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " at " + time.toString());
+		return true;
+	}
+
 	public double getChance() {
 		return chance;
 	}
 
 	public ArrayList<String> getConsoleCommands() {
 		return consoleCommands;
+	}
+
+	public int getDelayHours() {
+		return delayHours;
+	}
+
+	public int getDelayMinutes() {
+		return delayMinutes;
+	}
+
+	public int getExp() {
+		return exp;
 	}
 
 	public HashMap<String, Integer> getItemAmount() {
@@ -272,6 +279,10 @@ public class Reward {
 
 	public HashMap<String, Integer> getItemData() {
 		return itemData;
+	}
+
+	public HashMap<String, Integer> getItemDurabilty() {
+		return itemDurabilty;
 	}
 
 	public HashMap<String, HashMap<String, Integer>> getItemEnchants() {
@@ -366,8 +377,20 @@ public class Reward {
 		return name;
 	}
 
+	public int getTimedHour() {
+		return timedHour;
+	}
+
+	public int getTimedMinute() {
+		return timedMinute;
+	}
+
 	public ArrayList<String> getWorlds() {
 		return worlds;
+	}
+
+	public void giveExp(User user) {
+		user.giveExp(getExp());
 	}
 
 	public void giveItems(User user) {
@@ -396,7 +419,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
@@ -423,39 +446,17 @@ public class Reward {
 		}
 	}
 
-	public boolean checkDelayed(User user) {
-		if (!isDelayEnabled()) {
-			return false;
+	public void giveReward(User user) {
+
+		if (checkDelayed(user)) {
+			return;
 		}
 
-		Date time = new Date();
-		time = DateUtils.addHours(time, getDelayHours());
-		time = DateUtils.addMinutes(time, getDelayMinutes());
-		user.setTimedReward(this, time.getTime());
-
-		plugin.debug("Giving reward " + name + " in " + getDelayHours()
-				+ " hours " + getDelayMinutes() + " minutes ("
-				+ time.toString() + ")");
-		return true;
-
-	}
-
-	@SuppressWarnings("deprecation")
-	public boolean checkTimed(User user) {
-		if (!isTimedEnabled()) {
-			return false;
+		if (checkTimed(user)) {
+			return;
 		}
 
-		Date time = new Date();
-		time.setHours(getTimedHour());
-		time.setMinutes(getTimedMinute());
-		if (!new Date().after(time)) {
-			time = DateUtils.addDays(time, 1);
-		}
-		user.setTimedReward(this, time.getTime());
-
-		plugin.debug("Giving reward " + name + " at " + time.toString());
-		return true;
+		giveRewardReward(user);
 	}
 
 	public void giveRewardReward(User user) {
@@ -476,8 +477,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -497,19 +498,6 @@ public class Reward {
 			}
 		}
 		giveRandom(user);
-	}
-
-	public void giveReward(User user) {
-
-		if (checkDelayed(user)) {
-			return;
-		}
-
-		if (checkTimed(user)) {
-			return;
-		}
-
-		giveRewardReward(user);
 	}
 
 	/**
@@ -539,8 +527,8 @@ public class Reward {
 		}
 	}
 
-	public void giveExp(User user) {
-		user.giveExp(getExp());
+	public boolean isDelayEnabled() {
+		return delayEnabled;
 	}
 
 	public boolean isGiveInEachWorld() {
@@ -549,6 +537,10 @@ public class Reward {
 
 	public boolean isRequirePermission() {
 		return requirePermission;
+	}
+
+	public boolean isTimedEnabled() {
+		return timedEnabled;
 	}
 
 	public void playEffect(User user) {
@@ -615,9 +607,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-			ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
 
-			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
@@ -631,6 +623,22 @@ public class Reward {
 		this.consoleCommands = consoleCommands;
 	}
 
+	public void setDelayEnabled(boolean delayEnabled) {
+		this.delayEnabled = delayEnabled;
+	}
+
+	public void setDelayHours(int delayHours) {
+		this.delayHours = delayHours;
+	}
+
+	public void setDelayMinutes(int delayMinutes) {
+		this.delayMinutes = delayMinutes;
+	}
+
+	public void setExp(int exp) {
+		this.exp = exp;
+	}
+
 	public void setGiveInEachWorld(boolean giveInEachWorld) {
 		this.giveInEachWorld = giveInEachWorld;
 	}
@@ -641,6 +649,10 @@ public class Reward {
 
 	public void setItemData(HashMap<String, Integer> itemData) {
 		this.itemData = itemData;
+	}
+
+	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
+		this.itemDurabilty = itemDurabilty;
 	}
 
 	public void setItemEnchants(
@@ -720,23 +732,19 @@ public class Reward {
 		this.rewardMsg = rewardMsg;
 	}
 
+	public void setTimedEnabled(boolean timedEnabled) {
+		this.timedEnabled = timedEnabled;
+	}
+
+	public void setTimedHour(int timedHour) {
+		this.timedHour = timedHour;
+	}
+
+	public void setTimedMinute(int timedMinute) {
+		this.timedMinute = timedMinute;
+	}
+
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
-	}
-
-	public HashMap<String, Integer> getItemDurabilty() {
-		return itemDurabilty;
-	}
-
-	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
-		this.itemDurabilty = itemDurabilty;
-	}
-
-	public int getExp() {
-		return exp;
-	}
-
-	public void setExp(int exp) {
-		this.exp = exp;
 	}
 }
