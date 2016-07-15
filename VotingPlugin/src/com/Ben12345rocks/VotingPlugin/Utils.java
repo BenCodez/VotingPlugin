@@ -179,6 +179,17 @@ public class Utils {
 		return list;
 	}
 
+	public User[] convert(ArrayList<User> array) {
+		if (array == null) {
+			return null;
+		}
+		User[] list = new User[array.size()];
+		for (int i = 0; i < array.size(); i++) {
+			list[i] = array.get(i);
+		}
+		return list;
+	}
+
 	@SuppressWarnings("deprecation")
 	public int getDayFromMili(long time) {
 		Date date = new Date(time);
@@ -461,7 +472,8 @@ public class Utils {
 		return item;
 	}
 
-	public List<String> replace(List<String> list, String toReplace, String replaceWith) {
+	public List<String> replace(List<String> list, String toReplace,
+			String replaceWith) {
 		for (int i = 0; i < list.size(); i++) {
 			list.set(i, list.get(i).replace(toReplace, replaceWith));
 		}

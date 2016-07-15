@@ -15,6 +15,7 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
+import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -37,12 +38,14 @@ public class SimpleScoreboard {
 	}
 
 	public void add(String text) {
+		text = Utils.getInstance().colorize(text);
 		add(text, null);
 	}
 
 	public void add(String text, Integer score) {
 		Preconditions.checkArgument(text.length() < 48,
 				"text cannot be over 48 characters in length");
+		text = Utils.getInstance().colorize(text);
 		text = fixDuplicates(text);
 		scores.put(text, score);
 	}

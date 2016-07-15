@@ -122,7 +122,8 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasDayChanged() {
 		int prevDay = ServerData.getInstance().getPrevDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
+				.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		int day = c.getTime().getDay();
 		ServerData.getInstance().setPrevDay(day);
@@ -135,7 +136,8 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
+				.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		int month = c.getTime().getMonth();
 		ServerData.getInstance().setPrevMonth(month);
@@ -148,7 +150,8 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasWeekChanged() {
 		int prevDate = ServerData.getInstance().getPrevWeekDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
+				.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
 		if (ServerData.getInstance().getPrevDay() == 0
@@ -335,14 +338,7 @@ public class TopVoter {
 					int p1Total = p1.getTotalVotes();
 					int p2Total = p2.getTotalVotes();
 
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
+					return Integer.compare(p1Total, p2Total);
 				}
 			});
 
@@ -376,14 +372,7 @@ public class TopVoter {
 					int p1Total = p1.getTotalDailyAll();
 					int p2Total = p2.getTotalDailyAll();
 
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
+					return Integer.compare(p1Total, p2Total);
 				}
 			});
 
@@ -417,14 +406,7 @@ public class TopVoter {
 					int p1Total = p1.getTotalWeeklyAll();
 					int p2Total = p2.getTotalWeeklyAll();
 
-					if (p1Total < p2Total) {
-						return 1;
-					}
-					if (p1Total > p2Total) {
-						return -1;
-					}
-
-					return 0;
+					return Integer.compare(p1Total, p2Total);
 				}
 			});
 
@@ -457,14 +439,7 @@ public class TopVoter {
 				int p1Total = p1.getTotalVotesSite(voteSite);
 				int p2Total = p2.getTotalVotesSite(voteSite);
 
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
-
-				return 0;
+				return Integer.compare(p1Total, p2Total);
 			}
 		});
 		return users;
@@ -494,14 +469,7 @@ public class TopVoter {
 				int p1Total = p1.getTotalDaily(voteSite);
 				int p2Total = p2.getTotalDaily(voteSite);
 
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
-
-				return 0;
+				return Integer.compare(p1Total, p2Total);
 			}
 		});
 		return users;
@@ -531,14 +499,7 @@ public class TopVoter {
 				int p1Total = p1.getTotalWeekly(voteSite);
 				int p2Total = p2.getTotalWeekly(voteSite);
 
-				if (p1Total < p2Total) {
-					return 1;
-				}
-				if (p1Total > p2Total) {
-					return -1;
-				}
-
-				return 0;
+				return Integer.compare(p1Total, p2Total);
 			}
 		});
 		return users;

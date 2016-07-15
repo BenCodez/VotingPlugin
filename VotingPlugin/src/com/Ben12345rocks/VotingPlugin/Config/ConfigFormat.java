@@ -356,15 +356,21 @@ public class ConfigFormat {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsVoteParty() {
 		try {
-			return (ArrayList<String>) getData().getList(
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
 					"Format.Commands.Vote.Party");
+			if (list != null) {
+				return list;
+			}
+			ArrayList<String> msg = new ArrayList<String>();
+			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+			return msg;
 		} catch (Exception ex) {
 			ArrayList<String> msg = new ArrayList<String>();
 			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
 			return msg;
 		}
 	}
-	
+
 	public String getTimeZone() {
 		String str = getData().getString("Format.TimeZone");
 		if (str != null) {

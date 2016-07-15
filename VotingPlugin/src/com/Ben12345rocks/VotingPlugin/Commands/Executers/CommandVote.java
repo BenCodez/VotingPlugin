@@ -89,8 +89,6 @@ public class CommandVote implements CommandExecutor {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(
 					new User(playerName)));
-			Commands.getInstance().sendVoteLastScoreBoard((Player) sender,
-					new User(playerName));
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
@@ -103,8 +101,6 @@ public class CommandVote implements CommandExecutor {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(user));
-			Commands.getInstance()
-					.sendVoteLastScoreBoard((Player) sender, user);
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
@@ -115,8 +111,7 @@ public class CommandVote implements CommandExecutor {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandNext(
 					new User(playerName)));
-			Commands.getInstance().sendVoteNextScoreBoard((Player) sender,
-					new User(playerName));
+
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
@@ -130,8 +125,6 @@ public class CommandVote implements CommandExecutor {
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandNext(user));
-			Commands.getInstance()
-					.sendVoteNextScoreBoard((Player) sender, user);
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
@@ -275,8 +268,7 @@ public class CommandVote implements CommandExecutor {
 					User user = new User((Player) sender);
 					user.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());
-					Commands.getInstance().sendVoteTotalAllScoreBoard(
-							(Player) sender);
+		
 				} else {
 					sender.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());
@@ -292,8 +284,6 @@ public class CommandVote implements CommandExecutor {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(
 					new User(playerName)));
-			Commands.getInstance().sendVoteTotalScoreBoard((Player) sender,
-					new User(playerName));
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance().voteCommandTotal(
@@ -307,8 +297,6 @@ public class CommandVote implements CommandExecutor {
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(user));
-			Commands.getInstance().sendVoteTotalScoreBoard((Player) sender,
-					user);
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
