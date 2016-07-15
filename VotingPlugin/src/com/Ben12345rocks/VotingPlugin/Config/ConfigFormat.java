@@ -364,6 +364,14 @@ public class ConfigFormat {
 			return msg;
 		}
 	}
+	
+	public String getTimeZone() {
+		String str = getData().getString("Format.TimeZone");
+		if (str != null) {
+			return str;
+		}
+		return "UTC";
+	}
 
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);

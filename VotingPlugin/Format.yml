@@ -95,7 +95,7 @@ Format:
 
       # PlaceHolders:
       # %VotesRequired% = VotesRequired
-      # %NeededVotes% = Number of votes needed to VotesRequired
+      # %NeededVotes% = Number of votes needed to reach VotesRequired
       # %Votes% = Number of votes
       Party:
       - '&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%'
@@ -131,6 +131,11 @@ Format:
     # Message when right clicking sign, uses same placeholders as above
     RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cvotes in &c&l%SiteName%'
       
+  # Message when player tries to run command without required permissions
   NoPerms: '&cYou do not have enough permission!'
   
+  # Message when player types a command but does not input a number where needed
   NotNumber: '&cError on &6%arg%&c, number expected!'
+  
+  # TimeZone
+  TimeZone: 'UTC'

@@ -115,14 +115,14 @@ public class TopVoter {
 
 		}
 
-		plugin.debug("Checked top voter awards");
+		plugin.debug("Checked Top Voter Awards");
 
 	}
 
 	@SuppressWarnings("deprecation")
 	public boolean hasDayChanged() {
 		int prevDay = ServerData.getInstance().getPrevDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		int day = c.getTime().getDay();
 		ServerData.getInstance().setPrevDay(day);
@@ -135,7 +135,7 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		int month = c.getTime().getMonth();
 		ServerData.getInstance().setPrevMonth(month);
@@ -148,7 +148,7 @@ public class TopVoter {
 	@SuppressWarnings("deprecation")
 	public boolean hasWeekChanged() {
 		int prevDate = ServerData.getInstance().getPrevWeekDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone("UTC");
+		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat.getInstance().getTimeZone());
 		java.util.Calendar c = java.util.Calendar.getInstance(tz);
 		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
 		if (ServerData.getInstance().getPrevDay() == 0
