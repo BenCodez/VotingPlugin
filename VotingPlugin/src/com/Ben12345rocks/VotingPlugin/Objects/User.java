@@ -29,6 +29,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class User {
@@ -104,6 +105,10 @@ public class User {
 		setOfflineVotes(voteSite, getOfflineVotes(voteSite) + 1);
 	}
 
+	public void addPoints() {
+		setPoints(getPoints() + 1);
+	}
+
 	/**
 	 * Add total for VoteSite to user
 	 *
@@ -113,6 +118,24 @@ public class User {
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
+	}
+
+	public void addTotalDaily(VoteSite voteSite) {
+		Data.getInstance()
+		.setTotalDaily(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalDaily(this,
+						voteSite.getSiteName()) + 1);
+	}
+
+	public void addTotalWeekly(VoteSite voteSite) {
+		Data.getInstance()
+		.setTotalWeek(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalWeek(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -209,6 +232,19 @@ public class User {
 		return true;
 	}
 
+	public void dailyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveDailyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOfflineDaily(this, place);
+		}
+	}
+
 	/**
 	 * Get offline cumulative rewards
 	 *
@@ -232,7 +268,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -257,6 +293,10 @@ public class User {
 				voteSite.getSiteName());
 	}
 
+	public Player getPlayer() {
+		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+	}
+
 	/**
 	 *
 	 * @return User's game name
@@ -264,6 +304,10 @@ public class User {
 	public String getPlayerName() {
 		return playerName;
 
+	}
+
+	public int getPoints() {
+		return Data.getInstance().getVotingPoints(this);
 	}
 
 	public boolean getReminded() {
@@ -281,6 +325,10 @@ public class User {
 		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
 
+	public long getTimedReward(Reward reward) {
+		return Data.getInstance().getTimedReward(this, reward.getRewardName());
+	}
+
 	/**
 	 * Get total from VoteSite for user
 	 *
@@ -290,6 +338,19 @@ public class User {
 	public int getTotal(VoteSite voteSite) {
 		User user = this;
 		return Data.getInstance().getTotal(user, voteSite.getSiteName());
+	}
+
+	public int getTotalDaily(VoteSite voteSite) {
+		return Data.getInstance().getTotalDaily(this, voteSite.getSiteName());
+	}
+
+	public int getTotalDailyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalDaily(voteSite);
+		}
+		return total;
+
 	}
 
 	/**
@@ -328,6 +389,19 @@ public class User {
 
 	}
 
+	public int getTotalWeekly(VoteSite voteSite) {
+		return Data.getInstance().getTotalWeek(this, voteSite.getSiteName());
+	}
+
+	public int getTotalWeeklyAll() {
+		int total = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			total += getTotalWeekly(voteSite);
+		}
+		return total;
+
+	}
+
 	/**
 	 * Get user's uuid
 	 *
@@ -344,6 +418,36 @@ public class User {
 		}
 		Long last = Collections.max(times);
 		return last;
+	}
+
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
+	public void giveDailyTopVoterAward(int place) {
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getDailyAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
+		}
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+					.replace("%place%", "" + place)));
+		}
+	}
+
+	/**
+	 * Give player EXP
+	 *
+	 * @param exp
+	 */
+	public void giveExp(int exp) {
+		Player player = getPlayer();
+		if (player != null) {
+			player.giveExp(exp);
+		}
 	}
 
 	@SuppressWarnings("deprecation")
@@ -415,9 +519,30 @@ public class User {
 	 */
 	public void giveMoney(int money) {
 		String playerName = getPlayerName();
-		if ((Bukkit.getServer().getPluginManager().getPlugin("Vault") != null)
-				&& (money > 0)) {
-			Main.econ.depositPlayer(playerName, money);
+		if (Bukkit.getServer().getPluginManager().getPlugin("Vault") != null) {
+			if (money > 0) {
+				plugin.econ.depositPlayer(playerName, money);
+			} else if (money < 0) {
+				plugin.econ.withdrawPlayer(playerName, money);
+			}
+		}
+	}
+
+	/**
+	 * Give monthly top voter award
+	 *
+	 * @param place
+	 */
+	public void giveMonthlyTopVoterAward(int place) {
+		for (String reward : ConfigTopVoterAwards.getInstance()
+				.getMonthlyAwardRewards(place)) {
+			giveReward(ConfigRewards.getInstance().getReward(reward));
+		}
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		if (player != null) {
+			player.sendMessage(Utils.getInstance().colorize(
+					ConfigFormat.getInstance().getTopVoterRewardMsg()
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -431,9 +556,17 @@ public class User {
 	public void givePotionEffect(String potionName, int duration, int amplifier) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			player.addPotionEffect(
-					new PotionEffect(PotionEffectType.getByName(potionName),
-							20 * duration, amplifier), true);
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					player.addPotionEffect(
+							new PotionEffect(PotionEffectType
+									.getByName(potionName), 20 * duration,
+									amplifier), true);
+				}
+			});
+
 		}
 	}
 
@@ -451,16 +584,16 @@ public class User {
 	 *
 	 * @param place
 	 */
-	public void giveTopVoterAward(int place) {
+	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
-				.getAwardRewards(place)) {
+				.getWeeklyAwardRewards(place)) {
 			giveReward(ConfigRewards.getInstance().getReward(reward));
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -493,6 +626,24 @@ public class User {
 	public void loginMessage() {
 		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
 			VoteReminding.getInstance().runRemind(this);
+		}
+	}
+
+	/**
+	 * Give top voter award
+	 *
+	 * @param place
+	 */
+	public void monthlyTopVoterAward(int place) {
+		if (playerName == null) {
+			playerName = Utils.getInstance().getPlayerName(uuid);
+		}
+
+		if (Utils.getInstance().isPlayerOnline(playerName)) {
+			// online
+			giveMonthlyTopVoterAward(place);
+		} else {
+			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
 	}
 
@@ -553,8 +704,33 @@ public class User {
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {
-			giveTopVoterAward(place);
+			giveMonthlyTopVoterAward(place);
 			Data.getInstance().setTopVoterAwardOffline(this, 0);
+		}
+
+		for (int i = 0; i <= 6; i++) {
+			int place1 = Data.getInstance().getTopVoterAwardOfflineWeekly(this,
+					i);
+			if (place1 > 0) {
+				giveMonthlyTopVoterAward(place1);
+				Data.getInstance().setTopVoterAwardOffline(this, 0);
+			}
+		}
+
+		for (int i = 0; i <= 31; i++) {
+			int place2 = Data.getInstance().getTopVoterAwardOfflineDaily(this,
+					i);
+			if (place2 > 0) {
+				giveMonthlyTopVoterAward(place2);
+				Data.getInstance().setTopVoterAwardOffline(this, 0);
+			}
+		}
+
+		if (VoteParty.getInstance().getOfflineVotePartyVotes(this) > 0) {
+			for (int i = VoteParty.getInstance().getOfflineVotePartyVotes(this); i > 0; i++) {
+				VoteParty.getInstance().giveReward(this);
+			}
+			VoteParty.getInstance().setOfflineVotePartyVotes(this, 0);
 		}
 
 	}
@@ -591,8 +767,8 @@ public class User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -787,12 +963,12 @@ public class User {
 	 * @param showTime
 	 * @param fadeOut
 	 */
-	public void sendTitle(String title, String titleColor, String subTitle,
-			String subTitleColor, int fadeIn, int showTime, int fadeOut) {
+	public void sendTitle(String title, String subTitle, int fadeIn,
+			int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			Utils.getInstance().sendTitle(player, title, subTitle, titleColor,
-					subTitleColor, fadeIn, showTime, fadeOut);
+			Utils.getInstance().sendTitle(player, title, subTitle, fadeIn,
+					showTime, fadeOut);
 		}
 	}
 
@@ -812,9 +988,7 @@ public class User {
 	public void sendVoteTitle() {
 		if (Config.getInstance().getTitleEnabled()) {
 			sendTitle(Config.getInstance().getTitleTitle(), Config
-					.getInstance().getTitleTitleColor(), Config.getInstance()
-					.getTitleSubTitle(), Config.getInstance()
-					.getTitleSubTitleColor(), Config.getInstance()
+					.getInstance().getTitleSubTitle(), Config.getInstance()
 					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
 					Config.getInstance().getTitleFadeOut());
 		}
@@ -881,6 +1055,10 @@ public class User {
 		this.playerName = playerName;
 	}
 
+	public void setPoints(int value) {
+		Data.getInstance().setVotingPoints(this, value);
+	}
+
 	/**
 	 * Set whether or not the user has been reminded to vote
 	 *
@@ -902,6 +1080,10 @@ public class User {
 		Data.getInstance().setTime(voteSite.getSiteName(), user);
 	}
 
+	public void setTimedReward(Reward reward, long value) {
+		Data.getInstance().setTimedReward(this, reward.getRewardName(), value);
+	}
+
 	/**
 	 * Set total for VoteSite for user
 	 *
@@ -915,6 +1097,14 @@ public class User {
 		Data.getInstance().setTotal(user, voteSite.getSiteName(), amount);
 	}
 
+	public void setTotalDaily(VoteSite voteSite, int amount) {
+		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
+	}
+
+	public void setTotalWeekly(VoteSite voteSite, int amount) {
+		Data.getInstance().setTotalWeek(this, voteSite.getSiteName(), amount);
+	}
+
 	/**
 	 * Set user's uuid
 	 *
@@ -925,21 +1115,16 @@ public class User {
 		this.uuid = uuid;
 	}
 
-	/**
-	 * Give top voter award
-	 *
-	 * @param place
-	 */
-	public void topVoterAward(int place) {
+	public void weeklyTopVoterAward(int place) {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);
 		}
 
 		if (Utils.getInstance().isPlayerOnline(playerName)) {
 			// online
-			giveTopVoterAward(place);
+			giveWeeklyTopVoterAward(place);
 		} else {
-			Data.getInstance().setTopVoterAwardOffline(this, place);
+			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
 	}
 

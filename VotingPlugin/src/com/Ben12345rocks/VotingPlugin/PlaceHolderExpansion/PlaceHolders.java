@@ -26,7 +26,6 @@ public class PlaceHolders {
 	}
 
 	public String playerCanVote(Player player) {
-
 		return Boolean.toString(new User(player).canVoteAll());
 
 	}
@@ -51,6 +50,10 @@ public class PlaceHolders {
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
+	}
+
+	public String playerPoints(Player player) {
+		return Integer.toString(new User(player).getPoints());
 	}
 
 	public String playerTotalVotes(Player player) {

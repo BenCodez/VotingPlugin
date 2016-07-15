@@ -38,27 +38,68 @@ public class ConfigTopVoterAwards {
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList(
-				"Awards." + pos + ".Rewards");
+	public List<String> getBlackList() {
+		return (List<String>) getData().getList("BlackList");
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getBlackList() {
-		return (List<String>) getData().getList("BlackList");
+	public ArrayList<String> getDailyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"DailyAwards." + pos + ".Rewards");
+	}
+
+	public boolean getDailyAwardsEnabled() {
+		return getData().getBoolean("EnableDailyAwards");
+	}
+
+	public Set<String> getDailyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("DailyAwards").getKeys(
+					false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
 	}
 
 	public FileConfiguration getData() {
 		return data;
 	}
 
-	public String getMessage(int place) {
-		return getData().getString("Awards." + place + ".Message");
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMonthlyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"MonthlyAwards." + pos + ".Rewards");
 	}
 
-	public Set<String> getPossibleRewardPlaces() {
+	public boolean getMonthlyAwardsEnabled() {
+		return getData().getBoolean("EnableMonthlyAwards");
+	}
+
+	public Set<String> getMonthlyPossibleRewardPlaces() {
 		try {
-			return getData().getConfigurationSection("Awards").getKeys(false);
+			return getData().getConfigurationSection("MonthlyAwards").getKeys(
+					false);
+		} catch (Exception ex) {
+			Set<String> noValues = new HashSet<String>();
+			return noValues;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getWeeklyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList(
+				"WeeklyAwards." + pos + ".Rewards");
+	}
+
+	public boolean getWeeklyAwardsEnabled() {
+		return getData().getBoolean("EnableWeeklyAwards");
+	}
+
+	public Set<String> getWeeklyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("WeeklyAwards").getKeys(
+					false);
 		} catch (Exception ex) {
 			Set<String> noValues = new HashSet<String>();
 			return noValues;

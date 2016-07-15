@@ -10,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -52,6 +53,10 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Data");
 	}
 
+	public int getVoteGUISlotDurability(String slot) {
+		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Durability");
+	}
+
 	public int getVoteGUISlotID(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.ID");
 	}
@@ -69,6 +74,11 @@ public class ConfigGUI {
 		}
 	}
 
+	public String getVoteGUISlotSkull(Player player, String slot) {
+		return getData().getString("GUI.VoteGUI." + slot + ".Item.Skull")
+				.replace("%Player%", player.getName());
+	}
+
 	public int getVoteGUISlotSlot(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
@@ -81,6 +91,12 @@ public class ConfigGUI {
 	public int getVoteSiteItemData(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
+	}
+
+	public int getVoteSiteItemDurability(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getInt(
+				"GUI.VoteReward." + siteName + ".Item.Durability");
 	}
 
 	public int getVoteSiteItemID(String site) {
@@ -122,10 +138,23 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
 	}
 
+	public int getVoteSiteItemsDurability(String site, String item) {
+		String siteName = site.replace(".", "-");
+		return getData()
+				.getInt("GUI.VoteReward." + siteName + ".Items." + item
+						+ ".Durability");
+	}
+
 	public int getVoteSiteItemsID(String site, String item) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
+	}
+
+	public String getVoteSiteItemSkull(Player player, String siteName) {
+		return getData()
+				.getString("GUI.VoteReward." + siteName + ".Item.Skull")
+				.replace("%Player%", player.getName());
 	}
 
 	@SuppressWarnings("unchecked")
@@ -139,6 +168,13 @@ public class ConfigGUI {
 		String siteName = site.replace(".", "-");
 		return getData().getString(
 				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
+	}
+
+	public String getVoteSiteItemsSkull(Player player, String siteName,
+			String item) {
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Skull")
+				.replace("%Player%", player.getName());
 	}
 
 	public int getVoteSiteItemsSlot(String site, String item) {
@@ -158,11 +194,16 @@ public class ConfigGUI {
 
 	public int getVoteURLAlreadyVotedItemData() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
-		if (num != 0) {
-			return num;
-		} else {
-			return 0;
-		}
+
+		return num;
+
+	}
+
+	public int getVoteURLAlreadyVotedItemDurability() {
+		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Durability");
+
+		return num;
+
 	}
 
 	public int getVoteURLAlreadyVotedItemID() {
@@ -172,6 +213,11 @@ public class ConfigGUI {
 		} else {
 			return 152;
 		}
+	}
+
+	public String getVoteURLAlreadyVotedItemSkull(Player player) {
+		return getData().getString("GUI.VoteURL.AlreadyVotedItem.Skull")
+				.replace("%Player%", player.getName());
 	}
 
 	public int getVoteURLCanVoteItemAmount() {
@@ -185,11 +231,15 @@ public class ConfigGUI {
 
 	public int getVoteURLCanVoteItemData() {
 		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Data");
-		if (num != 0) {
-			return num;
-		} else {
-			return 0;
-		}
+
+		return num;
+
+	}
+
+	public int getVoteURLCanVoteItemDurability() {
+		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Durability");
+		return num;
+
 	}
 
 	public int getVoteURLCanVoteItemID() {
@@ -199,6 +249,11 @@ public class ConfigGUI {
 		} else {
 			return 133;
 		}
+	}
+
+	public String getVoteURLCanVoteItemSkull(Player player) {
+		return getData().getString("GUI.VoteURL.CanVoteItem.Skull").replace(
+				"%Player%", player.getName());
 	}
 
 	public String getVoteURLNextVote() {
@@ -253,7 +308,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

@@ -4,14 +4,34 @@
 # This reward is named "ExampleReward"
 # DO NOT HAVE DUPLICATE NAMES!!
 
+# Reward are run top to bottom (For the most part)
+
+# NOTE: Do not use this reward file in more than one place if
+# delayed or timed is enabled!
+
+# This will delay the reward file from running
+Delayed:
+  Enabled: false
+  Hours: 1
+  Minutes: 0
+  
+# Specific time of day to give this reward file
+# in 24 hour time, relative to local time zone
+Timed:
+  Enabled: false
+  Hour: 12
+  Minute: 0
+
 # Chance out of 100
 # Must be an integer
 # Set to 0 or 100 for always, or delete this line to disable chance
 # Will not give any rewards below unless chance is lucky or disabled
 Chance: 40
 
+# This is to give random rewards, with fallback
+# Rewards defined in this reward file below are still given
 Random:
-  # Chance to give a randomly selected reward below, will only give random reward
+  # Chance to give a randomly selected reward below (from list), will only give random reward
   # if lucky (according to chance)
   # Works same as chance above
   Chance: 40
@@ -39,6 +59,7 @@ Worlds:
 # If false, the player will be reward one of the worlds once
 GiveInEachWorld: false
 
+
 # Items to give to user
 Items:
   # Item
@@ -53,6 +74,9 @@ Items:
     Data: 0
     # Will only give Amount if min and max amounts are 0
     Amount: 1
+    # Set item durability
+    # Set to 0 or remove line for no durability
+    #Durability: 100
     
     # Random amount of items between Min and Max will be given
     # if min and max are not both 0
@@ -78,11 +102,15 @@ Items:
       
 # Amount of money to give, requires vault
 # Use 0 to give none
+# Use negative to take money
 Money: 1000
 
 # Pick random number between min and max amount
 MinMoney: 100
 MaxMoney: 3000
+
+# Give player experience
+EXP: 100
 
 # Commands to run
 # Use %player% for player name
@@ -107,15 +135,13 @@ Potions:
     Amplifier: 1
     
 # Title to send to voter
-# Requires TitleAPI (and all of its requirements)
+# Requires SpigotLib
 # Download here: 
-# https://www.spigotmc.org/resources/api-titleapi-1-7-1-8-1-9.1047/
+# https://www.spigotmc.org/resources/spigotlib.5925/
 Title:
   Enabled: false
-  Title: 'Thanks for voting!'
-  TitleColor: RED
-  SubTitle: 'You voted on %votesite%'
-  SubTitleColor: BLUE
+  Title: '&cThanks for voting!'
+  SubTitle: '&aYou voted on a website!'
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10

@@ -81,6 +81,10 @@ public class Config {
 		return getData().getInt("Effect.Radius");
 	}
 
+	public boolean getSendScoreboards() {
+		return getData().getBoolean("SendScoreboards");
+	}
+
 	public boolean getSoundEnabled() {
 		return getData().getBoolean("Sound.Enabled");
 	}
@@ -117,20 +121,8 @@ public class Config {
 		return getData().getString("Title.SubTitle");
 	}
 
-	public String getTitleSubTitleColor() {
-		return getData().getString("Title.SubTitleColor");
-	}
-
 	public String getTitleTitle() {
 		return getData().getString("Title.Title");
-	}
-
-	public String getTitleTitleColor() {
-		return getData().getString("Title.TitleColor");
-	}
-
-	public boolean getTopVoterAwardsEnabled() {
-		return getData().getBoolean("TopVoterAwards");
 	}
 
 	public boolean getVoteURLDefault() {

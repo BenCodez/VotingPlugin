@@ -46,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
 public class Main extends JavaPlugin {
@@ -60,11 +61,15 @@ public class Main extends JavaPlugin {
 
 	public static ConfigVoteSites configVoteSites;
 
-	public static Economy econ = null;
-
 	public static Main plugin;
 
-	public HashMap<User, Integer> topVoter;
+	public Economy econ = null;
+
+	public HashMap<User, Integer> topVoterMonthly;
+
+	public HashMap<User, Integer> topVoterWeekly;
+
+	public HashMap<User, Integer> topVoterDaily;
 
 	public Updater updater;
 
@@ -80,7 +85,7 @@ public class Main extends JavaPlugin {
 
 	public ArrayList<Reward> rewards;
 
-	public boolean titleAPIEnabled;
+	public boolean spigotLibEnabled;
 
 	public ArrayList<SignHandler> signs;
 
@@ -94,13 +99,13 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void checkTitleAPI() {
-		if (Bukkit.getPluginManager().getPlugin("TitleAPI") != null) {
-			titleAPIEnabled = true;
-			plugin.debug("Found TitleAPI, will attempt to send titles");
+	public void checkSpigotLib() {
+		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
+			spigotLibEnabled = true;
+			plugin.debug("Found SpigotLib, will attempt to send titles");
 		} else {
-			titleAPIEnabled = false;
-			plugin.debug("TitleAPI not found, titles will not send");
+			spigotLibEnabled = false;
+			plugin.debug("SpigotLib not found, titles will not send");
 		}
 	}
 
@@ -183,7 +188,7 @@ public class Main extends JavaPlugin {
 			plugin.debug("Succesfully hooked into vault");
 		} else {
 			plugin.getLogger()
-					.info("Failed to load vault, giving players money directy will not work");
+			.info("Failed to load vault, giving players money directy will not work");
 		}
 		checkVotifier();
 		metrics();
@@ -191,7 +196,7 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		checkPlaceHolderAPI();
-		checkTitleAPI();
+		checkSpigotLib();
 
 		loadVoteSites();
 		loadRewards();
@@ -206,8 +211,13 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoter = new HashMap<User, Integer>();
+		topVoterMonthly = new HashMap<User, Integer>();
+		topVoterWeekly = new HashMap<User, Integer>();
+		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
+
+		VoteParty.getInstance().check();
+
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -302,11 +312,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						update();
-					}
-				}, 50, config.getBackgroundTaskDelay() * 20);
+			@Override
+			public void run() {
+				update();
+			}
+		}, 50, config.getBackgroundTaskDelay() * 20);
 
 		plugin.debug("Loaded timer for background task");
 
@@ -315,11 +325,13 @@ public class Main extends JavaPlugin {
 	public void update() {
 		try {
 			TopVoter.getInstance().updateTopVoters();
+			TopVoter.getInstance().checkTopVoterAward();
+
 			updater = new Updater(this, 15358, false);
 			Commands.getInstance().updateVoteToday();
-			TopVoter.getInstance().checkTopVoterAward();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
+			ConfigRewards.getInstance().checkDelayedTimedRewards();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
@@ -327,7 +339,7 @@ public class Main extends JavaPlugin {
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

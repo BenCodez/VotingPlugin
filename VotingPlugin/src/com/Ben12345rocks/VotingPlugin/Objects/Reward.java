@@ -1,9 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
 
+import org.apache.commons.lang.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -20,9 +22,20 @@ public class Reward {
 
 	public String name;
 
-	private int chance;
-	private int randomChance;
+	private boolean delayEnabled;
+	private int delayHours;
+	private int delayMinutes;
+
+	private boolean timedEnabled;
+	private int timedHour;
+	private int timedMinute;
+
+	private double chance;
+
+	private double randomChance;
+
 	private ArrayList<String> randomRewards;
+
 	private ArrayList<String> randomFallBack;
 
 	private boolean requirePermission;
@@ -34,25 +47,36 @@ public class Reward {
 	private Set<String> items;
 
 	private HashMap<String, String> itemMaterial;
+	private HashMap<String, String> itemSkull;
 
 	private HashMap<String, Integer> itemData;
 
+	private HashMap<String, Integer> itemDurabilty;
+
 	private HashMap<String, Integer> itemAmount;
+
 	private HashMap<String, Integer> itemMinAmount;
 	private HashMap<String, Integer> itemMaxAmount;
-
 	private HashMap<String, String> itemName;
 	private HashMap<String, ArrayList<String>> itemLore;
+
 	private HashMap<String, HashMap<String, Integer>> itemEnchants;
+
 	private int money;
+
 	private int MinMoney;
+
 	private int MaxMoney;
+
+	private int exp;
+
 	private ArrayList<String> consoleCommands;
 	private ArrayList<String> playerCommands;
-	private Set<String> potions;
 
+	private Set<String> potions;
 	private HashMap<String, Integer> potionsDuration;
 	private HashMap<String, Integer> potionsAmplifier;
+
 	private String rewardMsg;
 
 	public Reward(Main plugin) {
@@ -61,6 +85,15 @@ public class Reward {
 
 	public Reward(String reward) {
 		name = reward;
+
+		setDelayEnabled(ConfigRewards.getInstance().getDelayedEnabled(reward));
+		setDelayHours(ConfigRewards.getInstance().getDelayedHours(reward));
+		setDelayMinutes(ConfigRewards.getInstance().getDelayedMinutes(reward));
+
+		setTimedEnabled(ConfigRewards.getInstance().getTimedEnabled(reward));
+		setTimedHour(ConfigRewards.getInstance().getTimedHour(reward));
+		setTimedMinute(ConfigRewards.getInstance().getTimedMinute(reward));
+
 		setChance(ConfigRewards.getInstance().getChance(reward));
 		setRandomChance(ConfigRewards.getInstance().getRandomChance(reward));
 		setRandomRewards(ConfigRewards.getInstance().getRandomRewards(reward));
@@ -75,6 +108,8 @@ public class Reward {
 		setItems(ConfigRewards.getInstance().getItems(reward));
 		itemMaterial = new HashMap<String, String>();
 		itemData = new HashMap<String, Integer>();
+		itemSkull = new HashMap<String, String>();
+		itemDurabilty = new HashMap<String, Integer>();
 		itemAmount = new HashMap<String, Integer>();
 		itemMinAmount = new HashMap<String, Integer>();
 		itemMaxAmount = new HashMap<String, Integer>();
@@ -97,6 +132,10 @@ public class Reward {
 					ConfigRewards.getInstance().getItemName(reward, item));
 			itemLore.put(item,
 					ConfigRewards.getInstance().getItemLore(reward, item));
+			itemDurabilty.put(item, ConfigRewards.getInstance()
+					.getItemDurability(reward, item));
+			itemSkull.put(item,
+					ConfigRewards.getInstance().getItemSkull(reward, item));
 			HashMap<String, Integer> enchants = new HashMap<String, Integer>();
 			for (String enchant : ConfigRewards.getInstance().getItemEnchants(
 					reward, item)) {
@@ -110,8 +149,13 @@ public class Reward {
 		setMoney(ConfigRewards.getInstance().getMoney(reward));
 		setMinMoney(ConfigRewards.getInstance().getMinMoney(reward));
 		setMaxMoney(ConfigRewards.getInstance().getMaxMoney(reward));
+
+		setExp(ConfigRewards.getInstance().getEXP(reward));
+
 		setConsoleCommands(ConfigRewards.getInstance().getCommandsConsole(
 				reward));
+		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
+
 		potions = ConfigRewards.getInstance().getPotions(reward);
 		potionsDuration = new HashMap<String, Integer>();
 		potionsAmplifier = new HashMap<String, Integer>();
@@ -121,19 +165,19 @@ public class Reward {
 			potionsAmplifier.put(potion, ConfigRewards.getInstance()
 					.getPotionsAmplifier(reward, potion));
 		}
-		setPlayerCommands(ConfigRewards.getInstance().getCommandsPlayer(reward));
+
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
 
 	}
 
 	public boolean checkChance() {
-		int chance = getChance();
+		double chance = getChance();
 
 		if ((chance == 0) || (chance == 100)) {
 			return true;
 		}
 
-		int randomNum = (int) (Math.random() * 100) + 1;
+		double randomNum = (Math.random() * 100) + 1;
 
 		plugin.debug("Random: " + randomNum + ", Chance: " + chance);
 
@@ -144,14 +188,31 @@ public class Reward {
 		}
 	}
 
+	public boolean checkDelayed(User user) {
+		if (!isDelayEnabled()) {
+			return false;
+		}
+
+		Date time = new Date();
+		time = DateUtils.addHours(time, getDelayHours());
+		time = DateUtils.addMinutes(time, getDelayMinutes());
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " in " + getDelayHours()
+				+ " hours " + getDelayMinutes() + " minutes ("
+				+ time.toString() + ")");
+		return true;
+
+	}
+
 	public boolean checkRandomChance() {
-		int chance = getRandomChance();
+		double chance = getRandomChance();
 
 		if ((chance == 0) || (chance == 100)) {
 			return true;
 		}
 
-		int randomNum = (int) (Math.random() * 100) + 1;
+		double randomNum = (Math.random() * 100) + 1;
 
 		plugin.debug("Random: Random: " + randomNum + ", Chance: " + chance);
 
@@ -162,12 +223,42 @@ public class Reward {
 		}
 	}
 
-	public int getChance() {
+	@SuppressWarnings("deprecation")
+	public boolean checkTimed(User user) {
+		if (!isTimedEnabled()) {
+			return false;
+		}
+
+		Date time = new Date();
+		time.setHours(getTimedHour());
+		time.setMinutes(getTimedMinute());
+		if (new Date().after(time)) {
+			time = DateUtils.addDays(time, 1);
+		}
+		user.setTimedReward(this, time.getTime());
+
+		plugin.debug("Giving reward " + name + " at " + time.toString());
+		return true;
+	}
+
+	public double getChance() {
 		return chance;
 	}
 
 	public ArrayList<String> getConsoleCommands() {
 		return consoleCommands;
+	}
+
+	public int getDelayHours() {
+		return delayHours;
+	}
+
+	public int getDelayMinutes() {
+		return delayMinutes;
+	}
+
+	public int getExp() {
+		return exp;
 	}
 
 	public HashMap<String, Integer> getItemAmount() {
@@ -192,6 +283,10 @@ public class Reward {
 
 	public HashMap<String, Integer> getItemData() {
 		return itemData;
+	}
+
+	public HashMap<String, Integer> getItemDurabilty() {
+		return itemDurabilty;
 	}
 
 	public HashMap<String, HashMap<String, Integer>> getItemEnchants() {
@@ -220,6 +315,10 @@ public class Reward {
 
 	public Set<String> getItems() {
 		return items;
+	}
+
+	public HashMap<String, String> getItemSkull() {
+		return itemSkull;
 	}
 
 	public int getMaxMoney() {
@@ -266,7 +365,7 @@ public class Reward {
 		return potionsDuration;
 	}
 
-	public int getRandomChance() {
+	public double getRandomChance() {
 		return randomChance;
 	}
 
@@ -286,8 +385,20 @@ public class Reward {
 		return name;
 	}
 
+	public int getTimedHour() {
+		return timedHour;
+	}
+
+	public int getTimedMinute() {
+		return timedMinute;
+	}
+
 	public ArrayList<String> getWorlds() {
 		return worlds;
+	}
+
+	public void giveExp(User user) {
+		user.giveExp(getExp());
 	}
 
 	public void giveItems(User user) {
@@ -296,12 +407,22 @@ public class Reward {
 					Material.valueOf(getItemMaterial().get(item)),
 					getItemAmount(item), Short.valueOf(Integer
 							.toString(getItemData().get(item))));
-			itemStack = Utils.getInstance().nameItem(itemStack,
-					getItemName().get(item));
-			itemStack = Utils.getInstance().addLore(itemStack,
-					getItemLore().get(item));
+			itemStack = Utils.getInstance().nameItem(
+					itemStack,
+					getItemName().get(item).replace("%Player%",
+							user.getPlayerName()));
+			itemStack = Utils.getInstance().addLore(
+					itemStack,
+					Utils.getInstance().replace(getItemLore().get(item),
+							"%Player%", user.getPlayerName()));
 			itemStack = Utils.getInstance().addEnchants(itemStack,
 					getItemEnchants().get(item));
+			itemStack = Utils.getInstance().setDurabilty(itemStack,
+					getItemDurabilty().get(item));
+			itemStack = Utils.getInstance().setSkullOwner(
+					itemStack,
+					getItemSkull().get(item).replace("%Player%",
+							user.getPlayerName()));
 			user.giveItem(itemStack);
 		}
 	}
@@ -314,7 +435,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
@@ -343,6 +464,18 @@ public class Reward {
 
 	public void giveReward(User user) {
 
+		if (checkDelayed(user)) {
+			return;
+		}
+
+		if (checkTimed(user)) {
+			return;
+		}
+
+		giveRewardReward(user);
+	}
+
+	public void giveRewardReward(User user) {
 		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
 				+ name);
 
@@ -360,8 +493,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -396,6 +529,7 @@ public class Reward {
 					|| player.hasPermission("VotingPlugin.Reward." + name)) {
 				giveMoney(user);
 				giveItems(user);
+				giveExp(user);
 				runCommands(user);
 				givePotions(user);
 				sendMessage(user);
@@ -409,12 +543,20 @@ public class Reward {
 		}
 	}
 
+	public boolean isDelayEnabled() {
+		return delayEnabled;
+	}
+
 	public boolean isGiveInEachWorld() {
 		return giveInEachWorld;
 	}
 
 	public boolean isRequirePermission() {
 		return requirePermission;
+	}
+
+	public boolean isTimedEnabled() {
+		return timedEnabled;
 	}
 
 	public void playEffect(User user) {
@@ -480,21 +622,37 @@ public class Reward {
 	public void sendTitle(User user) {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
-					ConfigRewards.getInstance().getTitleTitleColor(name),
+
 					ConfigRewards.getInstance().getTitleSubTitle(name),
-					ConfigRewards.getInstance().getTitleSubTitleColor(name),
-					ConfigRewards.getInstance().getTitleFadeIn(name),
-					ConfigRewards.getInstance().getTitleShowTime(name),
-					ConfigRewards.getInstance().getTitleFadeOut(name));
+
+					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					.getInstance().getTitleShowTime(name), ConfigRewards
+					.getInstance().getTitleFadeOut(name));
 		}
 	}
 
-	public void setChance(int chance) {
+	public void setChance(double chance) {
 		this.chance = chance;
 	}
 
 	public void setConsoleCommands(ArrayList<String> consoleCommands) {
 		this.consoleCommands = consoleCommands;
+	}
+
+	public void setDelayEnabled(boolean delayEnabled) {
+		this.delayEnabled = delayEnabled;
+	}
+
+	public void setDelayHours(int delayHours) {
+		this.delayHours = delayHours;
+	}
+
+	public void setDelayMinutes(int delayMinutes) {
+		this.delayMinutes = delayMinutes;
+	}
+
+	public void setExp(int exp) {
+		this.exp = exp;
 	}
 
 	public void setGiveInEachWorld(boolean giveInEachWorld) {
@@ -507,6 +665,10 @@ public class Reward {
 
 	public void setItemData(HashMap<String, Integer> itemData) {
 		this.itemData = itemData;
+	}
+
+	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
+		this.itemDurabilty = itemDurabilty;
 	}
 
 	public void setItemEnchants(
@@ -538,6 +700,10 @@ public class Reward {
 		this.items = items;
 	}
 
+	public void setItemSkull(HashMap<String, String> itemSkull) {
+		this.itemSkull = itemSkull;
+	}
+
 	public void setMaxMoney(int maxMoney) {
 		MaxMoney = maxMoney;
 	}
@@ -566,7 +732,7 @@ public class Reward {
 		this.potionsDuration = potionsDuration;
 	}
 
-	public void setRandomChance(int randomChance) {
+	public void setRandomChance(double randomChance) {
 		this.randomChance = randomChance;
 	}
 
@@ -584,6 +750,18 @@ public class Reward {
 
 	public void setRewardMsg(String rewardMsg) {
 		this.rewardMsg = rewardMsg;
+	}
+
+	public void setTimedEnabled(boolean timedEnabled) {
+		this.timedEnabled = timedEnabled;
+	}
+
+	public void setTimedHour(int timedHour) {
+		this.timedHour = timedHour;
+	}
+
+	public void setTimedMinute(int timedMinute) {
+		this.timedMinute = timedMinute;
 	}
 
 	public void setWorlds(ArrayList<String> worlds) {

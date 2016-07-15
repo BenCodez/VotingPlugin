@@ -11,6 +11,9 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4URL'
+        # You can set skulls of the player using the following
+        # Remove the # to enable
+        #Skull: '%Player%'
       Command: 'vote'
       Slot: 0
     Next:

@@ -1,11 +1,18 @@
 package com.Ben12345rocks.VotingPlugin;
 
+import gyurix.api.TitleAPI;
+
 import java.text.DateFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
@@ -22,7 +29,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.inventivetalent.title.TitleAPI;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -124,6 +131,17 @@ public class Utils {
 
 	public String compToString(TextComponent comp) {
 		return colorize(comp.toPlainText());
+	}
+
+	public User[] convert(ArrayList<User> array) {
+		if (array == null) {
+			return null;
+		}
+		User[] list = new User[array.size()];
+		for (int i = 0; i < array.size(); i++) {
+			list[i] = array.get(i);
+		}
+		return list;
 	}
 
 	public ArrayList<String> convert(Set<String> set) {
@@ -378,6 +396,13 @@ public class Utils {
 
 	}
 
+	public void printMap(HashMap<User, Integer> topVoterMonthly) {
+		for (Entry<User, Integer> entry : topVoterMonthly.entrySet()) {
+			plugin.debug("Key : " + entry.getKey().getPlayerName()
+					+ " Value : " + entry.getValue());
+		}
+	}
+
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();
@@ -391,6 +416,14 @@ public class Utils {
 	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
 		Set<String> set = new HashSet<String>(list);
 		return new ArrayList<String>(set);
+	}
+
+	public List<String> replace(List<String> list, String toReplace,
+			String replaceWith) {
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, list.get(i).replace(toReplace, replaceWith));
+		}
+		return list;
 	}
 
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
@@ -421,25 +454,42 @@ public class Utils {
 		}
 	}
 
-	public void sendTitle(Player player, String titleText, String subTitleText,
-			String titleColor, String subTitleColor, int fadeIn, int showTime,
-			int fadeOut) {
-		if (plugin.titleAPIEnabled) {
+	public void sendTitle(Player player, String title, String subTitle,
+			int fadeIn, int showTime, int fadeOut) {
+		if (plugin.spigotLibEnabled) {
 
-			TitleAPI.sendTimings(player, fadeIn, showTime, fadeOut);
-
-			if ((subTitleText != null) && (subTitleText != "")) {
-				TextComponent subTitle = new TextComponent(subTitleText);
-				subTitle.setColor(ChatColor.valueOf(subTitleColor));
-				TitleAPI.sendSubTitle(player, subTitle);
+			if (title == null) {
+				title = "";
 			}
-
-			if ((titleText != null) && (titleText != "")) {
-				TextComponent title = new TextComponent(titleText);
-				title.setColor(ChatColor.valueOf(titleColor));
-				TitleAPI.sendTitle(player, title);
+			if (subTitle == null) {
+				subTitle = "";
 			}
+			TitleAPI.set(colorize(title), colorize(subTitle), fadeIn, showTime,
+					fadeOut, player);
+
 		}
+	}
+
+	public ItemStack setDurabilty(ItemStack item, int durability) {
+		if (item == null) {
+			return null;
+		}
+		if (durability > 0) {
+			item.setDurability((short) durability);
+		}
+		return item;
+	}
+
+	public ItemStack setSkullOwner(ItemStack item, String playerName) {
+		if (item == null) {
+			return null;
+		}
+		if (playerName == null || playerName.equalsIgnoreCase("")) {
+			return item;
+		}
+		ItemMeta meta = item.getItemMeta();
+		((SkullMeta) meta).setOwner(playerName);
+		return item;
 	}
 
 	@SuppressWarnings("unused")
@@ -455,6 +505,34 @@ public class Utils {
 		} else {
 			return array;
 		}
+	}
+
+	public HashMap<User, Integer> sortByValues(
+			HashMap<User, Integer> unsortMap, final boolean order) {
+
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
+				unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
+			@Override
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
+				if (order) {
+					return o1.getValue().compareTo(o2.getValue());
+				} else {
+					return o2.getValue().compareTo(o1.getValue());
+
+				}
+			}
+		});
+
+		// Maintaining insertion order with the help of LinkedList
+		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
 	}
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {

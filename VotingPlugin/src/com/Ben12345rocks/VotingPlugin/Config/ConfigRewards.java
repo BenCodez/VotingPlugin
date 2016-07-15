@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,8 +14,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class ConfigRewards {
 
@@ -33,8 +36,23 @@ public class ConfigRewards {
 		ConfigRewards.plugin = plugin;
 	}
 
-	public int getChance(String reward) {
-		return getData(reward).getInt("Chance");
+	public void checkDelayedTimedRewards() {
+		for (User user : Data.getInstance().getUsers()) {
+			for (Reward reward : plugin.rewards) {
+				long time = user.getTimedReward(reward);
+				if (time != 0) {
+					Date timeDate = new Date(time);
+					if (new Date().after(timeDate)) {
+						reward.giveRewardReward(user);
+						user.setTimedReward(reward, 0);
+					}
+				}
+			}
+		}
+	}
+
+	public double getChance(String reward) {
+		return getData(reward).getDouble("Chance");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -63,6 +81,18 @@ public class ConfigRewards {
 		return data;
 	}
 
+	public boolean getDelayedEnabled(String reward) {
+		return getData(reward).getBoolean("Delayed.Enabled");
+	}
+
+	public int getDelayedHours(String reward) {
+		return getData(reward).getInt("Delayed.Hours");
+	}
+
+	public int getDelayedMinutes(String reward) {
+		return getData(reward).getInt("Delayed.Minutes");
+	}
+
 	public int getEffectData(String reward) {
 		return getData(reward).getInt("Effect.Data");
 	}
@@ -87,6 +117,10 @@ public class ConfigRewards {
 		return getData(reward).getInt("Effect.Radius");
 	}
 
+	public int getEXP(String reward) {
+		return getData(reward).getInt("EXP");
+	}
+
 	public boolean getGiveInEachWorld(String reward) {
 		return getData(reward).getBoolean("GiveInEachWorld");
 	}
@@ -97,6 +131,10 @@ public class ConfigRewards {
 
 	public int getItemData(String reward, String item) {
 		return getData(reward).getInt("Items." + item + ".Data");
+	}
+
+	public int getItemDurability(String reward, String item) {
+		return getData(reward).getInt("Items." + item + ".Durability");
 	}
 
 	public Set<String> getItemEnchants(String reward, String item) {
@@ -143,6 +181,10 @@ public class ConfigRewards {
 		}
 	}
 
+	public String getItemSkull(String reward, String item) {
+		return getData(reward).getString("Items." + item + ".Skull");
+	}
+
 	public int getMaxMoney(String reward) {
 		return getData(reward).getInt("MaxMoney");
 	}
@@ -185,8 +227,8 @@ public class ConfigRewards {
 		return getData(reward).getInt("Potions." + potion + ".Duration");
 	}
 
-	public int getRandomChance(String reward) {
-		return getData(reward).getInt("Random.Chance");
+	public double getRandomChance(String reward) {
+		return getData(reward).getDouble("Random.Chance");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -214,6 +256,7 @@ public class ConfigRewards {
 	}
 
 	public Reward getReward(String reward) {
+		reward = reward.replace(" ", "_");
 		if (plugin.rewards != null) {
 			for (Reward rewardFile : plugin.rewards) {
 				if (rewardFile.name.equals(reward)) {
@@ -234,7 +277,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
@@ -279,6 +322,18 @@ public class ConfigRewards {
 		return (float) getData(reward).getDouble("Sound.Volume");
 	}
 
+	public boolean getTimedEnabled(String reward) {
+		return getData(reward).getBoolean("Timed.Enabled");
+	}
+
+	public int getTimedHour(String reward) {
+		return getData(reward).getInt("Timed.Hour");
+	}
+
+	public int getTimedMinute(String reward) {
+		return getData(reward).getInt("Timed.Minute");
+	}
+
 	public boolean getTitleEnabled(String reward) {
 		return getData(reward).getBoolean("Title.Enabled");
 	}
@@ -299,16 +354,8 @@ public class ConfigRewards {
 		return getData(reward).getString("Title.SubTitle");
 	}
 
-	public String getTitleSubTitleColor(String reward) {
-		return getData(reward).getString("Title.SubTitleColor");
-	}
-
 	public String getTitleTitle(String reward) {
 		return getData(reward).getString("Title.Title");
-	}
-
-	public String getTitleTitleColor(String reward) {
-		return getData(reward).getString("Title.TitleColor");
 	}
 
 	@SuppressWarnings("unchecked")

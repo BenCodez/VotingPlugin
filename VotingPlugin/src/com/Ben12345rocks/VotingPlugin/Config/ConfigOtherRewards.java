@@ -36,7 +36,11 @@ public class ConfigOtherRewards {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getAllSitesReward() {
-		return (ArrayList<String>) getData().getList("AllSites");
+		try {
+			return (ArrayList<String>) getData().getList("AllSites");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public FileConfiguration getData() {
@@ -45,16 +49,47 @@ public class ConfigOtherRewards {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFirstVoteRewards() {
-		return (ArrayList<String>) getData().getList("FirstVote");
+		try {
+			return (ArrayList<String>) getData().getList("FirstVote");
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getNumberOfVotes() {
-		return (ArrayList<String>) getData().getList("NumberOfVotes");
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"CumulativeRewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public boolean getNumberOfVotesVotesInSameDay() {
 		return getData().getBoolean("VotesInSameDay");
+	}
+
+	public boolean getVotePartyEnabled() {
+		return getData().getBoolean("VoteParty.Enabled");
+	}
+
+	public boolean getVotePartyGiveAllPlayers() {
+		return getData().getBoolean("VoteParty.GiveAllPlayers");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyRewards() {
+		return (ArrayList<String>) getData().getList("VoteParty.Rewards");
+	}
+
+	public int getVotePartyVotesRequired() {
+		return getData().getInt("VoteParty.VotesRequired");
 	}
 
 	public int getVotesRequired() {

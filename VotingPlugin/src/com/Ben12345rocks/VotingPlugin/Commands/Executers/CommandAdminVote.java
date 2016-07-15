@@ -60,23 +60,23 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-							+ "&c!"));
+					+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &cis up to date! Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &cis up to date! Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &chas an update available! Your Version: &c&l"
-							+ plugin.getDescription().getVersion()
-							+ " &cNew Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &chas an update available! Your Version: &c&l"
+					+ plugin.getDescription().getVersion()
+					+ " &cNew Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
@@ -121,11 +121,13 @@ public class CommandAdminVote implements CommandExecutor {
 	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
-			user.sendJson(Commands.getInstance().adminHelp(page - 1));
+			user.sendJson(Commands.getInstance().adminHelp(sender, page - 1));
 		} else {
-			sender.sendMessage(Utils.getInstance().convertArray(
-					Utils.getInstance().comptoString(
-							Commands.getInstance().adminHelp(page - 1))));
+			sender.sendMessage(Utils.getInstance()
+					.convertArray(
+							Utils.getInstance().comptoString(
+									Commands.getInstance().adminHelp(sender,
+											page - 1))));
 		}
 
 	}
@@ -192,7 +194,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotals();
+				TopVoter.getInstance().resetTotalsMonthly();
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cDone resseting totals"));
 				plugin.update();

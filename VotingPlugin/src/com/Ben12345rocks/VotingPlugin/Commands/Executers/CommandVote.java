@@ -34,11 +34,11 @@ public class CommandVote implements CommandExecutor {
 	public void help(CommandSender sender) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
-			user.sendJson(Commands.getInstance().voteHelpText());
+			user.sendJson(Commands.getInstance().voteHelpText(sender));
 		} else {
 			sender.sendMessage(Utils.getInstance().convertArray(
 					Utils.getInstance().comptoString(
-							Commands.getInstance().voteHelpText())));
+							Commands.getInstance().voteHelpText(sender))));
 		}
 
 	}
@@ -92,7 +92,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandLast(new User(playerName))));
+					.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -101,7 +101,6 @@ public class CommandVote implements CommandExecutor {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(user));
-
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
@@ -112,10 +111,11 @@ public class CommandVote implements CommandExecutor {
 			User user = new User((Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandNext(
 					new User(playerName)));
+
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandNext(new User(playerName))));
+					.voteCommandNext(new User(playerName))));
 		}
 
 	}
@@ -125,7 +125,6 @@ public class CommandVote implements CommandExecutor {
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandNext(user));
-
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
@@ -156,6 +155,14 @@ public class CommandVote implements CommandExecutor {
 					User user = new User((Player) sender);
 					user.sendMessage(Commands.getInstance().commandVoteToday(
 							page));
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Commands.getInstance().sendVoteTodayScoreBoard(
+									(Player) sender, page);
+						}
+					});
 				} else {
 					sender.sendMessage(Commands.getInstance().commandVoteToday(
 							page));
@@ -166,7 +173,7 @@ public class CommandVote implements CommandExecutor {
 
 	}
 
-	public void topVoter(CommandSender sender, int page) {
+	public void topVoterDaily(CommandSender sender, int page) {
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -174,17 +181,76 @@ public class CommandVote implements CommandExecutor {
 			public void run() {
 				if (sender instanceof Player) {
 					User user = new User((Player) sender);
-					user.sendMessage(TopVoter.getInstance().topVoter(page));
+					user.sendMessage(TopVoter.getInstance().topVoterDaily(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 						@Override
 						public void run() {
-							Commands.getInstance().sendTopVoterScoreBoard(
+							Commands.getInstance().sendTopVoterDailyScoreBoard(
 									(Player) sender, page);
 						}
 					});
 				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoter(page));
+					sender.sendMessage(TopVoter.getInstance().topVoterDaily(
+							page));
+				}
+
+			}
+		});
+
+	}
+
+	public void topVoterMonthly(CommandSender sender, int page) {
+
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(TopVoter.getInstance().topVoterMonthly(
+							page));
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Commands.getInstance()
+							.sendTopVoterMonthlyScoreBoard(
+									(Player) sender, page);
+						}
+					});
+				} else {
+					sender.sendMessage(TopVoter.getInstance().topVoterMonthly(
+							page));
+				}
+
+			}
+		});
+
+	}
+
+	public void topVoterWeekly(CommandSender sender, int page) {
+
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				if (sender instanceof Player) {
+					User user = new User((Player) sender);
+					user.sendMessage(TopVoter.getInstance()
+							.topVoterWeekly(page));
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Commands.getInstance()
+							.sendTopVoterWeeklyScoreBoard(
+									(Player) sender, page);
+						}
+					});
+				} else {
+					sender.sendMessage(TopVoter.getInstance().topVoterWeekly(
+							page));
 				}
 
 			}
@@ -202,6 +268,7 @@ public class CommandVote implements CommandExecutor {
 					User user = new User((Player) sender);
 					user.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());
+
 				} else {
 					sender.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());
@@ -230,7 +297,6 @@ public class CommandVote implements CommandExecutor {
 			String playerName = sender.getName();
 			User user = new User(playerName);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(user));
-
 		} else {
 			sender.sendMessage("You must be a player to do this!");
 		}
