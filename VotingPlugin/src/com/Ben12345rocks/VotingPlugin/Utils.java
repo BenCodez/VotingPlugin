@@ -461,6 +461,13 @@ public class Utils {
 		return item;
 	}
 
+	public List<String> replace(List<String> list, String toReplace, String replaceWith) {
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, list.get(i).replace(toReplace, replaceWith));
+		}
+		return list;
+	}
+
 	@SuppressWarnings("unused")
 	public String[] setToArray(Set<String> set) {
 		String[] array = new String[set.size()];

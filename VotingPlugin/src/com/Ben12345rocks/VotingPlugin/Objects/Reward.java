@@ -403,10 +403,14 @@ public class Reward {
 					Material.valueOf(getItemMaterial().get(item)),
 					getItemAmount(item), Short.valueOf(Integer
 							.toString(getItemData().get(item))));
-			itemStack = Utils.getInstance().nameItem(itemStack,
-					getItemName().get(item));
-			itemStack = Utils.getInstance().addLore(itemStack,
-					getItemLore().get(item));
+			itemStack = Utils.getInstance().nameItem(
+					itemStack,
+					getItemName().get(item).replace("%Player%",
+							user.getPlayerName()));
+			itemStack = Utils.getInstance().addLore(
+					itemStack,
+					Utils.getInstance().replace(getItemLore().get(item),
+							"%Player%", user.getPlayerName()));
 			itemStack = Utils.getInstance().addEnchants(itemStack,
 					getItemEnchants().get(item));
 			itemStack = Utils.getInstance().setDurabilty(itemStack,
