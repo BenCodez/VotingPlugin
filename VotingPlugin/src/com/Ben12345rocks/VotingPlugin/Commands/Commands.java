@@ -400,7 +400,7 @@ public class Commands {
 		int total = 0;
 
 		ArrayList<String> voteNames = Data.getInstance().getPlayerNames();
-		
+
 		for (VoteSite voteSite : plugin.voteSites) {
 			int votes = 0;
 			for (String playerName : voteNames) {
@@ -415,6 +415,70 @@ public class Commands {
 		}
 
 		scoreboard.add("Total", total);
+
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	public void sendVoteLastScoreBoard(Player player, User user) {
+
+		String title = Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteLastTitle(), "%player%",
+				user.getPlayerName());
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		scoreboard.add(title);
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			scoreboard.add(voteCommandLastDate(user, voteSite));
+		}
+
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	public void sendVoteNextScoreBoard(Player player, User user) {
+
+		String title = Utils.getInstance().colorize(
+				Utils.getInstance().replaceIgnoreCase(
+						format.getCommandsVoteNextTitle(), "%player%",
+						user.getPlayerName()));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		scoreboard.add(title);
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			String msgLine = format.getCommandsVoteNextLayout();
+
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine, "%info%",
+					voteCommandNextInfo(user, voteSite));
+
+			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
+					"%SiteName%", voteSite.getSiteName());
+			scoreboard.add(msgLine);
+		}
 
 		scoreboard.build();
 		scoreboard.send(player);
