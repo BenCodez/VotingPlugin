@@ -142,8 +142,8 @@ public class SignHandler {
 			lines.add(line4);
 
 			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = TopVoter.getInstance()
-						.topVotersSortedAll();
+				ArrayList<User> users = Utils.getInstance().convertSet(
+						plugin.topVoterMonthly.keySet());
 
 				if (users.size() >= position) {
 					playerName = users.get(position - 1).getPlayerName();
@@ -151,7 +151,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -159,7 +159,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				}
 
@@ -184,8 +184,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						} else {
 							playerName = "No Player";
@@ -194,8 +194,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						}
 
@@ -203,9 +203,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-									.replace("%SiteName%", data)
-									.replace("%position%",
-											"" + position));
+											.replace("%SiteName%", data)
+											.replace("%position%",
+													"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);

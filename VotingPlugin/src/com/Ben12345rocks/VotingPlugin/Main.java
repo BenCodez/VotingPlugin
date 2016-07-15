@@ -188,7 +188,7 @@ public class Main extends JavaPlugin {
 			plugin.debug("Succesfully hooked into vault");
 		} else {
 			plugin.getLogger()
-			.info("Failed to load vault, giving players money directy will not work");
+					.info("Failed to load vault, giving players money directy will not work");
 		}
 		checkVotifier();
 		metrics();
@@ -215,9 +215,9 @@ public class Main extends JavaPlugin {
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
-		
+
 		VoteParty.getInstance().check();
-		
+
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -312,11 +312,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				update();
-			}
-		}, 50, config.getBackgroundTaskDelay() * 20);
+					@Override
+					public void run() {
+						update();
+					}
+				}, 50, config.getBackgroundTaskDelay() * 20);
 
 		plugin.debug("Loaded timer for background task");
 
@@ -325,9 +325,10 @@ public class Main extends JavaPlugin {
 	public void update() {
 		try {
 			TopVoter.getInstance().updateTopVoters();
+			TopVoter.getInstance().checkTopVoterAward();
+
 			updater = new Updater(this, 15358, false);
 			Commands.getInstance().updateVoteToday();
-			TopVoter.getInstance().checkTopVoterAward();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
 			ConfigRewards.getInstance().checkDelayedTimedRewards();
@@ -338,7 +339,7 @@ public class Main extends JavaPlugin {
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}
