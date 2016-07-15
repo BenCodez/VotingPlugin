@@ -354,6 +354,82 @@ public class Commands {
 
 	}
 
+	public void sendVoteTotalScoreBoard(Player player, User user) {
+
+		String title = Utils.getInstance().replaceIgnoreCase(
+				format.getCommandsVoteTotalTitle(), "%player%",
+				user.getPlayerName());
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		scoreboard.add(title);
+		// total votes
+		int total = 0;
+
+		for (VoteSite voteSite : plugin.voteSites) {
+			int votes = user.getTotal(voteSite);
+			total += votes;
+			scoreboard.add(voteSite.getSiteName(), votes);
+
+		}
+
+		scoreboard.add("Total", total);
+
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
+	public void sendVoteTotalAllScoreBoard(Player player) {
+
+		String title = format.getCommandsVoteTotalAllTitle();
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		scoreboard.add(title);
+		// total votes
+		int total = 0;
+
+		ArrayList<String> voteNames = Data.getInstance().getPlayerNames();
+		
+		for (VoteSite voteSite : plugin.voteSites) {
+			int votes = 0;
+			for (String playerName : voteNames) {
+				if (playerName != null) {
+					User user = new User(playerName);
+					votes += user.getTotal(voteSite);
+				}
+			}
+			total += votes;
+			scoreboard.add(voteSite.getSiteName(), votes);
+
+		}
+
+		scoreboard.add("Total", total);
+
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
 	public void sendVoteTodayScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 
@@ -740,7 +816,7 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.voteSites;
 
 		ArrayList<String> voteNames = Data.getInstance().getPlayerNames();
 
