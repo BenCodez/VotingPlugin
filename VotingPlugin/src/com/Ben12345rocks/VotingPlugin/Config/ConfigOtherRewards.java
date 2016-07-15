@@ -59,7 +59,13 @@ public class ConfigOtherRewards {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getNumberOfVotes() {
 		try {
-			return (ArrayList<String>) getData().getList("CumulativeRewards");
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"CumulativeRewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
@@ -111,8 +117,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create Rewards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

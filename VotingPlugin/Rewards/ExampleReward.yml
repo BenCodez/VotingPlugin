@@ -6,6 +6,9 @@
 
 # Reward are run top to bottom (For the most part)
 
+# NOTE: Do not use this reward file in more than one place if
+# delayed or timed is enabled!
+
 # This will delay the reward file from running
 Delayed:
   Enabled: false

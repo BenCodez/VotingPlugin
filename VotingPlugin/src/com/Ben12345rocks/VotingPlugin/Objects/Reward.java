@@ -232,7 +232,7 @@ public class Reward {
 		Date time = new Date();
 		time.setHours(getTimedHour());
 		time.setMinutes(getTimedMinute());
-		if (!new Date().after(time)) {
+		if (new Date().after(time)) {
 			time = DateUtils.addDays(time, 1);
 		}
 		user.setTimedReward(this, time.getTime());

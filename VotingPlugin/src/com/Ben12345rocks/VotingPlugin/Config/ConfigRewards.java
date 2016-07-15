@@ -327,11 +327,11 @@ public class ConfigRewards {
 	}
 
 	public int getTimedHour(String reward) {
-		return getData(reward).getInt("Delayed.Hour");
+		return getData(reward).getInt("Timed.Hour");
 	}
 
 	public int getTimedMinute(String reward) {
-		return getData(reward).getInt("Delayed.Minute");
+		return getData(reward).getInt("Timed.Minute");
 	}
 
 	public boolean getTitleEnabled(String reward) {
