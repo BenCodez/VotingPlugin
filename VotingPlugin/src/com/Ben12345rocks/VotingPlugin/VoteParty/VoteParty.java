@@ -48,7 +48,8 @@ public class VoteParty {
 
 	public void check() {
 		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
-			if (getTotalVotes() >= ConfigOtherRewards.getInstance().getVotesRequired()) {
+			if (getTotalVotes() >= ConfigOtherRewards.getInstance()
+					.getVotesRequired()) {
 				setTotalVotes(getTotalVotes()
 						- ConfigOtherRewards.getInstance().getVotesRequired());
 				giveRewards();
@@ -57,7 +58,8 @@ public class VoteParty {
 	}
 
 	public void commandVoteParty(CommandSender sender) {
-		ArrayList<String> msg = ConfigFormat.getInstance().getCommandsVoteParty();
+		ArrayList<String> msg = ConfigFormat.getInstance()
+				.getCommandsVoteParty();
 		ArrayList<String> lines = new ArrayList<String>();
 		int votesRequired = ConfigOtherRewards.getInstance().getVotesRequired();
 		int votes = getTotalVotes();
@@ -88,7 +90,8 @@ public class VoteParty {
 
 	public void giveReward(User user) {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
-			for (String reward : ConfigOtherRewards.getInstance().getVotePartyRewards()) {
+			for (String reward : ConfigOtherRewards.getInstance()
+					.getVotePartyRewards()) {
 				user.giveReward(ConfigRewards.getInstance().getReward(reward));
 			}
 		} else {

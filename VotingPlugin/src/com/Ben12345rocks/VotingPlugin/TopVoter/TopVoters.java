@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.TopVoter;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map.Entry;
 
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -58,11 +60,11 @@ public class TopVoters {
 		for (VoteSite voteSite : plugin.voteSites) {
 			ArrayList<String> voteSiteTop = new ArrayList<String>();
 			int i = 1;
-			for (User user : TopVoter.getInstance()
-					.topVotersSortedVoteSiteDaily(voteSite)) {
-				int siteTotal = user.getTotalDaily(voteSite);
-				voteSiteTop.add(i + ": " + user.getPlayerName() + ", "
-						+ siteTotal);
+			HashMap<User, Integer> topVoterSite = TopVoter.getInstance()
+					.topVotersSortedVoteSiteDaily(voteSite);
+			for (Entry<User, Integer> entry : topVoterSite.entrySet()) {
+				voteSiteTop.add(i + ": " + entry.getKey().getPlayerName()
+						+ ", " + entry.getValue().intValue());
 				i++;
 			}
 			data.set(voteSite.getSiteName(), voteSiteTop);
@@ -105,11 +107,11 @@ public class TopVoters {
 		for (VoteSite voteSite : plugin.voteSites) {
 			ArrayList<String> voteSiteTop = new ArrayList<String>();
 			int i = 1;
-			for (User user : TopVoter.getInstance().topVotersSortedVoteSite(
-					voteSite)) {
-				int siteTotal = user.getTotalVotesSite(voteSite);
-				voteSiteTop.add(i + ": " + user.getPlayerName() + ", "
-						+ siteTotal);
+			HashMap<User, Integer> topVoterSite = TopVoter.getInstance()
+					.topVotersSortedVoteSite(voteSite);
+			for (Entry<User, Integer> entry : topVoterSite.entrySet()) {
+				voteSiteTop.add(i + ": " + entry.getKey().getPlayerName()
+						+ ", " + entry.getValue().intValue());
 				i++;
 			}
 			data.set(voteSite.getSiteName(), voteSiteTop);
@@ -153,11 +155,11 @@ public class TopVoters {
 		for (VoteSite voteSite : plugin.voteSites) {
 			ArrayList<String> voteSiteTop = new ArrayList<String>();
 			int i = 1;
-			for (User user : TopVoter.getInstance()
-					.topVotersSortedVoteSiteWeekly(voteSite)) {
-				int siteTotal = user.getTotalWeekly(voteSite);
-				voteSiteTop.add(i + ": " + user.getPlayerName() + ", "
-						+ siteTotal);
+			HashMap<User, Integer> topVoterSite = TopVoter.getInstance()
+					.topVotersSortedVoteSiteWeekly(voteSite);
+			for (Entry<User, Integer> entry : topVoterSite.entrySet()) {
+				voteSiteTop.add(i + ": " + entry.getKey().getPlayerName()
+						+ ", " + entry.getValue().intValue());
 				i++;
 			}
 			data.set(voteSite.getSiteName(), voteSiteTop);

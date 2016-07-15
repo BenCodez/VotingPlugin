@@ -47,23 +47,6 @@ public class ConfigOtherRewards {
 		return data;
 	}
 
-	public boolean getVotePartyEnabled() {
-		return getData().getBoolean("VoteParty.Enabled");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyRewards() {
-		return (ArrayList<String>) getData().getList("VoteParty.Rewards");
-	}
-
-	public int getVotePartyVotesRequired() {
-		return getData().getInt("VoteParty.VotesRequired");
-	}
-
-	public boolean getVotePartyGiveAllPlayers() {
-		return getData().getBoolean("VoteParty.GiveAllPlayers");
-	}
-
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFirstVoteRewards() {
 		try {
@@ -84,6 +67,23 @@ public class ConfigOtherRewards {
 
 	public boolean getNumberOfVotesVotesInSameDay() {
 		return getData().getBoolean("VotesInSameDay");
+	}
+
+	public boolean getVotePartyEnabled() {
+		return getData().getBoolean("VoteParty.Enabled");
+	}
+
+	public boolean getVotePartyGiveAllPlayers() {
+		return getData().getBoolean("VoteParty.GiveAllPlayers");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyRewards() {
+		return (ArrayList<String>) getData().getList("VoteParty.Rewards");
+	}
+
+	public int getVotePartyVotesRequired() {
+		return getData().getInt("VoteParty.VotesRequired");
 	}
 
 	public int getVotesRequired() {
@@ -111,8 +111,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create Rewards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

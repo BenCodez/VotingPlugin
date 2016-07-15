@@ -44,11 +44,6 @@ public class ConfigFormat {
 		}
 	}
 
-	public boolean getCommandsVoteHelpRequirePermission() {
-		return getData().getBoolean(
-				"Format.Commands.Vote.Help.RequirePermission");
-	}
-
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
@@ -62,6 +57,11 @@ public class ConfigFormat {
 			return "&3&l%Command% - &3%HelpMessage%";
 		}
 
+	}
+
+	public boolean getCommandsVoteHelpRequirePermission() {
+		return getData().getBoolean(
+				"Format.Commands.Vote.Help.RequirePermission");
 	}
 
 	public String getCommandsVoteHelpTitle() {
@@ -137,6 +137,24 @@ public class ConfigFormat {
 			return str;
 		} else {
 			return "&3&l%player% Next Votes:";
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCommandsVoteParty() {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Format.Commands.Vote.Party");
+			if (list != null) {
+				return list;
+			}
+			ArrayList<String> msg = new ArrayList<String>();
+			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+			return msg;
+		} catch (Exception ex) {
+			ArrayList<String> msg = new ArrayList<String>();
+			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+			return msg;
 		}
 	}
 
@@ -338,6 +356,14 @@ public class ConfigFormat {
 		return string;
 	}
 
+	public String getTimeZone() {
+		String str = getData().getString("Format.TimeZone");
+		if (str != null) {
+			return str;
+		}
+		return "UTC";
+	}
+
 	public String getTopVoterRewardMsg() {
 		String msg = getData().getString("Format.TopVoterAwardMsg");
 		if (msg != null) {
@@ -351,32 +377,6 @@ public class ConfigFormat {
 	public List<String> getVoteHelp() {
 		return (List<String>) getData().getList(
 				"Format.Commands.Vote.Help.Lines");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCommandsVoteParty() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Format.Commands.Vote.Party");
-			if (list != null) {
-				return list;
-			}
-			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
-			return msg;
-		} catch (Exception ex) {
-			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
-			return msg;
-		}
-	}
-
-	public String getTimeZone() {
-		String str = getData().getString("Format.TimeZone");
-		if (str != null) {
-			return str;
-		}
-		return "UTC";
 	}
 
 	public void reloadData() {
@@ -401,7 +401,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

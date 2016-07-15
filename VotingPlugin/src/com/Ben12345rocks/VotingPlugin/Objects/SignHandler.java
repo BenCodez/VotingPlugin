@@ -173,8 +173,10 @@ public class SignHandler {
 			} else {
 				for (VoteSite voteSite : plugin.voteSites) {
 					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-						ArrayList<User> users = TopVoter.getInstance()
-								.topVotersSortedVoteSite(voteSite);
+						ArrayList<User> users = Utils.getInstance().convertSet(
+								TopVoter.getInstance()
+										.topVotersSortedVoteSite(voteSite)
+										.keySet());
 
 						if (users.size() >= position) {
 							playerName = users.get(position - 1)

@@ -12,7 +12,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
@@ -134,6 +133,17 @@ public class Utils {
 		return colorize(comp.toPlainText());
 	}
 
+	public User[] convert(ArrayList<User> array) {
+		if (array == null) {
+			return null;
+		}
+		User[] list = new User[array.size()];
+		for (int i = 0; i < array.size(); i++) {
+			list[i] = array.get(i);
+		}
+		return list;
+	}
+
 	public ArrayList<String> convert(Set<String> set) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String st : set) {
@@ -181,17 +191,6 @@ public class Utils {
 		ArrayList<User> list = new ArrayList<User>();
 		for (User user : set) {
 			list.add(user);
-		}
-		return list;
-	}
-
-	public User[] convert(ArrayList<User> array) {
-		if (array == null) {
-			return null;
-		}
-		User[] list = new User[array.size()];
-		for (int i = 0; i < array.size(); i++) {
-			list[i] = array.get(i);
 		}
 		return list;
 	}
@@ -397,6 +396,13 @@ public class Utils {
 
 	}
 
+	public void printMap(HashMap<User, Integer> topVoterMonthly) {
+		for (Entry<User, Integer> entry : topVoterMonthly.entrySet()) {
+			plugin.debug("Key : " + entry.getKey().getPlayerName()
+					+ " Value : " + entry.getValue());
+		}
+	}
+
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();
@@ -410,6 +416,14 @@ public class Utils {
 	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
 		Set<String> set = new HashSet<String>(list);
 		return new ArrayList<String>(set);
+	}
+
+	public List<String> replace(List<String> list, String toReplace,
+			String replaceWith) {
+		for (int i = 0; i < list.size(); i++) {
+			list.set(i, list.get(i).replace(toReplace, replaceWith));
+		}
+		return list;
 	}
 
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
@@ -478,14 +492,6 @@ public class Utils {
 		return item;
 	}
 
-	public List<String> replace(List<String> list, String toReplace,
-			String replaceWith) {
-		for (int i = 0; i < list.size(); i++) {
-			list.set(i, list.get(i).replace(toReplace, replaceWith));
-		}
-		return list;
-	}
-
 	@SuppressWarnings("unused")
 	public String[] setToArray(Set<String> set) {
 		String[] array = new String[set.size()];
@@ -499,6 +505,34 @@ public class Utils {
 		} else {
 			return array;
 		}
+	}
+
+	public HashMap<User, Integer> sortByValues(
+			HashMap<User, Integer> unsortMap, final boolean order) {
+
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
+				unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
+			@Override
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
+				if (order) {
+					return o1.getValue().compareTo(o2.getValue());
+				} else {
+					return o2.getValue().compareTo(o1.getValue());
+
+				}
+			}
+		});
+
+		// Maintaining insertion order with the help of LinkedList
+		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
 	}
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {
@@ -710,39 +744,5 @@ public class Utils {
 		newTC.setObfuscated(magic);
 		base.addExtra(newTC);
 		return base;
-	}
-
-	public void printMap(HashMap<User, Integer> topVoterMonthly) {
-		for (Entry<User, Integer> entry : topVoterMonthly.entrySet()) {
-			plugin.debug("Key : " + entry.getKey().getPlayerName() + " Value : "
-					+ entry.getValue());
-		}
-	}
-
-	public Map<User, Integer> sortByValues(Map<User, Integer> unsortMap,
-			final boolean order) {
-
-		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
-				unsortMap.entrySet());
-
-		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
-			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
-				if (order) {
-					return o1.getValue().compareTo(o2.getValue());
-				} else {
-					return o2.getValue().compareTo(o1.getValue());
-
-				}
-			}
-		});
-
-		// Maintaining insertion order with the help of LinkedList
-		Map<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
-		for (Entry<User, Integer> entry : list) {
-			sortedMap.put(entry.getKey(), entry.getValue());
-		}
-
-		return sortedMap;
 	}
 }

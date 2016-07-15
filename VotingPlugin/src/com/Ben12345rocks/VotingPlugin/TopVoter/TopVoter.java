@@ -4,10 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -317,64 +318,112 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	/*
-	 * public ArrayList<User> topVotersSortedAll() { ArrayList<String> blackList
-	 * = (ArrayList<String>) ConfigTopVoterAwards .getInstance().getBlackList();
-	 * Set<User> users1 = Data.getInstance().getUsers(); if (users1 != null) {
-	 * ArrayList<User> users = Utils.getInstance().convertSet(users1);
-	 * 
-	 * for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (users.get(i).getTotalVotes() == 0) { users.remove(i); } } if (blackList
-	 * != null) { for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (blackList.contains(users.get(i).getPlayerName())) { users.remove(i); } }
-	 * } Collections.sort(users, new Comparator<User>() {
-	 * 
-	 * @Override public int compare(User p1, User p2) { int p1Total =
-	 * p1.getTotalVotes(); int p2Total = p2.getTotalVotes();
-	 * 
-	 * return Integer.compare(p1Total, p2Total); } });
-	 * 
-	 * return users; } return null; }
-	 * 
-	 * public ArrayList<User> topVotersSortedAllDaily() { ArrayList<String>
-	 * blackList = (ArrayList<String>) ConfigTopVoterAwards
-	 * .getInstance().getBlackList(); Set<User> users1 =
-	 * Data.getInstance().getUsers(); if (users1 != null) { ArrayList<User>
-	 * users = Utils.getInstance().convertSet(users1);
-	 * 
-	 * for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (users.get(i).getTotalDailyAll() == 0) { users.remove(i); } } if
-	 * (blackList != null) { for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (blackList.contains(users.get(i).getPlayerName())) { users.remove(i); } }
-	 * } Collections.sort(users, new Comparator<User>() {
-	 * 
-	 * @Override public int compare(User p1, User p2) { int p1Total =
-	 * p1.getTotalDailyAll(); int p2Total = p2.getTotalDailyAll();
-	 * 
-	 * return Integer.compare(p1Total, p2Total); } });
-	 * 
-	 * return users; } return null; }
-	 * 
-	 * public ArrayList<User> topVotersSortedAllWeekly() { ArrayList<String>
-	 * blackList = (ArrayList<String>) ConfigTopVoterAwards
-	 * .getInstance().getBlackList(); Set<User> users1 =
-	 * Data.getInstance().getUsers(); if (users1 != null) { ArrayList<User>
-	 * users = Utils.getInstance().convertSet(users1);
-	 * 
-	 * for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (users.get(i).getTotalWeeklyAll() == 0) { users.remove(i); } } if
-	 * (blackList != null) { for (int i = users.size() - 1; i >= 0; i--) { if
-	 * (blackList.contains(users.get(i).getPlayerName())) { users.remove(i); } }
-	 * } Collections.sort(users, new Comparator<User>() {
-	 * 
-	 * @Override public int compare(User p1, User p2) { int p1Total =
-	 * p1.getTotalWeeklyAll(); int p2Total = p2.getTotalWeeklyAll();
-	 * 
-	 * return Integer.compare(p1Total, p2Total); } });
-	 * 
-	 * return users; } return null; }
-	 */
-	public ArrayList<User> topVotersSortedVoteSite(VoteSite voteSite) {
+	public ArrayList<User> topVotersSortedAll() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
+		Set<User> users1 = Data.getInstance().getUsers();
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalVotes() == 0) {
+					users.remove(i);
+				}
+			}
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
+				}
+			}
+			Collections.sort(users, new Comparator<User>() {
+
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalVotes();
+					int p2Total = p2.getTotalVotes();
+
+					return Integer.compare(p1Total, p2Total);
+				}
+			});
+
+			return users;
+		}
+		return null;
+	}
+
+	public ArrayList<User> topVotersSortedAllDaily() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
+		Set<User> users1 = Data.getInstance().getUsers();
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalDailyAll() == 0) {
+					users.remove(i);
+				}
+			}
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
+				}
+			}
+			Collections.sort(users, new Comparator<User>() {
+
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalDailyAll();
+					int p2Total = p2.getTotalDailyAll();
+
+					return Integer.compare(p1Total, p2Total);
+				}
+			});
+
+			return users;
+		}
+		return null;
+	}
+
+	public ArrayList<User> topVotersSortedAllWeekly() {
+		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
+				.getInstance().getBlackList();
+		Set<User> users1 = Data.getInstance().getUsers();
+		if (users1 != null) {
+			ArrayList<User> users = Utils.getInstance().convertSet(users1);
+
+			for (int i = users.size() - 1; i >= 0; i--) {
+				if (users.get(i).getTotalWeeklyAll() == 0) {
+					users.remove(i);
+				}
+			}
+			if (blackList != null) {
+				for (int i = users.size() - 1; i >= 0; i--) {
+					if (blackList.contains(users.get(i).getPlayerName())) {
+						users.remove(i);
+					}
+				}
+			}
+			Collections.sort(users, new Comparator<User>() {
+
+				@Override
+				public int compare(User p1, User p2) {
+					int p1Total = p1.getTotalWeeklyAll();
+					int p2Total = p2.getTotalWeeklyAll();
+
+					return Integer.compare(p1Total, p2Total);
+				}
+			});
+
+			return users;
+		}
+		return null;
+	}
+
+	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
@@ -392,20 +441,15 @@ public class TopVoter {
 				}
 			}
 		}
-		Collections.sort(users, new Comparator<User>() {
+		HashMap<User, Integer> topVoter = new HashMap<User, Integer>();
+		for (User user : users) {
+			topVoter.put(user, user.getTotal(voteSite));
+		}
 
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalVotesSite(voteSite);
-				int p2Total = p2.getTotalVotesSite(voteSite);
-
-				return Integer.compare(p1Total, p2Total);
-			}
-		});
-		return users;
+		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
-	public ArrayList<User> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
+	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
@@ -423,20 +467,16 @@ public class TopVoter {
 				}
 			}
 		}
-		Collections.sort(users, new Comparator<User>() {
+		HashMap<User, Integer> topVoter = new HashMap<User, Integer>();
+		for (User user : users) {
+			topVoter.put(user, user.getTotalDaily(voteSite));
+		}
 
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalDaily(voteSite);
-				int p2Total = p2.getTotalDaily(voteSite);
-
-				return Integer.compare(p1Total, p2Total);
-			}
-		});
-		return users;
+		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
-	public ArrayList<User> topVotersSortedVoteSiteWeekly(VoteSite voteSite) {
+	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
+			VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
@@ -454,17 +494,13 @@ public class TopVoter {
 				}
 			}
 		}
-		Collections.sort(users, new Comparator<User>() {
 
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalWeekly(voteSite);
-				int p2Total = p2.getTotalWeekly(voteSite);
+		HashMap<User, Integer> topVoter = new HashMap<User, Integer>();
+		for (User user : users) {
+			topVoter.put(user, user.getTotalWeekly(voteSite));
+		}
 
-				return Integer.compare(p1Total, p2Total);
-			}
-		});
-		return users;
+		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
 	public String[] topVotersWeekly() {
@@ -528,28 +564,33 @@ public class TopVoter {
 
 	public void updateTopVoters() {
 		plugin.topVoterMonthly.clear();
-		Set<User> users = Data.getInstance().getUsers();
+		ArrayList<User> users = topVotersSortedAll();
 		if (users != null) {
 			for (User user : users) {
 				plugin.topVoterMonthly.put(user, user.getTotalVotes());
 			}
-			Utils.getInstance().sortByValues(plugin.topVoterMonthly, true);
+			plugin.topVoterMonthly = Utils.getInstance().sortByValues(
+					plugin.topVoterMonthly, false);
 		}
 
 		plugin.topVoterWeekly.clear();
+		users = topVotersSortedAllWeekly();
 		if (users != null) {
 			for (User user : users) {
 				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
 			}
-			Utils.getInstance().sortByValues(plugin.topVoterWeekly, true);
+			plugin.topVoterWeekly = Utils.getInstance().sortByValues(
+					plugin.topVoterWeekly, false);
 		}
 
 		plugin.topVoterDaily.clear();
+		users = topVotersSortedAllDaily();
 		if (users != null) {
 			for (User user : users) {
 				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
 			}
-			Utils.getInstance().sortByValues(plugin.topVoterDaily, true);
+			plugin.topVoterDaily = Utils.getInstance().sortByValues(
+					plugin.topVoterDaily, false);
 		}
 
 		plugin.debug("Updated TopVoter");
