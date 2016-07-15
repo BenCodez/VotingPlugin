@@ -556,9 +556,17 @@ public class User {
 	public void givePotionEffect(String potionName, int duration, int amplifier) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			player.addPotionEffect(
-					new PotionEffect(PotionEffectType.getByName(potionName),
-							20 * duration, amplifier), true);
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					player.addPotionEffect(
+							new PotionEffect(PotionEffectType
+									.getByName(potionName), 20 * duration,
+									amplifier), true);
+				}
+			});
+
 		}
 	}
 
