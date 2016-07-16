@@ -407,10 +407,11 @@ public class Reward {
 					Material.valueOf(getItemMaterial().get(item)),
 					getItemAmount(item), Short.valueOf(Integer
 							.toString(getItemData().get(item))));
-			itemStack = Utils.getInstance().nameItem(
-					itemStack,
-					getItemName().get(item).replace("%Player%",
-							user.getPlayerName()));
+			String name = getItemName().get(item);
+			if (name != null) {
+				itemStack = Utils.getInstance().nameItem(itemStack,
+						name.replace("%Player%", user.getPlayerName()));
+			}
 			itemStack = Utils.getInstance().addLore(
 					itemStack,
 					Utils.getInstance().replace(getItemLore().get(item),
@@ -419,10 +420,11 @@ public class Reward {
 					getItemEnchants().get(item));
 			itemStack = Utils.getInstance().setDurabilty(itemStack,
 					getItemDurabilty().get(item));
-			itemStack = Utils.getInstance().setSkullOwner(
-					itemStack,
-					getItemSkull().get(item).replace("%Player%",
-							user.getPlayerName()));
+			String skull = getItemSkull().get(item);
+			if (skull != null) {
+				itemStack = Utils.getInstance().setSkullOwner(itemStack,
+						skull.replace("%Player%", user.getPlayerName()));
+			}
 			user.giveItem(itemStack);
 		}
 	}
@@ -435,7 +437,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -493,8 +495,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -623,9 +625,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
