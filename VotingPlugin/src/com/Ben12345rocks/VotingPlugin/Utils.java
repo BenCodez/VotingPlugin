@@ -420,6 +420,9 @@ public class Utils {
 
 	public List<String> replace(List<String> list, String toReplace,
 			String replaceWith) {
+		if (list == null) {
+			return null;
+		}
 		if (replaceWith == null || toReplace == null) {
 			return list;
 		}
