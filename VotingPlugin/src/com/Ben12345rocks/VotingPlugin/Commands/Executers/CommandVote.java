@@ -92,7 +92,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandLast(new User(playerName))));
+							.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -115,7 +115,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandNext(new User(playerName))));
+							.voteCommandNext(new User(playerName))));
 		}
 
 	}
@@ -215,8 +215,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-							.sendTopVoterMonthlyScoreBoard(
-									(Player) sender, page);
+									.sendTopVoterMonthlyScoreBoard(
+											(Player) sender, page);
 						}
 					});
 				} else {
@@ -244,8 +244,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-							.sendTopVoterWeeklyScoreBoard(
-									(Player) sender, page);
+									.sendTopVoterWeeklyScoreBoard(
+											(Player) sender, page);
 						}
 					});
 				} else {

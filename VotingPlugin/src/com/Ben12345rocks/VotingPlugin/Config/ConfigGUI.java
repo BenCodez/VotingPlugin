@@ -189,7 +189,7 @@ public class ConfigGUI {
 			return str;
 		}
 		return null;
-				
+
 	}
 
 	public int getVoteSiteItemsSlot(String site, String item) {
@@ -332,7 +332,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 
