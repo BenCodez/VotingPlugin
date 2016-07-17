@@ -44,6 +44,15 @@ public class ConfigFormat {
 		}
 	}
 
+	public String getCommandVotePoints() {
+		String str = getData().getString("Format.Commands.Vote.Points");
+		if (str != null) {
+			return str;
+		} else {
+			return "&a%Player% currently has &a&l%Points%&a Points!";
+		}
+	}
+
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}

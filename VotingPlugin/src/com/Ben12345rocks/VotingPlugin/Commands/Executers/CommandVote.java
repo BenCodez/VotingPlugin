@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -170,6 +171,25 @@ public class CommandVote implements CommandExecutor {
 
 			}
 		});
+
+	}
+
+	public void pointsSelf(User user) {
+		String msg = ConfigFormat.getInstance().getCommandVotePoints()
+				.replace("%Player%", user.getPlayerName())
+				.replace("%Points%", "" + user.getPoints());
+		user.sendMessage(msg);
+	}
+
+	public void pointsOther(CommandSender sender, User user) {
+		String msg = ConfigFormat.getInstance().getCommandVotePoints()
+				.replace("%Player%", user.getPlayerName())
+				.replace("%Points%", "" + user.getPoints());
+		if (sender instanceof Player) {
+			new User(sender.getName()).sendMessage(msg);
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(msg));
+		}
 
 	}
 

@@ -49,6 +49,12 @@ commands:
   voteparty:
     description: A command
     aliases: vparty
+  voteshop:
+    description: A command
+    aliases: vshop
+  votepoints:
+    description: A command
+    aliases: vpoints
   adminvotehelp:
     description: Open adminvote help
     aliases: avhelp

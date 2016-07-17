@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
@@ -529,6 +530,35 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandVote.getInstance().nextOther(sender, args[1]);
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Points",
+				"(player)" }, "VotingPlugin.Commands.Vote.Points.Other",
+				"View pints of other player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandVote.getInstance()
+						.pointsOther(sender, new User(args[1]));
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Points", },
+				"VotingPlugin.Commands.Vote.Points", "View your points") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				if (sender instanceof Player) {
+					CommandVote.getInstance().pointsSelf(
+							new User((Player) sender));
+				} else {
+					sender.sendMessage("Must be a player to use this!");
+				}
 
 			}
 		});
