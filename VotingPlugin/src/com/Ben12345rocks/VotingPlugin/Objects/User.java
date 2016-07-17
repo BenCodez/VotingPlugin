@@ -122,20 +122,20 @@ public class User {
 
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-		.setTotalDaily(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalDaily(this,
-						voteSite.getSiteName()) + 1);
+				.setTotalDaily(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalDaily(this,
+								voteSite.getSiteName()) + 1);
 	}
 
 	public void addTotalWeekly(VoteSite voteSite) {
 		Data.getInstance()
-		.setTotalWeek(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalWeek(this,
-						voteSite.getSiteName()) + 1);
+				.setTotalWeek(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalWeek(this,
+								voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -434,7 +434,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -542,7 +542,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -593,7 +593,7 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -767,8 +767,8 @@ public class User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 
@@ -791,6 +791,20 @@ public class User {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Remove points from user
+	 * 
+	 * @param points
+	 * @return Returns false if user doesn't have enough points
+	 */
+	public boolean removePoints(int points) {
+		if (getPoints() >= points) {
+			setPoints(getPoints() - points);
+			return true;
+		}
+		return false;
 	}
 
 	/**
