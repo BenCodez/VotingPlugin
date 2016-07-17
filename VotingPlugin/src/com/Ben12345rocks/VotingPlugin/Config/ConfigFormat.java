@@ -44,6 +44,15 @@ public class ConfigFormat {
 		}
 	}
 
+	public String getCommandVotePoints() {
+		String str = getData().getString("Format.Commands.Vote.Points");
+		if (str != null) {
+			return str;
+		} else {
+			return "&a%Player% currently has &a&l%Points%&a Points!";
+		}
+	}
+
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
@@ -401,7 +410,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Format.yml!");
+						.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

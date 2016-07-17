@@ -100,6 +100,9 @@ Format:
       Party:
       - '&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%'
       
+      # %Points% = player points
+      Points: '&a%Player% currently has &a&l%Points%&a Points!'
+      
   # Login message if player can vote on all sites
   # Must be enabled in config.yml  
   LoginMsg: '&cRemember to vote!'

@@ -268,7 +268,7 @@ public class User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -882,6 +882,20 @@ public class User {
 	public boolean reminded() {
 		User user = this;
 		return Data.getInstance().getReminded(user);
+	}
+
+	/**
+	 * Remove points from user
+	 *
+	 * @param points
+	 * @return Returns false if user doesn't have enough points
+	 */
+	public boolean removePoints(int points) {
+		if (getPoints() >= points) {
+			setPoints(getPoints() - points);
+			return true;
+		}
+		return false;
 	}
 
 	/**

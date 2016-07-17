@@ -60,23 +60,23 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-					+ "&c!"));
+							+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &cis up to date! Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &cis up to date! Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &chas an update available! Your Version: &c&l"
-					+ plugin.getDescription().getVersion()
-					+ " &cNew Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &chas an update available! Your Version: &c&l"
+							+ plugin.getDescription().getVersion()
+							+ " &cNew Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
