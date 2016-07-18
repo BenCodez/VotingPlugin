@@ -84,8 +84,12 @@ public class VoteParty {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVotedUsers() {
-		return (ArrayList<String>) ServerData.getInstance().getData()
-				.getList("VoteParty.Voted");
+		ArrayList<String> list = (ArrayList<String>) ServerData.getInstance()
+				.getData().getList("VoteParty.Voted");
+		if (list != null) {
+			return list;
+		}
+		return new ArrayList<String>();
 	}
 
 	public void giveReward(User user) {
