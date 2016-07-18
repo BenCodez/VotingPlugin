@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,8 +58,8 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Durability");
 	}
 
-	public int getVoteGUISlotID(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Item.ID");
+	public String getVoteGUISlotMaterial(String slot) {
+		return getData().getString("GUI.VoteGUI." + slot + ".Item.Material");
 	}
 
 	public String getVoteGUISlotName(String slot) {
@@ -88,6 +89,17 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVoteGUISlotLore(String slot) {
+
+		ArrayList<String> list = (ArrayList<String>) getData().getList(
+				"GUI.VoteGUI." + slot + ".Lore");
+		if (list != null) {
+			return list;
+		}
+		return new ArrayList<String>();
+	}
+
 	public int getVoteSiteItemAmount(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
@@ -104,9 +116,10 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Item.Durability");
 	}
 
-	public int getVoteSiteItemID(String site) {
+	public String getVoteSiteItemMaterial(String site) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Item.Material");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -150,10 +163,11 @@ public class ConfigGUI {
 						+ ".Durability");
 	}
 
-	public int getVoteSiteItemsID(String site, String item) {
+	public String getVoteSiteItemsMaterial(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Material");
+		
 	}
 
 	public String getVoteSiteItemSkull(Player player, String siteName) {
@@ -221,13 +235,14 @@ public class ConfigGUI {
 
 	}
 
-	public int getVoteURLAlreadyVotedItemID() {
-		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.ID");
-		if (num != 0) {
-			return num;
-		} else {
-			return 152;
+	public String getVoteURLAlreadyVotedItemMaterial() {
+		String str = getData().getString(
+				"GUI.VoteURL.AlreadyVotedItem.Material");
+		if (str != null) {
+			return str;
 		}
+		return "REDSTONE_BLOCK";
+
 	}
 
 	public String getVoteURLAlreadyVotedItemSkull(Player player) {
@@ -262,13 +277,12 @@ public class ConfigGUI {
 
 	}
 
-	public int getVoteURLCanVoteItemID() {
-		int num = getData().getInt("GUI.VoteURL.CanVoteItem.ID");
-		if (num != 0) {
-			return num;
-		} else {
-			return 133;
+	public String getVoteURLCanVoteItemMaterial() {
+		String str = getData().getString("GUI.VoteURL.CanVoteItem.Material");
+		if (str != null) {
+			return str;
 		}
+		return "EMERALD_BLOCK";
 	}
 
 	public String getVoteURLCanVoteItemSkull(Player player) {
@@ -332,7 +346,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

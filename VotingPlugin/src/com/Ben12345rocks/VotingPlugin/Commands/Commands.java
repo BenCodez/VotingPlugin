@@ -11,6 +11,7 @@ import net.md_5.bungee.api.chat.TextComponent;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -160,15 +161,21 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void openVoteGUI(Player player) {
 		BInventory inv = new BInventory("VoteGUI");
 
 		for (String slot : ConfigGUI.getInstance().getVoteGUISlots()) {
-			ItemStack item = new ItemStack(ConfigGUI.getInstance()
-					.getVoteGUISlotID(slot), ConfigGUI.getInstance()
-					.getVoteGUISlotAmount(slot), (short) ConfigGUI
-					.getInstance().getVoteGUISlotData(slot));
+			ItemStack item = new ItemStack(Material.STONE);
+
+			try {
+				item = new ItemStack(Material.getMaterial(ConfigGUI
+						.getInstance().getVoteGUISlotMaterial(slot)), ConfigGUI
+						.getInstance().getVoteGUISlotAmount(slot),
+						(short) ConfigGUI.getInstance()
+								.getVoteGUISlotData(slot));
+			} catch (Exception ex) {
+
+			}
 
 			item = Utils.getInstance().setSkullOwner(item,
 					ConfigGUI.getInstance().getVoteGUISlotSkull(player, slot));
@@ -178,6 +185,8 @@ public class Commands {
 
 			String[] lore = new String[1];
 
+			lore = Utils.getInstance().convertArray(
+					ConfigGUI.getInstance().getVoteGUISlotLore(slot));
 			if (slot.equalsIgnoreCase("url")) {
 				lore = Commands.getInstance().voteURLs();
 			} else if (slot.equalsIgnoreCase("next")) {
@@ -193,10 +202,8 @@ public class Commands {
 				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
 				ArrayList<String> loreSt = new ArrayList<String>();
-				for (TextComponent txt : Commands.getInstance().voteHelpText(
-						player)) {
-					loreSt.add(txt.getText());
-				}
+				loreSt = Utils.getInstance().comptoString(
+						voteHelpText((CommandSender) player));
 				lore = Utils.getInstance().convertArray(loreSt);
 			}
 
@@ -208,6 +215,7 @@ public class Commands {
 						public void onClick(InventoryClickEvent event) {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
+								// plugin.debug("Running cmd");
 								player.closeInventory();
 								player.performCommand(ConfigGUI.getInstance()
 										.getVoteGUISlotCommand(slot));
@@ -810,7 +818,6 @@ public class Commands {
 		return texts;
 	}
 
-	@SuppressWarnings("deprecation")
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward");
 
@@ -819,57 +826,67 @@ public class Commands {
 			for (VoteSite voteSite : plugin.voteSites) {
 				plugin.debug(voteSite.getSiteName());
 
-				ItemStack item = new ItemStack(ConfigGUI.getInstance()
-						.getVoteSiteItemID(voteSite.getSiteName()), ConfigGUI
-						.getInstance().getVoteSiteItemAmount(
-								voteSite.getSiteName()), (short) ConfigGUI
-						.getInstance().getVoteSiteItemData(
-								voteSite.getSiteName()));
-				item = Utils.getInstance().setDurabilty(
-						item,
-						ConfigGUI.getInstance().getVoteSiteItemDurability(
-								voteSite.getSiteName()));
+				try {
+					ItemStack item = new ItemStack(
+							Material.getMaterial(ConfigGUI.getInstance()
+									.getVoteSiteItemMaterial(
+											voteSite.getSiteName())),
+							ConfigGUI.getInstance().getVoteSiteItemAmount(
+									voteSite.getSiteName()),
+							(short) ConfigGUI
+									.getInstance()
+									.getVoteSiteItemData(voteSite.getSiteName()));
+					item = Utils.getInstance().setDurabilty(
+							item,
+							ConfigGUI.getInstance().getVoteSiteItemDurability(
+									voteSite.getSiteName()));
 
-				item = Utils.getInstance().setSkullOwner(
-						item,
-						ConfigGUI.getInstance().getVoteSiteItemSkull(player,
-								voteSite.getSiteName()));
+					item = Utils.getInstance().setSkullOwner(
+							item,
+							ConfigGUI.getInstance().getVoteSiteItemSkull(
+									player, voteSite.getSiteName()));
 
-				inv.addButton(
-						count,
-						new BInventoryButton(
-								ConfigGUI.getInstance().getVoteSiteItemName(
-										voteSite.getSiteName()),
-								Utils.getInstance()
-										.convertArray(
-												(ArrayList<String>) ConfigGUI
-														.getInstance()
-														.getVoteSiteItemLore(
-																voteSite.getSiteName())),
-								item) {
+					inv.addButton(
+							count,
+							new BInventoryButton(
+									ConfigGUI.getInstance()
+											.getVoteSiteItemName(
+													voteSite.getSiteName()),
+									Utils.getInstance()
+											.convertArray(
+													(ArrayList<String>) ConfigGUI
+															.getInstance()
+															.getVoteSiteItemLore(
+																	voteSite.getSiteName())),
+									item) {
 
-							@Override
-							public void onClick(InventoryClickEvent event) {
-								Player player = (Player) event.getWhoClicked();
-								if (player != null) {
-									player.closeInventory();
-									player.performCommand("vote reward "
-											+ voteSite.getSiteName());
+								@Override
+								public void onClick(InventoryClickEvent event) {
+									Player player = (Player) event
+											.getWhoClicked();
+									if (player != null) {
+										player.closeInventory();
+										player.performCommand("vote reward "
+												+ voteSite.getSiteName());
+
+									}
 
 								}
+							});
+					count++;
+				} catch (Exception ex) {
 
-							}
-						});
-				count++;
+				}
 			}
 		} else {
 			for (String itemName : ConfigGUI.getInstance().getVoteSiteItems(
 					siteName)) {
-				ItemStack item = new ItemStack(ConfigGUI.getInstance()
-						.getVoteSiteItemsID(siteName, itemName), ConfigGUI
-						.getInstance().getVoteSiteItemsAmount(siteName,
-								itemName), (short) ConfigGUI.getInstance()
-						.getVoteSiteItemsData(siteName, itemName));
+				ItemStack item = new ItemStack(Material.getMaterial(ConfigGUI
+						.getInstance().getVoteSiteItemsMaterial(siteName,
+								itemName)), ConfigGUI.getInstance()
+						.getVoteSiteItemsAmount(siteName, itemName),
+						(short) ConfigGUI.getInstance().getVoteSiteItemsData(
+								siteName, itemName));
 
 				item = Utils.getInstance().setDurabilty(
 						item,
@@ -922,7 +939,6 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void voteURL(Player player) {
 		BInventory inv = new BInventory("VoteURL");
 
@@ -930,10 +946,11 @@ public class Commands {
 
 		int count = 0;
 		if (ConfigGUI.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
-			ItemStack itemAll = new ItemStack(ConfigGUI.getInstance()
-					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
-					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
-					.getInstance().getVoteURLAlreadyVotedItemData());
+			ItemStack itemAll = new ItemStack(Material.getMaterial(ConfigGUI
+					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
+					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
+					(short) ConfigGUI.getInstance()
+							.getVoteURLAlreadyVotedItemData());
 			itemAll = Utils.getInstance().setDurabilty(
 					itemAll,
 					ConfigGUI.getInstance()
@@ -943,10 +960,11 @@ public class Commands {
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
 							player));
 			if (user.canVoteAll()) {
-				itemAll = new ItemStack(ConfigGUI.getInstance()
-						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
-						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
-						.getInstance().getVoteURLCanVoteItemData());
+				itemAll = new ItemStack(Material.getMaterial(ConfigGUI
+						.getInstance().getVoteURLCanVoteItemMaterial()),
+						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
+						(short) ConfigGUI.getInstance()
+								.getVoteURLCanVoteItemData());
 				itemAll = Utils.getInstance().setDurabilty(
 						itemAll,
 						ConfigGUI.getInstance()
@@ -972,10 +990,11 @@ public class Commands {
 		}
 
 		for (VoteSite voteSite : plugin.voteSites) {
-			ItemStack item = new ItemStack(ConfigGUI.getInstance()
-					.getVoteURLAlreadyVotedItemID(), ConfigGUI.getInstance()
-					.getVoteURLAlreadyVotedItemAmount(), (short) ConfigGUI
-					.getInstance().getVoteURLAlreadyVotedItemData());
+			ItemStack item = new ItemStack(Material.getMaterial(ConfigGUI
+					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
+					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
+					(short) ConfigGUI.getInstance()
+							.getVoteURLAlreadyVotedItemData());
 			item = Utils.getInstance().setDurabilty(
 					item,
 					ConfigGUI.getInstance()
@@ -988,10 +1007,11 @@ public class Commands {
 			lore.add(ConfigGUI.getInstance().getVoteURLSeeURL());
 
 			if (user.canVoteSite(voteSite)) {
-				item = new ItemStack(ConfigGUI.getInstance()
-						.getVoteURLCanVoteItemID(), ConfigGUI.getInstance()
-						.getVoteURLCanVoteItemAmount(), (short) ConfigGUI
-						.getInstance().getVoteURLCanVoteItemData());
+				item = new ItemStack(Material.getMaterial(ConfigGUI
+						.getInstance().getVoteURLCanVoteItemMaterial()),
+						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
+						(short) ConfigGUI.getInstance()
+								.getVoteURLCanVoteItemData());
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance()

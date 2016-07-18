@@ -103,27 +103,27 @@ public class BInventory implements Listener {
 
 	// event handling
 
-	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
 			return;
 		}
 
-		ItemStack clickedItem = event.getCurrentItem();
+		// Main.plugin.debug("Event ran");
+
 		Inventory inv = event.getInventory();
 		if (inv.getName().equalsIgnoreCase(getInventoryName())) {
-			for (BInventoryButton button : getButtons().values()) {
-				if (clickedItem != null) {
-					if ((clickedItem.getType() == button.getItem().getType())
-							&& (event.getSlot() == button.getSlot())) {
+			// Main.plugin.debug("Iventory equal");
+			for (int buttonSlot : getButtons().keySet()) {
+				BInventoryButton button = getButtons().get(buttonSlot);
+				if (event.getSlot() == buttonSlot) {
+					// Main.plugin.debug("Running onclick");
+					button.onClick(event);
+					event.setCancelled(true);
 
-						button.onClick(event);
-						event.setCancelled(true);
-
-						return;
-					}
-
+					return;
 				}
+
 			}
 		}
 	}
