@@ -58,8 +58,8 @@ public class ConfigGUI {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Durability");
 	}
 
-	public int getVoteGUISlotID(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Item.ID");
+	public String getVoteGUISlotMaterial(String slot) {
+		return getData().getString("GUI.VoteGUI." + slot + ".Item.Material");
 	}
 
 	public String getVoteGUISlotName(String slot) {
@@ -116,9 +116,10 @@ public class ConfigGUI {
 				"GUI.VoteReward." + siteName + ".Item.Durability");
 	}
 
-	public int getVoteSiteItemID(String site) {
+	public String getVoteSiteItemMaterial(String site) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt("GUI.VoteReward." + siteName + ".Item.ID");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Item.Material");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -162,10 +163,11 @@ public class ConfigGUI {
 						+ ".Durability");
 	}
 
-	public int getVoteSiteItemsID(String site, String item) {
+	public String getVoteSiteItemsMaterial(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".ID");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Material");
+		
 	}
 
 	public String getVoteSiteItemSkull(Player player, String siteName) {
@@ -233,13 +235,14 @@ public class ConfigGUI {
 
 	}
 
-	public int getVoteURLAlreadyVotedItemID() {
-		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.ID");
-		if (num != 0) {
-			return num;
-		} else {
-			return 152;
+	public String getVoteURLAlreadyVotedItemMaterial() {
+		String str = getData().getString(
+				"GUI.VoteURL.AlreadyVotedItem.Material");
+		if (str != null) {
+			return str;
 		}
+		return "REDSTONE_BLOCK";
+
 	}
 
 	public String getVoteURLAlreadyVotedItemSkull(Player player) {
@@ -274,13 +277,12 @@ public class ConfigGUI {
 
 	}
 
-	public int getVoteURLCanVoteItemID() {
-		int num = getData().getInt("GUI.VoteURL.CanVoteItem.ID");
-		if (num != 0) {
-			return num;
-		} else {
-			return 133;
+	public String getVoteURLCanVoteItemMaterial() {
+		String str = getData().getString("GUI.VoteURL.CanVoteItem.Material");
+		if (str != null) {
+			return str;
 		}
+		return "EMERALD_BLOCK";
 	}
 
 	public String getVoteURLCanVoteItemSkull(Player player) {

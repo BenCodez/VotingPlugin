@@ -1,13 +1,14 @@
 # Configure GUI's here
 # Note: Slots start at 0 instead of 1, max slots 44 (don't go over) (E.g: so last slot in first row of inventory is 8)
+# Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
 GUI:
   # GUI for /vote gui, /vgui, votegui
   VoteGUI:
     # Items will be orders as it is below
     URL:
-      # Standard item format, lore is automaticly applied
+      # Standard item format, lore is automaticly applied 
       Item:
-        ID: 261
+        Material: 'BOW'
         Data: 0
         Amount: 1
         Name: '&4URL'
@@ -18,7 +19,7 @@ GUI:
       Slot: 0
     Next:
       Item:
-        ID: 345
+        Material: 'COMPASS'
         Data: 0
         Amount: 1
         Name: '&4Next'
@@ -26,7 +27,7 @@ GUI:
       Slot: 1
     Last:
       Item:
-        ID: 347
+        Material: 'WATCH'
         Data: 0
         Amount: 1
         Name: '&4Last'
@@ -34,7 +35,7 @@ GUI:
       Slot: 2
     Total:
       Item:
-        ID: 54
+        Material: 'CHEST'
         Data: 0
         Amount: 1
         Name: '&4Total'
@@ -42,7 +43,7 @@ GUI:
       Slot: 3
     Top:
       Item:
-        ID: 323
+        Material: 'SIGN'
         Data: 0
         Amount: 1
         Name: '&4Top'
@@ -50,7 +51,7 @@ GUI:
       Slot: 4
     Today:
       Item:
-        ID: 340
+        Material: 'BOOK'
         Data: 0
         Amount: 1
         Name: '&4Today'
@@ -58,7 +59,7 @@ GUI:
       Slot: 5
     Help:
       Item:
-        ID: 386
+        Material: 'WRITTEN_BOOK'
         Data: 0
         Amount: 1
         Name: '&4Help'
@@ -66,7 +67,7 @@ GUI:
       Slot: 6
     Rewards:
       Item:
-        ID: 264
+        Material: 'DIAMOND'
         Data: 0
         Amount: 1
         Name: '&4Voting Rewards'
@@ -80,11 +81,11 @@ GUI:
     NextVote: '&cCan Vote In: %Info%'
     ViewAllUrlsButtonEnabled: true
     AlreadyVotedItem:
-      ID: 152
+      Material: 'REDSTONE_BLOCK'
       Data: 0 
       Amount: 1
     CanVoteItem:
-      ID: 133
+      Material: 'EMERALD_BLOCK'
       Data: 0
       Amount: 1
   # Customize /vote reward
@@ -96,7 +97,7 @@ GUI:
       # Item to display as vote site in /vote reward
       Item:
         # Item ID
-        ID: 264
+        Material: 'DIAMOND'
         # Item Data (Eg 1:4, data is 4)
         Data: 0
         # Amount of items
@@ -116,7 +117,7 @@ GUI:
         # Do not have 2 of the same items
         Diamond:
           # Item ID
-          ID: 264
+          Material: 'DIAMOND'
           # Item Data (Eg 1:4, data is 4)
           Data: 0
           # Amount of items
