@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -86,6 +87,17 @@ public class ConfigGUI {
 
 	public int getVoteGUISlotSlot(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVoteGUISlotLore(String slot) {
+
+		ArrayList<String> list = (ArrayList<String>) getData().getList(
+				"GUI.VoteGUI." + slot + ".Lore");
+		if (list != null) {
+			return list;
+		}
+		return new ArrayList<String>();
 	}
 
 	public int getVoteSiteItemAmount(String site) {
@@ -332,7 +344,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create GUI.yml!");
+						.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

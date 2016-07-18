@@ -178,6 +178,8 @@ public class Commands {
 
 			String[] lore = new String[1];
 
+			lore = Utils.getInstance().convertArray(
+					ConfigGUI.getInstance().getVoteGUISlotLore(slot));
 			if (slot.equalsIgnoreCase("url")) {
 				lore = Commands.getInstance().voteURLs();
 			} else if (slot.equalsIgnoreCase("next")) {
@@ -193,10 +195,8 @@ public class Commands {
 				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
 				ArrayList<String> loreSt = new ArrayList<String>();
-				for (TextComponent txt : Commands.getInstance().voteHelpText(
-						player)) {
-					loreSt.add(txt.getText());
-				}
+				loreSt = Utils.getInstance().comptoString(
+						voteHelpText((CommandSender) player));
 				lore = Utils.getInstance().convertArray(loreSt);
 			}
 
@@ -208,6 +208,7 @@ public class Commands {
 						public void onClick(InventoryClickEvent event) {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
+								//plugin.debug("Running cmd");
 								player.closeInventory();
 								player.performCommand(ConfigGUI.getInstance()
 										.getVoteGUISlotCommand(slot));
