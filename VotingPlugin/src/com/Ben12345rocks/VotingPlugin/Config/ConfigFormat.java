@@ -168,11 +168,10 @@ public class ConfigFormat {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<String> getCommandsVoteTitle() {
+	public List<String> getCommandsVoteText() {
 		List<String> str;
 		try {
-			str = (List<String>) getData()
-					.getList("Format.Commands.Vote.Title");
+			str = (List<String>) getData().getList("Format.Commands.Vote.Text");
 			if (str != null) {
 				return str;
 			} else {
@@ -194,6 +193,10 @@ public class ConfigFormat {
 		} else {
 			return "&3%SiteName% &6%Total%";
 		}
+	}
+
+	public boolean getCommandsVoteAutoInputSites() {
+		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
 	}
 
 	public String getCommandsVoteTotalAllTitle() {

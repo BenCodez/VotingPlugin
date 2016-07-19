@@ -1054,22 +1054,26 @@ public class Commands {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
 
-		List<String> title = ConfigFormat.getInstance().getCommandsVoteTitle();
+		List<String> title = ConfigFormat.getInstance().getCommandsVoteText();
 		if (title != null) {
 			sites.addAll(title);
 		}
-		int counter = 0;
-		for (VoteSite voteSite : voteSites) {
-			counter++;
-			String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
-			String msg = format.getCommandsVoteURLS();
-			msg = Utils.getInstance().colorize(msg);
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
-					Integer.toString(counter));
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
-					voteSite.getSiteName());
-			sites.add(msg);
+		if (ConfigFormat.getInstance().getCommandsVoteAutoInputSites()) {
+			int counter = 0;
+			for (VoteSite voteSite : voteSites) {
+				counter++;
+				String voteURL = configVoteSites.getVoteURL(voteSite
+						.getSiteName());
+				String msg = format.getCommandsVoteURLS();
+				msg = Utils.getInstance().colorize(msg);
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
+						Integer.toString(counter));
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%",
+						voteURL);
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
+						voteSite.getSiteName());
+				sites.add(msg);
+			}
 		}
 		sites = Utils.getInstance().colorize(sites);
 		return Utils.getInstance().convertArray(sites);

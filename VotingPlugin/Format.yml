@@ -20,11 +20,16 @@ Format:
     # %num% = the number of the site, for a numbered list
     # %url% = site URL
     Vote: 
-      Title:
+      Text:
       - '&4&lVote for our server!'
       
+      # If you want to want to use the feature below where the plugin will
+      # automicly list the sites then set the message in the text above
+      AutoInputSites: true
       # For each VoteSite
       # make sure to set VoteURL in your VoteSites
+      # Requires above to be true
+      # Text will be sent before this
       Sites: '&4%num%: &c&l%SiteName% - &c%url%'
       
       # Format for /vote next
