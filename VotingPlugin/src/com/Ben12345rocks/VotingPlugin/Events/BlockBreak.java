@@ -11,15 +11,32 @@ import org.bukkit.event.block.BlockBreakEvent;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class BlockBreak.
+ */
 public class BlockBreak implements Listener {
 
+	/** The plugin. */
 	@SuppressWarnings("unused")
 	private static Main plugin;
 
+	/**
+	 * Instantiates a new block break.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public BlockBreak(Main plugin) {
 		BlockBreak.plugin = plugin;
 	}
 
+	/**
+	 * On block break.
+	 *
+	 * @param event
+	 *            the event
+	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onBlockBreak(BlockBreakEvent event) {
 		if (event.getBlock().getState() instanceof Sign) {

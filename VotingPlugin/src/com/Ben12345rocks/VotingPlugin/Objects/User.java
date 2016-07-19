@@ -1,5 +1,8 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import gyurix.spigotlib.ChatAPI;
+import gyurix.spigotlib.ChatAPI.ChatMessageType;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -32,21 +35,25 @@ import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+/**
+ * The Class User.
+ */
 public class User {
+	
+	/** The plugin. */
 	static Main plugin = Main.plugin;
+	
+	/** The player name. */
 	private String playerName;
 
+	/** The uuid. */
 	private String uuid;
 
-	public User(Main plugin) {
-		User.plugin = plugin;
-	}
-
 	/**
-	 * New user
+	 * Instantiates a new user.
 	 *
 	 * @param player
-	 *            Player
+	 *            the player
 	 */
 	public User(Player player) {
 		playerName = player.getName();
@@ -54,10 +61,10 @@ public class User {
 	}
 
 	/**
-	 * New user
+	 * Instantiates a new user.
 	 *
 	 * @param playerName
-	 *            The user's name
+	 *            the player name
 	 */
 	public User(String playerName) {
 		this.playerName = playerName;
@@ -66,10 +73,10 @@ public class User {
 	}
 
 	/**
-	 * New user
+	 * Instantiates a new user.
 	 *
 	 * @param uuid
-	 *            UUID
+	 *            the uuid
 	 */
 	public User(UUID uuid) {
 		this.uuid = uuid.getUUID();
@@ -78,12 +85,12 @@ public class User {
 	}
 
 	/**
-	 * New user
+	 * Instantiates a new user.
 	 *
 	 * @param uuid
-	 *            UUID
+	 *            the uuid
 	 * @param loadName
-	 *            Whether or not to preload name
+	 *            the load name
 	 */
 	public User(UUID uuid, boolean loadName) {
 		this.uuid = uuid.getUUID();
@@ -92,55 +99,78 @@ public class User {
 		}
 	}
 
+	/**
+	 * Adds the cumulative reward.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 */
 	public void addCumulativeReward(VoteSite voteSite) {
 		Data.getInstance().addCumulativeSite(this, voteSite.getSiteName());
 	}
 
 	/**
+	 * Adds the offline vote.
 	 *
 	 * @param voteSite
-	 *            VoteSite to add offline votes to
+	 *            the vote site
 	 */
 	public void addOfflineVote(VoteSite voteSite) {
 		setOfflineVotes(voteSite, getOfflineVotes(voteSite) + 1);
 	}
 
+	/**
+	 * Adds the points.
+	 */
 	public void addPoints() {
 		setPoints(getPoints() + 1);
 	}
 
 	/**
-	 * Add total for VoteSite to user
+	 * Adds the total.
 	 *
 	 * @param voteSite
-	 *            VoteSite to add vote to
+	 *            the vote site
 	 */
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
 	}
 
+	/**
+	 * Adds the total daily.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 */
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-		.setTotalDaily(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalDaily(this,
-						voteSite.getSiteName()) + 1);
-	}
-
-	public void addTotalWeekly(VoteSite voteSite) {
-		Data.getInstance()
-		.setTotalWeek(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalWeek(this,
-						voteSite.getSiteName()) + 1);
+				.setTotalDaily(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalDaily(this,
+								voteSite.getSiteName()) + 1);
 	}
 
 	/**
+	 * Adds the total weekly.
 	 *
-	 * @return True if player can vote on all sites
+	 * @param voteSite
+	 *            the vote site
+	 */
+	public void addTotalWeekly(VoteSite voteSite) {
+		Data.getInstance()
+				.setTotalWeek(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalWeek(this,
+								voteSite.getSiteName()) + 1);
+	}
+
+	/**
+	 * Can vote all.
+	 *
+	 * @return true, if successful
 	 */
 	public boolean canVoteAll() {
 		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
@@ -155,6 +185,13 @@ public class User {
 		return true;
 	}
 
+	/**
+	 * Can vote site.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 * @return true, if successful
+	 */
 	@SuppressWarnings("deprecation")
 	/**
 	 * @param voteSite	VoteSite
@@ -199,7 +236,9 @@ public class User {
 	}
 
 	/**
-	 * @return True if player has voted on all sites in one day
+	 * Check all votes.
+	 *
+	 * @return true, if successful
 	 */
 	public boolean checkAllVotes() {
 		User user = this;
@@ -232,6 +271,12 @@ public class User {
 		return true;
 	}
 
+	/**
+	 * Daily top voter award.
+	 *
+	 * @param place
+	 *            the place
+	 */
 	public void dailyTopVoterAward(int place) {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);
@@ -246,16 +291,22 @@ public class User {
 	}
 
 	/**
-	 * Get offline cumulative rewards
+	 * Gets the cumulative reward.
 	 *
 	 * @param voteSite
-	 * @return
+	 *            the vote site
+	 * @return the cumulative reward
 	 */
 	public int getCumulativeReward(VoteSite voteSite) {
 		return Data.getInstance().getCumulativeSite(this,
 				voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the last vote times sorted.
+	 *
+	 * @return the last vote times sorted
+	 */
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
 
@@ -273,19 +324,20 @@ public class User {
 	}
 
 	/**
+	 * Gets the offline top voter.
 	 *
-	 * @return Offline top voter awards
+	 * @return the offline top voter
 	 */
 	public int getOfflineTopVoter() {
 		return Data.getInstance().getTopVoterAwardOffline(this);
 	}
 
 	/**
-	 * Get amount of offline votes for VoteSite
+	 * Gets the offline votes.
 	 *
 	 * @param voteSite
-	 *            VoteSite to get offline votes of
-	 * @return Amount of offline votes
+	 *            the vote site
+	 * @return the offline votes
 	 */
 	public int getOfflineVotes(VoteSite voteSite) {
 		User user = this;
@@ -293,57 +345,93 @@ public class User {
 				voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the player.
+	 *
+	 * @return the player
+	 */
 	public Player getPlayer() {
 		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 	}
 
 	/**
+	 * Gets the player name.
 	 *
-	 * @return User's game name
+	 * @return the player name
 	 */
 	public String getPlayerName() {
 		return playerName;
 
 	}
 
+	/**
+	 * Gets the points.
+	 *
+	 * @return the points
+	 */
 	public int getPoints() {
 		return Data.getInstance().getVotingPoints(this);
 	}
 
+	/**
+	 * Gets the reminded.
+	 *
+	 * @return the reminded
+	 */
 	public boolean getReminded() {
 		return Data.getInstance().getReminded(this);
 	}
 
 	/**
-	 * Get time of last vote from VoteSite for user
+	 * Gets the time.
 	 *
 	 * @param voteSite
-	 *            VoteSite to check for last vote
-	 * @return Time in milliseconds when last vote occurred
+	 *            the vote site
+	 * @return the time
 	 */
 	public long getTime(VoteSite voteSite) {
 		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the timed reward.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the timed reward
+	 */
 	public long getTimedReward(Reward reward) {
 		return Data.getInstance().getTimedReward(this, reward.getRewardName());
 	}
 
 	/**
-	 * Get total from VoteSite for user
+	 * Gets the total.
 	 *
 	 * @param voteSite
-	 * @return
+	 *            the vote site
+	 * @return the total
 	 */
 	public int getTotal(VoteSite voteSite) {
 		User user = this;
 		return Data.getInstance().getTotal(user, voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the total daily.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 * @return the total daily
+	 */
 	public int getTotalDaily(VoteSite voteSite) {
 		return Data.getInstance().getTotalDaily(this, voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the total daily all.
+	 *
+	 * @return the total daily all
+	 */
 	public int getTotalDailyAll() {
 		int total = 0;
 		for (VoteSite voteSite : plugin.voteSites) {
@@ -354,8 +442,9 @@ public class User {
 	}
 
 	/**
+	 * Gets the total votes.
 	 *
-	 * @return Returns totals of all votes sites
+	 * @return the total votes
 	 */
 	public int getTotalVotes() {
 		int total = 0;
@@ -366,16 +455,21 @@ public class User {
 	}
 
 	/**
-	 * Get total votes for VoteSite
+	 * Gets the total votes site.
 	 *
 	 * @param voteSite
-	 *            VoteSite
-	 * @return Total votes from VoteSite
+	 *            the vote site
+	 * @return the total votes site
 	 */
 	public int getTotalVotesSite(VoteSite voteSite) {
 		return Data.getInstance().getTotal(this, voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the total votes today.
+	 *
+	 * @return the total votes today
+	 */
 	@SuppressWarnings("deprecation")
 	public int getTotalVotesToday() {
 		int total = 0;
@@ -389,10 +483,22 @@ public class User {
 
 	}
 
+	/**
+	 * Gets the total weekly.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 * @return the total weekly
+	 */
 	public int getTotalWeekly(VoteSite voteSite) {
 		return Data.getInstance().getTotalWeek(this, voteSite.getSiteName());
 	}
 
+	/**
+	 * Gets the total weekly all.
+	 *
+	 * @return the total weekly all
+	 */
 	public int getTotalWeeklyAll() {
 		int total = 0;
 		for (VoteSite voteSite : plugin.voteSites) {
@@ -403,14 +509,19 @@ public class User {
 	}
 
 	/**
-	 * Get user's uuid
+	 * Gets the uuid.
 	 *
-	 * @return uuid - as string
+	 * @return the uuid
 	 */
 	public String getUUID() {
 		return uuid;
 	}
 
+	/**
+	 * Gets the vote time last.
+	 *
+	 * @return the vote time last
+	 */
 	public long getVoteTimeLast() {
 		ArrayList<Long> times = new ArrayList<Long>();
 		for (VoteSite voteSite : plugin.voteSites) {
@@ -421,9 +532,10 @@ public class User {
 	}
 
 	/**
-	 * Give top voter award
+	 * Give daily top voter award.
 	 *
 	 * @param place
+	 *            the place
 	 */
 	public void giveDailyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
@@ -434,14 +546,15 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
 	/**
-	 * Give player EXP
+	 * Give exp.
 	 *
 	 * @param exp
+	 *            the exp
 	 */
 	public void giveExp(int exp) {
 		Player player = getPlayer();
@@ -450,6 +563,22 @@ public class User {
 		}
 	}
 
+	/**
+	 * Give item.
+	 *
+	 * @param id
+	 *            the id
+	 * @param amount
+	 *            the amount
+	 * @param data
+	 *            the data
+	 * @param itemName
+	 *            the item name
+	 * @param lore
+	 *            the lore
+	 * @param enchants
+	 *            the enchants
+	 */
 	@SuppressWarnings("deprecation")
 	/**
 	 * Give the user an item
@@ -488,10 +617,10 @@ public class User {
 	}
 
 	/**
-	 * Give the user an item, will drop on ground if inv full
+	 * Give item.
 	 *
 	 * @param item
-	 *            ItemStack to give player
+	 *            the item
 	 */
 	public void giveItem(ItemStack item) {
 		if (item.getAmount() == 0) {
@@ -512,6 +641,12 @@ public class User {
 
 	}
 
+	/**
+	 * Give money.
+	 *
+	 * @param money
+	 *            the money
+	 */
 	@SuppressWarnings("deprecation")
 	/**
 	 * Give user money, needs vault installed
@@ -529,9 +664,10 @@ public class User {
 	}
 
 	/**
-	 * Give monthly top voter award
+	 * Give monthly top voter award.
 	 *
 	 * @param place
+	 *            the place
 	 */
 	public void giveMonthlyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
@@ -542,16 +678,19 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
 	/**
-	 * Give user potion effect
+	 * Give potion effect.
 	 *
 	 * @param potionName
+	 *            the potion name
 	 * @param duration
+	 *            the duration
 	 * @param amplifier
+	 *            the amplifier
 	 */
 	public void givePotionEffect(String potionName, int duration, int amplifier) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -571,18 +710,20 @@ public class User {
 	}
 
 	/**
-	 * Give user reward
+	 * Give reward.
 	 *
 	 * @param reward
+	 *            the reward
 	 */
 	public void giveReward(Reward reward) {
 		reward.giveReward(this);
 	}
 
 	/**
-	 * Give top voter award
+	 * Give weekly top voter award.
 	 *
 	 * @param place
+	 *            the place
 	 */
 	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
@@ -593,35 +734,37 @@ public class User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
 	/**
+	 * Checks for gotten first vote.
 	 *
-	 * @return True if user has gotten first vote reward
+	 * @return true, if successful
 	 */
 	public boolean hasGottenFirstVote() {
 		return Data.getInstance().getHasGottenFirstReward(this);
 	}
 
 	/**
+	 * Checks for joined before.
 	 *
-	 * @return True if the player has joined before
+	 * @return true, if successful
 	 */
 	public boolean hasJoinedBefore() {
 		return Data.getInstance().hasJoinedBefore(this);
 	}
 
 	/**
-	 * Load the user's name from uuid
+	 * Load name.
 	 */
 	public void loadName() {
 		playerName = Utils.getInstance().getPlayerName(uuid);
 	}
 
 	/**
-	 * Login message if player can vote
+	 * Login message.
 	 */
 	public void loginMessage() {
 		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
@@ -630,9 +773,10 @@ public class User {
 	}
 
 	/**
-	 * Give top voter award
+	 * Monthly top voter award.
 	 *
 	 * @param place
+	 *            the place
 	 */
 	public void monthlyTopVoterAward(int place) {
 		if (playerName == null) {
@@ -648,7 +792,7 @@ public class User {
 	}
 
 	/**
-	 * Check for offline votes
+	 * Off vote.
 	 */
 	public void offVote() {
 		ArrayList<VoteSite> voteSites = ConfigVoteSites.getInstance()
@@ -736,9 +880,10 @@ public class User {
 	}
 
 	/**
-	 * Check offline world rewards
+	 * Off vote world.
 	 *
 	 * @param world
+	 *            the world
 	 */
 	public void offVoteWorld(String world) {
 		for (VoteSite voteSite : plugin.voteSites) {
@@ -767,8 +912,8 @@ public class User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 
@@ -794,10 +939,10 @@ public class User {
 	}
 
 	/**
-	 * Trigger a vote for the user
+	 * Player vote.
 	 *
 	 * @param voteSite
-	 *            Site player voted on
+	 *            the vote site
 	 */
 	public synchronized void playerVote(VoteSite voteSite) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
@@ -807,6 +952,18 @@ public class User {
 		voteSite.giveSiteReward(this);
 	}
 
+	/**
+	 * Play particle effect.
+	 *
+	 * @param effectName
+	 *            the effect name
+	 * @param data
+	 *            the data
+	 * @param particles
+	 *            the particles
+	 * @param radius
+	 *            the radius
+	 */
 	@SuppressWarnings("deprecation")
 	/**
 	 * Send a particle effect to the user
@@ -828,11 +985,14 @@ public class User {
 	}
 
 	/**
-	 * Send a send to the user
+	 * Play sound.
 	 *
 	 * @param soundName
+	 *            the sound name
 	 * @param volume
+	 *            the volume
 	 * @param pitch
+	 *            the pitch
 	 */
 	public synchronized void playSound(String soundName, float volume,
 			float pitch) {
@@ -848,9 +1008,9 @@ public class User {
 	}
 
 	/**
-	 * Get whether or not user has been reminded to vote
+	 * Reminded.
 	 *
-	 * @return T
+	 * @return true, if successful
 	 */
 	public boolean reminded() {
 		User user = this;
@@ -858,10 +1018,11 @@ public class User {
 	}
 
 	/**
-	 * Remove points from user
+	 * Removes the points.
 	 *
 	 * @param points
-	 * @return Returns false if user doesn't have enough points
+	 *            the points
+	 * @return true, if successful
 	 */
 	public boolean removePoints(int points) {
 		if (getPoints() >= points) {
@@ -872,9 +1033,10 @@ public class User {
 	}
 
 	/**
-	 * Send the player json messages
+	 * Send json.
 	 *
 	 * @param messages
+	 *            the messages
 	 */
 	public void sendJson(ArrayList<TextComponent> messages) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -893,9 +1055,10 @@ public class User {
 	}
 
 	/**
-	 * Send the player json messages
+	 * Send json.
 	 *
 	 * @param message
+	 *            the message
 	 */
 	public void sendJson(TextComponent message) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -905,10 +1068,10 @@ public class User {
 	}
 
 	/**
-	 * Send the user a message
+	 * Send message.
 	 *
 	 * @param msg
-	 *            Message to send
+	 *            the msg
 	 */
 	public void sendMessage(String msg) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -921,10 +1084,10 @@ public class User {
 	}
 
 	/**
-	 * Send the user a message
+	 * Send message.
 	 *
 	 * @param msg
-	 *            Message to send
+	 *            the msg
 	 */
 	public void sendMessage(String[] msg) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
@@ -940,15 +1103,18 @@ public class User {
 	}
 
 	/**
-	 * Send the user a message if TitleAPI is installed
+	 * Send title.
 	 *
 	 * @param title
-	 * @param titleColor
+	 *            the title
 	 * @param subTitle
-	 * @param subTitleColor
+	 *            the sub title
 	 * @param fadeIn
+	 *            the fade in
 	 * @param showTime
+	 *            the show time
 	 * @param fadeOut
+	 *            the fade out
 	 */
 	public void sendTitle(String title, String subTitle, int fadeIn,
 			int showTime, int fadeOut) {
@@ -960,7 +1126,7 @@ public class User {
 	}
 
 	/**
-	 * Send the user the voting effects
+	 * Send vote effects.
 	 */
 	public void sendVoteEffects() {
 		for (String reward : Config.getInstance().getRewards()) {
@@ -971,10 +1137,27 @@ public class User {
 	}
 
 	/**
-	 * Set offline cumulative rewards
+	 * Send action bar.
+	 *
+	 * @param msg
+	 *            the msg
+	 */
+	public void sendActionBar(String msg) {
+		if (plugin.spigotLibEnabled) {
+			Player player = getPlayer();
+			if (player != null) {
+				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, msg, player);
+			}
+		}
+	}
+
+	/**
+	 * Sets the cumulative reward.
 	 *
 	 * @param voteSite
+	 *            the vote site
 	 * @param value
+	 *            the value
 	 */
 	public void setCumulativeReward(VoteSite voteSite, int value) {
 		Data.getInstance().setCumulativeSite(this, voteSite.getSiteName(),
@@ -982,30 +1165,32 @@ public class User {
 	}
 
 	/**
-	 * Set has gotten first vote
+	 * Sets the checks for gotten first vote.
 	 *
 	 * @param value
+	 *            the new checks for gotten first vote
 	 */
 	public void setHasGottenFirstVote(boolean value) {
 		Data.getInstance().setHasGottenFirstReward(this, value);
 	}
 
 	/**
-	 * Set offline top voter awards
+	 * Sets the offline top voter.
 	 *
 	 * @param place
+	 *            the new offline top voter
 	 */
 	public void setOfflineTopVoter(int place) {
 		Data.getInstance().setTopVoterAwardOffline(this, place);
 	}
 
 	/**
-	 * Set offline votes for VoteSite for user
+	 * Sets the offline votes.
 	 *
 	 * @param voteSite
-	 *            VoteSite to set
+	 *            the vote site
 	 * @param amount
-	 *            Offline Votes to set
+	 *            the amount
 	 */
 	public void setOfflineVotes(VoteSite voteSite, int amount) {
 		User user = this;
@@ -1014,7 +1199,7 @@ public class User {
 	}
 
 	/**
-	 * Set name in player's file
+	 * Sets the player name.
 	 */
 	public void setPlayerName() {
 		User user = this;
@@ -1022,24 +1207,30 @@ public class User {
 	}
 
 	/**
-	 * Sets the user's ingame name
+	 * Sets the player name.
 	 *
 	 * @param playerName
-	 *            Player name
+	 *            the new player name
 	 */
 	public void setPlayerName(String playerName) {
 		this.playerName = playerName;
 	}
 
+	/**
+	 * Sets the points.
+	 *
+	 * @param value
+	 *            the new points
+	 */
 	public void setPoints(int value) {
 		Data.getInstance().setVotingPoints(this, value);
 	}
 
 	/**
-	 * Set whether or not the user has been reminded to vote
+	 * Sets the reminded.
 	 *
 	 * @param reminded
-	 *            boolean
+	 *            the new reminded
 	 */
 	public void setReminded(boolean reminded) {
 		User user = this;
@@ -1047,50 +1238,81 @@ public class User {
 	}
 
 	/**
-	 * Set time of last vote for VoteSite
+	 * Sets the time.
 	 *
-	 * @param siteName
+	 * @param voteSite
+	 *            the new time
 	 */
 	public void setTime(VoteSite voteSite) {
 		User user = this;
 		Data.getInstance().setTime(voteSite.getSiteName(), user);
 	}
 
+	/**
+	 * Sets the timed reward.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
 	public void setTimedReward(Reward reward, long value) {
 		Data.getInstance().setTimedReward(this, reward.getRewardName(), value);
 	}
 
 	/**
-	 * Set total for VoteSite for user
+	 * Sets the total.
 	 *
 	 * @param voteSite
-	 *            VoteSite to set total
+	 *            the vote site
 	 * @param amount
-	 *            Total to set
+	 *            the amount
 	 */
 	public void setTotal(VoteSite voteSite, int amount) {
 		User user = this;
 		Data.getInstance().setTotal(user, voteSite.getSiteName(), amount);
 	}
 
+	/**
+	 * Sets the total daily.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 * @param amount
+	 *            the amount
+	 */
 	public void setTotalDaily(VoteSite voteSite, int amount) {
 		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
 	}
 
+	/**
+	 * Sets the total weekly.
+	 *
+	 * @param voteSite
+	 *            the vote site
+	 * @param amount
+	 *            the amount
+	 */
 	public void setTotalWeekly(VoteSite voteSite, int amount) {
 		Data.getInstance().setTotalWeek(this, voteSite.getSiteName(), amount);
 	}
 
 	/**
-	 * Set user's uuid
+	 * Sets the uuid.
 	 *
 	 * @param uuid
-	 *            uuid to set to
+	 *            the new uuid
 	 */
 	public void setUUID(String uuid) {
 		this.uuid = uuid;
 	}
 
+	/**
+	 * Weekly top voter award.
+	 *
+	 * @param place
+	 *            the place
+	 */
 	public void weeklyTopVoterAward(int place) {
 		if (playerName == null) {
 			playerName = Utils.getInstance().getPlayerName(uuid);

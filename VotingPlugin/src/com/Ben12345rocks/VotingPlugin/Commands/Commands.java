@@ -36,31 +36,64 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Commands.
+ */
 public class Commands {
 
+	/** The bonus reward. */
 	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
+	/** The config. */
 	static Config config = Config.getInstance();
 
+	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
+	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The instance. */
 	static Commands instance = new Commands();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of Commands.
+	 *
+	 * @return single instance of Commands
+	 */
 	public static Commands getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new commands.
+	 */
 	private Commands() {
 	}
 
+	/**
+	 * Instantiates a new commands.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public Commands(Main plugin) {
 		Commands.plugin = plugin;
 	}
 
+	/**
+	 * Admin help.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
+	 * @return the array list
+	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
@@ -84,6 +117,13 @@ public class Commands {
 		return msg;
 	}
 
+	/**
+	 * Admin help text.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @return the array list
+	 */
 	public ArrayList<TextComponent> adminHelpText(CommandSender sender) {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
@@ -110,6 +150,13 @@ public class Commands {
 		return msg;
 	}
 
+	/**
+	 * Command vote today.
+	 *
+	 * @param page
+	 *            the page
+	 * @return the string[]
+	 */
 	public String[] commandVoteToday(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		if (page < 1) {
@@ -136,6 +183,11 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * List perms.
+	 *
+	 * @return the string[]
+	 */
 	public String[] listPerms() {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -161,6 +213,12 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Open vote GUI.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void openVoteGUI(Player player) {
 		BInventory inv = new BInventory("VoteGUI");
 
@@ -229,6 +287,13 @@ public class Commands {
 		BInventory.openInventory(player, inv);
 	}
 
+	/**
+	 * Player info.
+	 *
+	 * @param user
+	 *            the user
+	 * @return the string[]
+	 */
 	public String[] playerInfo(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -248,6 +313,14 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Send top voter daily score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -286,6 +359,14 @@ public class Commands {
 
 	}
 
+	/**
+	 * Send top voter monthly score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -324,6 +405,14 @@ public class Commands {
 
 	}
 
+	/**
+	 * Send top voter weekly score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -362,6 +451,14 @@ public class Commands {
 
 	}
 
+	/**
+	 * Send vote today score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
 	public void sendVoteTodayScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 
@@ -393,6 +490,9 @@ public class Commands {
 
 	}
 
+	/**
+	 * Update vote today.
+	 */
 	@SuppressWarnings("deprecation")
 	public void updateVoteToday() {
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -423,6 +523,13 @@ public class Commands {
 		plugin.debug("Updated VoteToday");
 	}
 
+	/**
+	 * Vote command last.
+	 *
+	 * @param user
+	 *            the user
+	 * @return the string[]
+	 */
 	public String[] voteCommandLast(User user) {
 
 		ArrayList<String> msg = new ArrayList<String>();
@@ -448,6 +555,15 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command last date.
+	 *
+	 * @param user
+	 *            the user
+	 * @param voteSite
+	 *            the vote site
+	 * @return the string
+	 */
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
@@ -455,6 +571,13 @@ public class Commands {
 		return timeString;
 	}
 
+	/**
+	 * Vote command next.
+	 *
+	 * @param user
+	 *            the user
+	 * @return the string[]
+	 */
 	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -482,6 +605,15 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command next info.
+	 *
+	 * @param user
+	 *            the user
+	 * @param voteSite
+	 *            the vote site
+	 * @return the string
+	 */
 	@SuppressWarnings("deprecation")
 	public String voteCommandNextInfo(User user, VoteSite voteSite) {
 		String info = new String();
@@ -537,6 +669,13 @@ public class Commands {
 		return info;
 	}
 
+	/**
+	 * Vote command reward info.
+	 *
+	 * @param rewardName
+	 *            the reward name
+	 * @return the string[]
+	 */
 	public String[] voteCommandRewardInfo(String rewardName) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -655,6 +794,11 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command rewards.
+	 *
+	 * @return the string[]
+	 */
 	public String[] voteCommandRewards() {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -673,6 +817,13 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command site info.
+	 *
+	 * @param voteSiteName
+	 *            the vote site name
+	 * @return the string[]
+	 */
 	public String[] voteCommandSiteInfo(String voteSiteName) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -696,6 +847,11 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command sites.
+	 *
+	 * @return the string[]
+	 */
 	public String[] voteCommandSites() {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -715,6 +871,13 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command total.
+	 *
+	 * @param user
+	 *            the user
+	 * @return the string[]
+	 */
 	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
@@ -744,6 +907,11 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote command total all.
+	 *
+	 * @return the string[]
+	 */
 	public String[] voteCommandTotalAll() {
 
 		ArrayList<String> msg = new ArrayList<String>();
@@ -790,6 +958,13 @@ public class Commands {
 	 * }
 	 */
 
+	/**
+	 * Vote help text.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @return the array list
+	 */
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		ArrayList<TextComponent> texts = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
@@ -818,6 +993,14 @@ public class Commands {
 		return texts;
 	}
 
+	/**
+	 * Vote reward.
+	 *
+	 * @param player
+	 *            the player
+	 * @param siteName
+	 *            the site name
+	 */
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward");
 
@@ -924,6 +1107,11 @@ public class Commands {
 		BInventory.openInventory(player, inv);
 	}
 
+	/**
+	 * Vote today.
+	 *
+	 * @return the string[]
+	 */
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
 		for (User user : plugin.voteToday.keySet()) {
@@ -939,6 +1127,12 @@ public class Commands {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Vote URL.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void voteURL(Player player) {
 		BInventory inv = new BInventory("VoteURL");
 
@@ -1050,6 +1244,11 @@ public class Commands {
 		BInventory.openInventory(player, inv);
 	}
 
+	/**
+	 * Vote UR ls.
+	 *
+	 * @return the string[]
+	 */
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();

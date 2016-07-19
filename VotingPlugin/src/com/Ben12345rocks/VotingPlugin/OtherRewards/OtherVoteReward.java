@@ -8,36 +8,74 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class OtherVoteReward.
+ */
 public class OtherVoteReward {
 
+	/** The bonus reward. */
 	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
+	/** The config. */
 	static Config config = Config.getInstance();
 
+	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
+	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The instance. */
 	static OtherVoteReward instance = new OtherVoteReward();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of OtherVoteReward.
+	 *
+	 * @return single instance of OtherVoteReward
+	 */
 	public static OtherVoteReward getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new other vote reward.
+	 */
 	private OtherVoteReward() {
 	}
 
+	/**
+	 * Instantiates a new other vote reward.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public OtherVoteReward(Main plugin) {
 		OtherVoteReward.plugin = plugin;
 	}
 
+	/**
+	 * Check all sites.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
 	public boolean checkAllSites(User user) {
 		return user.checkAllVotes();
 
 	}
 
+	/**
+	 * Check first vote.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
 	public boolean checkFirstVote(User user) {
 		int userVotesTotal = user.getTotalVotes();
 		if (ConfigOtherRewards.getInstance().getFirstVoteRewards().size() != 0) {
@@ -50,6 +88,13 @@ public class OtherVoteReward {
 		return false;
 	}
 
+	/**
+	 * Check number of votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
 	public boolean checkNumberOfVotes(User user) {
 		if (ConfigOtherRewards.getInstance().getNumberOfVotes().size() != 0) {
 			int votesRequired = ConfigOtherRewards.getInstance()
@@ -73,6 +118,12 @@ public class OtherVoteReward {
 		return false;
 	}
 
+	/**
+	 * Give all sites rewards.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void giveAllSitesRewards(User user) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getAllSitesReward()) {
@@ -82,6 +133,12 @@ public class OtherVoteReward {
 		}
 	}
 
+	/**
+	 * Give first vote rewards.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void giveFirstVoteRewards(User user) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getFirstVoteRewards()) {
@@ -91,6 +148,12 @@ public class OtherVoteReward {
 		}
 	}
 
+	/**
+	 * Give number of votes rewards.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void giveNumberOfVotesRewards(User user) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getNumberOfVotes()) {

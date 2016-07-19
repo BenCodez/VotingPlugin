@@ -11,14 +11,31 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class SignChange.
+ */
 public class SignChange implements Listener {
 
+	/** The plugin. */
 	private static Main plugin;
 
+	/**
+	 * Instantiates a new sign change.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public SignChange(Main plugin) {
 		SignChange.plugin = plugin;
 	}
 
+	/**
+	 * On sign change.
+	 *
+	 * @param event
+	 *            the event
+	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
 		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {

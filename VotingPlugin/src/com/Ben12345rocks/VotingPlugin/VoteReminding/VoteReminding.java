@@ -10,23 +10,49 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class VoteReminding.
+ */
 public class VoteReminding {
 
+	/** The instance. */
 	static VoteReminding instance = new VoteReminding();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of VoteReminding.
+	 *
+	 * @return single instance of VoteReminding
+	 */
 	public static VoteReminding getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new vote reminding.
+	 */
 	private VoteReminding() {
 	}
 
+	/**
+	 * Instantiates a new vote reminding.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public VoteReminding(Main plugin) {
 		VoteReminding.plugin = plugin;
 	}
 
+	/**
+	 * Check remind.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
 
@@ -51,6 +77,9 @@ public class VoteReminding {
 		}
 	}
 
+	/**
+	 * Load remind checking.
+	 */
 	public void loadRemindChecking() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(
 				plugin,
@@ -68,6 +97,12 @@ public class VoteReminding {
 				ConfigVoteReminding.getInstance().getRemindDelay() * 20 * 60);
 	}
 
+	/**
+	 * Run remind.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void runRemind(User user) {
 		if (ConfigVoteReminding.getInstance().getEnabled() && user.canVoteAll()) {
 			user.setReminded(true);

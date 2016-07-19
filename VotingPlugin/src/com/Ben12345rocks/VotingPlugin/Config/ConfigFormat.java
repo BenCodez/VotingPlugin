@@ -14,27 +14,54 @@ import org.bukkit.plugin.Plugin;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class ConfigFormat.
+ */
 public class ConfigFormat {
 
+	/** The instance. */
 	static ConfigFormat instance = new ConfigFormat();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of ConfigFormat.
+	 *
+	 * @return single instance of ConfigFormat
+	 */
 	public static ConfigFormat getInstance() {
 		return instance;
 	}
 
+	/** The data. */
 	FileConfiguration data;
 
+	/** The d file. */
 	File dFile;
 
+	/**
+	 * Instantiates a new config format.
+	 */
 	private ConfigFormat() {
 	}
 
+	/**
+	 * Instantiates a new config format.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public ConfigFormat(Main plugin) {
 		ConfigFormat.plugin = plugin;
 	}
 
+	/**
+	 * Gets the broad cast msg.
+	 *
+	 * @return the broad cast msg
+	 */
 	public String getBroadCastMsg() {
 		String str = getData().getString("Format.BroadcastMsg");
 		if (str != null) {
@@ -44,6 +71,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the command vote points.
+	 *
+	 * @return the command vote points
+	 */
 	public String getCommandVotePoints() {
 		String str = getData().getString("Format.Commands.Vote.Points");
 		if (str != null) {
@@ -53,10 +85,20 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the broadcast when online.
+	 *
+	 * @return the broadcast when online
+	 */
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
 
+	/**
+	 * Gets the commands vote help line.
+	 *
+	 * @return the commands vote help line
+	 */
 	public String getCommandsVoteHelpLine() {
 
 		String str = getData().getString("Format.Commands.Vote.Help.Line");
@@ -68,11 +110,21 @@ public class ConfigFormat {
 
 	}
 
+	/**
+	 * Gets the commands vote help require permission.
+	 *
+	 * @return the commands vote help require permission
+	 */
 	public boolean getCommandsVoteHelpRequirePermission() {
 		return getData().getBoolean(
 				"Format.Commands.Vote.Help.RequirePermission");
 	}
 
+	/**
+	 * Gets the commands vote help title.
+	 *
+	 * @return the commands vote help title
+	 */
 	public String getCommandsVoteHelpTitle() {
 		String str = getData().getString("Format.Commands.Vote.Help.Title");
 		if (str != null) {
@@ -83,6 +135,11 @@ public class ConfigFormat {
 
 	}
 
+	/**
+	 * Gets the commands vote last line.
+	 *
+	 * @return the commands vote last line
+	 */
 	public String getCommandsVoteLastLine() {
 		String str = getData().getString("Format.Commands.Vote.Last.Line");
 		if (str != null) {
@@ -92,6 +149,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote last title.
+	 *
+	 * @return the commands vote last title
+	 */
 	public String getCommandsVoteLastTitle() {
 		String str = getData().getString("Format.Commands.Vote.Last.Title");
 		if (str != null) {
@@ -101,6 +163,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote next info can vote.
+	 *
+	 * @return the commands vote next info can vote
+	 */
 	public String getCommandsVoteNextInfoCanVote() {
 		String str = getData().getString(
 				"Format.Commands.Vote.Next.Info.CanVote");
@@ -111,6 +178,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote next info error.
+	 *
+	 * @return the commands vote next info error
+	 */
 	public String getCommandsVoteNextInfoError() {
 		String str = getData()
 				.getString("Format.Commands.Vote.Next.Info.Error");
@@ -121,6 +193,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote next info time.
+	 *
+	 * @return the commands vote next info time
+	 */
 	public String getCommandsVoteNextInfoTime() {
 		String str = getData().getString(
 				"Format.Commands.Vote.Next.Info.TimeUntilVote");
@@ -131,6 +208,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote next layout.
+	 *
+	 * @return the commands vote next layout
+	 */
 	public String getCommandsVoteNextLayout() {
 		String str = getData().getString("Format.Commands.Vote.Next.Layout");
 		if (str != null) {
@@ -140,6 +222,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote next title.
+	 *
+	 * @return the commands vote next title
+	 */
 	public String getCommandsVoteNextTitle() {
 		String str = getData().getString("Format.Commands.Vote.Next.Title");
 		if (str != null) {
@@ -149,6 +236,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote party.
+	 *
+	 * @return the commands vote party
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsVoteParty() {
 		try {
@@ -167,6 +259,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote text.
+	 *
+	 * @return the commands vote text
+	 */
 	@SuppressWarnings("unchecked")
 	public List<String> getCommandsVoteText() {
 		List<String> str;
@@ -186,6 +283,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote total all line.
+	 *
+	 * @return the commands vote total all line
+	 */
 	public String getCommandsVoteTotalAllLine() {
 		String str = getData().getString("Format.Commands.Vote.TotalAll.Line");
 		if (str != null) {
@@ -195,10 +297,20 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote auto input sites.
+	 *
+	 * @return the commands vote auto input sites
+	 */
 	public boolean getCommandsVoteAutoInputSites() {
 		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
 	}
 
+	/**
+	 * Gets the commands vote total all title.
+	 *
+	 * @return the commands vote total all title
+	 */
 	public String getCommandsVoteTotalAllTitle() {
 		String str = getData().getString("Format.Commands.Vote.TotalAll.Title");
 		if (str != null) {
@@ -208,6 +320,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote total all total.
+	 *
+	 * @return the commands vote total all total
+	 */
 	public String getCommandsVoteTotalAllTotal() {
 		String str = getData().getString("Format.Commands.Vote.TotalAll.Total");
 		if (str != null) {
@@ -217,6 +334,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote total line.
+	 *
+	 * @return the commands vote total line
+	 */
 	public String getCommandsVoteTotalLine() {
 		String str = getData().getString("Format.Commands.Vote.Total.Line");
 		if (str != null) {
@@ -226,6 +348,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote total title.
+	 *
+	 * @return the commands vote total title
+	 */
 	public String getCommandsVoteTotalTitle() {
 		String str = getData().getString("Format.Commands.Vote.Total.Title");
 		if (str != null) {
@@ -235,6 +362,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote total total.
+	 *
+	 * @return the commands vote total total
+	 */
 	public String getCommandsVoteTotalTotal() {
 		String str = getData().getString("Format.Commands.Vote.Total.Total");
 		if (str != null) {
@@ -244,6 +376,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the commands vote URLS.
+	 *
+	 * @return the commands vote URLS
+	 */
 	public String getCommandsVoteURLS() {
 		String str = getData().getString("Format.Commands.Vote.Sites");
 		if (str != null) {
@@ -253,6 +390,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the command vote top line.
+	 *
+	 * @return the command vote top line
+	 */
 	public String getCommandVoteTopLine() {
 		String str = getData().getString("Format.Commands.Vote.Top.Line");
 		if (str != null) {
@@ -262,6 +404,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the command vote top title.
+	 *
+	 * @return the command vote top title
+	 */
 	public String getCommandVoteTopTitle() {
 		String str = getData().getString("Format.Commands.Vote.Top.Title");
 		if (str != null) {
@@ -271,10 +418,20 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the data.
+	 *
+	 * @return the data
+	 */
 	public FileConfiguration getData() {
 		return data;
 	}
 
+	/**
+	 * Gets the login msg.
+	 *
+	 * @return the login msg
+	 */
 	public String getLoginMsg() {
 		String str = getData().getString("Format.LoginMsg");
 		if (str != null) {
@@ -284,6 +441,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the no perms.
+	 *
+	 * @return the no perms
+	 */
 	public String getNoPerms() {
 		String str = getData().getString("Format.NoPerms");
 		if (str != null) {
@@ -293,6 +455,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the not number.
+	 *
+	 * @return the not number
+	 */
 	public String getNotNumber() {
 		String str = getData().getString("Format.NotNumber");
 		if (str != null) {
@@ -302,10 +469,20 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the page size.
+	 *
+	 * @return the page size
+	 */
 	public int getPageSize() {
 		return 10;
 	}
 
+	/**
+	 * Gets the reward msg.
+	 *
+	 * @return the reward msg
+	 */
 	public String getRewardMsg() {
 		String str = getData().getString("Format.DefaultRewardMsg");
 		if (str != null) {
@@ -315,6 +492,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the sign top voter sign line 1.
+	 *
+	 * @return the sign top voter sign line 1
+	 */
 	public String getSignTopVoterSignLine1() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line1");
 		if (str != null) {
@@ -324,6 +506,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the sign top voter sign line 2.
+	 *
+	 * @return the sign top voter sign line 2
+	 */
 	public String getSignTopVoterSignLine2() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line2");
 		if (str != null) {
@@ -333,6 +520,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the sign top voter sign line 3.
+	 *
+	 * @return the sign top voter sign line 3
+	 */
 	public String getSignTopVoterSignLine3() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line3");
 		if (str != null) {
@@ -342,6 +534,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the sign top voter sign line 4.
+	 *
+	 * @return the sign top voter sign line 4
+	 */
 	public String getSignTopVoterSignLine4() {
 		String str = getData().getString("Format.Signs.TopVoterSign.Line4");
 		if (str != null) {
@@ -351,6 +548,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the sign top voter sign right click message.
+	 *
+	 * @return the sign top voter sign right click message
+	 */
 	public String getSignTopVoterSignRightClickMessage() {
 		String str = getData().getString("Format.Signs.RightClickMessage");
 		if (str != null) {
@@ -360,6 +562,11 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the time format.
+	 *
+	 * @return the time format
+	 */
 	public String getTimeFormat() {
 		String string = getData().getString("Format.TimeFormat");
 		if (string == null) {
@@ -368,6 +575,11 @@ public class ConfigFormat {
 		return string;
 	}
 
+	/**
+	 * Gets the time zone.
+	 *
+	 * @return the time zone
+	 */
 	public String getTimeZone() {
 		String str = getData().getString("Format.TimeZone");
 		if (str != null) {
@@ -376,6 +588,11 @@ public class ConfigFormat {
 		return "UTC";
 	}
 
+	/**
+	 * Gets the top voter reward msg.
+	 *
+	 * @return the top voter reward msg
+	 */
 	public String getTopVoterRewardMsg() {
 		String msg = getData().getString("Format.TopVoterAwardMsg");
 		if (msg != null) {
@@ -385,21 +602,38 @@ public class ConfigFormat {
 		}
 	}
 
+	/**
+	 * Gets the vote help.
+	 *
+	 * @return the vote help
+	 */
 	@SuppressWarnings("unchecked")
 	public List<String> getVoteHelp() {
 		return (List<String>) getData().getList(
 				"Format.Commands.Vote.Help.Lines");
 	}
 
+	/**
+	 * Reload data.
+	 */
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	/**
+	 * Save data.
+	 */
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
 
 	}
 
+	/**
+	 * Sets the up.
+	 *
+	 * @param p
+	 *            the new up
+	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
 			p.getDataFolder().mkdir();

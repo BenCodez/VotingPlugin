@@ -24,18 +24,35 @@ import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class VotiferEvent.
+ */
 public class VotiferEvent implements Listener {
 
+	/** The bonus reward. */
 	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
+	/** The config. */
 	static Config config = Config.getInstance();
 
+	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
+	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Player vote.
+	 *
+	 * @param playerName
+	 *            the player name
+	 * @param voteSiteURL
+	 *            the vote site URL
+	 */
 	public static void playerVote(String playerName, String voteSiteURL) {
 		User user = new User(playerName);
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
@@ -161,10 +178,22 @@ public class VotiferEvent implements Listener {
 
 	}
 
+	/**
+	 * Instantiates a new votifer event.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public VotiferEvent(Main plugin) {
 		VotiferEvent.plugin = plugin;
 	}
 
+	/**
+	 * On votifer event.
+	 *
+	 * @param event
+	 *            the event
+	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onVotiferEvent(VotifierEvent event) {
 

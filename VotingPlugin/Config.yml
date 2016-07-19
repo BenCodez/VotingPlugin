@@ -16,7 +16,7 @@ AllowUnjoined: false
 # If true /vote will open VoteURL GUI
 VoteURLDefault: false
 
-# If true, plugin will send scoreboards on commands
+# If true, plugin will send scoreboards on some commands
 SendScoreboards: true
 
 # If true, plugin will automaticly generate votesites
@@ -32,4 +32,5 @@ BackgroundTaskDelay: 600
 # Use this to send sounds/rewards/etc that are the same for all sites
 # This is recommended for use of titles, sounds, etc, 
 # as it works better for offline votes
+# Configure rewards in each site if you want different rewards for every site
 Rewards: []

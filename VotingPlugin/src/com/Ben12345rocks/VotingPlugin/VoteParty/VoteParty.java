@@ -14,26 +14,56 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class VoteParty.
+ */
 public class VoteParty {
+	
+	/** The instance. */
 	static VoteParty instance = new VoteParty();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of VoteParty.
+	 *
+	 * @return single instance of VoteParty
+	 */
 	public static VoteParty getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new vote party.
+	 */
 	private VoteParty() {
 	}
 
+	/**
+	 * Instantiates a new vote party.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public VoteParty(Main plugin) {
 		VoteParty.plugin = plugin;
 	}
 
+	/**
+	 * Adds the total.
+	 */
 	public void addTotal() {
 		setTotalVotes(getTotalVotes() + 1);
 	}
 
+	/**
+	 * Adds the vote player.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void addVotePlayer(User user) {
 		String uuid = user.getUUID();
 		ArrayList<String> voted = getVotedUsers();
@@ -46,6 +76,9 @@ public class VoteParty {
 		}
 	}
 
+	/**
+	 * Check.
+	 */
 	public void check() {
 		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
 			if (getTotalVotes() >= ConfigOtherRewards.getInstance()
@@ -57,6 +90,12 @@ public class VoteParty {
 		}
 	}
 
+	/**
+	 * Command vote party.
+	 *
+	 * @param sender
+	 *            the sender
+	 */
 	public void commandVoteParty(CommandSender sender) {
 		ArrayList<String> msg = ConfigFormat.getInstance()
 				.getCommandsVoteParty();
@@ -73,15 +112,32 @@ public class VoteParty {
 		sender.sendMessage(Utils.getInstance().convertArray(lines));
 	}
 
+	/**
+	 * Gets the offline vote party votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @return the offline vote party votes
+	 */
 	public int getOfflineVotePartyVotes(User user) {
 		return Data.getInstance().getData(user)
 				.getInt("VoteParty.OfflineVotes");
 	}
 
+	/**
+	 * Gets the total votes.
+	 *
+	 * @return the total votes
+	 */
 	public int getTotalVotes() {
 		return ServerData.getInstance().getData().getInt("VoteParty.Total");
 	}
 
+	/**
+	 * Gets the voted users.
+	 *
+	 * @return the voted users
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVotedUsers() {
 		ArrayList<String> list = (ArrayList<String>) ServerData.getInstance()
@@ -92,6 +148,12 @@ public class VoteParty {
 		return new ArrayList<String>();
 	}
 
+	/**
+	 * Give reward.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void giveReward(User user) {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
 			for (String reward : ConfigOtherRewards.getInstance()
@@ -103,6 +165,9 @@ public class VoteParty {
 		}
 	}
 
+	/**
+	 * Give rewards.
+	 */
 	public void giveRewards() {
 		if (ConfigOtherRewards.getInstance().getVotePartyGiveAllPlayers()) {
 			for (User user : Data.getInstance().getUsers()) {
@@ -117,15 +182,35 @@ public class VoteParty {
 		setVotedUsers(new ArrayList<String>());
 	}
 
+	/**
+	 * Sets the offline vote party votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @param value
+	 *            the value
+	 */
 	public void setOfflineVotePartyVotes(User user, int value) {
 		Data.getInstance().getData(user).set("VoteParty.OfflineVotes", value);
 	}
 
+	/**
+	 * Sets the total votes.
+	 *
+	 * @param value
+	 *            the new total votes
+	 */
 	public void setTotalVotes(int value) {
 		ServerData.getInstance().getData().set("VoteParty.Total", value);
 		ServerData.getInstance().saveData();
 	}
 
+	/**
+	 * Sets the voted users.
+	 *
+	 * @param value
+	 *            the new voted users
+	 */
 	public void setVotedUsers(ArrayList<String> value) {
 		ServerData.getInstance().getData().set("VoteParty.Voted", value);
 		ServerData.getInstance().saveData();

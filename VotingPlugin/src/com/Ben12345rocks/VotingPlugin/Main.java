@@ -49,46 +49,72 @@ import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Main.
+ */
 public class Main extends JavaPlugin {
 
+	/** The config. */
 	public static Config config;
 
+	/** The config bonus reward. */
 	public static ConfigOtherRewards configBonusReward;
 
+	/** The config GUI. */
 	public static ConfigGUI configGUI;
 
+	/** The config format. */
 	public static ConfigFormat configFormat;
 
+	/** The config vote sites. */
 	public static ConfigVoteSites configVoteSites;
 
+	/** The plugin. */
 	public static Main plugin;
 
+	/** The econ. */
 	public Economy econ = null;
 
+	/** The top voter monthly. */
 	public HashMap<User, Integer> topVoterMonthly;
 
+	/** The top voter weekly. */
 	public HashMap<User, Integer> topVoterWeekly;
 
+	/** The top voter daily. */
 	public HashMap<User, Integer> topVoterDaily;
 
+	/** The updater. */
 	public Updater updater;
 
+	/** The vote command. */
 	public ArrayList<CommandHandler> voteCommand;
 
+	/** The admin vote command. */
 	public ArrayList<CommandHandler> adminVoteCommand;
 
+	/** The vote sites. */
 	public ArrayList<VoteSite> voteSites;
 
+	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
 
+	/** The place holder API enabled. */
 	public boolean placeHolderAPIEnabled;
 
+	/** The rewards. */
 	public ArrayList<Reward> rewards;
 
+	/** The spigot lib enabled. */
 	public boolean spigotLibEnabled;
 
+	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
+	/**
+	 * Check place holder API.
+	 */
 	public void checkPlaceHolderAPI() {
 		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
 			placeHolderAPIEnabled = true;
@@ -99,6 +125,9 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	/**
+	 * Check spigot lib.
+	 */
 	public void checkSpigotLib() {
 		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
 			spigotLibEnabled = true;
@@ -109,26 +138,56 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	/**
+	 * Check votifier.
+	 */
 	private void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.debug("Votifier not found, votes may not work");
 		}
 	}
 
+	/**
+	 * Debug.
+	 *
+	 * @param message
+	 *            the message
+	 */
 	public void debug(String message) {
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Debug: " + message);
 		}
 	}
 
+	/**
+	 * Gets the user.
+	 *
+	 * @param playerName
+	 *            the player name
+	 * @return the user
+	 */
 	public User getUser(String playerName) {
 		return new User(playerName);
 	}
 
+	/**
+	 * Gets the user.
+	 *
+	 * @param uuid
+	 *            the uuid
+	 * @return the user
+	 */
 	public User getUser(UUID uuid) {
 		return new User(uuid);
 	}
 
+	/**
+	 * Gets the vote site.
+	 *
+	 * @param siteName
+	 *            the site name
+	 * @return the vote site
+	 */
 	public VoteSite getVoteSite(String siteName) {
 		for (VoteSite voteSite : voteSites) {
 			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
@@ -143,6 +202,9 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	/**
+	 * Load rewards.
+	 */
 	public void loadRewards() {
 		ConfigRewards.getInstance().setupExample();
 		rewards = new ArrayList<Reward>();
@@ -153,6 +215,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Load vote sites.
+	 */
 	public void loadVoteSites() {
 		configVoteSites.setup("ExampleVoteSite");
 		voteSites = configVoteSites.getVoteSitesLoad();
@@ -161,6 +226,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Metrics.
+	 */
 	private void metrics() {
 		try {
 			Metrics metrics = new Metrics(this);
@@ -171,12 +239,18 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
+	 */
 	@Override
 	public void onDisable() {
 		Signs.getInstance().storeSigns();
 		plugin = null;
 	}
 
+	/* (non-Javadoc)
+	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
+	 */
 	@Override
 	public void onEnable() {
 		plugin = this;
@@ -223,6 +297,9 @@ public class Main extends JavaPlugin {
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 	}
 
+	/**
+	 * Register commands.
+	 */
 	private void registerCommands() {
 		CommandLoader.getInstance().loadCommands();
 		CommandLoader.getInstance().loadAliases();
@@ -243,6 +320,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Register events.
+	 */
 	private void registerEvents() {
 		PluginManager pm = getServer().getPluginManager();
 
@@ -259,6 +339,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Reload.
+	 */
 	public void reload() {
 		config.reloadData();
 		configGUI.reloadData();
@@ -272,6 +355,11 @@ public class Main extends JavaPlugin {
 		plugin.update();
 	}
 
+	/**
+	 * Setup economy.
+	 *
+	 * @return true, if successful
+	 */
 	private boolean setupEconomy() {
 		if (getServer().getPluginManager().getPlugin("Vault") == null) {
 			return false;
@@ -285,6 +373,9 @@ public class Main extends JavaPlugin {
 		return econ != null;
 	}
 
+	/**
+	 * Setup files.
+	 */
 	public void setupFiles() {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
@@ -308,6 +399,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Start timer.
+	 */
 	public void startTimer() {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
@@ -322,6 +416,9 @@ public class Main extends JavaPlugin {
 
 	}
 
+	/**
+	 * Update.
+	 */
 	public void update() {
 		try {
 			TopVoter.getInstance().updateTopVoters();

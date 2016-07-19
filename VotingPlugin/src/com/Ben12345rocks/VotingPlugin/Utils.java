@@ -35,23 +35,52 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Utils.
+ */
 public class Utils {
 
+	/** The instance. */
 	static Utils instance = new Utils();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of Utils.
+	 *
+	 * @return single instance of Utils
+	 */
 	public static Utils getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new utils.
+	 */
 	private Utils() {
 	}
 
+	/**
+	 * Instantiates a new utils.
+	 *
+	 * @param plugin
+	 *            the plugin
+	 */
 	public Utils(Main plugin) {
 		Utils.plugin = plugin;
 	}
 
+	/**
+	 * Adds the enchants.
+	 *
+	 * @param item
+	 *            the item
+	 * @param enchants
+	 *            the enchants
+	 * @return the item stack
+	 */
 	public ItemStack addEnchants(ItemStack item,
 			HashMap<String, Integer> enchants) {
 		if ((enchants == null) || (enchants.size() == 0)) {
@@ -67,6 +96,15 @@ public class Utils {
 
 	}
 
+	/**
+	 * Adds the lore.
+	 *
+	 * @param item
+	 *            the item
+	 * @param lore
+	 *            the lore
+	 * @return the item stack
+	 */
 	public ItemStack addLore(ItemStack item, List<String> lore) {
 		if (lore == null) {
 			return item;
@@ -81,6 +119,13 @@ public class Utils {
 		return item;
 	}
 
+	/**
+	 * Colorize.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the array list
+	 */
 	public ArrayList<String> colorize(ArrayList<String> list) {
 		if (list == null) {
 			return null;
@@ -92,6 +137,13 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Colorize.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the list
+	 */
 	public List<String> colorize(List<String> list) {
 		if (list == null) {
 			return null;
@@ -103,6 +155,13 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Colorize.
+	 *
+	 * @param format
+	 *            the format
+	 * @return the string
+	 */
 	public String colorize(String format) {
 		if (format == null) {
 			return null;
@@ -110,6 +169,13 @@ public class Utils {
 		return ChatColor.translateAlternateColorCodes('&', format);
 	}
 
+	/**
+	 * Colorize.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the string[]
+	 */
 	public String[] colorize(String[] list) {
 		if (list == null) {
 			return null;
@@ -121,6 +187,13 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Compto string.
+	 *
+	 * @param comps
+	 *            the comps
+	 * @return the array list
+	 */
 	public ArrayList<String> comptoString(ArrayList<TextComponent> comps) {
 		ArrayList<String> txt = new ArrayList<String>();
 		for (TextComponent comp : comps) {
@@ -129,10 +202,24 @@ public class Utils {
 		return txt;
 	}
 
+	/**
+	 * Comp to string.
+	 *
+	 * @param comp
+	 *            the comp
+	 * @return the string
+	 */
 	public String compToString(TextComponent comp) {
 		return colorize(comp.toPlainText());
 	}
 
+	/**
+	 * Convert.
+	 *
+	 * @param array
+	 *            the array
+	 * @return the user[]
+	 */
 	public User[] convert(ArrayList<User> array) {
 		if (array == null) {
 			return null;
@@ -144,6 +231,13 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Convert.
+	 *
+	 * @param set
+	 *            the set
+	 * @return the array list
+	 */
 	public ArrayList<String> convert(Set<String> set) {
 		ArrayList<String> list = new ArrayList<String>();
 		for (String st : set) {
@@ -152,6 +246,13 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Convert array.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the string[]
+	 */
 	@SuppressWarnings("unused")
 	public String[] convertArray(ArrayList<String> list) {
 		if (list == null) {
@@ -168,6 +269,13 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Convert array.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the array list
+	 */
 	@SuppressWarnings("unused")
 	public ArrayList<String> convertArray(String[] list) {
 		if (list == null) {
@@ -184,6 +292,13 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Convert set.
+	 *
+	 * @param set
+	 *            the set
+	 * @return the array list
+	 */
 	public ArrayList<User> convertSet(Set<User> set) {
 		if (set == null) {
 			return null;
@@ -195,30 +310,65 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Gets the day from mili.
+	 *
+	 * @param time
+	 *            the time
+	 * @return the day from mili
+	 */
 	@SuppressWarnings("deprecation")
 	public int getDayFromMili(long time) {
 		Date date = new Date(time);
 		return date.getDate();
 	}
 
+	/**
+	 * Gets the hour from mili.
+	 *
+	 * @param time
+	 *            the time
+	 * @return the hour from mili
+	 */
 	@SuppressWarnings("deprecation")
 	public int getHourFromMili(long time) {
 		Date date = new Date(time);
 		return date.getHours();
 	}
 
+	/**
+	 * Gets the minutes from mili.
+	 *
+	 * @param time
+	 *            the time
+	 * @return the minutes from mili
+	 */
 	@SuppressWarnings("deprecation")
 	public int getMinutesFromMili(long time) {
 		Date date = new Date(time);
 		return date.getMinutes();
 	}
 
+	/**
+	 * Gets the month from mili.
+	 *
+	 * @param time
+	 *            the time
+	 * @return the month from mili
+	 */
 	@SuppressWarnings("deprecation")
 	public int getMonthFromMili(long time) {
 		Date date = new Date(time);
 		return date.getMonth();
 	}
 
+	/**
+	 * Gets the month string.
+	 *
+	 * @param month
+	 *            the month
+	 * @return the month string
+	 */
 	public String getMonthString(int month) {
 		if (month == 0) {
 			month++;
@@ -226,6 +376,13 @@ public class Utils {
 		return new DateFormatSymbols().getMonths()[month - 1];
 	}
 
+	/**
+	 * Gets the player name.
+	 *
+	 * @param uuid
+	 *            the uuid
+	 * @return the player name
+	 */
 	public String getPlayerName(String uuid) {
 		if ((uuid == null) || uuid.equalsIgnoreCase("null")) {
 
@@ -253,6 +410,17 @@ public class Utils {
 
 	}
 
+	/**
+	 * Gets the region blocks.
+	 *
+	 * @param world
+	 *            the world
+	 * @param loc1
+	 *            the loc 1
+	 * @param loc2
+	 *            the loc 2
+	 * @return the region blocks
+	 */
 	public List<Block> getRegionBlocks(World world, Location loc1, Location loc2) {
 		List<Block> blocks = new ArrayList<Block>();
 
@@ -268,6 +436,13 @@ public class Utils {
 		return blocks;
 	}
 
+	/**
+	 * Gets the uuid.
+	 *
+	 * @param playerName
+	 *            the player name
+	 * @return the uuid
+	 */
 	@SuppressWarnings("deprecation")
 	public String getUUID(String playerName) {
 		if (playerName == null) {
@@ -281,6 +456,13 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Gets the vote site name.
+	 *
+	 * @param url
+	 *            the url
+	 * @return the vote site name
+	 */
 	public String getVoteSiteName(String url) {
 		ArrayList<String> sites = ConfigVoteSites.getInstance()
 				.getVoteSitesNames();
@@ -302,20 +484,54 @@ public class Utils {
 
 	}
 
+	/**
+	 * Gets the year from mili.
+	 *
+	 * @param time
+	 *            the time
+	 * @return the year from mili
+	 */
 	@SuppressWarnings("deprecation")
 	public int getYearFromMili(long time) {
 		Date date = new Date(time);
 		return date.getYear();
 	}
 
+	/**
+	 * Checks for permission.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param perm
+	 *            the perm
+	 * @return true, if successful
+	 */
 	public boolean hasPermission(CommandSender sender, String perm) {
 		return sender.hasPermission(plugin.getName() + "." + perm);
 	}
 
+	/**
+	 * Checks for permission.
+	 *
+	 * @param player
+	 *            the player
+	 * @param perm
+	 *            the perm
+	 * @return true, if successful
+	 */
 	public boolean hasPermission(Player player, String perm) {
 		return player.hasPermission(plugin.getName() + "." + perm);
 	}
 
+	/**
+	 * Checks for permission.
+	 *
+	 * @param playerName
+	 *            the player name
+	 * @param perm
+	 *            the perm
+	 * @return true, if successful
+	 */
 	public boolean hasPermission(String playerName, String perm) {
 		if (playerName == null) {
 			return false;
@@ -327,6 +543,13 @@ public class Utils {
 		return false;
 	}
 
+	/**
+	 * Checks if is int.
+	 *
+	 * @param st
+	 *            the st
+	 * @return true, if is int
+	 */
 	public boolean isInt(String st) {
 		try {
 			@SuppressWarnings("unused")
@@ -338,6 +561,13 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Checks if is player.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @return true, if is player
+	 */
 	public boolean isPlayer(CommandSender sender) {
 		if (sender instanceof Player) {
 			return true;
@@ -345,6 +575,13 @@ public class Utils {
 		return false;
 	}
 
+	/**
+	 * Checks if is player online.
+	 *
+	 * @param playerName
+	 *            the player name
+	 * @return true, if is player online
+	 */
 	public boolean isPlayerOnline(String playerName) {
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
@@ -353,6 +590,15 @@ public class Utils {
 		return false;
 	}
 
+	/**
+	 * Make string.
+	 *
+	 * @param startIndex
+	 *            the start index
+	 * @param strs
+	 *            the strs
+	 * @return the string
+	 */
 	public String makeString(int startIndex, String[] strs) {
 		String str = new String();
 		for (int i = startIndex; i < strs.length; i++) {
@@ -366,6 +612,13 @@ public class Utils {
 		return str;
 	}
 
+	/**
+	 * Make string list.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the string
+	 */
 	public String makeStringList(ArrayList<String> list) {
 		if (list == null) {
 			return "";
@@ -385,6 +638,15 @@ public class Utils {
 		return string;
 	}
 
+	/**
+	 * Name item.
+	 *
+	 * @param item
+	 *            the item
+	 * @param name
+	 *            the name
+	 * @return the item stack
+	 */
 	public ItemStack nameItem(ItemStack item, String name) {
 		if (name == null) {
 			return item;
@@ -396,6 +658,12 @@ public class Utils {
 
 	}
 
+	/**
+	 * Prints the map.
+	 *
+	 * @param topVoterMonthly
+	 *            the top voter monthly
+	 */
 	public void printMap(HashMap<User, Integer> topVoterMonthly) {
 		for (Entry<User, Integer> entry : topVoterMonthly.entrySet()) {
 			plugin.debug("Key : " + entry.getKey().getPlayerName()
@@ -403,6 +671,13 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Removes the double users.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the array list
+	 */
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
 		Set<User> hs = new HashSet<User>();
 		ArrayList<User> al = new ArrayList<User>();
@@ -413,11 +688,29 @@ public class Utils {
 		return al;
 	}
 
+	/**
+	 * Removes the duplicates.
+	 *
+	 * @param list
+	 *            the list
+	 * @return the array list
+	 */
 	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
 		Set<String> set = new HashSet<String>(list);
 		return new ArrayList<String>(set);
 	}
 
+	/**
+	 * Replace.
+	 *
+	 * @param list
+	 *            the list
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
+	 * @return the list
+	 */
 	public List<String> replace(List<String> list, String toReplace,
 			String replaceWith) {
 		if (list == null) {
@@ -432,6 +725,17 @@ public class Utils {
 		return list;
 	}
 
+	/**
+	 * Replace ignore case.
+	 *
+	 * @param list
+	 *            the list
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
+	 * @return the array list
+	 */
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
 			String toReplace, String replaceWith) {
 		ArrayList<String> newList = new ArrayList<String>();
@@ -441,6 +745,17 @@ public class Utils {
 		return newList;
 	}
 
+	/**
+	 * Replace ignore case.
+	 *
+	 * @param str
+	 *            the str
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
+	 * @return the string
+	 */
 	public String replaceIgnoreCase(String str, String toReplace,
 			String replaceWith) {
 		if (str == null) {
@@ -452,6 +767,15 @@ public class Utils {
 		return str.replaceAll("(?i)" + toReplace, replaceWith);
 	}
 
+	/**
+	 * Replace place holders.
+	 *
+	 * @param player
+	 *            the player
+	 * @param text
+	 *            the text
+	 * @return the string
+	 */
 	public String replacePlaceHolders(Player player, String text) {
 		if (plugin.placeHolderAPIEnabled) {
 			return PlaceholderAPI.setBracketPlaceholders(player, text);
@@ -460,6 +784,22 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Send title.
+	 *
+	 * @param player
+	 *            the player
+	 * @param title
+	 *            the title
+	 * @param subTitle
+	 *            the sub title
+	 * @param fadeIn
+	 *            the fade in
+	 * @param showTime
+	 *            the show time
+	 * @param fadeOut
+	 *            the fade out
+	 */
 	public void sendTitle(Player player, String title, String subTitle,
 			int fadeIn, int showTime, int fadeOut) {
 		if (plugin.spigotLibEnabled) {
@@ -476,6 +816,15 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Sets the durabilty.
+	 *
+	 * @param item
+	 *            the item
+	 * @param durability
+	 *            the durability
+	 * @return the item stack
+	 */
 	public ItemStack setDurabilty(ItemStack item, int durability) {
 		if (item == null) {
 			return null;
@@ -486,6 +835,15 @@ public class Utils {
 		return item;
 	}
 
+	/**
+	 * Sets the skull owner.
+	 *
+	 * @param item
+	 *            the item
+	 * @param playerName
+	 *            the player name
+	 * @return the item stack
+	 */
 	public ItemStack setSkullOwner(ItemStack item, String playerName) {
 		if (item == null) {
 			return null;
@@ -498,6 +856,13 @@ public class Utils {
 		return item;
 	}
 
+	/**
+	 * Sets the to array.
+	 *
+	 * @param set
+	 *            the set
+	 * @return the string[]
+	 */
 	@SuppressWarnings("unused")
 	public String[] setToArray(Set<String> set) {
 		String[] array = new String[set.size()];
@@ -513,6 +878,15 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Sort by values.
+	 *
+	 * @param unsortMap
+	 *            the unsort map
+	 * @param order
+	 *            the order
+	 * @return the hash map
+	 */
 	public HashMap<User, Integer> sortByValues(
 			HashMap<User, Integer> unsortMap, final boolean order) {
 
@@ -541,10 +915,26 @@ public class Utils {
 		return sortedMap;
 	}
 
+	/**
+	 * Starts with ignore case.
+	 *
+	 * @param str1
+	 *            the str 1
+	 * @param str2
+	 *            the str 2
+	 * @return true, if successful
+	 */
 	public boolean startsWithIgnoreCase(String str1, String str2) {
 		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
 
+	/**
+	 * String to comp.
+	 *
+	 * @param string
+	 *            the string
+	 * @return the text component
+	 */
 	public TextComponent stringToComp(String string) {
 		TextComponent base = new TextComponent("");
 		boolean previousLetter = false;
