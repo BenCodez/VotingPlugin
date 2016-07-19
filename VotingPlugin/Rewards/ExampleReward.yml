@@ -5,9 +5,11 @@
 # DO NOT HAVE DUPLICATE NAMES!!
 
 # Reward are run top to bottom (For the most part)
+# You can just remove values you don't want (just delete it)
+# If you just want money just have a reward file containg "Money: 100", for example
 
 # NOTE: Do not use this reward file in more than one place if
-# delayed or timed is enabled!
+# delayed or timed is enabled! They will interfer with each other.
 
 # This will delay the reward file from running
 Delayed:
@@ -29,7 +31,7 @@ Timed:
 Chance: 40
 
 # This is to give random rewards, with fallback
-# Rewards defined in this reward file below are still given
+# Rewards defined in this reward file below are still given regardless of this below
 Random:
   # Chance to give a randomly selected reward below (from list), will only give random reward
   # if lucky (according to chance)
@@ -80,10 +82,12 @@ Items:
     
     # Random amount of items between Min and Max will be given
     # if min and max are not both 0
+    
     # Min amount of items
-    MinAmount: 1
+    #MinAmount: 1
+    
     # Max amount of items
-    MaxAmount: 4
+    #MaxAmount: 4
     
     # Item name
     # Remove this value to have no name
@@ -106,8 +110,8 @@ Items:
 Money: 1000
 
 # Pick random number between min and max amount
-MinMoney: 100
-MaxMoney: 3000
+#MinMoney: 100
+#MaxMoney: 3000
 
 # Give player experience
 EXP: 100

@@ -11,6 +11,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -35,6 +36,11 @@ public class TopVoters {
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
+		}
+		
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersDaily()) {
+			plugin.debug("Not Storing TopVoters Daily");
+			return;
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
@@ -83,6 +89,11 @@ public class TopVoters {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
 		}
+		
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersMonthly()) {
+			plugin.debug("Not Storing TopVoters Monthly");
+			return;
+		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
 				+ "TopVoters" + File.separator + "Monthly", "TopVoters." + year
@@ -130,6 +141,11 @@ public class TopVoters {
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
+		}
+		
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersWeekly()) {
+			plugin.debug("Not Storing TopVoters Weekly");
+			return;
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator

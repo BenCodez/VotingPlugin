@@ -66,6 +66,18 @@ public class ConfigTopVoterAwards {
 		return data;
 	}
 
+	public boolean getStoreTopVotersMonthly() {
+		return getData().getBoolean("StoreTopVoters.Monthly");
+	}
+
+	public boolean getStoreTopVotersWeekly() {
+		return getData().getBoolean("StoreTopVoters.Weekly");
+	}
+
+	public boolean getStoreTopVotersDaily() {
+		return getData().getBoolean("StoreTopVoters.Daily");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getMonthlyAwardRewards(int pos) {
 		return (ArrayList<String>) getData().getList(
@@ -127,9 +139,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create TopVoterAwards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

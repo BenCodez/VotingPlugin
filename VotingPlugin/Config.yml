@@ -10,6 +10,7 @@ Debug: false
 BroadcastVote: true
 
 # Let players who never joined before vote
+# Recommend: False (Will prevent creating random user data files)
 AllowUnjoined: false
 
 # If true /vote will open VoteURL GUI

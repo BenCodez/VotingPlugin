@@ -2,6 +2,13 @@
 BlackList:
 - 'Notch'
 
+# When top voter awards are given (if there are none listed) it will store top voters
+# Files will created in TopVoters folder.
+StoreTopVoters:
+  Monthly: true
+  Weekly: true
+  Daily: true
+
 EnableMonthlyAwards: true
 # Rewards to give
 MonthlyAwards:
