@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -61,68 +62,23 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
-	public int getEffectData() {
-		return getData().getInt("Effect.Data");
-	}
-
-	public String getEffectEffect() {
-		return getData().getString("Effect.Effect");
-	}
-
-	public boolean getEffectEnabled() {
-		return getData().getBoolean("Effect.Enabled");
-	}
-
-	public int getEffectParticles() {
-		return getData().getInt("Effect.Particles");
-	}
-
-	public int getEffectRadius() {
-		return getData().getInt("Effect.Radius");
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRewards() {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Rewards");
+			if (list != null) {
+				return list;
+			} else {
+				return new ArrayList<String>();
+			}
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
 	}
 
 	public boolean getSendScoreboards() {
 		return getData().getBoolean("SendScoreboards");
-	}
-
-	public boolean getSoundEnabled() {
-		return getData().getBoolean("Sound.Enabled");
-	}
-
-	public float getSoundPitch() {
-		return (float) getData().getDouble("Sound.Pitch");
-	}
-
-	public String getSoundSound() {
-		return getData().getString("Sound.Sound");
-	}
-
-	public float getSoundVolume() {
-		return (float) getData().getDouble("Sound.Volume");
-	}
-
-	public boolean getTitleEnabled() {
-		return getData().getBoolean("Title.Enabled");
-	}
-
-	public int getTitleFadeIn() {
-		return getData().getInt("Title.FadeIn");
-	}
-
-	public int getTitleFadeOut() {
-		return getData().getInt("Title.FadeOut");
-	}
-
-	public int getTitleShowTime() {
-		return getData().getInt("Title.ShowTime");
-	}
-
-	public String getTitleSubTitle() {
-		return getData().getString("Title.SubTitle");
-	}
-
-	public String getTitleTitle() {
-		return getData().getString("Title.Title");
 	}
 
 	public boolean getVoteURLDefault() {

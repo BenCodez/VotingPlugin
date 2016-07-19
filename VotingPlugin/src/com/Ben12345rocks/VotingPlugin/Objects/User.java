@@ -848,33 +848,6 @@ public class User {
 	}
 
 	/**
-	 * Send vote effect
-	 */
-	public void playVoteEffect() {
-		if (Config.getInstance().getEffectEnabled()) {
-			playParticleEffect(Config.getInstance().getEffectEffect(), Config
-					.getInstance().getEffectData(), Config.getInstance()
-					.getEffectParticles(), Config.getInstance()
-					.getEffectRadius());
-		}
-	}
-
-	/**
-	 * send vote sound
-	 */
-	public void playVoteSound() {
-		if (Config.getInstance().getSoundEnabled()) {
-			try {
-				playSound(Config.getInstance().getSoundSound(), Config
-						.getInstance().getSoundVolume(), Config.getInstance()
-						.getSoundPitch());
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
-	}
-
-	/**
 	 * Get whether or not user has been reminded to vote
 	 *
 	 * @return T
@@ -990,21 +963,10 @@ public class User {
 	 * Send the user the voting effects
 	 */
 	public void sendVoteEffects() {
-		sendVoteTitle();
-		playVoteEffect();
-		playVoteSound();
-	}
-
-	/**
-	 * send vote title
-	 *
-	 */
-	public void sendVoteTitle() {
-		if (Config.getInstance().getTitleEnabled()) {
-			sendTitle(Config.getInstance().getTitleTitle(), Config
-					.getInstance().getTitleSubTitle(), Config.getInstance()
-					.getTitleFadeIn(), Config.getInstance().getTitleShowTime(),
-					Config.getInstance().getTitleFadeOut());
+		for (String reward : Config.getInstance().getRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward).giveReward(this);
+			}
 		}
 	}
 
