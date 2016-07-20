@@ -27,6 +27,9 @@ import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
 
+/**
+ * The Class Metrics.
+ */
 public class Metrics {
 
 	/**
