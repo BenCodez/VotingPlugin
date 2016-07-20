@@ -28,31 +28,59 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 import com.vexsoftware.votifier.model.Vote;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class CommandAdminVote.
+ */
 public class CommandAdminVote implements CommandExecutor {
 
+	/** The instance. */
 	private static CommandAdminVote instance = new CommandAdminVote();
 
+	/**
+	 * Gets the single instance of CommandAdminVote.
+	 *
+	 * @return single instance of CommandAdminVote
+	 */
 	public static CommandAdminVote getInstance() {
 		return instance;
 	}
 
+	/** The bonus reward. */
 	ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
 
+	/** The config. */
 	Config config = Config.getInstance();
 
+	/** The format. */
 	ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The plugin. */
 	private Main plugin = Main.plugin;
 
+	/** The vote sites. */
 	ConfigVoteSites voteSites = ConfigVoteSites.getInstance();
 
+	/**
+	 * Instantiates a new command admin vote.
+	 */
 	private CommandAdminVote() {
 	}
 
+	/**
+	 * Instantiates a new command admin vote.
+	 *
+	 * @param plugin the plugin
+	 */
 	public CommandAdminVote(Main plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Check update.
+	 *
+	 * @param sender the sender
+	 */
 	public void checkUpdate(CommandSender sender) {
 		plugin.updater = new Updater(plugin, 15358, false);
 		final Updater.UpdateResult result = plugin.updater.getResult();
@@ -85,6 +113,12 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	/**
+	 * Check vote site.
+	 *
+	 * @param sender the sender
+	 * @param siteName the site name
+	 */
 	public void checkVoteSite(CommandSender sender, String siteName) {
 		if (!ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
 			sender.sendMessage(Utils.getInstance().colorize(
@@ -102,6 +136,12 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	/**
+	 * Creates the vote site.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 */
 	public void createVoteSite(CommandSender sender, String voteSite) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
@@ -118,6 +158,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Help.
+	 *
+	 * @param sender the sender
+	 * @param page the page
+	 */
 	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
 			User user = new User((Player) sender);
@@ -132,6 +178,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/* (non-Javadoc)
+	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
 			String[] args) {
@@ -149,12 +198,22 @@ public class CommandAdminVote implements CommandExecutor {
 		return true;
 	}
 
+	/**
+	 * Perm list.
+	 *
+	 * @param sender the sender
+	 */
 	public void permList(CommandSender sender) {
 
 		sender.sendMessage(Commands.getInstance().listPerms());
 
 	}
 
+	/**
+	 * Reload.
+	 *
+	 * @param sender the sender
+	 */
 	public void reload(CommandSender sender) {
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -171,6 +230,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Reset player totals.
+	 *
+	 * @param sender the sender
+	 * @param playerName the player name
+	 */
 	public void resetPlayerTotals(CommandSender sender, String playerName) {
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cResseting totals for player &c&l" + playerName));
@@ -186,6 +251,11 @@ public class CommandAdminVote implements CommandExecutor {
 		});
 	}
 
+	/**
+	 * Reset totals.
+	 *
+	 * @param sender the sender
+	 */
 	public void resetTotals(CommandSender sender) {
 
 		sender.sendMessage(Utils.getInstance().colorize(
@@ -203,18 +273,35 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Reward.
+	 *
+	 * @param sender the sender
+	 * @param reward the reward
+	 */
 	public void reward(CommandSender sender, String reward) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandRewardInfo(reward));
 
 	}
 
+	/**
+	 * Rewards.
+	 *
+	 * @param sender the sender
+	 */
 	public void rewards(CommandSender sender) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandRewards());
 
 	}
 
+	/**
+	 * Sets the config allow unjoined.
+	 *
+	 * @param sender the sender
+	 * @param value the value
+	 */
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
 
 		Config.getInstance().setAllowUnJoined(value);
@@ -223,6 +310,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the config broadcast vote.
+	 *
+	 * @param sender the sender
+	 * @param value the value
+	 */
 	public void setConfigBroadcastVote(CommandSender sender, boolean value) {
 
 		Config.getInstance().setDebugEnabled(value);
@@ -231,6 +324,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the config debug.
+	 *
+	 * @param sender the sender
+	 * @param value the value
+	 */
 	public void setConfigDebug(CommandSender sender, boolean value) {
 
 		Config.getInstance().setDebugEnabled(value);
@@ -239,6 +338,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the config enable top voter awards.
+	 *
+	 * @param sender the sender
+	 * @param value the value
+	 */
 	public void setConfigEnableTopVoterAwards(CommandSender sender,
 			boolean value) {
 
@@ -248,6 +353,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the server data prev month.
+	 *
+	 * @param sender the sender
+	 * @param month the month
+	 */
 	public void setServerDataPrevMonth(CommandSender sender, int month) {
 
 		ServerData.getInstance().setPrevMonth(month);
@@ -256,6 +367,14 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the total.
+	 *
+	 * @param sender the sender
+	 * @param playerName the player name
+	 * @param voteSite the vote site
+	 * @param amount the amount
+	 */
 	public void setTotal(CommandSender sender, String playerName,
 			String voteSite, int amount) {
 
@@ -266,6 +385,13 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the vote site enabled.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 * @param value the value
+	 */
 	public void setVoteSiteEnabled(CommandSender sender, String voteSite,
 			boolean value) {
 		ConfigVoteSites.getInstance().setEnabled(voteSite, value);
@@ -273,6 +399,13 @@ public class CommandAdminVote implements CommandExecutor {
 				"&cSet votesite " + voteSite + " enabled to " + value));
 	}
 
+	/**
+	 * Sets the vote site priority.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 * @param value the value
+	 */
 	public void setVoteSitePriority(CommandSender sender, String voteSite,
 			int value) {
 
@@ -282,6 +415,13 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the vote site service site.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 * @param serviceSite the service site
+	 */
 	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
 			String serviceSite) {
 
@@ -292,6 +432,13 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the vote site vote delay.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 * @param delay the delay
+	 */
 	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite,
 			int delay) {
 
@@ -301,6 +448,13 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the vote site vote URL.
+	 *
+	 * @param sender the sender
+	 * @param voteSite the vote site
+	 * @param url the url
+	 */
 	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
 			String url) {
 
@@ -310,18 +464,35 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Site.
+	 *
+	 * @param sender the sender
+	 * @param site the site
+	 */
 	public void site(CommandSender sender, String site) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandSiteInfo(site));
 
 	}
 
+	/**
+	 * Sites.
+	 *
+	 * @param sender the sender
+	 */
 	public void sites(CommandSender sender) {
 
 		sender.sendMessage(Commands.getInstance().voteCommandSites());
 
 	}
 
+	/**
+	 * Uuid.
+	 *
+	 * @param sender the sender
+	 * @param playerName the player name
+	 */
 	public void uuid(CommandSender sender, String playerName) {
 
 		sender.sendMessage(ChatColor.GREEN + "UUID of player "
@@ -330,6 +501,11 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Version.
+	 *
+	 * @param sender the sender
+	 */
 	public void version(CommandSender sender) {
 		if (sender instanceof Player) {
 
@@ -342,6 +518,13 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	/**
+	 * Vote.
+	 *
+	 * @param sender the sender
+	 * @param playerName the player name
+	 * @param voteSite the vote site
+	 */
 	public void Vote(CommandSender sender, String playerName, String voteSite) {
 
 		VotiferEvent.playerVote(playerName, voteSite);

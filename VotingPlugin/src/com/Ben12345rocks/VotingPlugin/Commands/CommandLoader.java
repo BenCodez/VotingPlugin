@@ -23,37 +23,69 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Report.Report;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class CommandLoader.
+ */
 public class CommandLoader {
 
+	/** The other reward. */
 	static ConfigOtherRewards otherReward = ConfigOtherRewards.getInstance();
 
+	/** The config. */
 	static Config config = Config.getInstance();
 
+	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
+	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The instance. */
 	static CommandLoader instance = new CommandLoader();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of CommandLoader.
+	 *
+	 * @return single instance of CommandLoader
+	 */
 	public static CommandLoader getInstance() {
 		return instance;
 	}
 
+	/** The commands. */
 	private HashMap<String, CommandHandler> commands;
 
+	/**
+	 * Instantiates a new command loader.
+	 */
 	private CommandLoader() {
 	}
 
+	/**
+	 * Instantiates a new command loader.
+	 *
+	 * @param plugin the plugin
+	 */
 	public CommandLoader(Main plugin) {
 		CommandLoader.plugin = plugin;
 	}
 
+	/**
+	 * Gets the commands.
+	 *
+	 * @return the commands
+	 */
 	public HashMap<String, CommandHandler> getCommands() {
 		return commands;
 	}
 
+	/**
+	 * Load admin vote command.
+	 */
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
@@ -387,6 +419,9 @@ public class CommandLoader {
 
 	}
 
+	/**
+	 * Load aliases.
+	 */
 	public void loadAliases() {
 		commands = new HashMap<String, CommandHandler>();
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
@@ -431,11 +466,17 @@ public class CommandLoader {
 		}
 	}
 
+	/**
+	 * Load commands.
+	 */
 	public void loadCommands() {
 		loadAdminVoteCommand();
 		loadVoteCommand();
 	}
 
+	/**
+	 * Load vote command.
+	 */
 	private void loadVoteCommand() {
 		plugin.voteCommand = new ArrayList<CommandHandler>();
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Help&?" },
@@ -750,6 +791,11 @@ public class CommandLoader {
 		});
 	}
 
+	/**
+	 * Sets the commands.
+	 *
+	 * @param commands the commands
+	 */
 	public void setCommands(HashMap<String, CommandHandler> commands) {
 		this.commands = commands;
 	}

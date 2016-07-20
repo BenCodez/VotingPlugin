@@ -22,8 +22,18 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import com.Ben12345rocks.VotingPlugin.Utils;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class BInventory.
+ */
 public class BInventory implements Listener {
 
+	/**
+	 * Open inventory.
+	 *
+	 * @param player the player
+	 * @param inventory the inventory
+	 */
 	public static void openInventory(Player player, BInventory inventory) {
 		Inventory inv = Bukkit.createInventory(player,
 				inventory.getInventorySize(), inventory.getInventoryName());
@@ -49,27 +59,47 @@ public class BInventory implements Listener {
 		player.openInventory(inv);
 	}
 
+	/** The inventory name. */
 	private String inventoryName;
 
+	/** The buttons. */
 	private Map<Integer, BInventoryButton> buttons = new HashMap<Integer, BInventoryButton>();
 
+	/**
+	 * Instantiates a new b inventory.
+	 *
+	 * @param name the name
+	 */
 	public BInventory(String name) {
 		setInventoryName(name);
 		Bukkit.getPluginManager().registerEvents(this,
 				Bukkit.getPluginManager().getPlugins()[0]);
 	}
 
+	/**
+	 * Adds the button.
+	 *
+	 * @param position the position
+	 * @param button the button
+	 */
 	public void addButton(int position, BInventoryButton button) {
 		getButtons().put(position, button);
 	}
 
 	/**
+	 * Gets the buttons.
+	 *
 	 * @return the inventory buttons
 	 */
 	public Map<Integer, BInventoryButton> getButtons() {
 		return buttons;
 	}
 
+	/**
+	 * Gets the highest slot.
+	 *
+	 * @return the highest slot
+	 */
 	public int getHighestSlot() {
 		int highestNum = 0;
 		for (int num : buttons.keySet()) {
@@ -80,10 +110,20 @@ public class BInventory implements Listener {
 		return highestNum;
 	}
 
+	/**
+	 * Gets the inventory name.
+	 *
+	 * @return the inventory name
+	 */
 	public String getInventoryName() {
 		return inventoryName;
 	}
 
+	/**
+	 * Gets the inventory size.
+	 *
+	 * @return the inventory size
+	 */
 	public int getInventorySize() {
 		int highestSlot = getHighestSlot();
 		if (highestSlot <= 9) {
@@ -103,6 +143,11 @@ public class BInventory implements Listener {
 
 	// event handling
 
+	/**
+	 * On inventory click.
+	 *
+	 * @param event the event
+	 */
 	@EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent event) {
 		if (!(event.getWhoClicked() instanceof Player)) {
@@ -128,6 +173,11 @@ public class BInventory implements Listener {
 		}
 	}
 
+	/**
+	 * Sets the inventory name.
+	 *
+	 * @param inventoryName the new inventory name
+	 */
 	public void setInventoryName(String inventoryName) {
 		this.inventoryName = Utils.getInstance().colorize(inventoryName);
 	}

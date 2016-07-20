@@ -23,25 +23,48 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class TopVoter.
+ */
 public class TopVoter {
 
+	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
+	/** The instance. */
 	static TopVoter instance = new TopVoter();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of TopVoter.
+	 *
+	 * @return single instance of TopVoter
+	 */
 	public static TopVoter getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new top voter.
+	 */
 	private TopVoter() {
 	}
 
+	/**
+	 * Instantiates a new top voter.
+	 *
+	 * @param plugin the plugin
+	 */
 	public TopVoter(Main plugin) {
 		TopVoter.plugin = plugin;
 	}
 
+	/**
+	 * Check top voter award.
+	 */
 	@SuppressWarnings("deprecation")
 	public void checkTopVoterAward() {
 		if (hasMonthChanged()) {
@@ -123,6 +146,11 @@ public class TopVoter {
 
 	}
 
+	/**
+	 * Checks for day changed.
+	 *
+	 * @return true, if successful
+	 */
 	@SuppressWarnings("deprecation")
 	public boolean hasDayChanged() {
 		int prevDay = ServerData.getInstance().getPrevDay();
@@ -137,6 +165,11 @@ public class TopVoter {
 		return false;
 	}
 
+	/**
+	 * Checks for month changed.
+	 *
+	 * @return true, if successful
+	 */
 	@SuppressWarnings("deprecation")
 	public boolean hasMonthChanged() {
 		int prevMonth = ServerData.getInstance().getPrevMonth();
@@ -151,6 +184,11 @@ public class TopVoter {
 		return false;
 	}
 
+	/**
+	 * Checks for week changed.
+	 *
+	 * @return true, if successful
+	 */
 	@SuppressWarnings("deprecation")
 	public boolean hasWeekChanged() {
 		int prevDate = ServerData.getInstance().getPrevWeekDay();
@@ -165,6 +203,9 @@ public class TopVoter {
 		return false;
 	}
 
+	/**
+	 * Reset totals daily.
+	 */
 	public void resetTotalsDaily() {
 		for (User user : Data.getInstance().getUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
@@ -174,6 +215,9 @@ public class TopVoter {
 		}
 	}
 
+	/**
+	 * Reset totals monthly.
+	 */
 	public void resetTotalsMonthly() {
 		for (User user : Data.getInstance().getUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
@@ -183,12 +227,20 @@ public class TopVoter {
 		}
 	}
 
+	/**
+	 * Reset totals player.
+	 *
+	 * @param user the user
+	 */
 	public void resetTotalsPlayer(User user) {
 		for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
 			user.setTotal(voteSite, 0);
 		}
 	}
 
+	/**
+	 * Reset totals weekly.
+	 */
 	public void resetTotalsWeekly() {
 		for (User user : Data.getInstance().getUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
@@ -198,6 +250,12 @@ public class TopVoter {
 		}
 	}
 
+	/**
+	 * Top voter daily.
+	 *
+	 * @param page the page
+	 * @return the string[]
+	 */
 	public String[] topVoterDaily(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
@@ -223,6 +281,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voter daily no color.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVoterDailyNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -239,6 +302,12 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voter monthly.
+	 *
+	 * @param page the page
+	 * @return the string[]
+	 */
 	public String[] topVoterMonthly(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
@@ -265,6 +334,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voter no color.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVoterNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -281,6 +355,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voters.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVoters() {
 		ArrayList<String> msg = new ArrayList<String>();
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
@@ -300,6 +379,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voters daily.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -318,6 +402,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voters sorted all.
+	 *
+	 * @return the array list
+	 */
 	public ArrayList<User> topVotersSortedAll() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
@@ -353,6 +442,11 @@ public class TopVoter {
 		return null;
 	}
 
+	/**
+	 * Top voters sorted all daily.
+	 *
+	 * @return the array list
+	 */
 	public ArrayList<User> topVotersSortedAllDaily() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
@@ -388,6 +482,11 @@ public class TopVoter {
 		return null;
 	}
 
+	/**
+	 * Top voters sorted all weekly.
+	 *
+	 * @return the array list
+	 */
 	public ArrayList<User> topVotersSortedAllWeekly() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
@@ -423,6 +522,12 @@ public class TopVoter {
 		return null;
 	}
 
+	/**
+	 * Top voters sorted vote site.
+	 *
+	 * @param voteSite the vote site
+	 * @return the hash map
+	 */
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
@@ -449,6 +554,12 @@ public class TopVoter {
 		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
+	/**
+	 * Top voters sorted vote site daily.
+	 *
+	 * @param voteSite the vote site
+	 * @return the hash map
+	 */
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = Utils.getInstance().convertSet(users1);
@@ -475,6 +586,12 @@ public class TopVoter {
 		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
+	/**
+	 * Top voters sorted vote site weekly.
+	 *
+	 * @param voteSite the vote site
+	 * @return the hash map
+	 */
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
 			VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
@@ -503,6 +620,11 @@ public class TopVoter {
 		return Utils.getInstance().sortByValues(topVoter, false);
 	}
 
+	/**
+	 * Top voters weekly.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -520,6 +642,12 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voter weekly.
+	 *
+	 * @param page the page
+	 * @return the string[]
+	 */
 	public String[] topVoterWeekly(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
@@ -546,6 +674,11 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Top voter weekly no color.
+	 *
+	 * @return the string[]
+	 */
 	public String[] topVoterWeeklyNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = Utils.getInstance().convertSet(
@@ -562,6 +695,9 @@ public class TopVoter {
 		return Utils.getInstance().convertArray(msg);
 	}
 
+	/**
+	 * Update top voters.
+	 */
 	public void updateTopVoters() {
 		plugin.topVoterMonthly.clear();
 		ArrayList<User> users = topVotersSortedAll();

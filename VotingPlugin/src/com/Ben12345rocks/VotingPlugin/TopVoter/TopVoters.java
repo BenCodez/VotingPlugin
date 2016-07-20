@@ -14,23 +14,50 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class TopVoters.
+ */
 public class TopVoters {
 
+	/** The instance. */
 	static TopVoters instance = new TopVoters();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of TopVoters.
+	 *
+	 * @return single instance of TopVoters
+	 */
 	public static TopVoters getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new top voters.
+	 */
 	private TopVoters() {
 	}
 
+	/**
+	 * Instantiates a new top voters.
+	 *
+	 * @param plugin the plugin
+	 */
 	public TopVoters(Main plugin) {
 		TopVoters.plugin = plugin;
 	}
 
+	/**
+	 * Store daily top voters.
+	 *
+	 * @param year the year
+	 * @param month the month
+	 * @param date the date
+	 * @param topVoters the top voters
+	 */
 	public void storeDailyTopVoters(int year, int month, int date,
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
@@ -79,6 +106,13 @@ public class TopVoters {
 
 	}
 
+	/**
+	 * Store monthly top voters.
+	 *
+	 * @param year the year
+	 * @param month the month
+	 * @param topVoters the top voters
+	 */
 	public void storeMonthlyTopVoters(int year, int month, String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
@@ -126,6 +160,14 @@ public class TopVoters {
 
 	}
 
+	/**
+	 * Store weekly top voters.
+	 *
+	 * @param year the year
+	 * @param month the month
+	 * @param day the day
+	 * @param topVoters the top voters
+	 */
 	public void storeWeeklyTopVoters(int year, int month, int day,
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {

@@ -22,14 +22,29 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class SimpleScoreboard.
+ */
 public class SimpleScoreboard {
 
+	/** The scoreboard. */
 	private Scoreboard scoreboard;
 
+	/** The title. */
 	private String title;
+	
+	/** The scores. */
 	private Map<String, Integer> scores;
+	
+	/** The teams. */
 	private List<Team> teams;
 
+	/**
+	 * Instantiates a new simple scoreboard.
+	 *
+	 * @param title the title
+	 */
 	public SimpleScoreboard(String title) {
 		scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
 		this.title = title;
@@ -37,11 +52,22 @@ public class SimpleScoreboard {
 		teams = Lists.newArrayList();
 	}
 
+	/**
+	 * Adds the.
+	 *
+	 * @param text the text
+	 */
 	public void add(String text) {
 		text = Utils.getInstance().colorize(text);
 		add(text, null);
 	}
 
+	/**
+	 * Adds the.
+	 *
+	 * @param text the text
+	 * @param score the score
+	 */
 	public void add(String text, Integer score) {
 		Preconditions.checkArgument(text.length() < 48,
 				"text cannot be over 48 characters in length");
@@ -50,10 +76,16 @@ public class SimpleScoreboard {
 		scores.put(text, score);
 	}
 
+	/**
+	 * Blank line.
+	 */
 	public void blankLine() {
 		add(" ");
 	}
 
+	/**
+	 * Builds the.
+	 */
 	@SuppressWarnings("deprecation")
 	public void build() {
 		Objective obj = scoreboard
@@ -77,6 +109,12 @@ public class SimpleScoreboard {
 		}
 	}
 
+	/**
+	 * Creates the team.
+	 *
+	 * @param text the text
+	 * @return the map. entry
+	 */
 	private Map.Entry<Team, String> createTeam(String text) {
 		String result = "";
 		if (text.length() <= 16) {
@@ -95,6 +133,12 @@ public class SimpleScoreboard {
 		return new AbstractMap.SimpleEntry<>(team, result);
 	}
 
+	/**
+	 * Fix duplicates.
+	 *
+	 * @param text the text
+	 * @return the string
+	 */
 	private String fixDuplicates(String text) {
 		while (scores.containsKey(text)) {
 			text += "§r";
@@ -105,10 +149,18 @@ public class SimpleScoreboard {
 		return text;
 	}
 
+	/**
+	 * Gets the scoreboard.
+	 *
+	 * @return the scoreboard
+	 */
 	public Scoreboard getScoreboard() {
 		return scoreboard;
 	}
 
+	/**
+	 * Reset.
+	 */
 	public void reset() {
 		title = null;
 		scores.clear();
@@ -118,6 +170,11 @@ public class SimpleScoreboard {
 		teams.clear();
 	}
 
+	/**
+	 * Send.
+	 *
+	 * @param players the players
+	 */
 	public void send(Player... players) {
 		if (Config.getInstance().getSendScoreboards()) {
 			for (Player p : players) {

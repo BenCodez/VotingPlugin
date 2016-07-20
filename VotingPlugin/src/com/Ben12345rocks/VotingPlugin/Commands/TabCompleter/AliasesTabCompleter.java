@@ -16,11 +16,27 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class AliasesTabCompleter.
+ */
 public class AliasesTabCompleter implements TabCompleter {
+	
+	/** The plugin. */
 	Main plugin = Main.plugin;
 
+	/** The cmd handle. */
 	public CommandHandler cmdHandle;
 
+	/**
+	 * Gets the tab complete options.
+	 *
+	 * @param sender the sender
+	 * @param args the args
+	 * @param argNum the arg num
+	 * @param cmdHandle the cmd handle
+	 * @return the tab complete options
+	 */
 	public ArrayList<String> getTabCompleteOptions(CommandSender sender,
 			String[] args, int argNum, CommandHandler cmdHandle) {
 		ArrayList<String> cmds = new ArrayList<String>();
@@ -81,6 +97,9 @@ public class AliasesTabCompleter implements TabCompleter {
 		return cmds;
 	}
 
+	/* (non-Javadoc)
+	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] argsIn) {
@@ -137,6 +156,12 @@ public class AliasesTabCompleter implements TabCompleter {
 		return tab;
 	}
 
+	/**
+	 * Sets the CMD handle.
+	 *
+	 * @param cmd the cmd
+	 * @return the aliases tab completer
+	 */
 	public AliasesTabCompleter setCMDHandle(CommandHandler cmd) {
 		cmdHandle = cmd;
 		return this;

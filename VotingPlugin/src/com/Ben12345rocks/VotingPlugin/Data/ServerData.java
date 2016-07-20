@@ -17,27 +17,55 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class ServerData.
+ */
 public class ServerData {
 
+	/** The instance. */
 	static ServerData instance = new ServerData();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of ServerData.
+	 *
+	 * @return single instance of ServerData
+	 */
 	public static ServerData getInstance() {
 		return instance;
 	}
 
+	/** The data. */
 	FileConfiguration data;
 
+	/** The d file. */
 	File dFile;
 
+	/**
+	 * Instantiates a new server data.
+	 */
 	private ServerData() {
 	}
 
+	/**
+	 * Instantiates a new server data.
+	 *
+	 * @param plugin the plugin
+	 */
 	public ServerData(Main plugin) {
 		ServerData.plugin = plugin;
 	}
 
+	/**
+	 * Adds the sign.
+	 *
+	 * @param location the location
+	 * @param data the data
+	 * @param position the position
+	 */
 	public void addSign(Location location, String data, int position) {
 
 		int count = nextSignNumber();
@@ -55,26 +83,58 @@ public class ServerData {
 				getSignPosition("" + count)));
 	}
 
+	/**
+	 * Gets the data.
+	 *
+	 * @return the data
+	 */
 	public FileConfiguration getData() {
 		return data;
 	}
 
+	/**
+	 * Gets the prev day.
+	 *
+	 * @return the prev day
+	 */
 	public int getPrevDay() {
 		return getData().getInt("PrevDay");
 	}
 
+	/**
+	 * Gets the prev month.
+	 *
+	 * @return the prev month
+	 */
 	public int getPrevMonth() {
 		return getData().getInt("PrevMonth");
 	}
 
+	/**
+	 * Gets the prev week day.
+	 *
+	 * @return the prev week day
+	 */
 	public int getPrevWeekDay() {
 		return getData().getInt("PrevWeek");
 	}
 
+	/**
+	 * Gets the sign data.
+	 *
+	 * @param sign the sign
+	 * @return the sign data
+	 */
 	public String getSignData(String sign) {
 		return getData().getString("Signs." + sign + ".Data");
 	}
 
+	/**
+	 * Gets the sign location.
+	 *
+	 * @param sign the sign
+	 * @return the sign location
+	 */
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
@@ -83,10 +143,21 @@ public class ServerData {
 				"Signs." + sign + ".Z"));
 	}
 
+	/**
+	 * Gets the sign position.
+	 *
+	 * @param sign the sign
+	 * @return the sign position
+	 */
 	public int getSignPosition(String sign) {
 		return getData().getInt("Signs." + sign + ".Position");
 	}
 
+	/**
+	 * Gets the signs.
+	 *
+	 * @return the signs
+	 */
 	public Set<String> getSigns() {
 		try {
 			return getData().getConfigurationSection("Signs").getKeys(false);
@@ -95,6 +166,11 @@ public class ServerData {
 		}
 	}
 
+	/**
+	 * Next sign number.
+	 *
+	 * @return the int
+	 */
 	public int nextSignNumber() {
 		Set<String> signs = getSigns();
 
@@ -108,10 +184,18 @@ public class ServerData {
 		return 0;
 	}
 
+	/**
+	 * Reload data.
+	 */
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	/**
+	 * Removes the sign.
+	 *
+	 * @param sign the sign
+	 */
 	public void removeSign(String sign) {
 		getData().set("Signs." + sign + ".World", null);
 		getData().set("Signs." + sign + ".X", null);
@@ -123,30 +207,59 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Save data.
+	 */
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
 	}
 
+	/**
+	 * Sets the plugin version.
+	 */
 	public void setPluginVersion() {
 		getData().set("PluginVersion", plugin.getDescription().getVersion());
 		saveData();
 	}
 
+	/**
+	 * Sets the prev day.
+	 *
+	 * @param day the new prev day
+	 */
 	public void setPrevDay(int day) {
 		getData().set("PrevDay", day);
 		saveData();
 	}
 
+	/**
+	 * Sets the prev month.
+	 *
+	 * @param value the new prev month
+	 */
 	public void setPrevMonth(int value) {
 		getData().set("PrevMonth", value);
 		saveData();
 	}
 
+	/**
+	 * Sets the prev week day.
+	 *
+	 * @param week the new prev week day
+	 */
 	public void setPrevWeekDay(int week) {
 		getData().set("PrevWeek", week);
 		saveData();
 	}
 
+	/**
+	 * Sets the sign.
+	 *
+	 * @param count the count
+	 * @param location the location
+	 * @param data the data
+	 * @param position the position
+	 */
 	public void setSign(String count, Location location, String data,
 			int position) {
 
@@ -162,6 +275,11 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Sets the up.
+	 *
+	 * @param p the new up
+	 */
 	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -198,11 +316,17 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Sets the version.
+	 */
 	public void setVersion() {
 		getData().set("Version", Bukkit.getVersion());
 		saveData();
 	}
 
+	/**
+	 * Update values.
+	 */
 	public void updateValues() {
 		setVersion();
 		setPluginVersion();

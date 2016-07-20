@@ -4,23 +4,45 @@ import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class CheckUpdate.
+ */
 public class CheckUpdate {
 
+	/** The instance. */
 	static CheckUpdate instance = new CheckUpdate();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Gets the single instance of CheckUpdate.
+	 *
+	 * @return single instance of CheckUpdate
+	 */
 	public static CheckUpdate getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new check update.
+	 */
 	private CheckUpdate() {
 	}
 
+	/**
+	 * Instantiates a new check update.
+	 *
+	 * @param plugin the plugin
+	 */
 	public CheckUpdate(Main plugin) {
 		CheckUpdate.plugin = plugin;
 	}
 
+	/**
+	 * Check update.
+	 */
 	public void checkUpdate() {
 		plugin.updater = new Updater(plugin, 15358, false);
 		final Updater.UpdateResult result = plugin.updater.getResult();
@@ -50,6 +72,9 @@ public class CheckUpdate {
 		}
 	}
 
+	/**
+	 * Start up.
+	 */
 	public void startUp() {
 		Bukkit.getServer().getScheduler()
 		.runTaskLaterAsynchronously(plugin, new Runnable() {

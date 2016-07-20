@@ -11,16 +11,30 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class CommandAliases.
+ */
 public class CommandAliases implements CommandExecutor {
 
+	/** The plugin. */
 	private Main plugin = Main.plugin;
 
+	/** The cmd handle. */
 	private CommandHandler cmdHandle;
 
+	/**
+	 * Instantiates a new command aliases.
+	 *
+	 * @param cmdHandle the cmd handle
+	 */
 	public CommandAliases(CommandHandler cmdHandle) {
 		this.cmdHandle = cmdHandle;
 	}
 
+	/* (non-Javadoc)
+	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
 			String[] args) {

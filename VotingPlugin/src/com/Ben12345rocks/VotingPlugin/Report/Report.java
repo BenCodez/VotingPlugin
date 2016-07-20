@@ -17,12 +17,27 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Report.
+ */
 public class Report {
 
+	/** The instance. */
 	static Report instance = new Report();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/**
+	 * Adds the to zip.
+	 *
+	 * @param directoryToZip the directory to zip
+	 * @param file the file
+	 * @param zos the zos
+	 * @throws FileNotFoundException the file not found exception
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	public static void addToZip(File directoryToZip, File file,
 			ZipOutputStream zos) throws FileNotFoundException, IOException {
 
@@ -45,21 +60,39 @@ public class Report {
 		fis.close();
 	}
 
+	/**
+	 * Gets the single instance of Report.
+	 *
+	 * @return single instance of Report
+	 */
 	public static Report getInstance() {
 		return instance;
 	}
 
+	/** The data. */
 	FileConfiguration data;
 
+	/** The d file. */
 	File dFile;
 
+	/**
+	 * Instantiates a new report.
+	 */
 	private Report() {
 	}
 
+	/**
+	 * Instantiates a new report.
+	 *
+	 * @param plugin the plugin
+	 */
 	public Report(Main plugin) {
 		Report.plugin = plugin;
 	}
 
+	/**
+	 * Creates the.
+	 */
 	public void create() {
 		File directoryToZip = plugin.getDataFolder();
 
@@ -77,6 +110,13 @@ public class Report {
 		plugin.getLogger().info("---Done");
 	}
 
+	/**
+	 * Gets the all files.
+	 *
+	 * @param dir the dir
+	 * @param fileList the file list
+	 * @return the all files
+	 */
 	public void getAllFiles(File dir, List<File> fileList) {
 		try {
 			File[] files = dir.listFiles();
@@ -98,18 +138,35 @@ public class Report {
 		}
 	}
 
+	/**
+	 * Gets the data.
+	 *
+	 * @return the data
+	 */
 	public FileConfiguration getData() {
 		return data;
 	}
 
+	/**
+	 * Reload data.
+	 */
 	public void reloadData() {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	/**
+	 * Save data.
+	 */
 	public void saveData() {
 		Files.getInstance().editFile(dFile, data);
 	}
 
+	/**
+	 * Write zip file.
+	 *
+	 * @param directoryToZip the directory to zip
+	 * @param fileList the file list
+	 */
 	@SuppressWarnings("deprecation")
 	public void writeZipFile(File directoryToZip, List<File> fileList) {
 

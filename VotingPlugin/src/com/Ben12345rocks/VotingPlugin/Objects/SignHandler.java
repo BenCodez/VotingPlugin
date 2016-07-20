@@ -16,17 +16,47 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class SignHandler.
+ */
 public class SignHandler {
+	
+	/** The sign. */
 	private String sign;
+	
+	/** The location. */
 	private Location location;
+	
+	/** The data. */
 	private String data;
+	
+	/** The lines. */
 	private ArrayList<String> lines;
+	
+	/** The position. */
 	private int position;
+	
+	/** The plugin. */
 	public Main plugin = Main.plugin;
+	
+	/** The player name. */
 	private String playerName;
+	
+	/** The votes. */
 	private int votes;
+	
+	/** The is valid. */
 	private boolean isValid;
 
+	/**
+	 * Instantiates a new sign handler.
+	 *
+	 * @param sign the sign
+	 * @param location the location
+	 * @param data the data
+	 * @param position the position
+	 */
 	public SignHandler(String sign, Location location, String data, int position) {
 		setSign(sign);
 		setLocation(location);
@@ -38,6 +68,9 @@ public class SignHandler {
 		playerName = "";
 	}
 
+	/**
+	 * Check skulls.
+	 */
 	@SuppressWarnings("deprecation")
 	public void checkSkulls() {
 		Location loc = location;
@@ -55,6 +88,9 @@ public class SignHandler {
 		}
 	}
 
+	/**
+	 * Check valid sign.
+	 */
 	public void checkValidSign() {
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -70,14 +106,29 @@ public class SignHandler {
 
 	}
 
+	/**
+	 * Gets the data.
+	 *
+	 * @return the data
+	 */
 	public String getData() {
 		return data;
 	}
 
+	/**
+	 * Gets the location.
+	 *
+	 * @return the location
+	 */
 	public Location getLocation() {
 		return location;
 	}
 
+	/**
+	 * Gets the right click message.
+	 *
+	 * @return the right click message
+	 */
 	public String getRightClickMessage() {
 		String msg = ConfigFormat.getInstance()
 				.getSignTopVoterSignRightClickMessage();
@@ -88,42 +139,87 @@ public class SignHandler {
 		return msg;
 	}
 
+	/**
+	 * Gets the sign.
+	 *
+	 * @return the sign
+	 */
 	public String getSign() {
 		return sign;
 	}
 
+	/**
+	 * Checks if is location same.
+	 *
+	 * @param loc the loc
+	 * @return true, if is location same
+	 */
 	public boolean isLocationSame(Location loc) {
 		return loc.equals(getLocation());
 	}
 
+	/**
+	 * Checks if is valid.
+	 *
+	 * @return true, if is valid
+	 */
 	public boolean isValid() {
 		return isValid;
 	}
 
+	/**
+	 * Removes the sign.
+	 */
 	public void removeSign() {
 		ServerData.getInstance().removeSign(sign);
 	}
 
+	/**
+	 * Sets the data.
+	 *
+	 * @param data the new data
+	 */
 	public void setData(String data) {
 		this.data = data;
 	}
 
+	/**
+	 * Sets the location.
+	 *
+	 * @param location the new location
+	 */
 	public void setLocation(Location location) {
 		this.location = location;
 	}
 
+	/**
+	 * Sets the sign.
+	 *
+	 * @param sign the new sign
+	 */
 	public void setSign(String sign) {
 		this.sign = sign;
 	}
 
+	/**
+	 * Sets the valid.
+	 *
+	 * @param isValid the new valid
+	 */
 	public void setValid(boolean isValid) {
 		this.isValid = isValid;
 	}
 
+	/**
+	 * Store sign.
+	 */
 	public void storeSign() {
 		ServerData.getInstance().setSign(sign, location, data, position);
 	}
 
+	/**
+	 * Update lines.
+	 */
 	public void updateLines() {
 		lines = new ArrayList<String>();
 		checkValidSign();
@@ -218,6 +314,11 @@ public class SignHandler {
 
 	}
 
+	/**
+	 * Update sign.
+	 *
+	 * @param delay the delay
+	 */
 	public void updateSign(int delay) {
 		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
 

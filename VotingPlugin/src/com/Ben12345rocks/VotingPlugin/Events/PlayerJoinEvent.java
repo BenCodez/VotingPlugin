@@ -10,16 +10,32 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class PlayerJoinEvent.
+ */
 public class PlayerJoinEvent implements Listener {
 
+	/** The plugin. */
 	private static Main plugin;
 
+	/** The data. */
 	Data data = Data.getInstance();
 
+	/**
+	 * Instantiates a new player join event.
+	 *
+	 * @param plugin the plugin
+	 */
 	public PlayerJoinEvent(Main plugin) {
 		PlayerJoinEvent.plugin = plugin;
 	}
 
+	/**
+	 * On player login.
+	 *
+	 * @param event the event
+	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(PlayerLoginEvent event) {
 		plugin.getServer().getScheduler().runTaskLater(plugin, new Runnable() {

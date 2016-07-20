@@ -19,25 +19,52 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.vexsoftware.votifier.crypto.RSA;
 import com.vexsoftware.votifier.model.Vote;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class BungeeVote.
+ */
 public class BungeeVote {
 
+	/** The instance. */
 	static BungeeVote instance = new BungeeVote();
 
+	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	/** The sock. */
 	static ServerSocket sock;
 
+	/**
+	 * Gets the single instance of BungeeVote.
+	 *
+	 * @return single instance of BungeeVote
+	 */
 	public static BungeeVote getInstance() {
 		return instance;
 	}
 
+	/**
+	 * Instantiates a new bungee vote.
+	 */
 	private BungeeVote() {
 	}
 
+	/**
+	 * Instantiates a new bungee vote.
+	 *
+	 * @param plugin the plugin
+	 */
 	public BungeeVote(Main plugin) {
 		BungeeVote.plugin = plugin;
 	}
 
+	/**
+	 * Send vote.
+	 *
+	 * @param vote the vote
+	 * @throws NoSuchAlgorithmException the no such algorithm exception
+	 * @throws InvalidKeySpecException the invalid key spec exception
+	 */
 	public void sendVote(Vote vote) throws NoSuchAlgorithmException,
 	InvalidKeySpecException {
 		if (ConfigBungeeVoting.getInstance().getEnabled()) {

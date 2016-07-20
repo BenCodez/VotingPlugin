@@ -12,14 +12,29 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class PlayerInteract.
+ */
 public class PlayerInteract implements Listener {
 
+	/** The plugin. */
 	private static Main plugin;
 
+	/**
+	 * Instantiates a new player interact.
+	 *
+	 * @param plugin the plugin
+	 */
 	public PlayerInteract(Main plugin) {
 		PlayerInteract.plugin = plugin;
 	}
 
+	/**
+	 * On player interact.
+	 *
+	 * @param event the event
+	 */
 	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onPlayerInteract(PlayerInteractEvent event) {
 		Player player = event.getPlayer();

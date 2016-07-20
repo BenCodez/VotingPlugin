@@ -8,13 +8,31 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.VotingPlugin.Utils;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class BInventoryButton.
+ */
 public abstract class BInventoryButton {
 
+	/** The name. */
 	private String name;
+	
+	/** The lore. */
 	private String[] lore;
+	
+	/** The item. */
 	private ItemStack item;
+	
+	/** The slot. */
 	private int slot;
 
+	/**
+	 * Instantiates a new b inventory button.
+	 *
+	 * @param name the name
+	 * @param lore the lore
+	 * @param item the item
+	 */
 	public BInventoryButton(String name, String[] lore, ItemStack item) {
 		setName(name);
 		setLore(lore);
@@ -22,6 +40,8 @@ public abstract class BInventoryButton {
 	}
 
 	/**
+	 * Gets the item.
+	 *
 	 * @return the item
 	 */
 	public ItemStack getItem() {
@@ -29,6 +49,8 @@ public abstract class BInventoryButton {
 	}
 
 	/**
+	 * Gets the lore.
+	 *
 	 * @return the lore
 	 */
 	public String[] getLore() {
@@ -36,42 +58,62 @@ public abstract class BInventoryButton {
 	}
 
 	/**
+	 * Gets the name.
+	 *
 	 * @return the name
 	 */
 	public String getName() {
 		return name;
 	}
 
+	/**
+	 * Gets the slot.
+	 *
+	 * @return the slot
+	 */
 	public int getSlot() {
 		return slot;
 	}
 
+	/**
+	 * On click.
+	 *
+	 * @param event the event
+	 */
 	public abstract void onClick(InventoryClickEvent event);
 
 	/**
-	 * @param item
-	 *            the item to set
+	 * Sets the item.
+	 *
+	 * @param item            the item to set
 	 */
 	public void setItem(ItemStack item) {
 		this.item = item;
 	}
 
 	/**
-	 * @param lore
-	 *            the lore to set
+	 * Sets the lore.
+	 *
+	 * @param lore            the lore to set
 	 */
 	public void setLore(String[] lore) {
 		this.lore = Utils.getInstance().colorize(lore);
 	}
 
 	/**
-	 * @param name
-	 *            the name to set
+	 * Sets the name.
+	 *
+	 * @param name            the name to set
 	 */
 	public void setName(String name) {
 		this.name = Utils.getInstance().colorize(name);
 	}
 
+	/**
+	 * Sets the slot.
+	 *
+	 * @param slot the new slot
+	 */
 	public void setSlot(int slot) {
 		this.slot = slot;
 	}
