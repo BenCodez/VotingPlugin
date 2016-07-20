@@ -49,10 +49,6 @@ import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class Main.
- */
 public class Main extends JavaPlugin {
 
 	/** The config. */
@@ -239,7 +235,9 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -248,7 +246,9 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override

@@ -22,7 +22,7 @@ import com.Ben12345rocks.VotingPlugin.Data.Data;
  * The Class Reward.
  */
 public class Reward {
-	
+
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
@@ -31,19 +31,19 @@ public class Reward {
 
 	/** The delay enabled. */
 	private boolean delayEnabled;
-	
+
 	/** The delay hours. */
 	private int delayHours;
-	
+
 	/** The delay minutes. */
 	private int delayMinutes;
 
 	/** The timed enabled. */
 	private boolean timedEnabled;
-	
+
 	/** The timed hour. */
 	private int timedHour;
-	
+
 	/** The timed minute. */
 	private int timedMinute;
 
@@ -73,7 +73,7 @@ public class Reward {
 
 	/** The item material. */
 	private HashMap<String, String> itemMaterial;
-	
+
 	/** The item skull. */
 	private HashMap<String, String> itemSkull;
 
@@ -88,13 +88,13 @@ public class Reward {
 
 	/** The item min amount. */
 	private HashMap<String, Integer> itemMinAmount;
-	
+
 	/** The item max amount. */
 	private HashMap<String, Integer> itemMaxAmount;
-	
+
 	/** The item name. */
 	private HashMap<String, String> itemName;
-	
+
 	/** The item lore. */
 	private HashMap<String, ArrayList<String>> itemLore;
 
@@ -115,21 +115,23 @@ public class Reward {
 
 	/** The console commands. */
 	private ArrayList<String> consoleCommands;
-	
+
 	/** The player commands. */
 	private ArrayList<String> playerCommands;
 
 	/** The potions. */
 	private Set<String> potions;
-	
+
 	/** The potions duration. */
 	private HashMap<String, Integer> potionsDuration;
-	
+
 	/** The potions amplifier. */
 	private HashMap<String, Integer> potionsAmplifier;
 
 	/** The reward msg. */
 	private String rewardMsg;
+
+	private String actionBarMsg;
 
 	/**
 	 * Instantiates a new reward.
@@ -231,6 +233,8 @@ public class Reward {
 		}
 
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
+		setActionBarMsg(ConfigRewards.getInstance()
+				.getMessagesActionBar(reward));
 
 	}
 
@@ -606,6 +610,10 @@ public class Reward {
 	public ArrayList<String> getRandomRewards() {
 		return randomRewards;
 	}
+	
+	public void sendActionBar(User user) {
+		user.sendActionBar(getActionBarMsg());
+	}
 
 	/**
 	 * Gets the reward msg.
@@ -716,7 +724,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -792,8 +800,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -972,9 +980,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
@@ -1319,5 +1327,13 @@ public class Reward {
 	 */
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
+	}
+
+	public String getActionBarMsg() {
+		return actionBarMsg;
+	}
+
+	public void setActionBarMsg(String actionBarMsg) {
+		this.actionBarMsg = actionBarMsg;
 	}
 }

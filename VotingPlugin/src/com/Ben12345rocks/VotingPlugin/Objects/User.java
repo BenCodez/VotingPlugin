@@ -39,10 +39,10 @@ import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
  * The Class User.
  */
 public class User {
-	
+
 	/** The plugin. */
 	static Main plugin = Main.plugin;
-	
+
 	/** The player name. */
 	private String playerName;
 
@@ -1143,7 +1143,7 @@ public class User {
 	 *            the msg
 	 */
 	public void sendActionBar(String msg) {
-		if (plugin.spigotLibEnabled) {
+		if (plugin.spigotLibEnabled && msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
 				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, msg, player);

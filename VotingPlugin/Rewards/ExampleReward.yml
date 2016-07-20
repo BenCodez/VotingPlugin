@@ -181,4 +181,5 @@ Effect:
 # If no value is set, default in Format.yml is used
 Messages:
   Reward: '&aMessage on reward'
+  ActionBar: '&cThanks for Voting!'
   

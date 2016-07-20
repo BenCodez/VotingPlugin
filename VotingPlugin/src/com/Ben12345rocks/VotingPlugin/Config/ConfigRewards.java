@@ -1118,4 +1118,8 @@ public class ConfigRewards {
 		set(reward, "Worlds", value);
 	}
 
+	public String getMessagesActionBar(String reward) {
+		return getData(reward).getString("Message.ActionBar");
+	}
+
 }
