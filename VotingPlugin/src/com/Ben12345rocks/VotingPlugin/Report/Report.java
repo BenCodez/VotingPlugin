@@ -119,11 +119,9 @@ public class Report {
 	/**
 	 * Gets the all files.
 	 *
-	 * @param dir
-	 *            the dir
-	 * @param fileList
-	 *            the file list
-	 *
+	 * @param dir            the dir
+	 * @param fileList            the file list
+	 * @return the all files
 	 */
 	public void getAllFiles(File dir, List<File> fileList) {
 		try {
