@@ -1,0 +1,134 @@
+name: VotingPlugin
+version: 4.1.4
+main: com.Ben12345rocks.VotingPlugin.Main
+description: Highly Customizable Voting Listener!
+website: https://www.spigotmc.org/resources/votingplugin.15358/
+author: Ben12345rocks
+commands:
+  vote:
+    description: Vote command
+  v:
+    description: Vote command
+  adminvote:
+    description: Admin commands for VotingPlugin
+  av:
+    description: Admin commands for VotingPlugin
+  votehelp:
+    description: See access to a list of commands, Formated in Format.yml
+    aliases: vhelp
+  votetotal:
+    description: See totals of votes
+    aliases: vtotal
+  votelast:
+    description: See the last time you voted
+    aliases: vlast
+  votenext:
+    description: See when you can vote next
+    aliases: vnext
+  votetop:
+    description: See top voters
+    aliases: vtop
+  voteinfo:
+    description: See player info
+    aliases: vinfo
+  votetoday:
+    description: See who voted today
+    aliases: vtoday
+  votegui:
+    description: Open VoteGUI
+    aliases: vgui
+  voteurl:
+    description: Open VoteURL
+    aliases: vurl
+  votereward:
+    description: Open VoteReward GUI
+    aliases: vreward
+  vote?:
+    description: View Help
+    aliases: v?
+  voteparty:
+    description: A command
+    aliases: vparty
+  voteshop:
+    description: A command
+    aliases: vshop
+  votepoints:
+    description: A command
+    aliases: vpoints
+  adminvotehelp:
+    description: Open adminvote help
+    aliases: avhelp
+  adminvote?:
+    description: Open adminvote help
+    aliases: av?
+  adminvotereport:
+    description: Command Alias
+    aliases: avreport
+  adminvoteperms:
+    description: Command Alias
+    aliases: avperms
+  adminvotereload:
+    description: Command Alias
+    aliases: avreload
+  adminvoteversion:
+    description: Command Alias
+    aliases: avversion
+  adminvotesites:
+    description: Command Alias
+    aliases: avsites
+  adminvoterewards:
+    description: Command Alias
+    aliases: avrewards
+  adminvoteuuid:
+    description: Command Alias
+    aliases: avuuid
+  adminvotereset:
+    description: Command Alias
+    aliases: avreset
+  adminvotevotesite:
+    description: Command Alias
+    aliases: avvotesite
+  adminvoteconfig:
+    description: Command Alias
+    aliases: avconfig
+  adminvoteserverdata:
+    description: Command Alias
+    aliases: avserverdata
+  adminvotesettotal:
+    description: Command Alias
+    aliases: avsettotal
+  adminvoteupdatecheck:
+    description: Command Alias
+    aliases: avupdatecheck
+  adminvotevote:
+    description: Command Alias
+    aliases: avvote
+  adminvoteTriggerPlayerVoteEvent:
+    description: Command Alias
+    aliases: avTriggerPlayerVoteEvent
+permissions:
+  VotingPlugin.Player:
+    description: Allows basic access player commands
+    default: true
+    children:
+      VotingPlugin.Login.RemindVotes: true
+      VotingPlugin.Commands.Vote.Next: true
+      VotingPlugin.Commands.Vote.GUI: true
+      VotingPlugin.Commands.Vote.URL: true
+      VotingPlugin.Commands.Vote.Reward: true
+      VotingPlugin.Commands.Vote.Total: true
+      VotingPlugin.Commands.Vote.Last: true
+      VotingPlugin.Commands.Vote.Info: true
+      VotingPlugin.Commands.Vote.Help: true
+      VotingPlugin.Commands.Vote.Top: true
+      VotingPlugin.Commands.Vote.Top.Monthly: true
+      VotingPlugin.Commands.Vote.Top.Weekly: true
+      VotingPlugin.Commands.Vote.Top.Daily: true
+  VotingPlugin.Login.RemindVotes:
+    description: Allows players to get remined on login if they can vote
+    default: true
+  VotingPlugin.Signs.Create:
+    description: Allows access to create signs
+  VotingPlugin.TopVoter.Ignore:
+    description: Allows you to be exempt from top voter
+  

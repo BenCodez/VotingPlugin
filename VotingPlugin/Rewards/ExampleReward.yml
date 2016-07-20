@@ -1,0 +1,185 @@
+# This is a reward file
+# Define rewards in here
+# File name is the reward name, without file extention
+# This reward is named "ExampleReward"
+# DO NOT HAVE DUPLICATE NAMES!!
+
+# Reward are run top to bottom (For the most part)
+# You can just remove values you don't want (just delete it)
+# If you just want money just have a reward file containg "Money: 100", for example
+
+# NOTE: Do not use this reward file in more than one place if
+# delayed or timed is enabled! They will interfer with each other.
+
+# This will delay the reward file from running
+Delayed:
+  Enabled: false
+  Hours: 1
+  Minutes: 0
+  
+# Specific time of day to give this reward file
+# in 24 hour time, relative to local time zone
+Timed:
+  Enabled: false
+  Hour: 12
+  Minute: 0
+
+# Chance out of 100
+# Must be an integer
+# Set to 0 or 100 for always, or delete this line to disable chance
+# Will not give any rewards below unless chance is lucky or disabled
+Chance: 40
+
+# This is to give random rewards, with fallback
+# Rewards defined in this reward file below are still given regardless of this below
+Random:
+  # Chance to give a randomly selected reward below (from list), will only give random reward
+  # if lucky (according to chance)
+  # Works same as chance above
+  Chance: 40
+  # When this reward file is being given, a random reward in the list below
+  # will be given, if chance is lucky
+  # Don't set this reward as a possible reward, may cause infinite loop
+  Rewards: []
+  # A list of fall back rewards if chance is unlucky
+  # Don't set this reward as a reward, may cause infinite loop
+  FallBack: [] 
+
+# Require permission to give this reward file
+# Permission is VotingPlugin.Reward.(REWARDNAME)
+# E.g: VotingPlugin.Reward.ExampleReward
+RequirePermission: false
+
+# Worlds to give this reward in
+# Player will be given this world once he is in this world
+# This may not work with money
+Worlds:
+- 'world1'
+- 'world2'
+
+# If true, the player will be rewarded in each world
+# If false, the player will be reward one of the worlds once
+GiveInEachWorld: false
+
+
+# Items to give to user
+Items:
+  # Item
+  # This is not item display name
+  # No 2 names the same
+  Diamond:
+    # Item Material
+    # List of material for 1.10: 
+    # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+    Material: 'DIAMOND'
+    # Item data value (Eg 1:4, data is 4)
+    Data: 0
+    # Will only give Amount if min and max amounts are 0
+    Amount: 1
+    # Set item durability
+    # Set to 0 or remove line for no durability
+    #Durability: 100
+    
+    # Random amount of items between Min and Max will be given
+    # if min and max are not both 0
+    
+    # Min amount of items
+    #MinAmount: 1
+    
+    # Max amount of items
+    #MaxAmount: 4
+    
+    # Item name
+    # Remove this value to have no name
+    Name: '&aSpecial Diamond'
+    
+    # Lore
+    # Remove this value to have no lore
+    Lore: 
+    - 'Line 1'
+    
+    # Enchants
+    # List of 1.10 Encahants can be found at
+    # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/enchantments/Enchantment.html
+    Enchants:
+      DURABILITY: 1
+      
+# Amount of money to give, requires vault
+# Use 0 to give none
+# Use negative to take money
+Money: 1000
+
+# Pick random number between min and max amount
+#MinMoney: 100
+#MaxMoney: 3000
+
+# Give player experience
+EXP: 100
+
+# Commands to run
+# Use %player% for player name
+# Set to Console: [] for no commands
+Commands:
+  # Commands here will be run by console
+  Console:
+  - 'say %player% was lucky'
+  # Commands here are run by player
+  Player:
+  - 'vote total'
+  
+# Potions to give on reward
+Potions:
+  # Potion effect name
+  # 1.10 potions can be found here:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/potion/PotionEffectType.html
+  ABSORPTION:
+    # Duration in seconds
+    Duration: 100
+    # Amplifier
+    Amplifier: 1
+    
+# Title to send to voter
+# Requires SpigotLib
+# Download here: 
+# https://www.spigotmc.org/resources/spigotlib.5925/
+Title:
+  Enabled: false
+  Title: '&cThanks for voting!'
+  SubTitle: '&aYou voted on a website!'
+  FadeIn: 10
+  ShowTime: 50
+  FadeOut: 10
+  
+# Sound on reward
+Sound:
+  # Enable or Disable Sound
+  Enabled: false
+  # Sound to play
+  # 1.9 Sounds: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
+  # 1.8: https://jd.bukkit.org/org/bukkit/Sound.html 
+  Sound: 'BLOCK_ANVIL_USE'
+  # Volume
+  # Range: 0.0 to 1.0
+  Volume: 1.0
+  # Pitch
+  # Range: 0.0 to 1.0
+  Pitch: 1.0
+  
+# Play particle effect on reward
+# 1.10 Effects can be found here:
+# https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Effect.html
+Effect:
+  Enabled: false
+  Effect: 'EXPLOSION'
+  Data: 0
+  Particles: 10
+  Radius: 5
+  
+  
+# The messages are sent when rewards above are given to user
+# set to '' to give no message
+# If no value is set, default in Format.yml is used
+Messages:
+  Reward: '&aMessage on reward'
+  ActionBar: '&cThanks for Voting!'
+  
