@@ -16,13 +16,13 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
  * The Class VoteSite.
  */
 public class VoteSite {
-	
+
 	/** The config. */
 	static Config config = Config.getInstance();
-	
+
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-	
+
 	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
@@ -31,16 +31,16 @@ public class VoteSite {
 
 	/** The vote URL. */
 	private String voteURL;
-	
+
 	/** The service site. */
 	private String serviceSite;
-	
+
 	/** The site name. */
 	private String siteName;
-	
+
 	/** The vote delay. */
 	private int voteDelay;
-	
+
 	/** The enabled. */
 	private boolean enabled;
 
@@ -49,7 +49,7 @@ public class VoteSite {
 
 	/** The cumulative votes. */
 	private int cumulativeVotes;
-	
+
 	/** The cumulative rewards. */
 	private ArrayList<String> cumulativeRewards;
 

@@ -33,10 +33,10 @@ public class SimpleScoreboard {
 
 	/** The title. */
 	private String title;
-	
+
 	/** The scores. */
 	private Map<String, Integer> scores;
-	
+
 	/** The teams. */
 	private List<Team> teams;
 

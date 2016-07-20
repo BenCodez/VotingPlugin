@@ -19,7 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
  * The Class VoteParty.
  */
 public class VoteParty {
-	
+
 	/** The instance. */
 	static VoteParty instance = new VoteParty();
 

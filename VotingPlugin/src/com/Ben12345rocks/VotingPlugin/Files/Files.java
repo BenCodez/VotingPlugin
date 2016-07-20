@@ -19,7 +19,7 @@ public class Files {
 	 * The Class ReadThread.
 	 */
 	public class ReadThread extends Thread {
-		
+
 		/**
 		 * Edits the file.
 		 *
@@ -33,13 +33,15 @@ public class Files {
 				data.save(file);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not save "
-						+ file.getName());
+						.getLogger()
+						.severe(ChatColor.RED + "Could not save "
+								+ file.getName());
 			}
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Thread#run()
 		 */
 		@Override

@@ -1034,6 +1034,22 @@ public class User {
 	}
 
 	/**
+	 * Send action bar.
+	 *
+	 * @param msg
+	 *            the msg
+	 */
+	public void sendActionBar(String msg) {
+		if (plugin.spigotLibEnabled && msg != null && msg != "") {
+			Player player = getPlayer();
+			if (player != null) {
+				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, Utils
+						.getInstance().colorize(msg), player);
+			}
+		}
+	}
+
+	/**
 	 * Send json.
 	 *
 	 * @param messages
@@ -1133,21 +1149,6 @@ public class User {
 		for (String reward : Config.getInstance().getRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward).giveReward(this);
-			}
-		}
-	}
-
-	/**
-	 * Send action bar.
-	 *
-	 * @param msg
-	 *            the msg
-	 */
-	public void sendActionBar(String msg) {
-		if (plugin.spigotLibEnabled && msg != null && msg != "") {
-			Player player = getPlayer();
-			if (player != null) {
-				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, msg, player);
 			}
 		}
 	}

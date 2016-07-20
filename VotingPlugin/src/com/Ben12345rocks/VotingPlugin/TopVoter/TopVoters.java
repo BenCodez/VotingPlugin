@@ -69,7 +69,7 @@ public class TopVoters {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
 		}
-		
+
 		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersDaily()) {
 			plugin.debug("Not Storing TopVoters Daily");
 			return;
@@ -112,7 +112,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + date + ".yml");
+							+ "." + date + ".yml");
 		}
 
 	}
@@ -131,7 +131,7 @@ public class TopVoters {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
 		}
-		
+
 		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersMonthly()) {
 			plugin.debug("Not Storing TopVoters Monthly");
 			return;
@@ -174,7 +174,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}
@@ -196,7 +196,7 @@ public class TopVoters {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
 		}
-		
+
 		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersWeekly()) {
 			plugin.debug("Not Storing TopVoters Weekly");
 			return;
@@ -239,7 +239,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + day + ".yml");
+							+ "." + day + ".yml");
 		}
 
 	}

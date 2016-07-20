@@ -5,7 +5,7 @@ package com.Ben12345rocks.VotingPlugin.Objects;
  * The Class UUID.
  */
 public class UUID {
-	
+
 	/** The uuid. */
 	private String uuid;
 

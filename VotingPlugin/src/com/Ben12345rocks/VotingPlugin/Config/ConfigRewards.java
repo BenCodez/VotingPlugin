@@ -426,6 +426,17 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the messages action bar.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the messages action bar
+	 */
+	public String getMessagesActionBar(String reward) {
+		return getData(reward).getString("Message.ActionBar");
+	}
+
+	/**
 	 * Gets the messages reward.
 	 *
 	 * @param reward
@@ -608,7 +619,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
@@ -1116,16 +1127,6 @@ public class ConfigRewards {
 	 */
 	public void setWorlds(String reward, ArrayList<String> value) {
 		set(reward, "Worlds", value);
-	}
-
-	/**
-	 * Gets the messages action bar.
-	 *
-	 * @param reward the reward
-	 * @return the messages action bar
-	 */
-	public String getMessagesActionBar(String reward) {
-		return getData(reward).getString("Message.ActionBar");
 	}
 
 }

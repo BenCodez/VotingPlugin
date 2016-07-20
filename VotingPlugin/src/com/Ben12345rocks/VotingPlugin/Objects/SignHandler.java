@@ -21,31 +21,31 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
  * The Class SignHandler.
  */
 public class SignHandler {
-	
+
 	/** The sign. */
 	private String sign;
-	
+
 	/** The location. */
 	private Location location;
-	
+
 	/** The data. */
 	private String data;
-	
+
 	/** The lines. */
 	private ArrayList<String> lines;
-	
+
 	/** The position. */
 	private int position;
-	
+
 	/** The plugin. */
 	public Main plugin = Main.plugin;
-	
+
 	/** The player name. */
 	private String playerName;
-	
+
 	/** The votes. */
 	private int votes;
-	
+
 	/** The is valid. */
 	private boolean isValid;
 
@@ -256,7 +256,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -264,7 +264,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				}
 
@@ -280,8 +280,8 @@ public class SignHandler {
 					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
 						ArrayList<User> users = Utils.getInstance().convertSet(
 								TopVoter.getInstance()
-								.topVotersSortedVoteSite(voteSite)
-								.keySet());
+										.topVotersSortedVoteSite(voteSite)
+										.keySet());
 
 						if (users.size() >= position) {
 							playerName = users.get(position - 1)
@@ -291,8 +291,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						} else {
 							playerName = "No Player";
@@ -301,8 +301,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						}
 
@@ -310,9 +310,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-									.replace("%SiteName%", data)
-									.replace("%position%",
-											"" + position));
+											.replace("%SiteName%", data)
+											.replace("%position%",
+													"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);

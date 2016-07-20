@@ -20,47 +20,47 @@ public class Updater {
 	 * The Enum UpdateResult.
 	 */
 	public enum UpdateResult {
-		
+
 		/** The bad resourceid. */
-		BAD_RESOURCEID, 
- 
- /** The disabled. */
- DISABLED, 
- 
- /** The fail noversion. */
- FAIL_NOVERSION, 
- 
- /** The fail spigot. */
- FAIL_SPIGOT, 
- 
- /** The no update. */
- NO_UPDATE, 
- 
- /** The update available. */
- UPDATE_AVAILABLE
+		BAD_RESOURCEID,
+
+		/** The disabled. */
+		DISABLED,
+
+		/** The fail noversion. */
+		FAIL_NOVERSION,
+
+		/** The fail spigot. */
+		FAIL_SPIGOT,
+
+		/** The no update. */
+		NO_UPDATE,
+
+		/** The update available. */
+		UPDATE_AVAILABLE
 	}
 
 	/** The api key. */
 	private final String API_KEY = "98BE0FE67F88AB82B4C197FAF1DC3B69206EFDCC4D3B80FC83A00037510B99B4";
-	
+
 	/** The connection. */
 	private HttpURLConnection connection;
-	
+
 	/** The host. */
 	private final String HOST = "http://www.spigotmc.org";
-	
+
 	/** The old version. */
 	private String oldVersion;
-	
+
 	/** The plugin. */
 	private JavaPlugin plugin;
-	
+
 	/** The query. */
 	private final String QUERY = "/api/general.php";
 
 	/** The request method. */
 	private final String REQUEST_METHOD = "POST";
-	
+
 	/** The resource id. */
 	private String RESOURCE_ID = "";
 
@@ -95,7 +95,7 @@ public class Updater {
 
 		try {
 			connection = (HttpURLConnection) new URL(HOST + QUERY)
-			.openConnection();
+					.openConnection();
 		} catch (IOException e) {
 			result = UpdateResult.FAIL_SPIGOT;
 			return;

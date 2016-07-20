@@ -62,7 +62,9 @@ public class Metrics {
 			plotters.add(plotter);
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#equals(java.lang.Object)
 		 */
 		@Override
@@ -93,7 +95,9 @@ public class Metrics {
 			return Collections.unmodifiableSet(plotters);
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#hashCode()
 		 */
 		@Override
@@ -138,7 +142,9 @@ public class Metrics {
 			this.name = name;
 		}
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#equals(java.lang.Object)
 		 */
 		@Override
@@ -168,7 +174,9 @@ public class Metrics {
 		 */
 		public abstract int getValue();
 
-		/* (non-Javadoc)
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#hashCode()
 		 */
 		@Override
@@ -230,9 +238,9 @@ public class Metrics {
 	 */
 	private static void encodeDataPair(final StringBuilder buffer,
 			final String key, final String value)
-					throws UnsupportedEncodingException {
+			throws UnsupportedEncodingException {
 		buffer.append('&').append(encode(key)).append('=')
-		.append(encode(value));
+				.append(encode(value));
 	}
 
 	/** The configuration. */
@@ -286,7 +294,7 @@ public class Metrics {
 		// Do we need to create the file?
 		if (configuration.get("guid", null) == null) {
 			configuration.options().header("http://mcstats.org")
-			.copyDefaults(true);
+					.copyDefaults(true);
 			configuration.save(configurationFile);
 		}
 
@@ -565,7 +573,7 @@ public class Metrics {
 									// server owner decided to opt-out
 									if (isOptOut() && (taskId > 0)) {
 										plugin.getServer().getScheduler()
-										.cancelTask(taskId);
+												.cancelTask(taskId);
 										taskId = -1;
 									}
 								}

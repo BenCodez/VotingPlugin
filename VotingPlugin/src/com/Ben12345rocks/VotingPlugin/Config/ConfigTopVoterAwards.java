@@ -116,33 +116,6 @@ public class ConfigTopVoterAwards {
 	}
 
 	/**
-	 * Gets the store top voters monthly.
-	 *
-	 * @return the store top voters monthly
-	 */
-	public boolean getStoreTopVotersMonthly() {
-		return getData().getBoolean("StoreTopVoters.Monthly");
-	}
-
-	/**
-	 * Gets the store top voters weekly.
-	 *
-	 * @return the store top voters weekly
-	 */
-	public boolean getStoreTopVotersWeekly() {
-		return getData().getBoolean("StoreTopVoters.Weekly");
-	}
-
-	/**
-	 * Gets the store top voters daily.
-	 *
-	 * @return the store top voters daily
-	 */
-	public boolean getStoreTopVotersDaily() {
-		return getData().getBoolean("StoreTopVoters.Daily");
-	}
-
-	/**
 	 * Gets the monthly award rewards.
 	 *
 	 * @param pos
@@ -177,6 +150,33 @@ public class ConfigTopVoterAwards {
 			Set<String> noValues = new HashSet<String>();
 			return noValues;
 		}
+	}
+
+	/**
+	 * Gets the store top voters daily.
+	 *
+	 * @return the store top voters daily
+	 */
+	public boolean getStoreTopVotersDaily() {
+		return getData().getBoolean("StoreTopVoters.Daily");
+	}
+
+	/**
+	 * Gets the store top voters monthly.
+	 *
+	 * @return the store top voters monthly
+	 */
+	public boolean getStoreTopVotersMonthly() {
+		return getData().getBoolean("StoreTopVoters.Monthly");
+	}
+
+	/**
+	 * Gets the store top voters weekly.
+	 *
+	 * @return the store top voters weekly
+	 */
+	public boolean getStoreTopVotersWeekly() {
+		return getData().getBoolean("StoreTopVoters.Weekly");
 	}
 
 	/**
@@ -249,9 +249,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

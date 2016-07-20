@@ -72,26 +72,21 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the command vote points.
-	 *
-	 * @return the command vote points
-	 */
-	public String getCommandVotePoints() {
-		String str = getData().getString("Format.Commands.Vote.Points");
-		if (str != null) {
-			return str;
-		} else {
-			return "&a%Player% currently has &a&l%Points%&a Points!";
-		}
-	}
-
-	/**
 	 * Gets the broadcast when online.
 	 *
 	 * @return the broadcast when online
 	 */
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
+	}
+
+	/**
+	 * Gets the commands vote auto input sites.
+	 *
+	 * @return the commands vote auto input sites
+	 */
+	public boolean getCommandsVoteAutoInputSites() {
+		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
 	}
 
 	/**
@@ -298,15 +293,6 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the commands vote auto input sites.
-	 *
-	 * @return the commands vote auto input sites
-	 */
-	public boolean getCommandsVoteAutoInputSites() {
-		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
-	}
-
-	/**
 	 * Gets the commands vote total all title.
 	 *
 	 * @return the commands vote total all title
@@ -387,6 +373,20 @@ public class ConfigFormat {
 			return str;
 		} else {
 			return "&4%num%: &c&l%SiteName% - &c%url%";
+		}
+	}
+
+	/**
+	 * Gets the command vote points.
+	 *
+	 * @return the command vote points
+	 */
+	public String getCommandVotePoints() {
+		String str = getData().getString("Format.Commands.Vote.Points");
+		if (str != null) {
+			return str;
+		} else {
+			return "&a%Player% currently has &a&l%Points%&a Points!";
 		}
 	}
 
@@ -647,7 +647,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

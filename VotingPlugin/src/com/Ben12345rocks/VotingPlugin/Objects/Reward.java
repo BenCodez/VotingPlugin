@@ -335,6 +335,15 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the action bar msg.
+	 *
+	 * @return the action bar msg
+	 */
+	public String getActionBarMsg() {
+		return actionBarMsg;
+	}
+
+	/**
 	 * Gets the chance.
 	 *
 	 * @return the chance
@@ -611,15 +620,6 @@ public class Reward {
 	public ArrayList<String> getRandomRewards() {
 		return randomRewards;
 	}
-	
-	/**
-	 * Send action bar.
-	 *
-	 * @param user the user
-	 */
-	public void sendActionBar(User user) {
-		user.sendActionBar(getActionBarMsg());
-	}
 
 	/**
 	 * Gets the reward msg.
@@ -730,7 +730,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
@@ -806,8 +806,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -963,6 +963,16 @@ public class Reward {
 	}
 
 	/**
+	 * Send action bar.
+	 *
+	 * @param user
+	 *            the user
+	 */
+	public void sendActionBar(User user) {
+		user.sendActionBar(getActionBarMsg());
+	}
+
+	/**
 	 * Send message.
 	 *
 	 * @param user
@@ -986,12 +996,22 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-			ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
 
-			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
+	}
+
+	/**
+	 * Sets the action bar msg.
+	 *
+	 * @param actionBarMsg
+	 *            the new action bar msg
+	 */
+	public void setActionBarMsg(String actionBarMsg) {
+		this.actionBarMsg = actionBarMsg;
 	}
 
 	/**
@@ -1333,23 +1353,5 @@ public class Reward {
 	 */
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
-	}
-
-	/**
-	 * Gets the action bar msg.
-	 *
-	 * @return the action bar msg
-	 */
-	public String getActionBarMsg() {
-		return actionBarMsg;
-	}
-
-	/**
-	 * Sets the action bar msg.
-	 *
-	 * @param actionBarMsg the new action bar msg
-	 */
-	public void setActionBarMsg(String actionBarMsg) {
-		this.actionBarMsg = actionBarMsg;
 	}
 }

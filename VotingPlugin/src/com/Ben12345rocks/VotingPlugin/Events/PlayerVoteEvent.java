@@ -11,7 +11,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
  * The Class PlayerVoteEvent.
  */
 public class PlayerVoteEvent extends Event {
-	
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 
@@ -26,7 +26,7 @@ public class PlayerVoteEvent extends Event {
 
 	/** The player. */
 	private User player;
-	
+
 	/** The vote site. */
 	private VoteSite voteSite;
 
@@ -47,7 +47,9 @@ public class PlayerVoteEvent extends Event {
 		setVoteSite(voteSite);
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override

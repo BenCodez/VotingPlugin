@@ -17,16 +17,16 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
  * The Class CommandHandler.
  */
 public abstract class CommandHandler {
-	
+
 	/** The plugin. */
 	static Main plugin = Main.plugin;
-	
+
 	/** The args. */
 	private String[] args;
-	
+
 	/** The perm. */
 	private String perm;
-	
+
 	/** The help message. */
 	private String helpMessage;
 
@@ -93,7 +93,7 @@ public abstract class CommandHandler {
 			 * args[i].equalsIgnoreCase("boolean") ||
 			 * args[i].equalsIgnoreCase("list") ||
 			 * arg.equalsIgnoreCase(args[i])) { return true; } } else {
-			 *
+			 * 
 			 * }
 			 */
 			return false;
@@ -140,7 +140,7 @@ public abstract class CommandHandler {
 				commandText));
 		txt.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 				new ComponentBuilder(getHelpMessage()).color(ChatColor.AQUA)
-				.create()));
+						.create()));
 		return txt;
 
 	}
@@ -233,7 +233,7 @@ public abstract class CommandHandler {
 					if (!Utils.getInstance().isInt(args[i])) {
 						sender.sendMessage(Utils.getInstance().colorize(
 								ConfigFormat.getInstance().getNotNumber()
-								.replace("%arg%", args[i])));
+										.replace("%arg%", args[i])));
 						return true;
 					}
 				}

@@ -56,20 +56,20 @@ public class PlayerJoinEvent implements Listener {
 				User user = new User(player);
 
 				plugin.getServer().getScheduler()
-				.runTaskLaterAsynchronously(plugin, new Runnable() {
-					@Override
-					public void run() {
-						user.setPlayerName();
+						.runTaskLaterAsynchronously(plugin, new Runnable() {
+							@Override
+							public void run() {
+								user.setPlayerName();
 
-						user.offVoteWorld(player.getWorld().getName());
+								user.offVoteWorld(player.getWorld().getName());
 
-						// give offline vote (if they voted offline)
-						user.offVote();
+								// give offline vote (if they voted offline)
+								user.offVote();
 
-						// msg player if he can vote
-						user.loginMessage();
-					}
-				}, 100L);
+								// msg player if he can vote
+								user.loginMessage();
+							}
+						}, 100L);
 			}
 		}, 20L);
 

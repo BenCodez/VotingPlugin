@@ -16,13 +16,13 @@ public abstract class BInventoryButton {
 
 	/** The name. */
 	private String name;
-	
+
 	/** The lore. */
 	private String[] lore;
-	
+
 	/** The item. */
 	private ItemStack item;
-	
+
 	/** The slot. */
 	private int slot;
 
