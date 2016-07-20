@@ -26,20 +26,7 @@ import org.bukkit.plugin.PluginDescriptionFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
-/**
- * <p>
- * The metrics class obtains data about a plugin and submits statistics about it
- * to the metrics backend.
- * </p>
- * <p>
- * Public methods provided by this class:
- * </p>
- * <code>
- * Graph createGraph(String name); <br/>
- * void addCustomData(Metrics.Plotter plotter); <br/>
- * void start(); <br/>
- * </code>
- */
+
 public class Metrics {
 
 	/**
