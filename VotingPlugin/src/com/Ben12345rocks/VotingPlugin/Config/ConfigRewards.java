@@ -1118,6 +1118,12 @@ public class ConfigRewards {
 		set(reward, "Worlds", value);
 	}
 
+	/**
+	 * Gets the messages action bar.
+	 *
+	 * @param reward the reward
+	 * @return the messages action bar
+	 */
 	public String getMessagesActionBar(String reward) {
 		return getData(reward).getString("Message.ActionBar");
 	}

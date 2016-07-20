@@ -131,6 +131,7 @@ public class Reward {
 	/** The reward msg. */
 	private String rewardMsg;
 
+	/** The action bar msg. */
 	private String actionBarMsg;
 
 	/**
@@ -611,6 +612,11 @@ public class Reward {
 		return randomRewards;
 	}
 	
+	/**
+	 * Send action bar.
+	 *
+	 * @param user the user
+	 */
 	public void sendActionBar(User user) {
 		user.sendActionBar(getActionBarMsg());
 	}
@@ -1329,10 +1335,20 @@ public class Reward {
 		this.worlds = worlds;
 	}
 
+	/**
+	 * Gets the action bar msg.
+	 *
+	 * @return the action bar msg
+	 */
 	public String getActionBarMsg() {
 		return actionBarMsg;
 	}
 
+	/**
+	 * Sets the action bar msg.
+	 *
+	 * @param actionBarMsg the new action bar msg
+	 */
 	public void setActionBarMsg(String actionBarMsg) {
 		this.actionBarMsg = actionBarMsg;
 	}

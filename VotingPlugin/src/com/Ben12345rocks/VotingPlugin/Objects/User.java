@@ -35,6 +35,7 @@ import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+// TODO: Auto-generated Javadoc
 /**
  * The Class User.
  */

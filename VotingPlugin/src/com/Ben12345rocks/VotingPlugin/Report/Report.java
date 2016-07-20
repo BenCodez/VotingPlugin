@@ -123,7 +123,7 @@ public class Report {
 	 *            the dir
 	 * @param fileList
 	 *            the file list
-	 * 
+	 *
 	 */
 	public void getAllFiles(File dir, List<File> fileList) {
 		try {

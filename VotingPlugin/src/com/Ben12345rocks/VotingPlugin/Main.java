@@ -49,6 +49,10 @@ import com.Ben12345rocks.VotingPlugin.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Main.
+ */
 public class Main extends JavaPlugin {
 
 	/** The config. */
