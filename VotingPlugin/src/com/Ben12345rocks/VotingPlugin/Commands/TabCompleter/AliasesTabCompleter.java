@@ -16,7 +16,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class AliasesTabCompleter.
  */

@@ -16,7 +16,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class AdminVoteTabCompleter.
  */
@@ -44,7 +43,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				String[] cmdArgs = commandHandler.getArgs();
 				if (cmdArgs.length > argNum) {
 					boolean argsMatch = true;
-					for (int i = 0; i < argNum; i++) {
+				for (int i = 0; i < argNum; i++) {
 						if (args.length >= i) {
 							if (!commandHandler.argsMatch(args[i], i)) {
 								argsMatch = false;
