@@ -113,6 +113,26 @@ public class Reward {
 	/** The exp. */
 	private int exp;
 
+	private int minExp;
+
+	private int maxExp;
+
+	public int getMinExp() {
+		return minExp;
+	}
+
+	public void setMinExp(int minExp) {
+		this.minExp = minExp;
+	}
+
+	public int getMaxExp() {
+		return maxExp;
+	}
+
+	public void setMaxExp(int maxExp) {
+		this.maxExp = maxExp;
+	}
+
 	/** The console commands. */
 	private ArrayList<String> consoleCommands;
 
@@ -218,6 +238,8 @@ public class Reward {
 		setMaxMoney(ConfigRewards.getInstance().getMaxMoney(reward));
 
 		setExp(ConfigRewards.getInstance().getEXP(reward));
+		setMinExp(ConfigRewards.getInstance().getMinExp(reward));
+		setMaxExp(ConfigRewards.getInstance().getMaxExp(reward));
 
 		setConsoleCommands(ConfigRewards.getInstance().getCommandsConsole(
 				reward));
@@ -558,6 +580,22 @@ public class Reward {
 		}
 	}
 
+	public int getExpToGive() {
+		int amount = getExp();
+		int maxAmount = getMaxExp();
+		int minAmount = getMinExp();
+		if ((maxAmount == 0) && (minAmount == 0)) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	/**
 	 * Gets the player commands.
 	 *
@@ -673,7 +711,7 @@ public class Reward {
 	 *            the user
 	 */
 	public void giveExp(User user) {
-		user.giveExp(getExp());
+		user.giveExp(getExpToGive());
 	}
 
 	/**
@@ -730,7 +768,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -806,8 +844,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -996,9 +1034,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
