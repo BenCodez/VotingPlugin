@@ -95,10 +95,9 @@ public class Signs {
 	public void updateSigns() {
 		for (int i = plugin.signs.size() - 1; i >= 0; i--) {
 			if (!plugin.signs.get(i).isValid()) {
+				plugin.debug("Sign " + i + " invalid, removing from data.");
 				plugin.signs.get(i).removeSign();
 				plugin.signs.remove(i);
-				plugin.debug("Sign " + plugin.signs.get(i).getSign()
-						+ " invalid, removing from data.");
 			} else {
 				plugin.signs.get(i).updateLines();
 				plugin.signs.get(i).updateSign(i * 3);

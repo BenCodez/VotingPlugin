@@ -583,6 +583,9 @@ public class Utils {
 	 * @return true, if is player online
 	 */
 	public boolean isPlayerOnline(String playerName) {
+		if (playerName == null) {
+			return false;
+		}
 		Player player = Bukkit.getPlayer(playerName);
 		if (player != null) {
 			return true;
