@@ -3,7 +3,7 @@
 # Eg:
 # FirstVote: [] (All in one line)
 
-# First vote rewrrards
+# First vote rewards
 FirstVote:
 - 'FirstVote'
 
