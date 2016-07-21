@@ -102,6 +102,7 @@ Items:
       
 # Amount of money to give, requires vault
 # Use 0 to give none
+# Money is not per world
 # Use negative to take money
 Money: 1000
 
