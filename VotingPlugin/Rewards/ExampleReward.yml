@@ -118,7 +118,7 @@ EXP: 100
 
 # Pick a random number between min and max amount to give
 #MinEXP: 100
-#MAxEXP: 1000
+#MaxEXP: 1000
 
 # Commands to run
 # Use %player% for player name
