@@ -14,8 +14,8 @@ import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**

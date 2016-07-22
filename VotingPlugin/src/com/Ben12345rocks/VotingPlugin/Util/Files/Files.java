@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Files;
+package com.Ben12345rocks.VotingPlugin.Util.Files;
 
 import java.io.File;
 import java.io.IOException;

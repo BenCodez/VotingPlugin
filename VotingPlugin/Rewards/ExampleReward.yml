@@ -1,5 +1,7 @@
 # This is a reward file
-# Define rewards in here
+# Define rewards in here (Items, commands, etc)
+# Go to votesites and Rewards.yml to configure when to give
+# reward files.
 # File name is the reward name, without file extention
 # This reward is named "ExampleReward"
 # DO NOT HAVE DUPLICATE NAMES!!
@@ -30,6 +32,7 @@ Timed:
 # Will not give any rewards below unless chance is lucky or disabled
 Chance: 40
 
+# Advanced Random Rewards, just ignore this if you don't want fancy chance rewards
 # This is to give random rewards, with fallback
 # Rewards defined in this reward file below are still given regardless of this below
 Random:

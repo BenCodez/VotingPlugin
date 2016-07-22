@@ -12,8 +12,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**

@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.PlaceHolderExpansion;
+package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
 import org.bukkit.entity.Player;
 

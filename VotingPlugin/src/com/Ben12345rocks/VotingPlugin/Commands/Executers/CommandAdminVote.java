@@ -25,7 +25,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.Util.Updater.Updater;
 import com.vexsoftware.votifier.model.Vote;
 
 // TODO: Auto-generated Javadoc

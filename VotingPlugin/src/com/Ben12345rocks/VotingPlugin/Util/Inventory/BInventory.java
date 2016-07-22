@@ -1,7 +1,7 @@
 /* Obtained from https://www.spigotmc.org/threads/libish-inventory-api-kinda.49339/
  */
 
-package com.Ben12345rocks.VotingPlugin.Inventory;
+package com.Ben12345rocks.VotingPlugin.Util.Inventory;
 
 import java.util.ArrayList;
 import java.util.Arrays;

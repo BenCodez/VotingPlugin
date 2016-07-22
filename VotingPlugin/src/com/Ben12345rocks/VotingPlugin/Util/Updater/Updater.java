@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Updater;
+package com.Ben12345rocks.VotingPlugin.Util.Updater;
 
 import java.io.BufferedReader;
 import java.io.IOException;

@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Metrics;
+package com.Ben12345rocks.VotingPlugin.Util.Metrics;
 
 import java.io.BufferedReader;
 import java.io.File;

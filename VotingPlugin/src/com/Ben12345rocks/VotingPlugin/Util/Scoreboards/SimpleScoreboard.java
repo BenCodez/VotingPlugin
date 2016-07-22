@@ -1,6 +1,6 @@
 // credit: https://bukkit.org/threads/simplescoreboard-make-pretty-scoreboards-with-ease.263041/
 
-package com.Ben12345rocks.VotingPlugin.Scoreboards;
+package com.Ben12345rocks.VotingPlugin.Util.Scoreboards;
 
 import java.util.AbstractMap;
 import java.util.Iterator;
@@ -15,8 +15,8 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Utils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
