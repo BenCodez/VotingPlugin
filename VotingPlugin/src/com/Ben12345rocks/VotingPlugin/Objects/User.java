@@ -1073,9 +1073,11 @@ public class User {
 	 *            the msg
 	 */
 	public void sendActionBar(String msg) {
+		//plugin.debug("attempting to send action bar");
 		if (plugin.spigotLibEnabled && msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
+				//plugin.debug("Sending ActionBar");
 				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, Utils
 						.getInstance().colorize(msg), player);
 			}

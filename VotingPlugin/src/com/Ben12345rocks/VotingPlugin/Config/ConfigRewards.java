@@ -451,7 +451,7 @@ public class ConfigRewards {
 	 * @return the messages action bar
 	 */
 	public String getMessagesActionBar(String reward) {
-		return getData(reward).getString("Message.ActionBar");
+		return getData(reward).getString("Messages.ActionBar");
 	}
 
 	/**
