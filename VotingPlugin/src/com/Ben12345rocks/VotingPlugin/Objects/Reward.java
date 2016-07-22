@@ -29,6 +29,8 @@ public class Reward {
 	/** The name. */
 	public String name;
 
+	private String rewardType;
+
 	/** The delay enabled. */
 	private boolean delayEnabled;
 
@@ -156,6 +158,8 @@ public class Reward {
 	 */
 	public Reward(String reward) {
 		name = reward;
+
+		setRewardType(ConfigRewards.getInstance().getRewardType(reward));
 
 		setDelayEnabled(ConfigRewards.getInstance().getDelayedEnabled(reward));
 		setDelayHours(ConfigRewards.getInstance().getDelayedHours(reward));
@@ -760,7 +764,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
@@ -770,7 +774,7 @@ public class Reward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveRandom(User user) {
+	public void giveRandom(User user, boolean online) {
 		if (checkRandomChance()) {
 			ArrayList<String> rewards = getRandomRewards();
 			if (rewards != null) {
@@ -778,16 +782,18 @@ public class Reward {
 					String reward = rewards.get((int) Math.random()
 							* rewards.size());
 					if (reward.equalsIgnoreCase("")) {
-						user.giveReward(ConfigRewards.getInstance().getReward(
-								reward));
+						user.giveReward(
+								ConfigRewards.getInstance().getReward(reward),
+								online);
 					}
 				}
 			}
 		} else {
 			for (String reward : getRandomFallBack()) {
 				if (reward.equalsIgnoreCase("")) {
-					user.giveReward(ConfigRewards.getInstance().getReward(
-							reward));
+					user.giveReward(
+							ConfigRewards.getInstance().getReward(reward),
+							online);
 				}
 			}
 		}
@@ -799,7 +805,14 @@ public class Reward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveReward(User user) {
+	public void giveReward(User user, boolean online) {
+
+		if (!online
+				&& !Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
+			Data.getInstance().setOfflineReward(user, this,
+					Data.getInstance().getOfflineReward(user, this) + 1);
+			return;
+		}
 
 		if (checkDelayed(user)) {
 			return;
@@ -809,7 +822,7 @@ public class Reward {
 			return;
 		}
 
-		giveRewardReward(user);
+		giveRewardReward(user, online);
 	}
 
 	/**
@@ -818,9 +831,22 @@ public class Reward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveRewardReward(User user) {
+	public void giveRewardReward(User user, boolean online) {
 		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
 				+ name);
+
+		String type = getRewardType();
+		if (online) {
+			if (type.equalsIgnoreCase("offline")) {
+				plugin.debug("Reward Type Don't match");
+				return;
+			}
+		} else {
+			if (type.equalsIgnoreCase("online")) {
+				plugin.debug("Reward Type Don't match");
+				return;
+			}
+		}
 
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
@@ -836,8 +862,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -856,7 +882,7 @@ public class Reward {
 				giveRewardUser(user);
 			}
 		}
-		giveRandom(user);
+		giveRandom(user, online);
 	}
 
 	/**
@@ -877,6 +903,7 @@ public class Reward {
 				givePotions(user);
 				sendMessage(user);
 				sendTitle(user);
+				sendActionBar(user);
 				playSound(user);
 				playEffect(user);
 
@@ -1026,9 +1053,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
@@ -1391,5 +1418,13 @@ public class Reward {
 	 */
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
+	}
+
+	public String getRewardType() {
+		return rewardType;
+	}
+
+	public void setRewardType(String rewardType) {
+		this.rewardType = rewardType;
 	}
 }

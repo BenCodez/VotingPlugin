@@ -543,7 +543,8 @@ public class User {
 	public void giveDailyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getDailyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward));
+			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
+					.getInstance().isPlayerOnline(getPlayerName()));
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
@@ -675,7 +676,8 @@ public class User {
 	public void giveMonthlyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getMonthlyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward));
+			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
+					.getInstance().isPlayerOnline(getPlayerName()));
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
@@ -718,8 +720,8 @@ public class User {
 	 * @param reward
 	 *            the reward
 	 */
-	public void giveReward(Reward reward) {
-		reward.giveReward(this);
+	public void giveReward(Reward reward, boolean online) {
+		reward.giveReward(this, online);
 	}
 
 	/**
@@ -731,7 +733,8 @@ public class User {
 	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getWeeklyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward));
+			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
+					.getInstance().isPlayerOnline(getPlayerName()));
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
@@ -823,22 +826,30 @@ public class User {
 		}
 
 		if (sendEffects) {
-			sendVoteEffects();
+			sendVoteEffects(true);
 		}
 
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			playerVote(plugin.getVoteSite(offlineVotes.get(i)));
+			playerVote(plugin.getVoteSite(offlineVotes.get(i)), false);
 		}
 		for (int i = 0; i < offlineVotes.size(); i++) {
 			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
 		}
 
 		for (int i = 0; i < Data.getInstance().getFirstVoteOffline(this); i++) {
-			OtherVoteReward.getInstance().giveFirstVoteRewards(this);
+			OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
 		}
 
 		for (int i = 0; i < Data.getInstance().getAllSitesOffline(this); i++) {
-			OtherVoteReward.getInstance().giveAllSitesRewards(this);
+
+		}
+
+		for (Reward reward : plugin.rewards) {
+			int offVotes = Data.getInstance().getOfflineReward(this, reward);
+			for (int i = 0; i < offVotes; i++) {
+				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+			}
+			Data.getInstance().setOfflineReward(this, reward, 0);
 		}
 
 		Set<String> list = ConfigOtherRewards.getInstance()
@@ -853,7 +864,7 @@ public class User {
 								.getCumulativeVotesOffline(this, votesRequired);
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-									.giveCumulativeVoteReward(this,
+									.giveCumulativeVoteReward(this, false,
 											votesRequired);
 
 						}
@@ -967,12 +978,12 @@ public class User {
 	 * @param voteSite
 	 *            the vote site
 	 */
-	public synchronized void playerVote(VoteSite voteSite) {
+	public synchronized void playerVote(VoteSite voteSite, boolean online) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
 				&& ConfigFormat.getInstance().getBroadcastWhenOnline()) {
 			voteSite.broadcastVote(this);
 		}
-		voteSite.giveSiteReward(this);
+		voteSite.giveSiteReward(this, online);
 	}
 
 	/**
@@ -1167,10 +1178,11 @@ public class User {
 	/**
 	 * Send vote effects.
 	 */
-	public void sendVoteEffects() {
+	public void sendVoteEffects(boolean online) {
 		for (String reward : Config.getInstance().getRewards()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(this);
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(this, online);
 			}
 		}
 	}

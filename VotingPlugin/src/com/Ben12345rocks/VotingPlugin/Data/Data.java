@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
@@ -181,6 +182,14 @@ public class Data {
 	 */
 	public int getOfflineVotesSite(User user, String siteName) {
 		return getData(user).getInt("OfflineVotes." + siteName);
+	}
+
+	public int getOfflineReward(User user, Reward reward) {
+		return getData(user).getInt("OfflineRewards." + reward.getRewardName());
+	}
+
+	public void setOfflineReward(User user, Reward reward, int value) {
+		set(user, "OfflineRewards." + reward.getRewardName(), value);
 	}
 
 	/**

@@ -116,7 +116,7 @@ public class VoteReminding {
 					Reward rewardFile = ConfigRewards.getInstance().getReward(
 							reward);
 
-					rewardFile.giveReward(user);
+					rewardFile.giveReward(user, true);
 				}
 			}
 

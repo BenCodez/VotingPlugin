@@ -117,16 +117,17 @@ public class VotiferEvent implements Listener {
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
-					user.playerVote(voteSite);
+					user.playerVote(voteSite,true);
 
 					if (firstVote) {
-						OtherVoteReward.getInstance()
-								.giveFirstVoteRewards(user);
+						OtherVoteReward.getInstance().giveFirstVoteRewards(
+								user, true);
 
 					}
 
 					if (allSites) {
-						OtherVoteReward.getInstance().giveAllSitesRewards(user);
+						OtherVoteReward.getInstance().giveAllSitesRewards(user,
+								true);
 
 					}
 
@@ -145,7 +146,8 @@ public class VotiferEvent implements Listener {
 														user, votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance()
-													.giveCumulativeVoteReward(user,
+													.giveCumulativeVoteReward(
+															user, true,
 															votesRequired);
 
 										}
@@ -161,7 +163,7 @@ public class VotiferEvent implements Listener {
 						}
 
 					}
-					user.sendVoteEffects();
+					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
 						Data.getInstance()

@@ -154,11 +154,12 @@ public class OtherVoteReward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveAllSitesRewards(User user) {
+	public void giveAllSitesRewards(User user, boolean online) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getAllSitesReward()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -169,11 +170,12 @@ public class OtherVoteReward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveFirstVoteRewards(User user) {
+	public void giveFirstVoteRewards(User user, boolean online) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getFirstVoteRewards()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -184,11 +186,13 @@ public class OtherVoteReward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveCumulativeVoteReward(User user, int cumulative) {
+	public void giveCumulativeVoteReward(User user, boolean online,
+			int cumulative) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
 			}
 		}
 	}

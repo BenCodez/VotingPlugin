@@ -61,6 +61,13 @@ Worlds:
 # If false, the player will be reward one of the worlds once
 GiveInEachWorld: false
 
+# Reward type
+# Possible Values: ONLINE,OFFLINE,BOTH
+# Default: BOTH
+# Make this reward file only give rewards depending 
+# if player was online/offline when the reward attempted to give
+RewardType: 'BOTH'
+
 
 # Items to give to user
 Items:

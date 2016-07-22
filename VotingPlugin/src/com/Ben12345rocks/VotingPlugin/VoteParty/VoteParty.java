@@ -160,7 +160,8 @@ public class VoteParty {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
 			for (String reward : ConfigOtherRewards.getInstance()
 					.getVotePartyRewards()) {
-				user.giveReward(ConfigRewards.getInstance().getReward(reward));
+				user.giveReward(ConfigRewards.getInstance().getReward(reward),
+						true);
 			}
 		} else {
 			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);

@@ -66,12 +66,26 @@ public class ConfigRewards {
 				if (time != 0) {
 					Date timeDate = new Date(time);
 					if (new Date().after(timeDate)) {
-						reward.giveRewardReward(user);
+						reward.giveRewardReward(user, true);
 						user.setTimedReward(reward, 0);
 					}
 				}
 			}
 		}
+	}
+
+	public String getRewardType(String reward) {
+		String str = getData(reward).getString("RewardType");
+		if (str != null) {
+			if (str.equalsIgnoreCase("online")) {
+				return "ONLINE";
+			} else if (str.equalsIgnoreCase("offline")) {
+				return "OFFLINE";
+			} else {
+				return "BOTH";
+			}
+		}
+		return "BOTH";
 	}
 
 	/**
@@ -627,7 +641,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}

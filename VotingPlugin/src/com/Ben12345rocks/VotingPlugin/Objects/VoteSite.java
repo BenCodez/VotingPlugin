@@ -164,9 +164,10 @@ public class VoteSite {
 	 * @param user
 	 *            the user
 	 */
-	public void giveCulumativeRewards(User user) {
+	public void giveCulumativeRewards(User user, boolean online) {
 		for (String reward : getCumulativeRewards()) {
-			ConfigRewards.getInstance().getReward(reward).giveReward(user);
+			ConfigRewards.getInstance().getReward(reward)
+					.giveReward(user, online);
 		}
 	}
 
@@ -176,10 +177,11 @@ public class VoteSite {
 	 * @param user
 	 *            the user
 	 */
-	public void giveRewards(User user) {
+	public void giveRewards(User user, boolean online) {
 		for (String reward : getRewards()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -190,8 +192,8 @@ public class VoteSite {
 	 * @param user
 	 *            the user
 	 */
-	public void giveSiteReward(User user) {
-		giveRewards(user);
+	public void giveSiteReward(User user, boolean online) {
+		giveRewards(user, online);
 
 		try {
 
@@ -202,7 +204,7 @@ public class VoteSite {
 				if ((user.getCumulativeReward(this) >= configVoteSites
 						.getCumulativeRewardVotesAmount(siteName))) {
 
-					giveCulumativeRewards(user);
+					giveCulumativeRewards(user, online);
 
 					user.setCumulativeReward(this, 0);
 				}
