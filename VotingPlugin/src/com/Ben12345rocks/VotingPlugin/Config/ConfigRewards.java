@@ -154,14 +154,6 @@ public class ConfigRewards {
 		return getData(reward).getInt("Delayed.Hours");
 	}
 
-	public int getMinExp(String reward) {
-		return getData(reward).getInt("MinEXP");
-	}
-	
-	public int getMaxExp(String reward) {
-		return getData(reward).getInt("MaxEXP");
-	}
-
 	/**
 	 * Gets the delayed minutes.
 	 *
@@ -422,6 +414,10 @@ public class ConfigRewards {
 		return getData(reward).getString("Items." + item + ".Skull");
 	}
 
+	public int getMaxExp(String reward) {
+		return getData(reward).getInt("MaxEXP");
+	}
+
 	/**
 	 * Gets the max money.
 	 *
@@ -458,6 +454,10 @@ public class ConfigRewards {
 		} else {
 			return ConfigFormat.getInstance().getRewardMsg();
 		}
+	}
+
+	public int getMinExp(String reward) {
+		return getData(reward).getInt("MinEXP");
 	}
 
 	/**
@@ -627,7 +627,7 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}

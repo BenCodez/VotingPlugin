@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -58,7 +59,7 @@ public class VotiferEvent implements Listener {
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
 					"Player " + playerName
-					+ " has not joined before, disregarding vote");
+							+ " has not joined before, disregarding vote");
 			return;
 		}
 
@@ -111,8 +112,8 @@ public class VotiferEvent implements Listener {
 						.checkFirstVote(user);
 				boolean allSites = OtherVoteReward.getInstance().checkAllSites(
 						user);
-				boolean numberOfVotes = OtherVoteReward.getInstance()
-						.checkNumberOfVotes(user);
+				boolean cumulativeVotes = OtherVoteReward.getInstance()
+						.checkCumualativeVotes(user);
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
@@ -120,7 +121,7 @@ public class VotiferEvent implements Listener {
 
 					if (firstVote) {
 						OtherVoteReward.getInstance()
-						.giveFirstVoteRewards(user);
+								.giveFirstVoteRewards(user);
 
 					}
 
@@ -129,38 +130,61 @@ public class VotiferEvent implements Listener {
 
 					}
 
-					if (numberOfVotes) {
-						OtherVoteReward.getInstance().giveNumberOfVotesRewards(
-								user);
+					if (cumulativeVotes) {
+						Set<String> list = ConfigOtherRewards.getInstance()
+								.getCumulativeVotes();
+						for (String str : list) {
+							if (Utils.getInstance().isInt(str)) {
+								int votesRequired = Integer.parseInt(str);
+								if (votesRequired != 0) {
+									if (ConfigOtherRewards.getInstance()
+											.getCumulativeRewardEnabled(
+													votesRequired)) {
+										int offlineVote = Data.getInstance()
+												.getCumulativeVotesOffline(
+														user, votesRequired);
+										for (int i = 0; i < offlineVote; i++) {
+											OtherVoteReward.getInstance()
+													.giveCumulativeVoteReward(user,
+															votesRequired);
+
+										}
+										if (offlineVote != 0) {
+											Data.getInstance()
+													.setCumuatliveVotesOffline(
+															user,
+															votesRequired, 0);
+										}
+									}
+								}
+							}
+						}
 
 					}
 					user.sendVoteEffects();
 				} else {
 					if (firstVote) {
 						Data.getInstance()
-						.setFirstVoteOffline(
-								user,
-								Data.getInstance().getFirstVoteOffline(
-										user) + 1);
+								.setFirstVoteOffline(
+										user,
+										Data.getInstance().getFirstVoteOffline(
+												user) + 1);
 						plugin.debug("Offline first vote reward set for "
 								+ playerName);
 					}
 
 					if (allSites) {
 						Data.getInstance()
-						.setAllSitesOffline(
-								user,
-								Data.getInstance().getAllSitesOffline(
-										user) + 1);
+								.setAllSitesOffline(
+										user,
+										Data.getInstance().getAllSitesOffline(
+												user) + 1);
 						plugin.debug("Offline bonus reward set for "
 								+ playerName);
 					}
 
-					if (numberOfVotes) {
-						Data.getInstance().setNumberOfVotesOffline(
-								user,
-								Data.getInstance()
-								.getNumberOfVotesOffline(user) + 1);
+					if (cumulativeVotes) {
+						// cumulative votes are automaticly set offline
 						plugin.debug("Offline number of votes reward set for "
 								+ playerName);
 					}
@@ -229,7 +253,7 @@ public class VotiferEvent implements Listener {
 					&& Config.getInstance().getAutoCreateVoteSites()) {
 				plugin.getLogger().warning(
 						"VoteSite " + voteSiteName
-						+ " doe not exist, generaterating one...");
+								+ " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 						voteSite);
@@ -237,10 +261,10 @@ public class VotiferEvent implements Listener {
 		} else if (Config.getInstance().getAutoCreateVoteSites()) {
 			plugin.getLogger().warning(
 					"VoteSite " + voteSiteName
-					+ " doe not exist, generaterating one...");
+							+ " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 			ConfigVoteSites.getInstance()
-			.setServiceSite(voteSiteName, voteSite);
+					.setServiceSite(voteSiteName, voteSite);
 		}
 
 		try {

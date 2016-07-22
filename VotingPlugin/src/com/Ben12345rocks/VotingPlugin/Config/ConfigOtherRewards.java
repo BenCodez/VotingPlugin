@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -70,6 +72,53 @@ public class ConfigOtherRewards {
 		}
 	}
 
+	public boolean getCumulativeRewardEnabled(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
+	}
+
+	/**
+	 * Gets the number of votes.
+	 *
+	 * @return the number of votes
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewards(int cumulative) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Cumulative." + cumulative + ".Rewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	public Set<String> getCumulativeVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("Cumulative")
+					.getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the number of votes votes in same day.
+	 *
+	 * @return the number of votes votes in same day
+	 */
+	public boolean getCumulativeVotesInSameDay(int cumulative) {
+		return getData().getBoolean(
+				"Cumulative." + cumulative + ".VotesInSameDay");
+	}
+
 	/**
 	 * Gets the data.
 	 *
@@ -91,35 +140,6 @@ public class ConfigOtherRewards {
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
-	}
-
-	/**
-	 * Gets the number of votes.
-	 *
-	 * @return the number of votes
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getNumberOfVotes() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"CumulativeRewards");
-			if (list != null) {
-				return list;
-			}
-
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
-	}
-
-	/**
-	 * Gets the number of votes votes in same day.
-	 *
-	 * @return the number of votes votes in same day
-	 */
-	public boolean getNumberOfVotesVotesInSameDay() {
-		return getData().getBoolean("VotesInSameDay");
 	}
 
 	/**
@@ -201,8 +221,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create Rewards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

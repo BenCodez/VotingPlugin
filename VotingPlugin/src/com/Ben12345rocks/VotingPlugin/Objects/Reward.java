@@ -117,22 +117,6 @@ public class Reward {
 
 	private int maxExp;
 
-	public int getMinExp() {
-		return minExp;
-	}
-
-	public void setMinExp(int minExp) {
-		this.minExp = minExp;
-	}
-
-	public int getMaxExp() {
-		return maxExp;
-	}
-
-	public void setMaxExp(int maxExp) {
-		this.maxExp = maxExp;
-	}
-
 	/** The console commands. */
 	private ArrayList<String> consoleCommands;
 
@@ -410,6 +394,22 @@ public class Reward {
 		return exp;
 	}
 
+	public int getExpToGive() {
+		int amount = getExp();
+		int maxAmount = getMaxExp();
+		int minAmount = getMinExp();
+		if ((maxAmount == 0) && (minAmount == 0)) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
 	/**
 	 * Gets the item amount.
 	 *
@@ -532,6 +532,10 @@ public class Reward {
 		return itemSkull;
 	}
 
+	public int getMaxExp() {
+		return maxExp;
+	}
+
 	/**
 	 * Gets the max money.
 	 *
@@ -539,6 +543,10 @@ public class Reward {
 	 */
 	public int getMaxMoney() {
 		return MaxMoney;
+	}
+
+	public int getMinExp() {
+		return minExp;
 	}
 
 	/**
@@ -568,22 +576,6 @@ public class Reward {
 		int amount = getMoney();
 		int maxAmount = getMaxMoney();
 		int minAmount = getMinMoney();
-		if ((maxAmount == 0) && (minAmount == 0)) {
-			return amount;
-		} else {
-			int num = (int) (Math.random() * maxAmount);
-			num++;
-			if (num < minAmount) {
-				num = minAmount;
-			}
-			return num;
-		}
-	}
-
-	public int getExpToGive() {
-		int amount = getExp();
-		int maxAmount = getMaxExp();
-		int minAmount = getMinExp();
 		if ((maxAmount == 0) && (minAmount == 0)) {
 			return amount;
 		} else {
@@ -768,7 +760,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
@@ -844,8 +836,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -1034,9 +1026,9 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-			ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
 
-			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
@@ -1233,6 +1225,10 @@ public class Reward {
 		this.itemSkull = itemSkull;
 	}
 
+	public void setMaxExp(int maxExp) {
+		this.maxExp = maxExp;
+	}
+
 	/**
 	 * Sets the max money.
 	 *
@@ -1241,6 +1237,10 @@ public class Reward {
 	 */
 	public void setMaxMoney(int maxMoney) {
 		MaxMoney = maxMoney;
+	}
+
+	public void setMinExp(int minExp) {
+		this.minExp = minExp;
 	}
 
 	/**

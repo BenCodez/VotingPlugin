@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import net.md_5.bungee.api.chat.TextComponent;
@@ -26,6 +27,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
@@ -839,13 +841,33 @@ public class User {
 			OtherVoteReward.getInstance().giveAllSitesRewards(this);
 		}
 
-		for (int i = 0; i < Data.getInstance().getNumberOfVotesOffline(this); i++) {
-			OtherVoteReward.getInstance().giveNumberOfVotesRewards(this);
+		Set<String> list = ConfigOtherRewards.getInstance()
+				.getCumulativeVotes();
+		for (String str : list) {
+			if (Utils.getInstance().isInt(str)) {
+				int votesRequired = Integer.parseInt(str);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getCumulativeRewardEnabled(votesRequired)) {
+						int offlineVote = Data.getInstance()
+								.getCumulativeVotesOffline(this, votesRequired);
+						for (int i = 0; i < offlineVote; i++) {
+							OtherVoteReward.getInstance()
+									.giveCumulativeVoteReward(this,
+											votesRequired);
+
+						}
+						if (offlineVote != 0) {
+							Data.getInstance().setCumuatliveVotesOffline(this,
+									votesRequired, 0);
+						}
+					}
+				}
+			}
 		}
 
 		Data.getInstance().setFirstVoteOffline(this, 0);
 		Data.getInstance().setAllSitesOffline(this, 0);
-		Data.getInstance().setNumberOfVotesOffline(this, 0);
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {

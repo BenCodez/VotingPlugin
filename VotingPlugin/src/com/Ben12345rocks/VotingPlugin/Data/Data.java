@@ -166,8 +166,8 @@ public class Data {
 	 *            the user
 	 * @return the number of votes offline
 	 */
-	public int getNumberOfVotesOffline(User user) {
-		return getData(user).getInt("OtherRewards.NumberOfVotes");
+	public int getCumulativeVotesOffline(User user, int cumulative) {
+		return getData(user).getInt("OtherRewards.Cumulative." + cumulative);
 	}
 
 	/**
@@ -554,8 +554,8 @@ public class Data {
 	 * @param value
 	 *            the value
 	 */
-	public void setNumberOfVotesOffline(User user, int value) {
-		set(user, "OtherRewards.NumberOfVotes", value);
+	public void setCumuatliveVotesOffline(User user, int cumulative, int value) {
+		set(user, "OtherRewards.Cumulative." + cumulative, value);
 	}
 
 	/**

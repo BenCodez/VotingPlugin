@@ -84,7 +84,8 @@ public class VoteParty {
 			if (getTotalVotes() >= ConfigOtherRewards.getInstance()
 					.getVotePartyVotesRequired()) {
 				setTotalVotes(getTotalVotes()
-						- ConfigOtherRewards.getInstance().getVotePartyVotesRequired());
+						- ConfigOtherRewards.getInstance()
+								.getVotePartyVotesRequired());
 				giveRewards();
 			}
 		}
@@ -100,7 +101,8 @@ public class VoteParty {
 		ArrayList<String> msg = ConfigFormat.getInstance()
 				.getCommandsVoteParty();
 		ArrayList<String> lines = new ArrayList<String>();
-		int votesRequired = ConfigOtherRewards.getInstance().getVotePartyVotesRequired();
+		int votesRequired = ConfigOtherRewards.getInstance()
+				.getVotePartyVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
 		for (String line : msg) {

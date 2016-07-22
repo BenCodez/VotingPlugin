@@ -43,7 +43,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 				String[] cmdArgs = commandHandler.getArgs();
 				if (cmdArgs.length > argNum) {
 					boolean argsMatch = true;
-				for (int i = 0; i < argNum; i++) {
+					for (int i = 0; i < argNum; i++) {
 						if (args.length >= i) {
 							if (!commandHandler.argsMatch(args[i], i)) {
 								argsMatch = false;
@@ -103,7 +103,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])

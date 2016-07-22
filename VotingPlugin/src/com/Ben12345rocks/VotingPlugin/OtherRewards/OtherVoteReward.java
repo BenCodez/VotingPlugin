@@ -1,11 +1,15 @@
 package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
+import java.util.Set;
+
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
@@ -95,24 +99,50 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkNumberOfVotes(User user) {
-		if (ConfigOtherRewards.getInstance().getNumberOfVotes().size() != 0) {
-			int votesRequired = ConfigOtherRewards.getInstance()
-					.getVotesRequired();
-			if (votesRequired != 0) {
-				if (ConfigOtherRewards.getInstance()
-						.getNumberOfVotesVotesInSameDay()) {
-					int userVotesTotal = user.getTotalVotesToday();
-					if ((userVotesTotal % votesRequired) == 0) {
-						return true;
-					}
-				} else {
+	public boolean checkCumualativeVotes(User user) {
+		Set<String> votes = ConfigOtherRewards.getInstance()
+				.getCumulativeVotes();
+		for (String vote : votes) {
+			if (Utils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getCumulativeRewardEnabled(votesRequired)
+							&& ConfigOtherRewards.getInstance()
+									.getCumulativeRewards(votesRequired).size() != 0) {
+						if (ConfigOtherRewards.getInstance()
+								.getCumulativeVotesInSameDay(votesRequired)) {
+							int userVotesTotal = user.getTotalVotesToday();
+							if ((userVotesTotal % votesRequired) == 0) {
+								Data.getInstance()
+										.setCumuatliveVotesOffline(
+												user,
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
+								return true;
+							}
+						} else {
 
-					int userVotesTotal = user.getTotalVotes();
-					if ((userVotesTotal % votesRequired) == 0) {
-						return true;
+							int userVotesTotal = user.getTotalVotes();
+							if ((userVotesTotal % votesRequired) == 0) {
+								Data.getInstance()
+										.setCumuatliveVotesOffline(
+												user,
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
+								return true;
+							}
+						}
 					}
 				}
+			} else {
+				plugin.debug("Invalid cumulative number: " + vote);
 			}
 		}
 		return false;
@@ -154,9 +184,9 @@ public class OtherVoteReward {
 	 * @param user
 	 *            the user
 	 */
-	public void giveNumberOfVotesRewards(User user) {
+	public void giveCumulativeVoteReward(User user, int cumulative) {
 		for (String reward : ConfigOtherRewards.getInstance()
-				.getNumberOfVotes()) {
+				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward).giveReward(user);
 			}

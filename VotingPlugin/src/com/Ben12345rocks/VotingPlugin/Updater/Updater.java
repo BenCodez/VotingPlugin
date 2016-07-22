@@ -95,7 +95,7 @@ public class Updater {
 
 		try {
 			connection = (HttpURLConnection) new URL(HOST + QUERY)
-					.openConnection();
+			.openConnection();
 		} catch (IOException e) {
 			result = UpdateResult.FAIL_SPIGOT;
 			return;

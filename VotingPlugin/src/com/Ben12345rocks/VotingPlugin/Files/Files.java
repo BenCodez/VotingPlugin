@@ -33,15 +33,15 @@ public class Files {
 				data.save(file);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not save "
-								+ file.getName());
+				.getLogger()
+				.severe(ChatColor.RED + "Could not save "
+						+ file.getName());
 			}
 		}
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see java.lang.Thread#run()
 		 */
 		@Override
