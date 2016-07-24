@@ -16,6 +16,7 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerRewardEvent;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -886,6 +887,14 @@ public class Reward {
 	 *            the user
 	 */
 	public void giveReward(User user, boolean online) {
+
+		PlayerRewardEvent event = new PlayerRewardEvent(this, user);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			plugin.debug("Reward " + name + " was cancelled");
+			return;
+		}
 
 		if (!online
 				&& !Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
