@@ -1,8 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
-import gyurix.spigotlib.ChatAPI;
-import gyurix.spigotlib.ChatAPI.ChatMessageType;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -34,6 +31,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.Util.Effects.ActionBar;
+import com.Ben12345rocks.VotingPlugin.Util.Effects.BossBar;
+import com.Ben12345rocks.VotingPlugin.Util.Effects.Title;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -1073,13 +1073,26 @@ public class User {
 	 *            the msg
 	 */
 	public void sendActionBar(String msg) {
-		//plugin.debug("attempting to send action bar");
-		if (plugin.spigotLibEnabled && msg != null && msg != "") {
+		// plugin.debug("attempting to send action bar");
+		if (msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
-				//plugin.debug("Sending ActionBar");
-				ChatAPI.sendJsonMsg(ChatMessageType.ACTION_BAR, Utils
-						.getInstance().colorize(msg), player);
+				// plugin.debug("Sending ActionBar");
+				ActionBar.getInstance().sendActionBar(player,
+						Utils.getInstance().colorize(msg));
+			}
+		}
+	}
+
+	public void sendBossBar(String msg, String barColor, String style,
+			float progress, int timeout, int timeoutInterval) {
+		// plugin.debug("attempting to send action bar");
+		if (msg != null && msg != "") {
+			Player player = getPlayer();
+			if (player != null) {
+				BossBar.getInstance().sendBossBar(player,
+						Utils.getInstance().colorize(msg), barColor, style,
+						progress, timeout, timeoutInterval);
 			}
 		}
 	}
@@ -1172,7 +1185,7 @@ public class User {
 			int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			Utils.getInstance().sendTitle(player, title, subTitle, fadeIn,
+			Title.getInstance().sendTitle(player, title, subTitle, fadeIn,
 					showTime, fadeOut);
 		}
 	}

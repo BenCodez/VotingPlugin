@@ -549,6 +549,34 @@ public class ConfigRewards {
 		return getData(reward).getInt("Potions." + potion + ".Duration");
 	}
 
+	public String getBossBarMessage(String reward) {
+		return getData(reward).getString("BossBar.Message");
+	}
+
+	public boolean getBossBarEnabled(String reward) {
+		return getData(reward).getBoolean("BossBar.Enabled");
+	}
+
+	public String getBossBarBarColor(String reward) {
+		return getData(reward).getString("BossBar.BarColor");
+	}
+
+	public String getBossBarBarStyle(String reward) {
+		return getData(reward).getString("BossBar.BarStyle");
+	}
+
+	public int getBossBarTimeOut(String reward) {
+		return getData(reward).getInt("BossBar.TimeOut");
+	}
+
+	public int getBossBarTimeOutInterval(String reward) {
+		return getData(reward).getInt("BossBar.TimeOutInterval");
+	}
+
+	public double getBossBarProgress(String reward) {
+		return getData(reward).getDouble("BossBar.Progress");
+	}
+
 	/**
 	 * Gets the random chance.
 	 *

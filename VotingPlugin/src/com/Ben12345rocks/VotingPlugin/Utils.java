@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin;
 
-import gyurix.api.TitleAPI;
-
 import java.text.DateFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -784,38 +782,6 @@ public class Utils {
 			return PlaceholderAPI.setBracketPlaceholders(player, text);
 		} else {
 			return text;
-		}
-	}
-
-	/**
-	 * Send title.
-	 *
-	 * @param player
-	 *            the player
-	 * @param title
-	 *            the title
-	 * @param subTitle
-	 *            the sub title
-	 * @param fadeIn
-	 *            the fade in
-	 * @param showTime
-	 *            the show time
-	 * @param fadeOut
-	 *            the fade out
-	 */
-	public void sendTitle(Player player, String title, String subTitle,
-			int fadeIn, int showTime, int fadeOut) {
-		if (plugin.spigotLibEnabled) {
-
-			if (title == null) {
-				title = "";
-			}
-			if (subTitle == null) {
-				subTitle = "";
-			}
-			TitleAPI.set(colorize(title), colorize(subTitle), fadeIn, showTime,
-					fadeOut, player);
-
 		}
 	}
 

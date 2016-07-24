@@ -106,9 +106,6 @@ public class Main extends JavaPlugin {
 	/** The rewards. */
 	public ArrayList<Reward> rewards;
 
-	/** The spigot lib enabled. */
-	public boolean spigotLibEnabled;
-
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
@@ -122,19 +119,6 @@ public class Main extends JavaPlugin {
 		} else {
 			placeHolderAPIEnabled = false;
 			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
-		}
-	}
-
-	/**
-	 * Check spigot lib.
-	 */
-	public void checkSpigotLib() {
-		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
-			spigotLibEnabled = true;
-			plugin.debug("Found SpigotLib, will attempt to send titles");
-		} else {
-			spigotLibEnabled = false;
-			plugin.debug("SpigotLib not found, titles will not send");
 		}
 	}
 
@@ -274,7 +258,6 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		checkPlaceHolderAPI();
-		checkSpigotLib();
 
 		loadVoteSites();
 		loadRewards();

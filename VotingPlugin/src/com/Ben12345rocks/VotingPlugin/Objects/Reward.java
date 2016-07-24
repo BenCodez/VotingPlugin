@@ -140,6 +140,76 @@ public class Reward {
 	/** The action bar msg. */
 	private String actionBarMsg;
 
+	private boolean bossBarEnabled;
+
+	private String bossBarMessage;
+
+	private String bossBarColor;
+
+	private String bossBarStyle;
+
+	private float bossBarProgress;
+
+	private int bossBarTimeOut;
+
+	private int bossBarTimeOutInterval;
+
+	public boolean isBossBarEnabled() {
+		return bossBarEnabled;
+	}
+
+	public void setBossBarEnabled(boolean bossBarEnabled) {
+		this.bossBarEnabled = bossBarEnabled;
+	}
+
+	public String getBossBarMessage() {
+		return bossBarMessage;
+	}
+
+	public void setBossBarMessage(String bossBarMessage) {
+		this.bossBarMessage = bossBarMessage;
+	}
+
+	public String getBossBarColor() {
+		return bossBarColor;
+	}
+
+	public void setBossBarColor(String bossBarColor) {
+		this.bossBarColor = bossBarColor;
+	}
+
+	public String getBossBarStyle() {
+		return bossBarStyle;
+	}
+
+	public void setBossBarStyle(String bossBarStyle) {
+		this.bossBarStyle = bossBarStyle;
+	}
+
+	public float getBossBarProgress() {
+		return bossBarProgress;
+	}
+
+	public void setBossBarProgress(float bossBarProgress) {
+		this.bossBarProgress = bossBarProgress;
+	}
+
+	public int getBossBarTimeOut() {
+		return bossBarTimeOut;
+	}
+
+	public void setBossBarTimeOut(int bossBarTimeOut) {
+		this.bossBarTimeOut = bossBarTimeOut;
+	}
+
+	public int getBossBarTimeOutInterval() {
+		return bossBarTimeOutInterval;
+	}
+
+	public void setBossBarTimeOutInterval(int bossBarTimeOutInterval) {
+		this.bossBarTimeOutInterval = bossBarTimeOutInterval;
+	}
+
 	/**
 	 * Instantiates a new reward.
 	 *
@@ -246,6 +316,16 @@ public class Reward {
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
 		setActionBarMsg(ConfigRewards.getInstance()
 				.getMessagesActionBar(reward));
+
+		setBossBarEnabled(ConfigRewards.getInstance().getBossBarEnabled(reward));
+		setBossBarMessage(ConfigRewards.getInstance().getBossBarMessage(reward));
+		setBossBarColor(ConfigRewards.getInstance().getBossBarBarColor(reward));
+		setBossBarProgress((float) ConfigRewards.getInstance()
+				.getBossBarProgress(reward));
+		setBossBarStyle(ConfigRewards.getInstance().getBossBarBarStyle(reward));
+		setBossBarTimeOut(ConfigRewards.getInstance().getBossBarTimeOut(reward));
+		setBossBarTimeOutInterval(ConfigRewards.getInstance()
+				.getBossBarTimeOutInterval(reward));
 
 	}
 
@@ -920,6 +1000,14 @@ public class Reward {
 	 */
 	public boolean isDelayEnabled() {
 		return delayEnabled;
+	}
+
+	public void sendBossBar(User user) {
+		if (isBossBarEnabled()) {
+			user.sendBossBar(getBossBarMessage(), getBossBarColor(),
+					getBossBarStyle(), getBossBarProgress(),
+					getBossBarTimeOut(), getBossBarTimeOutInterval());
+		}
 	}
 
 	/**

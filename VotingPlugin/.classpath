@@ -15,8 +15,7 @@
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/PlaceholderAPI.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.2.jar"/>
-	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/SpigotLib.jar"/>
-	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
+	<classpathentry exported="true" kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
 		<attributes>
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>

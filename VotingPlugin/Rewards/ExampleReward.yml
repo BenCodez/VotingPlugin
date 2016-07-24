@@ -154,9 +154,6 @@ Potions:
     Amplifier: 1
     
 # Title to send to voter
-# Requires SpigotLib
-# Download here: 
-# https://www.spigotmc.org/resources/spigotlib.5925/
 Title:
   Enabled: false
   Title: '&cThanks for voting!'
@@ -164,6 +161,22 @@ Title:
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10
+  
+# Send bossbar to voter
+BossBar:
+  Enabled: false
+  # Message to send
+  Message: '&aThanks for Voting!'
+  # Bar color's: 
+  # http://docs.inventivetalent.org/bossbarapi/org/inventivetalent/bossbar/BossBarAPI.Color.html
+  BarColor: 'BLUE'
+  # Bar Style's:
+  # http://docs.inventivetalent.org/bossbarapi/org/inventivetalent/bossbar/BossBarAPI.Style.html
+  BarStyle: 'NOTCHED_20'
+  # From 0.0 to 1.0
+  Progress: 1.0
+  TimeOut: 10
+  TimeOutInterval: 20
   
 # Sound on reward
 Sound:
