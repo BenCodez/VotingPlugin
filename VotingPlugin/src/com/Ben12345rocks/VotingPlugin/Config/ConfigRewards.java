@@ -74,6 +74,13 @@ public class ConfigRewards {
 		}
 	}
 
+	/**
+	 * Gets the reward type.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the reward type
+	 */
 	public String getRewardType(String reward) {
 		String str = getData(reward).getString("RewardType");
 		if (str != null) {
@@ -428,6 +435,13 @@ public class ConfigRewards {
 		return getData(reward).getString("Items." + item + ".Skull");
 	}
 
+	/**
+	 * Gets the max exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the max exp
+	 */
 	public int getMaxExp(String reward) {
 		return getData(reward).getInt("MaxEXP");
 	}
@@ -470,6 +484,13 @@ public class ConfigRewards {
 		}
 	}
 
+	/**
+	 * Gets the min exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the min exp
+	 */
 	public int getMinExp(String reward) {
 		return getData(reward).getInt("MinEXP");
 	}
@@ -549,30 +570,79 @@ public class ConfigRewards {
 		return getData(reward).getInt("Potions." + potion + ".Duration");
 	}
 
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar message
+	 */
 	public String getBossBarMessage(String reward) {
 		return getData(reward).getString("BossBar.Message");
 	}
 
+	/**
+	 * Gets the boss bar enabled.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar enabled
+	 */
 	public boolean getBossBarEnabled(String reward) {
 		return getData(reward).getBoolean("BossBar.Enabled");
 	}
 
+	/**
+	 * Gets the boss bar bar color.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar bar color
+	 */
 	public String getBossBarBarColor(String reward) {
 		return getData(reward).getString("BossBar.BarColor");
 	}
 
+	/**
+	 * Gets the boss bar bar style.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar bar style
+	 */
 	public String getBossBarBarStyle(String reward) {
 		return getData(reward).getString("BossBar.BarStyle");
 	}
 
+	/**
+	 * Gets the boss bar time out.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar time out
+	 */
 	public int getBossBarTimeOut(String reward) {
 		return getData(reward).getInt("BossBar.TimeOut");
 	}
 
+	/**
+	 * Gets the boss bar time out interval.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar time out interval
+	 */
 	public int getBossBarTimeOutInterval(String reward) {
 		return getData(reward).getInt("BossBar.TimeOutInterval");
 	}
 
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar progress
+	 */
 	public double getBossBarProgress(String reward) {
 		return getData(reward).getDouble("BossBar.Progress");
 	}

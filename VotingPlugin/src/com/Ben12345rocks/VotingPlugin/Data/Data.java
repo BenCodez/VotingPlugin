@@ -161,11 +161,13 @@ public class Data {
 	}
 
 	/**
-	 * Gets the number of votes offline.
+	 * Gets the cumulative votes offline.
 	 *
 	 * @param user
 	 *            the user
-	 * @return the number of votes offline
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes offline
 	 */
 	public int getCumulativeVotesOffline(User user, int cumulative) {
 		return getData(user).getInt("OtherRewards.Cumulative." + cumulative);
@@ -184,10 +186,29 @@ public class Data {
 		return getData(user).getInt("OfflineVotes." + siteName);
 	}
 
+	/**
+	 * Gets the offline reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param reward
+	 *            the reward
+	 * @return the offline reward
+	 */
 	public int getOfflineReward(User user, Reward reward) {
 		return getData(user).getInt("OfflineRewards." + reward.getRewardName());
 	}
 
+	/**
+	 * Sets the offline reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
 	public void setOfflineReward(User user, Reward reward, int value) {
 		set(user, "OfflineRewards." + reward.getRewardName(), value);
 	}
@@ -556,10 +577,12 @@ public class Data {
 	}
 
 	/**
-	 * Sets the number of votes offline.
+	 * Sets the cumuatlive votes offline.
 	 *
 	 * @param user
 	 *            the user
+	 * @param cumulative
+	 *            the cumulative
 	 * @param value
 	 *            the value
 	 */

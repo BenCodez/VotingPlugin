@@ -163,6 +163,8 @@ public class VoteSite {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveCulumativeRewards(User user, boolean online) {
 		for (String reward : getCumulativeRewards()) {
@@ -176,6 +178,8 @@ public class VoteSite {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveRewards(User user, boolean online) {
 		for (String reward : getRewards()) {
@@ -191,6 +195,8 @@ public class VoteSite {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveSiteReward(User user, boolean online) {
 		giveRewards(user, online);

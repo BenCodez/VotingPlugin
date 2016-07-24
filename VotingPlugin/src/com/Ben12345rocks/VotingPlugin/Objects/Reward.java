@@ -30,6 +30,7 @@ public class Reward {
 	/** The name. */
 	public String name;
 
+	/** The reward type. */
 	private String rewardType;
 
 	/** The delay enabled. */
@@ -116,8 +117,10 @@ public class Reward {
 	/** The exp. */
 	private int exp;
 
+	/** The min exp. */
 	private int minExp;
 
+	/** The max exp. */
 	private int maxExp;
 
 	/** The console commands. */
@@ -141,72 +144,156 @@ public class Reward {
 	/** The action bar msg. */
 	private String actionBarMsg;
 
+	/** The boss bar enabled. */
 	private boolean bossBarEnabled;
 
+	/** The boss bar message. */
 	private String bossBarMessage;
 
+	/** The boss bar color. */
 	private String bossBarColor;
 
+	/** The boss bar style. */
 	private String bossBarStyle;
 
+	/** The boss bar progress. */
 	private float bossBarProgress;
 
+	/** The boss bar time out. */
 	private int bossBarTimeOut;
 
+	/** The boss bar time out interval. */
 	private int bossBarTimeOutInterval;
 
+	/**
+	 * Checks if is boss bar enabled.
+	 *
+	 * @return true, if is boss bar enabled
+	 */
 	public boolean isBossBarEnabled() {
 		return bossBarEnabled;
 	}
 
+	/**
+	 * Sets the boss bar enabled.
+	 *
+	 * @param bossBarEnabled
+	 *            the new boss bar enabled
+	 */
 	public void setBossBarEnabled(boolean bossBarEnabled) {
 		this.bossBarEnabled = bossBarEnabled;
 	}
 
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @return the boss bar message
+	 */
 	public String getBossBarMessage() {
 		return bossBarMessage;
 	}
 
+	/**
+	 * Sets the boss bar message.
+	 *
+	 * @param bossBarMessage
+	 *            the new boss bar message
+	 */
 	public void setBossBarMessage(String bossBarMessage) {
 		this.bossBarMessage = bossBarMessage;
 	}
 
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @return the boss bar color
+	 */
 	public String getBossBarColor() {
 		return bossBarColor;
 	}
 
+	/**
+	 * Sets the boss bar color.
+	 *
+	 * @param bossBarColor
+	 *            the new boss bar color
+	 */
 	public void setBossBarColor(String bossBarColor) {
 		this.bossBarColor = bossBarColor;
 	}
 
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @return the boss bar style
+	 */
 	public String getBossBarStyle() {
 		return bossBarStyle;
 	}
 
+	/**
+	 * Sets the boss bar style.
+	 *
+	 * @param bossBarStyle
+	 *            the new boss bar style
+	 */
 	public void setBossBarStyle(String bossBarStyle) {
 		this.bossBarStyle = bossBarStyle;
 	}
 
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @return the boss bar progress
+	 */
 	public float getBossBarProgress() {
 		return bossBarProgress;
 	}
 
+	/**
+	 * Sets the boss bar progress.
+	 *
+	 * @param bossBarProgress
+	 *            the new boss bar progress
+	 */
 	public void setBossBarProgress(float bossBarProgress) {
 		this.bossBarProgress = bossBarProgress;
 	}
 
+	/**
+	 * Gets the boss bar time out.
+	 *
+	 * @return the boss bar time out
+	 */
 	public int getBossBarTimeOut() {
 		return bossBarTimeOut;
 	}
 
+	/**
+	 * Sets the boss bar time out.
+	 *
+	 * @param bossBarTimeOut
+	 *            the new boss bar time out
+	 */
 	public void setBossBarTimeOut(int bossBarTimeOut) {
 		this.bossBarTimeOut = bossBarTimeOut;
 	}
 
+	/**
+	 * Gets the boss bar time out interval.
+	 *
+	 * @return the boss bar time out interval
+	 */
 	public int getBossBarTimeOutInterval() {
 		return bossBarTimeOutInterval;
 	}
 
+	/**
+	 * Sets the boss bar time out interval.
+	 *
+	 * @param bossBarTimeOutInterval
+	 *            the new boss bar time out interval
+	 */
 	public void setBossBarTimeOutInterval(int bossBarTimeOutInterval) {
 		this.bossBarTimeOutInterval = bossBarTimeOutInterval;
 	}
@@ -479,6 +566,11 @@ public class Reward {
 		return exp;
 	}
 
+	/**
+	 * Gets the exp to give.
+	 *
+	 * @return the exp to give
+	 */
 	public int getExpToGive() {
 		int amount = getExp();
 		int maxAmount = getMaxExp();
@@ -617,6 +709,11 @@ public class Reward {
 		return itemSkull;
 	}
 
+	/**
+	 * Gets the max exp.
+	 *
+	 * @return the max exp
+	 */
 	public int getMaxExp() {
 		return maxExp;
 	}
@@ -630,6 +727,11 @@ public class Reward {
 		return MaxMoney;
 	}
 
+	/**
+	 * Gets the min exp.
+	 *
+	 * @return the min exp
+	 */
 	public int getMinExp() {
 		return minExp;
 	}
@@ -854,6 +956,8 @@ public class Reward {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveRandom(User user, boolean online) {
 		if (checkRandomChance()) {
@@ -885,6 +989,8 @@ public class Reward {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveReward(User user, boolean online) {
 
@@ -919,6 +1025,8 @@ public class Reward {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveRewardReward(User user, boolean online) {
 		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
@@ -1011,6 +1119,12 @@ public class Reward {
 		return delayEnabled;
 	}
 
+	/**
+	 * Send boss bar.
+	 *
+	 * @param user
+	 *            the user
+	 */
 	public void sendBossBar(User user) {
 		if (isBossBarEnabled()) {
 			user.sendBossBar(getBossBarMessage(), getBossBarColor(),
@@ -1349,6 +1463,12 @@ public class Reward {
 		this.itemSkull = itemSkull;
 	}
 
+	/**
+	 * Sets the max exp.
+	 *
+	 * @param maxExp
+	 *            the new max exp
+	 */
 	public void setMaxExp(int maxExp) {
 		this.maxExp = maxExp;
 	}
@@ -1363,6 +1483,12 @@ public class Reward {
 		MaxMoney = maxMoney;
 	}
 
+	/**
+	 * Sets the min exp.
+	 *
+	 * @param minExp
+	 *            the new min exp
+	 */
 	public void setMinExp(int minExp) {
 		this.minExp = minExp;
 	}
@@ -1517,10 +1643,21 @@ public class Reward {
 		this.worlds = worlds;
 	}
 
+	/**
+	 * Gets the reward type.
+	 *
+	 * @return the reward type
+	 */
 	public String getRewardType() {
 		return rewardType;
 	}
 
+	/**
+	 * Sets the reward type.
+	 *
+	 * @param rewardType
+	 *            the new reward type
+	 */
 	public void setRewardType(String rewardType) {
 		this.rewardType = rewardType;
 	}

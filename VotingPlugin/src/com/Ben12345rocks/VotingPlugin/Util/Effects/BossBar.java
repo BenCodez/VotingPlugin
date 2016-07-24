@@ -6,6 +6,9 @@ import org.inventivetalent.bossbar.BossBarAPI;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 
+/**
+ * The Class BossBar.
+ */
 public class BossBar {
 
 	/** The instance. */
@@ -15,20 +18,38 @@ public class BossBar {
 	static Main plugin = Main.plugin;
 
 	/**
-	 * Gets the single instance of Utils.
+	 * Gets the single instance of BossBar.
 	 *
-	 * @return single instance of Utils
+	 * @return single instance of BossBar
 	 */
 	public static BossBar getInstance() {
 		return instance;
 	}
 
 	/**
-	 * Instantiates a new utils.
+	 * Instantiates a new boss bar.
 	 */
 	private BossBar() {
 	}
 
+	/**
+	 * Send boss bar.
+	 *
+	 * @param player
+	 *            the player
+	 * @param msg
+	 *            the msg
+	 * @param barColor
+	 *            the bar color
+	 * @param style
+	 *            the style
+	 * @param progress
+	 *            the progress
+	 * @param timeout
+	 *            the timeout
+	 * @param timeoutInterval
+	 *            the timeout interval
+	 */
 	public void sendBossBar(Player player, String msg, String barColor,
 			String style, float progress, int timeout, int timeoutInterval) {
 		if (player != null && msg != null && barColor != null && style != null) {

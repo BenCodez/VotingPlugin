@@ -93,7 +93,7 @@ public class OtherVoteReward {
 	}
 
 	/**
-	 * Check number of votes.
+	 * Check cumualative votes.
 	 *
 	 * @param user
 	 *            the user
@@ -153,6 +153,8 @@ public class OtherVoteReward {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveAllSitesRewards(User user, boolean online) {
 		for (String reward : ConfigOtherRewards.getInstance()
@@ -169,6 +171,8 @@ public class OtherVoteReward {
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
 	 */
 	public void giveFirstVoteRewards(User user, boolean online) {
 		for (String reward : ConfigOtherRewards.getInstance()
@@ -181,10 +185,14 @@ public class OtherVoteReward {
 	}
 
 	/**
-	 * Give number of votes rewards.
+	 * Give cumulative vote reward.
 	 *
 	 * @param user
 	 *            the user
+	 * @param online
+	 *            the online
+	 * @param cumulative
+	 *            the cumulative
 	 */
 	public void giveCumulativeVoteReward(User user, boolean online,
 			int cumulative) {

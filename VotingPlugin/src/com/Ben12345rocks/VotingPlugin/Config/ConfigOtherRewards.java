@@ -72,14 +72,23 @@ public class ConfigOtherRewards {
 		}
 	}
 
+	/**
+	 * Gets the cumulative reward enabled.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative reward enabled
+	 */
 	public boolean getCumulativeRewardEnabled(int cumulative) {
 		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
 	}
 
 	/**
-	 * Gets the number of votes.
+	 * Gets the cumulative rewards.
 	 *
-	 * @return the number of votes
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(int cumulative) {
@@ -96,6 +105,11 @@ public class ConfigOtherRewards {
 		}
 	}
 
+	/**
+	 * Gets the cumulative votes.
+	 *
+	 * @return the cumulative votes
+	 */
 	public Set<String> getCumulativeVotes() {
 		try {
 			Set<String> set = getData().getConfigurationSection("Cumulative")
@@ -110,9 +124,11 @@ public class ConfigOtherRewards {
 	}
 
 	/**
-	 * Gets the number of votes votes in same day.
+	 * Gets the cumulative votes in same day.
 	 *
-	 * @return the number of votes votes in same day
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes in same day
 	 */
 	public boolean getCumulativeVotesInSameDay(int cumulative) {
 		return getData().getBoolean(

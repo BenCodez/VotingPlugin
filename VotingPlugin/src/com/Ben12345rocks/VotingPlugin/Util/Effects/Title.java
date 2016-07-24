@@ -6,6 +6,9 @@ import org.inventivetalent.title.TitleAPI;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 
+/**
+ * The Class Title.
+ */
 public class Title {
 
 	/** The instance. */
@@ -15,16 +18,16 @@ public class Title {
 	static Main plugin = Main.plugin;
 
 	/**
-	 * Gets the single instance of Utils.
+	 * Gets the single instance of Title.
 	 *
-	 * @return single instance of Utils
+	 * @return single instance of Title
 	 */
 	public static Title getInstance() {
 		return instance;
 	}
 
 	/**
-	 * Instantiates a new utils.
+	 * Instantiates a new title.
 	 */
 	private Title() {
 	}

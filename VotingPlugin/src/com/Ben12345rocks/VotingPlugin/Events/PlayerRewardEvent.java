@@ -8,7 +8,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
 /**
- * The Class PlayerVoteEvent.
+ * The Class PlayerRewardEvent.
  */
 public class PlayerRewardEvent extends Event {
 
@@ -27,16 +27,17 @@ public class PlayerRewardEvent extends Event {
 	/** The player. */
 	private User player;
 
+	/** The reward. */
 	private Reward reward;
 
 	/** The cancelled. */
 	private boolean cancelled;
 
 	/**
-	 * Instantiates a new player reward event
+	 * Instantiates a new player reward event.
 	 *
-	 * @param voteSite
-	 *            the vote site
+	 * @param reward
+	 *            the reward
 	 * @param player
 	 *            the player
 	 */
@@ -94,10 +95,21 @@ public class PlayerRewardEvent extends Event {
 		this.player = player;
 	}
 
+	/**
+	 * Gets the reward.
+	 *
+	 * @return the reward
+	 */
 	public Reward getReward() {
 		return reward;
 	}
 
+	/**
+	 * Sets the reward.
+	 *
+	 * @param reward
+	 *            the new reward
+	 */
 	public void setReward(Reward reward) {
 		this.reward = reward;
 	}

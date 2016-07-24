@@ -719,6 +719,8 @@ public class User {
 	 *
 	 * @param reward
 	 *            the reward
+	 * @param online
+	 *            the online
 	 */
 	public void giveReward(Reward reward, boolean online) {
 		reward.giveReward(this, online);
@@ -977,6 +979,8 @@ public class User {
 	 *
 	 * @param voteSite
 	 *            the vote site
+	 * @param online
+	 *            the online
 	 */
 	public synchronized void playerVote(VoteSite voteSite, boolean online) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
@@ -1084,6 +1088,22 @@ public class User {
 		}
 	}
 
+	/**
+	 * Send boss bar.
+	 *
+	 * @param msg
+	 *            the msg
+	 * @param barColor
+	 *            the bar color
+	 * @param style
+	 *            the style
+	 * @param progress
+	 *            the progress
+	 * @param timeout
+	 *            the timeout
+	 * @param timeoutInterval
+	 *            the timeout interval
+	 */
 	public void sendBossBar(String msg, String barColor, String style,
 			float progress, int timeout, int timeoutInterval) {
 		// plugin.debug("attempting to send action bar");
@@ -1192,6 +1212,9 @@ public class User {
 
 	/**
 	 * Send vote effects.
+	 *
+	 * @param online
+	 *            the online
 	 */
 	public void sendVoteEffects(boolean online) {
 		for (String reward : Config.getInstance().getRewards()) {
