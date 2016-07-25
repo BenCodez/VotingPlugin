@@ -305,7 +305,7 @@ public class Reward {
 		setBossBarStyle(ConfigRewards.getInstance().getBossBarStyle(reward));
 		setBossBarProgress(ConfigRewards.getInstance().getBossBarProgress(
 				reward));
-		setBossBarStyle(ConfigRewards.getInstance().getBossBarStyle(reward));
+		setBossBarDelay(ConfigRewards.getInstance().getBossBarDelay(reward));
 
 	}
 

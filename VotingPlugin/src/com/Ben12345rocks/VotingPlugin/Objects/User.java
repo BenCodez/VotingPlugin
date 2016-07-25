@@ -1081,11 +1081,17 @@ public class User {
 		if (msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
-				// plugin.debug("Sending ActionBar");
-				// ActionBar.getInstance().sendActionBar(player,
-				// Utils.getInstance().colorize(msg));
-				ActionBar actionBar = new ActionBar(msg, delay);
-				actionBar.send(player);
+
+				try {
+					ActionBar actionBar = new ActionBar(msg, delay);
+					actionBar.send(player);
+				} catch (Exception ex) {
+					plugin.getLogger()
+							.info("Failed to send ActionBar, turn debug on to see stack trace");
+					if (Config.getInstance().getDebugEnabled()) {
+						ex.printStackTrace();
+					}
+				}
 			}
 		}
 	}
@@ -1112,8 +1118,16 @@ public class User {
 		if (msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
-				BossBar bossBar = new BossBar(msg, color, style, progress);
-				bossBar.send(player, delay);
+				try {
+					BossBar bossBar = new BossBar(msg, color, style, progress);
+					bossBar.send(player, delay);
+				} catch (Exception ex) {
+					plugin.getLogger()
+							.info("Failed to send BossBar, turn debug on to see stack trace");
+					if (Config.getInstance().getDebugEnabled()) {
+						ex.printStackTrace();
+					}
+				}
 			}
 		}
 	}
@@ -1208,9 +1222,17 @@ public class User {
 		if (player != null) {
 			// Title.getInstance().sendTitle(player, title, subTitle, fadeIn,
 			// showTime, fadeOut);
-			Title titleObject = new Title(title, subTitle, fadeIn, showTime,
-					fadeOut);
-			titleObject.send(player);
+			try {
+				Title titleObject = new Title(title, subTitle, fadeIn,
+						showTime, fadeOut);
+				titleObject.send(player);
+			} catch (Exception ex) {
+				plugin.getLogger()
+						.info("Failed to send Title, turn debug on to see stack trace");
+				if (Config.getInstance().getDebugEnabled()) {
+					ex.printStackTrace();
+				}
+			}
 		}
 	}
 
