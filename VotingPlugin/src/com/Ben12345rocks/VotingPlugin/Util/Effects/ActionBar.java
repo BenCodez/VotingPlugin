@@ -10,13 +10,34 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 
+/**
+ * The Class ActionBar.
+ */
 public class ActionBar {
+	
+	/** The works. */
 	public boolean works = true;
+	
+	/** The nmsver. */
 	public String nmsver;
+	
+	/** The use old methods. */
 	private boolean useOldMethods = false;
+	
+	/** The duration. */
 	private int duration;
+	
+	/** The msg. */
 	private String msg;
 
+	/**
+	 * Send action bar.
+	 *
+	 * @param player
+	 *            the player
+	 * @param message
+	 *            the message
+	 */
 	public void sendActionBar(Player player, String message) {
 		try {
 			Class<?> c1 = Class.forName("org.bukkit.craftbukkit." + nmsver
@@ -59,6 +80,16 @@ public class ActionBar {
 		}
 	}
 
+	/**
+	 * Send action bar.
+	 *
+	 * @param player
+	 *            the player
+	 * @param message
+	 *            the message
+	 * @param duration
+	 *            the duration
+	 */
 	public void sendActionBar(final Player player, final String message,
 			int duration) {
 		sendActionBar(player, message);
@@ -88,22 +119,50 @@ public class ActionBar {
 		}
 	}
 
+	/**
+	 * Send action bar to all players.
+	 *
+	 * @param message
+	 *            the message
+	 */
 	public void sendActionBarToAllPlayers(String message) {
 		sendActionBarToAllPlayers(message, -1);
 	}
 
+	/**
+	 * Send action bar to all players.
+	 *
+	 * @param message
+	 *            the message
+	 * @param duration
+	 *            the duration
+	 */
 	public void sendActionBarToAllPlayers(String message, int duration) {
 		for (Player p : Bukkit.getOnlinePlayers()) {
 			sendActionBar(p, message, duration);
 		}
 	}
 
+	/**
+	 * Send.
+	 *
+	 * @param players
+	 *            the players
+	 */
 	public void send(Player... players) {
 		for (Player player : players) {
 			sendActionBar(player, getMsg(), getDuration());
 		}
 	}
 
+	/**
+	 * Instantiates a new action bar.
+	 *
+	 * @param msg
+	 *            the msg
+	 * @param duration
+	 *            the duration
+	 */
 	public ActionBar(String msg, int duration) {
 		setMsg(Utils.getInstance().colorize(msg));
 		setDuration(duration);
@@ -119,18 +178,40 @@ public class ActionBar {
 		}
 	}
 
+	/**
+	 * Gets the msg.
+	 *
+	 * @return the msg
+	 */
 	public String getMsg() {
 		return msg;
 	}
 
+	/**
+	 * Sets the msg.
+	 *
+	 * @param msg
+	 *            the new msg
+	 */
 	public void setMsg(String msg) {
 		this.msg = msg;
 	}
 
+	/**
+	 * Gets the duration.
+	 *
+	 * @return the duration
+	 */
 	public int getDuration() {
 		return duration;
 	}
 
+	/**
+	 * Sets the duration.
+	 *
+	 * @param duration
+	 *            the new duration
+	 */
 	public void setDuration(int duration) {
 		this.duration = duration;
 	}

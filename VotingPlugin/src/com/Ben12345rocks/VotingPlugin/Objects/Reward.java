@@ -144,6 +144,7 @@ public class Reward {
 	/** The action bar msg. */
 	private String actionBarMsg;
 
+	/** The action bar delay. */
 	private int actionBarDelay;
 
 	/** The boss bar enabled. */
@@ -152,44 +153,92 @@ public class Reward {
 	/** The boss bar message. */
 	private String bossBarMessage;
 
+	/** The boss bar color. */
 	private String bossBarColor;
 
+	/** The boss bar style. */
 	private String bossBarStyle;
 
+	/** The boss bar delay. */
 	private int bossBarDelay;
 
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @return the boss bar color
+	 */
 	public String getBossBarColor() {
 		return bossBarColor;
 	}
 
+	/**
+	 * Sets the boss bar color.
+	 *
+	 * @param bossBarColor
+	 *            the new boss bar color
+	 */
 	public void setBossBarColor(String bossBarColor) {
 		this.bossBarColor = bossBarColor;
 	}
 
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @return the boss bar style
+	 */
 	public String getBossBarStyle() {
 		return bossBarStyle;
 	}
 
+	/**
+	 * Sets the boss bar style.
+	 *
+	 * @param bossBarStyle
+	 *            the new boss bar style
+	 */
 	public void setBossBarStyle(String bossBarStyle) {
 		this.bossBarStyle = bossBarStyle;
 	}
 
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @return the boss bar delay
+	 */
 	public int getBossBarDelay() {
 		return bossBarDelay;
 	}
 
+	/**
+	 * Sets the boss bar delay.
+	 *
+	 * @param bossBarDelay
+	 *            the new boss bar delay
+	 */
 	public void setBossBarDelay(int bossBarDelay) {
 		this.bossBarDelay = bossBarDelay;
 	}
 
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @return the boss bar progress
+	 */
 	public double getBossBarProgress() {
 		return bossBarProgress;
 	}
 
+	/**
+	 * Sets the boss bar progress.
+	 *
+	 * @param bossBarProgress
+	 *            the new boss bar progress
+	 */
 	public void setBossBarProgress(double bossBarProgress) {
 		this.bossBarProgress = bossBarProgress;
 	}
 
+	/** The boss bar progress. */
 	private double bossBarProgress;
 
 	/**
@@ -1592,10 +1641,21 @@ public class Reward {
 		this.worlds = worlds;
 	}
 
+	/**
+	 * Gets the action bar delay.
+	 *
+	 * @return the action bar delay
+	 */
 	public int getActionBarDelay() {
 		return actionBarDelay;
 	}
 
+	/**
+	 * Sets the action bar delay.
+	 *
+	 * @param actionBarDelay
+	 *            the new action bar delay
+	 */
 	public void setActionBarDelay(int actionBarDelay) {
 		this.actionBarDelay = actionBarDelay;
 	}

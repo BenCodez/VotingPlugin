@@ -97,24 +97,45 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Gets the boss bar time out.
+	 * Gets the boss bar progress.
 	 *
 	 * @param reward
 	 *            the reward
-	 * @return the boss bar time out
+	 * @return the boss bar progress
 	 */
 	public double getBossBarProgress(String reward) {
 		return getData(reward).getDouble("BossBar.Progress");
 	}
 
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar color
+	 */
 	public String getBossBarColor(String reward) {
 		return getData(reward).getString("BossBar.Color");
 	}
 
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar style
+	 */
 	public String getBossBarStyle(String reward) {
 		return getData(reward).getString("BossBar.Style");
 	}
 
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar delay
+	 */
 	public int getBossBarDelay(String reward) {
 		return getData(reward).getInt("BossBar.Delay");
 	}
@@ -481,10 +502,24 @@ public class ConfigRewards {
 		return getData(reward).getInt("MaxMoney");
 	}
 
+	/**
+	 * Gets the action bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar message
+	 */
 	public String getActionBarMessage(String reward) {
 		return getData(reward).getString("ActionBar.Message");
 	}
 
+	/**
+	 * Gets the action bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar delay
+	 */
 	public int getActionBarDelay(String reward) {
 		return getData(reward).getInt("ActionBar.Delay");
 	}

@@ -1075,6 +1075,8 @@ public class User {
 	 *
 	 * @param msg
 	 *            the msg
+	 * @param delay
+	 *            the delay
 	 */
 	public void sendActionBar(String msg, int delay) {
 		// plugin.debug("attempting to send action bar");
@@ -1101,16 +1103,14 @@ public class User {
 	 *
 	 * @param msg
 	 *            the msg
-	 * @param barColor
-	 *            the bar color
+	 * @param color
+	 *            the color
 	 * @param style
 	 *            the style
 	 * @param progress
 	 *            the progress
-	 * @param timeout
-	 *            the timeout
-	 * @param timeoutInterval
-	 *            the timeout interval
+	 * @param delay
+	 *            the delay
 	 */
 	public void sendBossBar(String msg, String color, String style,
 			double progress, int delay) {
