@@ -104,6 +104,19 @@ public class Data {
 	}
 
 	/**
+	 * Gets the cumulative votes offline.
+	 *
+	 * @param user
+	 *            the user
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes offline
+	 */
+	public int getCumulativeVotesOffline(User user, int cumulative) {
+		return getData(user).getInt("OtherRewards.Cumulative." + cumulative);
+	}
+
+	/**
 	 * Gets the data.
 	 *
 	 * @param user
@@ -161,32 +174,6 @@ public class Data {
 	}
 
 	/**
-	 * Gets the cumulative votes offline.
-	 *
-	 * @param user
-	 *            the user
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative votes offline
-	 */
-	public int getCumulativeVotesOffline(User user, int cumulative) {
-		return getData(user).getInt("OtherRewards.Cumulative." + cumulative);
-	}
-
-	/**
-	 * Gets the offline votes site.
-	 *
-	 * @param user
-	 *            the user
-	 * @param siteName
-	 *            the site name
-	 * @return the offline votes site
-	 */
-	public int getOfflineVotesSite(User user, String siteName) {
-		return getData(user).getInt("OfflineVotes." + siteName);
-	}
-
-	/**
 	 * Gets the offline reward.
 	 *
 	 * @param user
@@ -200,17 +187,16 @@ public class Data {
 	}
 
 	/**
-	 * Sets the offline reward.
+	 * Gets the offline votes site.
 	 *
 	 * @param user
 	 *            the user
-	 * @param reward
-	 *            the reward
-	 * @param value
-	 *            the value
+	 * @param siteName
+	 *            the site name
+	 * @return the offline votes site
 	 */
-	public void setOfflineReward(User user, Reward reward, int value) {
-		set(user, "OfflineRewards." + reward.getRewardName(), value);
+	public int getOfflineVotesSite(User user, String siteName) {
+		return getData(user).getInt("OfflineVotes." + siteName);
 	}
 
 	/**
@@ -257,9 +243,9 @@ public class Data {
 
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create " + uuid
+						+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -502,9 +488,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
+			.getLogger()
+			.severe(ChatColor.RED + "Could not save "
+					+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -536,6 +522,20 @@ public class Data {
 	 */
 	public void setAllSitesOffline(User user, int value) {
 		set(user, "OtherRewards.AllSites", value);
+	}
+
+	/**
+	 * Sets the cumuatlive votes offline.
+	 *
+	 * @param user
+	 *            the user
+	 * @param cumulative
+	 *            the cumulative
+	 * @param value
+	 *            the value
+	 */
+	public void setCumuatliveVotesOffline(User user, int cumulative, int value) {
+		set(user, "OtherRewards.Cumulative." + cumulative, value);
 	}
 
 	/**
@@ -577,17 +577,17 @@ public class Data {
 	}
 
 	/**
-	 * Sets the cumuatlive votes offline.
+	 * Sets the offline reward.
 	 *
 	 * @param user
 	 *            the user
-	 * @param cumulative
-	 *            the cumulative
+	 * @param reward
+	 *            the reward
 	 * @param value
 	 *            the value
 	 */
-	public void setCumuatliveVotesOffline(User user, int cumulative, int value) {
-		set(user, "OtherRewards.Cumulative." + cumulative, value);
+	public void setOfflineReward(User user, Reward reward, int value) {
+		set(user, "OfflineRewards." + reward.getRewardName(), value);
 	}
 
 	/**
@@ -676,7 +676,7 @@ public class Data {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 * 
+	 *
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -738,7 +738,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-				place);
+						place);
 	}
 
 	/**
@@ -754,7 +754,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-				place);
+						place);
 	}
 
 	/**
@@ -834,7 +834,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
+						+ ".yml! Name: " + playerName);
 
 			}
 		}

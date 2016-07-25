@@ -85,7 +85,7 @@ public class VoteParty {
 					.getVotePartyVotesRequired()) {
 				setTotalVotes(getTotalVotes()
 						- ConfigOtherRewards.getInstance()
-								.getVotePartyVotesRequired());
+						.getVotePartyVotesRequired());
 				giveRewards();
 			}
 		}

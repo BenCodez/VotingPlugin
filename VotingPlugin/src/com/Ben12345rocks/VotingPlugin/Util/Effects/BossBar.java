@@ -1,70 +1,38 @@
 package com.Ben12345rocks.VotingPlugin.Util.Effects;
 
+import org.bukkit.Bukkit;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarFlag;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.entity.Player;
-import org.inventivetalent.bossbar.BossBarAPI;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 
-/**
- * The Class BossBar.
- */
 public class BossBar {
 
-	/** The instance. */
-	static BossBar instance = new BossBar();
+	public org.bukkit.boss.BossBar bossBar;
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	public BossBar(String msg, String barColor, String barStyle, double progress) {
+		bossBar = Bukkit.createBossBar(msg, BarColor.valueOf(barColor),
+				BarStyle.valueOf(barStyle), BarFlag.values());
+		bossBar.setProgress(progress);
 
-	/**
-	 * Gets the single instance of BossBar.
-	 *
-	 * @return single instance of BossBar
-	 */
-	public static BossBar getInstance() {
-		return instance;
 	}
 
-	/**
-	 * Instantiates a new boss bar.
-	 */
-	private BossBar() {
+	public void send(Player player, int delay) {
+		bossBar.addPlayer(player);
+		bossBar.setVisible(true);
+		Bukkit.getScheduler().runTaskLater(Main.plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				hide(player);
+			}
+		}, delay);
 	}
 
-	/**
-	 * Send boss bar.
-	 *
-	 * @param player
-	 *            the player
-	 * @param msg
-	 *            the msg
-	 * @param barColor
-	 *            the bar color
-	 * @param style
-	 *            the style
-	 * @param progress
-	 *            the progress
-	 * @param timeout
-	 *            the timeout
-	 * @param timeoutInterval
-	 *            the timeout interval
-	 */
-	public void sendBossBar(Player player, String msg, String barColor,
-			String style, float progress, int timeout, int timeoutInterval) {
-		if (player != null && msg != null && barColor != null && style != null) {
-			// Create a new BossBar
-			@SuppressWarnings("unused")
-			org.inventivetalent.bossbar.BossBar bossBar = BossBarAPI.addBar(
-					player, // The receiver of the
-					// BossBar
-					Utils.getInstance().stringToComp(msg), // Displayed
-															// message
-					BossBarAPI.Color.valueOf(barColor), // Color of the bar
-					BossBarAPI.Style.valueOf(style), // Bar style
-					progress, // Progress (0.0 - 1.0)
-					timeout, // Timeout
-					timeoutInterval); // Timeout-interval
-		}
+	public void hide(Player player) {
+		bossBar.setVisible(false);
+		bossBar.removeAll();
 	}
 }

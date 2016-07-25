@@ -75,24 +75,48 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Gets the reward type.
+	 * Gets the boss bar enabled.
 	 *
 	 * @param reward
 	 *            the reward
-	 * @return the reward type
+	 * @return the boss bar enabled
 	 */
-	public String getRewardType(String reward) {
-		String str = getData(reward).getString("RewardType");
-		if (str != null) {
-			if (str.equalsIgnoreCase("online")) {
-				return "ONLINE";
-			} else if (str.equalsIgnoreCase("offline")) {
-				return "OFFLINE";
-			} else {
-				return "BOTH";
-			}
-		}
-		return "BOTH";
+	public boolean getBossBarEnabled(String reward) {
+		return getData(reward).getBoolean("BossBar.Enabled");
+	}
+
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar message
+	 */
+	public String getBossBarMessage(String reward) {
+		return getData(reward).getString("BossBar.Message");
+	}
+
+	/**
+	 * Gets the boss bar time out.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar time out
+	 */
+	public double getBossBarProgress(String reward) {
+		return getData(reward).getDouble("BossBar.Progress");
+	}
+
+	public String getBossBarColor(String reward) {
+		return getData(reward).getString("BossBar.Color");
+	}
+
+	public String getBossBarStyle(String reward) {
+		return getData(reward).getString("BossBar.Style");
+	}
+
+	public int getBossBarDelay(String reward) {
+		return getData(reward).getInt("BossBar.Delay");
 	}
 
 	/**
@@ -457,15 +481,12 @@ public class ConfigRewards {
 		return getData(reward).getInt("MaxMoney");
 	}
 
-	/**
-	 * Gets the messages action bar.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the messages action bar
-	 */
-	public String getMessagesActionBar(String reward) {
-		return getData(reward).getString("Messages.ActionBar");
+	public String getActionBarMessage(String reward) {
+		return getData(reward).getString("ActionBar.Message");
+	}
+
+	public int getActionBarDelay(String reward) {
+		return getData(reward).getInt("ActionBar.Delay");
 	}
 
 	/**
@@ -568,83 +589,6 @@ public class ConfigRewards {
 	 */
 	public int getPotionsDuration(String reward, String potion) {
 		return getData(reward).getInt("Potions." + potion + ".Duration");
-	}
-
-	/**
-	 * Gets the boss bar message.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar message
-	 */
-	public String getBossBarMessage(String reward) {
-		return getData(reward).getString("BossBar.Message");
-	}
-
-	/**
-	 * Gets the boss bar enabled.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar enabled
-	 */
-	public boolean getBossBarEnabled(String reward) {
-		return getData(reward).getBoolean("BossBar.Enabled");
-	}
-
-	/**
-	 * Gets the boss bar bar color.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar bar color
-	 */
-	public String getBossBarBarColor(String reward) {
-		return getData(reward).getString("BossBar.BarColor");
-	}
-
-	/**
-	 * Gets the boss bar bar style.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar bar style
-	 */
-	public String getBossBarBarStyle(String reward) {
-		return getData(reward).getString("BossBar.BarStyle");
-	}
-
-	/**
-	 * Gets the boss bar time out.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar time out
-	 */
-	public int getBossBarTimeOut(String reward) {
-		return getData(reward).getInt("BossBar.TimeOut");
-	}
-
-	/**
-	 * Gets the boss bar time out interval.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar time out interval
-	 */
-	public int getBossBarTimeOutInterval(String reward) {
-		return getData(reward).getInt("BossBar.TimeOutInterval");
-	}
-
-	/**
-	 * Gets the boss bar progress.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar progress
-	 */
-	public double getBossBarProgress(String reward) {
-		return getData(reward).getDouble("BossBar.Progress");
 	}
 
 	/**
@@ -776,6 +720,27 @@ public class ConfigRewards {
 		Collections.sort(rewardFiles, String.CASE_INSENSITIVE_ORDER);
 
 		return rewardFiles;
+	}
+
+	/**
+	 * Gets the reward type.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the reward type
+	 */
+	public String getRewardType(String reward) {
+		String str = getData(reward).getString("RewardType");
+		if (str != null) {
+			if (str.equalsIgnoreCase("online")) {
+				return "ONLINE";
+			} else if (str.equalsIgnoreCase("offline")) {
+				return "OFFLINE";
+			} else {
+				return "BOTH";
+			}
+		}
+		return "BOTH";
 	}
 
 	/**

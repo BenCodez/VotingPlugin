@@ -5,17 +5,42 @@
 	<artifactId>VotingPlugin</artifactId>
 	<version>4.2</version>
 	<build>
+
+		<finalName>VotingPlugin</finalName>
+
 		<sourceDirectory>src</sourceDirectory>
+
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.1</version>
+				<version>3.5.1</version>
 				<configuration>
 					<source>1.8</source>
 					<target>1.8</target>
 				</configuration>
 			</plugin>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>2.6</version>
+				<configuration>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+				</configuration>
+				<executions>
+					<execution>
+						<id>make-assembly</id> <!-- this is used for inheritance merges -->
+						<phase>package</phase> <!-- bind to the packaging phase -->
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
+
+
 	</build>
 	<repositories>
 		<repository>
@@ -23,35 +48,62 @@
 			<url>https://repo.inventivetalent.org/content/groups/public/</url>
 		</repository>
 		<repository>
-            <id>Plugin Metrics</id>
-            <url>http://repo.mcstats.org/content/repositories/public</url>
-        </repository>
+			<id>techcable-repo</id>
+			<url>http://repo.techcable.net/content/groups/public/</url>
+		</repository>
+		<repository>
+			<id>Plugin Metrics</id>
+			<url>http://repo.mcstats.org/content/repositories/public</url>
+		</repository>
+		<repository>
+			<id>spigot-repo</id>
+			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+		</repository>
+		<repository>
+			<id>placeholderapi</id>
+			<url>http://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+		</repository>
+		<repository>
+			<id>com.vexsoftware</id>
+			<url>http://repo.howaner.de/com/vexsoftware/votifier/1.9/</url>
+		</repository>
+		<repository>
+			<id>vault-repo</id>
+			<url>http://nexus.theyeticave.net/content/repositories/pub_releases</url>
+		</repository>
 	</repositories>
+
 	<dependencies>
 		<dependency>
-			<groupId>org.inventivetalent</groupId>
-			<artifactId>bossbarapi</artifactId>
-			<version>[2.4.1,)</version>
+			<groupId>org.spigotmc</groupId>
+			<artifactId>spigot-api</artifactId>
+			<version>1.10.2-R0.1-SNAPSHOT</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.inventivetalent</groupId>
-			<artifactId>chatapi</artifactId>
-			<version>[1.4.0,)</version>
+			<groupId>me.clip</groupId>
+			<artifactId>placeholderapi</artifactId>
+			<version>[2.0.6,)</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.inventivetalent</groupId>
-			<artifactId>titleapi</artifactId>
-			<version>[2.1.1,)</version>
+			<groupId>com.vexsoftware</groupId>
+			<artifactId>votifier</artifactId>
+			<version>1.9</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>net.milkbowl.vault</groupId>
+			<artifactId>VaultAPI</artifactId>
+			<version>1.5</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.inventivetalent</groupId>
-			<artifactId>playerversion</artifactId>
-			<version>[1.2.3,)</version>
-		</dependency>
-		<dependency>
-			<groupId>org.inventivetalent.packetlistener</groupId>
-			<artifactId>api</artifactId>
-			<version>[3.4.4,)</version>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.4</version>
+			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 </project>

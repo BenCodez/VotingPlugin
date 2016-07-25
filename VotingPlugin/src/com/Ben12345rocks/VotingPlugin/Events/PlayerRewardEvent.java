@@ -49,7 +49,7 @@ public class PlayerRewardEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override
@@ -64,6 +64,15 @@ public class PlayerRewardEvent extends Event {
 	 */
 	public User getPlayer() {
 		return player;
+	}
+
+	/**
+	 * Gets the reward.
+	 *
+	 * @return the reward
+	 */
+	public Reward getReward() {
+		return reward;
 	}
 
 	/**
@@ -93,15 +102,6 @@ public class PlayerRewardEvent extends Event {
 	 */
 	public void setPlayer(User player) {
 		this.player = player;
-	}
-
-	/**
-	 * Gets the reward.
-	 *
-	 * @return the reward
-	 */
-	public Reward getReward() {
-		return reward;
 	}
 
 	/**

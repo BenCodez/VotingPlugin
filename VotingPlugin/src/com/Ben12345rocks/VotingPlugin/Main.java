@@ -282,6 +282,7 @@ public class Main extends JavaPlugin {
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
+
 	}
 
 	/**

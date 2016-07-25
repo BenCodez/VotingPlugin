@@ -35,7 +35,7 @@ public class CommandAliases implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -61,7 +61,7 @@ public class CommandAliases implements CommandExecutor {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-									.equalsIgnoreCase("adminvote" + arg)) {
+							.equalsIgnoreCase("adminvote" + arg)) {
 						argsNew.set(0, arg);
 
 						boolean argsMatch = true;

@@ -1076,14 +1076,16 @@ public class User {
 	 * @param msg
 	 *            the msg
 	 */
-	public void sendActionBar(String msg) {
+	public void sendActionBar(String msg, int delay) {
 		// plugin.debug("attempting to send action bar");
 		if (msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
 				// plugin.debug("Sending ActionBar");
-				ActionBar.getInstance().sendActionBar(player,
-						Utils.getInstance().colorize(msg));
+				// ActionBar.getInstance().sendActionBar(player,
+				// Utils.getInstance().colorize(msg));
+				ActionBar actionBar = new ActionBar(msg, delay);
+				actionBar.send(player);
 			}
 		}
 	}
@@ -1104,15 +1106,14 @@ public class User {
 	 * @param timeoutInterval
 	 *            the timeout interval
 	 */
-	public void sendBossBar(String msg, String barColor, String style,
-			float progress, int timeout, int timeoutInterval) {
+	public void sendBossBar(String msg, String color, String style,
+			double progress, int delay) {
 		// plugin.debug("attempting to send action bar");
 		if (msg != null && msg != "") {
 			Player player = getPlayer();
 			if (player != null) {
-				BossBar.getInstance().sendBossBar(player,
-						Utils.getInstance().colorize(msg), barColor, style,
-						progress, timeout, timeoutInterval);
+				BossBar bossBar = new BossBar(msg, color, style, progress);
+				bossBar.send(player, delay);
 			}
 		}
 	}
@@ -1205,8 +1206,11 @@ public class User {
 			int showTime, int fadeOut) {
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
 		if (player != null) {
-			Title.getInstance().sendTitle(player, title, subTitle, fadeIn,
-					showTime, fadeOut);
+			// Title.getInstance().sendTitle(player, title, subTitle, fadeIn,
+			// showTime, fadeOut);
+			Title titleObject = new Title(title, subTitle, fadeIn, showTime,
+					fadeOut);
+			titleObject.send(player);
 		}
 	}
 

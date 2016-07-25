@@ -74,6 +74,62 @@ public class OtherVoteReward {
 	}
 
 	/**
+	 * Check cumualative votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
+	public boolean checkCumualativeVotes(User user) {
+		Set<String> votes = ConfigOtherRewards.getInstance()
+				.getCumulativeVotes();
+		for (String vote : votes) {
+			if (Utils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getCumulativeRewardEnabled(votesRequired)
+							&& ConfigOtherRewards.getInstance()
+							.getCumulativeRewards(votesRequired).size() != 0) {
+						if (ConfigOtherRewards.getInstance()
+								.getCumulativeVotesInSameDay(votesRequired)) {
+							int userVotesTotal = user.getTotalVotesToday();
+							if ((userVotesTotal % votesRequired) == 0) {
+								Data.getInstance()
+								.setCumuatliveVotesOffline(
+										user,
+										votesRequired,
+										Data.getInstance()
+										.getCumulativeVotesOffline(
+												user,
+												votesRequired) + 1);
+								return true;
+							}
+						} else {
+
+							int userVotesTotal = user.getTotalVotes();
+							if ((userVotesTotal % votesRequired) == 0) {
+								Data.getInstance()
+								.setCumuatliveVotesOffline(
+										user,
+										votesRequired,
+										Data.getInstance()
+										.getCumulativeVotesOffline(
+												user,
+												votesRequired) + 1);
+								return true;
+							}
+						}
+					}
+				}
+			} else {
+				plugin.debug("Invalid cumulative number: " + vote);
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Check first vote.
 	 *
 	 * @param user
@@ -93,62 +149,6 @@ public class OtherVoteReward {
 	}
 
 	/**
-	 * Check cumualative votes.
-	 *
-	 * @param user
-	 *            the user
-	 * @return true, if successful
-	 */
-	public boolean checkCumualativeVotes(User user) {
-		Set<String> votes = ConfigOtherRewards.getInstance()
-				.getCumulativeVotes();
-		for (String vote : votes) {
-			if (Utils.getInstance().isInt(vote)) {
-				int votesRequired = Integer.parseInt(vote);
-				if (votesRequired != 0) {
-					if (ConfigOtherRewards.getInstance()
-							.getCumulativeRewardEnabled(votesRequired)
-							&& ConfigOtherRewards.getInstance()
-									.getCumulativeRewards(votesRequired).size() != 0) {
-						if (ConfigOtherRewards.getInstance()
-								.getCumulativeVotesInSameDay(votesRequired)) {
-							int userVotesTotal = user.getTotalVotesToday();
-							if ((userVotesTotal % votesRequired) == 0) {
-								Data.getInstance()
-										.setCumuatliveVotesOffline(
-												user,
-												votesRequired,
-												Data.getInstance()
-														.getCumulativeVotesOffline(
-																user,
-																votesRequired) + 1);
-								return true;
-							}
-						} else {
-
-							int userVotesTotal = user.getTotalVotes();
-							if ((userVotesTotal % votesRequired) == 0) {
-								Data.getInstance()
-										.setCumuatliveVotesOffline(
-												user,
-												votesRequired,
-												Data.getInstance()
-														.getCumulativeVotesOffline(
-																user,
-																votesRequired) + 1);
-								return true;
-							}
-						}
-					}
-				}
-			} else {
-				plugin.debug("Invalid cumulative number: " + vote);
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Give all sites rewards.
 	 *
 	 * @param user
@@ -161,25 +161,7 @@ public class OtherVoteReward {
 				.getAllSitesReward()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
-			}
-		}
-	}
-
-	/**
-	 * Give first vote rewards.
-	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
-	 */
-	public void giveFirstVoteRewards(User user, boolean online) {
-		for (String reward : ConfigOtherRewards.getInstance()
-				.getFirstVoteRewards()) {
-			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
+				.giveReward(user, online);
 			}
 		}
 	}
@@ -200,7 +182,25 @@ public class OtherVoteReward {
 				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
+				.giveReward(user, online);
+			}
+		}
+	}
+
+	/**
+	 * Give first vote rewards.
+	 *
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
+	 */
+	public void giveFirstVoteRewards(User user, boolean online) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getFirstVoteRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
 			}
 		}
 	}

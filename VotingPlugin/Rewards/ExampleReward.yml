@@ -163,20 +163,21 @@ Title:
   FadeOut: 10
   
 # Send bossbar to voter
+# This requires 1.9+
 BossBar:
   Enabled: false
   # Message to send
   Message: '&aThanks for Voting!'
-  # Bar color's: 
-  # http://docs.inventivetalent.org/bossbarapi/org/inventivetalent/bossbar/BossBarAPI.Color.html
-  BarColor: 'BLUE'
-  # Bar Style's:
-  # http://docs.inventivetalent.org/bossbarapi/org/inventivetalent/bossbar/BossBarAPI.Style.html
-  BarStyle: 'NOTCHED_20'
-  # From 0.0 to 1.0
-  Progress: 1.0
-  TimeOut: 10
-  TimeOutInterval: 20
+  # Bar Colors:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/boss/BarColor.html
+  Color: 'BLUE'
+  # Bar Styles:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/boss/BarStyle.html
+  Style: 'SOLID'
+  # Precentage for bar
+  Progress: 0.50
+  # Delay until bar goes away (in ticks)
+  Delay: 30
   
 # Sound on reward
 Sound:
@@ -203,11 +204,15 @@ Effect:
   Particles: 10
   Radius: 5
   
+# Send action bar
+ActionBar:
+  Message: '&cThanks for Voting!'
+  # Delay until action bar goes away (in ticks)
+  Delay: 30
   
 # The messages are sent when rewards above are given to user
 # set to '' to give no message
 # If no value is set, default in Format.yml is used
 Messages:
   Reward: '&aMessage on reward'
-  ActionBar: '&cThanks for Voting!'
   

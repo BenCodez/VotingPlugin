@@ -62,9 +62,9 @@ public class CheckUpdate {
 		case UPDATE_AVAILABLE: {
 			plugin.getLogger().info(
 					plugin.getName()
-					+ " has an update available! Your Version: "
-					+ plugin.getDescription().getVersion()
-					+ " New Version: " + plugin.updater.getVersion());
+							+ " has an update available! Your Version: "
+							+ plugin.getDescription().getVersion()
+							+ " New Version: " + plugin.updater.getVersion());
 			break;
 		}
 		default: {
@@ -78,12 +78,12 @@ public class CheckUpdate {
 	 */
 	public void startUp() {
 		Bukkit.getServer().getScheduler()
-		.runTaskLaterAsynchronously(plugin, new Runnable() {
-			@Override
-			public void run() {
-				checkUpdate();
-			}
-		}, 20L);
+				.runTaskLaterAsynchronously(plugin, new Runnable() {
+					@Override
+					public void run() {
+						checkUpdate();
+					}
+				}, 20L);
 	}
 
 }

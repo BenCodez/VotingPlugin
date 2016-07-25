@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -144,159 +144,53 @@ public class Reward {
 	/** The action bar msg. */
 	private String actionBarMsg;
 
+	private int actionBarDelay;
+
 	/** The boss bar enabled. */
 	private boolean bossBarEnabled;
 
 	/** The boss bar message. */
 	private String bossBarMessage;
 
-	/** The boss bar color. */
 	private String bossBarColor;
 
-	/** The boss bar style. */
 	private String bossBarStyle;
 
-	/** The boss bar progress. */
-	private float bossBarProgress;
+	private int bossBarDelay;
 
-	/** The boss bar time out. */
-	private int bossBarTimeOut;
-
-	/** The boss bar time out interval. */
-	private int bossBarTimeOutInterval;
-
-	/**
-	 * Checks if is boss bar enabled.
-	 *
-	 * @return true, if is boss bar enabled
-	 */
-	public boolean isBossBarEnabled() {
-		return bossBarEnabled;
-	}
-
-	/**
-	 * Sets the boss bar enabled.
-	 *
-	 * @param bossBarEnabled
-	 *            the new boss bar enabled
-	 */
-	public void setBossBarEnabled(boolean bossBarEnabled) {
-		this.bossBarEnabled = bossBarEnabled;
-	}
-
-	/**
-	 * Gets the boss bar message.
-	 *
-	 * @return the boss bar message
-	 */
-	public String getBossBarMessage() {
-		return bossBarMessage;
-	}
-
-	/**
-	 * Sets the boss bar message.
-	 *
-	 * @param bossBarMessage
-	 *            the new boss bar message
-	 */
-	public void setBossBarMessage(String bossBarMessage) {
-		this.bossBarMessage = bossBarMessage;
-	}
-
-	/**
-	 * Gets the boss bar color.
-	 *
-	 * @return the boss bar color
-	 */
 	public String getBossBarColor() {
 		return bossBarColor;
 	}
 
-	/**
-	 * Sets the boss bar color.
-	 *
-	 * @param bossBarColor
-	 *            the new boss bar color
-	 */
 	public void setBossBarColor(String bossBarColor) {
 		this.bossBarColor = bossBarColor;
 	}
 
-	/**
-	 * Gets the boss bar style.
-	 *
-	 * @return the boss bar style
-	 */
 	public String getBossBarStyle() {
 		return bossBarStyle;
 	}
 
-	/**
-	 * Sets the boss bar style.
-	 *
-	 * @param bossBarStyle
-	 *            the new boss bar style
-	 */
 	public void setBossBarStyle(String bossBarStyle) {
 		this.bossBarStyle = bossBarStyle;
 	}
 
-	/**
-	 * Gets the boss bar progress.
-	 *
-	 * @return the boss bar progress
-	 */
-	public float getBossBarProgress() {
+	public int getBossBarDelay() {
+		return bossBarDelay;
+	}
+
+	public void setBossBarDelay(int bossBarDelay) {
+		this.bossBarDelay = bossBarDelay;
+	}
+
+	public double getBossBarProgress() {
 		return bossBarProgress;
 	}
 
-	/**
-	 * Sets the boss bar progress.
-	 *
-	 * @param bossBarProgress
-	 *            the new boss bar progress
-	 */
-	public void setBossBarProgress(float bossBarProgress) {
+	public void setBossBarProgress(double bossBarProgress) {
 		this.bossBarProgress = bossBarProgress;
 	}
 
-	/**
-	 * Gets the boss bar time out.
-	 *
-	 * @return the boss bar time out
-	 */
-	public int getBossBarTimeOut() {
-		return bossBarTimeOut;
-	}
-
-	/**
-	 * Sets the boss bar time out.
-	 *
-	 * @param bossBarTimeOut
-	 *            the new boss bar time out
-	 */
-	public void setBossBarTimeOut(int bossBarTimeOut) {
-		this.bossBarTimeOut = bossBarTimeOut;
-	}
-
-	/**
-	 * Gets the boss bar time out interval.
-	 *
-	 * @return the boss bar time out interval
-	 */
-	public int getBossBarTimeOutInterval() {
-		return bossBarTimeOutInterval;
-	}
-
-	/**
-	 * Sets the boss bar time out interval.
-	 *
-	 * @param bossBarTimeOutInterval
-	 *            the new boss bar time out interval
-	 */
-	public void setBossBarTimeOutInterval(int bossBarTimeOutInterval) {
-		this.bossBarTimeOutInterval = bossBarTimeOutInterval;
-	}
+	private double bossBarProgress;
 
 	/**
 	 * Instantiates a new reward.
@@ -402,18 +296,16 @@ public class Reward {
 		}
 
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
-		setActionBarMsg(ConfigRewards.getInstance()
-				.getMessagesActionBar(reward));
+		setActionBarMsg(ConfigRewards.getInstance().getActionBarMessage(reward));
+		setActionBarDelay(ConfigRewards.getInstance().getActionBarDelay(reward));
 
 		setBossBarEnabled(ConfigRewards.getInstance().getBossBarEnabled(reward));
 		setBossBarMessage(ConfigRewards.getInstance().getBossBarMessage(reward));
-		setBossBarColor(ConfigRewards.getInstance().getBossBarBarColor(reward));
-		setBossBarProgress((float) ConfigRewards.getInstance()
-				.getBossBarProgress(reward));
-		setBossBarStyle(ConfigRewards.getInstance().getBossBarBarStyle(reward));
-		setBossBarTimeOut(ConfigRewards.getInstance().getBossBarTimeOut(reward));
-		setBossBarTimeOutInterval(ConfigRewards.getInstance()
-				.getBossBarTimeOutInterval(reward));
+		setBossBarColor(ConfigRewards.getInstance().getBossBarColor(reward));
+		setBossBarStyle(ConfigRewards.getInstance().getBossBarStyle(reward));
+		setBossBarProgress(ConfigRewards.getInstance().getBossBarProgress(
+				reward));
+		setBossBarStyle(ConfigRewards.getInstance().getBossBarStyle(reward));
 
 	}
 
@@ -519,6 +411,15 @@ public class Reward {
 	 */
 	public String getActionBarMsg() {
 		return actionBarMsg;
+	}
+
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @return the boss bar message
+	 */
+	public String getBossBarMessage() {
+		return bossBarMessage;
 	}
 
 	/**
@@ -857,6 +758,15 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the reward type.
+	 *
+	 * @return the reward type
+	 */
+	public String getRewardType() {
+		return rewardType;
+	}
+
+	/**
 	 * Gets the timed hour.
 	 *
 	 * @return the timed hour
@@ -1103,11 +1013,21 @@ public class Reward {
 				sendActionBar(user);
 				playSound(user);
 				playEffect(user);
+				sendBossBar(user);
 
 				plugin.debug("Gave " + user.getPlayerName() + " reward " + name);
 
 			}
 		}
+	}
+
+	/**
+	 * Checks if is boss bar enabled.
+	 *
+	 * @return true, if is boss bar enabled
+	 */
+	public boolean isBossBarEnabled() {
+		return bossBarEnabled;
 	}
 
 	/**
@@ -1117,20 +1037,6 @@ public class Reward {
 	 */
 	public boolean isDelayEnabled() {
 		return delayEnabled;
-	}
-
-	/**
-	 * Send boss bar.
-	 *
-	 * @param user
-	 *            the user
-	 */
-	public void sendBossBar(User user) {
-		if (isBossBarEnabled()) {
-			user.sendBossBar(getBossBarMessage(), getBossBarColor(),
-					getBossBarStyle(), getBossBarProgress(),
-					getBossBarTimeOut(), getBossBarTimeOutInterval());
-		}
 	}
 
 	/**
@@ -1237,7 +1143,20 @@ public class Reward {
 	 *            the user
 	 */
 	public void sendActionBar(User user) {
-		user.sendActionBar(getActionBarMsg());
+		user.sendActionBar(getActionBarMsg(), getActionBarDelay());
+	}
+
+	/**
+	 * Send boss bar.
+	 *
+	 * @param user
+	 *            the user
+	 */
+	public void sendBossBar(User user) {
+		if (isBossBarEnabled()) {
+			user.sendBossBar(getBossBarMessage(), getBossBarColor(),
+					getBossBarStyle(), getBossBarProgress(), getBossBarDelay());
+		}
 	}
 
 	/**
@@ -1280,6 +1199,26 @@ public class Reward {
 	 */
 	public void setActionBarMsg(String actionBarMsg) {
 		this.actionBarMsg = actionBarMsg;
+	}
+
+	/**
+	 * Sets the boss bar enabled.
+	 *
+	 * @param bossBarEnabled
+	 *            the new boss bar enabled
+	 */
+	public void setBossBarEnabled(boolean bossBarEnabled) {
+		this.bossBarEnabled = bossBarEnabled;
+	}
+
+	/**
+	 * Sets the boss bar message.
+	 *
+	 * @param bossBarMessage
+	 *            the new boss bar message
+	 */
+	public void setBossBarMessage(String bossBarMessage) {
+		this.bossBarMessage = bossBarMessage;
 	}
 
 	/**
@@ -1604,6 +1543,16 @@ public class Reward {
 	}
 
 	/**
+	 * Sets the reward type.
+	 *
+	 * @param rewardType
+	 *            the new reward type
+	 */
+	public void setRewardType(String rewardType) {
+		this.rewardType = rewardType;
+	}
+
+	/**
 	 * Sets the timed enabled.
 	 *
 	 * @param timedEnabled
@@ -1643,22 +1592,12 @@ public class Reward {
 		this.worlds = worlds;
 	}
 
-	/**
-	 * Gets the reward type.
-	 *
-	 * @return the reward type
-	 */
-	public String getRewardType() {
-		return rewardType;
+	public int getActionBarDelay() {
+		return actionBarDelay;
 	}
 
-	/**
-	 * Sets the reward type.
-	 *
-	 * @param rewardType
-	 *            the new reward type
-	 */
-	public void setRewardType(String rewardType) {
-		this.rewardType = rewardType;
+	public void setActionBarDelay(int actionBarDelay) {
+		this.actionBarDelay = actionBarDelay;
 	}
+
 }

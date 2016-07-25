@@ -112,7 +112,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + date + ".yml");
+							+ "." + date + ".yml");
 		}
 
 	}
@@ -174,7 +174,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}
@@ -239,7 +239,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + day + ".yml");
+							+ "." + day + ".yml");
 		}
 
 	}
