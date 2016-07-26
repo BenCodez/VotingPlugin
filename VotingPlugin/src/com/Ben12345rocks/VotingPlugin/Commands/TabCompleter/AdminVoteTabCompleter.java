@@ -69,7 +69,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 										cmds.add(siteName);
 									}
 								}
-							} else if (arg.equalsIgnoreCase("(reward0")) {
+							} else if (arg.equalsIgnoreCase("(rewards)")) {
 								for (String reward : ConfigRewards
 										.getInstance().getRewardNames()) {
 									if (!cmds.contains(reward)) {

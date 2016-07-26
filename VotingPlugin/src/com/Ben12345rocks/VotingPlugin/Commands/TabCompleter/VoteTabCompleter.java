@@ -71,7 +71,7 @@ public class VoteTabCompleter implements TabCompleter {
 										cmds.add(siteName);
 									}
 								}
-							} else if (arg.equalsIgnoreCase("(reward)")) {
+							} else if (arg.equalsIgnoreCase("(rewards)")) {
 								for (String reward : ConfigRewards
 										.getInstance().getRewardNames()) {
 									if (!cmds.contains(reward)) {

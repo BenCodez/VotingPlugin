@@ -843,7 +843,7 @@ public class User {
 		}
 
 		for (int i = 0; i < Data.getInstance().getAllSitesOffline(this); i++) {
-
+			OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
 		}
 
 		for (Reward reward : plugin.rewards) {
