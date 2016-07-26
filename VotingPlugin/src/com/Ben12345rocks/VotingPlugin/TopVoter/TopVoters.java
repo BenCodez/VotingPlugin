@@ -11,6 +11,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -44,7 +45,8 @@ public class TopVoters {
 	/**
 	 * Instantiates a new top voters.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public TopVoters(Main plugin) {
 		TopVoters.plugin = plugin;
@@ -53,15 +55,24 @@ public class TopVoters {
 	/**
 	 * Store daily top voters.
 	 *
-	 * @param year the year
-	 * @param month the month
-	 * @param date the date
-	 * @param topVoters the top voters
+	 * @param year
+	 *            the year
+	 * @param month
+	 *            the month
+	 * @param date
+	 *            the date
+	 * @param topVoters
+	 *            the top voters
 	 */
 	public void storeDailyTopVoters(int year, int month, int date,
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
+		}
+
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersDaily()) {
+			plugin.debug("Not Storing TopVoters Daily");
+			return;
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
@@ -101,7 +112,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + date + ".yml");
+							+ "." + date + ".yml");
 		}
 
 	}
@@ -109,13 +120,21 @@ public class TopVoters {
 	/**
 	 * Store monthly top voters.
 	 *
-	 * @param year the year
-	 * @param month the month
-	 * @param topVoters the top voters
+	 * @param year
+	 *            the year
+	 * @param month
+	 *            the month
+	 * @param topVoters
+	 *            the top voters
 	 */
 	public void storeMonthlyTopVoters(int year, int month, String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
+		}
+
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersMonthly()) {
+			plugin.debug("Not Storing TopVoters Monthly");
+			return;
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
@@ -155,7 +174,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ ".yml");
+							+ ".yml");
 		}
 
 	}
@@ -163,15 +182,24 @@ public class TopVoters {
 	/**
 	 * Store weekly top voters.
 	 *
-	 * @param year the year
-	 * @param month the month
-	 * @param day the day
-	 * @param topVoters the top voters
+	 * @param year
+	 *            the year
+	 * @param month
+	 *            the month
+	 * @param day
+	 *            the day
+	 * @param topVoters
+	 *            the top voters
 	 */
 	public void storeWeeklyTopVoters(int year, int month, int day,
 			String[] topVoters) {
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdir();
+		}
+
+		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersWeekly()) {
+			plugin.debug("Not Storing TopVoters Weekly");
+			return;
 		}
 
 		File dFile = new File(plugin.getDataFolder() + File.separator
@@ -211,7 +239,7 @@ public class TopVoters {
 		} catch (IOException e) {
 			plugin.getLogger().info(
 					"Could not save: " + "TopVoters." + year + "." + month
-					+ "." + day + ".yml");
+							+ "." + day + ".yml");
 		}
 
 	}

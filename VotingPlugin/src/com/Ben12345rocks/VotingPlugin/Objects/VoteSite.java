@@ -16,13 +16,13 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
  * The Class VoteSite.
  */
 public class VoteSite {
-	
+
 	/** The config. */
 	static Config config = Config.getInstance();
-	
+
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-	
+
 	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
 
@@ -31,16 +31,16 @@ public class VoteSite {
 
 	/** The vote URL. */
 	private String voteURL;
-	
+
 	/** The service site. */
 	private String serviceSite;
-	
+
 	/** The site name. */
 	private String siteName;
-	
+
 	/** The vote delay. */
 	private int voteDelay;
-	
+
 	/** The enabled. */
 	private boolean enabled;
 
@@ -49,23 +49,25 @@ public class VoteSite {
 
 	/** The cumulative votes. */
 	private int cumulativeVotes;
-	
+
 	/** The cumulative rewards. */
 	private ArrayList<String> cumulativeRewards;
 
 	/**
 	 * Instantiates a new vote site.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public VoteSite(Main plugin) {
 		VoteSite.plugin = plugin;
 	}
 
 	/**
-	 * New VoteSite.
+	 * Instantiates a new vote site.
 	 *
-	 * @param siteName            Sitename
+	 * @param siteName
+	 *            the site name
 	 */
 	public VoteSite(String siteName) {
 		setSiteName(siteName);
@@ -81,9 +83,10 @@ public class VoteSite {
 	}
 
 	/**
-	 * Broad cast a vote.
+	 * Broadcast vote.
 	 *
-	 * @param user            User to broadcast with
+	 * @param user
+	 *            the user
 	 */
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
@@ -158,23 +161,31 @@ public class VoteSite {
 	/**
 	 * Give culumative rewards.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveCulumativeRewards(User user) {
+	public void giveCulumativeRewards(User user, boolean online) {
 		for (String reward : getCumulativeRewards()) {
-			ConfigRewards.getInstance().getReward(reward).giveReward(user);
+			ConfigRewards.getInstance().getReward(reward)
+			.giveReward(user, online);
 		}
 	}
 
 	/**
 	 * Give rewards.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveRewards(User user) {
+	public void giveRewards(User user, boolean online) {
 		for (String reward : getRewards()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward).giveReward(user);
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
 			}
 		}
 	}
@@ -182,10 +193,13 @@ public class VoteSite {
 	/**
 	 * Give site reward.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveSiteReward(User user) {
-		giveRewards(user);
+	public void giveSiteReward(User user, boolean online) {
+		giveRewards(user, online);
 
 		try {
 
@@ -196,7 +210,7 @@ public class VoteSite {
 				if ((user.getCumulativeReward(this) >= configVoteSites
 						.getCumulativeRewardVotesAmount(siteName))) {
 
-					giveCulumativeRewards(user);
+					giveCulumativeRewards(user, online);
 
 					user.setCumulativeReward(this, 0);
 				}
@@ -233,7 +247,8 @@ public class VoteSite {
 	/**
 	 * Sets the cumulative rewards.
 	 *
-	 * @param cumulativeRewards the new cumulative rewards
+	 * @param cumulativeRewards
+	 *            the new cumulative rewards
 	 */
 	public void setCumulativeRewards(ArrayList<String> cumulativeRewards) {
 		this.cumulativeRewards = cumulativeRewards;
@@ -242,7 +257,8 @@ public class VoteSite {
 	/**
 	 * Sets the cumulative votes.
 	 *
-	 * @param cumulativeVotes the new cumulative votes
+	 * @param cumulativeVotes
+	 *            the new cumulative votes
 	 */
 	public void setCumulativeVotes(int cumulativeVotes) {
 		this.cumulativeVotes = cumulativeVotes;
@@ -251,7 +267,8 @@ public class VoteSite {
 	/**
 	 * Sets the enabled.
 	 *
-	 * @param enabled the new enabled
+	 * @param enabled
+	 *            the new enabled
 	 */
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
@@ -260,7 +277,8 @@ public class VoteSite {
 	/**
 	 * Sets the rewards.
 	 *
-	 * @param rewards the new rewards
+	 * @param rewards
+	 *            the new rewards
 	 */
 	public void setRewards(ArrayList<String> rewards) {
 		this.rewards = rewards;
@@ -269,7 +287,8 @@ public class VoteSite {
 	/**
 	 * Sets the service site.
 	 *
-	 * @param serviceSite the new service site
+	 * @param serviceSite
+	 *            the new service site
 	 */
 	public void setServiceSite(String serviceSite) {
 		this.serviceSite = serviceSite;
@@ -278,7 +297,8 @@ public class VoteSite {
 	/**
 	 * Sets the site name.
 	 *
-	 * @param siteName the new site name
+	 * @param siteName
+	 *            the new site name
 	 */
 	public void setSiteName(String siteName) {
 		this.siteName = siteName;
@@ -287,7 +307,8 @@ public class VoteSite {
 	/**
 	 * Sets the vote delay.
 	 *
-	 * @param voteDelay the new vote delay
+	 * @param voteDelay
+	 *            the new vote delay
 	 */
 	public void setVoteDelay(int voteDelay) {
 		this.voteDelay = voteDelay;
@@ -296,7 +317,8 @@ public class VoteSite {
 	/**
 	 * Sets the vote URL.
 	 *
-	 * @param voteURL the new vote URL
+	 * @param voteURL
+	 *            the new vote URL
 	 */
 	public void setVoteURL(String voteURL) {
 		this.voteURL = voteURL;

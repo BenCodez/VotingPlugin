@@ -24,7 +24,8 @@ public class PlayerInteract implements Listener {
 	/**
 	 * Instantiates a new player interact.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public PlayerInteract(Main plugin) {
 		PlayerInteract.plugin = plugin;
@@ -33,7 +34,8 @@ public class PlayerInteract implements Listener {
 	/**
 	 * On player interact.
 	 *
-	 * @param event the event
+	 * @param event
+	 *            the event
 	 */
 	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onPlayerInteract(PlayerInteractEvent event) {

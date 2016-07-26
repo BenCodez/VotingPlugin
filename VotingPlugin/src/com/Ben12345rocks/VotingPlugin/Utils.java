@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin;
 
-import gyurix.api.TitleAPI;
-
 import java.text.DateFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,7 +63,8 @@ public class Utils {
 	/**
 	 * Instantiates a new utils.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public Utils(Main plugin) {
 		Utils.plugin = plugin;
@@ -74,8 +73,10 @@ public class Utils {
 	/**
 	 * Adds the enchants.
 	 *
-	 * @param item the item
-	 * @param enchants the enchants
+	 * @param item
+	 *            the item
+	 * @param enchants
+	 *            the enchants
 	 * @return the item stack
 	 */
 	public ItemStack addEnchants(ItemStack item,
@@ -96,8 +97,10 @@ public class Utils {
 	/**
 	 * Adds the lore.
 	 *
-	 * @param item the item
-	 * @param lore the lore
+	 * @param item
+	 *            the item
+	 * @param lore
+	 *            the lore
 	 * @return the item stack
 	 */
 	public ItemStack addLore(ItemStack item, List<String> lore) {
@@ -117,7 +120,8 @@ public class Utils {
 	/**
 	 * Colorize.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the array list
 	 */
 	public ArrayList<String> colorize(ArrayList<String> list) {
@@ -134,7 +138,8 @@ public class Utils {
 	/**
 	 * Colorize.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the list
 	 */
 	public List<String> colorize(List<String> list) {
@@ -151,7 +156,8 @@ public class Utils {
 	/**
 	 * Colorize.
 	 *
-	 * @param format the format
+	 * @param format
+	 *            the format
 	 * @return the string
 	 */
 	public String colorize(String format) {
@@ -164,7 +170,8 @@ public class Utils {
 	/**
 	 * Colorize.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the string[]
 	 */
 	public String[] colorize(String[] list) {
@@ -181,7 +188,8 @@ public class Utils {
 	/**
 	 * Compto string.
 	 *
-	 * @param comps the comps
+	 * @param comps
+	 *            the comps
 	 * @return the array list
 	 */
 	public ArrayList<String> comptoString(ArrayList<TextComponent> comps) {
@@ -195,7 +203,8 @@ public class Utils {
 	/**
 	 * Comp to string.
 	 *
-	 * @param comp the comp
+	 * @param comp
+	 *            the comp
 	 * @return the string
 	 */
 	public String compToString(TextComponent comp) {
@@ -205,7 +214,8 @@ public class Utils {
 	/**
 	 * Convert.
 	 *
-	 * @param array the array
+	 * @param array
+	 *            the array
 	 * @return the user[]
 	 */
 	public User[] convert(ArrayList<User> array) {
@@ -222,7 +232,8 @@ public class Utils {
 	/**
 	 * Convert.
 	 *
-	 * @param set the set
+	 * @param set
+	 *            the set
 	 * @return the array list
 	 */
 	public ArrayList<String> convert(Set<String> set) {
@@ -236,7 +247,8 @@ public class Utils {
 	/**
 	 * Convert array.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the string[]
 	 */
 	@SuppressWarnings("unused")
@@ -258,7 +270,8 @@ public class Utils {
 	/**
 	 * Convert array.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the array list
 	 */
 	@SuppressWarnings("unused")
@@ -280,7 +293,8 @@ public class Utils {
 	/**
 	 * Convert set.
 	 *
-	 * @param set the set
+	 * @param set
+	 *            the set
 	 * @return the array list
 	 */
 	public ArrayList<User> convertSet(Set<User> set) {
@@ -297,7 +311,8 @@ public class Utils {
 	/**
 	 * Gets the day from mili.
 	 *
-	 * @param time the time
+	 * @param time
+	 *            the time
 	 * @return the day from mili
 	 */
 	@SuppressWarnings("deprecation")
@@ -309,7 +324,8 @@ public class Utils {
 	/**
 	 * Gets the hour from mili.
 	 *
-	 * @param time the time
+	 * @param time
+	 *            the time
 	 * @return the hour from mili
 	 */
 	@SuppressWarnings("deprecation")
@@ -321,7 +337,8 @@ public class Utils {
 	/**
 	 * Gets the minutes from mili.
 	 *
-	 * @param time the time
+	 * @param time
+	 *            the time
 	 * @return the minutes from mili
 	 */
 	@SuppressWarnings("deprecation")
@@ -333,7 +350,8 @@ public class Utils {
 	/**
 	 * Gets the month from mili.
 	 *
-	 * @param time the time
+	 * @param time
+	 *            the time
 	 * @return the month from mili
 	 */
 	@SuppressWarnings("deprecation")
@@ -345,7 +363,8 @@ public class Utils {
 	/**
 	 * Gets the month string.
 	 *
-	 * @param month the month
+	 * @param month
+	 *            the month
 	 * @return the month string
 	 */
 	public String getMonthString(int month) {
@@ -358,7 +377,8 @@ public class Utils {
 	/**
 	 * Gets the player name.
 	 *
-	 * @param uuid the uuid
+	 * @param uuid
+	 *            the uuid
 	 * @return the player name
 	 */
 	public String getPlayerName(String uuid) {
@@ -391,9 +411,12 @@ public class Utils {
 	/**
 	 * Gets the region blocks.
 	 *
-	 * @param world the world
-	 * @param loc1 the loc 1
-	 * @param loc2 the loc 2
+	 * @param world
+	 *            the world
+	 * @param loc1
+	 *            the loc 1
+	 * @param loc2
+	 *            the loc 2
 	 * @return the region blocks
 	 */
 	public List<Block> getRegionBlocks(World world, Location loc1, Location loc2) {
@@ -414,7 +437,8 @@ public class Utils {
 	/**
 	 * Gets the uuid.
 	 *
-	 * @param playerName the player name
+	 * @param playerName
+	 *            the player name
 	 * @return the uuid
 	 */
 	@SuppressWarnings("deprecation")
@@ -433,7 +457,8 @@ public class Utils {
 	/**
 	 * Gets the vote site name.
 	 *
-	 * @param url the url
+	 * @param url
+	 *            the url
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String url) {
@@ -460,7 +485,8 @@ public class Utils {
 	/**
 	 * Gets the year from mili.
 	 *
-	 * @param time the time
+	 * @param time
+	 *            the time
 	 * @return the year from mili
 	 */
 	@SuppressWarnings("deprecation")
@@ -472,8 +498,10 @@ public class Utils {
 	/**
 	 * Checks for permission.
 	 *
-	 * @param sender the sender
-	 * @param perm the perm
+	 * @param sender
+	 *            the sender
+	 * @param perm
+	 *            the perm
 	 * @return true, if successful
 	 */
 	public boolean hasPermission(CommandSender sender, String perm) {
@@ -483,8 +511,10 @@ public class Utils {
 	/**
 	 * Checks for permission.
 	 *
-	 * @param player the player
-	 * @param perm the perm
+	 * @param player
+	 *            the player
+	 * @param perm
+	 *            the perm
 	 * @return true, if successful
 	 */
 	public boolean hasPermission(Player player, String perm) {
@@ -494,8 +524,10 @@ public class Utils {
 	/**
 	 * Checks for permission.
 	 *
-	 * @param playerName the player name
-	 * @param perm the perm
+	 * @param playerName
+	 *            the player name
+	 * @param perm
+	 *            the perm
 	 * @return true, if successful
 	 */
 	public boolean hasPermission(String playerName, String perm) {
@@ -512,7 +544,8 @@ public class Utils {
 	/**
 	 * Checks if is int.
 	 *
-	 * @param st the st
+	 * @param st
+	 *            the st
 	 * @return true, if is int
 	 */
 	public boolean isInt(String st) {
@@ -529,7 +562,8 @@ public class Utils {
 	/**
 	 * Checks if is player.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 * @return true, if is player
 	 */
 	public boolean isPlayer(CommandSender sender) {
@@ -542,7 +576,8 @@ public class Utils {
 	/**
 	 * Checks if is player online.
 	 *
-	 * @param playerName the player name
+	 * @param playerName
+	 *            the player name
 	 * @return true, if is player online
 	 */
 	public boolean isPlayerOnline(String playerName) {
@@ -559,8 +594,10 @@ public class Utils {
 	/**
 	 * Make string.
 	 *
-	 * @param startIndex the start index
-	 * @param strs the strs
+	 * @param startIndex
+	 *            the start index
+	 * @param strs
+	 *            the strs
 	 * @return the string
 	 */
 	public String makeString(int startIndex, String[] strs) {
@@ -579,7 +616,8 @@ public class Utils {
 	/**
 	 * Make string list.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the string
 	 */
 	public String makeStringList(ArrayList<String> list) {
@@ -604,8 +642,10 @@ public class Utils {
 	/**
 	 * Name item.
 	 *
-	 * @param item the item
-	 * @param name the name
+	 * @param item
+	 *            the item
+	 * @param name
+	 *            the name
 	 * @return the item stack
 	 */
 	public ItemStack nameItem(ItemStack item, String name) {
@@ -622,7 +662,8 @@ public class Utils {
 	/**
 	 * Prints the map.
 	 *
-	 * @param topVoterMonthly the top voter monthly
+	 * @param topVoterMonthly
+	 *            the top voter monthly
 	 */
 	public void printMap(HashMap<User, Integer> topVoterMonthly) {
 		for (Entry<User, Integer> entry : topVoterMonthly.entrySet()) {
@@ -634,7 +675,8 @@ public class Utils {
 	/**
 	 * Removes the double users.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the array list
 	 */
 	public ArrayList<User> removeDoubleUsers(ArrayList<User> list) {
@@ -650,7 +692,8 @@ public class Utils {
 	/**
 	 * Removes the duplicates.
 	 *
-	 * @param list the list
+	 * @param list
+	 *            the list
 	 * @return the array list
 	 */
 	public ArrayList<String> removeDuplicates(ArrayList<String> list) {
@@ -661,9 +704,12 @@ public class Utils {
 	/**
 	 * Replace.
 	 *
-	 * @param list the list
-	 * @param toReplace the to replace
-	 * @param replaceWith the replace with
+	 * @param list
+	 *            the list
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
 	 * @return the list
 	 */
 	public List<String> replace(List<String> list, String toReplace,
@@ -683,9 +729,12 @@ public class Utils {
 	/**
 	 * Replace ignore case.
 	 *
-	 * @param list the list
-	 * @param toReplace the to replace
-	 * @param replaceWith the replace with
+	 * @param list
+	 *            the list
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
 	 * @return the array list
 	 */
 	public ArrayList<String> replaceIgnoreCase(ArrayList<String> list,
@@ -700,9 +749,12 @@ public class Utils {
 	/**
 	 * Replace ignore case.
 	 *
-	 * @param str the str
-	 * @param toReplace the to replace
-	 * @param replaceWith the replace with
+	 * @param str
+	 *            the str
+	 * @param toReplace
+	 *            the to replace
+	 * @param replaceWith
+	 *            the replace with
 	 * @return the string
 	 */
 	public String replaceIgnoreCase(String str, String toReplace,
@@ -719,8 +771,10 @@ public class Utils {
 	/**
 	 * Replace place holders.
 	 *
-	 * @param player the player
-	 * @param text the text
+	 * @param player
+	 *            the player
+	 * @param text
+	 *            the text
 	 * @return the string
 	 */
 	public String replacePlaceHolders(Player player, String text) {
@@ -732,36 +786,12 @@ public class Utils {
 	}
 
 	/**
-	 * Send title.
-	 *
-	 * @param player the player
-	 * @param title the title
-	 * @param subTitle the sub title
-	 * @param fadeIn the fade in
-	 * @param showTime the show time
-	 * @param fadeOut the fade out
-	 */
-	public void sendTitle(Player player, String title, String subTitle,
-			int fadeIn, int showTime, int fadeOut) {
-		if (plugin.spigotLibEnabled) {
-
-			if (title == null) {
-				title = "";
-			}
-			if (subTitle == null) {
-				subTitle = "";
-			}
-			TitleAPI.set(colorize(title), colorize(subTitle), fadeIn, showTime,
-					fadeOut, player);
-
-		}
-	}
-
-	/**
 	 * Sets the durabilty.
 	 *
-	 * @param item the item
-	 * @param durability the durability
+	 * @param item
+	 *            the item
+	 * @param durability
+	 *            the durability
 	 * @return the item stack
 	 */
 	public ItemStack setDurabilty(ItemStack item, int durability) {
@@ -777,8 +807,10 @@ public class Utils {
 	/**
 	 * Sets the skull owner.
 	 *
-	 * @param item the item
-	 * @param playerName the player name
+	 * @param item
+	 *            the item
+	 * @param playerName
+	 *            the player name
 	 * @return the item stack
 	 */
 	public ItemStack setSkullOwner(ItemStack item, String playerName) {
@@ -796,7 +828,8 @@ public class Utils {
 	/**
 	 * Sets the to array.
 	 *
-	 * @param set the set
+	 * @param set
+	 *            the set
 	 * @return the string[]
 	 */
 	@SuppressWarnings("unused")
@@ -817,8 +850,10 @@ public class Utils {
 	/**
 	 * Sort by values.
 	 *
-	 * @param unsortMap the unsort map
-	 * @param order the order
+	 * @param unsortMap
+	 *            the unsort map
+	 * @param order
+	 *            the order
 	 * @return the hash map
 	 */
 	public HashMap<User, Integer> sortByValues(
@@ -852,8 +887,10 @@ public class Utils {
 	/**
 	 * Starts with ignore case.
 	 *
-	 * @param str1 the str 1
-	 * @param str2 the str 2
+	 * @param str1
+	 *            the str 1
+	 * @param str2
+	 *            the str 2
 	 * @return true, if successful
 	 */
 	public boolean startsWithIgnoreCase(String str1, String str2) {
@@ -863,7 +900,8 @@ public class Utils {
 	/**
 	 * String to comp.
 	 *
-	 * @param string the string
+	 * @param string
+	 *            the string
 	 * @return the text component
 	 */
 	public TextComponent stringToComp(String string) {

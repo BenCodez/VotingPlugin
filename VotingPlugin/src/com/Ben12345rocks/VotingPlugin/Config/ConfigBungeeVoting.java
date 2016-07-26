@@ -11,7 +11,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,7 +49,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Instantiates a new config bungee voting.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigBungeeVoting(Main plugin) {
 		ConfigBungeeVoting.plugin = plugin;
@@ -76,7 +77,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Gets the server IP.
 	 *
-	 * @param server the server
+	 * @param server
+	 *            the server
 	 * @return the server IP
 	 */
 	public String getServerIP(String server) {
@@ -86,7 +88,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Gets the server key.
 	 *
-	 * @param server the server
+	 * @param server
+	 *            the server
 	 * @return the server key
 	 */
 	public String getServerKey(String server) {
@@ -96,7 +99,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Gets the server port.
 	 *
-	 * @param server the server
+	 * @param server
+	 *            the server
 	 * @return the server port
 	 */
 	public int getServerPort(String server) {
@@ -115,7 +119,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Gets the server service site.
 	 *
-	 * @param server the server
+	 * @param server
+	 *            the server
 	 * @return the server service site
 	 */
 	public String getServerServiceSite(String server) {
@@ -139,7 +144,8 @@ public class ConfigBungeeVoting {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -154,9 +160,9 @@ public class ConfigBungeeVoting {
 				plugin.saveResource("BungeeVoting.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create BungeeVoting.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create BungeeVoting.yml!");
 			}
 		}
 

@@ -15,9 +15,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,7 +49,8 @@ public class ConfigRewards {
 	/**
 	 * Instantiates a new config rewards.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigRewards(Main plugin) {
 		ConfigRewards.plugin = plugin;
@@ -65,7 +66,7 @@ public class ConfigRewards {
 				if (time != 0) {
 					Date timeDate = new Date(time);
 					if (new Date().after(timeDate)) {
-						reward.giveRewardReward(user);
+						reward.giveRewardReward(user, true);
 						user.setTimedReward(reward, 0);
 					}
 				}
@@ -74,9 +75,76 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the boss bar enabled.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar enabled
+	 */
+	public boolean getBossBarEnabled(String reward) {
+		return getData(reward).getBoolean("BossBar.Enabled");
+	}
+
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar message
+	 */
+	public String getBossBarMessage(String reward) {
+		return getData(reward).getString("BossBar.Message");
+	}
+
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar progress
+	 */
+	public double getBossBarProgress(String reward) {
+		return getData(reward).getDouble("BossBar.Progress");
+	}
+
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar color
+	 */
+	public String getBossBarColor(String reward) {
+		return getData(reward).getString("BossBar.Color");
+	}
+
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar style
+	 */
+	public String getBossBarStyle(String reward) {
+		return getData(reward).getString("BossBar.Style");
+	}
+
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar delay
+	 */
+	public int getBossBarDelay(String reward) {
+		return getData(reward).getInt("BossBar.Delay");
+	}
+
+	/**
 	 * Gets the chance.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the chance
 	 */
 	public double getChance(String reward) {
@@ -86,7 +154,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the commands console.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the commands console
 	 */
 	@SuppressWarnings("unchecked")
@@ -102,7 +171,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the commands player.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the commands player
 	 */
 	@SuppressWarnings("unchecked")
@@ -118,7 +188,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the data.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the data
 	 */
 	public FileConfiguration getData(String reward) {
@@ -130,7 +201,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the delayed enabled.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the delayed enabled
 	 */
 	public boolean getDelayedEnabled(String reward) {
@@ -140,7 +212,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the delayed hours.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the delayed hours
 	 */
 	public int getDelayedHours(String reward) {
@@ -150,7 +223,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the delayed minutes.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the delayed minutes
 	 */
 	public int getDelayedMinutes(String reward) {
@@ -160,7 +234,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the effect data.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the effect data
 	 */
 	public int getEffectData(String reward) {
@@ -170,7 +245,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the effect effect.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the effect effect
 	 */
 	public String getEffectEffect(String reward) {
@@ -184,7 +260,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the effect enabled.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the effect enabled
 	 */
 	public boolean getEffectEnabled(String reward) {
@@ -194,7 +271,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the effect particles.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the effect particles
 	 */
 	public int getEffectParticles(String reward) {
@@ -204,7 +282,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the effect radius.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the effect radius
 	 */
 	public int getEffectRadius(String reward) {
@@ -214,7 +293,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the exp.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the exp
 	 */
 	public int getEXP(String reward) {
@@ -224,7 +304,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the give in each world.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the give in each world
 	 */
 	public boolean getGiveInEachWorld(String reward) {
@@ -234,8 +315,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item amount
 	 */
 	public int getItemAmount(String reward, String item) {
@@ -245,8 +328,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item data.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item data
 	 */
 	public int getItemData(String reward, String item) {
@@ -256,8 +341,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item durability.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item durability
 	 */
 	public int getItemDurability(String reward, String item) {
@@ -267,8 +354,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item enchants.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item enchants
 	 */
 	public Set<String> getItemEnchants(String reward, String item) {
@@ -283,9 +372,12 @@ public class ConfigRewards {
 	/**
 	 * Gets the item enchants level.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param enchant the enchant
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param enchant
+	 *            the enchant
 	 * @return the item enchants level
 	 */
 	public int getItemEnchantsLevel(String reward, String item, String enchant) {
@@ -295,8 +387,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item lore.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item lore
 	 */
 	@SuppressWarnings("unchecked")
@@ -308,8 +402,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item material.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item material
 	 */
 	public String getItemMaterial(String reward, String item) {
@@ -319,8 +415,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item max amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item max amount
 	 */
 	public int getItemMaxAmount(String reward, String item) {
@@ -330,8 +428,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item min amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item min amount
 	 */
 	public int getItemMinAmount(String reward, String item) {
@@ -341,8 +441,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item name.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item name
 	 */
 	public String getItemName(String reward, String item) {
@@ -352,7 +454,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the items.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the items
 	 */
 	public Set<String> getItems(String reward) {
@@ -367,8 +470,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the item skull.
 	 *
-	 * @param reward the reward
-	 * @param item the item
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
 	 * @return the item skull
 	 */
 	public String getItemSkull(String reward, String item) {
@@ -376,9 +481,21 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the max exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the max exp
+	 */
+	public int getMaxExp(String reward) {
+		return getData(reward).getInt("MaxEXP");
+	}
+
+	/**
 	 * Gets the max money.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the max money
 	 */
 	public int getMaxMoney(String reward) {
@@ -386,9 +503,32 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the action bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar message
+	 */
+	public String getActionBarMessage(String reward) {
+		return getData(reward).getString("ActionBar.Message");
+	}
+
+	/**
+	 * Gets the action bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar delay
+	 */
+	public int getActionBarDelay(String reward) {
+		return getData(reward).getInt("ActionBar.Delay");
+	}
+
+	/**
 	 * Gets the messages reward.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the messages reward
 	 */
 	public String getMessagesReward(String reward) {
@@ -401,9 +541,21 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the min exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the min exp
+	 */
+	public int getMinExp(String reward) {
+		return getData(reward).getInt("MinEXP");
+	}
+
+	/**
 	 * Gets the min money.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the min money
 	 */
 	public int getMinMoney(String reward) {
@@ -413,7 +565,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the money.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the money
 	 */
 	public int getMoney(String reward) {
@@ -423,7 +576,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the permission.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the permission
 	 */
 	public String getPermission(String reward) {
@@ -433,7 +587,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the potions.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the potions
 	 */
 	public Set<String> getPotions(String reward) {
@@ -448,8 +603,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the potions amplifier.
 	 *
-	 * @param reward the reward
-	 * @param potion the potion
+	 * @param reward
+	 *            the reward
+	 * @param potion
+	 *            the potion
 	 * @return the potions amplifier
 	 */
 	public int getPotionsAmplifier(String reward, String potion) {
@@ -459,8 +616,10 @@ public class ConfigRewards {
 	/**
 	 * Gets the potions duration.
 	 *
-	 * @param reward the reward
-	 * @param potion the potion
+	 * @param reward
+	 *            the reward
+	 * @param potion
+	 *            the potion
 	 * @return the potions duration
 	 */
 	public int getPotionsDuration(String reward, String potion) {
@@ -470,7 +629,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the random chance.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the random chance
 	 */
 	public double getRandomChance(String reward) {
@@ -480,7 +640,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the random fall back.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the random fall back
 	 */
 	@SuppressWarnings("unchecked")
@@ -496,7 +657,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the random rewards.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the random rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -512,7 +674,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the require permission.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the require permission
 	 */
 	public boolean getRequirePermission(String reward) {
@@ -522,7 +685,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the reward.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the reward
 	 */
 	public Reward getReward(String reward) {
@@ -540,7 +704,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the reward file.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the reward file
 	 */
 	public File getRewardFile(String reward) {
@@ -593,9 +758,31 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the reward type.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the reward type
+	 */
+	public String getRewardType(String reward) {
+		String str = getData(reward).getString("RewardType");
+		if (str != null) {
+			if (str.equalsIgnoreCase("online")) {
+				return "ONLINE";
+			} else if (str.equalsIgnoreCase("offline")) {
+				return "OFFLINE";
+			} else {
+				return "BOTH";
+			}
+		}
+		return "BOTH";
+	}
+
+	/**
 	 * Gets the sound enabled.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the sound enabled
 	 */
 	public boolean getSoundEnabled(String reward) {
@@ -605,7 +792,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the sound pitch.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the sound pitch
 	 */
 	public float getSoundPitch(String reward) {
@@ -615,7 +803,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the sound sound.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the sound sound
 	 */
 	public String getSoundSound(String reward) {
@@ -625,7 +814,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the sound volume.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the sound volume
 	 */
 	public float getSoundVolume(String reward) {
@@ -635,7 +825,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the timed enabled.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the timed enabled
 	 */
 	public boolean getTimedEnabled(String reward) {
@@ -645,7 +836,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the timed hour.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the timed hour
 	 */
 	public int getTimedHour(String reward) {
@@ -655,7 +847,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the timed minute.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the timed minute
 	 */
 	public int getTimedMinute(String reward) {
@@ -665,7 +858,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title enabled.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title enabled
 	 */
 	public boolean getTitleEnabled(String reward) {
@@ -675,7 +869,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title fade in.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title fade in
 	 */
 	public int getTitleFadeIn(String reward) {
@@ -685,7 +880,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title fade out.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title fade out
 	 */
 	public int getTitleFadeOut(String reward) {
@@ -695,7 +891,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title show time.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title show time
 	 */
 	public int getTitleShowTime(String reward) {
@@ -705,7 +902,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title sub title.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title sub title
 	 */
 	public String getTitleSubTitle(String reward) {
@@ -715,7 +913,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the title title.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the title title
 	 */
 	public String getTitleTitle(String reward) {
@@ -725,7 +924,8 @@ public class ConfigRewards {
 	/**
 	 * Gets the worlds.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 * @return the worlds
 	 */
 	@SuppressWarnings("unchecked")
@@ -740,8 +940,10 @@ public class ConfigRewards {
 	/**
 	 * Rename reward.
 	 *
-	 * @param reward the reward
-	 * @param newName the new name
+	 * @param reward
+	 *            the reward
+	 * @param newName
+	 *            the new name
 	 * @return true, if successful
 	 */
 	public boolean renameReward(String reward, String newName) {
@@ -753,9 +955,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the.
 	 *
-	 * @param reward the reward
-	 * @param path the path
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param path
+	 *            the path
+	 * @param value
+	 *            the value
 	 */
 	public void set(String reward, String path, Object value) {
 		File dFile = getRewardFile(reward);
@@ -767,8 +972,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the chance.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setChance(String reward, int value) {
 		set(reward, "Chance", value);
@@ -777,8 +984,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the commands console.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setCommandsConsole(String reward, ArrayList<String> value) {
 		set(reward, "Commands.Console", value);
@@ -787,8 +996,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the commands plater.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setCommandsPlater(String reward, ArrayList<String> value) {
 		set(reward, "Commands.Player", value);
@@ -797,8 +1008,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the give in each world.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setGiveInEachWorld(String reward, boolean value) {
 		set(reward, "GiveInEachWorld", value);
@@ -807,9 +1020,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemAmount(String reward, String item, int value) {
 		set(reward, "Items." + item + ".Amount", value);
@@ -818,9 +1034,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item data.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemData(String reward, String item, int value) {
 		set(reward, "Items." + item + ".Data", value);
@@ -829,10 +1048,14 @@ public class ConfigRewards {
 	/**
 	 * Sets the item enchant.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param enchant the enchant
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param enchant
+	 *            the enchant
+	 * @param value
+	 *            the value
 	 */
 	public void setItemEnchant(String reward, String item, String enchant,
 			int value) {
@@ -842,9 +1065,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item lore.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemLore(String reward, String item, ArrayList<String> value) {
 		set(reward, "Items." + item + ".Lore", value);
@@ -853,9 +1079,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item material.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemMaterial(String reward, String item, String value) {
 		set(reward, "Items." + item + ".Material", value);
@@ -864,9 +1093,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item max amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemMaxAmount(String reward, String item, int value) {
 		set(reward, "Items." + item + ".MaxAmount", value);
@@ -875,9 +1107,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item min amount.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemMinAmount(String reward, String item, int value) {
 		set(reward, "Items." + item + ".MinAmount", value);
@@ -886,9 +1121,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the item name.
 	 *
-	 * @param reward the reward
-	 * @param item the item
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
 	 */
 	public void setItemName(String reward, String item, String value) {
 		set(reward, "Items." + item + ".Name", value);
@@ -897,8 +1135,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the max money.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setMaxMoney(String reward, int value) {
 		set(reward, "MaxMoney", value);
@@ -907,8 +1147,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the messages reward.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setMessagesReward(String reward, String value) {
 		set(reward, "Messages.Reward", value);
@@ -917,8 +1159,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the min money.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setMinMoney(String reward, int value) {
 		set(reward, "MinMoney", value);
@@ -927,8 +1171,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the money.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setMoney(String reward, int value) {
 		set(reward, "Money", value);
@@ -937,9 +1183,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the potions amplifier.
 	 *
-	 * @param reward the reward
-	 * @param potion the potion
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param potion
+	 *            the potion
+	 * @param value
+	 *            the value
 	 */
 	public void setPotionsAmplifier(String reward, String potion, int value) {
 		set(reward, "Potions." + potion + ".Amplifier", value);
@@ -948,9 +1197,12 @@ public class ConfigRewards {
 	/**
 	 * Sets the potions duration.
 	 *
-	 * @param reward the reward
-	 * @param potion the potion
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param potion
+	 *            the potion
+	 * @param value
+	 *            the value
 	 */
 	public void setPotionsDuration(String reward, String potion, int value) {
 		set(reward, "Potions." + potion + ".Duration", value);
@@ -959,8 +1211,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the require permission.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setRequirePermission(String reward, boolean value) {
 		set(reward, "RequirePermission", value);
@@ -986,8 +1240,10 @@ public class ConfigRewards {
 	/**
 	 * Sets the worlds.
 	 *
-	 * @param reward the reward
-	 * @param value the value
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
 	 */
 	public void setWorlds(String reward, ArrayList<String> value) {
 		set(reward, "Worlds", value);

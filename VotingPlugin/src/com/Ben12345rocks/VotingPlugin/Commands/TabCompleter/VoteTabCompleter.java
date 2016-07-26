@@ -21,16 +21,19 @@ import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
  * The Class VoteTabCompleter.
  */
 public class VoteTabCompleter implements TabCompleter {
-	
+
 	/** The plugin. */
 	Main plugin = Main.plugin;
 
 	/**
 	 * Gets the tab complete options.
 	 *
-	 * @param sender the sender
-	 * @param args the args
-	 * @param argNum the arg num
+	 * @param sender
+	 *            the sender
+	 * @param args
+	 *            the args
+	 * @param argNum
+	 *            the arg num
 	 * @return the tab complete options
 	 */
 	public ArrayList<String> getTabCompleteOptions(CommandSender sender,
@@ -99,8 +102,12 @@ public class VoteTabCompleter implements TabCompleter {
 		return cmds;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
+	 * CommandSender, org.bukkit.command.Command, java.lang.String,
+	 * java.lang.String[])
 	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,

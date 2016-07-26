@@ -21,41 +21,45 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
  * The Class SignHandler.
  */
 public class SignHandler {
-	
+
 	/** The sign. */
 	private String sign;
-	
+
 	/** The location. */
 	private Location location;
-	
+
 	/** The data. */
 	private String data;
-	
+
 	/** The lines. */
 	private ArrayList<String> lines;
-	
+
 	/** The position. */
 	private int position;
-	
+
 	/** The plugin. */
 	public Main plugin = Main.plugin;
-	
+
 	/** The player name. */
 	private String playerName;
-	
+
 	/** The votes. */
 	private int votes;
-	
+
 	/** The is valid. */
 	private boolean isValid;
 
 	/**
 	 * Instantiates a new sign handler.
 	 *
-	 * @param sign the sign
-	 * @param location the location
-	 * @param data the data
-	 * @param position the position
+	 * @param sign
+	 *            the sign
+	 * @param location
+	 *            the location
+	 * @param data
+	 *            the data
+	 * @param position
+	 *            the position
 	 */
 	public SignHandler(String sign, Location location, String data, int position) {
 		setSign(sign);
@@ -151,7 +155,8 @@ public class SignHandler {
 	/**
 	 * Checks if is location same.
 	 *
-	 * @param loc the loc
+	 * @param loc
+	 *            the loc
 	 * @return true, if is location same
 	 */
 	public boolean isLocationSame(Location loc) {
@@ -177,7 +182,8 @@ public class SignHandler {
 	/**
 	 * Sets the data.
 	 *
-	 * @param data the new data
+	 * @param data
+	 *            the new data
 	 */
 	public void setData(String data) {
 		this.data = data;
@@ -186,7 +192,8 @@ public class SignHandler {
 	/**
 	 * Sets the location.
 	 *
-	 * @param location the new location
+	 * @param location
+	 *            the new location
 	 */
 	public void setLocation(Location location) {
 		this.location = location;
@@ -195,7 +202,8 @@ public class SignHandler {
 	/**
 	 * Sets the sign.
 	 *
-	 * @param sign the new sign
+	 * @param sign
+	 *            the new sign
 	 */
 	public void setSign(String sign) {
 		this.sign = sign;
@@ -204,7 +212,8 @@ public class SignHandler {
 	/**
 	 * Sets the valid.
 	 *
-	 * @param isValid the new valid
+	 * @param isValid
+	 *            the new valid
 	 */
 	public void setValid(boolean isValid) {
 		this.isValid = isValid;
@@ -247,7 +256,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -255,7 +264,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-								.replace("%player%", playerName));
+										.replace("%player%", playerName));
 					}
 				}
 
@@ -271,8 +280,8 @@ public class SignHandler {
 					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
 						ArrayList<User> users = Utils.getInstance().convertSet(
 								TopVoter.getInstance()
-								.topVotersSortedVoteSite(voteSite)
-								.keySet());
+										.topVotersSortedVoteSite(voteSite)
+										.keySet());
 
 						if (users.size() >= position) {
 							playerName = users.get(position - 1)
@@ -282,8 +291,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						} else {
 							playerName = "No Player";
@@ -292,8 +301,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-										.replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+												.replace("%votes%", "" + votes)
+												.replace("%player%", playerName));
 							}
 						}
 
@@ -301,9 +310,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-									.replace("%SiteName%", data)
-									.replace("%position%",
-											"" + position));
+											.replace("%SiteName%", data)
+											.replace("%position%",
+													"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);
@@ -317,7 +326,8 @@ public class SignHandler {
 	/**
 	 * Update sign.
 	 *
-	 * @param delay the delay
+	 * @param delay
+	 *            the delay
 	 */
 	public void updateSign(int delay) {
 		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {

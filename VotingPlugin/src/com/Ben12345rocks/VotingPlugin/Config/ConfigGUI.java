@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -53,7 +53,8 @@ public class ConfigGUI {
 	/**
 	 * Instantiates a new config GUI.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigGUI(Main plugin) {
 		ConfigGUI.plugin = plugin;
@@ -71,7 +72,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot amount.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot amount
 	 */
 	public int getVoteGUISlotAmount(String slot) {
@@ -81,7 +83,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot command.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot command
 	 */
 	public String getVoteGUISlotCommand(String slot) {
@@ -91,7 +94,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot data.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot data
 	 */
 	public int getVoteGUISlotData(String slot) {
@@ -101,7 +105,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot durability.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot durability
 	 */
 	public int getVoteGUISlotDurability(String slot) {
@@ -109,9 +114,28 @@ public class ConfigGUI {
 	}
 
 	/**
+	 * Gets the vote GUI slot lore.
+	 *
+	 * @param slot
+	 *            the slot
+	 * @return the vote GUI slot lore
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVoteGUISlotLore(String slot) {
+
+		ArrayList<String> list = (ArrayList<String>) getData().getList(
+				"GUI.VoteGUI." + slot + ".Lore");
+		if (list != null) {
+			return list;
+		}
+		return new ArrayList<String>();
+	}
+
+	/**
 	 * Gets the vote GUI slot material.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot material
 	 */
 	public String getVoteGUISlotMaterial(String slot) {
@@ -121,7 +145,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot name.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot name
 	 */
 	public String getVoteGUISlotName(String slot) {
@@ -145,8 +170,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot skull.
 	 *
-	 * @param player the player
-	 * @param slot the slot
+	 * @param player
+	 *            the player
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot skull
 	 */
 	public String getVoteGUISlotSkull(Player player, String slot) {
@@ -162,7 +189,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote GUI slot slot.
 	 *
-	 * @param slot the slot
+	 * @param slot
+	 *            the slot
 	 * @return the vote GUI slot slot
 	 */
 	public int getVoteGUISlotSlot(String slot) {
@@ -170,26 +198,10 @@ public class ConfigGUI {
 	}
 
 	/**
-	 * Gets the vote GUI slot lore.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot lore
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVoteGUISlotLore(String slot) {
-
-		ArrayList<String> list = (ArrayList<String>) getData().getList(
-				"GUI.VoteGUI." + slot + ".Lore");
-		if (list != null) {
-			return list;
-		}
-		return new ArrayList<String>();
-	}
-
-	/**
 	 * Gets the vote site item amount.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site item amount
 	 */
 	public int getVoteSiteItemAmount(String site) {
@@ -200,7 +212,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site item data.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site item data
 	 */
 	public int getVoteSiteItemData(String site) {
@@ -211,7 +224,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site item durability.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site item durability
 	 */
 	public int getVoteSiteItemDurability(String site) {
@@ -221,21 +235,10 @@ public class ConfigGUI {
 	}
 
 	/**
-	 * Gets the vote site item material.
-	 *
-	 * @param site the site
-	 * @return the vote site item material
-	 */
-	public String getVoteSiteItemMaterial(String site) {
-		String siteName = site.replace(".", "-");
-		return getData().getString(
-				"GUI.VoteReward." + siteName + ".Item.Material");
-	}
-
-	/**
 	 * Gets the vote site item lore.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site item lore
 	 */
 	@SuppressWarnings("unchecked")
@@ -246,9 +249,23 @@ public class ConfigGUI {
 	}
 
 	/**
+	 * Gets the vote site item material.
+	 *
+	 * @param site
+	 *            the site
+	 * @return the vote site item material
+	 */
+	public String getVoteSiteItemMaterial(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Item.Material");
+	}
+
+	/**
 	 * Gets the vote site item name.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site item name
 	 */
 	public String getVoteSiteItemName(String site) {
@@ -259,7 +276,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items.
 	 *
-	 * @param site the site
+	 * @param site
+	 *            the site
 	 * @return the vote site items
 	 */
 	public Set<String> getVoteSiteItems(String site) {
@@ -275,8 +293,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items amount.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items amount
 	 */
 	public int getVoteSiteItemsAmount(String site, String item) {
@@ -288,8 +308,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items data.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items data
 	 */
 	public int getVoteSiteItemsData(String site, String item) {
@@ -301,8 +323,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items durability.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items durability
 	 */
 	public int getVoteSiteItemsDurability(String site, String item) {
@@ -313,24 +337,12 @@ public class ConfigGUI {
 	}
 
 	/**
-	 * Gets the vote site items material.
-	 *
-	 * @param site the site
-	 * @param item the item
-	 * @return the vote site items material
-	 */
-	public String getVoteSiteItemsMaterial(String site, String item) {
-		String siteName = site.replace(".", "-");
-		return getData().getString(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Material");
-		
-	}
-
-	/**
 	 * Gets the vote site item skull.
 	 *
-	 * @param player the player
-	 * @param siteName the site name
+	 * @param player
+	 *            the player
+	 * @param siteName
+	 *            the site name
 	 * @return the vote site item skull
 	 */
 	public String getVoteSiteItemSkull(Player player, String siteName) {
@@ -347,8 +359,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items lore.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items lore
 	 */
 	@SuppressWarnings("unchecked")
@@ -359,10 +373,28 @@ public class ConfigGUI {
 	}
 
 	/**
+	 * Gets the vote site items material.
+	 *
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
+	 * @return the vote site items material
+	 */
+	public String getVoteSiteItemsMaterial(String site, String item) {
+		String siteName = site.replace(".", "-");
+		return getData().getString(
+				"GUI.VoteReward." + siteName + ".Items." + item + ".Material");
+
+	}
+
+	/**
 	 * Gets the vote site items name.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items name
 	 */
 	public String getVoteSiteItemsName(String site, String item) {
@@ -374,9 +406,12 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items skull.
 	 *
-	 * @param player the player
-	 * @param siteName the site name
-	 * @param item the item
+	 * @param player
+	 *            the player
+	 * @param siteName
+	 *            the site name
+	 * @param item
+	 *            the item
 	 * @return the vote site items skull
 	 */
 	public String getVoteSiteItemsSkull(Player player, String siteName,
@@ -394,8 +429,10 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote site items slot.
 	 *
-	 * @param site the site
-	 * @param item the item
+	 * @param site
+	 *            the site
+	 * @param item
+	 *            the item
 	 * @return the vote site items slot
 	 */
 	public int getVoteSiteItemsSlot(String site, String item) {
@@ -460,7 +497,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote URL already voted item skull.
 	 *
-	 * @param player the player
+	 * @param player
+	 *            the player
 	 * @return the vote URL already voted item skull
 	 */
 	public String getVoteURLAlreadyVotedItemSkull(Player player) {
@@ -526,7 +564,8 @@ public class ConfigGUI {
 	/**
 	 * Gets the vote URL can vote item skull.
 	 *
-	 * @param player the player
+	 * @param player
+	 *            the player
 	 * @return the vote URL can vote item skull
 	 */
 	public String getVoteURLCanVoteItemSkull(Player player) {
@@ -606,7 +645,8 @@ public class ConfigGUI {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -621,7 +661,7 @@ public class ConfigGUI {
 				plugin.saveResource("GUI.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
+				.severe(ChatColor.RED + "Could not create GUI.yml!");
 			}
 		}
 

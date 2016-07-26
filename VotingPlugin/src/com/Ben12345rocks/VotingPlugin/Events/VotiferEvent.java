@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -48,8 +49,10 @@ public class VotiferEvent implements Listener {
 	/**
 	 * Player vote.
 	 *
-	 * @param playerName the player name
-	 * @param voteSiteURL the vote site URL
+	 * @param playerName
+	 *            the player name
+	 * @param voteSiteURL
+	 *            the vote site URL
 	 */
 	public static void playerVote(String playerName, String voteSiteURL) {
 		User user = new User(playerName);
@@ -109,30 +112,61 @@ public class VotiferEvent implements Listener {
 						.checkFirstVote(user);
 				boolean allSites = OtherVoteReward.getInstance().checkAllSites(
 						user);
-				boolean numberOfVotes = OtherVoteReward.getInstance()
-						.checkNumberOfVotes(user);
+				boolean cumulativeVotes = OtherVoteReward.getInstance()
+						.checkCumualativeVotes(user);
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
-					user.playerVote(voteSite);
+					user.playerVote(voteSite, true);
 
 					if (firstVote) {
-						OtherVoteReward.getInstance()
-								.giveFirstVoteRewards(user);
+						plugin.debug("FirstVote: true");
+						OtherVoteReward.getInstance().giveFirstVoteRewards(
+								user, true);
 
 					}
 
 					if (allSites) {
-						OtherVoteReward.getInstance().giveAllSitesRewards(user);
+						plugin.debug("AllSites: true");
+						OtherVoteReward.getInstance().giveAllSitesRewards(user,
+								true);
 
 					}
 
-					if (numberOfVotes) {
-						OtherVoteReward.getInstance().giveNumberOfVotesRewards(
-								user);
+					if (cumulativeVotes) {
+						plugin.debug("Cumulative: true");
+						Set<String> list = ConfigOtherRewards.getInstance()
+								.getCumulativeVotes();
+						for (String str : list) {
+							if (Utils.getInstance().isInt(str)) {
+								int votesRequired = Integer.parseInt(str);
+								if (votesRequired != 0) {
+									if (ConfigOtherRewards.getInstance()
+											.getCumulativeRewardEnabled(
+													votesRequired)) {
+										int offlineVote = Data.getInstance()
+												.getCumulativeVotesOffline(
+														user, votesRequired);
+										for (int i = 0; i < offlineVote; i++) {
+											OtherVoteReward.getInstance()
+													.giveCumulativeVoteReward(
+															user, true,
+															votesRequired);
+
+										}
+										if (offlineVote != 0) {
+											Data.getInstance()
+													.setCumuatliveVotesOffline(
+															user,
+															votesRequired, 0);
+										}
+									}
+								}
+							}
+						}
 
 					}
-					user.sendVoteEffects();
+					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
 						Data.getInstance()
@@ -154,11 +188,8 @@ public class VotiferEvent implements Listener {
 								+ playerName);
 					}
 
-					if (numberOfVotes) {
-						Data.getInstance().setNumberOfVotesOffline(
-								user,
-								Data.getInstance()
-										.getNumberOfVotesOffline(user) + 1);
+					if (cumulativeVotes) {
+						// cumulative votes are automaticly set offline
 						plugin.debug("Offline number of votes reward set for "
 								+ playerName);
 					}
@@ -179,7 +210,8 @@ public class VotiferEvent implements Listener {
 	/**
 	 * Instantiates a new votifer event.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public VotiferEvent(Main plugin) {
 		VotiferEvent.plugin = plugin;
@@ -188,7 +220,8 @@ public class VotiferEvent implements Listener {
 	/**
 	 * On votifer event.
 	 *
-	 * @param event the event
+	 * @param event
+	 *            the event
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onVotiferEvent(VotifierEvent event) {

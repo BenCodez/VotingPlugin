@@ -56,7 +56,8 @@ public class TopVoter {
 	/**
 	 * Instantiates a new top voter.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public TopVoter(Main plugin) {
 		TopVoter.plugin = plugin;
@@ -230,7 +231,8 @@ public class TopVoter {
 	/**
 	 * Reset totals player.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void resetTotalsPlayer(User user) {
 		for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
@@ -253,7 +255,8 @@ public class TopVoter {
 	/**
 	 * Top voter daily.
 	 *
-	 * @param page the page
+	 * @param page
+	 *            the page
 	 * @return the string[]
 	 */
 	public String[] topVoterDaily(int page) {
@@ -305,7 +308,8 @@ public class TopVoter {
 	/**
 	 * Top voter monthly.
 	 *
-	 * @param page the page
+	 * @param page
+	 *            the page
 	 * @return the string[]
 	 */
 	public String[] topVoterMonthly(int page) {
@@ -525,7 +529,8 @@ public class TopVoter {
 	/**
 	 * Top voters sorted vote site.
 	 *
-	 * @param voteSite the vote site
+	 * @param voteSite
+	 *            the vote site
 	 * @return the hash map
 	 */
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
@@ -557,7 +562,8 @@ public class TopVoter {
 	/**
 	 * Top voters sorted vote site daily.
 	 *
-	 * @param voteSite the vote site
+	 * @param voteSite
+	 *            the vote site
 	 * @return the hash map
 	 */
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
@@ -589,7 +595,8 @@ public class TopVoter {
 	/**
 	 * Top voters sorted vote site weekly.
 	 *
-	 * @param voteSite the vote site
+	 * @param voteSite
+	 *            the vote site
 	 * @return the hash map
 	 */
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
@@ -645,7 +652,8 @@ public class TopVoter {
 	/**
 	 * Top voter weekly.
 	 *
-	 * @param page the page
+	 * @param page
+	 *            the page
 	 * @return the string[]
 	 */
 	public String[] topVoterWeekly(int page) {

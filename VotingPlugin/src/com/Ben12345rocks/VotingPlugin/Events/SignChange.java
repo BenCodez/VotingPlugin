@@ -23,7 +23,8 @@ public class SignChange implements Listener {
 	/**
 	 * Instantiates a new sign change.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public SignChange(Main plugin) {
 		SignChange.plugin = plugin;
@@ -32,7 +33,8 @@ public class SignChange implements Listener {
 	/**
 	 * On sign change.
 	 *
-	 * @param event the event
+	 * @param event
+	 *            the event
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
@@ -48,11 +50,11 @@ public class SignChange implements Listener {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-								@Override
-								public void run() {
-									Signs.getInstance().updateSigns();
-								}
-							});
+						@Override
+						public void run() {
+							Signs.getInstance().updateSigns();
+						}
+					});
 				} catch (Exception ex) {
 					event.getPlayer().sendMessage(
 							Utils.getInstance().colorize(

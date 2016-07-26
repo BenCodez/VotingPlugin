@@ -45,7 +45,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Instantiates a new command vote.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public CommandVote(Main plugin) {
 		CommandVote.plugin = plugin;
@@ -54,7 +55,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Help.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void help(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -71,8 +73,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Info other.
 	 *
-	 * @param sender the sender
-	 * @param playerName the player name
+	 * @param sender
+	 *            the sender
+	 * @param playerName
+	 *            the player name
 	 */
 	public void infoOther(CommandSender sender, String playerName) {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -98,7 +102,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Info self.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void infoSelf(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -122,8 +127,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Last other.
 	 *
-	 * @param sender the sender
-	 * @param playerName the player name
+	 * @param sender
+	 *            the sender
+	 * @param playerName
+	 *            the player name
 	 */
 	public void lastOther(CommandSender sender, String playerName) {
 
@@ -134,7 +141,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandLast(new User(playerName))));
+					.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -142,7 +149,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Last self.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void lastSelf(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -156,8 +164,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Next other.
 	 *
-	 * @param sender the sender
-	 * @param playerName the player name
+	 * @param sender
+	 *            the sender
+	 * @param playerName
+	 *            the player name
 	 */
 	public void nextOther(CommandSender sender, String playerName) {
 		if (sender instanceof Player) {
@@ -168,7 +178,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-							.voteCommandNext(new User(playerName))));
+					.voteCommandNext(new User(playerName))));
 		}
 
 	}
@@ -176,7 +186,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Next self.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void nextSelf(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -188,8 +199,12 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
+	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
 	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
@@ -208,10 +223,45 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	/**
+	 * Points other.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param user
+	 *            the user
+	 */
+	public void pointsOther(CommandSender sender, User user) {
+		String msg = ConfigFormat.getInstance().getCommandVotePoints()
+				.replace("%Player%", user.getPlayerName())
+				.replace("%Points%", "" + user.getPoints());
+		if (sender instanceof Player) {
+			new User(sender.getName()).sendMessage(msg);
+		} else {
+			sender.sendMessage(Utils.getInstance().colorize(msg));
+		}
+
+	}
+
+	/**
+	 * Points self.
+	 *
+	 * @param user
+	 *            the user
+	 */
+	public void pointsSelf(User user) {
+		String msg = ConfigFormat.getInstance().getCommandVotePoints()
+				.replace("%Player%", user.getPlayerName())
+				.replace("%Points%", "" + user.getPoints());
+		user.sendMessage(msg);
+	}
+
+	/**
 	 * Today.
 	 *
-	 * @param sender the sender
-	 * @param page the page
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
 	 */
 	public void today(CommandSender sender, int page) {
 
@@ -241,40 +291,12 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	/**
-	 * Points self.
-	 *
-	 * @param user the user
-	 */
-	public void pointsSelf(User user) {
-		String msg = ConfigFormat.getInstance().getCommandVotePoints()
-				.replace("%Player%", user.getPlayerName())
-				.replace("%Points%", "" + user.getPoints());
-		user.sendMessage(msg);
-	}
-
-	/**
-	 * Points other.
-	 *
-	 * @param sender the sender
-	 * @param user the user
-	 */
-	public void pointsOther(CommandSender sender, User user) {
-		String msg = ConfigFormat.getInstance().getCommandVotePoints()
-				.replace("%Player%", user.getPlayerName())
-				.replace("%Points%", "" + user.getPoints());
-		if (sender instanceof Player) {
-			new User(sender.getName()).sendMessage(msg);
-		} else {
-			sender.sendMessage(Utils.getInstance().colorize(msg));
-		}
-
-	}
-
-	/**
 	 * Top voter daily.
 	 *
-	 * @param sender the sender
-	 * @param page the page
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
 	 */
 	public void topVoterDaily(CommandSender sender, int page) {
 
@@ -306,8 +328,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Top voter monthly.
 	 *
-	 * @param sender the sender
-	 * @param page the page
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
 	 */
 	public void topVoterMonthly(CommandSender sender, int page) {
 
@@ -324,8 +348,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-									.sendTopVoterMonthlyScoreBoard(
-											(Player) sender, page);
+							.sendTopVoterMonthlyScoreBoard(
+									(Player) sender, page);
 						}
 					});
 				} else {
@@ -341,8 +365,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Top voter weekly.
 	 *
-	 * @param sender the sender
-	 * @param page the page
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
 	 */
 	public void topVoterWeekly(CommandSender sender, int page) {
 
@@ -359,8 +385,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-									.sendTopVoterWeeklyScoreBoard(
-											(Player) sender, page);
+							.sendTopVoterWeeklyScoreBoard(
+									(Player) sender, page);
 						}
 					});
 				} else {
@@ -376,7 +402,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Total all.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void totalAll(CommandSender sender) {
 
@@ -402,8 +429,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Total other.
 	 *
-	 * @param sender the sender
-	 * @param playerName the player name
+	 * @param sender
+	 *            the sender
+	 * @param playerName
+	 *            the player name
 	 */
 	public void totalOther(CommandSender sender, String playerName) {
 		if (sender instanceof Player) {
@@ -421,7 +450,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Total self.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void totalSelf(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -436,7 +466,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Vote GUI.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void voteGUI(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -449,8 +480,10 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Vote reward.
 	 *
-	 * @param sender the sender
-	 * @param siteName the site name
+	 * @param sender
+	 *            the sender
+	 * @param siteName
+	 *            the site name
 	 */
 	public void voteReward(CommandSender sender, String siteName) {
 		if (sender instanceof Player) {
@@ -463,7 +496,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Vote URL.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void voteURL(CommandSender sender) {
 		if (sender instanceof Player) {
@@ -476,7 +510,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Vote UR ls.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void voteURLs(CommandSender sender) {
 		if (sender instanceof Player) {

@@ -34,8 +34,6 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
-import com.Ben12345rocks.VotingPlugin.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
@@ -44,8 +42,10 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
-import com.Ben12345rocks.VotingPlugin.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Metrics.Metrics;
+import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
+import com.Ben12345rocks.VotingPlugin.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -106,9 +106,6 @@ public class Main extends JavaPlugin {
 	/** The rewards. */
 	public ArrayList<Reward> rewards;
 
-	/** The spigot lib enabled. */
-	public boolean spigotLibEnabled;
-
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
@@ -126,19 +123,6 @@ public class Main extends JavaPlugin {
 	}
 
 	/**
-	 * Check spigot lib.
-	 */
-	public void checkSpigotLib() {
-		if (Bukkit.getPluginManager().getPlugin("SpigotLib") != null) {
-			spigotLibEnabled = true;
-			plugin.debug("Found SpigotLib, will attempt to send titles");
-		} else {
-			spigotLibEnabled = false;
-			plugin.debug("SpigotLib not found, titles will not send");
-		}
-	}
-
-	/**
 	 * Check votifier.
 	 */
 	private void checkVotifier() {
@@ -150,7 +134,8 @@ public class Main extends JavaPlugin {
 	/**
 	 * Debug.
 	 *
-	 * @param message the message
+	 * @param message
+	 *            the message
 	 */
 	public void debug(String message) {
 		if (config.getDebugEnabled()) {
@@ -161,7 +146,8 @@ public class Main extends JavaPlugin {
 	/**
 	 * Gets the user.
 	 *
-	 * @param playerName the player name
+	 * @param playerName
+	 *            the player name
 	 * @return the user
 	 */
 	public User getUser(String playerName) {
@@ -171,7 +157,8 @@ public class Main extends JavaPlugin {
 	/**
 	 * Gets the user.
 	 *
-	 * @param uuid the uuid
+	 * @param uuid
+	 *            the uuid
 	 * @return the user
 	 */
 	public User getUser(UUID uuid) {
@@ -181,7 +168,8 @@ public class Main extends JavaPlugin {
 	/**
 	 * Gets the vote site.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the vote site
 	 */
 	public VoteSite getVoteSite(String siteName) {
@@ -235,7 +223,9 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -244,7 +234,9 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -266,7 +258,6 @@ public class Main extends JavaPlugin {
 		CheckUpdate.getInstance().startUp();
 
 		checkPlaceHolderAPI();
-		checkSpigotLib();
 
 		loadVoteSites();
 		loadRewards();
@@ -291,6 +282,7 @@ public class Main extends JavaPlugin {
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
+
 	}
 
 	/**

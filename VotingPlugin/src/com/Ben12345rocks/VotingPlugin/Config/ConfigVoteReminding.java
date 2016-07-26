@@ -11,7 +11,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,7 +49,8 @@ public class ConfigVoteReminding {
 	/**
 	 * Instantiates a new config vote reminding.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigVoteReminding(Main plugin) {
 		ConfigVoteReminding.plugin = plugin;
@@ -141,8 +142,10 @@ public class ConfigVoteReminding {
 	/**
 	 * Sets the.
 	 *
-	 * @param path the path
-	 * @param value the value
+	 * @param path
+	 *            the path
+	 * @param value
+	 *            the value
 	 */
 	public void set(String path, Object value) {
 		getData().set(path, value);
@@ -152,7 +155,8 @@ public class ConfigVoteReminding {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -167,9 +171,9 @@ public class ConfigVoteReminding {
 				plugin.saveResource("VoteReminding.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create VoteReminding.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create VoteReminding.yml!");
 			}
 		}
 

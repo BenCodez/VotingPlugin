@@ -14,7 +14,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -52,7 +52,8 @@ public class ConfigTopVoterAwards {
 	/**
 	 * Instantiates a new config top voter awards.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigTopVoterAwards(Main plugin) {
 		ConfigTopVoterAwards.plugin = plugin;
@@ -71,7 +72,8 @@ public class ConfigTopVoterAwards {
 	/**
 	 * Gets the daily award rewards.
 	 *
-	 * @param pos the pos
+	 * @param pos
+	 *            the pos
 	 * @return the daily award rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -116,7 +118,8 @@ public class ConfigTopVoterAwards {
 	/**
 	 * Gets the monthly award rewards.
 	 *
-	 * @param pos the pos
+	 * @param pos
+	 *            the pos
 	 * @return the monthly award rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -150,9 +153,37 @@ public class ConfigTopVoterAwards {
 	}
 
 	/**
+	 * Gets the store top voters daily.
+	 *
+	 * @return the store top voters daily
+	 */
+	public boolean getStoreTopVotersDaily() {
+		return getData().getBoolean("StoreTopVoters.Daily");
+	}
+
+	/**
+	 * Gets the store top voters monthly.
+	 *
+	 * @return the store top voters monthly
+	 */
+	public boolean getStoreTopVotersMonthly() {
+		return getData().getBoolean("StoreTopVoters.Monthly");
+	}
+
+	/**
+	 * Gets the store top voters weekly.
+	 *
+	 * @return the store top voters weekly
+	 */
+	public boolean getStoreTopVotersWeekly() {
+		return getData().getBoolean("StoreTopVoters.Weekly");
+	}
+
+	/**
 	 * Gets the weekly award rewards.
 	 *
-	 * @param pos the pos
+	 * @param pos
+	 *            the pos
 	 * @return the weekly award rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -202,7 +233,8 @@ public class ConfigTopVoterAwards {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {

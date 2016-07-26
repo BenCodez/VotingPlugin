@@ -25,7 +25,8 @@ public class PlayerJoinEvent implements Listener {
 	/**
 	 * Instantiates a new player join event.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public PlayerJoinEvent(Main plugin) {
 		PlayerJoinEvent.plugin = plugin;
@@ -34,7 +35,8 @@ public class PlayerJoinEvent implements Listener {
 	/**
 	 * On player login.
 	 *
-	 * @param event the event
+	 * @param event
+	 *            the event
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(PlayerLoginEvent event) {
@@ -54,20 +56,20 @@ public class PlayerJoinEvent implements Listener {
 				User user = new User(player);
 
 				plugin.getServer().getScheduler()
-				.runTaskLaterAsynchronously(plugin, new Runnable() {
-					@Override
-					public void run() {
-						user.setPlayerName();
+						.runTaskLaterAsynchronously(plugin, new Runnable() {
+							@Override
+							public void run() {
+								user.setPlayerName();
 
-						user.offVoteWorld(player.getWorld().getName());
+								user.offVoteWorld(player.getWorld().getName());
 
-						// give offline vote (if they voted offline)
-						user.offVote();
+								// give offline vote (if they voted offline)
+								user.offVote();
 
-						// msg player if he can vote
-						user.loginMessage();
-					}
-				}, 100L);
+								// msg player if he can vote
+								user.loginMessage();
+							}
+						}, 100L);
 			}
 		}, 20L);
 

@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -11,7 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,7 +51,8 @@ public class ConfigOtherRewards {
 	/**
 	 * Instantiates a new config other rewards.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigOtherRewards(Main plugin) {
 		ConfigOtherRewards.plugin = plugin;
@@ -67,6 +70,69 @@ public class ConfigOtherRewards {
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
+	}
+
+	/**
+	 * Gets the cumulative reward enabled.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative reward enabled
+	 */
+	public boolean getCumulativeRewardEnabled(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
+	}
+
+	/**
+	 * Gets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewards(int cumulative) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Cumulative." + cumulative + ".Rewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	/**
+	 * Gets the cumulative votes.
+	 *
+	 * @return the cumulative votes
+	 */
+	public Set<String> getCumulativeVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("Cumulative")
+					.getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the cumulative votes in same day.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes in same day
+	 */
+	public boolean getCumulativeVotesInSameDay(int cumulative) {
+		return getData().getBoolean(
+				"Cumulative." + cumulative + ".VotesInSameDay");
 	}
 
 	/**
@@ -90,35 +156,6 @@ public class ConfigOtherRewards {
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
-	}
-
-	/**
-	 * Gets the number of votes.
-	 *
-	 * @return the number of votes
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getNumberOfVotes() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"CumulativeRewards");
-			if (list != null) {
-				return list;
-			}
-
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
-	}
-
-	/**
-	 * Gets the number of votes votes in same day.
-	 *
-	 * @return the number of votes votes in same day
-	 */
-	public boolean getNumberOfVotesVotesInSameDay() {
-		return getData().getBoolean("VotesInSameDay");
 	}
 
 	/**
@@ -184,7 +221,8 @@ public class ConfigOtherRewards {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -199,8 +237,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create Rewards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

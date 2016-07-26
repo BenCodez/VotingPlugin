@@ -1,13 +1,17 @@
 # This is a reward file
-# Define rewards in here
+# Define rewards in here (Items, commands, etc)
+# Go to votesites and Rewards.yml to configure when to give
+# reward files.
 # File name is the reward name, without file extention
 # This reward is named "ExampleReward"
 # DO NOT HAVE DUPLICATE NAMES!!
 
 # Reward are run top to bottom (For the most part)
+# You can just remove values you don't want (just delete it)
+# If you just want money just have a reward file containg "Money: 100", for example
 
 # NOTE: Do not use this reward file in more than one place if
-# delayed or timed is enabled!
+# delayed or timed is enabled! They will interfer with each other.
 
 # This will delay the reward file from running
 Delayed:
@@ -28,8 +32,9 @@ Timed:
 # Will not give any rewards below unless chance is lucky or disabled
 Chance: 40
 
+# Advanced Random Rewards, just ignore this if you don't want fancy chance rewards
 # This is to give random rewards, with fallback
-# Rewards defined in this reward file below are still given
+# Rewards defined in this reward file below are still given regardless of this below
 Random:
   # Chance to give a randomly selected reward below (from list), will only give random reward
   # if lucky (according to chance)
@@ -59,6 +64,13 @@ Worlds:
 # If false, the player will be reward one of the worlds once
 GiveInEachWorld: false
 
+# Reward type
+# Possible Values: ONLINE,OFFLINE,BOTH
+# Default: BOTH
+# Make this reward file only give rewards depending 
+# if player was online/offline when the reward attempted to give
+RewardType: 'BOTH'
+
 
 # Items to give to user
 Items:
@@ -80,10 +92,12 @@ Items:
     
     # Random amount of items between Min and Max will be given
     # if min and max are not both 0
+    
     # Min amount of items
-    MinAmount: 1
+    #MinAmount: 1
+    
     # Max amount of items
-    MaxAmount: 4
+    #MaxAmount: 4
     
     # Item name
     # Remove this value to have no name
@@ -107,11 +121,15 @@ Items:
 Money: 1000
 
 # Pick random number between min and max amount
-MinMoney: 100
-MaxMoney: 3000
+#MinMoney: 100
+#MaxMoney: 3000
 
 # Give player experience
 EXP: 100
+
+# Pick a random number between min and max amount to give
+#MinEXP: 100
+#MaxEXP: 1000
 
 # Commands to run
 # Use %player% for player name
@@ -136,9 +154,6 @@ Potions:
     Amplifier: 1
     
 # Title to send to voter
-# Requires SpigotLib
-# Download here: 
-# https://www.spigotmc.org/resources/spigotlib.5925/
 Title:
   Enabled: false
   Title: '&cThanks for voting!'
@@ -146,6 +161,23 @@ Title:
   FadeIn: 10
   ShowTime: 50
   FadeOut: 10
+  
+# Send bossbar to voter
+# This requires 1.9+
+BossBar:
+  Enabled: false
+  # Message to send
+  Message: '&aThanks for Voting!'
+  # Bar Colors:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/boss/BarColor.html
+  Color: 'BLUE'
+  # Bar Styles:
+  # https://hub.spigotmc.org/javadocs/spigot/org/bukkit/boss/BarStyle.html
+  Style: 'SOLID'
+  # Precentage for bar
+  Progress: 0.50
+  # Delay until bar goes away (in ticks)
+  Delay: 30
   
 # Sound on reward
 Sound:
@@ -172,6 +204,11 @@ Effect:
   Particles: 10
   Radius: 5
   
+# Send action bar
+ActionBar:
+  Message: '&cThanks for Voting!'
+  # Delay until action bar goes away (in ticks)
+  Delay: 30
   
 # The messages are sent when rewards above are given to user
 # set to '' to give no message

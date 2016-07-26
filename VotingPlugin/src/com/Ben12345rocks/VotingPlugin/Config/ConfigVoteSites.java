@@ -12,8 +12,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -45,7 +45,8 @@ public class ConfigVoteSites {
 	/**
 	 * Instantiates a new config vote sites.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigVoteSites(Main plugin) {
 		ConfigVoteSites.plugin = plugin;
@@ -54,12 +55,13 @@ public class ConfigVoteSites {
 	/**
 	 * Generate vote site.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 */
 	public void generateVoteSite(String siteName) {
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
-				+ " doe not exist, generaterating one...");
+						+ " doe not exist, generaterating one...");
 		setEnabled(siteName, false);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
@@ -68,15 +70,16 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
+				.info("Created file VoteSites/"
+						+ siteName
+						+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
 	}
 
 	/**
 	 * Gets the cumulative rewards.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the cumulative rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -92,7 +95,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the cumulative reward votes amount.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the cumulative reward votes amount
 	 */
 	public int getCumulativeRewardVotesAmount(String siteName) {
@@ -102,7 +106,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the data.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the data
 	 */
 	public FileConfiguration getData(String siteName) {
@@ -114,7 +119,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the priority.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the priority
 	 */
 	public int getPriority(String siteName) {
@@ -124,7 +130,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the rewards.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the rewards
 	 */
 	@SuppressWarnings("unchecked")
@@ -139,7 +146,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the service site.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the service site
 	 */
 	public String getServiceSite(String siteName) {
@@ -149,7 +157,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the vote delay.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the vote delay
 	 */
 	public int getVoteDelay(String siteName) {
@@ -159,7 +168,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the vote site enabled.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the vote site enabled
 	 */
 	public boolean getVoteSiteEnabled(String siteName) {
@@ -169,7 +179,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the vote site file.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the vote site file
 	 */
 	public File getVoteSiteFile(String siteName) {
@@ -291,7 +302,8 @@ public class ConfigVoteSites {
 	/**
 	 * Gets the vote URL.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return the vote URL
 	 */
 	public String getVoteURL(String siteName) {
@@ -301,7 +313,8 @@ public class ConfigVoteSites {
 	/**
 	 * Checks if is service site good.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return true, if is service site good
 	 */
 	public boolean isServiceSiteGood(String siteName) {
@@ -316,7 +329,8 @@ public class ConfigVoteSites {
 	/**
 	 * Checks if is vote URL good.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return true, if is vote URL good
 	 */
 	public boolean isVoteURLGood(String siteName) {
@@ -331,8 +345,10 @@ public class ConfigVoteSites {
 	/**
 	 * Rename vote site.
 	 *
-	 * @param siteName the site name
-	 * @param newName the new name
+	 * @param siteName
+	 *            the site name
+	 * @param newName
+	 *            the new name
 	 * @return true, if successful
 	 */
 	public boolean renameVoteSite(String siteName, String newName) {
@@ -344,9 +360,12 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the.
 	 *
-	 * @param siteName the site name
-	 * @param path the path
-	 * @param value the value
+	 * @param siteName
+	 *            the site name
+	 * @param path
+	 *            the path
+	 * @param value
+	 *            the value
 	 */
 	public void set(String siteName, String path, Object value) {
 		// String playerName = user.getPlayerName();
@@ -359,8 +378,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the cumulative rewards.
 	 *
-	 * @param siteName the site name
-	 * @param value the value
+	 * @param siteName
+	 *            the site name
+	 * @param value
+	 *            the value
 	 */
 	public void setCumulativeRewards(String siteName, ArrayList<String> value) {
 		set(siteName, "Cumulative.Rewards", value);
@@ -369,8 +390,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the enabled.
 	 *
-	 * @param siteName the site name
-	 * @param disabled the disabled
+	 * @param siteName
+	 *            the site name
+	 * @param disabled
+	 *            the disabled
 	 */
 	public void setEnabled(String siteName, boolean disabled) {
 		set(siteName, "Enabled", disabled);
@@ -379,8 +402,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the priority.
 	 *
-	 * @param siteName the site name
-	 * @param value the value
+	 * @param siteName
+	 *            the site name
+	 * @param value
+	 *            the value
 	 */
 	public void setPriority(String siteName, int value) {
 		set(siteName, "Priority", value);
@@ -389,8 +414,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the rewards.
 	 *
-	 * @param siteName the site name
-	 * @param value the value
+	 * @param siteName
+	 *            the site name
+	 * @param value
+	 *            the value
 	 */
 	public void setRewards(String siteName, ArrayList<String> value) {
 		set(siteName, "Rewards", value);
@@ -399,8 +426,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the service site.
 	 *
-	 * @param siteName the site name
-	 * @param serviceSite the service site
+	 * @param siteName
+	 *            the site name
+	 * @param serviceSite
+	 *            the service site
 	 */
 	public void setServiceSite(String siteName, String serviceSite) {
 		set(siteName, "ServiceSite", serviceSite);
@@ -409,7 +438,8 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the up.
 	 *
-	 * @param siteName the new up
+	 * @param siteName
+	 *            the new up
 	 */
 	public void setup(String siteName) {
 		if (!plugin.getDataFolder().exists()) {
@@ -437,8 +467,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the vote delay.
 	 *
-	 * @param siteName the site name
-	 * @param voteDelay the vote delay
+	 * @param siteName
+	 *            the site name
+	 * @param voteDelay
+	 *            the vote delay
 	 */
 	public void setVoteDelay(String siteName, int voteDelay) {
 		set(siteName, "VoteDelay", voteDelay);
@@ -447,8 +479,10 @@ public class ConfigVoteSites {
 	/**
 	 * Sets the vote URL.
 	 *
-	 * @param siteName the site name
-	 * @param url the url
+	 * @param siteName
+	 *            the site name
+	 * @param url
+	 *            the url
 	 */
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
@@ -457,7 +491,8 @@ public class ConfigVoteSites {
 	/**
 	 * Site check.
 	 *
-	 * @param siteName the site name
+	 * @param siteName
+	 *            the site name
 	 * @return true, if successful
 	 */
 	public boolean siteCheck(String siteName) {
@@ -465,12 +500,12 @@ public class ConfigVoteSites {
 		if (!isServiceSiteGood(siteName)) {
 			plugin.getLogger().warning(
 					"Issue with ServiceSite in site " + siteName
-					+ ", votes may not work properly");
+							+ ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
 			plugin.getLogger()
-			.warning("Issue with VoteURL in site " + siteName);
+					.warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
 	}

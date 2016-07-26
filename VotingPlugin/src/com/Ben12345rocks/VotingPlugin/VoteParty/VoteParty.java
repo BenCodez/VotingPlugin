@@ -19,7 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
  * The Class VoteParty.
  */
 public class VoteParty {
-	
+
 	/** The instance. */
 	static VoteParty instance = new VoteParty();
 
@@ -44,7 +44,8 @@ public class VoteParty {
 	/**
 	 * Instantiates a new vote party.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public VoteParty(Main plugin) {
 		VoteParty.plugin = plugin;
@@ -60,7 +61,8 @@ public class VoteParty {
 	/**
 	 * Adds the vote player.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void addVotePlayer(User user) {
 		String uuid = user.getUUID();
@@ -82,7 +84,8 @@ public class VoteParty {
 			if (getTotalVotes() >= ConfigOtherRewards.getInstance()
 					.getVotePartyVotesRequired()) {
 				setTotalVotes(getTotalVotes()
-						- ConfigOtherRewards.getInstance().getVotePartyVotesRequired());
+						- ConfigOtherRewards.getInstance()
+						.getVotePartyVotesRequired());
 				giveRewards();
 			}
 		}
@@ -91,13 +94,15 @@ public class VoteParty {
 	/**
 	 * Command vote party.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
 		ArrayList<String> msg = ConfigFormat.getInstance()
 				.getCommandsVoteParty();
 		ArrayList<String> lines = new ArrayList<String>();
-		int votesRequired = ConfigOtherRewards.getInstance().getVotePartyVotesRequired();
+		int votesRequired = ConfigOtherRewards.getInstance()
+				.getVotePartyVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
 		for (String line : msg) {
@@ -112,7 +117,8 @@ public class VoteParty {
 	/**
 	 * Gets the offline vote party votes.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return the offline vote party votes
 	 */
 	public int getOfflineVotePartyVotes(User user) {
@@ -147,13 +153,15 @@ public class VoteParty {
 	/**
 	 * Give reward.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void giveReward(User user) {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
 			for (String reward : ConfigOtherRewards.getInstance()
 					.getVotePartyRewards()) {
-				user.giveReward(ConfigRewards.getInstance().getReward(reward));
+				user.giveReward(ConfigRewards.getInstance().getReward(reward),
+						true);
 			}
 		} else {
 			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);
@@ -180,8 +188,10 @@ public class VoteParty {
 	/**
 	 * Sets the offline vote party votes.
 	 *
-	 * @param user the user
-	 * @param value the value
+	 * @param user
+	 *            the user
+	 * @param value
+	 *            the value
 	 */
 	public void setOfflineVotePartyVotes(User user, int value) {
 		Data.getInstance().getData(user).set("VoteParty.OfflineVotes", value);
@@ -190,7 +200,8 @@ public class VoteParty {
 	/**
 	 * Sets the total votes.
 	 *
-	 * @param value the new total votes
+	 * @param value
+	 *            the new total votes
 	 */
 	public void setTotalVotes(int value) {
 		ServerData.getInstance().getData().set("VoteParty.Total", value);
@@ -200,7 +211,8 @@ public class VoteParty {
 	/**
 	 * Sets the voted users.
 	 *
-	 * @param value the new voted users
+	 * @param value
+	 *            the new voted users
 	 */
 	public void setVotedUsers(ArrayList<String> value) {
 		ServerData.getInstance().getData().set("VoteParty.Voted", value);

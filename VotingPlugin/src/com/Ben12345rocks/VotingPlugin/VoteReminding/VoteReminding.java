@@ -40,7 +40,8 @@ public class VoteReminding {
 	/**
 	 * Instantiates a new vote reminding.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public VoteReminding(Main plugin) {
 		VoteReminding.plugin = plugin;
@@ -49,7 +50,8 @@ public class VoteReminding {
 	/**
 	 * Check remind.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
@@ -98,21 +100,23 @@ public class VoteReminding {
 	/**
 	 * Run remind.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void runRemind(User user) {
 		if (ConfigVoteReminding.getInstance().getEnabled() && user.canVoteAll()) {
 			user.setReminded(true);
 			for (String reward : ConfigVoteReminding.getInstance().getRewards()) {
 				if (!reward.equalsIgnoreCase("")) {
-					if (ConfigRewards.getInstance().getRewardFile(reward)
+					if (!ConfigRewards.getInstance().getRewardFile(reward)
 							.exists()) {
-
+						ConfigRewards.getInstance().setMessagesReward(reward,
+								"&cRemember to vote");
 					}
 					Reward rewardFile = ConfigRewards.getInstance().getReward(
 							reward);
 
-					rewardFile.giveReward(user);
+					rewardFile.giveReward(user, true);
 				}
 			}
 

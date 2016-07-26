@@ -26,14 +26,19 @@ public class CommandAliases implements CommandExecutor {
 	/**
 	 * Instantiates a new command aliases.
 	 *
-	 * @param cmdHandle the cmd handle
+	 * @param cmdHandle
+	 *            the cmd handle
 	 */
 	public CommandAliases(CommandHandler cmdHandle) {
 		this.cmdHandle = cmdHandle;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
+	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
 	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label,
@@ -56,7 +61,7 @@ public class CommandAliases implements CommandExecutor {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-									.equalsIgnoreCase("adminvote" + arg)) {
+							.equalsIgnoreCase("adminvote" + arg)) {
 						argsNew.set(0, arg);
 
 						boolean argsMatch = true;

@@ -52,7 +52,8 @@ public class BungeeVote {
 	/**
 	 * Instantiates a new bungee vote.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public BungeeVote(Main plugin) {
 		BungeeVote.plugin = plugin;
@@ -61,12 +62,15 @@ public class BungeeVote {
 	/**
 	 * Send vote.
 	 *
-	 * @param vote the vote
-	 * @throws NoSuchAlgorithmException the no such algorithm exception
-	 * @throws InvalidKeySpecException the invalid key spec exception
+	 * @param vote
+	 *            the vote
+	 * @throws NoSuchAlgorithmException
+	 *             the no such algorithm exception
+	 * @throws InvalidKeySpecException
+	 *             the invalid key spec exception
 	 */
 	public void sendVote(Vote vote) throws NoSuchAlgorithmException,
-	InvalidKeySpecException {
+			InvalidKeySpecException {
 		if (ConfigBungeeVoting.getInstance().getEnabled()) {
 			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
 				byte[] encodedPublicKey = DatatypeConverter

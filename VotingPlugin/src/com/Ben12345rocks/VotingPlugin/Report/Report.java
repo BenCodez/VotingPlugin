@@ -15,7 +15,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -32,11 +32,16 @@ public class Report {
 	/**
 	 * Adds the to zip.
 	 *
-	 * @param directoryToZip the directory to zip
-	 * @param file the file
-	 * @param zos the zos
-	 * @throws FileNotFoundException the file not found exception
-	 * @throws IOException Signals that an I/O exception has occurred.
+	 * @param directoryToZip
+	 *            the directory to zip
+	 * @param file
+	 *            the file
+	 * @param zos
+	 *            the zos
+	 * @throws FileNotFoundException
+	 *             the file not found exception
+	 * @throws IOException
+	 *             Signals that an I/O exception has occurred.
 	 */
 	public static void addToZip(File directoryToZip, File file,
 			ZipOutputStream zos) throws FileNotFoundException, IOException {
@@ -84,7 +89,8 @@ public class Report {
 	/**
 	 * Instantiates a new report.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public Report(Main plugin) {
 		Report.plugin = plugin;
@@ -113,8 +119,10 @@ public class Report {
 	/**
 	 * Gets the all files.
 	 *
-	 * @param dir the dir
-	 * @param fileList the file list
+	 * @param dir
+	 *            the dir
+	 * @param fileList
+	 *            the file list
 	 */
 	public void getAllFiles(File dir, List<File> fileList) {
 		try {
@@ -163,8 +171,10 @@ public class Report {
 	/**
 	 * Write zip file.
 	 *
-	 * @param directoryToZip the directory to zip
-	 * @param fileList the file list
+	 * @param directoryToZip
+	 *            the directory to zip
+	 * @param fileList
+	 *            the file list
 	 */
 	@SuppressWarnings("deprecation")
 	public void writeZipFile(File directoryToZip, List<File> fileList) {

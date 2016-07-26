@@ -12,7 +12,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -50,7 +50,8 @@ public class ConfigFormat {
 	/**
 	 * Instantiates a new config format.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ConfigFormat(Main plugin) {
 		ConfigFormat.plugin = plugin;
@@ -71,26 +72,21 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the command vote points.
-	 *
-	 * @return the command vote points
-	 */
-	public String getCommandVotePoints() {
-		String str = getData().getString("Format.Commands.Vote.Points");
-		if (str != null) {
-			return str;
-		} else {
-			return "&a%Player% currently has &a&l%Points%&a Points!";
-		}
-	}
-
-	/**
 	 * Gets the broadcast when online.
 	 *
 	 * @return the broadcast when online
 	 */
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
+	}
+
+	/**
+	 * Gets the commands vote auto input sites.
+	 *
+	 * @return the commands vote auto input sites
+	 */
+	public boolean getCommandsVoteAutoInputSites() {
+		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
 	}
 
 	/**
@@ -259,16 +255,15 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the commands vote title.
+	 * Gets the commands vote text.
 	 *
-	 * @return the commands vote title
+	 * @return the commands vote text
 	 */
 	@SuppressWarnings("unchecked")
-	public List<String> getCommandsVoteTitle() {
+	public List<String> getCommandsVoteText() {
 		List<String> str;
 		try {
-			str = (List<String>) getData()
-					.getList("Format.Commands.Vote.Title");
+			str = (List<String>) getData().getList("Format.Commands.Vote.Text");
 			if (str != null) {
 				return str;
 			} else {
@@ -378,6 +373,20 @@ public class ConfigFormat {
 			return str;
 		} else {
 			return "&4%num%: &c&l%SiteName% - &c%url%";
+		}
+	}
+
+	/**
+	 * Gets the command vote points.
+	 *
+	 * @return the command vote points
+	 */
+	public String getCommandVotePoints() {
+		String str = getData().getString("Format.Commands.Vote.Points");
+		if (str != null) {
+			return str;
+		} else {
+			return "&a%Player% currently has &a&l%Points%&a Points!";
 		}
 	}
 
@@ -622,7 +631,8 @@ public class ConfigFormat {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
@@ -637,7 +647,7 @@ public class ConfigFormat {
 				plugin.saveResource("Format.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
+				.severe(ChatColor.RED + "Could not create Format.yml!");
 			}
 		}
 

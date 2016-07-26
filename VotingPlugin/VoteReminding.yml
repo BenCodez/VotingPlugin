@@ -21,5 +21,10 @@ RemindDelay: 30
 
 # Run reward files on remind
 # Set values in the reward file
+# Set a message in the reward file listed below
+# Note: It may say "You were given rewards" if no message is set in reward
+# file, as that is the default message if none is set (See Format.yml)
+# In 4.2+, if reward file doesn't exist below, default remind message is 
+# set automaticly
 Rewards:
-- 'VoteReminding'
+- 'Remind'

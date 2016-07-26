@@ -16,21 +16,23 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class AdminVoteTabCompleter.
  */
 public class AdminVoteTabCompleter implements TabCompleter {
-	
+
 	/** The plugin. */
 	Main plugin = Main.plugin;
 
 	/**
 	 * Gets the admin tab complete options.
 	 *
-	 * @param sender the sender
-	 * @param args the args
-	 * @param argNum the arg num
+	 * @param sender
+	 *            the sender
+	 * @param args
+	 *            the args
+	 * @param argNum
+	 *            the arg num
 	 * @return the admin tab complete options
 	 */
 	public ArrayList<String> getAdminTabCompleteOptions(CommandSender sender,
@@ -67,7 +69,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 										cmds.add(siteName);
 									}
 								}
-							} else if (arg.equalsIgnoreCase("(reward0")) {
+							} else if (arg.equalsIgnoreCase("(reward)")) {
 								for (String reward : ConfigRewards
 										.getInstance().getRewardNames()) {
 									if (!cmds.contains(reward)) {
@@ -99,8 +101,12 @@ public class AdminVoteTabCompleter implements TabCompleter {
 		return cmds;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
+	 * CommandSender, org.bukkit.command.Command, java.lang.String,
+	 * java.lang.String[])
 	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,

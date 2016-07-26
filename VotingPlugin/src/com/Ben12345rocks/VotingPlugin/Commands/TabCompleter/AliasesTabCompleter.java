@@ -16,12 +16,11 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class AliasesTabCompleter.
  */
 public class AliasesTabCompleter implements TabCompleter {
-	
+
 	/** The plugin. */
 	Main plugin = Main.plugin;
 
@@ -31,10 +30,14 @@ public class AliasesTabCompleter implements TabCompleter {
 	/**
 	 * Gets the tab complete options.
 	 *
-	 * @param sender the sender
-	 * @param args the args
-	 * @param argNum the arg num
-	 * @param cmdHandle the cmd handle
+	 * @param sender
+	 *            the sender
+	 * @param args
+	 *            the args
+	 * @param argNum
+	 *            the arg num
+	 * @param cmdHandle
+	 *            the cmd handle
 	 * @return the tab complete options
 	 */
 	public ArrayList<String> getTabCompleteOptions(CommandSender sender,
@@ -97,8 +100,12 @@ public class AliasesTabCompleter implements TabCompleter {
 		return cmds;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.CommandSender, org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
+	 * CommandSender, org.bukkit.command.Command, java.lang.String,
+	 * java.lang.String[])
 	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
@@ -123,7 +130,7 @@ public class AliasesTabCompleter implements TabCompleter {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-							.equalsIgnoreCase("adminvote" + arg)) {
+									.equalsIgnoreCase("adminvote" + arg)) {
 						// plugin.debug("Found cmd... attempting to get tab complete");
 						args[0] = arg;
 						boolean argsMatch = true;
@@ -159,7 +166,8 @@ public class AliasesTabCompleter implements TabCompleter {
 	/**
 	 * Sets the CMD handle.
 	 *
-	 * @param cmd the cmd
+	 * @param cmd
+	 *            the cmd
 	 * @return the aliases tab completer
 	 */
 	public AliasesTabCompleter setCMDHandle(CommandHandler cmd) {

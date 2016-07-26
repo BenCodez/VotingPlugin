@@ -27,14 +27,14 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Inventory.BInventory;
-import com.Ben12345rocks.VotingPlugin.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.Util.Inventory.BInventory;
+import com.Ben12345rocks.VotingPlugin.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.VotingPlugin.Util.Scoreboards.SimpleScoreboard;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -78,7 +78,8 @@ public class Commands {
 	/**
 	 * Instantiates a new commands.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public Commands(Main plugin) {
 		Commands.plugin = plugin;
@@ -87,8 +88,10 @@ public class Commands {
 	/**
 	 * Admin help.
 	 *
-	 * @param sender the sender
-	 * @param page the page
+	 * @param sender
+	 *            the sender
+	 * @param page
+	 *            the page
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
@@ -117,7 +120,8 @@ public class Commands {
 	/**
 	 * Admin help text.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelpText(CommandSender sender) {
@@ -149,7 +153,8 @@ public class Commands {
 	/**
 	 * Command vote today.
 	 *
-	 * @param page the page
+	 * @param page
+	 *            the page
 	 * @return the string[]
 	 */
 	public String[] commandVoteToday(int page) {
@@ -211,7 +216,8 @@ public class Commands {
 	/**
 	 * Open vote GUI.
 	 *
-	 * @param player the player
+	 * @param player
+	 *            the player
 	 */
 	public void openVoteGUI(Player player) {
 		BInventory inv = new BInventory("VoteGUI");
@@ -224,7 +230,7 @@ public class Commands {
 						.getInstance().getVoteGUISlotMaterial(slot)), ConfigGUI
 						.getInstance().getVoteGUISlotAmount(slot),
 						(short) ConfigGUI.getInstance()
-								.getVoteGUISlotData(slot));
+						.getVoteGUISlotData(slot));
 			} catch (Exception ex) {
 
 			}
@@ -254,8 +260,7 @@ public class Commands {
 				lore = voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
 				ArrayList<String> loreSt = new ArrayList<String>();
-				loreSt = Utils.getInstance().comptoString(
-						voteHelpText((CommandSender) player));
+				loreSt = Utils.getInstance().comptoString(voteHelpText(player));
 				lore = Utils.getInstance().convertArray(loreSt);
 			}
 
@@ -263,19 +268,19 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-						@Override
-						public void onClick(InventoryClickEvent event) {
-							Player player = (Player) event.getWhoClicked();
-							if (player != null) {
-								// plugin.debug("Running cmd");
-								player.closeInventory();
-								player.performCommand(ConfigGUI.getInstance()
-										.getVoteGUISlotCommand(slot));
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
+					if (player != null) {
+						// plugin.debug("Running cmd");
+						player.closeInventory();
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
 
-							}
+					}
 
-						}
-					});
+				}
+			});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -284,7 +289,8 @@ public class Commands {
 	/**
 	 * Player info.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return the string[]
 	 */
 	public String[] playerInfo(User user) {
@@ -309,8 +315,10 @@ public class Commands {
 	/**
 	 * Send top voter daily score board.
 	 *
-	 * @param player the player
-	 * @param page the page
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
 	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
@@ -324,8 +332,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Daily"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Daily"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -353,8 +361,10 @@ public class Commands {
 	/**
 	 * Send top voter monthly score board.
 	 *
-	 * @param player the player
-	 * @param page the page
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
 	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
@@ -368,8 +378,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Monthly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -397,8 +407,10 @@ public class Commands {
 	/**
 	 * Send top voter weekly score board.
 	 *
-	 * @param player the player
-	 * @param page the page
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
 	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
@@ -412,8 +424,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Weekly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Weekly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -441,8 +453,10 @@ public class Commands {
 	/**
 	 * Send vote today score board.
 	 *
-	 * @param player the player
-	 * @param page the page
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
 	 */
 	public void sendVoteTodayScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
@@ -492,9 +506,9 @@ public class Commands {
 					if ((new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time))
 							&& (new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time))
+							.getMonthFromMili(time))
 							&& (new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time))) {
+							.getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -511,7 +525,8 @@ public class Commands {
 	/**
 	 * Vote command last.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return the string[]
 	 */
 	public String[] voteCommandLast(User user) {
@@ -532,7 +547,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -542,21 +557,24 @@ public class Commands {
 	/**
 	 * Vote command last date.
 	 *
-	 * @param user the user
-	 * @param voteSite the vote site
+	 * @param user
+	 *            the user
+	 * @param voteSite
+	 *            the vote site
 	 * @return the string
 	 */
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		.format(date);
 		return timeString;
 	}
 
 	/**
 	 * Vote command next.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return the string[]
 	 */
 	public String[] voteCommandNext(User user) {
@@ -589,8 +607,10 @@ public class Commands {
 	/**
 	 * Vote command next info.
 	 *
-	 * @param user the user
-	 * @param voteSite the vote site
+	 * @param user
+	 *            the user
+	 * @param voteSite
+	 *            the vote site
 	 * @return the string
 	 */
 	@SuppressWarnings("deprecation")
@@ -651,7 +671,8 @@ public class Commands {
 	/**
 	 * Vote command reward info.
 	 *
-	 * @param rewardName the reward name
+	 * @param rewardName
+	 *            the reward name
 	 * @return the string[]
 	 */
 	public String[] voteCommandRewardInfo(String rewardName) {
@@ -759,7 +780,7 @@ public class Commands {
 					+ ConfigRewards.getInstance().getEffectData(rewardName));
 			msg.add("  &cParticles: &6"
 					+ ConfigRewards.getInstance()
-							.getEffectParticles(rewardName));
+					.getEffectParticles(rewardName));
 			msg.add("  &cRadius: &6"
 					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
 
@@ -798,7 +819,8 @@ public class Commands {
 	/**
 	 * Vote command site info.
 	 *
-	 * @param voteSiteName the vote site name
+	 * @param voteSiteName
+	 *            the vote site name
 	 * @return the string[]
 	 */
 	public String[] voteCommandSiteInfo(String voteSiteName) {
@@ -851,7 +873,8 @@ public class Commands {
 	/**
 	 * Vote command total.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return the string[]
 	 */
 	public String[] voteCommandTotal(User user) {
@@ -930,14 +953,15 @@ public class Commands {
 	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
 	 * texts = Utils.getInstance().colorize(texts); return
 	 * Utils.getInstance().convertArray(texts);
-	 * 
+	 *
 	 * }
 	 */
 
 	/**
 	 * Vote help text.
 	 *
-	 * @param sender the sender
+	 * @param sender
+	 *            the sender
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
@@ -971,8 +995,10 @@ public class Commands {
 	/**
 	 * Vote reward.
 	 *
-	 * @param player the player
-	 * @param siteName the site name
+	 * @param player
+	 *            the player
+	 * @param siteName
+	 *            the site name
 	 */
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory("VoteReward");
@@ -987,11 +1013,11 @@ public class Commands {
 							Material.getMaterial(ConfigGUI.getInstance()
 									.getVoteSiteItemMaterial(
 											voteSite.getSiteName())),
-							ConfigGUI.getInstance().getVoteSiteItemAmount(
-									voteSite.getSiteName()),
-							(short) ConfigGUI
-									.getInstance()
-									.getVoteSiteItemData(voteSite.getSiteName()));
+											ConfigGUI.getInstance().getVoteSiteItemAmount(
+													voteSite.getSiteName()),
+													(short) ConfigGUI
+													.getInstance()
+													.getVoteSiteItemData(voteSite.getSiteName()));
 					item = Utils.getInstance().setDurabilty(
 							item,
 							ConfigGUI.getInstance().getVoteSiteItemDurability(
@@ -1006,15 +1032,15 @@ public class Commands {
 							count,
 							new BInventoryButton(
 									ConfigGUI.getInstance()
-											.getVoteSiteItemName(
-													voteSite.getSiteName()),
-									Utils.getInstance()
+									.getVoteSiteItemName(
+											voteSite.getSiteName()),
+											Utils.getInstance()
 											.convertArray(
 													(ArrayList<String>) ConfigGUI
-															.getInstance()
-															.getVoteSiteItemLore(
-																	voteSite.getSiteName())),
-									item) {
+													.getInstance()
+													.getVoteSiteItemLore(
+															voteSite.getSiteName())),
+															item) {
 
 								@Override
 								public void onClick(InventoryClickEvent event) {
@@ -1040,9 +1066,9 @@ public class Commands {
 				ItemStack item = new ItemStack(Material.getMaterial(ConfigGUI
 						.getInstance().getVoteSiteItemsMaterial(siteName,
 								itemName)), ConfigGUI.getInstance()
-						.getVoteSiteItemsAmount(siteName, itemName),
-						(short) ConfigGUI.getInstance().getVoteSiteItemsData(
-								siteName, itemName));
+								.getVoteSiteItemsAmount(siteName, itemName),
+								(short) ConfigGUI.getInstance().getVoteSiteItemsData(
+										siteName, itemName));
 
 				item = Utils.getInstance().setDurabilty(
 						item,
@@ -1057,10 +1083,10 @@ public class Commands {
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-						new BInventoryButton(ConfigGUI.getInstance()
-								.getVoteSiteItemsName(siteName, itemName),
-								Utils.getInstance().convertArray(
-										(ArrayList<String>) ConfigGUI
+								new BInventoryButton(ConfigGUI.getInstance()
+										.getVoteSiteItemsName(siteName, itemName),
+										Utils.getInstance().convertArray(
+												(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -1091,7 +1117,7 @@ public class Commands {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				String timeString = new SimpleDateFormat(format.getTimeFormat())
-						.format(plugin.voteToday.get(user).get(voteSite));
+				.format(plugin.voteToday.get(user).get(voteSite));
 				msg.add("&6" + user.getPlayerName() + " : "
 						+ voteSite.getSiteName() + " : " + timeString);
 			}
@@ -1103,7 +1129,8 @@ public class Commands {
 	/**
 	 * Vote URL.
 	 *
-	 * @param player the player
+	 * @param player
+	 *            the player
 	 */
 	public void voteURL(Player player) {
 		BInventory inv = new BInventory("VoteURL");
@@ -1116,11 +1143,11 @@ public class Commands {
 					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
 					(short) ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemData());
+					.getVoteURLAlreadyVotedItemData());
 			itemAll = Utils.getInstance().setDurabilty(
 					itemAll,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			itemAll = Utils.getInstance().setSkullOwner(
 					itemAll,
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
@@ -1130,11 +1157,11 @@ public class Commands {
 						.getInstance().getVoteURLCanVoteItemMaterial()),
 						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
 						(short) ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemData());
+						.getVoteURLCanVoteItemData());
 				itemAll = Utils.getInstance().setDurabilty(
 						itemAll,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 				itemAll = Utils.getInstance().setSkullOwner(
 						itemAll,
 						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(
@@ -1160,11 +1187,11 @@ public class Commands {
 					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
 					(short) ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemData());
+					.getVoteURLAlreadyVotedItemData());
 			item = Utils.getInstance().setDurabilty(
 					item,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			item = Utils.getInstance().setSkullOwner(
 					item,
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
@@ -1177,11 +1204,11 @@ public class Commands {
 						.getInstance().getVoteURLCanVoteItemMaterial()),
 						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
 						(short) ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemData());
+						.getVoteURLCanVoteItemData());
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 				item = Utils.getInstance().setSkullOwner(
 						item,
 						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(
@@ -1225,22 +1252,26 @@ public class Commands {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
 
-		List<String> title = ConfigFormat.getInstance().getCommandsVoteTitle();
+		List<String> title = ConfigFormat.getInstance().getCommandsVoteText();
 		if (title != null) {
 			sites.addAll(title);
 		}
-		int counter = 0;
-		for (VoteSite voteSite : voteSites) {
-			counter++;
-			String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
-			String msg = format.getCommandsVoteURLS();
-			msg = Utils.getInstance().colorize(msg);
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
-					Integer.toString(counter));
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
-			msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
-					voteSite.getSiteName());
-			sites.add(msg);
+		if (ConfigFormat.getInstance().getCommandsVoteAutoInputSites()) {
+			int counter = 0;
+			for (VoteSite voteSite : voteSites) {
+				counter++;
+				String voteURL = configVoteSites.getVoteURL(voteSite
+						.getSiteName());
+				String msg = format.getCommandsVoteURLS();
+				msg = Utils.getInstance().colorize(msg);
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
+						Integer.toString(counter));
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%",
+						voteURL);
+				msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
+						voteSite.getSiteName());
+				sites.add(msg);
+			}
 		}
 		sites = Utils.getInstance().colorize(sites);
 		return Utils.getInstance().convertArray(sites);

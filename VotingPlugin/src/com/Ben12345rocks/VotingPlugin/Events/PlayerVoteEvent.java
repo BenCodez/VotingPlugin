@@ -11,7 +11,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
  * The Class PlayerVoteEvent.
  */
 public class PlayerVoteEvent extends Event {
-	
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 
@@ -26,7 +26,7 @@ public class PlayerVoteEvent extends Event {
 
 	/** The player. */
 	private User player;
-	
+
 	/** The vote site. */
 	private VoteSite voteSite;
 
@@ -36,8 +36,10 @@ public class PlayerVoteEvent extends Event {
 	/**
 	 * Instantiates a new player vote event.
 	 *
-	 * @param voteSite the vote site
-	 * @param player the player
+	 * @param voteSite
+	 *            the vote site
+	 * @param player
+	 *            the player
 	 */
 	public PlayerVoteEvent(VoteSite voteSite, User player) {
 		super();
@@ -45,7 +47,9 @@ public class PlayerVoteEvent extends Event {
 		setVoteSite(voteSite);
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override
@@ -83,7 +87,8 @@ public class PlayerVoteEvent extends Event {
 	/**
 	 * Sets the cancelled.
 	 *
-	 * @param bln the new cancelled
+	 * @param bln
+	 *            the new cancelled
 	 */
 	public void setCancelled(boolean bln) {
 		cancelled = bln;
@@ -92,7 +97,8 @@ public class PlayerVoteEvent extends Event {
 	/**
 	 * Sets the player.
 	 *
-	 * @param player the new player
+	 * @param player
+	 *            the new player
 	 */
 	public void setPlayer(User player) {
 		this.player = player;
@@ -101,7 +107,8 @@ public class PlayerVoteEvent extends Event {
 	/**
 	 * Sets the vote site.
 	 *
-	 * @param voteSite the new vote site
+	 * @param voteSite
+	 *            the new vote site
 	 */
 	public void setVoteSite(VoteSite voteSite) {
 		this.voteSite = voteSite;

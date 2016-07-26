@@ -14,8 +14,8 @@ import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Files.Files;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
+import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -53,7 +53,8 @@ public class ServerData {
 	/**
 	 * Instantiates a new server data.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public ServerData(Main plugin) {
 		ServerData.plugin = plugin;
@@ -62,9 +63,12 @@ public class ServerData {
 	/**
 	 * Adds the sign.
 	 *
-	 * @param location the location
-	 * @param data the data
-	 * @param position the position
+	 * @param location
+	 *            the location
+	 * @param data
+	 *            the data
+	 * @param position
+	 *            the position
 	 */
 	public void addSign(Location location, String data, int position) {
 
@@ -122,7 +126,8 @@ public class ServerData {
 	/**
 	 * Gets the sign data.
 	 *
-	 * @param sign the sign
+	 * @param sign
+	 *            the sign
 	 * @return the sign data
 	 */
 	public String getSignData(String sign) {
@@ -132,21 +137,23 @@ public class ServerData {
 	/**
 	 * Gets the sign location.
 	 *
-	 * @param sign the sign
+	 * @param sign
+	 *            the sign
 	 * @return the sign location
 	 */
 	public Location getSignLocation(String sign) {
 		return new Location(Bukkit.getWorld(getData().getString(
 				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+						"Signs." + sign + ".X"), getData().getDouble(
+								"Signs." + sign + ".Y"), getData().getDouble(
+										"Signs." + sign + ".Z"));
 	}
 
 	/**
 	 * Gets the sign position.
 	 *
-	 * @param sign the sign
+	 * @param sign
+	 *            the sign
 	 * @return the sign position
 	 */
 	public int getSignPosition(String sign) {
@@ -194,7 +201,8 @@ public class ServerData {
 	/**
 	 * Removes the sign.
 	 *
-	 * @param sign the sign
+	 * @param sign
+	 *            the sign
 	 */
 	public void removeSign(String sign) {
 		getData().set("Signs." + sign + ".World", null);
@@ -225,7 +233,8 @@ public class ServerData {
 	/**
 	 * Sets the prev day.
 	 *
-	 * @param day the new prev day
+	 * @param day
+	 *            the new prev day
 	 */
 	public void setPrevDay(int day) {
 		getData().set("PrevDay", day);
@@ -235,7 +244,8 @@ public class ServerData {
 	/**
 	 * Sets the prev month.
 	 *
-	 * @param value the new prev month
+	 * @param value
+	 *            the new prev month
 	 */
 	public void setPrevMonth(int value) {
 		getData().set("PrevMonth", value);
@@ -245,7 +255,8 @@ public class ServerData {
 	/**
 	 * Sets the prev week day.
 	 *
-	 * @param week the new prev week day
+	 * @param week
+	 *            the new prev week day
 	 */
 	public void setPrevWeekDay(int week) {
 		getData().set("PrevWeek", week);
@@ -255,10 +266,14 @@ public class ServerData {
 	/**
 	 * Sets the sign.
 	 *
-	 * @param count the count
-	 * @param location the location
-	 * @param data the data
-	 * @param position the position
+	 * @param count
+	 *            the count
+	 * @param location
+	 *            the location
+	 * @param data
+	 *            the data
+	 * @param position
+	 *            the position
 	 */
 	public void setSign(String count, Location location, String data,
 			int position) {
@@ -278,7 +293,8 @@ public class ServerData {
 	/**
 	 * Sets the up.
 	 *
-	 * @param p the new up
+	 * @param p
+	 *            the new up
 	 */
 	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
@@ -296,9 +312,9 @@ public class ServerData {
 				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create ServerData.yml!");
+				.getLogger()
+				.severe(ChatColor.RED
+						+ "Could not create ServerData.yml!");
 			}
 		}
 

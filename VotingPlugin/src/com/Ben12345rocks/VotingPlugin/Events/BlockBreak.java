@@ -24,7 +24,8 @@ public class BlockBreak implements Listener {
 	/**
 	 * Instantiates a new block break.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public BlockBreak(Main plugin) {
 		BlockBreak.plugin = plugin;
@@ -33,7 +34,8 @@ public class BlockBreak implements Listener {
 	/**
 	 * On block break.
 	 *
-	 * @param event the event
+	 * @param event
+	 *            the event
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onBlockBreak(BlockBreakEvent event) {

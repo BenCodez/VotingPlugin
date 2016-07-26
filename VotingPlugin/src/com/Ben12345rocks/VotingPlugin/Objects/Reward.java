@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
 
-import org.apache.commons.lang.time.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -16,34 +16,38 @@ import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerRewardEvent;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class Reward.
  */
 public class Reward {
-	
+
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
 	/** The name. */
 	public String name;
 
+	/** The reward type. */
+	private String rewardType;
+
 	/** The delay enabled. */
 	private boolean delayEnabled;
-	
+
 	/** The delay hours. */
 	private int delayHours;
-	
+
 	/** The delay minutes. */
 	private int delayMinutes;
 
 	/** The timed enabled. */
 	private boolean timedEnabled;
-	
+
 	/** The timed hour. */
 	private int timedHour;
-	
+
 	/** The timed minute. */
 	private int timedMinute;
 
@@ -73,7 +77,7 @@ public class Reward {
 
 	/** The item material. */
 	private HashMap<String, String> itemMaterial;
-	
+
 	/** The item skull. */
 	private HashMap<String, String> itemSkull;
 
@@ -88,13 +92,13 @@ public class Reward {
 
 	/** The item min amount. */
 	private HashMap<String, Integer> itemMinAmount;
-	
+
 	/** The item max amount. */
 	private HashMap<String, Integer> itemMaxAmount;
-	
+
 	/** The item name. */
 	private HashMap<String, String> itemName;
-	
+
 	/** The item lore. */
 	private HashMap<String, ArrayList<String>> itemLore;
 
@@ -113,28 +117,135 @@ public class Reward {
 	/** The exp. */
 	private int exp;
 
+	/** The min exp. */
+	private int minExp;
+
+	/** The max exp. */
+	private int maxExp;
+
 	/** The console commands. */
 	private ArrayList<String> consoleCommands;
-	
+
 	/** The player commands. */
 	private ArrayList<String> playerCommands;
 
 	/** The potions. */
 	private Set<String> potions;
-	
+
 	/** The potions duration. */
 	private HashMap<String, Integer> potionsDuration;
-	
+
 	/** The potions amplifier. */
 	private HashMap<String, Integer> potionsAmplifier;
 
 	/** The reward msg. */
 	private String rewardMsg;
 
+	/** The action bar msg. */
+	private String actionBarMsg;
+
+	/** The action bar delay. */
+	private int actionBarDelay;
+
+	/** The boss bar enabled. */
+	private boolean bossBarEnabled;
+
+	/** The boss bar message. */
+	private String bossBarMessage;
+
+	/** The boss bar color. */
+	private String bossBarColor;
+
+	/** The boss bar style. */
+	private String bossBarStyle;
+
+	/** The boss bar delay. */
+	private int bossBarDelay;
+
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @return the boss bar color
+	 */
+	public String getBossBarColor() {
+		return bossBarColor;
+	}
+
+	/**
+	 * Sets the boss bar color.
+	 *
+	 * @param bossBarColor
+	 *            the new boss bar color
+	 */
+	public void setBossBarColor(String bossBarColor) {
+		this.bossBarColor = bossBarColor;
+	}
+
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @return the boss bar style
+	 */
+	public String getBossBarStyle() {
+		return bossBarStyle;
+	}
+
+	/**
+	 * Sets the boss bar style.
+	 *
+	 * @param bossBarStyle
+	 *            the new boss bar style
+	 */
+	public void setBossBarStyle(String bossBarStyle) {
+		this.bossBarStyle = bossBarStyle;
+	}
+
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @return the boss bar delay
+	 */
+	public int getBossBarDelay() {
+		return bossBarDelay;
+	}
+
+	/**
+	 * Sets the boss bar delay.
+	 *
+	 * @param bossBarDelay
+	 *            the new boss bar delay
+	 */
+	public void setBossBarDelay(int bossBarDelay) {
+		this.bossBarDelay = bossBarDelay;
+	}
+
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @return the boss bar progress
+	 */
+	public double getBossBarProgress() {
+		return bossBarProgress;
+	}
+
+	/**
+	 * Sets the boss bar progress.
+	 *
+	 * @param bossBarProgress
+	 *            the new boss bar progress
+	 */
+	public void setBossBarProgress(double bossBarProgress) {
+		this.bossBarProgress = bossBarProgress;
+	}
+
+	/** The boss bar progress. */
+	private double bossBarProgress;
+
 	/**
 	 * Instantiates a new reward.
 	 *
-	 * @param plugin the plugin
+	 * @param plugin
+	 *            the plugin
 	 */
 	public Reward(Main plugin) {
 		Reward.plugin = plugin;
@@ -143,10 +254,13 @@ public class Reward {
 	/**
 	 * Instantiates a new reward.
 	 *
-	 * @param reward the reward
+	 * @param reward
+	 *            the reward
 	 */
 	public Reward(String reward) {
 		name = reward;
+
+		setRewardType(ConfigRewards.getInstance().getRewardType(reward));
 
 		setDelayEnabled(ConfigRewards.getInstance().getDelayedEnabled(reward));
 		setDelayHours(ConfigRewards.getInstance().getDelayedHours(reward));
@@ -213,6 +327,8 @@ public class Reward {
 		setMaxMoney(ConfigRewards.getInstance().getMaxMoney(reward));
 
 		setExp(ConfigRewards.getInstance().getEXP(reward));
+		setMinExp(ConfigRewards.getInstance().getMinExp(reward));
+		setMaxExp(ConfigRewards.getInstance().getMaxExp(reward));
 
 		setConsoleCommands(ConfigRewards.getInstance().getCommandsConsole(
 				reward));
@@ -229,6 +345,16 @@ public class Reward {
 		}
 
 		setRewardMsg(ConfigRewards.getInstance().getMessagesReward(reward));
+		setActionBarMsg(ConfigRewards.getInstance().getActionBarMessage(reward));
+		setActionBarDelay(ConfigRewards.getInstance().getActionBarDelay(reward));
+
+		setBossBarEnabled(ConfigRewards.getInstance().getBossBarEnabled(reward));
+		setBossBarMessage(ConfigRewards.getInstance().getBossBarMessage(reward));
+		setBossBarColor(ConfigRewards.getInstance().getBossBarColor(reward));
+		setBossBarStyle(ConfigRewards.getInstance().getBossBarStyle(reward));
+		setBossBarProgress(ConfigRewards.getInstance().getBossBarProgress(
+				reward));
+		setBossBarDelay(ConfigRewards.getInstance().getBossBarDelay(reward));
 
 	}
 
@@ -258,7 +384,8 @@ public class Reward {
 	/**
 	 * Check delayed.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return true, if successful
 	 */
 	public boolean checkDelayed(User user) {
@@ -304,7 +431,8 @@ public class Reward {
 	/**
 	 * Check timed.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 * @return true, if successful
 	 */
 	@SuppressWarnings("deprecation")
@@ -323,6 +451,24 @@ public class Reward {
 
 		plugin.debug("Giving reward " + name + " at " + time.toString());
 		return true;
+	}
+
+	/**
+	 * Gets the action bar msg.
+	 *
+	 * @return the action bar msg
+	 */
+	public String getActionBarMsg() {
+		return actionBarMsg;
+	}
+
+	/**
+	 * Gets the boss bar message.
+	 *
+	 * @return the boss bar message
+	 */
+	public String getBossBarMessage() {
+		return bossBarMessage;
 	}
 
 	/**
@@ -371,6 +517,27 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the exp to give.
+	 *
+	 * @return the exp to give
+	 */
+	public int getExpToGive() {
+		int amount = getExp();
+		int maxAmount = getMaxExp();
+		int minAmount = getMinExp();
+		if ((maxAmount == 0) && (minAmount == 0)) {
+			return amount;
+		} else {
+			int num = (int) (Math.random() * maxAmount);
+			num++;
+			if (num < minAmount) {
+				num = minAmount;
+			}
+			return num;
+		}
+	}
+
+	/**
 	 * Gets the item amount.
 	 *
 	 * @return the item amount
@@ -382,7 +549,8 @@ public class Reward {
 	/**
 	 * Gets the item amount.
 	 *
-	 * @param item the item
+	 * @param item
+	 *            the item
 	 * @return the item amount
 	 */
 	public int getItemAmount(String item) {
@@ -492,12 +660,30 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the max exp.
+	 *
+	 * @return the max exp
+	 */
+	public int getMaxExp() {
+		return maxExp;
+	}
+
+	/**
 	 * Gets the max money.
 	 *
 	 * @return the max money
 	 */
 	public int getMaxMoney() {
 		return MaxMoney;
+	}
+
+	/**
+	 * Gets the min exp.
+	 *
+	 * @return the min exp
+	 */
+	public int getMinExp() {
+		return minExp;
 	}
 
 	/**
@@ -621,6 +807,15 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the reward type.
+	 *
+	 * @return the reward type
+	 */
+	public String getRewardType() {
+		return rewardType;
+	}
+
+	/**
 	 * Gets the timed hour.
 	 *
 	 * @return the timed hour
@@ -650,16 +845,18 @@ public class Reward {
 	/**
 	 * Give exp.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void giveExp(User user) {
-		user.giveExp(getExp());
+		user.giveExp(getExpToGive());
 	}
 
 	/**
 	 * Give items.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void giveItems(User user) {
 		for (String item : getItems()) {
@@ -692,7 +889,8 @@ public class Reward {
 	/**
 	 * Give money.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void giveMoney(User user) {
 		user.giveMoney(getMoneyToGive());
@@ -701,22 +899,26 @@ public class Reward {
 	/**
 	 * Give potions.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void givePotions(User user) {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-					.get(potionName));
+							.get(potionName));
 		}
 	}
 
 	/**
 	 * Give random.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveRandom(User user) {
+	public void giveRandom(User user, boolean online) {
 		if (checkRandomChance()) {
 			ArrayList<String> rewards = getRandomRewards();
 			if (rewards != null) {
@@ -724,16 +926,18 @@ public class Reward {
 					String reward = rewards.get((int) Math.random()
 							* rewards.size());
 					if (reward.equalsIgnoreCase("")) {
-						user.giveReward(ConfigRewards.getInstance().getReward(
-								reward));
+						user.giveReward(
+								ConfigRewards.getInstance().getReward(reward),
+								online);
 					}
 				}
 			}
 		} else {
 			for (String reward : getRandomFallBack()) {
 				if (reward.equalsIgnoreCase("")) {
-					user.giveReward(ConfigRewards.getInstance().getReward(
-							reward));
+					user.giveReward(
+							ConfigRewards.getInstance().getReward(reward),
+							online);
 				}
 			}
 		}
@@ -742,9 +946,27 @@ public class Reward {
 	/**
 	 * Give reward.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveReward(User user) {
+	public void giveReward(User user, boolean online) {
+
+		PlayerRewardEvent event = new PlayerRewardEvent(this, user);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			plugin.debug("Reward " + name + " was cancelled");
+			return;
+		}
+
+		if (!online
+				&& !Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
+			Data.getInstance().setOfflineReward(user, this,
+					Data.getInstance().getOfflineReward(user, this) + 1);
+			return;
+		}
 
 		if (checkDelayed(user)) {
 			return;
@@ -754,17 +976,33 @@ public class Reward {
 			return;
 		}
 
-		giveRewardReward(user);
+		giveRewardReward(user, online);
 	}
 
 	/**
 	 * Give reward reward.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
 	 */
-	public void giveRewardReward(User user) {
+	public void giveRewardReward(User user, boolean online) {
 		plugin.debug("Attempting to give " + user.getPlayerName() + " reward "
 				+ name);
+
+		String type = getRewardType();
+		if (online) {
+			if (type.equalsIgnoreCase("offline")) {
+				plugin.debug("Reward Type Don't match");
+				return;
+			}
+		} else {
+			if (type.equalsIgnoreCase("online")) {
+				plugin.debug("Reward Type Don't match");
+				return;
+			}
+		}
 
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
@@ -780,8 +1018,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-									.getOfflineVotesSiteWorld(user,
-											name, world) + 1);
+											.getOfflineVotesSiteWorld(user,
+													name, world) + 1);
 						}
 					}
 				} else {
@@ -800,13 +1038,14 @@ public class Reward {
 				giveRewardUser(user);
 			}
 		}
-		giveRandom(user);
+		giveRandom(user, online);
 	}
 
 	/**
-	 * Give the user rewards.
+	 * Give reward user.
 	 *
-	 * @param user            User to give rewards to
+	 * @param user
+	 *            the user
 	 */
 	public void giveRewardUser(User user) {
 		Player player = Bukkit.getPlayer(user.getPlayerName());
@@ -820,13 +1059,24 @@ public class Reward {
 				givePotions(user);
 				sendMessage(user);
 				sendTitle(user);
+				sendActionBar(user);
 				playSound(user);
 				playEffect(user);
+				sendBossBar(user);
 
 				plugin.debug("Gave " + user.getPlayerName() + " reward " + name);
 
 			}
 		}
+	}
+
+	/**
+	 * Checks if is boss bar enabled.
+	 *
+	 * @return true, if is boss bar enabled
+	 */
+	public boolean isBossBarEnabled() {
+		return bossBarEnabled;
 	}
 
 	/**
@@ -868,7 +1118,8 @@ public class Reward {
 	/**
 	 * Play effect.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void playEffect(User user) {
 		if (ConfigRewards.getInstance().getEffectEnabled(name)) {
@@ -883,7 +1134,8 @@ public class Reward {
 	/**
 	 * Play sound.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void playSound(User user) {
 		if (ConfigRewards.getInstance().getSoundEnabled(name)) {
@@ -900,7 +1152,8 @@ public class Reward {
 	/**
 	 * Run commands.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void runCommands(User user) {
 		String playerName = user.getPlayerName();
@@ -933,9 +1186,33 @@ public class Reward {
 	}
 
 	/**
+	 * Send action bar.
+	 *
+	 * @param user
+	 *            the user
+	 */
+	public void sendActionBar(User user) {
+		user.sendActionBar(getActionBarMsg(), getActionBarDelay());
+	}
+
+	/**
+	 * Send boss bar.
+	 *
+	 * @param user
+	 *            the user
+	 */
+	public void sendBossBar(User user) {
+		if (isBossBarEnabled()) {
+			user.sendBossBar(getBossBarMessage(), getBossBarColor(),
+					getBossBarStyle(), getBossBarProgress(), getBossBarDelay());
+		}
+	}
+
+	/**
 	 * Send message.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void sendMessage(User user) {
 		if (rewardMsg != null) {
@@ -948,24 +1225,56 @@ public class Reward {
 	/**
 	 * Send title.
 	 *
-	 * @param user the user
+	 * @param user
+	 *            the user
 	 */
 	public void sendTitle(User user) {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-					ConfigRewards.getInstance().getTitleSubTitle(name),
+			ConfigRewards.getInstance().getTitleSubTitle(name),
 
-					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
 	}
 
 	/**
+	 * Sets the action bar msg.
+	 *
+	 * @param actionBarMsg
+	 *            the new action bar msg
+	 */
+	public void setActionBarMsg(String actionBarMsg) {
+		this.actionBarMsg = actionBarMsg;
+	}
+
+	/**
+	 * Sets the boss bar enabled.
+	 *
+	 * @param bossBarEnabled
+	 *            the new boss bar enabled
+	 */
+	public void setBossBarEnabled(boolean bossBarEnabled) {
+		this.bossBarEnabled = bossBarEnabled;
+	}
+
+	/**
+	 * Sets the boss bar message.
+	 *
+	 * @param bossBarMessage
+	 *            the new boss bar message
+	 */
+	public void setBossBarMessage(String bossBarMessage) {
+		this.bossBarMessage = bossBarMessage;
+	}
+
+	/**
 	 * Sets the chance.
 	 *
-	 * @param chance the new chance
+	 * @param chance
+	 *            the new chance
 	 */
 	public void setChance(double chance) {
 		this.chance = chance;
@@ -974,7 +1283,8 @@ public class Reward {
 	/**
 	 * Sets the console commands.
 	 *
-	 * @param consoleCommands the new console commands
+	 * @param consoleCommands
+	 *            the new console commands
 	 */
 	public void setConsoleCommands(ArrayList<String> consoleCommands) {
 		this.consoleCommands = consoleCommands;
@@ -983,7 +1293,8 @@ public class Reward {
 	/**
 	 * Sets the delay enabled.
 	 *
-	 * @param delayEnabled the new delay enabled
+	 * @param delayEnabled
+	 *            the new delay enabled
 	 */
 	public void setDelayEnabled(boolean delayEnabled) {
 		this.delayEnabled = delayEnabled;
@@ -992,7 +1303,8 @@ public class Reward {
 	/**
 	 * Sets the delay hours.
 	 *
-	 * @param delayHours the new delay hours
+	 * @param delayHours
+	 *            the new delay hours
 	 */
 	public void setDelayHours(int delayHours) {
 		this.delayHours = delayHours;
@@ -1001,7 +1313,8 @@ public class Reward {
 	/**
 	 * Sets the delay minutes.
 	 *
-	 * @param delayMinutes the new delay minutes
+	 * @param delayMinutes
+	 *            the new delay minutes
 	 */
 	public void setDelayMinutes(int delayMinutes) {
 		this.delayMinutes = delayMinutes;
@@ -1010,7 +1323,8 @@ public class Reward {
 	/**
 	 * Sets the exp.
 	 *
-	 * @param exp the new exp
+	 * @param exp
+	 *            the new exp
 	 */
 	public void setExp(int exp) {
 		this.exp = exp;
@@ -1019,7 +1333,8 @@ public class Reward {
 	/**
 	 * Sets the give in each world.
 	 *
-	 * @param giveInEachWorld the new give in each world
+	 * @param giveInEachWorld
+	 *            the new give in each world
 	 */
 	public void setGiveInEachWorld(boolean giveInEachWorld) {
 		this.giveInEachWorld = giveInEachWorld;
@@ -1028,7 +1343,8 @@ public class Reward {
 	/**
 	 * Sets the item amount.
 	 *
-	 * @param itemAmount the item amount
+	 * @param itemAmount
+	 *            the item amount
 	 */
 	public void setItemAmount(HashMap<String, Integer> itemAmount) {
 		this.itemAmount = itemAmount;
@@ -1037,7 +1353,8 @@ public class Reward {
 	/**
 	 * Sets the item data.
 	 *
-	 * @param itemData the item data
+	 * @param itemData
+	 *            the item data
 	 */
 	public void setItemData(HashMap<String, Integer> itemData) {
 		this.itemData = itemData;
@@ -1046,7 +1363,8 @@ public class Reward {
 	/**
 	 * Sets the item durabilty.
 	 *
-	 * @param itemDurabilty the item durabilty
+	 * @param itemDurabilty
+	 *            the item durabilty
 	 */
 	public void setItemDurabilty(HashMap<String, Integer> itemDurabilty) {
 		this.itemDurabilty = itemDurabilty;
@@ -1055,7 +1373,8 @@ public class Reward {
 	/**
 	 * Sets the item enchants.
 	 *
-	 * @param itemEnchants the item enchants
+	 * @param itemEnchants
+	 *            the item enchants
 	 */
 	public void setItemEnchants(
 			HashMap<String, HashMap<String, Integer>> itemEnchants) {
@@ -1065,7 +1384,8 @@ public class Reward {
 	/**
 	 * Sets the item lore.
 	 *
-	 * @param itemLore the item lore
+	 * @param itemLore
+	 *            the item lore
 	 */
 	public void setItemLore(HashMap<String, ArrayList<String>> itemLore) {
 		this.itemLore = itemLore;
@@ -1074,7 +1394,8 @@ public class Reward {
 	/**
 	 * Sets the item material.
 	 *
-	 * @param itemMaterial the item material
+	 * @param itemMaterial
+	 *            the item material
 	 */
 	public void setItemMaterial(HashMap<String, String> itemMaterial) {
 		this.itemMaterial = itemMaterial;
@@ -1083,7 +1404,8 @@ public class Reward {
 	/**
 	 * Sets the item max amount.
 	 *
-	 * @param itemMaxAmount the item max amount
+	 * @param itemMaxAmount
+	 *            the item max amount
 	 */
 	public void setItemMaxAmount(HashMap<String, Integer> itemMaxAmount) {
 		this.itemMaxAmount = itemMaxAmount;
@@ -1092,7 +1414,8 @@ public class Reward {
 	/**
 	 * Sets the item min amount.
 	 *
-	 * @param itemMinAmount the item min amount
+	 * @param itemMinAmount
+	 *            the item min amount
 	 */
 	public void setItemMinAmount(HashMap<String, Integer> itemMinAmount) {
 		this.itemMinAmount = itemMinAmount;
@@ -1101,7 +1424,8 @@ public class Reward {
 	/**
 	 * Sets the item name.
 	 *
-	 * @param itemName the item name
+	 * @param itemName
+	 *            the item name
 	 */
 	public void setItemName(HashMap<String, String> itemName) {
 		this.itemName = itemName;
@@ -1110,7 +1434,8 @@ public class Reward {
 	/**
 	 * Sets the items.
 	 *
-	 * @param items the new items
+	 * @param items
+	 *            the new items
 	 */
 	public void setItems(Set<String> items) {
 		this.items = items;
@@ -1119,25 +1444,48 @@ public class Reward {
 	/**
 	 * Sets the item skull.
 	 *
-	 * @param itemSkull the item skull
+	 * @param itemSkull
+	 *            the item skull
 	 */
 	public void setItemSkull(HashMap<String, String> itemSkull) {
 		this.itemSkull = itemSkull;
 	}
 
 	/**
+	 * Sets the max exp.
+	 *
+	 * @param maxExp
+	 *            the new max exp
+	 */
+	public void setMaxExp(int maxExp) {
+		this.maxExp = maxExp;
+	}
+
+	/**
 	 * Sets the max money.
 	 *
-	 * @param maxMoney the new max money
+	 * @param maxMoney
+	 *            the new max money
 	 */
 	public void setMaxMoney(int maxMoney) {
 		MaxMoney = maxMoney;
 	}
 
 	/**
+	 * Sets the min exp.
+	 *
+	 * @param minExp
+	 *            the new min exp
+	 */
+	public void setMinExp(int minExp) {
+		this.minExp = minExp;
+	}
+
+	/**
 	 * Sets the min money.
 	 *
-	 * @param minMoney the new min money
+	 * @param minMoney
+	 *            the new min money
 	 */
 	public void setMinMoney(int minMoney) {
 		MinMoney = minMoney;
@@ -1146,7 +1494,8 @@ public class Reward {
 	/**
 	 * Sets the money.
 	 *
-	 * @param money the new money
+	 * @param money
+	 *            the new money
 	 */
 	public void setMoney(int money) {
 		this.money = money;
@@ -1155,7 +1504,8 @@ public class Reward {
 	/**
 	 * Sets the player commands.
 	 *
-	 * @param playerCommands the new player commands
+	 * @param playerCommands
+	 *            the new player commands
 	 */
 	public void setPlayerCommands(ArrayList<String> playerCommands) {
 		this.playerCommands = playerCommands;
@@ -1164,7 +1514,8 @@ public class Reward {
 	/**
 	 * Sets the potions.
 	 *
-	 * @param potions the new potions
+	 * @param potions
+	 *            the new potions
 	 */
 	public void setPotions(Set<String> potions) {
 		this.potions = potions;
@@ -1173,7 +1524,8 @@ public class Reward {
 	/**
 	 * Sets the potions amplifier.
 	 *
-	 * @param potionsAmplifier the potions amplifier
+	 * @param potionsAmplifier
+	 *            the potions amplifier
 	 */
 	public void setPotionsAmplifier(HashMap<String, Integer> potionsAmplifier) {
 		this.potionsAmplifier = potionsAmplifier;
@@ -1182,7 +1534,8 @@ public class Reward {
 	/**
 	 * Sets the potions duration.
 	 *
-	 * @param potionsDuration the potions duration
+	 * @param potionsDuration
+	 *            the potions duration
 	 */
 	public void setPotionsDuration(HashMap<String, Integer> potionsDuration) {
 		this.potionsDuration = potionsDuration;
@@ -1191,7 +1544,8 @@ public class Reward {
 	/**
 	 * Sets the random chance.
 	 *
-	 * @param randomChance the new random chance
+	 * @param randomChance
+	 *            the new random chance
 	 */
 	public void setRandomChance(double randomChance) {
 		this.randomChance = randomChance;
@@ -1200,7 +1554,8 @@ public class Reward {
 	/**
 	 * Sets the random fall back.
 	 *
-	 * @param randomFallBack the new random fall back
+	 * @param randomFallBack
+	 *            the new random fall back
 	 */
 	public void setRandomFallBack(ArrayList<String> randomFallBack) {
 		this.randomFallBack = randomFallBack;
@@ -1209,7 +1564,8 @@ public class Reward {
 	/**
 	 * Sets the random rewards.
 	 *
-	 * @param randomRewards the new random rewards
+	 * @param randomRewards
+	 *            the new random rewards
 	 */
 	public void setRandomRewards(ArrayList<String> randomRewards) {
 		this.randomRewards = randomRewards;
@@ -1218,7 +1574,8 @@ public class Reward {
 	/**
 	 * Sets the require permission.
 	 *
-	 * @param requirePermission the new require permission
+	 * @param requirePermission
+	 *            the new require permission
 	 */
 	public void setRequirePermission(boolean requirePermission) {
 		this.requirePermission = requirePermission;
@@ -1227,16 +1584,28 @@ public class Reward {
 	/**
 	 * Sets the reward msg.
 	 *
-	 * @param rewardMsg the new reward msg
+	 * @param rewardMsg
+	 *            the new reward msg
 	 */
 	public void setRewardMsg(String rewardMsg) {
 		this.rewardMsg = rewardMsg;
 	}
 
 	/**
+	 * Sets the reward type.
+	 *
+	 * @param rewardType
+	 *            the new reward type
+	 */
+	public void setRewardType(String rewardType) {
+		this.rewardType = rewardType;
+	}
+
+	/**
 	 * Sets the timed enabled.
 	 *
-	 * @param timedEnabled the new timed enabled
+	 * @param timedEnabled
+	 *            the new timed enabled
 	 */
 	public void setTimedEnabled(boolean timedEnabled) {
 		this.timedEnabled = timedEnabled;
@@ -1245,7 +1614,8 @@ public class Reward {
 	/**
 	 * Sets the timed hour.
 	 *
-	 * @param timedHour the new timed hour
+	 * @param timedHour
+	 *            the new timed hour
 	 */
 	public void setTimedHour(int timedHour) {
 		this.timedHour = timedHour;
@@ -1254,7 +1624,8 @@ public class Reward {
 	/**
 	 * Sets the timed minute.
 	 *
-	 * @param timedMinute the new timed minute
+	 * @param timedMinute
+	 *            the new timed minute
 	 */
 	public void setTimedMinute(int timedMinute) {
 		this.timedMinute = timedMinute;
@@ -1263,9 +1634,30 @@ public class Reward {
 	/**
 	 * Sets the worlds.
 	 *
-	 * @param worlds the new worlds
+	 * @param worlds
+	 *            the new worlds
 	 */
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
 	}
+
+	/**
+	 * Gets the action bar delay.
+	 *
+	 * @return the action bar delay
+	 */
+	public int getActionBarDelay() {
+		return actionBarDelay;
+	}
+
+	/**
+	 * Sets the action bar delay.
+	 *
+	 * @param actionBarDelay
+	 *            the new action bar delay
+	 */
+	public void setActionBarDelay(int actionBarDelay) {
+		this.actionBarDelay = actionBarDelay;
+	}
+
 }
