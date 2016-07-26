@@ -64,7 +64,7 @@ public class AliasesTabCompleter implements TabCompleter {
 								cmds.add(player.getName());
 							}
 						}
-					} else if (cmdArgs[argNum].equalsIgnoreCase("(rewards)")) {
+					} else if (cmdArgs[argNum].equalsIgnoreCase("(reward)")) {
 						for (String reward : ConfigRewards.getInstance()
 								.getRewardNames()) {
 							if (!cmds.contains(reward)) {
