@@ -236,4 +236,9 @@ public class Config {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public void setRewards(ArrayList<String> rewards) {
+		getData().set("Rewards", rewards);
+		saveData();
+	}
+
 }

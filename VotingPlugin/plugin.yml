@@ -106,6 +106,9 @@ commands:
   adminvoteTriggerPlayerVoteEvent:
     description: Command Alias
     aliases: avTriggerPlayerVoteEvent
+  adminvoteconvert:
+    description: Command Alias
+    aliases: avconvert
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
