@@ -1001,7 +1001,7 @@ public class ConfigRewards {
 	 * @param value
 	 *            the value
 	 */
-	public void setCommandsPlater(String reward, ArrayList<String> value) {
+	public void setCommandsPlayer(String reward, ArrayList<String> value) {
 		set(reward, "Commands.Player", value);
 	}
 
