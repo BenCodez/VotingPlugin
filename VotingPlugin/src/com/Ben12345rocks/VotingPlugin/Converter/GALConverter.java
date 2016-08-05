@@ -62,8 +62,7 @@ public class GALConverter {
 			GALVote vote = entry.getValue();
 			if (entry.getKey().equals(VoteType.NORMAL)) {
 				String service = vote.key;
-				String rewardMessage = vote.message.replace("{username}",
-						"%Player%");
+				String rewardMessage = formatPlayer(vote.message);
 				// String broadcast = vote.broadcast;
 				List<String> commands = vote.commands;
 				if (!service.equalsIgnoreCase("default")) {
@@ -87,8 +86,7 @@ public class GALConverter {
 			} else if (entry.getKey().equals(VoteType.CUMULATIVE)) {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
-					String rewardMessage = vote.message.replace("{username}",
-							"%Player%");
+					String rewardMessage = formatPlayer(vote.message);
 					String broadcast = vote.broadcast;
 					List<String> commands = vote.commands;
 					ArrayList<String> rewards = new ArrayList<String>();
@@ -104,8 +102,7 @@ public class GALConverter {
 			} else if (entry.getKey().equals(VoteType.LUCKY)) {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
-					String rewardMessage = vote.message.replace("{username}",
-							"%Player%");
+					String rewardMessage = formatPlayer(vote.message);
 					String broadcast = vote.broadcast;
 					List<String> commands = vote.commands;
 					ArrayList<String> rewards = Config.getInstance()
@@ -123,8 +120,7 @@ public class GALConverter {
 			} else if (entry.getKey().equals(VoteType.PERMISSION)) {
 				String key = vote.key;
 
-				String rewardMessage = vote.message.replace("{username}",
-						"%Player%");
+				String rewardMessage = formatPlayer(vote.message);
 				String broadcast = vote.broadcast;
 				List<String> commands = vote.commands;
 				ArrayList<String> rewards = Config.getInstance().getRewards();
@@ -139,6 +135,11 @@ public class GALConverter {
 						(ArrayList<String>) commands);
 			}
 		}
+	}
+
+	public String formatPlayer(String format) {
+		return format.replace("{username}", "%player%")
+				.replace("{player}", "%player%").replace("{name}", "%player%");
 	}
 
 }
