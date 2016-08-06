@@ -15,5 +15,6 @@
 	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/buildtools/spigot-1.10.2.jar"/>
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/Votifier.jar"/>
+	<classpathentry kind="lib" path="D:/programming/Liabaries/GAListener.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

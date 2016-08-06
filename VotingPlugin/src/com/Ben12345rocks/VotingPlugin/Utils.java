@@ -164,6 +164,19 @@ public class Utils {
 		if (format == null) {
 			return null;
 		}
+		format = format.replace("{AQUA}", "§b").replace("{BLACK}", "§0")
+				.replace("{BLUE}", "§9").replace("{DARK_AQUA}", "§3")
+				.replace("{DARK_BLUE}", "§1").replace("{DARK_GRAY}", "§8")
+				.replace("{DARK_GREEN}", "§2").replace("{DARK_PURPLE}", "§5")
+				.replace("{DARK_RED}", "§4").replace("{GOLD}", "§6")
+				.replace("{GRAY}", "§7").replace("{GREEN}", "§a")
+				.replace("{LIGHT_PURPLE}", "§d").replace("{RED}", "§c")
+				.replace("{WHITE}", "§f").replace("{YELLOW}", "§e")
+				.replace("{BOLD}", "§l").replace("{ITALIC}", "§o")
+				.replace("{MAGIC}", "§k").replace("{RESET}", "§r")
+				.replace("{STRIKE}", "§m").replace("{STRIKETHROUGH}", "§m")
+				.replace("{UNDERLINE}", "§n");
+
 		return ChatColor.translateAlternateColorCodes('&', format);
 	}
 

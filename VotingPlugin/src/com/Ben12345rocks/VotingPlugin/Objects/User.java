@@ -613,7 +613,14 @@ public class User {
 		HashMap<Integer, ItemStack> excess = player.getInventory()
 				.addItem(item);
 		for (Map.Entry<Integer, ItemStack> me : excess.entrySet()) {
-			player.getWorld().dropItem(player.getLocation(), me.getValue());
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					player.getWorld().dropItem(player.getLocation(),
+							me.getValue());
+				}
+			});
 		}
 
 		player.updateInventory();
@@ -638,7 +645,15 @@ public class User {
 		HashMap<Integer, ItemStack> excess = player.getInventory()
 				.addItem(item);
 		for (Map.Entry<Integer, ItemStack> me : excess.entrySet()) {
-			player.getWorld().dropItem(player.getLocation(), me.getValue());
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					player.getWorld().dropItem(player.getLocation(),
+							me.getValue());
+				}
+			});
+
 		}
 
 		player.updateInventory();

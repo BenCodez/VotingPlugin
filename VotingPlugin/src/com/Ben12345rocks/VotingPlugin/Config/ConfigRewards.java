@@ -160,12 +160,10 @@ public class ConfigRewards {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsConsole(String reward) {
-		try {
-			return (ArrayList<String>) getData(reward).getList(
-					"Commands.Console");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(reward).getList("Commands.Console",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -177,12 +175,10 @@ public class ConfigRewards {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsPlayer(String reward) {
-		try {
-			return (ArrayList<String>) getData(reward).getList(
-					"Commands.Player");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(reward).getList("Commands.Player",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -250,11 +246,8 @@ public class ConfigRewards {
 	 * @return the effect effect
 	 */
 	public String getEffectEffect(String reward) {
-		String str = getData(reward).getString("Effect.Effect");
-		if (str != null) {
-			return str;
-		}
-		return "";
+		return getData(reward).getString("Effect.Effect", "");
+
 	}
 
 	/**
@@ -532,12 +525,10 @@ public class ConfigRewards {
 	 * @return the messages reward
 	 */
 	public String getMessagesReward(String reward) {
-		String msg = getData(reward).getString("Messages.Reward");
-		if (msg != null) {
-			return msg;
-		} else {
-			return ConfigFormat.getInstance().getRewardMsg();
-		}
+		String msg = getData(reward).getString("Messages.Reward",
+				ConfigFormat.getInstance().getRewardMsg());
+		return msg;
+
 	}
 
 	/**
@@ -663,12 +654,10 @@ public class ConfigRewards {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRandomRewards(String reward) {
-		try {
-			return (ArrayList<String>) getData(reward)
-					.getList("Random.Rewards");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(reward).getList("Random.Rewards",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -930,11 +919,10 @@ public class ConfigRewards {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getWorlds(String reward) {
-		try {
-			return (ArrayList<String>) getData(reward).getList("Worlds");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(reward).getList("Worlds",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -1001,7 +989,7 @@ public class ConfigRewards {
 	 * @param value
 	 *            the value
 	 */
-	public void setCommandsPlater(String reward, ArrayList<String> value) {
+	public void setCommandsPlayer(String reward, ArrayList<String> value) {
 		set(reward, "Commands.Player", value);
 	}
 

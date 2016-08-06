@@ -245,4 +245,9 @@ public class ConfigOtherRewards {
 		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 
+	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
+		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
+		saveData();
+	}
+
 }
