@@ -1,7 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Converter;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map.Entry;
 
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -55,22 +54,30 @@ public class GALConverter {
 
 	public void convert() {
 		create();
+		plugin.reload();
 	}
 
 	public void create() {
 		for (Entry<VoteType, GALVote> entry : galPlug.galVote.entries()) {
 			GALVote vote = entry.getValue();
+			ArrayList<String> commands = (ArrayList<String>) vote.commands;
+			for (int i = 0; i < commands.size(); i++) {
+				commands.set(i, commands.get(i).replaceFirst("/", ""));
+			}
 			if (entry.getKey().equals(VoteType.NORMAL)) {
 				String service = vote.key;
 				String rewardMessage = formatPlayer(vote.message);
 				// String broadcast = vote.broadcast;
-				List<String> commands = vote.commands;
+
 				if (!service.equalsIgnoreCase("default")) {
 
 					ConfigVoteSites.getInstance().generateVoteSite(service);
 					ArrayList<String> rewards = new ArrayList<String>();
 					rewards.add(service);
 					ConfigVoteSites.getInstance().setRewards(service, rewards);
+					ConfigVoteSites.getInstance().setServiceSite(service,
+							service);
+					ConfigVoteSites.getInstance().setEnabled(service, true);
 				} else {
 
 					ArrayList<String> rewards = Config.getInstance()
@@ -87,8 +94,8 @@ public class GALConverter {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
 					String rewardMessage = formatPlayer(vote.message);
-					String broadcast = vote.broadcast;
-					List<String> commands = vote.commands;
+					String broadcast = formatPlayer(vote.broadcast);
+
 					ArrayList<String> rewards = new ArrayList<String>();
 					rewards.add("cumulative" + key);
 					ConfigOtherRewards.getInstance().setCumulativeRewards(
@@ -103,8 +110,8 @@ public class GALConverter {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
 					String rewardMessage = formatPlayer(vote.message);
-					String broadcast = vote.broadcast;
-					List<String> commands = vote.commands;
+					String broadcast = formatPlayer(vote.broadcast);
+
 					ArrayList<String> rewards = Config.getInstance()
 							.getRewards();
 					rewards.add("lucky" + key);
@@ -121,8 +128,8 @@ public class GALConverter {
 				String key = vote.key;
 
 				String rewardMessage = formatPlayer(vote.message);
-				String broadcast = vote.broadcast;
-				List<String> commands = vote.commands;
+				String broadcast = formatPlayer(vote.broadcast);
+
 				ArrayList<String> rewards = Config.getInstance().getRewards();
 				rewards.add("perm" + key);
 				Config.getInstance().setRewards(rewards);

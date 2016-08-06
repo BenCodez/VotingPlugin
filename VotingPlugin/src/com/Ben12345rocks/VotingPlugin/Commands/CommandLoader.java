@@ -99,7 +99,9 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
+					sender.sendMessage(Utils.getInstance().colorize("&cStarting to convert. Please note this is not a 100% conversion."));
 					GALConverter.getInstance().convert();
+					sender.sendMessage(Utils.getInstance().colorize("&cFinished converting. You will need to change reward messages to your liking."));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
 				}
