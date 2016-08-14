@@ -24,7 +24,7 @@ Format:
       - '&4&lVote for our server!'
       
       # If you want to want to use the feature below where the plugin will
-      # automicly list the sites then set the message in the text above
+      # automaticly list the sites then set the message in the text above
       AutoInputSites: true
       # For each VoteSite
       # make sure to set VoteURL in your VoteSites
