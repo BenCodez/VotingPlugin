@@ -99,11 +99,18 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage(Utils.getInstance().colorize("&cStarting to convert. Please note this is not a 100% conversion."));
+					sender.sendMessage(Utils
+							.getInstance()
+							.colorize(
+									"&cStarting to convert. Please note this is not a 100% conversion."));
 					GALConverter.getInstance().convert();
-					sender.sendMessage(Utils.getInstance().colorize("&cFinished converting. You will need to change reward messages to your liking."));
+					sender.sendMessage(Utils
+							.getInstance()
+							.colorize(
+									"&cFinished converting. You will need to change reward messages to your liking."));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
+					sender.sendMessage(Utils.getInstance().colorize(
+							"&cGAL has to be loaded in order to convert"));
 				}
 
 			}
@@ -435,6 +442,71 @@ public class CommandLoader {
 
 				CommandAdminVote.getInstance().checkVoteSite(sender, args[1]);
 
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
+				"(reward)", "SetMoney", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Set money on reward file") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setRewardMoney(sender, args[1],
+						Integer.parseInt(args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
+				"(reward)", "SetMinMoney", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Set max money on reward file") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setRewardMinMoney(sender,
+						args[1], Integer.parseInt(args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
+				"(reward)", "SetMaxMinMoney", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Set min money on reward file") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setRewardMaxMoney(sender,
+						args[1], Integer.parseInt(args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
+				"(reward)", "SetMaxMinMoney", "(boolean)" },
+				"VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Set require permission on reward file") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setRewardRequirePermission(
+						sender, args[1], Boolean.parseBoolean(args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
+				"(reward)", "SetMessage", "(string)" },
+				"VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Set message on reward file") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+
+				CommandAdminVote.getInstance().setRewardMessage(sender,
+						args[1], args[3].replace("_", " "));
 			}
 		});
 
