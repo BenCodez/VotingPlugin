@@ -660,12 +660,6 @@ public class User {
 
 	}
 
-	/**
-	 * Give money.
-	 *
-	 * @param money
-	 *            the money
-	 */
 	@SuppressWarnings("deprecation")
 	/**
 	 * Give user money, needs vault installed
