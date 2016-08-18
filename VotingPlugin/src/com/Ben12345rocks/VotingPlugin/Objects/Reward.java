@@ -1007,7 +1007,7 @@ public class Reward {
 		if (checkChance()) {
 			ArrayList<String> worlds = getWorlds();
 			Player player = Bukkit.getPlayer(user.getPlayerName());
-			if ((player != null) && (worlds != null)) {
+			if ((player != null) && (worlds != null) && !worlds.isEmpty()) {
 				if (isGiveInEachWorld()) {
 					for (String world : worlds) {
 						if (player.getWorld().getName().equals(world)) {
