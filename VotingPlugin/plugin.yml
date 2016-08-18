@@ -79,6 +79,9 @@ commands:
   adminvoterewards:
     description: Command Alias
     aliases: avrewards
+  adminvotereward:
+    description: Command Alias
+    aliases: avreward
   adminvoteuuid:
     description: Command Alias
     aliases: avuuid
