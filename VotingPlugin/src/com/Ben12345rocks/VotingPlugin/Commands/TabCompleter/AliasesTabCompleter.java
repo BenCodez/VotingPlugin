@@ -10,11 +10,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
 /**
  * The Class AliasesTabCompleter.
@@ -102,7 +102,7 @@ public class AliasesTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -130,7 +130,7 @@ public class AliasesTabCompleter implements TabCompleter {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-									.equalsIgnoreCase("adminvote" + arg)) {
+							.equalsIgnoreCase("adminvote" + arg)) {
 						// plugin.debug("Found cmd... attempting to get tab complete");
 						args[0] = arg;
 						boolean argsMatch = true;

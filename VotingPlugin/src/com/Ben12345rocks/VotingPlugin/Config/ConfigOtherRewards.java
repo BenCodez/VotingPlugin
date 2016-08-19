@@ -12,8 +12,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -215,7 +215,12 @@ public class ConfigOtherRewards {
 	 * Save data.
 	 */
 	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
+	}
+
+	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
+		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
+		saveData();
 	}
 
 	/**
@@ -237,17 +242,12 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create Rewards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
-		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
-		saveData();
 	}
 
 }

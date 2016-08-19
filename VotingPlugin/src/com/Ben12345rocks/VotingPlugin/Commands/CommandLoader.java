@@ -7,8 +7,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
@@ -19,7 +20,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Report.Report;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -550,7 +550,7 @@ public class CommandLoader {
 										.setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /adminvote"
-								+ arg);
+								+ arg + ": " + ex.getMessage());
 
 					}
 				}

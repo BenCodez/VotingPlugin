@@ -13,6 +13,10 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
+import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -34,18 +38,13 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
-import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
-import com.Ben12345rocks.VotingPlugin.Util.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
-import com.Ben12345rocks.VotingPlugin.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -120,6 +119,34 @@ public class Main extends JavaPlugin {
 			placeHolderAPIEnabled = false;
 			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
 		}
+	}
+
+	/**
+	 * Gets the vote site name.
+	 *
+	 * @param url
+	 *            the url
+	 * @return the vote site name
+	 */
+	public String getVoteSiteName(String url) {
+		ArrayList<String> sites = ConfigVoteSites.getInstance()
+				.getVoteSitesNames();
+		if (url == null) {
+			return null;
+		}
+		if (sites != null) {
+			for (String siteName : sites) {
+				String URL = ConfigVoteSites.getInstance().getServiceSite(
+						siteName);
+				if (URL != null) {
+					if (URL.equals(url)) {
+						return siteName;
+					}
+				}
+			}
+		}
+		return url;
+
 	}
 
 	/**
@@ -242,7 +269,6 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		Files.getInstance().loadFileEditngThread();
 		setupFiles();
 		registerCommands();
 		registerEvents();

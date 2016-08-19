@@ -9,14 +9,14 @@ import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -123,10 +123,12 @@ public class Data {
 	 *            the user
 	 * @return the data
 	 */
-	public FileConfiguration getData(User user) {
-		File dFile = getPlayerFile(user);
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		return data;
+	public ConfigurationSection getData(User user) {
+		return user.getPluginData();
+		/*
+		 * File dFile = getPlayerFile(user); FileConfiguration data =
+		 * YamlConfiguration.loadConfiguration(dFile); return data;
+		 */
 	}
 
 	/**
@@ -243,9 +245,9 @@ public class Data {
 
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create " + uuid
+								+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -488,9 +490,9 @@ public class Data {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED + "Could not save "
-					+ Utils.getInstance().getUUID(playerName) + ".yml!");
+					.getLogger()
+					.severe(ChatColor.RED + "Could not save "
+							+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -506,10 +508,12 @@ public class Data {
 	 *            the value
 	 */
 	public void set(User user, String path, Object value) {
-		File dFile = getPlayerFile(user);
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		data.set(path, value);
-		Files.getInstance().editFile(dFile, data);
+		user.setPluginData(path, value);
+		/*
+		 * File dFile = getPlayerFile(user); FileConfiguration data =
+		 * YamlConfiguration.loadConfiguration(dFile); data.set(path, value);
+		 * Files.getInstance().editFile(dFile, data);
+		 */
 	}
 
 	/**
@@ -676,7 +680,7 @@ public class Data {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 *
+	 * 
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -738,7 +742,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-						place);
+				place);
 	}
 
 	/**
@@ -754,7 +758,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-						place);
+				place);
 	}
 
 	/**
@@ -834,7 +838,7 @@ public class Data {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+								+ ".yml! Name: " + playerName);
 
 			}
 		}

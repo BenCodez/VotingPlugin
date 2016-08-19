@@ -3,8 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Converter;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
@@ -25,8 +25,6 @@ public class GALConverter {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	private GAL galPlug = GAL.p;
-
 	/**
 	 * Gets the single instance of Utils.
 	 *
@@ -35,6 +33,8 @@ public class GALConverter {
 	public static GALConverter getInstance() {
 		return instance;
 	}
+
+	private GAL galPlug = GAL.p;
 
 	/**
 	 * Instantiates a new utils.
@@ -89,7 +89,7 @@ public class GALConverter {
 				ConfigRewards.getInstance().setMessagesReward(service,
 						rewardMessage);
 				ConfigRewards.getInstance().setCommandsConsole(service,
-						(ArrayList<String>) commands);
+						commands);
 			} else if (entry.getKey().equals(VoteType.CUMULATIVE)) {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
@@ -104,7 +104,7 @@ public class GALConverter {
 					ConfigRewards.getInstance().setMessagesReward(
 							"cumulative" + key, rewardMessage);
 					ConfigRewards.getInstance().setCommandsConsole(
-							"cumulative" + key, (ArrayList<String>) commands);
+							"cumulative" + key, commands);
 				}
 			} else if (entry.getKey().equals(VoteType.LUCKY)) {
 				String key = vote.key;
@@ -122,7 +122,7 @@ public class GALConverter {
 					ConfigRewards.getInstance().setChance("lucky" + key,
 							Integer.parseInt(key));
 					ConfigRewards.getInstance().setCommandsConsole(
-							"lucky" + key, (ArrayList<String>) commands);
+							"lucky" + key, commands);
 				}
 			} else if (entry.getKey().equals(VoteType.PERMISSION)) {
 				String key = vote.key;
@@ -139,7 +139,7 @@ public class GALConverter {
 				ConfigRewards.getInstance().setRequirePermission("perm" + key,
 						true);
 				ConfigRewards.getInstance().setCommandsConsole("perm" + key,
-						(ArrayList<String>) commands);
+						commands);
 			}
 		}
 	}

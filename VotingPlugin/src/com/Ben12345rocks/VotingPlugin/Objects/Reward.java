@@ -11,8 +11,8 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -161,82 +161,6 @@ public class Reward {
 
 	/** The boss bar delay. */
 	private int bossBarDelay;
-
-	/**
-	 * Gets the boss bar color.
-	 *
-	 * @return the boss bar color
-	 */
-	public String getBossBarColor() {
-		return bossBarColor;
-	}
-
-	/**
-	 * Sets the boss bar color.
-	 *
-	 * @param bossBarColor
-	 *            the new boss bar color
-	 */
-	public void setBossBarColor(String bossBarColor) {
-		this.bossBarColor = bossBarColor;
-	}
-
-	/**
-	 * Gets the boss bar style.
-	 *
-	 * @return the boss bar style
-	 */
-	public String getBossBarStyle() {
-		return bossBarStyle;
-	}
-
-	/**
-	 * Sets the boss bar style.
-	 *
-	 * @param bossBarStyle
-	 *            the new boss bar style
-	 */
-	public void setBossBarStyle(String bossBarStyle) {
-		this.bossBarStyle = bossBarStyle;
-	}
-
-	/**
-	 * Gets the boss bar delay.
-	 *
-	 * @return the boss bar delay
-	 */
-	public int getBossBarDelay() {
-		return bossBarDelay;
-	}
-
-	/**
-	 * Sets the boss bar delay.
-	 *
-	 * @param bossBarDelay
-	 *            the new boss bar delay
-	 */
-	public void setBossBarDelay(int bossBarDelay) {
-		this.bossBarDelay = bossBarDelay;
-	}
-
-	/**
-	 * Gets the boss bar progress.
-	 *
-	 * @return the boss bar progress
-	 */
-	public double getBossBarProgress() {
-		return bossBarProgress;
-	}
-
-	/**
-	 * Sets the boss bar progress.
-	 *
-	 * @param bossBarProgress
-	 *            the new boss bar progress
-	 */
-	public void setBossBarProgress(double bossBarProgress) {
-		this.bossBarProgress = bossBarProgress;
-	}
 
 	/** The boss bar progress. */
 	private double bossBarProgress;
@@ -454,6 +378,15 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the action bar delay.
+	 *
+	 * @return the action bar delay
+	 */
+	public int getActionBarDelay() {
+		return actionBarDelay;
+	}
+
+	/**
 	 * Gets the action bar msg.
 	 *
 	 * @return the action bar msg
@@ -463,12 +396,48 @@ public class Reward {
 	}
 
 	/**
+	 * Gets the boss bar color.
+	 *
+	 * @return the boss bar color
+	 */
+	public String getBossBarColor() {
+		return bossBarColor;
+	}
+
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @return the boss bar delay
+	 */
+	public int getBossBarDelay() {
+		return bossBarDelay;
+	}
+
+	/**
 	 * Gets the boss bar message.
 	 *
 	 * @return the boss bar message
 	 */
 	public String getBossBarMessage() {
 		return bossBarMessage;
+	}
+
+	/**
+	 * Gets the boss bar progress.
+	 *
+	 * @return the boss bar progress
+	 */
+	public double getBossBarProgress() {
+		return bossBarProgress;
+	}
+
+	/**
+	 * Gets the boss bar style.
+	 *
+	 * @return the boss bar style
+	 */
+	public String getBossBarStyle() {
+		return bossBarStyle;
 	}
 
 	/**
@@ -906,7 +875,7 @@ public class Reward {
 		for (String potionName : getPotions()) {
 			user.givePotionEffect(potionName,
 					getPotionsDuration().get(potionName), getPotionsAmplifier()
-							.get(potionName));
+					.get(potionName));
 		}
 	}
 
@@ -1018,8 +987,8 @@ public class Reward {
 									name,
 									world,
 									Data.getInstance()
-											.getOfflineVotesSiteWorld(user,
-													name, world) + 1);
+									.getOfflineVotesSiteWorld(user,
+											name, world) + 1);
 						}
 					}
 				} else {
@@ -1232,12 +1201,22 @@ public class Reward {
 		if (ConfigRewards.getInstance().getTitleEnabled(name)) {
 			user.sendTitle(ConfigRewards.getInstance().getTitleTitle(name),
 
-			ConfigRewards.getInstance().getTitleSubTitle(name),
+					ConfigRewards.getInstance().getTitleSubTitle(name),
 
-			ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
+					ConfigRewards.getInstance().getTitleFadeIn(name), ConfigRewards
 					.getInstance().getTitleShowTime(name), ConfigRewards
 					.getInstance().getTitleFadeOut(name));
 		}
+	}
+
+	/**
+	 * Sets the action bar delay.
+	 *
+	 * @param actionBarDelay
+	 *            the new action bar delay
+	 */
+	public void setActionBarDelay(int actionBarDelay) {
+		this.actionBarDelay = actionBarDelay;
 	}
 
 	/**
@@ -1248,6 +1227,26 @@ public class Reward {
 	 */
 	public void setActionBarMsg(String actionBarMsg) {
 		this.actionBarMsg = actionBarMsg;
+	}
+
+	/**
+	 * Sets the boss bar color.
+	 *
+	 * @param bossBarColor
+	 *            the new boss bar color
+	 */
+	public void setBossBarColor(String bossBarColor) {
+		this.bossBarColor = bossBarColor;
+	}
+
+	/**
+	 * Sets the boss bar delay.
+	 *
+	 * @param bossBarDelay
+	 *            the new boss bar delay
+	 */
+	public void setBossBarDelay(int bossBarDelay) {
+		this.bossBarDelay = bossBarDelay;
 	}
 
 	/**
@@ -1268,6 +1267,26 @@ public class Reward {
 	 */
 	public void setBossBarMessage(String bossBarMessage) {
 		this.bossBarMessage = bossBarMessage;
+	}
+
+	/**
+	 * Sets the boss bar progress.
+	 *
+	 * @param bossBarProgress
+	 *            the new boss bar progress
+	 */
+	public void setBossBarProgress(double bossBarProgress) {
+		this.bossBarProgress = bossBarProgress;
+	}
+
+	/**
+	 * Sets the boss bar style.
+	 *
+	 * @param bossBarStyle
+	 *            the new boss bar style
+	 */
+	public void setBossBarStyle(String bossBarStyle) {
+		this.bossBarStyle = bossBarStyle;
 	}
 
 	/**
@@ -1639,25 +1658,6 @@ public class Reward {
 	 */
 	public void setWorlds(ArrayList<String> worlds) {
 		this.worlds = worlds;
-	}
-
-	/**
-	 * Gets the action bar delay.
-	 *
-	 * @return the action bar delay
-	 */
-	public int getActionBarDelay() {
-		return actionBarDelay;
-	}
-
-	/**
-	 * Sets the action bar delay.
-	 *
-	 * @param actionBarDelay
-	 *            the new action bar delay
-	 */
-	public void setActionBarDelay(int actionBarDelay) {
-		this.actionBarDelay = actionBarDelay;
 	}
 
 }

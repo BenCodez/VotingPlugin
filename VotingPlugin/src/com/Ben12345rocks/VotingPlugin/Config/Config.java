@@ -10,8 +10,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -163,7 +163,7 @@ public class Config {
 	 * Save data.
 	 */
 	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -199,6 +199,11 @@ public class Config {
 		saveData();
 	}
 
+	public void setRewards(ArrayList<String> rewards) {
+		getData().set("Rewards", rewards);
+		saveData();
+	}
+
 	/**
 	 * Sets the top voter awards enabled.
 	 *
@@ -229,16 +234,11 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setRewards(ArrayList<String> rewards) {
-		getData().set("Rewards", rewards);
-		saveData();
 	}
 
 }

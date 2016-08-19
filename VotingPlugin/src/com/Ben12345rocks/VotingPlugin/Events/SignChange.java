@@ -5,8 +5,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.SignChangeEvent;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
@@ -50,11 +50,11 @@ public class SignChange implements Listener {
 					Bukkit.getScheduler().runTaskAsynchronously(plugin,
 							new Runnable() {
 
-						@Override
-						public void run() {
-							Signs.getInstance().updateSigns();
-						}
-					});
+								@Override
+								public void run() {
+									Signs.getInstance().updateSigns();
+								}
+							});
 				} catch (Exception ex) {
 					event.getPlayer().sendMessage(
 							Utils.getInstance().colorize(

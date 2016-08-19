@@ -7,9 +7,9 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -35,7 +35,7 @@ public class CommandAliases implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -61,7 +61,7 @@ public class CommandAliases implements CommandExecutor {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-							.equalsIgnoreCase("adminvote" + arg)) {
+									.equalsIgnoreCase("adminvote" + arg)) {
 						argsNew.set(0, arg);
 
 						boolean argsMatch = true;
