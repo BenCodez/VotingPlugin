@@ -595,15 +595,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	/**
-	 * Checks for joined before.
-	 *
-	 * @return true, if successful
-	 */
-	public boolean hasJoinedBefore() {
-		return Data.getInstance().hasJoinedBefore(this);
-	}
-
-	/**
 	 * Load name.
 	 */
 	public void loadName() {
@@ -914,14 +905,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		User user = this;
 		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
-	}
-
-	/**
-	 * Sets the player name.
-	 */
-	public void setPlayerName() {
-		User user = this;
-		Data.getInstance().setPlayerName(user);
 	}
 
 	/**

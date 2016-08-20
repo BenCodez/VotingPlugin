@@ -291,9 +291,8 @@ public class TopVoter {
 	 */
 	public String[] topVoterDailyNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
-		@SuppressWarnings("unchecked")
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(
-				plugin.topVoterDaily.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterDaily.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%"
 					.replace("%num%", "" + (i + 1))
@@ -344,11 +343,10 @@ public class TopVoter {
 	 *
 	 * @return the string[]
 	 */
-	@SuppressWarnings("unchecked")
 	public String[] topVoterNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(
-				plugin.topVoterMonthly.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterMonthly.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%"
 					.replace("%num%", "" + (i + 1))
@@ -390,11 +388,11 @@ public class TopVoter {
 	 *
 	 * @return the string[]
 	 */
-	@SuppressWarnings("unchecked")
+
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(
-				plugin.topVoterDaily.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterDaily.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = format
 					.getCommandVoteTopLine()
@@ -414,13 +412,14 @@ public class TopVoter {
 	 *
 	 * @return the array list
 	 */
-	@SuppressWarnings("unchecked")
+
 	public ArrayList<User> topVotersSortedAll() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
-			ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(users1);
+			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+					.getInstance().convertSet(users1);
 
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalVotes() == 0) {
@@ -455,13 +454,14 @@ public class TopVoter {
 	 *
 	 * @return the array list
 	 */
-	@SuppressWarnings("unchecked")
+
 	public ArrayList<User> topVotersSortedAllDaily() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
-			ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(users1);
+			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+					.getInstance().convertSet(users1);
 
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalDailyAll() == 0) {
@@ -496,13 +496,14 @@ public class TopVoter {
 	 *
 	 * @return the array list
 	 */
-	@SuppressWarnings("unchecked")
+
 	public ArrayList<User> topVotersSortedAllWeekly() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 		Set<User> users1 = Data.getInstance().getUsers();
 		if (users1 != null) {
-			ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(users1);
+			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+					.getInstance().convertSet(users1);
 
 			for (int i = users.size() - 1; i >= 0; i--) {
 				if (users.get(i).getTotalWeeklyAll() == 0) {
@@ -539,11 +540,12 @@ public class TopVoter {
 	 *            the vote site
 	 * @return the hash map
 	 */
+
 	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
-				.convertSet(users1);
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalVotesSite(voteSite) == 0) {
 				users.remove(i);
@@ -564,7 +566,8 @@ public class TopVoter {
 			topVoter.put(user, user.getTotal(voteSite));
 		}
 
-		return (HashMap<User, Integer>) Utils.getInstance().sortByValues(topVoter, false);
+		return (HashMap<User, Integer>) Utils.getInstance().sortByValues(
+				topVoter, false);
 	}
 
 	/**
@@ -574,11 +577,12 @@ public class TopVoter {
 	 *            the vote site
 	 * @return the hash map
 	 */
+
 	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
-				.convertSet(users1);
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalDaily(voteSite) == 0) {
 				users.remove(i);
@@ -610,11 +614,13 @@ public class TopVoter {
 	 *            the vote site
 	 * @return the hash map
 	 */
+
 	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
 			VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(users1);
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(users1);
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalWeekly(voteSite) == 0) {
 				users.remove(i);
@@ -645,11 +651,11 @@ public class TopVoter {
 	 *
 	 * @return the string[]
 	 */
-	@SuppressWarnings("unchecked")
+
 	public String[] topVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(
-				plugin.topVoterWeekly.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterWeekly.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = format
 					.getCommandVoteTopLine()
@@ -701,11 +707,11 @@ public class TopVoter {
 	 *
 	 * @return the string[]
 	 */
-	@SuppressWarnings("unchecked")
+
 	public String[] topVoterWeeklyNoColor() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance().convertSet(
-				plugin.topVoterWeekly.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterWeekly.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%"
 					.replace("%num%", "" + (i + 1))
@@ -721,6 +727,7 @@ public class TopVoter {
 	/**
 	 * Update top voters.
 	 */
+
 	@SuppressWarnings("unchecked")
 	public void updateTopVoters() {
 		plugin.topVoterMonthly.clear();
@@ -729,8 +736,8 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterMonthly.put(user, user.getTotalVotes());
 			}
-			plugin.topVoterMonthly = (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-					plugin.topVoterMonthly, false);
+			plugin.topVoterMonthly = (HashMap<User, Integer>) Utils
+					.getInstance().sortByValues(plugin.topVoterMonthly, false);
 		}
 
 		plugin.topVoterWeekly.clear();
@@ -739,8 +746,8 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
 			}
-			plugin.topVoterWeekly = (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-					plugin.topVoterWeekly, false);
+			plugin.topVoterWeekly = (HashMap<User, Integer>) Utils
+					.getInstance().sortByValues(plugin.topVoterWeekly, false);
 		}
 
 		plugin.topVoterDaily.clear();
@@ -749,8 +756,8 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
 			}
-			plugin.topVoterDaily = (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-					plugin.topVoterDaily, false);
+			plugin.topVoterDaily = (HashMap<User, Integer>) Utils.getInstance()
+					.sortByValues(plugin.topVoterDaily, false);
 		}
 
 		plugin.debug("Updated TopVoter");

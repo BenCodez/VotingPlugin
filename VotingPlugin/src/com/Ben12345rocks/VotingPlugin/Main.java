@@ -108,6 +108,16 @@ public class Main extends JavaPlugin {
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
+	public void checkAdvancedCore() {
+		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
+			plugin.getLogger().info("Found AdvancedCore");
+		} else {
+			plugin.getLogger().severe(
+					"Failed to find AdvancedCore, plugin disabling");
+			Bukkit.getPluginManager().disablePlugin(plugin);
+		}
+	}
+
 	/**
 	 * Check place holder API.
 	 */
@@ -269,6 +279,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+		checkAdvancedCore();
 		setupFiles();
 		registerCommands();
 		registerEvents();

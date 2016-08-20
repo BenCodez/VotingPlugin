@@ -1,17 +1,12 @@
 package com.Ben12345rocks.VotingPlugin.Data;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -221,94 +216,6 @@ public class Data {
 	}
 
 	/**
-	 * Gets the player file.
-	 *
-	 * @param user
-	 *            the user
-	 * @return the player file
-	 */
-	public File getPlayerFile(User user) {
-		String playerName = user.getPlayerName();
-		String uuid = user.getUUID();
-		// plugin.debug(playerName + ":" + uuid);
-		// plugin.debug(plugin.toString());
-		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
-				uuid + ".yml");
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		if (!dFile.exists()) {
-			try {
-				data.save(dFile);
-				setPlayerName(user);
-
-				plugin.debug("Created file: " + uuid + ".yml from player: "
-						+ playerName);
-
-			} catch (IOException e) {
-				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
-
-			}
-		}
-		return dFile;
-
-	}
-
-	/**
-	 * Gets the player names.
-	 *
-	 * @return the player names
-	 */
-	public ArrayList<String> getPlayerNames() {
-		ArrayList<String> files = getFiles();
-		ArrayList<String> names = new ArrayList<String>();
-		if (files != null) {
-			for (String playerFile : files) {
-				String uuid = playerFile.replace(".yml", "");
-				String playerName = Utils.getInstance().getPlayerName(uuid);
-				if (playerName != null) {
-					names.add(playerName);
-				}
-			}
-			Set<String> namesSet = new HashSet<String>(names);
-			names = Utils.getInstance().convert(namesSet);
-			if (names == null) {
-				return null;
-			} else {
-				return names;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Gets the players UUI ds.
-	 *
-	 * @return the players UUI ds
-	 */
-	@SuppressWarnings("unused")
-	public ArrayList<String> getPlayersUUIDs() {
-		ArrayList<String> files = getFiles();
-		if (files != null) {
-			ArrayList<String> uuids = new ArrayList<String>();
-			if (files.size() > 0) {
-				for (String playerFile : files) {
-					String uuid = playerFile.replace(".yml", "");
-					uuids.add(uuid);
-				}
-				if (uuids == null) {
-					return null;
-				} else {
-					return uuids;
-				}
-			}
-		}
-		return null;
-
-	}
-
-	/**
 	 * Gets the reminded.
 	 *
 	 * @param user
@@ -402,6 +309,15 @@ public class Data {
 	 * @return the total
 	 */
 	public int getTotal(User user, String voteSite) {
+		if (user == null) {
+			plugin.debug("user null");
+		}
+		if (voteSite == null) {
+			plugin.debug("site null");
+		}
+		if (getData(user) == null) {
+			plugin.debug("data null");
+		}
 		return getData(user).getInt("Total." + voteSite);
 	}
 
@@ -438,7 +354,8 @@ public class Data {
 	 */
 	public Set<User> getUsers() {
 		Set<User> users = new HashSet<User>();
-		ArrayList<String> players = getPlayerNames();
+		ArrayList<String> players = com.Ben12345rocks.AdvancedCore.Data.Data
+				.getInstance().getPlayerNames();
 		if (players != null) {
 			for (String playerName : players) {
 				User user = new User(playerName);
@@ -462,42 +379,6 @@ public class Data {
 	}
 
 	/**
-	 * Checks for joined before.
-	 *
-	 * @param user
-	 *            the user
-	 * @return true, if successful
-	 */
-	public boolean hasJoinedBefore(User user) {
-		try {
-			return getPlayersUUIDs().contains(user.getUUID());
-		} catch (Exception ex) {
-			return false;
-		}
-	}
-
-	/**
-	 * Save data.
-	 *
-	 * @param user
-	 *            the user
-	 */
-	public void saveData(User user) {
-		File dFile = getPlayerFile(user);
-		String playerName = user.getPlayerName();
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		try {
-			data.save(dFile);
-		} catch (IOException e) {
-			Bukkit.getServer()
-					.getLogger()
-					.severe(ChatColor.RED + "Could not save "
-							+ Utils.getInstance().getUUID(playerName) + ".yml!");
-		}
-
-	}
-
-	/**
 	 * Sets the.
 	 *
 	 * @param user
@@ -509,11 +390,6 @@ public class Data {
 	 */
 	public void set(User user, String path, Object value) {
 		user.setPluginData(path, value);
-		/*
-		 * File dFile = getPlayerFile(user); FileConfiguration data =
-		 * YamlConfiguration.loadConfiguration(dFile); data.set(path, value);
-		 * Files.getInstance().editFile(dFile, data);
-		 */
 	}
 
 	/**
@@ -801,47 +677,6 @@ public class Data {
 	 */
 	public void setTotalWeek(User user, String voteSite, int amount) {
 		set(user, "TotalWeek." + voteSite, amount);
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param user
-	 *            the new up
-	 */
-	public void setup(User user) {
-		if (!plugin.getDataFolder().exists()) {
-			plugin.getDataFolder().mkdir();
-		}
-
-		String uuid = user.getUUID();
-		String playerName = user.getPlayerName();
-		if (playerName == null) {
-			Utils.getInstance().getPlayerName(uuid);
-		}
-
-		if (playerName == null) {
-			return;
-		}
-
-		File dFile = new File(plugin.getDataFolder() + File.separator + "Data",
-				uuid + ".yml");
-		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
-		if (!dFile.exists()) {
-			try {
-				data.save(dFile);
-				setPlayerName(user);
-
-				plugin.debug("Created file: " + uuid + ".yml from player: "
-						+ playerName);
-
-			} catch (IOException e) {
-				plugin.getLogger().severe(
-						ChatColor.RED + "Could not create " + uuid
-								+ ".yml! Name: " + playerName);
-
-			}
-		}
 	}
 
 	/**

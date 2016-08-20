@@ -320,7 +320,6 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	@SuppressWarnings("unchecked")
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -338,7 +337,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterDaily.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -367,7 +366,6 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	@SuppressWarnings("unchecked")
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -385,7 +383,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterMonthly.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -414,7 +412,6 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	@SuppressWarnings("unchecked")
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> topVoters = Utils.getInstance().convertArray(
@@ -432,7 +429,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterWeekly.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -495,9 +492,9 @@ public class Commands {
 	/**
 	 * Update vote today.
 	 */
-	@SuppressWarnings({ "deprecation", "unchecked" })
+	@SuppressWarnings({ "deprecation" })
 	public void updateVoteToday() {
-		ArrayList<User> users = (ArrayList<User>) Utils.getInstance()
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(Data.getInstance().getUsers());
 		plugin.voteToday.clear();
 
@@ -920,7 +917,7 @@ public class Commands {
 
 		ArrayList<VoteSite> voteSites = plugin.voteSites;
 
-		ArrayList<String> voteNames = Data.getInstance().getPlayerNames();
+		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
 
 		msg.add(format.getCommandsVoteTotalAllTitle());
 		int total = 0;
