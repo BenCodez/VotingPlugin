@@ -337,8 +337,8 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterDaily.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterDaily.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
@@ -383,8 +383,8 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterMonthly.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterMonthly.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
@@ -429,8 +429,8 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterWeekly.keySet());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(plugin.topVoterWeekly.keySet());
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
@@ -494,8 +494,8 @@ public class Commands {
 	 */
 	@SuppressWarnings({ "deprecation" })
 	public void updateVoteToday() {
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(Data.getInstance().getUsers());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+				.getInstance().convertSet(Data.getInstance().getUsers());
 		plugin.voteToday.clear();
 
 		if (users != null) {
@@ -840,6 +840,10 @@ public class Commands {
 			msg.add("&cVote Delay: &6" + voteSite.getVoteDelay());
 			msg.add("&cPriority: &6"
 					+ ConfigVoteSites.getInstance().getPriority(voteSiteName));
+			msg.add("&cRewards:");
+			for (String reward : voteSite.getRewards()) {
+				msg.add("&6- " + reward);
+			}
 
 		}
 		msg = Utils.getInstance().colorize(msg);
@@ -917,7 +921,8 @@ public class Commands {
 
 		ArrayList<VoteSite> voteSites = plugin.voteSites;
 
-		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
+		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data
+				.getInstance().getPlayerNames();
 
 		msg.add(format.getCommandsVoteTotalAllTitle());
 		int total = 0;
