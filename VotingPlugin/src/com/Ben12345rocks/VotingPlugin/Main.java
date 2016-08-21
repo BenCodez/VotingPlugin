@@ -13,6 +13,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
@@ -177,6 +178,14 @@ public class Main extends JavaPlugin {
 	public void debug(String message) {
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Debug: " + message);
+			if (config.getDebugInfoIngame()) {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player.hasPermission("VotingPlugin.Admin.Debug")) {
+						player.sendMessage(Utils.getInstance().colorize(
+								"&cVP Debug: " + message));
+					}
+				}
+			}
 		}
 	}
 

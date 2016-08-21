@@ -134,6 +134,8 @@ permissions:
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
+  VotingPlugin.Admin.Debug:
+    description: Permission to view debug info ingame
   VotingPlugin.Signs.Create:
     description: Allows access to create signs
   VotingPlugin.TopVoter.Ignore:
