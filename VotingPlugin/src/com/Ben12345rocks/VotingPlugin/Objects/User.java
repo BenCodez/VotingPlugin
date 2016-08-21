@@ -129,6 +129,10 @@ public class User {
 		setPoints(getPoints() + 1);
 	}
 
+	public void addPoints(int value) {
+		setPoints(getPoints() + value);
+	}
+
 	/**
 	 * Adds the total.
 	 *
