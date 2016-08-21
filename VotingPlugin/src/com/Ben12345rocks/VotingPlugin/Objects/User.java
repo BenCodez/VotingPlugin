@@ -109,6 +109,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setPoints(getPoints() + 1);
 	}
 
+	public void addPoints(int value) {
+		setPoints(getPoints() + value);
+	}
+
 	/**
 	 * Adds the total.
 	 *
