@@ -4,7 +4,7 @@ main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
-depend: [AdvancedCore]
+softdepend: [AdvancedCore]
 commands:
   vote:
     description: Vote command
