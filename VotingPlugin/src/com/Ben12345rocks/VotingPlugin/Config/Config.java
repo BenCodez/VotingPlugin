@@ -114,6 +114,10 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
+	public boolean getDebugInfoIngame() {
+		return getData().getBoolean("DebugInfoIngame");
+	}
+
 	/**
 	 * Gets the rewards.
 	 *
@@ -166,10 +170,6 @@ public class Config {
 		FilesManager.getInstance().editFile(dFile, data);
 	}
 
-	public boolean getDebugInfoIngame() {
-		return getData().getBoolean("DebugInfoIngame");
-	}
-
 	/**
 	 * Sets the allow un joined.
 	 *
@@ -200,6 +200,11 @@ public class Config {
 	 */
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
+		saveData();
+	}
+	
+	public void setDebugInfoIngame(boolean value) {
+		getData().set("DebugInfoIngame", value);
 		saveData();
 	}
 
@@ -238,7 +243,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

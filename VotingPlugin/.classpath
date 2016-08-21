@@ -17,6 +17,5 @@
 	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/Votifier.jar"/>
 	<classpathentry kind="lib" path="D:/programming/Liabaries/GAListener.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/AdvancedCore"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/BossShop.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

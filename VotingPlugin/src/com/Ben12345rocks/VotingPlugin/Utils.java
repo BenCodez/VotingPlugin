@@ -42,8 +42,6 @@ public class Utils {
 		Utils.plugin = plugin;
 	}
 
-	
-
 	/**
 	 * Convert set.
 	 *
@@ -63,8 +61,4 @@ public class Utils {
 		return list;
 	}
 
-
-
-
-	
 }
