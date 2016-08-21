@@ -114,6 +114,14 @@ public class VoteParty {
 		sender.sendMessage(Utils.getInstance().convertArray(lines));
 	}
 
+	public int getNeededVotes() {
+		int votesRequired = ConfigOtherRewards.getInstance()
+				.getVotePartyVotesRequired();
+		int votes = getTotalVotes();
+		int neededVotes = votesRequired - votes;
+		return neededVotes;
+	}
+
 	/**
 	 * Gets the offline vote party votes.
 	 *
