@@ -382,30 +382,80 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Sets the reward max money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
 	public void setRewardMaxMoney(CommandSender sender, String reward, int money) {
 		ConfigRewards.getInstance().setMaxMoney(reward, money);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet maxmoney to &c&l" + money + "&c on &c&l" + reward));
 	}
 
+	/**
+	 * Sets the reward message.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param msg
+	 *            the msg
+	 */
 	public void setRewardMessage(CommandSender sender, String reward, String msg) {
 		ConfigRewards.getInstance().setMessagesReward(reward, msg);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet reward message to &c&l" + msg + "&c on &c&l" + reward));
 	}
 
+	/**
+	 * Sets the reward min money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
 	public void setRewardMinMoney(CommandSender sender, String reward, int money) {
 		ConfigRewards.getInstance().setMinMoney(reward, money);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet minmoney to &c&l" + money + "&c on &c&l" + reward));
 	}
 
+	/**
+	 * Sets the reward money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
 	public void setRewardMoney(CommandSender sender, String reward, int money) {
 		ConfigRewards.getInstance().setMoney(reward, money);
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet money to &c&l" + money + "&c on &c&l" + reward));
 	}
 
+	/**
+	 * Sets the reward require permission.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
 	public void setRewardRequirePermission(CommandSender sender, String reward,
 			boolean value) {
 		ConfigRewards.getInstance().setRequirePermission(reward, value);

@@ -20,7 +20,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
 /**
- * The Class Data.
+ * The Class OldData.
  */
 @Deprecated
 public class OldData {
@@ -32,22 +32,22 @@ public class OldData {
 	static Main plugin = Main.plugin;
 
 	/**
-	 * Gets the single instance of Data.
+	 * Gets the single instance of OldData.
 	 *
-	 * @return single instance of Data
+	 * @return single instance of OldData
 	 */
 	public static OldData getInstance() {
 		return instance;
 	}
 
 	/**
-	 * Instantiates a new data.
+	 * Instantiates a new old data.
 	 */
 	private OldData() {
 	}
 
 	/**
-	 * Instantiates a new data.
+	 * Instantiates a new old data.
 	 *
 	 * @param plugin
 	 *            the plugin

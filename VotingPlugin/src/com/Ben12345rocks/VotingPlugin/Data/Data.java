@@ -75,7 +75,7 @@ public class Data {
 	}
 
 	/**
-	 * Convert from old data files to new data files Version 4.2.4 to 4.3
+	 * Convert.
 	 */
 	@SuppressWarnings("deprecation")
 	public void convert() {

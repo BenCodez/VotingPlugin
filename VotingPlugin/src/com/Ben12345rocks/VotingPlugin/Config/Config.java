@@ -114,6 +114,11 @@ public class Config {
 		return getData().getBoolean("Debug");
 	}
 
+	/**
+	 * Gets the debug info ingame.
+	 *
+	 * @return the debug info ingame
+	 */
 	public boolean getDebugInfoIngame() {
 		return getData().getBoolean("DebugInfoIngame");
 	}
@@ -203,11 +208,23 @@ public class Config {
 		saveData();
 	}
 
+	/**
+	 * Sets the debug info ingame.
+	 *
+	 * @param value
+	 *            the new debug info ingame
+	 */
 	public void setDebugInfoIngame(boolean value) {
 		getData().set("DebugInfoIngame", value);
 		saveData();
 	}
 
+	/**
+	 * Sets the rewards.
+	 *
+	 * @param rewards
+	 *            the new rewards
+	 */
 	public void setRewards(ArrayList<String> rewards) {
 		getData().set("Rewards", rewards);
 		saveData();

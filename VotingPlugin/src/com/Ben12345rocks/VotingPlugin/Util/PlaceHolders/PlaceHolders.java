@@ -140,6 +140,11 @@ public class PlaceHolders {
 		return Integer.toString(user.getTotalVotesSite(voteSite));
 	}
 
+	/**
+	 * Vote party votes needed.
+	 *
+	 * @return the string
+	 */
 	public String votePartyVotesNeeded() {
 		return Integer.toString(VoteParty.getInstance().getNeededVotes());
 	}

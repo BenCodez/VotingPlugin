@@ -109,6 +109,9 @@ public class Main extends JavaPlugin {
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
+	/**
+	 * Check advanced core.
+	 */
 	public void checkAdvancedCore() {
 		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
 			plugin.getLogger().info("Found AdvancedCore");

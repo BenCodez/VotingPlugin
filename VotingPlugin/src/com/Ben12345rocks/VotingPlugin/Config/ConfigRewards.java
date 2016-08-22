@@ -982,7 +982,7 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Sets the commands plater.
+	 * Sets the commands player.
 	 *
 	 * @param reward
 	 *            the reward

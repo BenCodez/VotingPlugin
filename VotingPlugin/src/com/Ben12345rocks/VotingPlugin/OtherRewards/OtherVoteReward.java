@@ -148,6 +148,13 @@ public class OtherVoteReward {
 		return false;
 	}
 
+	/**
+	 * Check milestone.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
 	public boolean checkMilestone(User user) {
 		Set<String> votes = ConfigOtherRewards.getInstance()
 				.getMilestoneVotes();
@@ -177,6 +184,15 @@ public class OtherVoteReward {
 		return false;
 	}
 
+	/**
+	 * Check min votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @param votes
+	 *            the votes
+	 * @return true, if successful
+	 */
 	public boolean checkMinVotes(User user, int votes) {
 		if (ConfigOtherRewards.getInstance().getMinVotesEnabled()) {
 			int minVotes = ConfigOtherRewards.getInstance().getMinVotesVotes();
@@ -245,6 +261,16 @@ public class OtherVoteReward {
 		}
 	}
 
+	/**
+	 * Give milestone vote reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
+	 * @param milestone
+	 *            the milestone
+	 */
 	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getMilestoneRewards(milestone)) {
@@ -255,6 +281,14 @@ public class OtherVoteReward {
 		}
 	}
 
+	/**
+	 * Give min votes reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
+	 */
 	public void giveMinVotesReward(User user, boolean online) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getMinVotesRewards()) {

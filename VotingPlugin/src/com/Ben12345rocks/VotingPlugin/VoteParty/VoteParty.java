@@ -114,6 +114,11 @@ public class VoteParty {
 		sender.sendMessage(Utils.getInstance().convertArray(lines));
 	}
 
+	/**
+	 * Gets the needed votes.
+	 *
+	 * @return the needed votes
+	 */
 	public int getNeededVotes() {
 		int votesRequired = ConfigOtherRewards.getInstance()
 				.getVotePartyVotesRequired();

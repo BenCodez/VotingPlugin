@@ -109,6 +109,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setPoints(getPoints() + 1);
 	}
 
+	/**
+	 * Adds the points.
+	 *
+	 * @param value
+	 *            the value
+	 */
 	public void addPoints(int value) {
 		setPoints(getPoints() + value);
 	}
@@ -311,10 +317,22 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return sorted;
 	}
 
+	/**
+	 * Gets the offline milestone votes.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @return the offline milestone votes
+	 */
 	public int getOfflineMilestoneVotes(int votesRequired) {
 		return getPluginData().getInt("OfflineMilestone." + votesRequired);
 	}
 
+	/**
+	 * Gets the offline min votes.
+	 *
+	 * @return the offline min votes
+	 */
 	public int getOfflineMinVotes() {
 		return getPluginData().getInt("OfflineMinVotes");
 	}
@@ -418,6 +436,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	}
 
+	/**
+	 * Gets the total mile stone.
+	 *
+	 * @return the total mile stone
+	 */
 	public int getTotalMileStone() {
 		return getPluginData().getInt("Milestone");
 	}
@@ -928,10 +951,24 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		Data.getInstance().setHasGottenFirstReward(this, value);
 	}
 
+	/**
+	 * Sets the offline milestone votes.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @param value
+	 *            the value
+	 */
 	public void setOfflineMilestoneVotes(int votesRequired, int value) {
 		setPluginData("OfflineMilestone." + votesRequired, value);
 	}
 
+	/**
+	 * Sets the offline min vote.
+	 *
+	 * @param value
+	 *            the new offline min vote
+	 */
 	public void setOfflineMinVote(int value) {
 		setPluginData("OfflineMinVotes", value);
 	}
@@ -1029,6 +1066,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
 	}
 
+	/**
+	 * Sets the total mile stone.
+	 *
+	 * @param value
+	 *            the new total mile stone
+	 */
 	public void setTotalMileStone(int value) {
 		setPluginData("Milestone", value);
 	}

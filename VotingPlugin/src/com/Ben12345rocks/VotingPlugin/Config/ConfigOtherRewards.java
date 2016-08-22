@@ -159,22 +159,22 @@ public class ConfigOtherRewards {
 	}
 
 	/**
-	 * Gets the milestones reward enabled.
+	 * Gets the milestone reward enabled.
 	 *
 	 * @param milestones
 	 *            the milestones
-	 * @return the milestones reward enabled
+	 * @return the milestone reward enabled
 	 */
 	public boolean getMilestoneRewardEnabled(int milestones) {
 		return getData().getBoolean("Milestones." + milestones + ".Enabled");
 	}
 
 	/**
-	 * Gets the cumulative rewards.
+	 * Gets the milestone rewards.
 	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone rewards
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getMilestoneRewards(int milestones) {
@@ -192,9 +192,9 @@ public class ConfigOtherRewards {
 	}
 
 	/**
-	 * Gets the milestones votes.
+	 * Gets the milestone votes.
 	 *
-	 * @return the milestones votes
+	 * @return the milestone votes
 	 */
 	public Set<String> getMilestoneVotes() {
 		try {
@@ -209,16 +209,31 @@ public class ConfigOtherRewards {
 		}
 	}
 
+	/**
+	 * Gets the min votes enabled.
+	 *
+	 * @return the min votes enabled
+	 */
 	public boolean getMinVotesEnabled() {
 		return getData().getBoolean("MinVotes.Enabled");
 	}
 
+	/**
+	 * Gets the min votes rewards.
+	 *
+	 * @return the min votes rewards
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getMinVotesRewards() {
 		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
 				new ArrayList<String>());
 	}
 
+	/**
+	 * Gets the min votes votes.
+	 *
+	 * @return the min votes votes
+	 */
 	public int getMinVotesVotes() {
 		return getData().getInt("MinVotes.Votes");
 	}
@@ -283,6 +298,14 @@ public class ConfigOtherRewards {
 		FilesManager.getInstance().editFile(dFile, data);
 	}
 
+	/**
+	 * Sets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @param rewards
+	 *            the rewards
+	 */
 	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
 		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
 		saveData();
