@@ -129,6 +129,35 @@ public class OtherVoteReward {
 		return false;
 	}
 
+	public boolean checkMilestone(User user) {
+		Set<String> votes = ConfigOtherRewards.getInstance()
+				.getMilestoneVotes();
+		for (String vote : votes) {
+			if (Utils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getMilestoneRewardEnabled(votesRequired)
+							&& ConfigOtherRewards.getInstance()
+									.getCumulativeRewards(votesRequired).size() != 0) {
+
+						int userVotesTotal = user.getTotalMileStone();
+						if (userVotesTotal == votesRequired) {
+							user.setOfflineMilestoneVotes(
+									votesRequired,
+									user.getOfflineMilestoneVotes(votesRequired) + 1);
+							return true;
+
+						}
+					}
+				}
+			} else {
+				plugin.debug("Invalid milestone number: " + vote);
+			}
+		}
+		return false;
+	}
+
 	public boolean checkMinVotes(User user, int votes) {
 		if (ConfigOtherRewards.getInstance().getMinVotesEnabled()) {
 			int minVotes = ConfigOtherRewards.getInstance().getMinVotesVotes();
@@ -202,6 +231,16 @@ public class OtherVoteReward {
 			int cumulative) {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getCumulativeRewards(cumulative)) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
+			}
+		}
+	}
+
+	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMilestoneRewards(milestone)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
 						.giveReward(user, online);

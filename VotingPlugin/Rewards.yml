@@ -37,6 +37,16 @@ VoteParty:
   Rewards:
   - 'ExampleReward'
   
+MileStones:
+  # Number of votes required
+  # Allows multiple milestones
+  # Number be be around ' (E.g. '1')
+  # Can have multiple listed here
+  '20':
+    Enabled: false
+    Rewards:
+    - 'MileStone20'
+
 # Run a reward file if player is under number of votes in a day
 MinVotes:
   Enabled: false

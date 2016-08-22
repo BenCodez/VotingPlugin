@@ -114,6 +114,8 @@ public class VotiferEvent implements Listener {
 						user);
 				boolean cumulativeVotes = OtherVoteReward.getInstance()
 						.checkCumualativeVotes(user);
+				boolean milestone = OtherVoteReward.getInstance()
+						.checkMilestone(user);
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
@@ -166,6 +168,38 @@ public class VotiferEvent implements Listener {
 						}
 
 					}
+
+					if (milestone) {
+						plugin.debug("Cumulative: true");
+						Set<String> list = ConfigOtherRewards.getInstance()
+								.getMilestoneVotes();
+						for (String str : list) {
+							if (Utils.getInstance().isInt(str)) {
+								int votesRequired = Integer.parseInt(str);
+								if (votesRequired != 0) {
+									if (ConfigOtherRewards.getInstance()
+											.getMilestoneRewardEnabled(
+													votesRequired)) {
+										int offlineVote = user
+												.getOfflineMilestoneVotes(votesRequired);
+
+										for (int i = 0; i < offlineVote; i++) {
+											OtherVoteReward.getInstance()
+													.giveMilestoneVoteReward(
+															user, true,
+															votesRequired);
+
+										}
+										if (offlineVote != 0) {
+											user.setOfflineMilestoneVotes(
+													votesRequired, 0);
+										}
+									}
+								}
+							}
+						}
+					}
+
 					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
@@ -190,7 +224,13 @@ public class VotiferEvent implements Listener {
 
 					if (cumulativeVotes) {
 						// cumulative votes are automaticly set offline
-						plugin.debug("Offline number of votes reward set for "
+						plugin.debug("Offline cumulative reward set for "
+								+ playerName);
+					}
+
+					if (milestone) {
+						// milestone votes are automaticly set offline
+						plugin.debug("Offline milestone reward set for "
 								+ playerName);
 					}
 

@@ -130,6 +130,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
+		setTotalMileStone(getTotalMileStone() + 1);
 	}
 
 	/**
@@ -641,6 +642,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
+	public int getTotalMileStone() {
+		return getPluginData().getInt("Milestone");
+	}
+
+	public void setTotalMileStone(int value) {
+		setPluginData("Milestone", value);
+	}
+
 	/**
 	 * Off vote.
 	 */
@@ -719,6 +728,29 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 						if (offlineVote != 0) {
 							Data.getInstance().setCumuatliveVotesOffline(this,
 									votesRequired, 0);
+						}
+					}
+				}
+			}
+		}
+
+		list = ConfigOtherRewards.getInstance().getMilestoneVotes();
+		for (String str : list) {
+			if (Utils.getInstance().isInt(str)) {
+				int votesRequired = Integer.parseInt(str);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getMilestoneRewardEnabled(votesRequired)) {
+						int offlineVote = getOfflineMilestoneVotes(votesRequired);
+
+						for (int i = 0; i < offlineVote; i++) {
+							OtherVoteReward.getInstance()
+									.giveMilestoneVoteReward(this, true,
+											votesRequired);
+
+						}
+						if (offlineVote != 0) {
+							setOfflineMilestoneVotes(votesRequired, 0);
 						}
 					}
 				}
@@ -1022,6 +1054,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		} else {
 			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
+	}
+
+	public int getOfflineMilestoneVotes(int votesRequired) {
+		return getPluginData().getInt("OfflineMilestone." + votesRequired);
+	}
+
+	public void setOfflineMilestoneVotes(int votesRequired, int value) {
+		setPluginData("OfflineMilestone." + votesRequired, value);
 	}
 
 }
