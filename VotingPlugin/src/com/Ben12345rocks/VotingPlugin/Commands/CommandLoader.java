@@ -19,6 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
+import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Report.Report;
@@ -113,6 +114,18 @@ public class CommandLoader {
 							"&cGAL has to be loaded in order to convert"));
 				}
 
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
+				"ConvertData" },
+				"VotingPlugin.Commands.AdminVote.ConvertData",
+				"Convert to new data files") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				Data.getInstance().convert();
+				sender.sendMessage("convert finished");
 			}
 		});
 
