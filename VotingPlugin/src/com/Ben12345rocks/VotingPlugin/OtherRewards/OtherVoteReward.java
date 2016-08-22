@@ -90,19 +90,19 @@ public class OtherVoteReward {
 					if (ConfigOtherRewards.getInstance()
 							.getCumulativeRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-									.getCumulativeRewards(votesRequired).size() != 0) {
+							.getCumulativeRewards(votesRequired).size() != 0) {
 						if (ConfigOtherRewards.getInstance()
 								.getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getTotalVotesToday();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-										.setCumuatliveVotesOffline(
+								.setCumuatliveVotesOffline(
+										user,
+										votesRequired,
+										Data.getInstance()
+										.getCumulativeVotesOffline(
 												user,
-												votesRequired,
-												Data.getInstance()
-														.getCumulativeVotesOffline(
-																user,
-																votesRequired) + 1);
+												votesRequired) + 1);
 								return true;
 							}
 						} else {
@@ -110,13 +110,13 @@ public class OtherVoteReward {
 							int userVotesTotal = user.getTotalVotes();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-										.setCumuatliveVotesOffline(
+								.setCumuatliveVotesOffline(
+										user,
+										votesRequired,
+										Data.getInstance()
+										.getCumulativeVotesOffline(
 												user,
-												votesRequired,
-												Data.getInstance()
-														.getCumulativeVotesOffline(
-																user,
-																votesRequired) + 1);
+												votesRequired) + 1);
 								return true;
 							}
 						}
@@ -125,6 +125,25 @@ public class OtherVoteReward {
 			} else {
 				plugin.debug("Invalid cumulative number: " + vote);
 			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check first vote.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
+	public boolean checkFirstVote(User user) {
+		int userVotesTotal = user.getTotalVotes();
+		if (ConfigOtherRewards.getInstance().getFirstVoteRewards().size() != 0) {
+			if (userVotesTotal <= 1 && !user.hasGottenFirstVote()) {
+				user.setHasGottenFirstVote(true);
+				return true;
+			}
+
 		}
 		return false;
 	}
@@ -139,7 +158,7 @@ public class OtherVoteReward {
 					if (ConfigOtherRewards.getInstance()
 							.getMilestoneRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-									.getCumulativeRewards(votesRequired).size() != 0) {
+							.getCumulativeRewards(votesRequired).size() != 0) {
 
 						int userVotesTotal = user.getTotalMileStone();
 						if (userVotesTotal == votesRequired) {
@@ -169,36 +188,6 @@ public class OtherVoteReward {
 		return false;
 	}
 
-	public void giveMinVotesReward(User user, boolean online) {
-		for (String reward : ConfigOtherRewards.getInstance()
-				.getMinVotesRewards()) {
-			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
-			}
-		}
-
-	}
-
-	/**
-	 * Check first vote.
-	 *
-	 * @param user
-	 *            the user
-	 * @return true, if successful
-	 */
-	public boolean checkFirstVote(User user) {
-		int userVotesTotal = user.getTotalVotes();
-		if (ConfigOtherRewards.getInstance().getFirstVoteRewards().size() != 0) {
-			if (userVotesTotal <= 1 && !user.hasGottenFirstVote()) {
-				user.setHasGottenFirstVote(true);
-				return true;
-			}
-
-		}
-		return false;
-	}
-
 	/**
 	 * Give all sites rewards.
 	 *
@@ -212,7 +201,7 @@ public class OtherVoteReward {
 				.getAllSitesReward()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
+				.giveReward(user, online);
 			}
 		}
 	}
@@ -233,17 +222,7 @@ public class OtherVoteReward {
 				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
-			}
-		}
-	}
-
-	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
-		for (String reward : ConfigOtherRewards.getInstance()
-				.getMilestoneRewards(milestone)) {
-			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
+				.giveReward(user, online);
 			}
 		}
 	}
@@ -261,9 +240,30 @@ public class OtherVoteReward {
 				.getFirstVoteRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
+				.giveReward(user, online);
 			}
 		}
+	}
+
+	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMilestoneRewards(milestone)) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
+			}
+		}
+	}
+
+	public void giveMinVotesReward(User user, boolean online) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMinVotesRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
+			}
+		}
+
 	}
 
 }

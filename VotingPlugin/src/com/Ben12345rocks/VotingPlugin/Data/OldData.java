@@ -244,9 +244,9 @@ public class OldData {
 
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create " + uuid
+								+ ".yml! Name: " + playerName);
 
 			}
 		}
@@ -486,9 +486,9 @@ public class OldData {
 			data.save(dFile);
 		} catch (IOException e) {
 			Bukkit.getServer()
-			.getLogger()
-			.severe(ChatColor.RED + "Could not save "
-					+ Utils.getInstance().getUUID(playerName) + ".yml!");
+					.getLogger()
+					.severe(ChatColor.RED + "Could not save "
+							+ Utils.getInstance().getUUID(playerName) + ".yml!");
 		}
 
 	}
@@ -674,7 +674,7 @@ public class OldData {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 *
+	 * 
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -734,7 +734,7 @@ public class OldData {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-						place);
+				place);
 	}
 
 	/**
@@ -749,7 +749,7 @@ public class OldData {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-						place);
+				place);
 	}
 
 	/**
@@ -829,7 +829,7 @@ public class OldData {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create " + uuid
-						+ ".yml! Name: " + playerName);
+								+ ".yml! Name: " + playerName);
 
 			}
 		}

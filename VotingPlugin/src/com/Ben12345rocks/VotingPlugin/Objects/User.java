@@ -82,14 +82,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		super(plugin, uuid, loadName);
 	}
 
-	public void setOfflineMinVote(int value) {
-		setPluginData("OfflineMinVotes", value);
-	}
-
-	public int getOfflineMinVotes() {
-		return getPluginData().getInt("OfflineMinVotes");
-	}
-
 	/**
 	 * Adds the cumulative reward.
 	 *
@@ -141,11 +133,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalDaily(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalDaily(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalDaily(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalDaily(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -156,11 +148,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalWeekly(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalWeek(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalWeek(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalWeek(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalWeek(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -315,8 +307,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
+	}
+
+	public int getOfflineMilestoneVotes(int votesRequired) {
+		return getPluginData().getInt("OfflineMilestone." + votesRequired);
+	}
+
+	public int getOfflineMinVotes() {
+		return getPluginData().getInt("OfflineMinVotes");
 	}
 
 	/**
@@ -418,6 +418,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	}
 
+	public int getTotalMileStone() {
+		return getPluginData().getInt("Milestone");
+	}
+
 	/**
 	 * Gets the total votes.
 	 *
@@ -515,7 +519,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -535,7 +539,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -594,7 +598,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -640,14 +644,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		} else {
 			Data.getInstance().setTopVoterAwardOffline(this, place);
 		}
-	}
-
-	public int getTotalMileStone() {
-		return getPluginData().getInt("Milestone");
-	}
-
-	public void setTotalMileStone(int value) {
-		setPluginData("Milestone", value);
 	}
 
 	/**
@@ -721,8 +717,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 								.getCumulativeVotesOffline(this, votesRequired);
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-									.giveCumulativeVoteReward(this, false,
-											votesRequired);
+							.giveCumulativeVoteReward(this, false,
+									votesRequired);
 
 						}
 						if (offlineVote != 0) {
@@ -745,8 +741,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-									.giveMilestoneVoteReward(this, true,
-											votesRequired);
+							.giveMilestoneVoteReward(this, true,
+									votesRequired);
 
 						}
 						if (offlineVote != 0) {
@@ -827,8 +823,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 									}
 
 									Data.getInstance()
-											.setOfflineVotesSiteWorld(this,
-													reward.name, worldName, 0);
+									.setOfflineVotesSiteWorld(this,
+											reward.name, worldName, 0);
 								}
 							}
 
@@ -904,7 +900,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		for (String reward : Config.getInstance().getRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(this, online);
+				.giveReward(this, online);
 			}
 		}
 	}
@@ -930,6 +926,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void setHasGottenFirstVote(boolean value) {
 		Data.getInstance().setHasGottenFirstReward(this, value);
+	}
+
+	public void setOfflineMilestoneVotes(int votesRequired, int value) {
+		setPluginData("OfflineMilestone." + votesRequired, value);
+	}
+
+	public void setOfflineMinVote(int value) {
+		setPluginData("OfflineMinVotes", value);
 	}
 
 	/**
@@ -1025,6 +1029,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		Data.getInstance().setTotalDaily(this, voteSite.getSiteName(), amount);
 	}
 
+	public void setTotalMileStone(int value) {
+		setPluginData("Milestone", value);
+	}
+
 	/**
 	 * Sets the total weekly.
 	 *
@@ -1054,14 +1062,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		} else {
 			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
-	}
-
-	public int getOfflineMilestoneVotes(int votesRequired) {
-		return getPluginData().getInt("OfflineMilestone." + votesRequired);
-	}
-
-	public void setOfflineMilestoneVotes(int votesRequired, int value) {
-		setPluginData("OfflineMilestone." + votesRequired, value);
 	}
 
 }

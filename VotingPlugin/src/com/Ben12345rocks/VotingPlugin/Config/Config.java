@@ -202,7 +202,7 @@ public class Config {
 		getData().set("Debug", value);
 		saveData();
 	}
-	
+
 	public void setDebugInfoIngame(boolean value) {
 		getData().set("DebugInfoIngame", value);
 		saveData();
@@ -243,7 +243,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

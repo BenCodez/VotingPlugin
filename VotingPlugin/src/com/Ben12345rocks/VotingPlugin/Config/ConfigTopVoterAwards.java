@@ -249,9 +249,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create TopVoterAwards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

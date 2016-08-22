@@ -91,57 +91,6 @@ public class ConfigOtherRewards {
 	 * @return the cumulative rewards
 	 */
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMilestoneRewards(int milestones) {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Milestones." + milestones + ".Rewards");
-			if (list != null) {
-				return list;
-			}
-
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
-	}
-
-	/**
-	 * Gets the milestones votes.
-	 *
-	 * @return the milestones votes
-	 */
-	public Set<String> getMilestoneVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("Milestones")
-					.getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the milestones reward enabled.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestones reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("Milestones." + milestones + ".Enabled");
-	}
-
-	/**
-	 * Gets the cumulative rewards.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
-	 */
-	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(int cumulative) {
 		try {
 			ArrayList<String> list = (ArrayList<String>) getData().getList(
@@ -210,6 +159,71 @@ public class ConfigOtherRewards {
 	}
 
 	/**
+	 * Gets the milestones reward enabled.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestones reward enabled
+	 */
+	public boolean getMilestoneRewardEnabled(int milestones) {
+		return getData().getBoolean("Milestones." + milestones + ".Enabled");
+	}
+
+	/**
+	 * Gets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMilestoneRewards(int milestones) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Milestones." + milestones + ".Rewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	/**
+	 * Gets the milestones votes.
+	 *
+	 * @return the milestones votes
+	 */
+	public Set<String> getMilestoneVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("Milestones")
+					.getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public boolean getMinVotesEnabled() {
+		return getData().getBoolean("MinVotes.Enabled");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMinVotesRewards() {
+		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
+				new ArrayList<String>());
+	}
+
+	public int getMinVotesVotes() {
+		return getData().getInt("MinVotes.Votes");
+	}
+
+	/**
 	 * Gets the vote party enabled.
 	 *
 	 * @return the vote party enabled
@@ -255,20 +269,6 @@ public class ConfigOtherRewards {
 		return getData().getInt("VotesRequired");
 	}
 
-	public boolean getMinVotesEnabled() {
-		return getData().getBoolean("MinVotes.Enabled");
-	}
-
-	public int getMinVotesVotes() {
-		return getData().getInt("MinVotes.Votes");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMinVotesRewards() {
-		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
-				new ArrayList<String>());
-	}
-
 	/**
 	 * Reload data.
 	 */
@@ -307,8 +307,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create Rewards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 
