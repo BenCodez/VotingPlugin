@@ -36,3 +36,10 @@ VoteParty:
   GiveAllPlayers: false
   Rewards:
   - 'ExampleReward'
+  
+# Run a reward file if player is under number of votes in a day
+MinVotes:
+  Enabled: false
+  Votes: 5
+  Rewards:
+  - 'MinVotes'

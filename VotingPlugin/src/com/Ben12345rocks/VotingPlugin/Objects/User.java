@@ -82,6 +82,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		super(plugin, uuid, loadName);
 	}
 
+	public void setOfflineMinVote(int value) {
+		setPluginData("OfflineMinVotes", value);
+	}
+
+	public int getOfflineMinVotes() {
+		return getPluginData().getInt("OfflineMinVotes");
+	}
+
 	/**
 	 * Adds the cumulative reward.
 	 *
@@ -132,11 +140,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-		.setTotalDaily(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalDaily(this,
-						voteSite.getSiteName()) + 1);
+				.setTotalDaily(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalDaily(this,
+								voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -147,11 +155,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalWeekly(VoteSite voteSite) {
 		Data.getInstance()
-		.setTotalWeek(
-				this,
-				voteSite.getSiteName(),
-				Data.getInstance().getTotalWeek(this,
-						voteSite.getSiteName()) + 1);
+				.setTotalWeek(
+						this,
+						voteSite.getSiteName(),
+						Data.getInstance().getTotalWeek(this,
+								voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -306,7 +314,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-						.toMap(Map.Entry::getKey, Map.Entry::getValue));
+								.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -506,7 +514,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -526,7 +534,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -585,7 +593,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-					.replace("%place%", "" + place)));
+							.replace("%place%", "" + place)));
 		}
 	}
 
@@ -680,10 +688,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
 		}
 
+		for (int i = 0; i < getOfflineMinVotes(); i++) {
+			OtherVoteReward.getInstance().giveMinVotesReward(this, false);
+		}
+
 		for (Reward reward : plugin.rewards) {
 			int offVotes = Data.getInstance().getOfflineReward(this, reward);
 			for (int i = 0; i < offVotes; i++) {
-				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+				giveReward(reward, false);
 			}
 			Data.getInstance().setOfflineReward(this, reward, 0);
 		}
@@ -700,8 +712,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 								.getCumulativeVotesOffline(this, votesRequired);
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-							.giveCumulativeVoteReward(this, false,
-									votesRequired);
+									.giveCumulativeVoteReward(this, false,
+											votesRequired);
 
 						}
 						if (offlineVote != 0) {
@@ -715,6 +727,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 		Data.getInstance().setFirstVoteOffline(this, 0);
 		Data.getInstance().setAllSitesOffline(this, 0);
+		setOfflineMinVote(0);
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {
@@ -782,8 +795,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 									}
 
 									Data.getInstance()
-									.setOfflineVotesSiteWorld(this,
-											reward.name, worldName, 0);
+											.setOfflineVotesSiteWorld(this,
+													reward.name, worldName, 0);
 								}
 							}
 
@@ -859,7 +872,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		for (String reward : Config.getInstance().getRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(this, online);
+						.giveReward(this, online);
 			}
 		}
 	}

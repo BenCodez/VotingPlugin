@@ -22,6 +22,7 @@ import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -120,6 +121,19 @@ public class TopVoter {
 
 		if (hasDayChanged()) {
 			plugin.getLogger().info("Day changed!");
+			for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+				User user = entry.getKey();
+				int votes = entry.getValue();
+				if (OtherVoteReward.getInstance().checkMinVotes(user, votes)) {
+					if (user.isOnline()) {
+						OtherVoteReward.getInstance().giveMinVotesReward(user,
+								true);
+					} else {
+						user.setOfflineMinVote(user.getOfflineMinVotes() + 1);
+					}
+				}
+
+			}
 			TopVoters.getInstance().storeDailyTopVoters(
 					new Date().getYear() + 1900, new Date().getMonth(),
 					new Date().getDate(), topVoterDailyNoColor());
@@ -128,6 +142,7 @@ public class TopVoter {
 						.getDailyPossibleRewardPlaces();
 				int i = 0;
 				for (User user : plugin.topVoterDaily.keySet()) {
+
 					OfflinePlayer player = Bukkit.getOfflinePlayer(user
 							.getPlayerName());
 					if (!player.getPlayer().hasPermission(

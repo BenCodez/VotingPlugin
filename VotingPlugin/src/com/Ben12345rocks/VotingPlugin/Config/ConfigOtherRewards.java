@@ -204,6 +204,20 @@ public class ConfigOtherRewards {
 		return getData().getInt("VotesRequired");
 	}
 
+	public boolean getMinVotesEnabled() {
+		return getData().getBoolean("MinVotes.Enabled");
+	}
+
+	public int getMinVotesVotes() {
+		return getData().getInt("MinVotes.Votes");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMinVotesRewards() {
+		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
+				new ArrayList<String>());
+	}
+
 	/**
 	 * Reload data.
 	 */

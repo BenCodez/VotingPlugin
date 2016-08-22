@@ -90,19 +90,19 @@ public class OtherVoteReward {
 					if (ConfigOtherRewards.getInstance()
 							.getCumulativeRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-							.getCumulativeRewards(votesRequired).size() != 0) {
+									.getCumulativeRewards(votesRequired).size() != 0) {
 						if (ConfigOtherRewards.getInstance()
 								.getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getTotalVotesToday();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-								.setCumuatliveVotesOffline(
-										user,
-										votesRequired,
-										Data.getInstance()
-										.getCumulativeVotesOffline(
+										.setCumuatliveVotesOffline(
 												user,
-												votesRequired) + 1);
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
 								return true;
 							}
 						} else {
@@ -110,13 +110,13 @@ public class OtherVoteReward {
 							int userVotesTotal = user.getTotalVotes();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-								.setCumuatliveVotesOffline(
-										user,
-										votesRequired,
-										Data.getInstance()
-										.getCumulativeVotesOffline(
+										.setCumuatliveVotesOffline(
 												user,
-												votesRequired) + 1);
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
 								return true;
 							}
 						}
@@ -127,6 +127,28 @@ public class OtherVoteReward {
 			}
 		}
 		return false;
+	}
+
+	public boolean checkMinVotes(User user, int votes) {
+		if (ConfigOtherRewards.getInstance().getMinVotesEnabled()) {
+			int minVotes = ConfigOtherRewards.getInstance().getMinVotesVotes();
+			if (minVotes > votes) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public void giveMinVotesReward(User user, boolean online) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMinVotesRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+						.giveReward(user, online);
+			}
+		}
+
 	}
 
 	/**
@@ -161,7 +183,7 @@ public class OtherVoteReward {
 				.getAllSitesReward()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -182,7 +204,7 @@ public class OtherVoteReward {
 				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -200,7 +222,7 @@ public class OtherVoteReward {
 				.getFirstVoteRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
