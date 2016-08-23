@@ -5,12 +5,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 
-import net.milkbowl.vault.economy.Economy;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
@@ -72,9 +69,6 @@ public class Main extends JavaPlugin {
 
 	/** The plugin. */
 	public static Main plugin;
-
-	/** The econ. */
-	public Economy econ = null;
 
 	/** The top voter monthly. */
 	public HashMap<User, Integer> topVoterMonthly;
@@ -297,12 +291,6 @@ public class Main extends JavaPlugin {
 		setupFiles();
 		registerCommands();
 		registerEvents();
-		if (setupEconomy()) {
-			plugin.debug("Succesfully hooked into vault");
-		} else {
-			plugin.getLogger()
-					.info("Failed to load vault, giving players money directy will not work");
-		}
 		checkVotifier();
 		metrics();
 
@@ -392,24 +380,6 @@ public class Main extends JavaPlugin {
 		loadRewards();
 		ServerData.getInstance().reloadData();
 		plugin.update();
-	}
-
-	/**
-	 * Setup economy.
-	 *
-	 * @return true, if successful
-	 */
-	private boolean setupEconomy() {
-		if (getServer().getPluginManager().getPlugin("Vault") == null) {
-			return false;
-		}
-		RegisteredServiceProvider<Economy> rsp = getServer()
-				.getServicesManager().getRegistration(Economy.class);
-		if (rsp == null) {
-			return false;
-		}
-		econ = rsp.getProvider();
-		return econ != null;
 	}
 
 	/**
