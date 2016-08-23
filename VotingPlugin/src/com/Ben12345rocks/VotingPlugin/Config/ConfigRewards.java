@@ -714,6 +714,12 @@ public class ConfigRewards {
 		return dFile;
 
 	}
+	
+	public boolean isRewardValid(String reward) {
+		File dFile = new File(plugin.getDataFolder() + File.separator
+				+ "Rewards", reward + ".yml");
+		return dFile.exists();
+	}
 
 	/**
 	 * Gets the reward files.

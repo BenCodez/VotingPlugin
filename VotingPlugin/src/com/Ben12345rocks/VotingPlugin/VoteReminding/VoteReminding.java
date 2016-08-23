@@ -108,8 +108,7 @@ public class VoteReminding {
 			user.setReminded(true);
 			for (String reward : ConfigVoteReminding.getInstance().getRewards()) {
 				if (!reward.equalsIgnoreCase("")) {
-					if (!ConfigRewards.getInstance().getRewardFile(reward)
-							.exists()) {
+					if (!ConfigRewards.getInstance().isRewardValid(reward)) {
 						ConfigRewards.getInstance().setMessagesReward(reward,
 								"&cRemember to vote");
 					}
