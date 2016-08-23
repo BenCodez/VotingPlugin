@@ -161,17 +161,20 @@ public class OtherVoteReward {
 		for (String vote : votes) {
 			if (Utils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
+				plugin.debug("Is int");
 				if (votesRequired != 0) {
+					plugin.debug("not 0");
 					if (ConfigOtherRewards.getInstance()
 							.getMilestoneRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-							.getCumulativeRewards(votesRequired).size() != 0) {
+							.getMilestoneRewards(votesRequired).size() != 0) {
 
 						int userVotesTotal = user.getTotalMileStone();
-						if (userVotesTotal == votesRequired) {
+						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							user.setOfflineMilestoneVotes(
 									votesRequired,
 									user.getOfflineMilestoneVotes(votesRequired) + 1);
+							user.setHasGotteMilestone(votesRequired, true);
 							return true;
 
 						}

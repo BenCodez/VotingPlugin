@@ -166,7 +166,7 @@ public class ConfigOtherRewards {
 	 * @return the milestone reward enabled
 	 */
 	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("Milestones." + milestones + ".Enabled");
+		return getData().getBoolean("MileStones." + milestones + ".Enabled");
 	}
 
 	/**
@@ -180,7 +180,7 @@ public class ConfigOtherRewards {
 	public ArrayList<String> getMilestoneRewards(int milestones) {
 		try {
 			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Milestones." + milestones + ".Rewards");
+					"MileStones." + milestones + ".Rewards");
 			if (list != null) {
 				return list;
 			}
@@ -198,7 +198,7 @@ public class ConfigOtherRewards {
 	 */
 	public Set<String> getMilestoneVotes() {
 		try {
-			Set<String> set = getData().getConfigurationSection("Milestones")
+			Set<String> set = getData().getConfigurationSection("MileStones")
 					.getKeys(false);
 			if (set != null) {
 				return set;

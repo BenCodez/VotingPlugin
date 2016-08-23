@@ -170,7 +170,7 @@ public class VotiferEvent implements Listener {
 					}
 
 					if (milestone) {
-						plugin.debug("Cumulative: true");
+						plugin.debug("Milestone: true");
 						Set<String> list = ConfigOtherRewards.getInstance()
 								.getMilestoneVotes();
 						for (String str : list) {
