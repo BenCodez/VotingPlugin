@@ -10,8 +10,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -115,6 +115,15 @@ public class Config {
 	}
 
 	/**
+	 * Gets the debug info ingame.
+	 *
+	 * @return the debug info ingame
+	 */
+	public boolean getDebugInfoIngame() {
+		return getData().getBoolean("DebugInfoIngame");
+	}
+
+	/**
 	 * Gets the rewards.
 	 *
 	 * @return the rewards
@@ -163,7 +172,7 @@ public class Config {
 	 * Save data.
 	 */
 	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -196,6 +205,28 @@ public class Config {
 	 */
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
+		saveData();
+	}
+
+	/**
+	 * Sets the debug info ingame.
+	 *
+	 * @param value
+	 *            the new debug info ingame
+	 */
+	public void setDebugInfoIngame(boolean value) {
+		getData().set("DebugInfoIngame", value);
+		saveData();
+	}
+
+	/**
+	 * Sets the rewards.
+	 *
+	 * @param rewards
+	 *            the new rewards
+	 */
+	public void setRewards(ArrayList<String> rewards) {
+		getData().set("Rewards", rewards);
 		saveData();
 	}
 
@@ -234,11 +265,6 @@ public class Config {
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setRewards(ArrayList<String> rewards) {
-		getData().set("Rewards", rewards);
-		saveData();
 	}
 
 }

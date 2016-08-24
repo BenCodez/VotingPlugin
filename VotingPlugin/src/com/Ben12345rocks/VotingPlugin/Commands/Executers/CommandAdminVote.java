@@ -10,8 +10,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -22,11 +24,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Util.Updater.Updater;
 import com.vexsoftware.votifier.model.Vote;
 
 // TODO: Auto-generated Javadoc
@@ -91,23 +91,23 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-							+ "&c!"));
+					+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &cis up to date! Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &cis up to date! Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-							+ " &chas an update available! Your Version: &c&l"
-							+ plugin.getDescription().getVersion()
-							+ " &cNew Version: &c&l"
-							+ plugin.updater.getVersion()));
+					+ " &chas an update available! Your Version: &c&l"
+					+ plugin.getDescription().getVersion()
+					+ " &cNew Version: &c&l"
+					+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
@@ -189,7 +189,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -383,6 +383,88 @@ public class CommandAdminVote implements CommandExecutor {
 	}
 
 	/**
+	 * Sets the reward max money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
+	public void setRewardMaxMoney(CommandSender sender, String reward, int money) {
+		ConfigRewards.getInstance().setMaxMoney(reward, money);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet maxmoney to &c&l" + money + "&c on &c&l" + reward));
+	}
+
+	/**
+	 * Sets the reward message.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param msg
+	 *            the msg
+	 */
+	public void setRewardMessage(CommandSender sender, String reward, String msg) {
+		ConfigRewards.getInstance().setMessagesReward(reward, msg);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet reward message to &c&l" + msg + "&c on &c&l" + reward));
+	}
+
+	/**
+	 * Sets the reward min money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
+	public void setRewardMinMoney(CommandSender sender, String reward, int money) {
+		ConfigRewards.getInstance().setMinMoney(reward, money);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet minmoney to &c&l" + money + "&c on &c&l" + reward));
+	}
+
+	/**
+	 * Sets the reward money.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param money
+	 *            the money
+	 */
+	public void setRewardMoney(CommandSender sender, String reward, int money) {
+		ConfigRewards.getInstance().setMoney(reward, money);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet money to &c&l" + money + "&c on &c&l" + reward));
+	}
+
+	/**
+	 * Sets the reward require permission.
+	 *
+	 * @param sender
+	 *            the sender
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
+	public void setRewardRequirePermission(CommandSender sender, String reward,
+			boolean value) {
+		ConfigRewards.getInstance().setRequirePermission(reward, value);
+		sender.sendMessage(Utils.getInstance().colorize(
+				"&cSet require permission to &c&l" + value + "&c on &c&l"
+						+ reward));
+	}
+
+	/**
 	 * Sets the server data prev month.
 	 *
 	 * @param sender
@@ -512,38 +594,6 @@ public class CommandAdminVote implements CommandExecutor {
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 
-	}
-
-	public void setRewardMoney(CommandSender sender, String reward, int money) {
-		ConfigRewards.getInstance().setMoney(reward, money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet money to &c&l" + money + "&c on &c&l" + reward));
-	}
-
-	public void setRewardMinMoney(CommandSender sender, String reward, int money) {
-		ConfigRewards.getInstance().setMinMoney(reward, money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet minmoney to &c&l" + money + "&c on &c&l" + reward));
-	}
-
-	public void setRewardMaxMoney(CommandSender sender, String reward, int money) {
-		ConfigRewards.getInstance().setMaxMoney(reward, money);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet maxmoney to &c&l" + money + "&c on &c&l" + reward));
-	}
-
-	public void setRewardMessage(CommandSender sender, String reward, String msg) {
-		ConfigRewards.getInstance().setMessagesReward(reward, msg);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet reward message to &c&l" + msg + "&c on &c&l" + reward));
-	}
-
-	public void setRewardRequirePermission(CommandSender sender, String reward,
-			boolean value) {
-		ConfigRewards.getInstance().setRequirePermission(reward, value);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet require permission to &c&l" + value + "&c on &c&l"
-						+ reward));
 	}
 
 	/**

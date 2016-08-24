@@ -3,8 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Converter;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
@@ -15,7 +15,7 @@ import com.swifteh.GAL.VoteType;
 
 // TODO: Auto-generated Javadoc
 /**
- * The Class Utils.
+ * The Class GALConverter.
  */
 public class GALConverter {
 
@@ -25,25 +25,26 @@ public class GALConverter {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	private GAL galPlug = GAL.p;
-
 	/**
-	 * Gets the single instance of Utils.
+	 * Gets the single instance of GALConverter.
 	 *
-	 * @return single instance of Utils
+	 * @return single instance of GALConverter
 	 */
 	public static GALConverter getInstance() {
 		return instance;
 	}
 
+	/** The gal plug. */
+	private GAL galPlug = GAL.p;
+
 	/**
-	 * Instantiates a new utils.
+	 * Instantiates a new GAL converter.
 	 */
 	private GALConverter() {
 	}
 
 	/**
-	 * Instantiates a new utils.
+	 * Instantiates a new GAL converter.
 	 *
 	 * @param plugin
 	 *            the plugin
@@ -52,11 +53,17 @@ public class GALConverter {
 		GALConverter.plugin = plugin;
 	}
 
+	/**
+	 * Convert.
+	 */
 	public void convert() {
 		create();
 		plugin.reload();
 	}
 
+	/**
+	 * Creates the.
+	 */
 	public void create() {
 		for (Entry<VoteType, GALVote> entry : galPlug.galVote.entries()) {
 			GALVote vote = entry.getValue();
@@ -89,7 +96,7 @@ public class GALConverter {
 				ConfigRewards.getInstance().setMessagesReward(service,
 						rewardMessage);
 				ConfigRewards.getInstance().setCommandsConsole(service,
-						(ArrayList<String>) commands);
+						commands);
 			} else if (entry.getKey().equals(VoteType.CUMULATIVE)) {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
@@ -104,7 +111,7 @@ public class GALConverter {
 					ConfigRewards.getInstance().setMessagesReward(
 							"cumulative" + key, rewardMessage);
 					ConfigRewards.getInstance().setCommandsConsole(
-							"cumulative" + key, (ArrayList<String>) commands);
+							"cumulative" + key, commands);
 				}
 			} else if (entry.getKey().equals(VoteType.LUCKY)) {
 				String key = vote.key;
@@ -122,7 +129,7 @@ public class GALConverter {
 					ConfigRewards.getInstance().setChance("lucky" + key,
 							Integer.parseInt(key));
 					ConfigRewards.getInstance().setCommandsConsole(
-							"lucky" + key, (ArrayList<String>) commands);
+							"lucky" + key, commands);
 				}
 			} else if (entry.getKey().equals(VoteType.PERMISSION)) {
 				String key = vote.key;
@@ -139,11 +146,18 @@ public class GALConverter {
 				ConfigRewards.getInstance().setRequirePermission("perm" + key,
 						true);
 				ConfigRewards.getInstance().setCommandsConsole("perm" + key,
-						(ArrayList<String>) commands);
+						commands);
 			}
 		}
 	}
 
+	/**
+	 * Format player.
+	 *
+	 * @param format
+	 *            the format
+	 * @return the string
+	 */
 	public String formatPlayer(String format) {
 		return format.replace("{username}", "%player%")
 				.replace("{player}", "%player%").replace("{name}", "%player%");

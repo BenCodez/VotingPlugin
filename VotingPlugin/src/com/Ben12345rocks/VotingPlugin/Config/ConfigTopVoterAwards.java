@@ -13,8 +13,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -227,7 +227,7 @@ public class ConfigTopVoterAwards {
 	 * Save data.
 	 */
 	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -249,9 +249,9 @@ public class ConfigTopVoterAwards {
 				plugin.saveResource("TopVoterAwards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED
-						+ "Could not create TopVoterAwards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED
+								+ "Could not create TopVoterAwards.yml!");
 			}
 		}
 

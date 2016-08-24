@@ -5,14 +5,16 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 
-import net.milkbowl.vault.economy.Economy;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
+import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -34,18 +36,13 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
-import com.Ben12345rocks.VotingPlugin.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
-import com.Ben12345rocks.VotingPlugin.Util.Metrics.Metrics;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
-import com.Ben12345rocks.VotingPlugin.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -72,9 +69,6 @@ public class Main extends JavaPlugin {
 
 	/** The plugin. */
 	public static Main plugin;
-
-	/** The econ. */
-	public Economy econ = null;
 
 	/** The top voter monthly. */
 	public HashMap<User, Integer> topVoterMonthly;
@@ -110,6 +104,21 @@ public class Main extends JavaPlugin {
 	public ArrayList<SignHandler> signs;
 
 	/**
+	 * Check advanced core.
+	 */
+	public void checkAdvancedCore() {
+		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
+			plugin.getLogger().info("Found AdvancedCore");
+		} else {
+			plugin.getLogger().severe(
+					"Failed to find AdvancedCore, plugin disabling");
+			plugin.getLogger()
+					.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
+			Bukkit.getPluginManager().disablePlugin(plugin);
+		}
+	}
+
+	/**
 	 * Check place holder API.
 	 */
 	public void checkPlaceHolderAPI() {
@@ -125,7 +134,7 @@ public class Main extends JavaPlugin {
 	/**
 	 * Check votifier.
 	 */
-	private void checkVotifier() {
+	public void checkVotifier() {
 		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
 			plugin.debug("Votifier not found, votes may not work");
 		}
@@ -140,6 +149,14 @@ public class Main extends JavaPlugin {
 	public void debug(String message) {
 		if (config.getDebugEnabled()) {
 			plugin.getLogger().info("Debug: " + message);
+			if (config.getDebugInfoIngame()) {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					if (player.hasPermission("VotingPlugin.Admin.Debug")) {
+						player.sendMessage(Utils.getInstance().colorize(
+								"&cVP Debug: " + message));
+					}
+				}
+			}
 		}
 	}
 
@@ -184,6 +201,34 @@ public class Main extends JavaPlugin {
 		} else {
 			return null;
 		}
+	}
+
+	/**
+	 * Gets the vote site name.
+	 *
+	 * @param url
+	 *            the url
+	 * @return the vote site name
+	 */
+	public String getVoteSiteName(String url) {
+		ArrayList<String> sites = ConfigVoteSites.getInstance()
+				.getVoteSitesNames();
+		if (url == null) {
+			return null;
+		}
+		if (sites != null) {
+			for (String siteName : sites) {
+				String URL = ConfigVoteSites.getInstance().getServiceSite(
+						siteName);
+				if (URL != null) {
+					if (URL.equals(url)) {
+						return siteName;
+					}
+				}
+			}
+		}
+		return url;
+
 	}
 
 	/**
@@ -242,16 +287,10 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		Files.getInstance().loadFileEditngThread();
+		checkAdvancedCore();
 		setupFiles();
 		registerCommands();
 		registerEvents();
-		if (setupEconomy()) {
-			plugin.debug("Succesfully hooked into vault");
-		} else {
-			plugin.getLogger()
-					.info("Failed to load vault, giving players money directy will not work");
-		}
 		checkVotifier();
 		metrics();
 
@@ -341,24 +380,6 @@ public class Main extends JavaPlugin {
 		loadRewards();
 		ServerData.getInstance().reloadData();
 		plugin.update();
-	}
-
-	/**
-	 * Setup economy.
-	 *
-	 * @return true, if successful
-	 */
-	private boolean setupEconomy() {
-		if (getServer().getPluginManager().getPlugin("Vault") == null) {
-			return false;
-		}
-		RegisteredServiceProvider<Economy> rsp = getServer()
-				.getServicesManager().getRegistration(Economy.class);
-		if (rsp == null) {
-			return false;
-		}
-		econ = rsp.getProvider();
-		return econ != null;
 	}
 
 	/**

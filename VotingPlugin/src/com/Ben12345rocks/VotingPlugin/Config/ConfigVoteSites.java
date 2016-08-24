@@ -10,10 +10,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -61,7 +61,7 @@ public class ConfigVoteSites {
 	public void generateVoteSite(String siteName) {
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
-						+ " doe not exist, generaterating one...");
+				+ " doe not exist, generaterating one...");
 		setEnabled(siteName, false);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
@@ -70,9 +70,9 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger()
-				.info("Created file VoteSites/"
-						+ siteName
-						+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
+		.info("Created file VoteSites/"
+				+ siteName
+				+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
 	}
 
 	/**
@@ -372,7 +372,7 @@ public class ConfigVoteSites {
 		File dFile = getVoteSiteFile(siteName);
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		data.set(path, value);
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -500,12 +500,12 @@ public class ConfigVoteSites {
 		if (!isServiceSiteGood(siteName)) {
 			plugin.getLogger().warning(
 					"Issue with ServiceSite in site " + siteName
-							+ ", votes may not work properly");
+					+ ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
 			plugin.getLogger()
-					.warning("Issue with VoteURL in site " + siteName);
+			.warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
 	}

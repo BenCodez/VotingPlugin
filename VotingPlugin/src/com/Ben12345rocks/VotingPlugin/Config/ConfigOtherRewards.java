@@ -12,8 +12,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -159,6 +159,86 @@ public class ConfigOtherRewards {
 	}
 
 	/**
+	 * Gets the milestone reward enabled.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone reward enabled
+	 */
+	public boolean getMilestoneRewardEnabled(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".Enabled");
+	}
+
+	/**
+	 * Gets the milestone rewards.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMilestoneRewards(int milestones) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"MileStones." + milestones + ".Rewards");
+			if (list != null) {
+				return list;
+			}
+
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	/**
+	 * Gets the milestone votes.
+	 *
+	 * @return the milestone votes
+	 */
+	public Set<String> getMilestoneVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("MileStones")
+					.getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the min votes enabled.
+	 *
+	 * @return the min votes enabled
+	 */
+	public boolean getMinVotesEnabled() {
+		return getData().getBoolean("MinVotes.Enabled");
+	}
+
+	/**
+	 * Gets the min votes rewards.
+	 *
+	 * @return the min votes rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMinVotesRewards() {
+		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
+				new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the min votes votes.
+	 *
+	 * @return the min votes votes
+	 */
+	public int getMinVotesVotes() {
+		return getData().getInt("MinVotes.Votes");
+	}
+
+	/**
 	 * Gets the vote party enabled.
 	 *
 	 * @return the vote party enabled
@@ -215,7 +295,20 @@ public class ConfigOtherRewards {
 	 * Save data.
 	 */
 	public void saveData() {
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
+	}
+
+	/**
+	 * Sets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @param rewards
+	 *            the rewards
+	 */
+	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
+		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
+		saveData();
 	}
 
 	/**
@@ -237,17 +330,12 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED + "Could not create Rewards.yml!");
+				.getLogger()
+				.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 
 		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
-		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
-		saveData();
 	}
 
 }

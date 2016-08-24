@@ -4,24 +4,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -31,9 +26,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
-import com.Ben12345rocks.VotingPlugin.Util.Effects.ActionBar;
-import com.Ben12345rocks.VotingPlugin.Util.Effects.BossBar;
-import com.Ben12345rocks.VotingPlugin.Util.Effects.Title;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -41,16 +33,10 @@ import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 /**
  * The Class User.
  */
-public class User {
+public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;
-
-	/** The player name. */
-	private String playerName;
-
-	/** The uuid. */
-	private String uuid;
 
 	/**
 	 * Instantiates a new user.
@@ -59,8 +45,7 @@ public class User {
 	 *            the player
 	 */
 	public User(Player player) {
-		playerName = player.getName();
-		uuid = player.getUniqueId().toString();
+		super(plugin, player);
 	}
 
 	/**
@@ -70,8 +55,7 @@ public class User {
 	 *            the player name
 	 */
 	public User(String playerName) {
-		this.playerName = playerName;
-		uuid = Utils.getInstance().getUUID(playerName);
+		super(plugin, playerName);
 
 	}
 
@@ -82,8 +66,7 @@ public class User {
 	 *            the uuid
 	 */
 	public User(UUID uuid) {
-		this.uuid = uuid.getUUID();
-		playerName = Utils.getInstance().getPlayerName(this.uuid);
+		super(plugin, uuid);
 
 	}
 
@@ -96,10 +79,7 @@ public class User {
 	 *            the load name
 	 */
 	public User(UUID uuid, boolean loadName) {
-		this.uuid = uuid.getUUID();
-		if (loadName) {
-			playerName = Utils.getInstance().getPlayerName(this.uuid);
-		}
+		super(plugin, uuid, loadName);
 	}
 
 	/**
@@ -129,6 +109,12 @@ public class User {
 		setPoints(getPoints() + 1);
 	}
 
+	/**
+	 * Adds the points.
+	 *
+	 * @param value
+	 *            the value
+	 */
 	public void addPoints(int value) {
 		setPoints(getPoints() + value);
 	}
@@ -142,6 +128,7 @@ public class User {
 	public void addTotal(VoteSite voteSite) {
 		User user = this;
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
+		setTotalMileStone(getTotalMileStone() + 1);
 	}
 
 	/**
@@ -285,11 +272,11 @@ public class User {
 	 *            the place
 	 */
 	public void dailyTopVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
+		if (getPlayerName() == null) {
+			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
+		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveDailyTopVoterAward(place);
 		} else {
@@ -331,6 +318,26 @@ public class User {
 	}
 
 	/**
+	 * Gets the offline milestone votes.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @return the offline milestone votes
+	 */
+	public int getOfflineMilestoneVotes(int votesRequired) {
+		return getPluginData().getInt("OfflineMilestone." + votesRequired);
+	}
+
+	/**
+	 * Gets the offline min votes.
+	 *
+	 * @return the offline min votes
+	 */
+	public int getOfflineMinVotes() {
+		return getPluginData().getInt("OfflineMinVotes");
+	}
+
+	/**
 	 * Gets the offline top voter.
 	 *
 	 * @return the offline top voter
@@ -350,25 +357,6 @@ public class User {
 		User user = this;
 		return Data.getInstance().getOfflineVotesSite(user,
 				voteSite.getSiteName());
-	}
-
-	/**
-	 * Gets the player.
-	 *
-	 * @return the player
-	 */
-	public Player getPlayer() {
-		return Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-	}
-
-	/**
-	 * Gets the player name.
-	 *
-	 * @return the player name
-	 */
-	public String getPlayerName() {
-		return playerName;
-
 	}
 
 	/**
@@ -449,6 +437,15 @@ public class User {
 	}
 
 	/**
+	 * Gets the total mile stone.
+	 *
+	 * @return the total mile stone
+	 */
+	public int getTotalMileStone() {
+		return getPluginData().getInt("Milestone");
+	}
+
+	/**
 	 * Gets the total votes.
 	 *
 	 * @return the total votes
@@ -516,15 +513,6 @@ public class User {
 	}
 
 	/**
-	 * Gets the uuid.
-	 *
-	 * @return the uuid
-	 */
-	public String getUUID() {
-		return uuid;
-	}
-
-	/**
 	 * Gets the vote time last.
 	 *
 	 * @return the vote time last
@@ -550,133 +538,11 @@ public class User {
 			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
 					.getInstance().isPlayerOnline(getPlayerName()));
 		}
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
 							.replace("%place%", "" + place)));
-		}
-	}
-
-	/**
-	 * Give exp.
-	 *
-	 * @param exp
-	 *            the exp
-	 */
-	public void giveExp(int exp) {
-		Player player = getPlayer();
-		if (player != null) {
-			player.giveExp(exp);
-		}
-	}
-
-	/**
-	 * Give item.
-	 *
-	 * @param id
-	 *            the id
-	 * @param amount
-	 *            the amount
-	 * @param data
-	 *            the data
-	 * @param itemName
-	 *            the item name
-	 * @param lore
-	 *            the lore
-	 * @param enchants
-	 *            the enchants
-	 */
-	@SuppressWarnings("deprecation")
-	/**
-	 * Give the user an item
-	 * @param id	Item id
-	 * @param amount	Item amount
-	 * @param data		Item data
-	 * @param itemName	Item name
-	 * @param lore		Item lore
-	 * @param enchants	Item enchants
-	 */
-	public void giveItem(int id, int amount, int data, String itemName,
-			List<String> lore, HashMap<String, Integer> enchants) {
-
-		if (amount == 0) {
-			return;
-		}
-
-		String playerName = getPlayerName();
-
-		ItemStack item = new ItemStack(id, amount, (short) data);
-		item = Utils.getInstance().nameItem(item, itemName);
-		item = Utils.getInstance().addLore(item, lore);
-		Player player = Bukkit.getPlayer(playerName);
-		// player.getInventory().addItem(item);
-
-		item = Utils.getInstance().addEnchants(item, enchants);
-
-		HashMap<Integer, ItemStack> excess = player.getInventory()
-				.addItem(item);
-		for (Map.Entry<Integer, ItemStack> me : excess.entrySet()) {
-			Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					player.getWorld().dropItem(player.getLocation(),
-							me.getValue());
-				}
-			});
-		}
-
-		player.updateInventory();
-
-	}
-
-	/**
-	 * Give item.
-	 *
-	 * @param item
-	 *            the item
-	 */
-	public void giveItem(ItemStack item) {
-		if (item.getAmount() == 0) {
-			return;
-		}
-
-		String playerName = getPlayerName();
-
-		Player player = Bukkit.getPlayer(playerName);
-
-		HashMap<Integer, ItemStack> excess = player.getInventory()
-				.addItem(item);
-		for (Map.Entry<Integer, ItemStack> me : excess.entrySet()) {
-			Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					player.getWorld().dropItem(player.getLocation(),
-							me.getValue());
-				}
-			});
-
-		}
-
-		player.updateInventory();
-
-	}
-
-	@SuppressWarnings("deprecation")
-	/**
-	 * Give user money, needs vault installed
-	 * @param money		Amount of money to give
-	 */
-	public void giveMoney(int money) {
-		String playerName = getPlayerName();
-		if (Bukkit.getServer().getPluginManager().getPlugin("Vault") != null) {
-			if (money > 0) {
-				plugin.econ.depositPlayer(playerName, money);
-			} else if (money < 0) {
-				plugin.econ.withdrawPlayer(playerName, money);
-			}
 		}
 	}
 
@@ -692,7 +558,7 @@ public class User {
 			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
 					.getInstance().isPlayerOnline(getPlayerName()));
 		}
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
@@ -711,7 +577,7 @@ public class User {
 	 *            the amplifier
 	 */
 	public void givePotionEffect(String potionName, int duration, int amplifier) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -751,7 +617,7 @@ public class User {
 			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
 					.getInstance().isPlayerOnline(getPlayerName()));
 		}
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
@@ -769,19 +635,10 @@ public class User {
 	}
 
 	/**
-	 * Checks for joined before.
-	 *
-	 * @return true, if successful
-	 */
-	public boolean hasJoinedBefore() {
-		return Data.getInstance().hasJoinedBefore(this);
-	}
-
-	/**
 	 * Load name.
 	 */
 	public void loadName() {
-		playerName = Utils.getInstance().getPlayerName(uuid);
+		setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
 	}
 
 	/**
@@ -800,11 +657,11 @@ public class User {
 	 *            the place
 	 */
 	public void monthlyTopVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
+		if (getPlayerName() == null) {
+			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
+		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveMonthlyTopVoterAward(place);
 		} else {
@@ -859,10 +716,14 @@ public class User {
 			OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
 		}
 
+		for (int i = 0; i < getOfflineMinVotes(); i++) {
+			OtherVoteReward.getInstance().giveMinVotesReward(this, false);
+		}
+
 		for (Reward reward : plugin.rewards) {
 			int offVotes = Data.getInstance().getOfflineReward(this, reward);
 			for (int i = 0; i < offVotes; i++) {
-				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+				giveReward(reward, false);
 			}
 			Data.getInstance().setOfflineReward(this, reward, 0);
 		}
@@ -892,8 +753,32 @@ public class User {
 			}
 		}
 
+		list = ConfigOtherRewards.getInstance().getMilestoneVotes();
+		for (String str : list) {
+			if (Utils.getInstance().isInt(str)) {
+				int votesRequired = Integer.parseInt(str);
+				if (votesRequired != 0) {
+					if (ConfigOtherRewards.getInstance()
+							.getMilestoneRewardEnabled(votesRequired)) {
+						int offlineVote = getOfflineMilestoneVotes(votesRequired);
+
+						for (int i = 0; i < offlineVote; i++) {
+							OtherVoteReward.getInstance()
+									.giveMilestoneVoteReward(this, true,
+											votesRequired);
+
+						}
+						if (offlineVote != 0) {
+							setOfflineMilestoneVotes(votesRequired, 0);
+						}
+					}
+				}
+			}
+		}
+
 		Data.getInstance().setFirstVoteOffline(this, 0);
 		Data.getInstance().setAllSitesOffline(this, 0);
+		setOfflineMinVote(0);
 
 		int place = getOfflineTopVoter();
 		if (place > 0) {
@@ -1004,61 +889,6 @@ public class User {
 	}
 
 	/**
-	 * Play particle effect.
-	 *
-	 * @param effectName
-	 *            the effect name
-	 * @param data
-	 *            the data
-	 * @param particles
-	 *            the particles
-	 * @param radius
-	 *            the radius
-	 */
-	@SuppressWarnings("deprecation")
-	/**
-	 * Send a particle effect to the user
-	 * @param effectName
-	 * @param data
-	 * @param particles
-	 * @param radius
-	 */
-	public synchronized void playParticleEffect(String effectName, int data,
-			int particles, int radius) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if ((player != null) && (effectName != null)) {
-			Effect effect = Effect.valueOf(effectName);
-			player.spigot().playEffect(player.getLocation(), effect,
-					effect.getId(), data, 0f, 0f, 0f, 1f, particles, radius);
-			// player.getWorld().spigot().playEffect(player.getLocation(),
-			// effect);
-		}
-	}
-
-	/**
-	 * Play sound.
-	 *
-	 * @param soundName
-	 *            the sound name
-	 * @param volume
-	 *            the volume
-	 * @param pitch
-	 *            the pitch
-	 */
-	public synchronized void playSound(String soundName, float volume,
-			float pitch) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			Sound sound = Sound.valueOf(soundName);
-			if (sound != null) {
-				player.playSound(player.getLocation(), sound, volume, pitch);
-			} else {
-				plugin.debug("Invalid sound: " + soundName);
-			}
-		}
-	}
-
-	/**
 	 * Reminded.
 	 *
 	 * @return true, if successful
@@ -1081,172 +911,6 @@ public class User {
 			return true;
 		}
 		return false;
-	}
-
-	/**
-	 * Send action bar.
-	 *
-	 * @param msg
-	 *            the msg
-	 * @param delay
-	 *            the delay
-	 */
-	public void sendActionBar(String msg, int delay) {
-		// plugin.debug("attempting to send action bar");
-		if (msg != null && msg != "") {
-			Player player = getPlayer();
-			if (player != null) {
-
-				try {
-					ActionBar actionBar = new ActionBar(msg, delay);
-					actionBar.send(player);
-				} catch (Exception ex) {
-					plugin.getLogger()
-							.info("Failed to send ActionBar, turn debug on to see stack trace");
-					if (Config.getInstance().getDebugEnabled()) {
-						ex.printStackTrace();
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Send boss bar.
-	 *
-	 * @param msg
-	 *            the msg
-	 * @param color
-	 *            the color
-	 * @param style
-	 *            the style
-	 * @param progress
-	 *            the progress
-	 * @param delay
-	 *            the delay
-	 */
-	public void sendBossBar(String msg, String color, String style,
-			double progress, int delay) {
-		// plugin.debug("attempting to send action bar");
-		if (msg != null && msg != "") {
-			Player player = getPlayer();
-			if (player != null) {
-				try {
-					BossBar bossBar = new BossBar(msg, color, style, progress);
-					bossBar.send(player, delay);
-				} catch (Exception ex) {
-					plugin.getLogger()
-							.info("Failed to send BossBar, turn debug on to see stack trace");
-					if (Config.getInstance().getDebugEnabled()) {
-						ex.printStackTrace();
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Send json.
-	 *
-	 * @param messages
-	 *            the messages
-	 */
-	public void sendJson(ArrayList<TextComponent> messages) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if ((player != null) && (messages != null)) {
-			/*
-			 * TextComponent msg = new TextComponent(); TextComponent newLine =
-			 * new TextComponent( ComponentSerializer.parse("{text: \"\n\"}"));
-			 * for (int i = 0; i < messages.size(); i++) {
-			 * msg.addExtra(messages.get(i)); if (i != (messages.size() - 1)) {
-			 * msg.addExtra(newLine); } } player.spigot().sendMessage(msg);
-			 */
-			for (TextComponent txt : messages) {
-				player.spigot().sendMessage(txt);
-			}
-		}
-	}
-
-	/**
-	 * Send json.
-	 *
-	 * @param message
-	 *            the message
-	 */
-	public void sendJson(TextComponent message) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if ((player != null) && (message != null)) {
-			player.spigot().sendMessage(message);
-		}
-	}
-
-	/**
-	 * Send message.
-	 *
-	 * @param msg
-	 *            the msg
-	 */
-	public void sendMessage(String msg) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if ((player != null) && (msg != null)) {
-			if (msg != "") {
-				player.sendMessage(Utils.getInstance().colorize(
-						Utils.getInstance().replacePlaceHolders(player, msg)));
-			}
-		}
-	}
-
-	/**
-	 * Send message.
-	 *
-	 * @param msg
-	 *            the msg
-	 */
-	public void sendMessage(String[] msg) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if ((player != null) && (msg != null)) {
-
-			for (int i = 0; i < msg.length; i++) {
-				msg[i] = Utils.getInstance()
-						.replacePlaceHolders(player, msg[i]);
-			}
-			player.sendMessage(Utils.getInstance().colorize(msg));
-
-		}
-	}
-
-	/**
-	 * Send title.
-	 *
-	 * @param title
-	 *            the title
-	 * @param subTitle
-	 *            the sub title
-	 * @param fadeIn
-	 *            the fade in
-	 * @param showTime
-	 *            the show time
-	 * @param fadeOut
-	 *            the fade out
-	 */
-	public void sendTitle(String title, String subTitle, int fadeIn,
-			int showTime, int fadeOut) {
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(uuid));
-		if (player != null) {
-			// Title.getInstance().sendTitle(player, title, subTitle, fadeIn,
-			// showTime, fadeOut);
-			try {
-				Title titleObject = new Title(title, subTitle, fadeIn,
-						showTime, fadeOut);
-				titleObject.send(player);
-			} catch (Exception ex) {
-				plugin.getLogger()
-						.info("Failed to send Title, turn debug on to see stack trace");
-				if (Config.getInstance().getDebugEnabled()) {
-					ex.printStackTrace();
-				}
-			}
-		}
 	}
 
 	/**
@@ -1288,6 +952,28 @@ public class User {
 	}
 
 	/**
+	 * Sets the offline milestone votes.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @param value
+	 *            the value
+	 */
+	public void setOfflineMilestoneVotes(int votesRequired, int value) {
+		setPluginData("OfflineMilestone." + votesRequired, value);
+	}
+
+	/**
+	 * Sets the offline min vote.
+	 *
+	 * @param value
+	 *            the new offline min vote
+	 */
+	public void setOfflineMinVote(int value) {
+		setPluginData("OfflineMinVotes", value);
+	}
+
+	/**
 	 * Sets the offline top voter.
 	 *
 	 * @param place
@@ -1309,24 +995,6 @@ public class User {
 		User user = this;
 		Data.getInstance().setOfflineVotesSite(user, voteSite.getSiteName(),
 				amount);
-	}
-
-	/**
-	 * Sets the player name.
-	 */
-	public void setPlayerName() {
-		User user = this;
-		Data.getInstance().setPlayerName(user);
-	}
-
-	/**
-	 * Sets the player name.
-	 *
-	 * @param playerName
-	 *            the new player name
-	 */
-	public void setPlayerName(String playerName) {
-		this.playerName = playerName;
 	}
 
 	/**
@@ -1399,6 +1067,16 @@ public class User {
 	}
 
 	/**
+	 * Sets the total mile stone.
+	 *
+	 * @param value
+	 *            the new total mile stone
+	 */
+	public void setTotalMileStone(int value) {
+		setPluginData("Milestone", value);
+	}
+
+	/**
 	 * Sets the total weekly.
 	 *
 	 * @param voteSite
@@ -1411,32 +1089,30 @@ public class User {
 	}
 
 	/**
-	 * Sets the uuid.
-	 *
-	 * @param uuid
-	 *            the new uuid
-	 */
-	public void setUUID(String uuid) {
-		this.uuid = uuid;
-	}
-
-	/**
 	 * Weekly top voter award.
 	 *
 	 * @param place
 	 *            the place
 	 */
 	public void weeklyTopVoterAward(int place) {
-		if (playerName == null) {
-			playerName = Utils.getInstance().getPlayerName(uuid);
+		if (getPlayerName() == null) {
+			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(playerName)) {
+		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveWeeklyTopVoterAward(place);
 		} else {
 			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
+	}
+
+	public boolean hasGottenMilestone(int votesRequired) {
+		return getPluginData().getBoolean("MilestonesGiven." + votesRequired);
+	}
+
+	public void setHasGotteMilestone(int votesRequired, boolean value) {
+		setPluginData("MilestonesGiven." + votesRequired, value);
 	}
 
 }

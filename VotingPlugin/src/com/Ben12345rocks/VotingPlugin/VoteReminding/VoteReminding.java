@@ -3,8 +3,8 @@ package com.Ben12345rocks.VotingPlugin.VoteReminding;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
@@ -108,8 +108,7 @@ public class VoteReminding {
 			user.setReminded(true);
 			for (String reward : ConfigVoteReminding.getInstance().getRewards()) {
 				if (!reward.equalsIgnoreCase("")) {
-					if (!ConfigRewards.getInstance().getRewardFile(reward)
-							.exists()) {
+					if (!ConfigRewards.getInstance().isRewardValid(reward)) {
 						ConfigRewards.getInstance().setMessagesReward(reward,
 								"&cRemember to vote");
 					}

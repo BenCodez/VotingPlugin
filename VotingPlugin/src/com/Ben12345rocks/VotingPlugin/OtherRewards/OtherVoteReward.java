@@ -2,8 +2,8 @@ package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
 import java.util.Set;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -149,6 +149,65 @@ public class OtherVoteReward {
 	}
 
 	/**
+	 * Check milestone.
+	 *
+	 * @param user
+	 *            the user
+	 * @return true, if successful
+	 */
+	public boolean checkMilestone(User user) {
+		Set<String> votes = ConfigOtherRewards.getInstance()
+				.getMilestoneVotes();
+		for (String vote : votes) {
+			if (Utils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				plugin.debug("Is int");
+				if (votesRequired != 0) {
+					plugin.debug("not 0");
+					if (ConfigOtherRewards.getInstance()
+							.getMilestoneRewardEnabled(votesRequired)
+							&& ConfigOtherRewards.getInstance()
+							.getMilestoneRewards(votesRequired).size() != 0) {
+
+						int userVotesTotal = user.getTotalMileStone();
+						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
+							user.setOfflineMilestoneVotes(
+									votesRequired,
+									user.getOfflineMilestoneVotes(votesRequired) + 1);
+							user.setHasGotteMilestone(votesRequired, true);
+							return true;
+
+						}
+					}
+				}
+			} else {
+				plugin.debug("Invalid milestone number: " + vote);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check min votes.
+	 *
+	 * @param user
+	 *            the user
+	 * @param votes
+	 *            the votes
+	 * @return true, if successful
+	 */
+	public boolean checkMinVotes(User user, int votes) {
+		if (ConfigOtherRewards.getInstance().getMinVotesEnabled()) {
+			int minVotes = ConfigOtherRewards.getInstance().getMinVotesVotes();
+			if (minVotes > votes) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Give all sites rewards.
 	 *
 	 * @param user
@@ -203,6 +262,45 @@ public class OtherVoteReward {
 				.giveReward(user, online);
 			}
 		}
+	}
+
+	/**
+	 * Give milestone vote reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
+	 * @param milestone
+	 *            the milestone
+	 */
+	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMilestoneRewards(milestone)) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
+			}
+		}
+	}
+
+	/**
+	 * Give min votes reward.
+	 *
+	 * @param user
+	 *            the user
+	 * @param online
+	 *            the online
+	 */
+	public void giveMinVotesReward(User user, boolean online) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getMinVotesRewards()) {
+			if (reward != "") {
+				ConfigRewards.getInstance().getReward(reward)
+				.giveReward(user, online);
+			}
+		}
+
 	}
 
 }

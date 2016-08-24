@@ -7,6 +7,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -137,6 +138,15 @@ public class PlaceHolders {
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = new User(player);
 		return Integer.toString(user.getTotalVotesSite(voteSite));
+	}
+
+	/**
+	 * Vote party votes needed.
+	 *
+	 * @return the string
+	 */
+	public String votePartyVotesNeeded() {
+		return Integer.toString(VoteParty.getInstance().getNeededVotes());
 	}
 
 }

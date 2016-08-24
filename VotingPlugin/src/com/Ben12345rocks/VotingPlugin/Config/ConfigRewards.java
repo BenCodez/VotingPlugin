@@ -12,12 +12,12 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Util.Files.Files;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -75,6 +75,50 @@ public class ConfigRewards {
 	}
 
 	/**
+	 * Gets the action bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar delay
+	 */
+	public int getActionBarDelay(String reward) {
+		return getData(reward).getInt("ActionBar.Delay");
+	}
+
+	/**
+	 * Gets the action bar message.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the action bar message
+	 */
+	public String getActionBarMessage(String reward) {
+		return getData(reward).getString("ActionBar.Message");
+	}
+
+	/**
+	 * Gets the boss bar color.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar color
+	 */
+	public String getBossBarColor(String reward) {
+		return getData(reward).getString("BossBar.Color");
+	}
+
+	/**
+	 * Gets the boss bar delay.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return the boss bar delay
+	 */
+	public int getBossBarDelay(String reward) {
+		return getData(reward).getInt("BossBar.Delay");
+	}
+
+	/**
 	 * Gets the boss bar enabled.
 	 *
 	 * @param reward
@@ -108,17 +152,6 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Gets the boss bar color.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar color
-	 */
-	public String getBossBarColor(String reward) {
-		return getData(reward).getString("BossBar.Color");
-	}
-
-	/**
 	 * Gets the boss bar style.
 	 *
 	 * @param reward
@@ -127,17 +160,6 @@ public class ConfigRewards {
 	 */
 	public String getBossBarStyle(String reward) {
 		return getData(reward).getString("BossBar.Style");
-	}
-
-	/**
-	 * Gets the boss bar delay.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the boss bar delay
-	 */
-	public int getBossBarDelay(String reward) {
-		return getData(reward).getInt("BossBar.Delay");
 	}
 
 	/**
@@ -496,28 +518,6 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Gets the action bar message.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the action bar message
-	 */
-	public String getActionBarMessage(String reward) {
-		return getData(reward).getString("ActionBar.Message");
-	}
-
-	/**
-	 * Gets the action bar delay.
-	 *
-	 * @param reward
-	 *            the reward
-	 * @return the action bar delay
-	 */
-	public int getActionBarDelay(String reward) {
-		return getData(reward).getInt("ActionBar.Delay");
-	}
-
-	/**
 	 * Gets the messages reward.
 	 *
 	 * @param reward
@@ -707,12 +707,18 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-								+ ".yml!");
+						+ ".yml!");
 
 			}
 		}
 		return dFile;
 
+	}
+	
+	public boolean isRewardValid(String reward) {
+		File dFile = new File(plugin.getDataFolder() + File.separator
+				+ "Rewards", reward + ".yml");
+		return dFile.exists();
 	}
 
 	/**
@@ -954,7 +960,7 @@ public class ConfigRewards {
 		File dFile = getRewardFile(reward);
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		data.set(path, value);
-		Files.getInstance().editFile(dFile, data);
+		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -982,7 +988,7 @@ public class ConfigRewards {
 	}
 
 	/**
-	 * Sets the commands plater.
+	 * Sets the commands player.
 	 *
 	 * @param reward
 	 *            the reward

@@ -1,9 +1,10 @@
 name: VotingPlugin
-version: 4.2.4
+version: 4.3
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
+softdepend: [AdvancedCore]
 commands:
   vote:
     description: Vote command
@@ -79,6 +80,9 @@ commands:
   adminvoterewards:
     description: Command Alias
     aliases: avrewards
+  adminvotereward:
+    description: Command Alias
+    aliases: avreward
   adminvoteuuid:
     description: Command Alias
     aliases: avuuid
@@ -106,9 +110,15 @@ commands:
   adminvoteTriggerPlayerVoteEvent:
     description: Command Alias
     aliases: avTriggerPlayerVoteEvent
-  adminvoteconvert:
+  adminvoteconvertdata:
     description: Command Alias
-    aliases: avconvert
+    aliases: avconvertdata
+  adminvotesetpoints:
+    description: Command Alias
+    aliases: avsetpoints
+  adminvoteaddpoints:
+    description: Command Alias
+    aliases: avaddpoints
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
@@ -130,6 +140,8 @@ permissions:
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
+  VotingPlugin.Admin.Debug:
+    description: Permission to view debug info ingame
   VotingPlugin.Signs.Create:
     description: Allows access to create signs
   VotingPlugin.TopVoter.Ignore:

@@ -9,8 +9,8 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -247,8 +247,9 @@ public class SignHandler {
 			lines.add(line4);
 
 			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = Utils.getInstance().convertSet(
-						plugin.topVoterMonthly.keySet());
+				ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+						.getInstance().convertSet(
+								plugin.topVoterMonthly.keySet());
 
 				if (users.size() >= position) {
 					playerName = users.get(position - 1).getPlayerName();
@@ -278,10 +279,11 @@ public class SignHandler {
 			} else {
 				for (VoteSite voteSite : plugin.voteSites) {
 					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-						ArrayList<User> users = Utils.getInstance().convertSet(
-								TopVoter.getInstance()
-										.topVotersSortedVoteSite(voteSite)
-										.keySet());
+						ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
+								.getInstance().convertSet(
+										TopVoter.getInstance()
+												.topVotersSortedVoteSite(
+														voteSite).keySet());
 
 						if (users.size() >= position) {
 							playerName = users.get(position - 1)

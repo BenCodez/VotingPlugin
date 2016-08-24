@@ -7,11 +7,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Utils;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
@@ -141,7 +141,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandLast(new User(playerName))));
+							.voteCommandLast(new User(playerName))));
 		}
 
 	}
@@ -178,7 +178,7 @@ public class CommandVote implements CommandExecutor {
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance()
-					.voteCommandNext(new User(playerName))));
+							.voteCommandNext(new User(playerName))));
 		}
 
 	}
@@ -201,7 +201,7 @@ public class CommandVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -348,8 +348,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-							.sendTopVoterMonthlyScoreBoard(
-									(Player) sender, page);
+									.sendTopVoterMonthlyScoreBoard(
+											(Player) sender, page);
 						}
 					});
 				} else {
@@ -385,8 +385,8 @@ public class CommandVote implements CommandExecutor {
 						@Override
 						public void run() {
 							Commands.getInstance()
-							.sendTopVoterWeeklyScoreBoard(
-									(Player) sender, page);
+									.sendTopVoterWeeklyScoreBoard(
+											(Player) sender, page);
 						}
 					});
 				} else {
