@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Util.Updater;
 
+import org.bukkit.Bukkit;
+
 import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -77,13 +79,20 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
-		Thread.getInstance().run(new Runnable() {
+		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin,
+				new Runnable() {
 
-			@Override
-			public void run() {
-				checkUpdate();
-			}
-		});
+					@Override
+					public void run() {
+						Thread.getInstance().run(new Runnable() {
+
+							@Override
+							public void run() {
+								checkUpdate();
+							}
+						});
+					}
+				}, 10l);
 	}
 
 }

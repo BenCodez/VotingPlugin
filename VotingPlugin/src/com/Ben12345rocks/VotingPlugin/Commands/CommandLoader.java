@@ -4,11 +4,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Util.AnvilInventory.AInventory;
+import com.Ben12345rocks.AdvancedCore.Util.AnvilInventory.AInventory.AnvilClickEventHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
@@ -17,6 +24,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
@@ -119,7 +127,7 @@ public class CommandLoader {
 
 		plugin.adminVoteCommand.add(new CommandHandler(
 				new String[] { "ConvertData" },
-		"VotingPlugin.Commands.AdminVote.ConvertData",
+				"VotingPlugin.Commands.AdminVote.ConvertData",
 				"Convert to new data files") {
 
 			@Override
@@ -183,7 +191,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help&?",
-		"(number)" }, "VotingPlugin.Commands.AdminVote.Help",
+				"(number)" }, "VotingPlugin.Commands.AdminVote.Help",
 				"See this page") {
 
 			@Override
@@ -230,16 +238,16 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand
-		.add(new CommandHandler(new String[] { "Version" },
-				"VotingPlugin.Commands.AdminVote.Version",
-				"List version info") {
+				.add(new CommandHandler(new String[] { "Version" },
+						"VotingPlugin.Commands.AdminVote.Version",
+						"List version info") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().version(sender);
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						CommandAdminVote.getInstance().version(sender);
 
-			}
-		});
+					}
+				});
 
 		plugin.adminVoteCommand.add(new CommandHandler(
 				new String[] { "Sites" },
@@ -253,7 +261,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Sites",
-		"(sitename)" }, "VotingPlugin.Commands.AdminVote.Sites.Site",
+				"(sitename)" }, "VotingPlugin.Commands.AdminVote.Sites.Site",
 				"View Site Info") {
 
 			@Override
@@ -287,7 +295,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UUID",
-		"(player)" }, "VotingPlugin.Commands.AdminVote.UUID",
+				"(player)" }, "VotingPlugin.Commands.AdminVote.UUID",
 				"View UUID of player") {
 
 			@Override
@@ -298,7 +306,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset",
-		"Totals" }, "VotingPlugin.Commands.AdminVote.Reset.Total",
+				"Totals" }, "VotingPlugin.Commands.AdminVote.Reset.Total",
 				"Reset totals for all players") {
 
 			@Override
@@ -448,14 +456,14 @@ public class CommandLoader {
 				Bukkit.getScheduler().runTaskAsynchronously(plugin,
 						new Runnable() {
 
-					@Override
-					public void run() {
-						sender.sendMessage(Utils.getInstance()
-								.colorize("&cChecking for update..."));
-						CommandAdminVote.getInstance().checkUpdate(
-								sender);
-					}
-				});
+							@Override
+							public void run() {
+								sender.sendMessage(Utils.getInstance()
+										.colorize("&cChecking for update..."));
+								CommandAdminVote.getInstance().checkUpdate(
+										sender);
+							}
+						});
 
 			}
 		});
@@ -488,67 +496,555 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)", "SetMoney", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Set money on reward file") {
+				"(reward)" }, "VotingPlugin.Commands.AdminVote.Reward.Edit",
+				"Edit reward file using GUI") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
+				if (!(sender instanceof Player)) {
+					return;
+				}
+				Player player = (Player) sender;
+				BInventory inv = new BInventory("Reward: " + args[1]);
+				String reward = args[1];
 
-				CommandAdminVote.getInstance().setRewardMoney(sender, args[1],
-						Integer.parseInt(args[3]));
-			}
-		});
+				ArrayList<String> lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getMoney(reward));
+				inv.addButton(0, new BInventoryButton("SetMoney", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)", "SetMinMoney", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Set max money on reward file") {
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
+											event.setWillClose(true);
+											event.setWillDestroy(true);
 
-				CommandAdminVote.getInstance().setRewardMinMoney(sender,
-						args[1], Integer.parseInt(args[3]));
-			}
-		});
+											if (Utils.getInstance().isInt(
+													event.getName())) {
+												ConfigRewards
+														.getInstance()
+														.setMoney(
+																reward,
+																Integer.parseInt(event
+																		.getName()));
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize("&cMoney set"));
+											} else {
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cError on: "
+																		+ event.getName()
+																		+ " Must be a number!"));
+											}
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)", "SetMaxMinMoney", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Set min money on reward file") {
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(
+								item,
+								""
+										+ ConfigRewards.getInstance().getMoney(
+												reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
 
-				CommandAdminVote.getInstance().setRewardMaxMoney(sender,
-						args[1], Integer.parseInt(args[3]));
-			}
-		});
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)", "SetMaxMinMoney", "(boolean)" },
-				"VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Set require permission on reward file") {
+						gui.open();
+					}
+				});
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
+				lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getMinMoney(reward));
+				inv.addButton(1, new BInventoryButton("SetMinMoney", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
 
-				CommandAdminVote.getInstance().setRewardRequirePermission(
-						sender, args[1], Boolean.parseBoolean(args[3]));
-			}
-		});
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)", "SetMessage", "(string)" },
-				"VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Set message on reward file") {
+											event.setWillClose(true);
+											event.setWillDestroy(true);
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
+											if (Utils.getInstance().isInt(
+													event.getName())) {
+												ConfigRewards
+														.getInstance()
+														.setMinMoney(
+																reward,
+																Integer.parseInt(event
+																		.getName()));
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cMinMoney set"));
+											} else {
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cError on: "
+																		+ event.getName()
+																		+ " Must be a number!"));
+											}
 
-				CommandAdminVote.getInstance().setRewardMessage(sender,
-						args[1], args[3].replace("_", " "));
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(
+								item,
+								""
+										+ ConfigRewards.getInstance()
+												.getMinMoney(reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getMaxMoney(reward));
+				inv.addButton(2, new BInventoryButton("SetMaxMoney", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											if (Utils.getInstance().isInt(
+													event.getName())) {
+												ConfigRewards
+														.getInstance()
+														.setMaxMoney(
+																reward,
+																Integer.parseInt(event
+																		.getName()));
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cMaxMoney set"));
+											} else {
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cError on: "
+																		+ event.getName()
+																		+ " Must be a number!"));
+											}
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(
+								item,
+								""
+										+ ConfigRewards.getInstance()
+												.getMaxMoney(reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getChance(reward));
+				inv.addButton(3, new BInventoryButton("SetChance", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											if (Utils.getInstance().isInt(
+													event.getName())) {
+												ConfigRewards
+														.getInstance()
+														.setChance(
+																reward,
+																Integer.parseInt(event
+																		.getName()));
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cChance set"));
+											} else {
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cError on: "
+																		+ event.getName()
+																		+ " Must be a number!"));
+											}
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(
+								item,
+								""
+										+ ConfigRewards.getInstance()
+												.getChance(reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getEXP(reward));
+				inv.addButton(4, new BInventoryButton("SetEXP", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											if (Utils.getInstance().isInt(
+													event.getName())) {
+												ConfigRewards
+														.getInstance()
+														.setEXP(reward,
+																Integer.parseInt(event
+																		.getName()));
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize("&cEXP set"));
+											} else {
+												player.sendMessage(Utils
+														.getInstance()
+														.colorize(
+																"&cError on: "
+																		+ event.getName()
+																		+ " Must be a number!"));
+											}
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance()
+								.setName(
+										item,
+										""
+												+ ConfigRewards.getInstance()
+														.getEXP(reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.add("&cCurrently: &c&l"
+						+ ConfigRewards.getInstance().getMessagesReward(reward));
+				inv.addButton(5, new BInventoryButton("SetMessage", Utils
+						.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											ConfigRewards.getInstance()
+													.setMessagesReward(reward,
+															event.getName());
+											player.sendMessage(Utils
+													.getInstance().colorize(
+															"&cMessage set"));
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(
+								item,
+								""
+										+ ConfigRewards.getInstance()
+												.getMessagesReward(reward));
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.addAll(ConfigRewards.getInstance().getCommandsConsole(
+						reward));
+				inv.addButton(6, new BInventoryButton("Add Command Console",
+						Utils.getInstance().convertArray(lore), new ItemStack(
+								Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											ArrayList<String> commands = ConfigRewards
+													.getInstance()
+													.getCommandsConsole(reward);
+											commands.add(event.getName());
+
+											ConfigRewards.getInstance()
+													.setCommandsConsole(reward,
+															commands);
+											player.sendMessage(Utils
+													.getInstance()
+													.colorize(
+															"&cConsole commands set"));
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(item, "Commands");
+
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.addAll(ConfigRewards.getInstance()
+								.getCommandsConsole(reward));
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				lore = new ArrayList<String>();
+				lore.addAll(ConfigRewards.getInstance().getCommandsPlayer(
+						args[1]));
+
+				inv.addButton(7, new BInventoryButton("Add Command Player",
+						Utils.getInstance().convertArray(lore), new ItemStack(
+								Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						if (!(event.getWhoClicked() instanceof Player)) {
+							return;
+						}
+						Player player = (Player) event.getWhoClicked();
+						String reward = event.getInventory().getTitle()
+								.split(" ")[1];
+						AInventory gui = new AInventory(player,
+								new AnvilClickEventHandler() {
+									@Override
+									public void onAnvilClick(
+											AInventory.AnvilClickEvent event) {
+										Player player = event.getPlayer();
+										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
+
+											event.setWillClose(true);
+											event.setWillDestroy(true);
+
+											ArrayList<String> commands = ConfigRewards
+													.getInstance()
+													.getCommandsPlayer(reward);
+											commands.add(event.getName());
+
+											ConfigRewards.getInstance()
+													.setCommandsPlayer(reward,
+															commands);
+											player.sendMessage(Utils
+													.getInstance()
+													.colorize(
+															"&cPlayer commands set"));
+
+										} else {
+											event.setWillClose(false);
+											event.setWillDestroy(false);
+										}
+									}
+								});
+
+						ItemStack item = new ItemStack(Material.NAME_TAG);
+						item = Utils.getInstance().setName(item, "Commands");
+
+						ArrayList<String> lore = new ArrayList<String>();
+						lore.addAll(ConfigRewards.getInstance()
+								.getCommandsPlayer(reward));
+						lore.add("&cRename item and take out to set value");
+						lore.add("&cDoes not cost exp");
+						item = Utils.getInstance().addLore(item, lore);
+
+						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
+
+						gui.open();
+					}
+				});
+
+				inv.openInventory(player);
+
 			}
 		});
 
@@ -569,7 +1065,7 @@ public class CommandLoader {
 
 						plugin.getCommand("vote" + arg).setTabCompleter(
 								new AliasesTabCompleter()
-								.setCMDHandle(cmdHandle));
+										.setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /vote"
 								+ arg);
@@ -589,7 +1085,7 @@ public class CommandLoader {
 
 						plugin.getCommand("adminvote" + arg).setTabCompleter(
 								new AliasesTabCompleter()
-								.setCMDHandle(cmdHandle));
+										.setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /adminvote"
 								+ arg + ": " + ex.getMessage());
@@ -644,7 +1140,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Reward",
-		"(SiteName)" }, "VotingPlugin.Commands.Vote.Reward",
+				"(SiteName)" }, "VotingPlugin.Commands.Vote.Reward",
 				"Open VoteURL GUI for VoteSIte") {
 
 			@Override
@@ -665,7 +1161,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Info",
-		"(player)" }, "VotingPlugin.Commands.Vote.Info.Other",
+				"(player)" }, "VotingPlugin.Commands.Vote.Info.Other",
 				"See other players info") {
 
 			@Override
@@ -677,7 +1173,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Last",
-		"(player)" }, "VotingPlugin.Commands.Vote.Last.Other",
+				"(player)" }, "VotingPlugin.Commands.Vote.Last.Other",
 				"See other players last votes") {
 
 			@Override
@@ -699,7 +1195,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Next",
-		"(player)" }, "VotingPlugin.Commands.Vote.Next.Other",
+				"(player)" }, "VotingPlugin.Commands.Vote.Next.Other",
 				"See other players next votes") {
 
 			@Override
@@ -711,14 +1207,14 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Points",
-		"(player)" }, "VotingPlugin.Commands.Vote.Points.Other",
+				"(player)" }, "VotingPlugin.Commands.Vote.Points.Other",
 				"View pints of other player") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandVote.getInstance()
-				.pointsOther(sender, new User(args[1]));
+						.pointsOther(sender, new User(args[1]));
 
 			}
 		});
@@ -771,7 +1267,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Top",
-		"(number)" }, "VotingPlugin.Commands.Vote.Top",
+				"(number)" }, "VotingPlugin.Commands.Vote.Top",
 				"Open page of Top Voters") {
 
 			@Override
@@ -851,7 +1347,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Today",
-		"(number)" }, "VotingPlugin.Commands.Vote.Today",
+				"(number)" }, "VotingPlugin.Commands.Vote.Today",
 				"Open page of who Voted Today") {
 
 			@Override
@@ -889,7 +1385,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Total",
-		"(player)" }, "VotingPlugin.Commands.Vote.Total.Other",
+				"(player)" }, "VotingPlugin.Commands.Vote.Total.Other",
 				"View other players total votes") {
 
 			@Override
