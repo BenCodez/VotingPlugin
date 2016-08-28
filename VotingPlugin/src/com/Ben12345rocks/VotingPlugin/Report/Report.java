@@ -110,22 +110,21 @@ public class Report {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		getAllFiles(directoryToZip, fileList);
+		addAllFiles(directoryToZip, fileList);
 		plugin.getLogger().info("---Creating zip file");
 		writeZipFile(directoryToZip, fileList);
 		plugin.getLogger().info("---Done");
 	}
 
 	/**
-	 * Gets the all files.
+	 * Adds the all files.
 	 *
 	 * @param dir
 	 *            the dir
 	 * @param fileList
 	 *            the file list
-	 * @return the all files
 	 */
-	public void getAllFiles(File dir, List<File> fileList) {
+	public void addAllFiles(File dir, List<File> fileList) {
 		try {
 			File[] files = dir.listFiles();
 			for (File file : files) {
@@ -134,7 +133,7 @@ public class Report {
 
 					plugin.debug("directory:" + file.getCanonicalPath());
 
-					getAllFiles(file, fileList);
+					addAllFiles(file, fileList);
 				} else {
 
 					plugin.debug("file:" + file.getCanonicalPath());
