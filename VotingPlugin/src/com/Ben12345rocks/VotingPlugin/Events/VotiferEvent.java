@@ -119,7 +119,7 @@ public class VotiferEvent implements Listener {
 
 				if (Utils.getInstance().isPlayerOnline(playerName)) {
 
-					user.playerVote(voteSite, true);
+					user.playerVote(voteSite, true, false);
 
 					if (firstVote) {
 						plugin.debug("FirstVote: true");

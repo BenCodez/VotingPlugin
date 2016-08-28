@@ -702,7 +702,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 
 		for (int i = 0; i < offlineVotes.size(); i++) {
-			playerVote(plugin.getVoteSite(offlineVotes.get(i)), false);
+			playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
 		}
 		for (int i = 0; i < offlineVotes.size(); i++) {
 			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
@@ -879,10 +879,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the vote site
 	 * @param online
 	 *            the online
+	 * @param broadcast
+	 *            the broadcast
 	 */
-	public synchronized void playerVote(VoteSite voteSite, boolean online) {
+	public synchronized void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
-				&& ConfigFormat.getInstance().getBroadcastWhenOnline()) {
+				&& ConfigFormat.getInstance().getBroadcastWhenOnline() && broadcast) {
 			voteSite.broadcastVote(this);
 		}
 		voteSite.giveSiteReward(this, online);
@@ -1107,10 +1109,25 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
+	/**
+	 * Checks for gotten milestone.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @return true, if successful
+	 */
 	public boolean hasGottenMilestone(int votesRequired) {
 		return getPluginData().getBoolean("MilestonesGiven." + votesRequired);
 	}
 
+	/**
+	 * Sets the has gotte milestone.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @param value
+	 *            the value
+	 */
 	public void setHasGotteMilestone(int votesRequired, boolean value) {
 		setPluginData("MilestonesGiven." + votesRequired, value);
 	}

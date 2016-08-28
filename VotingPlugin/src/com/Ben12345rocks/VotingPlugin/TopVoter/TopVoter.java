@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -62,6 +63,43 @@ public class TopVoter {
 	 */
 	public TopVoter(Main plugin) {
 		TopVoter.plugin = plugin;
+	}
+
+	/**
+	 * Sort by values.
+	 *
+	 * @param unsortMap
+	 *            the unsort map
+	 * @param order
+	 *            the order
+	 * @return the hash map
+	 */
+	public HashMap<User, Integer> sortByValues(
+			HashMap<User, Integer> unsortMap, final boolean order) {
+
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
+				unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
+			@Override
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
+				if (order) {
+					return o1.getValue().compareTo(o2.getValue());
+				} else {
+					return o2.getValue().compareTo(o1.getValue());
+
+				}
+			}
+		});
+
+		// Maintaining insertion order with the help of LinkedList
+		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
 	}
 
 	/**
@@ -556,7 +594,6 @@ public class TopVoter {
 	 * @return the hash map
 	 */
 
-	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
@@ -581,8 +618,7 @@ public class TopVoter {
 			topVoter.put(user, user.getTotal(voteSite));
 		}
 
-		return (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-				topVoter, false);
+		return sortByValues(topVoter, false);
 	}
 
 	/**
@@ -593,7 +629,6 @@ public class TopVoter {
 	 * @return the hash map
 	 */
 
-	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
 		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
@@ -618,8 +653,7 @@ public class TopVoter {
 			topVoter.put(user, user.getTotalDaily(voteSite));
 		}
 
-		return (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-				topVoter, false);
+		return sortByValues(topVoter, false);
 	}
 
 	/**
@@ -630,7 +664,6 @@ public class TopVoter {
 	 * @return the hash map
 	 */
 
-	@SuppressWarnings("unchecked")
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
 			VoteSite voteSite) {
 		Set<User> users1 = Data.getInstance().getUsers();
@@ -657,8 +690,7 @@ public class TopVoter {
 			topVoter.put(user, user.getTotalWeekly(voteSite));
 		}
 
-		return (HashMap<User, Integer>) Utils.getInstance().sortByValues(
-				topVoter, false);
+		return sortByValues(topVoter, false);
 	}
 
 	/**
@@ -743,7 +775,6 @@ public class TopVoter {
 	 * Update top voters.
 	 */
 
-	@SuppressWarnings("unchecked")
 	public void updateTopVoters() {
 		plugin.topVoterMonthly.clear();
 		ArrayList<User> users = topVotersSortedAll();
@@ -751,8 +782,7 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterMonthly.put(user, user.getTotalVotes());
 			}
-			plugin.topVoterMonthly = (HashMap<User, Integer>) Utils
-					.getInstance().sortByValues(plugin.topVoterMonthly, false);
+			plugin.topVoterMonthly = sortByValues(plugin.topVoterMonthly, false);
 		}
 
 		plugin.topVoterWeekly.clear();
@@ -761,8 +791,7 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
 			}
-			plugin.topVoterWeekly = (HashMap<User, Integer>) Utils
-					.getInstance().sortByValues(plugin.topVoterWeekly, false);
+			plugin.topVoterWeekly = sortByValues(plugin.topVoterWeekly, false);
 		}
 
 		plugin.topVoterDaily.clear();
@@ -771,8 +800,7 @@ public class TopVoter {
 			for (User user : users) {
 				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
 			}
-			plugin.topVoterDaily = (HashMap<User, Integer>) Utils.getInstance()
-					.sortByValues(plugin.topVoterDaily, false);
+			plugin.topVoterDaily = sortByValues(plugin.topVoterDaily, false);
 		}
 
 		plugin.debug("Updated TopVoter");

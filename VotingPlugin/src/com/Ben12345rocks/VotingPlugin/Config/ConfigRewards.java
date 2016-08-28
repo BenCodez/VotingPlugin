@@ -707,14 +707,21 @@ public class ConfigRewards {
 			} catch (IOException e) {
 				plugin.getLogger().severe(
 						ChatColor.RED + "Could not create Rewards/" + reward
-						+ ".yml!");
+								+ ".yml!");
 
 			}
 		}
 		return dFile;
 
 	}
-	
+
+	/**
+	 * Checks if is reward valid.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @return true, if is reward valid
+	 */
 	public boolean isRewardValid(String reward) {
 		File dFile = new File(plugin.getDataFolder() + File.separator
 				+ "Rewards", reward + ".yml");
@@ -1172,6 +1179,18 @@ public class ConfigRewards {
 	 */
 	public void setMoney(String reward, int value) {
 		set(reward, "Money", value);
+	}
+
+	/**
+	 * Sets the EXP.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
+	public void setEXP(String reward, int value) {
+		set(reward, "EXP", value);
 	}
 
 	/**

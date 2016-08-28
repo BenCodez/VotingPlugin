@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Util.Updater;
 
 import org.bukkit.Bukkit;
 
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
 
@@ -63,9 +64,9 @@ public class CheckUpdate {
 		case UPDATE_AVAILABLE: {
 			plugin.getLogger().info(
 					plugin.getName()
-					+ " has an update available! Your Version: "
-					+ plugin.getDescription().getVersion()
-					+ " New Version: " + plugin.updater.getVersion());
+							+ " has an update available! Your Version: "
+							+ plugin.getDescription().getVersion()
+							+ " New Version: " + plugin.updater.getVersion());
 			break;
 		}
 		default: {
@@ -78,13 +79,20 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
-		Bukkit.getServer().getScheduler()
-		.runTaskLaterAsynchronously(plugin, new Runnable() {
-			@Override
-			public void run() {
-				checkUpdate();
-			}
-		}, 20L);
+		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin,
+				new Runnable() {
+
+					@Override
+					public void run() {
+						Thread.getInstance().run(new Runnable() {
+
+							@Override
+							public void run() {
+								checkUpdate();
+							}
+						});
+					}
+				}, 10l);
 	}
 
 }
