@@ -4,18 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Util.AnvilInventory.AInventory;
-import com.Ben12345rocks.AdvancedCore.Util.AnvilInventory.AInventory.AnvilClickEventHandler;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
@@ -255,7 +248,27 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().sites(sender);
+				if (sender instanceof Player) {
+					CommandAdminVote.getInstance().openAdminGUIVoteSites(
+							(Player) sender);
+				} else {
+					sender.sendMessage("Must be a player to do this");
+				}
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "GUI" },
+				"VotingPlugin.Commands.AdminVote.GUI", "Admin GUI") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (sender instanceof Player) {
+					CommandAdminVote.getInstance()
+							.openAdminGUI((Player) sender);
+				} else {
+					sender.sendMessage("Must be a player to do this");
+				}
 
 			}
 		});
@@ -266,18 +279,27 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().site(sender, args[1]);
-
+				if (sender instanceof Player) {
+					CommandAdminVote.getInstance().openAdminGUIVoteSiteSite(
+							(Player) sender, plugin.getVoteSite(args[1]));
+				} else {
+					sender.sendMessage("Must be a player to do this");
+				}
 			}
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(
 				new String[] { "Rewards" },
-				"VotingPlugin.Commands.AdminVote.Rewards", "List VoteSites") {
+				"VotingPlugin.Commands.AdminVote.Rewards", "List Rewards") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().rewards(sender);
+				if (sender instanceof Player) {
+					CommandAdminVote.getInstance().openAdminGUIRewards(
+							(Player) sender);
+				} else {
+					sender.sendMessage("Must be a player to do this");
+				}
 
 			}
 		});
@@ -505,545 +527,8 @@ public class CommandLoader {
 					return;
 				}
 				Player player = (Player) sender;
-				BInventory inv = new BInventory("Reward: " + args[1]);
-				String reward = args[1];
-
-				ArrayList<String> lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getMoney(reward));
-				inv.addButton(0, new BInventoryButton("SetMoney", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											if (Utils.getInstance().isInt(
-													event.getName())) {
-												ConfigRewards
-														.getInstance()
-														.setMoney(
-																reward,
-																Integer.parseInt(event
-																		.getName()));
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize("&cMoney set"));
-											} else {
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cError on: "
-																		+ event.getName()
-																		+ " Must be a number!"));
-											}
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(
-								item,
-								""
-										+ ConfigRewards.getInstance().getMoney(
-												reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getMinMoney(reward));
-				inv.addButton(1, new BInventoryButton("SetMinMoney", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											if (Utils.getInstance().isInt(
-													event.getName())) {
-												ConfigRewards
-														.getInstance()
-														.setMinMoney(
-																reward,
-																Integer.parseInt(event
-																		.getName()));
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cMinMoney set"));
-											} else {
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cError on: "
-																		+ event.getName()
-																		+ " Must be a number!"));
-											}
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(
-								item,
-								""
-										+ ConfigRewards.getInstance()
-												.getMinMoney(reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getMaxMoney(reward));
-				inv.addButton(2, new BInventoryButton("SetMaxMoney", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											if (Utils.getInstance().isInt(
-													event.getName())) {
-												ConfigRewards
-														.getInstance()
-														.setMaxMoney(
-																reward,
-																Integer.parseInt(event
-																		.getName()));
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cMaxMoney set"));
-											} else {
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cError on: "
-																		+ event.getName()
-																		+ " Must be a number!"));
-											}
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(
-								item,
-								""
-										+ ConfigRewards.getInstance()
-												.getMaxMoney(reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getChance(reward));
-				inv.addButton(3, new BInventoryButton("SetChance", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											if (Utils.getInstance().isInt(
-													event.getName())) {
-												ConfigRewards
-														.getInstance()
-														.setChance(
-																reward,
-																Integer.parseInt(event
-																		.getName()));
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cChance set"));
-											} else {
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cError on: "
-																		+ event.getName()
-																		+ " Must be a number!"));
-											}
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(
-								item,
-								""
-										+ ConfigRewards.getInstance()
-												.getChance(reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getEXP(reward));
-				inv.addButton(4, new BInventoryButton("SetEXP", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											if (Utils.getInstance().isInt(
-													event.getName())) {
-												ConfigRewards
-														.getInstance()
-														.setEXP(reward,
-																Integer.parseInt(event
-																		.getName()));
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize("&cEXP set"));
-											} else {
-												player.sendMessage(Utils
-														.getInstance()
-														.colorize(
-																"&cError on: "
-																		+ event.getName()
-																		+ " Must be a number!"));
-											}
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance()
-								.setName(
-										item,
-										""
-												+ ConfigRewards.getInstance()
-														.getEXP(reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.add("&cCurrently: &c&l"
-						+ ConfigRewards.getInstance().getMessagesReward(reward));
-				inv.addButton(5, new BInventoryButton("SetMessage", Utils
-						.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											ConfigRewards.getInstance()
-													.setMessagesReward(reward,
-															event.getName());
-											player.sendMessage(Utils
-													.getInstance().colorize(
-															"&cMessage set"));
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(
-								item,
-								""
-										+ ConfigRewards.getInstance()
-												.getMessagesReward(reward));
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.addAll(ConfigRewards.getInstance().getCommandsConsole(
-						reward));
-				inv.addButton(6, new BInventoryButton("Add Command Console",
-						Utils.getInstance().convertArray(lore), new ItemStack(
-								Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											ArrayList<String> commands = ConfigRewards
-													.getInstance()
-													.getCommandsConsole(reward);
-											commands.add(event.getName());
-
-											ConfigRewards.getInstance()
-													.setCommandsConsole(reward,
-															commands);
-											player.sendMessage(Utils
-													.getInstance()
-													.colorize(
-															"&cConsole commands set"));
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(item, "Commands");
-
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.addAll(ConfigRewards.getInstance()
-								.getCommandsConsole(reward));
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				lore = new ArrayList<String>();
-				lore.addAll(ConfigRewards.getInstance().getCommandsPlayer(
-						args[1]));
-
-				inv.addButton(7, new BInventoryButton("Add Command Player",
-						Utils.getInstance().convertArray(lore), new ItemStack(
-								Material.STONE)) {
-
-					@Override
-					public void onClick(InventoryClickEvent event) {
-						if (!(event.getWhoClicked() instanceof Player)) {
-							return;
-						}
-						Player player = (Player) event.getWhoClicked();
-						String reward = event.getInventory().getTitle()
-								.split(" ")[1];
-						AInventory gui = new AInventory(player,
-								new AnvilClickEventHandler() {
-									@Override
-									public void onAnvilClick(
-											AInventory.AnvilClickEvent event) {
-										Player player = event.getPlayer();
-										if (event.getSlot() == AInventory.AnvilSlot.OUTPUT) {
-
-											event.setWillClose(true);
-											event.setWillDestroy(true);
-
-											ArrayList<String> commands = ConfigRewards
-													.getInstance()
-													.getCommandsPlayer(reward);
-											commands.add(event.getName());
-
-											ConfigRewards.getInstance()
-													.setCommandsPlayer(reward,
-															commands);
-											player.sendMessage(Utils
-													.getInstance()
-													.colorize(
-															"&cPlayer commands set"));
-
-										} else {
-											event.setWillClose(false);
-											event.setWillDestroy(false);
-										}
-									}
-								});
-
-						ItemStack item = new ItemStack(Material.NAME_TAG);
-						item = Utils.getInstance().setName(item, "Commands");
-
-						ArrayList<String> lore = new ArrayList<String>();
-						lore.addAll(ConfigRewards.getInstance()
-								.getCommandsPlayer(reward));
-						lore.add("&cRename item and take out to set value");
-						lore.add("&cDoes not cost exp");
-						item = Utils.getInstance().addLore(item, lore);
-
-						gui.setSlot(AInventory.AnvilSlot.INPUT_LEFT, item);
-
-						gui.open();
-					}
-				});
-
-				inv.openInventory(player);
+				CommandAdminVote.getInstance().openAdminGUIReward(player,
+						ConfigRewards.getInstance().getReward(args[1]));
 
 			}
 		});

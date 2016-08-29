@@ -2,16 +2,26 @@ package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.conversations.Conversable;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Request.InputListener;
+import com.Ben12345rocks.AdvancedCore.Util.Request.RequestManager;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
@@ -24,6 +34,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -91,29 +102,750 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-					+ "&c!"));
+							+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &cis up to date! Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &cis up to date! Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &chas an update available! Your Version: &c&l"
-					+ plugin.getDescription().getVersion()
-					+ " &cNew Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &chas an update available! Your Version: &c&l"
+							+ plugin.getDescription().getVersion()
+							+ " &cNew Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
 			break;
 		}
 		}
+	}
+
+	public void openAdminGUI(Player player) {
+		BInventory inv = new BInventory("AdminGUI");
+		ArrayList<String> lore = new ArrayList<String>();
+		lore.add("&cOnly enabled sites are listed in this section");
+		lore.add("&cMiddle Click to create");
+		inv.addButton(0, new BInventoryButton("&cVoteSites", Utils
+				.getInstance().convertArray(lore),
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					if (event.getClick().equals(ClickType.MIDDLE)) {
+						player.closeInventory();
+						new RequestManager(
+								(Conversable) player,
+								new User(player).getInputMethod(),
+								new InputListener() {
+
+									@Override
+									public void onInput(
+											Conversable conversable,
+											String input) {
+
+										ConfigVoteSites.getInstance()
+												.generateVoteSite(input);
+										conversable
+												.sendRawMessage("Generated site");
+
+									}
+								}
+
+								,
+								"Type value in chat to send, cancel by typing cancel",
+								"");
+					} else {
+						openAdminGUIVoteSites(player);
+					}
+				}
+			}
+		});
+		lore = new ArrayList<String>();
+		inv.addButton(1, new BInventoryButton("&cRewards", Utils.getInstance()
+				.convertArray(lore), new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					openAdminGUIRewards(player);
+				}
+			}
+		});
+		inv.openInventory(player);
+	}
+
+	public void openAdminGUIRewards(Player player) {
+		BInventory inv = new BInventory("Rewards");
+		int count = 0;
+		for (Reward reward : plugin.rewards) {
+			ArrayList<String> lore = new ArrayList<String>();
+			if (reward.isDelayEnabled()) {
+				lore.add("DelayEnabled: true");
+				lore.add("Delay: " + reward.getDelayHours() + ":"
+						+ reward.getDelayMinutes());
+			}
+			if (reward.isTimedEnabled()) {
+				lore.add("TimedEnabled: true");
+				lore.add("Timed: " + reward.getTimedHour() + ":"
+						+ reward.getTimedMinute());
+			}
+			if (reward.isRequirePermission()) {
+				lore.add("RequirePermission: true");
+			}
+			if (reward.getWorlds().size() > 0) {
+				lore.add("Worlds: "
+						+ Utils.getInstance()
+								.makeStringList(reward.getWorlds()));
+				lore.add("GiveInEachWorld: " + reward.isGiveInEachWorld());
+			}
+			if (!reward.getRewardType().equals("BOTH")) {
+				lore.add("RewardType: " + reward.getRewardType());
+			}
+			if (reward.getItems().size() > 0) {
+				lore.add("Items:");
+				for (String item : reward.getItems()) {
+					lore.add(reward.getItemMaterial().get(item) + ":"
+							+ reward.getItemData().get(item) + " "
+							+ reward.getItemAmount().get(item));
+				}
+			}
+
+			if (reward.getMoney() != 0) {
+				lore.add("Money: " + reward.getMoney());
+			}
+
+			if (reward.getMaxMoney() != 0) {
+				lore.add("MaxMoney: " + reward.getMaxMoney());
+			}
+
+			if (reward.getMinMoney() != 0) {
+				lore.add("MinMoney: " + reward.getMinMoney());
+			}
+
+			if (reward.getExp() != 0) {
+				lore.add("EXP: " + reward.getExp());
+			}
+
+			if (reward.getMaxExp() != 0) {
+				lore.add("MaxEXP: " + reward.getMaxExp());
+			}
+
+			if (reward.getMinExp() != 0) {
+				lore.add("MinEXP: " + reward.getMinExp());
+			}
+
+			if (reward.getConsoleCommands().size() > 0) {
+				lore.add("ConsoleCommands:");
+				lore.addAll(reward.getConsoleCommands());
+			}
+			if (reward.getPlayerCommands().size() > 0) {
+				lore.add("PlayerCommands:");
+				lore.addAll(reward.getPlayerCommands());
+			}
+			if (reward.getPotions().size() > 0) {
+				lore.add("Potions:");
+				for (String potion : reward.getPotions()) {
+					lore.add(potion + " "
+							+ reward.getPotionsDuration().get(potion) + " "
+							+ reward.getPotionsAmplifier().get(potion));
+				}
+			}
+			lore.add("MessagesReward: " + reward.getRewardMsg());
+
+			inv.addButton(count, new BInventoryButton(reward.getRewardName(),
+					Utils.getInstance().convertArray(lore), new ItemStack(
+							Material.STONE)) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (event.getWhoClicked() instanceof Player) {
+						Player player = (Player) event.getWhoClicked();
+						openAdminGUIReward(player, reward);
+					}
+				}
+			});
+			count++;
+		}
+
+		inv.openInventory(player);
+	}
+
+	public void openAdminGUIReward(Player player, Reward reward) {
+		BInventory inv = new BInventory("Reward: " + reward.getRewardName());
+		User user = new User(player);
+
+		inv.addButton(0, new BInventoryButton("SetChance", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setChance(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set Chance");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+
+		inv.addButton(1, new BInventoryButton("SetMoney", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setMoney(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set money");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+
+		inv.addButton(2, new BInventoryButton("SetMinMoney", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setMinMoney(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set minmoney");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+
+		inv.addButton(3, new BInventoryButton("SetMaxMoney", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setMaxMoney(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set maxmoney");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+		
+		inv.addButton(4, new BInventoryButton("SetExp", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setEXP(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set Exp");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+
+		inv.addButton(5, new BInventoryButton("SetMinExp", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setMinExp(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set minExp");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+
+		inv.addButton(6, new BInventoryButton("SetMaxExp", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+							if (Utils.getInstance().isInt(input)) {
+								ConfigRewards.getInstance().setMaxExp(reward,
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set maxExp");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getChance());
+
+				}
+			}
+		});
+		
+		ArrayList<String> lore = new ArrayList<String>();
+		inv.addButton(7, new BInventoryButton("Add item", Utils.getInstance().convertArray(lore),
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					
+				}
+			}
+		});
+
+		inv.openInventory(player);
+	}
+
+	public void openAdminGUIVoteSites(Player player) {
+		BInventory inv = new BInventory("VoteSites");
+		int count = 0;
+		for (VoteSite voteSite : plugin.voteSites) {
+			ArrayList<String> lore = new ArrayList<String>();
+			lore.add("Priority: " + voteSite.getPriority());
+			lore.add("ServiceSite: " + voteSite.getServiceSite());
+			lore.add("VoteURL: " + voteSite.getVoteURL());
+			lore.add("VoteDelay: " + voteSite.getVoteDelay());
+			lore.add("Rewards: "
+					+ Utils.getInstance().makeStringList(voteSite.getRewards()));
+			lore.add("CumulativeVotes: " + voteSite.getCumulativeVotes());
+			lore.add("CumulativeRewards: "
+					+ Utils.getInstance().makeStringList(
+							voteSite.getCumulativeRewards()));
+
+			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(),
+					Utils.getInstance().convertArray(lore), new ItemStack(
+							Material.STONE)) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (event.getWhoClicked() instanceof Player) {
+						Player player = (Player) event.getWhoClicked();
+						openAdminGUIVoteSiteSite(player, voteSite);
+					}
+				}
+			});
+			count++;
+		}
+		inv.openInventory(player);
+	}
+
+	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
+		BInventory inv = new BInventory("VoteSite: " + voteSite.getSiteName());
+		User user = new User(player);
+		inv.addButton(0, new BInventoryButton("SetPriority", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							if (Utils.getInstance().isInt(input)) {
+								ConfigVoteSites.getInstance().setPriority(
+										event.getInventory().getTitle()
+												.split(" ")[1],
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set Priority");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ voteSite.getPriority());
+
+				}
+
+			}
+		});
+
+		inv.addButton(1, new BInventoryButton("SetServiceSite", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String siteName = event.getInventory().getTitle()
+									.split(" ")[1];
+							ConfigVoteSites.getInstance().setServiceSite(
+									siteName, input);
+							conversable.sendRawMessage("Set ServiceSite");
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ voteSite.getServiceSite());
+
+				}
+
+			}
+		});
+
+		inv.addButton(2, new BInventoryButton("SetVoteURL", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String siteName = event.getInventory().getTitle()
+									.split(" ")[1];
+							ConfigVoteSites.getInstance().setVoteURL(siteName,
+									input);
+							conversable.sendRawMessage("Set VoteURL");
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ voteSite.getVoteURL());
+
+				}
+
+			}
+		});
+
+		inv.addButton(3, new BInventoryButton("SetVoteDelay", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							if (Utils.getInstance().isInt(input)) {
+								ConfigVoteSites.getInstance().setVoteDelay(
+										event.getInventory().getTitle()
+												.split(" ")[1],
+										Integer.parseInt(input));
+								conversable.sendRawMessage("Set VoteDelay");
+							} else {
+								conversable
+										.sendRawMessage("Must be an interger");
+							}
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ voteSite.getVoteDelay());
+
+				}
+
+			}
+		});
+		inv.addButton(4, new BInventoryButton("SetEnabled", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String siteName = event.getInventory().getTitle()
+									.split(" ")[1];
+							ConfigVoteSites.getInstance().setEnabled(siteName,
+									Boolean.valueOf(input));
+							conversable.sendRawMessage("Set Enabled");
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ ConfigVoteSites.getInstance().getVoteSiteEnabled(
+									voteSite.getSiteName()));
+
+				}
+
+			}
+		});
+
+		inv.addButton(5, new BInventoryButton("Add Reward", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					String siteName = event.getInventory().getTitle()
+							.split(" ")[1];
+					BInventory inv = new BInventory("AddReward: " + siteName);
+					int count = 0;
+					for (Reward reward : plugin.rewards) {
+						inv.addButton(count,
+								new BInventoryButton(reward.getRewardName(),
+										new String[0], new ItemStack(
+												Material.STONE)) {
+
+									@Override
+									public void onClick(
+											InventoryClickEvent event) {
+										if (event.getWhoClicked() instanceof Player) {
+											Player player = (Player) event
+													.getWhoClicked();
+											player.closeInventory();
+											String siteName = event
+													.getInventory().getTitle()
+													.split(" ")[1];
+											ArrayList<String> rewards = ConfigVoteSites
+													.getInstance().getRewards(
+															siteName);
+											rewards.add(reward.getRewardName());
+											ConfigVoteSites.getInstance()
+													.setRewards(siteName,
+															rewards);
+											player.sendMessage("Reward added");
+										}
+									}
+								});
+						count++;
+					}
+
+					inv.openInventory(player);
+
+				}
+
+			}
+		});
+
+		inv.addButton(6, new BInventoryButton("Remove Reward", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					String siteName = event.getInventory().getTitle()
+							.split(" ")[1];
+					BInventory inv = new BInventory("RemoveReward: " + siteName);
+					int count = 0;
+					for (String rewardName : voteSite.getRewards()) {
+						Reward reward = ConfigRewards.getInstance().getReward(
+								rewardName);
+						inv.addButton(count,
+								new BInventoryButton(reward.getRewardName(),
+										new String[0], new ItemStack(
+												Material.STONE)) {
+
+									@Override
+									public void onClick(
+											InventoryClickEvent event) {
+										if (event.getWhoClicked() instanceof Player) {
+											Player player = (Player) event
+													.getWhoClicked();
+											player.closeInventory();
+											String siteName = event
+													.getInventory().getTitle()
+													.split(" ")[1];
+											ArrayList<String> rewards = ConfigVoteSites
+													.getInstance().getRewards(
+															siteName);
+											rewards.remove(reward
+													.getRewardName());
+											ConfigVoteSites.getInstance()
+													.setRewards(siteName,
+															rewards);
+											player.sendMessage("Reward remove");
+										}
+									}
+								});
+						count++;
+					}
+
+					inv.openInventory(player);
+
+				}
+
+			}
+		});
+
+		inv.openInventory(player);
 	}
 
 	/**
@@ -189,7 +921,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])

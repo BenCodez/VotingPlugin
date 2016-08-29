@@ -542,6 +542,14 @@ public class ConfigRewards {
 		return getData(reward).getInt("MinEXP");
 	}
 
+	public void setMinExp(String reward, int value) {
+		set(reward, "MinEXP", value);
+	}
+
+	public void setMaxExp(String reward, int value) {
+		set(reward, "MaxEXP", value);
+	}
+
 	/**
 	 * Gets the min money.
 	 *
