@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -11,6 +13,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.conversations.Conversable;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -154,8 +157,11 @@ public class CommandAdminVote implements CommandExecutor {
 
 										ConfigVoteSites.getInstance()
 												.generateVoteSite(input);
+										ConfigVoteSites.getInstance()
+												.setEnabled(input, true);
 										conversable
 												.sendRawMessage("Generated site");
+										plugin.reload();
 
 									}
 								}
@@ -304,6 +310,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setChance(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set Chance");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -339,6 +346,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setMoney(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set money");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -374,6 +382,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setMinMoney(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set minmoney");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -409,6 +418,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setMaxMoney(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set maxmoney");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -423,7 +433,7 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			}
 		});
-		
+
 		inv.addButton(4, new BInventoryButton("SetExp", new String[0],
 				new ItemStack(Material.STONE)) {
 
@@ -444,6 +454,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setEXP(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set Exp");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -479,6 +490,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setMinExp(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set minExp");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -514,6 +526,7 @@ public class CommandAdminVote implements CommandExecutor {
 								ConfigRewards.getInstance().setMaxExp(reward,
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set maxExp");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -528,17 +541,129 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			}
 		});
-		
+
 		ArrayList<String> lore = new ArrayList<String>();
-		inv.addButton(7, new BInventoryButton("Add item", Utils.getInstance().convertArray(lore),
-				new ItemStack(Material.STONE)) {
+		lore.add("&cAdd current item inhand");
+		inv.addButton(7, new BInventoryButton("Add item", Utils.getInstance()
+				.convertArray(lore), new ItemStack(Material.STONE)) {
 
 			@Override
 			public void onClick(InventoryClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					
+					String reward = event.getInventory().getTitle().split(" ")[1];
+					@SuppressWarnings("deprecation")
+					ItemStack item = player.getItemInHand();
+					if (item != null && !item.getType().equals(Material.AIR)) {
+						String material = item.getType().toString();
+						@SuppressWarnings("deprecation")
+						int data = item.getData().getData();
+						int amount = item.getAmount();
+						int durability = item.getDurability();
+						String name = item.getItemMeta().getDisplayName();
+						ArrayList<String> lore = (ArrayList<String>) item
+								.getItemMeta().getLore();
+						Map<Enchantment, Integer> enchants = item
+								.getEnchantments();
+						String itemStack = material;
+						ConfigRewards.getInstance().setItemAmount(reward,
+								itemStack, amount);
+						ConfigRewards.getInstance().setItemData(reward,
+								itemStack, data);
+						ConfigRewards.getInstance().setItemMaterial(reward,
+								itemStack, material);
+						ConfigRewards.getInstance().setItemName(reward,
+								itemStack, name);
+						ConfigRewards.getInstance().setItemLore(reward,
+								itemStack, lore);
+						ConfigRewards.getInstance().setItemDurability(reward,
+								itemStack, durability);
+						for (Entry<Enchantment, Integer> entry : enchants
+								.entrySet()) {
+							ConfigRewards.getInstance().setItemEnchant(reward,
+									itemStack, entry.getKey().toString(),
+									entry.getValue().intValue());
+						}
+						plugin.reload();
+					}
+				}
+			}
+		});
+
+		lore = new ArrayList<String>();
+		inv.addButton(8, new BInventoryButton("Remove item", Utils
+				.getInstance().convertArray(lore),
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					String rewardName = event.getInventory().getTitle()
+							.split(" ")[1];
+					BInventory inv = new BInventory("RewardRemoveItem: "
+							+ rewardName);
+					Reward reward = ConfigRewards.getInstance().getReward(
+							rewardName);
+
+					int slot = 0;
+					for (String item : reward.getItems()) {
+						ItemStack itemStack = new ItemStack(Material
+								.valueOf(reward.getItemMaterial().get(item)),
+								reward.getItemAmount(item), Short
+										.valueOf(Integer.toString(reward
+												.getItemData().get(item))));
+						String name = reward.getItemName().get(item);
+						if (name != null) {
+							itemStack = Utils.getInstance().nameItem(
+									itemStack,
+									name.replace("%Player%",
+											user.getPlayerName()));
+						}
+						itemStack = Utils.getInstance().addLore(
+								itemStack,
+								Utils.getInstance().replace(
+										reward.getItemLore().get(item),
+										"%Player%", user.getPlayerName()));
+						itemStack = Utils.getInstance().addEnchants(itemStack,
+								reward.getItemEnchants().get(item));
+						itemStack = Utils.getInstance().setDurabilty(itemStack,
+								reward.getItemDurabilty().get(item));
+						String skull = reward.getItemSkull().get(item);
+						if (skull != null) {
+							itemStack = Utils.getInstance().setSkullOwner(
+									itemStack,
+									skull.replace("%Player%",
+											user.getPlayerName()));
+						}
+						inv.addButton(slot, new BInventoryButton(item,
+								new String[0], itemStack) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								if (event.getWhoClicked() instanceof Player) {
+									Player player = (Player) event
+											.getWhoClicked();
+									String item = event.getCurrentItem()
+											.getItemMeta().getDisplayName();
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									ConfigRewards.getInstance().set(reward,
+											"Items." + item, null);
+									player.closeInventory();
+									player.sendMessage("Removed item");
+									plugin.reload();
+
+								}
+
+							}
+						});
+						slot++;
+					}
+
+					inv.openInventory(player);
+
 				}
 			}
 		});
@@ -602,6 +727,7 @@ public class CommandAdminVote implements CommandExecutor {
 												.split(" ")[1],
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set Priority");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -637,6 +763,7 @@ public class CommandAdminVote implements CommandExecutor {
 							ConfigVoteSites.getInstance().setServiceSite(
 									siteName, input);
 							conversable.sendRawMessage("Set ServiceSite");
+							plugin.reload();
 
 						}
 					}
@@ -668,6 +795,7 @@ public class CommandAdminVote implements CommandExecutor {
 							ConfigVoteSites.getInstance().setVoteURL(siteName,
 									input);
 							conversable.sendRawMessage("Set VoteURL");
+							plugin.reload();
 
 						}
 					}
@@ -700,6 +828,7 @@ public class CommandAdminVote implements CommandExecutor {
 												.split(" ")[1],
 										Integer.parseInt(input));
 								conversable.sendRawMessage("Set VoteDelay");
+								plugin.reload();
 							} else {
 								conversable
 										.sendRawMessage("Must be an interger");
@@ -734,6 +863,7 @@ public class CommandAdminVote implements CommandExecutor {
 							ConfigVoteSites.getInstance().setEnabled(siteName,
 									Boolean.valueOf(input));
 							conversable.sendRawMessage("Set Enabled");
+							plugin.reload();
 						}
 					}
 
@@ -781,6 +911,7 @@ public class CommandAdminVote implements CommandExecutor {
 													.setRewards(siteName,
 															rewards);
 											player.sendMessage("Reward added");
+											plugin.reload();
 										}
 									}
 								});
@@ -831,7 +962,8 @@ public class CommandAdminVote implements CommandExecutor {
 											ConfigVoteSites.getInstance()
 													.setRewards(siteName,
 															rewards);
-											player.sendMessage("Reward remove");
+											player.sendMessage("Reward removed");
+											plugin.reload();
 										}
 									}
 								});

@@ -1054,6 +1054,10 @@ public class ConfigRewards {
 		set(reward, "Items." + item + ".Data", value);
 	}
 
+	public void setItemDurability(String reward, String item, int value) {
+		set(reward, "Items." + item + ".Durability", value);
+	}
+
 	/**
 	 * Sets the item enchant.
 	 *
