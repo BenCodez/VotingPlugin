@@ -187,7 +187,56 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			}
 		});
+		lore = new ArrayList<String>();
+		inv.addButton(2, new BInventoryButton("&cConfig", Utils.getInstance()
+				.convertArray(lore), new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					openAdminGUIConfig(player);
+				}
+			}
+		});
 		inv.openInventory(player);
+	}
+
+	public void openAdminGUIConfig(Player player) {
+		BInventory inv = new BInventory("Config");
+		inv.addButton(0, new BInventoryButton("SetDebug", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					User user = new User(player);
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							Config.getInstance().setDebugEnabled(
+									Boolean.valueOf(input));
+							conversable.sendRawMessage("Set Debug");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ Config.getInstance().getDebugEnabled());
+
+				}
+
+			}
+		});
+
+		inv.openInventory(player);
+
 	}
 
 	public void openAdminGUIRewards(Player player) {
@@ -356,7 +405,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getMoney());
 
 				}
 			}
@@ -392,7 +441,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getMinMoney());
 
 				}
 			}
@@ -428,7 +477,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getMaxMoney());
 
 				}
 			}
@@ -464,7 +513,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getExp());
 
 				}
 			}
@@ -500,7 +549,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getMaxExp());
 
 				}
 			}
@@ -536,7 +585,7 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							+ reward.getMinExp());
 
 				}
 			}
@@ -582,7 +631,7 @@ public class CommandAdminVote implements CommandExecutor {
 						for (Entry<Enchantment, Integer> entry : enchants
 								.entrySet()) {
 							ConfigRewards.getInstance().setItemEnchant(reward,
-									itemStack, entry.getKey().toString(),
+									itemStack, entry.getKey().getName(),
 									entry.getValue().intValue());
 						}
 						plugin.reload();
@@ -663,6 +712,247 @@ public class CommandAdminVote implements CommandExecutor {
 					}
 
 					inv.openInventory(player);
+
+				}
+			}
+		});
+
+		inv.addButton(9, new BInventoryButton("SetMessage", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+
+							ConfigRewards.getInstance().setMessagesReward(
+									reward, input);
+							conversable.sendRawMessage("Set message");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.getRewardMsg());
+
+				}
+			}
+		});
+
+		inv.addButton(10, new BInventoryButton("AddConsoleCommand",
+				new String[0], new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+
+							ArrayList<String> commands = ConfigRewards
+									.getInstance().getCommandsConsole(reward);
+							commands.add(input);
+
+							ConfigRewards.getInstance().setCommandsConsole(
+									reward, commands);
+							conversable.sendRawMessage("Added console command");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", "");
+
+				}
+			}
+		});
+
+		inv.addButton(11, new BInventoryButton("AddPlayerCommand",
+				new String[0], new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+
+							ArrayList<String> commands = ConfigRewards
+									.getInstance().getCommandsPlayer(reward);
+							commands.add(input);
+
+							ConfigRewards.getInstance().setCommandsPlayer(
+									reward, commands);
+							conversable.sendRawMessage("Added player command");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", "");
+
+				}
+			}
+		});
+
+		inv.addButton(12, new BInventoryButton("RemoveConsoleCommand",
+				new String[0], new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					String reward = event.getInventory().getTitle().split(" ")[1];
+					BInventory inv = new BInventory("RemoveConsoleCommand: "
+							+ reward);
+					int count = 0;
+					for (String cmd : ConfigRewards.getInstance()
+							.getCommandsConsole(reward)) {
+						inv.addButton(count, new BInventoryButton(cmd,
+								new String[0], new ItemStack(Material.STONE)) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								if (event.getWhoClicked() instanceof Player) {
+									Player player = (Player) event
+											.getWhoClicked();
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									ArrayList<String> commands = ConfigRewards
+											.getInstance().getCommandsConsole(
+													reward);
+									if (event.getCurrentItem() != null
+											&& !event.getCurrentItem()
+													.getType()
+													.equals(Material.AIR)) {
+										commands.remove(event.getCurrentItem()
+												.getItemMeta().getDisplayName());
+										ConfigRewards.getInstance()
+												.setCommandsConsole(reward,
+														commands);
+
+									}
+									player.closeInventory();
+									player.sendMessage("Removed command");
+									plugin.reload();
+								}
+							}
+						});
+						count++;
+					}
+
+					inv.openInventory(player);
+
+				}
+			}
+		});
+
+		inv.addButton(13, new BInventoryButton("RemovePlayerCommand",
+				new String[0], new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					String reward = event.getInventory().getTitle().split(" ")[1];
+					BInventory inv = new BInventory("RemovePlayerCommand: "
+							+ reward);
+					int count = 0;
+					for (String cmd : ConfigRewards.getInstance()
+							.getCommandsPlayer(reward)) {
+						inv.addButton(count, new BInventoryButton(cmd,
+								new String[0], new ItemStack(Material.STONE)) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								if (event.getWhoClicked() instanceof Player) {
+									Player player = (Player) event
+											.getWhoClicked();
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									ArrayList<String> commands = ConfigRewards
+											.getInstance().getCommandsPlayer(
+													reward);
+									if (event.getCurrentItem() != null
+											&& !event.getCurrentItem()
+													.getType()
+													.equals(Material.AIR)) {
+										commands.remove(event.getCurrentItem()
+												.getItemMeta().getDisplayName());
+										ConfigRewards.getInstance()
+												.setCommandsPlayer(reward,
+														commands);
+
+									}
+									player.closeInventory();
+									player.sendMessage("Removed command");
+									plugin.reload();
+								}
+							}
+						});
+						count++;
+					}
+
+					inv.openInventory(player);
+
+				}
+			}
+		});
+
+		inv.addButton(14, new BInventoryButton("SetRequirePermission",
+				new String[0], new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+
+							ConfigRewards.getInstance().setRequirePermission(
+									reward, Boolean.valueOf(input));
+							conversable
+									.sendRawMessage("Set require permission");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.isRequirePermission());
 
 				}
 			}
