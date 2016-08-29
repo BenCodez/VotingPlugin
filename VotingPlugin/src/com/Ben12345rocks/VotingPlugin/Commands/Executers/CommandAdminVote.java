@@ -199,7 +199,211 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			}
 		});
+
+		lore = new ArrayList<String>();
+		lore.add("Middle click to enter offline/specific player");
+		inv.addButton(3, new BInventoryButton("&cPlayers", Utils.getInstance()
+				.convertArray(lore), new ItemStack(Material.SKULL_ITEM, 1,
+				(short) 3)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					if (event.getClick().equals(ClickType.MIDDLE)) {
+						User user = new User(player);
+						new RequestManager(
+								(Conversable) player,
+								user.getInputMethod(),
+								new InputListener() {
+
+									@Override
+									public void onInput(
+											Conversable conversable,
+											String input) {
+
+										openAdminGUIPlayers(player, input);
+
+									}
+								}
+
+								,
+								"Type value in chat to send, cancel by typing cancel",
+								"");
+
+					} else {
+
+						openAdminGUIPlayers(player, "");
+					}
+				}
+			}
+
+		});
 		inv.openInventory(player);
+	}
+
+	public void openAdminGUIPlayers(Player player, String string) {
+
+		if (string.equals("")) {
+			BInventory inv = new BInventory("Players");
+			int count = 0;
+			for (Player players : Bukkit.getOnlinePlayers()) {
+				inv.addButton(
+						count,
+						new BInventoryButton(players.getName(), new String[0],
+								Utils.getInstance().setSkullOwner(
+										new ItemStack(Material.SKULL_ITEM, 1,
+												(short) 3), players.getName())) {
+
+							@Override
+							public void onClick(InventoryClickEvent event) {
+								if (event.getWhoClicked() instanceof Player) {
+									Player player = (Player) event
+											.getWhoClicked();
+									player.closeInventory();
+									if (event.getCurrentItem() != null) {
+										String playerName = event
+												.getCurrentItem().getItemMeta()
+												.getDisplayName();
+										openAdminGUIPlayers(player, playerName);
+									}
+								}
+
+							}
+						});
+				count++;
+			}
+			inv.openInventory(player);
+		} else {
+			BInventory inv = new BInventory("Player: " + string);
+			inv.addButton(0, new BInventoryButton("SetPoints", new String[0],
+					new ItemStack(Material.STONE)) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (event.getWhoClicked() instanceof Player) {
+						Player player = (Player) event.getWhoClicked();
+						String playerName = event.getInventory().getTitle()
+								.split(" ")[1];
+						player.closeInventory();
+						User user = new User(player);
+						new RequestManager(
+								(Conversable) player,
+								user.getInputMethod(),
+								new InputListener() {
+
+									@Override
+									public void onInput(
+											Conversable conversable,
+											String input) {
+										if (Utils.getInstance().isInt(input)) {
+											User user = new User(playerName);
+											user.setPoints(Integer
+													.parseInt(input));
+											conversable
+													.sendRawMessage("Set points");
+											plugin.reload();
+										} else {
+											conversable
+													.sendRawMessage("Must be an integer");
+										}
+									}
+								}
+
+								,
+								"Type value in chat to send, cancel by typing cancel",
+								"" + new User(playerName).getPoints());
+					}
+
+				}
+			});
+
+			inv.addButton(1, new BInventoryButton("SetTotal", new String[0],
+					new ItemStack(Material.STONE)) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (event.getWhoClicked() instanceof Player) {
+						Player player = (Player) event.getWhoClicked();
+						String playerName = event.getInventory().getTitle()
+								.split(" ")[1];
+						player.closeInventory();
+
+						BInventory inv = new BInventory("SetTotal: "
+								+ playerName);
+
+						int count = 0;
+						for (VoteSite site : plugin.voteSites) {
+							inv.addButton(count,
+									new BInventoryButton(site.getSiteName(),
+											new String[0], new ItemStack(
+													Material.STONE)) {
+
+										@Override
+										public void onClick(
+												InventoryClickEvent event) {
+											if (event.getWhoClicked() instanceof Player) {
+												Player player = (Player) event
+														.getWhoClicked();
+												String playerName = event
+														.getInventory()
+														.getTitle().split(" ")[1];
+												player.closeInventory();
+												User user = new User(player);
+												new RequestManager(
+														(Conversable) player,
+														user.getInputMethod(),
+														new InputListener() {
+
+															@Override
+															public void onInput(
+																	Conversable conversable,
+																	String input) {
+																if (Utils
+																		.getInstance()
+																		.isInt(input)) {
+																	User user = new User(
+																			playerName);
+																	user.setTotal(
+																			plugin.getVoteSite(event
+																					.getCurrentItem()
+																					.getItemMeta()
+																					.getDisplayName()),
+																			Integer.parseInt(input));
+																	conversable
+																			.sendRawMessage("Total set");
+																	plugin.reload();
+																} else {
+																	conversable
+																			.sendRawMessage("Must be an integer");
+																}
+															}
+														}
+
+														,
+														"Type value in chat to send, cancel by typing cancel",
+														""
+																+ new User(
+																		playerName)
+																		.getTotal(site));
+
+											}
+
+										}
+									});
+							count++;
+						}
+
+						inv.openInventory(player);
+
+					}
+
+				}
+			});
+
+			inv.openInventory(player);
+		}
+
 	}
 
 	public void openAdminGUIConfig(Player player) {
@@ -315,6 +519,70 @@ public class CommandAdminVote implements CommandExecutor {
 							+ reward.getPotionsAmplifier().get(potion));
 				}
 			}
+
+			if (ConfigRewards.getInstance().getTitleEnabled(
+					reward.getRewardName())) {
+				lore.add("TitleEnabled: true");
+				lore.add("TitleTitle: "
+						+ ConfigRewards.getInstance().getTitleTitle(
+								reward.getRewardName()));
+				lore.add("TitleSubTitle: "
+						+ ConfigRewards.getInstance().getTitleSubTitle(
+								reward.getRewardName()));
+				lore.add("Timings: "
+						+ ConfigRewards.getInstance().getTitleFadeIn(
+								reward.getRewardName())
+						+ " "
+						+ ConfigRewards.getInstance().getTitleShowTime(
+								reward.getRewardName())
+						+ " "
+						+ ConfigRewards.getInstance().getTitleFadeOut(
+								reward.getRewardName()));
+			}
+
+			if (reward.isBossBarEnabled()) {
+				lore.add("BossBarEnabled: true");
+				lore.add("BossBarMessage: " + reward.getBossBarMessage());
+				lore.add("Color/Style/Progress/Delay: "
+						+ reward.getBossBarColor() + "/"
+						+ reward.getBossBarStyle() + "/"
+						+ reward.getBossBarProgress() + "/"
+						+ reward.getBossBarDelay());
+			}
+			if (ConfigRewards.getInstance().getSoundEnabled(
+					reward.getRewardName())) {
+				lore.add("SoundEnabled: true");
+				lore.add("Sound/Volume/Pitch: "
+						+ ConfigRewards.getInstance().getSoundSound(
+								reward.getRewardName())
+						+ "/"
+						+ ConfigRewards.getInstance().getSoundVolume(
+								reward.getRewardName())
+						+ "/"
+						+ ConfigRewards.getInstance().getSoundPitch(
+								reward.getRewardName()));
+			}
+
+			if (ConfigRewards.getInstance().getEffectEnabled(
+					reward.getRewardName())) {
+				lore.add("EffectEnabled: true");
+				lore.add("Effect/Data/Particles/Radius: "
+						+ ConfigRewards.getInstance().getEffectEffect(
+								reward.getRewardName())
+						+ "/"
+						+ ConfigRewards.getInstance().getEffectData(
+								reward.getRewardName())
+						+ "/"
+						+ ConfigRewards.getInstance().getEffectParticles(
+								reward.getRewardName())
+						+ "/"
+						+ ConfigRewards.getInstance().getEffectRadius(
+								reward.getRewardName()));
+			}
+
+			lore.add("ActioBarMessage/Delay: " + reward.getActionBarMsg() + "/"
+					+ reward.getActionBarDelay());
+
 			lore.add("MessagesReward: " + reward.getRewardMsg());
 
 			inv.addButton(count, new BInventoryButton(reward.getRewardName(),
@@ -946,6 +1214,40 @@ public class CommandAdminVote implements CommandExecutor {
 									reward, Boolean.valueOf(input));
 							conversable
 									.sendRawMessage("Set require permission");
+							plugin.reload();
+
+						}
+					}
+
+					, "Type value in chat to send, cancel by typing cancel", ""
+							+ reward.isRequirePermission());
+
+				}
+			}
+		});
+
+		inv.addButton(15, new BInventoryButton("Execute", new String[0],
+				new ItemStack(Material.STONE)) {
+
+			@Override
+			public void onClick(InventoryClickEvent event) {
+				if (event.getWhoClicked() instanceof Player) {
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
+					new RequestManager((Conversable) player, user
+							.getInputMethod(), new InputListener() {
+
+						@Override
+						public void onInput(Conversable conversable,
+								String input) {
+							String reward = event.getInventory().getTitle()
+									.split(" ")[1];
+
+							ConfigRewards
+									.getInstance()
+									.getReward(reward)
+									.runCommands(new User((Player) conversable));
+							conversable.sendRawMessage("Ran Reward file");
 							plugin.reload();
 
 						}

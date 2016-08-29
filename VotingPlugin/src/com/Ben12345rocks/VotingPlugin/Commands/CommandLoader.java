@@ -311,7 +311,13 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().reward(sender, args[1]);
+				if (sender instanceof Player) {
+					CommandAdminVote.getInstance().openAdminGUIReward(
+							(Player) sender,
+							ConfigRewards.getInstance().getReward(args[1]));
+				} else {
+					sender.sendMessage("Must be a player to do this");
+				}
 
 			}
 		});
@@ -513,22 +519,6 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandAdminVote.getInstance().checkVoteSite(sender, args[1]);
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reward",
-				"(reward)" }, "VotingPlugin.Commands.AdminVote.Reward.Edit",
-				"Edit reward file using GUI") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (!(sender instanceof Player)) {
-					return;
-				}
-				Player player = (Player) sender;
-				CommandAdminVote.getInstance().openAdminGUIReward(player,
-						ConfigRewards.getInstance().getReward(args[1]));
 
 			}
 		});
