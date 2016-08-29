@@ -232,7 +232,6 @@ public class CommandAdminVote implements CommandExecutor {
 								"");
 
 					} else {
-
 						openAdminGUIPlayers(player, "");
 					}
 				}
