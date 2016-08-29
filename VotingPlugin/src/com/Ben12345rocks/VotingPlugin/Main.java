@@ -105,6 +105,7 @@ public class Main extends JavaPlugin {
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
+	/** The offline bungee. */
 	public HashMap<String, ArrayList<Vote>> offlineBungee;
 
 	/**

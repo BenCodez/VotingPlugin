@@ -128,6 +128,12 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 	}
 
+	/**
+	 * Open admin GUI.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void openAdminGUI(Player player) {
 		BInventory inv = new BInventory("AdminGUI");
 		ArrayList<String> lore = new ArrayList<String>();
@@ -239,6 +245,14 @@ public class CommandAdminVote implements CommandExecutor {
 		inv.openInventory(player);
 	}
 
+	/**
+	 * Open admin GUI players.
+	 *
+	 * @param player
+	 *            the player
+	 * @param string
+	 *            the string
+	 */
 	public void openAdminGUIPlayers(Player player, String string) {
 
 		if (string.equals("")) {
@@ -403,6 +417,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Open admin GUI config.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void openAdminGUIConfig(Player player) {
 		BInventory inv = new BInventory("Config");
 		inv.addButton(0, new BInventoryButton("SetDebug", new String[0],
@@ -440,6 +460,12 @@ public class CommandAdminVote implements CommandExecutor {
 
 	}
 
+	/**
+	 * Open admin GUI rewards.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void openAdminGUIRewards(Player player) {
 		BInventory inv = new BInventory("Rewards");
 		int count = 0;
@@ -600,6 +626,14 @@ public class CommandAdminVote implements CommandExecutor {
 		inv.openInventory(player);
 	}
 
+	/**
+	 * Open admin GUI reward.
+	 *
+	 * @param player
+	 *            the player
+	 * @param reward
+	 *            the reward
+	 */
 	public void openAdminGUIReward(Player player, Reward reward) {
 		BInventory inv = new BInventory("Reward: " + reward.getRewardName());
 		User user = new User(player);
@@ -1260,6 +1294,12 @@ public class CommandAdminVote implements CommandExecutor {
 		inv.openInventory(player);
 	}
 
+	/**
+	 * Open admin GUI vote sites.
+	 *
+	 * @param player
+	 *            the player
+	 */
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
@@ -1293,6 +1333,14 @@ public class CommandAdminVote implements CommandExecutor {
 		inv.openInventory(player);
 	}
 
+	/**
+	 * Open admin GUI vote site site.
+	 *
+	 * @param player
+	 *            the player
+	 * @param voteSite
+	 *            the vote site
+	 */
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		BInventory inv = new BInventory("VoteSite: " + voteSite.getSiteName());
 		User user = new User(player);

@@ -53,6 +53,7 @@ public class VoteSite {
 	/** The cumulative rewards. */
 	private ArrayList<String> cumulativeRewards;
 
+	/** The priority. */
 	private int priority;
 
 	/**
@@ -327,10 +328,21 @@ public class VoteSite {
 		this.voteURL = voteURL;
 	}
 
+	/**
+	 * Gets the priority.
+	 *
+	 * @return the priority
+	 */
 	public int getPriority() {
 		return priority;
 	}
 
+	/**
+	 * Sets the priority.
+	 *
+	 * @param priority
+	 *            the new priority
+	 */
 	public void setPriority(int priority) {
 		this.priority = priority;
 	}

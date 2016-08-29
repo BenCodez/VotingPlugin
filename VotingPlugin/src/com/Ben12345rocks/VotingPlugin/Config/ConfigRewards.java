@@ -542,10 +542,26 @@ public class ConfigRewards {
 		return getData(reward).getInt("MinEXP");
 	}
 
+	/**
+	 * Sets the min exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
 	public void setMinExp(String reward, int value) {
 		set(reward, "MinEXP", value);
 	}
 
+	/**
+	 * Sets the max exp.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @param value
+	 *            the value
+	 */
 	public void setMaxExp(String reward, int value) {
 		set(reward, "MaxEXP", value);
 	}
@@ -1054,6 +1070,16 @@ public class ConfigRewards {
 		set(reward, "Items." + item + ".Data", value);
 	}
 
+	/**
+	 * Sets the item durability.
+	 *
+	 * @param reward
+	 *            the reward
+	 * @param item
+	 *            the item
+	 * @param value
+	 *            the value
+	 */
 	public void setItemDurability(String reward, String item, int value) {
 		set(reward, "Items." + item + ".Durability", value);
 	}
