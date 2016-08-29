@@ -140,7 +140,9 @@ public class BungeeVote {
 				if (votes == null) {
 					votes = new ArrayList<Vote>();
 				}
-				votes.add(vote);
+				if (!votes.contains(vote)) {
+					votes.add(vote);
+				}
 				plugin.offlineBungee.put(server, votes);
 			}
 		}
