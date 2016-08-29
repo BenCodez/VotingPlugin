@@ -1179,6 +1179,8 @@ public class Commands {
 				@Override
 				public void onClick(InventoryClickEvent event) {
 					User user = new User((Player) event.getWhoClicked());
+					Player player = (Player) event.getWhoClicked();
+					player.closeInventory();
 					user.sendMessage(Commands.getInstance().voteURLs());
 
 				}
