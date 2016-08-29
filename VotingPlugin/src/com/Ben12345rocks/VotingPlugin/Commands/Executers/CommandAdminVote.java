@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.Commands.Executers;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -2128,11 +2126,9 @@ public class CommandAdminVote implements CommandExecutor {
 		Vote vote = new com.vexsoftware.votifier.model.Vote();
 		vote.setServiceName(new VoteSite(voteSite).getServiceSite());
 		vote.setUsername(playerName);
-		try {
-			BungeeVote.getInstance().sendVote(vote);
-		} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-			e.printStackTrace();
-		}
+
+		BungeeVote.getInstance().sendVote(vote);
+
 	}
 
 }

@@ -15,6 +15,7 @@ import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
+import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -45,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
+import com.vexsoftware.votifier.model.Vote;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -102,6 +104,8 @@ public class Main extends JavaPlugin {
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
+
+	public HashMap<String, ArrayList<Vote>> offlineBungee;
 
 	/**
 	 * Check advanced core.
@@ -287,6 +291,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+		offlineBungee = new HashMap<String, ArrayList<Vote>>();
 		checkAdvancedCore();
 		setupFiles();
 		registerCommands();
@@ -430,6 +435,7 @@ public class Main extends JavaPlugin {
 	 */
 	public void update() {
 		try {
+			BungeeVote.getInstance().checkOfflineBungeeVotes();
 			TopVoter.getInstance().updateTopVoters();
 			TopVoter.getInstance().checkTopVoterAward();
 
