@@ -53,6 +53,9 @@ public class VoteSite {
 	/** The cumulative rewards. */
 	private ArrayList<String> cumulativeRewards;
 
+	/** The priority. */
+	private int priority;
+
 	/**
 	 * Instantiates a new vote site.
 	 *
@@ -233,6 +236,7 @@ public class VoteSite {
 		setCumulativeVotes(configVoteSites
 				.getCumulativeRewardVotesAmount(siteName));
 		setCumulativeRewards(configVoteSites.getCumulativeRewards(siteName));
+		setPriority(configVoteSites.getPriority(siteName));
 	}
 
 	/**
@@ -322,6 +326,25 @@ public class VoteSite {
 	 */
 	public void setVoteURL(String voteURL) {
 		this.voteURL = voteURL;
+	}
+
+	/**
+	 * Gets the priority.
+	 *
+	 * @return the priority
+	 */
+	public int getPriority() {
+		return priority;
+	}
+
+	/**
+	 * Sets the priority.
+	 *
+	 * @param priority
+	 *            the new priority
+	 */
+	public void setPriority(int priority) {
+		this.priority = priority;
 	}
 
 }
