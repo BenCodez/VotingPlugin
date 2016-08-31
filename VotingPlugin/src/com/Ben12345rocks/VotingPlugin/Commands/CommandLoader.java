@@ -580,7 +580,20 @@ public class CommandLoader {
 	public void loadCommands() {
 		loadAdminVoteCommand();
 		loadVoteCommand();
-		loadTabComplete();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			
+			@Override
+			public void run() {
+				com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
+					
+					@Override
+					public void run() {
+						loadTabComplete();
+					}
+				});
+			}
+		});
+		
 	}
 
 	/**
