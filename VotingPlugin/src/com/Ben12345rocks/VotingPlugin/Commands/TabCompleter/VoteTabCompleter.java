@@ -104,7 +104,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -120,7 +120,10 @@ public class VoteTabCompleter implements TabCompleter {
 
 			ArrayList<String> cmds = new ArrayList<String>();
 
-			cmds.addAll(getTabCompleteOptions(sender, args, args.length - 1));
+			for (CommandHandler cmdHandle : plugin.voteCommand) {
+				cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args,
+						args.length - 1));
+			}
 
 			for (int i = 0; i < cmds.size(); i++) {
 				if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),

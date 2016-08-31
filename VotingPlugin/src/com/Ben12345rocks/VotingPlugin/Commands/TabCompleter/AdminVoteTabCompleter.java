@@ -103,7 +103,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -119,8 +119,10 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 			ArrayList<String> cmds = new ArrayList<String>();
 
-			cmds.addAll(getAdminTabCompleteOptions(sender, args,
-					args.length - 1));
+			for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+				cmds.addAll(cmdHandle.getAdminTabCompleteOptions(sender, args,
+						args.length - 1));
+			}
 
 			for (int i = 0; i < cmds.size(); i++) {
 				if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
