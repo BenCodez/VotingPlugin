@@ -114,31 +114,25 @@ public class AdminVoteTabCompleter implements TabCompleter {
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] args) {
 
-		if (cmd.getName().equalsIgnoreCase("adminvote")
-				|| cmd.getName().equalsIgnoreCase("av")) {
+		List<String> tab = new ArrayList<String>();
 
-			List<String> tab = new ArrayList<String>();
+		Set<String> cmds = new HashSet<String>();
 
-			Set<String> cmds = new HashSet<String>();
-
-			for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
-				cmds.addAll(cmdHandle.getAdminTabCompleteOptions(sender, args,
-						args.length - 1));
-			}
-
-			for (String str : cmds) {
-				if (Utils.getInstance().startsWithIgnoreCase(str,
-						args[args.length - 1])) {
-					tab.add(str);
-				}
-			}
-
-			Collections.sort(tab, String.CASE_INSENSITIVE_ORDER);
-			return tab;
-
+		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+			cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args,
+					args.length - 1));
 		}
 
-		return null;
+		for (String str : cmds) {
+			if (Utils.getInstance().startsWithIgnoreCase(str,
+					args[args.length - 1])) {
+				tab.add(str);
+			}
+		}
+
+		Collections.sort(tab, String.CASE_INSENSITIVE_ORDER);
+		return tab;
+
 	}
 
 }

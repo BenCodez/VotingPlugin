@@ -133,7 +133,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"TriggerPlayerVoteEvent", "(player)", "(sitename)" },
+				"TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent",
 				"Trigger vote event, used for testing") {
 
@@ -360,7 +360,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Vote",
-				"(player)", "(sitename)" },
+				"(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote", "Trigger manual vote") {
 
 			@Override
