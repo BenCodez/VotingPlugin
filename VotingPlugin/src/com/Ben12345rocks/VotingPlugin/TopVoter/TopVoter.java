@@ -11,9 +11,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -117,10 +114,7 @@ public class TopVoter {
 						.getMonthlyPossibleRewardPlaces();
 				int i = 0;
 				for (User user : plugin.topVoterMonthly.keySet()) {
-					OfflinePlayer player = Bukkit.getOfflinePlayer(user
-							.getPlayerName());
-					if (!player.getPlayer().hasPermission(
-							"VotingPlugin.TopVoter.Ignore")) {
+					if (!user.hasTopVoterIgnorePermission()) {
 						i++;
 						if (places.contains(Integer.toString(i))) {
 							user.monthlyTopVoterAward(i);
@@ -142,10 +136,7 @@ public class TopVoter {
 						.getWeeklyPossibleRewardPlaces();
 				int i = 0;
 				for (User user : plugin.topVoterWeekly.keySet()) {
-					OfflinePlayer player = Bukkit.getOfflinePlayer(user
-							.getPlayerName());
-					if (!player.getPlayer().hasPermission(
-							"VotingPlugin.TopVoter.Ignore")) {
+					if (!user.hasTopVoterIgnorePermission()) {
 						i++;
 						if (places.contains(Integer.toString(i))) {
 							user.weeklyTopVoterAward(i);
@@ -181,10 +172,7 @@ public class TopVoter {
 				int i = 0;
 				for (User user : plugin.topVoterDaily.keySet()) {
 
-					OfflinePlayer player = Bukkit.getOfflinePlayer(user
-							.getPlayerName());
-					if (!player.getPlayer().hasPermission(
-							"VotingPlugin.TopVoter.Ignore")) {
+					if (!user.hasTopVoterIgnorePermission()) {
 						i++;
 						if (places.contains(Integer.toString(i))) {
 							user.dailyTopVoterAward(i);
