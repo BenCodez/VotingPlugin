@@ -119,6 +119,9 @@ commands:
   adminvoteaddpoints:
     description: Command Alias
     aliases: avaddpoints
+  adminvotegui:
+    description: Command Alias
+    aliases: avgui
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
