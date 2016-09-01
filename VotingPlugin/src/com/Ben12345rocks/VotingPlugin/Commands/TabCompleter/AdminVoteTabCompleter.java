@@ -2,7 +2,9 @@ package com.Ben12345rocks.VotingPlugin.Commands.TabCompleter;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -103,7 +105,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -112,28 +114,25 @@ public class AdminVoteTabCompleter implements TabCompleter {
 	public List<String> onTabComplete(CommandSender sender, Command cmd,
 			String alias, String[] args) {
 
-		if (cmd.getName().equalsIgnoreCase("adminvote")
-				|| cmd.getName().equalsIgnoreCase("av")) {
+		List<String> tab = new ArrayList<String>();
 
-			List<String> tab = new ArrayList<String>();
+		Set<String> cmds = new HashSet<String>();
 
-			ArrayList<String> cmds = new ArrayList<String>();
-
-			cmds.addAll(getAdminTabCompleteOptions(sender, args,
+		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+			cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args,
 					args.length - 1));
-
-			for (int i = 0; i < cmds.size(); i++) {
-				if (Utils.getInstance().startsWithIgnoreCase(cmds.get(i),
-						args[args.length - 1])) {
-					tab.add(cmds.get(i));
-				}
-			}
-
-			return tab;
-
 		}
 
-		return null;
+		for (String str : cmds) {
+			if (Utils.getInstance().startsWithIgnoreCase(str,
+					args[args.length - 1])) {
+				tab.add(str);
+			}
+		}
+
+		Collections.sort(tab, String.CASE_INSENSITIVE_ORDER);
+		return tab;
+
 	}
 
 }

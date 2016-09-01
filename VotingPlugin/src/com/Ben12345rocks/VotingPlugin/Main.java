@@ -386,6 +386,7 @@ public class Main extends JavaPlugin {
 		loadRewards();
 		ServerData.getInstance().reloadData();
 		plugin.update();
+		CommandLoader.getInstance().loadTabComplete();
 	}
 
 	/**

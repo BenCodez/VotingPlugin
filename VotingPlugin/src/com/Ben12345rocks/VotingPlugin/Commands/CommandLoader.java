@@ -22,7 +22,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
+import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Report.Report;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
@@ -131,7 +133,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"TriggerPlayerVoteEvent", "(player)", "(sitename)" },
+				"TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent",
 				"Trigger vote event, used for testing") {
 
@@ -358,7 +360,7 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Vote",
-				"(player)", "(sitename)" },
+				"(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote", "Trigger manual vote") {
 
 			@Override
@@ -578,6 +580,20 @@ public class CommandLoader {
 	public void loadCommands() {
 		loadAdminVoteCommand();
 		loadVoteCommand();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			
+			@Override
+			public void run() {
+				com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
+					
+					@Override
+					public void run() {
+						loadTabComplete();
+					}
+				});
+			}
+		});
+		
 	}
 
 	/**
@@ -905,5 +921,28 @@ public class CommandLoader {
 	 */
 	public void setCommands(HashMap<String, CommandHandler> commands) {
 		this.commands = commands;
+	}
+
+	public void loadTabComplete() {
+		ArrayList<String> sites = new ArrayList<String>();
+		for (VoteSite site : plugin.voteSites) {
+			sites.add(site.getSiteName());
+		}
+		ArrayList<String> rewards = new ArrayList<String>();
+		for (Reward reward : plugin.rewards) {
+			rewards.add(reward.getRewardName());
+		}
+
+		for (int i = 0; i < plugin.voteCommand.size(); i++) {
+			plugin.voteCommand.get(i).addTabCompleteOption("(Sitename)", sites);
+			plugin.voteCommand.get(i).addTabCompleteOption("(reward)", rewards);
+		}
+
+		for (int i = 0; i < plugin.adminVoteCommand.size(); i++) {
+			plugin.adminVoteCommand.get(i).addTabCompleteOption("(Sitename)",
+					sites);
+			plugin.adminVoteCommand.get(i).addTabCompleteOption("(reward)",
+					rewards);
+		}
 	}
 }

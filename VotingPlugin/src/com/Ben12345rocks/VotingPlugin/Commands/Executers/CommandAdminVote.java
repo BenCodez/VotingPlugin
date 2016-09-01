@@ -10,7 +10,6 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.conversations.Conversable;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -150,21 +149,21 @@ public class CommandAdminVote implements CommandExecutor {
 					if (event.getClick().equals(ClickType.MIDDLE)) {
 						player.closeInventory();
 						new RequestManager(
-								(Conversable) player,
+								player,
 								new User(player).getInputMethod(),
 								new InputListener() {
 
 									@Override
 									public void onInput(
-											Conversable conversable,
+											Player player,
 											String input) {
 
 										ConfigVoteSites.getInstance()
 												.generateVoteSite(input);
 										ConfigVoteSites.getInstance()
 												.setEnabled(input, true);
-										conversable
-												.sendRawMessage("Generated site");
+										player
+												.sendMessage("Generated site");
 										plugin.reload();
 
 									}
@@ -217,13 +216,13 @@ public class CommandAdminVote implements CommandExecutor {
 					if (event.getClick().equals(ClickType.MIDDLE)) {
 						User user = new User(player);
 						new RequestManager(
-								(Conversable) player,
+								player,
 								user.getInputMethod(),
 								new InputListener() {
 
 									@Override
 									public void onInput(
-											Conversable conversable,
+											Player player,
 											String input) {
 
 										openAdminGUIPlayers(player, input);
@@ -299,24 +298,24 @@ public class CommandAdminVote implements CommandExecutor {
 						player.closeInventory();
 						User user = new User(player);
 						new RequestManager(
-								(Conversable) player,
+								player,
 								user.getInputMethod(),
 								new InputListener() {
 
 									@Override
 									public void onInput(
-											Conversable conversable,
+											Player player,
 											String input) {
 										if (Utils.getInstance().isInt(input)) {
 											User user = new User(playerName);
 											user.setPoints(Integer
 													.parseInt(input));
-											conversable
-													.sendRawMessage("Set points");
+											player
+													.sendMessage("Set points");
 											plugin.reload();
 										} else {
-											conversable
-													.sendRawMessage("Must be an integer");
+											player
+													.sendMessage("Must be an integer");
 										}
 									}
 								}
@@ -362,13 +361,13 @@ public class CommandAdminVote implements CommandExecutor {
 												player.closeInventory();
 												User user = new User(player);
 												new RequestManager(
-														(Conversable) player,
+														player,
 														user.getInputMethod(),
 														new InputListener() {
 
 															@Override
 															public void onInput(
-																	Conversable conversable,
+																	Player player,
 																	String input) {
 																if (Utils
 																		.getInstance()
@@ -381,12 +380,12 @@ public class CommandAdminVote implements CommandExecutor {
 																					.getItemMeta()
 																					.getDisplayName()),
 																			Integer.parseInt(input));
-																	conversable
-																			.sendRawMessage("Total set");
+																	player
+																			.sendMessage("Total set");
 																	plugin.reload();
 																} else {
-																	conversable
-																			.sendRawMessage("Must be an integer");
+																	player
+																			.sendMessage("Must be an integer");
 																}
 															}
 														}
@@ -434,22 +433,25 @@ public class CommandAdminVote implements CommandExecutor {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
 					User user = new User(player);
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							Config.getInstance().setDebugEnabled(
-									Boolean.valueOf(input));
-							conversable.sendRawMessage("Set Debug");
-							plugin.reload();
+								@Override
+								public void onInput(Player player,
+										String input) {
+									Config.getInstance().setDebugEnabled(
+											Boolean.valueOf(input));
+									player.sendMessage("Set Debug");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ Config.getInstance().getDebugEnabled());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + Config.getInstance().getDebugEnabled());
 
 				}
 
@@ -646,29 +648,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setChance(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set Chance");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setChance(reward,
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set Chance");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getChance());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getChance());
 
 				}
 			}
@@ -682,29 +690,34 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setMoney(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set money");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setMoney(reward,
+														Integer.parseInt(input));
+										player.sendMessage("Set money");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getMoney());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getMoney());
 
 				}
 			}
@@ -718,29 +731,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setMinMoney(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set minmoney");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setMinMoney(reward,
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set minmoney");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getMinMoney());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getMinMoney());
 
 				}
 			}
@@ -754,29 +773,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setMaxMoney(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set maxmoney");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setMaxMoney(reward,
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set maxmoney");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getMaxMoney());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getMaxMoney());
 
 				}
 			}
@@ -790,29 +815,34 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setEXP(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set Exp");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setEXP(reward,
+														Integer.parseInt(input));
+										player.sendMessage("Set Exp");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getExp());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getExp());
 
 				}
 			}
@@ -826,29 +856,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setMinExp(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set minExp");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setMinExp(reward,
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set minExp");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getMaxExp());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getMaxExp());
 
 				}
 			}
@@ -862,29 +898,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
-							if (Utils.getInstance().isInt(input)) {
-								ConfigRewards.getInstance().setMaxExp(reward,
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set maxExp");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
+									if (Utils.getInstance().isInt(input)) {
+										ConfigRewards
+												.getInstance()
+												.setMaxExp(reward,
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set maxExp");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getMinExp());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getMinExp());
 
 				}
 			}
@@ -1024,25 +1066,28 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
 
-							ConfigRewards.getInstance().setMessagesReward(
-									reward, input);
-							conversable.sendRawMessage("Set message");
-							plugin.reload();
+									ConfigRewards.getInstance()
+											.setMessagesReward(reward, input);
+									player.sendMessage("Set message");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.getRewardMsg());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.getRewardMsg());
 
 				}
 			}
@@ -1056,28 +1101,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
 
-							ArrayList<String> commands = ConfigRewards
-									.getInstance().getCommandsConsole(reward);
-							commands.add(input);
+									ArrayList<String> commands = ConfigRewards
+											.getInstance().getCommandsConsole(
+													reward);
+									commands.add(input);
 
-							ConfigRewards.getInstance().setCommandsConsole(
-									reward, commands);
-							conversable.sendRawMessage("Added console command");
-							plugin.reload();
+									ConfigRewards.getInstance()
+											.setCommandsConsole(reward,
+													commands);
+									player
+											.sendMessage("Added console command");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", "");
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"");
 
 				}
 			}
@@ -1091,28 +1143,35 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
 
-							ArrayList<String> commands = ConfigRewards
-									.getInstance().getCommandsPlayer(reward);
-							commands.add(input);
+									ArrayList<String> commands = ConfigRewards
+											.getInstance().getCommandsPlayer(
+													reward);
+									commands.add(input);
 
-							ConfigRewards.getInstance().setCommandsPlayer(
-									reward, commands);
-							conversable.sendRawMessage("Added player command");
-							plugin.reload();
+									ConfigRewards
+											.getInstance()
+											.setCommandsPlayer(reward, commands);
+									player
+											.sendMessage("Added player command");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", "");
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"");
 
 				}
 			}
@@ -1232,26 +1291,30 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
 
-							ConfigRewards.getInstance().setRequirePermission(
-									reward, Boolean.valueOf(input));
-							conversable
-									.sendRawMessage("Set require permission");
-							plugin.reload();
+									ConfigRewards.getInstance()
+											.setRequirePermission(reward,
+													Boolean.valueOf(input));
+									player
+											.sendMessage("Set require permission");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.isRequirePermission());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.isRequirePermission());
 
 				}
 			}
@@ -1265,27 +1328,33 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String reward = event.getInventory().getTitle()
-									.split(" ")[1];
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String reward = event.getInventory()
+											.getTitle().split(" ")[1];
 
-							ConfigRewards
-									.getInstance()
-									.getReward(reward)
-									.runCommands(new User((Player) conversable));
-							conversable.sendRawMessage("Ran Reward file");
-							plugin.reload();
+									ConfigRewards
+											.getInstance()
+											.getReward(reward)
+											.runCommands(
+													new User(
+															(Player) player));
+									player
+											.sendMessage("Ran Reward file");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ reward.isRequirePermission());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + reward.isRequirePermission());
 
 				}
 			}
@@ -1352,29 +1421,36 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							if (Utils.getInstance().isInt(input)) {
-								ConfigVoteSites.getInstance().setPriority(
-										event.getInventory().getTitle()
-												.split(" ")[1],
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set Priority");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									if (Utils.getInstance().isInt(input)) {
+										ConfigVoteSites
+												.getInstance()
+												.setPriority(
+														event.getInventory()
+																.getTitle()
+																.split(" ")[1],
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set Priority");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ voteSite.getPriority());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + voteSite.getPriority());
 
 				}
 
@@ -1389,24 +1465,28 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String siteName = event.getInventory().getTitle()
-									.split(" ")[1];
-							ConfigVoteSites.getInstance().setServiceSite(
-									siteName, input);
-							conversable.sendRawMessage("Set ServiceSite");
-							plugin.reload();
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String siteName = event.getInventory()
+											.getTitle().split(" ")[1];
+									ConfigVoteSites.getInstance()
+											.setServiceSite(siteName, input);
+									player
+											.sendMessage("Set ServiceSite");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ voteSite.getServiceSite());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + voteSite.getServiceSite());
 
 				}
 
@@ -1421,24 +1501,27 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String siteName = event.getInventory().getTitle()
-									.split(" ")[1];
-							ConfigVoteSites.getInstance().setVoteURL(siteName,
-									input);
-							conversable.sendRawMessage("Set VoteURL");
-							plugin.reload();
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String siteName = event.getInventory()
+											.getTitle().split(" ")[1];
+									ConfigVoteSites.getInstance().setVoteURL(
+											siteName, input);
+									player.sendMessage("Set VoteURL");
+									plugin.reload();
 
-						}
-					}
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ voteSite.getVoteURL());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + voteSite.getVoteURL());
 
 				}
 
@@ -1453,29 +1536,36 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							if (Utils.getInstance().isInt(input)) {
-								ConfigVoteSites.getInstance().setVoteDelay(
-										event.getInventory().getTitle()
-												.split(" ")[1],
-										Integer.parseInt(input));
-								conversable.sendRawMessage("Set VoteDelay");
-								plugin.reload();
-							} else {
-								conversable
-										.sendRawMessage("Must be an interger");
+								@Override
+								public void onInput(Player player,
+										String input) {
+									if (Utils.getInstance().isInt(input)) {
+										ConfigVoteSites
+												.getInstance()
+												.setVoteDelay(
+														event.getInventory()
+																.getTitle()
+																.split(" ")[1],
+														Integer.parseInt(input));
+										player
+												.sendMessage("Set VoteDelay");
+										plugin.reload();
+									} else {
+										player
+												.sendMessage("Must be an interger");
+									}
+
+								}
 							}
 
-						}
-					}
-
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ voteSite.getVoteDelay());
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + voteSite.getVoteDelay());
 
 				}
 
@@ -1489,24 +1579,29 @@ public class CommandAdminVote implements CommandExecutor {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
-					new RequestManager((Conversable) player, user
-							.getInputMethod(), new InputListener() {
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
 
-						@Override
-						public void onInput(Conversable conversable,
-								String input) {
-							String siteName = event.getInventory().getTitle()
-									.split(" ")[1];
-							ConfigVoteSites.getInstance().setEnabled(siteName,
-									Boolean.valueOf(input));
-							conversable.sendRawMessage("Set Enabled");
-							plugin.reload();
-						}
-					}
+								@Override
+								public void onInput(Player player,
+										String input) {
+									String siteName = event.getInventory()
+											.getTitle().split(" ")[1];
+									ConfigVoteSites.getInstance().setEnabled(
+											siteName, Boolean.valueOf(input));
+									player.sendMessage("Set Enabled");
+									plugin.reload();
+								}
+							}
 
-					, "Type value in chat to send, cancel by typing cancel", ""
-							+ ConfigVoteSites.getInstance().getVoteSiteEnabled(
-									voteSite.getSiteName()));
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							""
+									+ ConfigVoteSites.getInstance()
+											.getVoteSiteEnabled(
+													voteSite.getSiteName()));
 
 				}
 

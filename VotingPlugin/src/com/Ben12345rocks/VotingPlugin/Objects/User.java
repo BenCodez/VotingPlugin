@@ -82,6 +82,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		super(plugin, uuid, loadName);
 	}
 
+	public boolean hasTopVoterIgnorePermission() {
+		return getPluginData().getBoolean("TopVoterIgnore");
+	}
+
+	public void setHasTopVoterIgnorePermssion(boolean value) {
+		setPluginData("TopVoterIgnore", value);
+	}
+
 	/**
 	 * Adds the cumulative reward.
 	 *
@@ -680,6 +688,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 		String playerName = getPlayerName();
 
+		Player player = getPlayer();
+		if (player != null) {
+			setHasTopVoterIgnorePermssion(player
+					.hasPermission("VotingPlugin.TopVoter.Ignore"));
+		}
+
 		boolean sendEffects = false;
 
 		for (VoteSite voteSite : voteSites) {
@@ -882,9 +896,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param broadcast
 	 *            the broadcast
 	 */
-	public synchronized void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
+	public synchronized void playerVote(VoteSite voteSite, boolean online,
+			boolean broadcast) {
 		if (Config.getInstance().getBroadCastVotesEnabled()
-				&& ConfigFormat.getInstance().getBroadcastWhenOnline() && broadcast) {
+				&& ConfigFormat.getInstance().getBroadcastWhenOnline()
+				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}
 		voteSite.giveSiteReward(this, online);
