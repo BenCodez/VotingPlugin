@@ -5,10 +5,10 @@ import java.util.ArrayList;
 import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 
 // TODO: Auto-generated Javadoc

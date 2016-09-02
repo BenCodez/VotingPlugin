@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.swifteh.GAL.GAL;
 import com.swifteh.GAL.GALVote;

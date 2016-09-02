@@ -28,10 +28,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -668,153 +666,7 @@ public class Commands {
 		return info;
 	}
 
-	/**
-	 * Vote command reward info.
-	 *
-	 * @param rewardName
-	 *            the reward name
-	 * @return the string[]
-	 */
-	public String[] voteCommandRewardInfo(String rewardName) {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		if (!ConfigRewards.getInstance().getRewardFile(rewardName).exists()) {
-			msg.add("&cInvalid reward, see /av rewards!");
-		} else {
-
-			Reward reward = ConfigRewards.getInstance().getReward(rewardName);
-
-			msg.add("&c&lReward Info for " + reward.getRewardName() + ":");
-
-			msg.add("&cChance: &6" + reward.getChance());
-			msg.add("&cRequirePermission: &6" + reward.isRequirePermission());
-			msg.add("&cWorlds: &6"
-					+ Utils.getInstance().makeStringList(reward.getWorlds()));
-			msg.add("&cGive in each world: &6" + reward.isGiveInEachWorld());
-
-			// items
-			msg.add("&cItems:");
-			for (String item : reward.getItems()) {
-				msg.add("  &c" + item + ":");
-				msg.add("    &cMaterial: &6"
-						+ reward.getItemMaterial().get(item));
-				msg.add("    &cData: &6" + reward.getItemData().get(item));
-				msg.add("    &cAmount: &6" + reward.getItemAmount().get(item));
-				msg.add("    &cMinAmount: &6"
-						+ reward.getItemMinAmount().get(item));
-				msg.add("    &cMaxAmount: &6"
-						+ reward.getItemMaxAmount().get(item));
-				msg.add("    &cName: &6" + reward.getItemName().get(item));
-				msg.add("    &cLore: &6"
-						+ Utils.getInstance().makeStringList(
-								reward.getItemLore().get(item)));
-				msg.add("    &cEnchants:");
-				for (String enchant : reward.getItemEnchants().get(item)
-						.keySet()) {
-					msg.add("      &c" + enchant + ": &6"
-							+ reward.getItemEnchants().get(item).get(enchant));
-				}
-
-			}
-
-			// money
-			msg.add("&cMoney: &6" + reward.getMoney());
-			msg.add("&cMinMoney: &6" + reward.getMinMoney());
-			msg.add("&cMaxMoney: &6" + reward.getMaxMoney());
-
-			// commands
-			msg.add("&cConsole Commands:");
-			for (String consoleCommand : reward.getConsoleCommands()) {
-				msg.add("- &6" + consoleCommand);
-			}
-
-			msg.add("&cPlayer Commands:");
-			for (String playerCommand : reward.getPlayerCommands()) {
-				msg.add("- &6" + playerCommand);
-			}
-
-			// potions
-			msg.add("&cPotions:");
-			for (String potion : reward.getPotions()) {
-				msg.add("&c- " + potion);
-				msg.add("  &cDuration: &6"
-						+ reward.getPotionsDuration().get(potion));
-				msg.add("  &cAmplifier: &6"
-						+ reward.getPotionsAmplifier().get(potion));
-			}
-
-			// title
-			msg.add("&cTitle:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getTitleEnabled(rewardName));
-			msg.add("  &cTitle: &6"
-					+ ConfigRewards.getInstance().getTitleTitle(rewardName));
-			msg.add("  &cSubTitle: &6"
-					+ ConfigRewards.getInstance().getTitleSubTitle(rewardName));
-
-			msg.add("  &cFadeIn: &6"
-					+ ConfigRewards.getInstance().getTitleFadeIn(rewardName));
-			msg.add("  &cShowTime: &6"
-					+ ConfigRewards.getInstance().getTitleShowTime(rewardName));
-			msg.add("  &cFadeOut: &6"
-					+ ConfigRewards.getInstance().getTitleFadeOut(rewardName));
-
-			// sound
-			msg.add("&cSound:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getSoundEnabled(rewardName));
-			msg.add("  &cSound: &6"
-					+ ConfigRewards.getInstance().getSoundSound(rewardName));
-			msg.add("  &cVolume: &6"
-					+ ConfigRewards.getInstance().getSoundVolume(rewardName));
-			msg.add("  &cPitch: &6"
-					+ ConfigRewards.getInstance().getSoundPitch(rewardName));
-
-			// effect
-			msg.add("&cEffect:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getEffectEnabled(rewardName));
-			msg.add("  &cEffect: &6"
-					+ ConfigRewards.getInstance().getEffectEffect(rewardName));
-			msg.add("  &cData: &6"
-					+ ConfigRewards.getInstance().getEffectData(rewardName));
-			msg.add("  &cParticles: &6"
-					+ ConfigRewards.getInstance()
-							.getEffectParticles(rewardName));
-			msg.add("  &cRadius: &6"
-					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
-
-			// messages
-			msg.add("&cMessages:");
-			msg.add("  &cReward: &6" + reward.getRewardMsg());
-
-		}
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	/**
-	 * Vote command rewards.
-	 *
-	 * @return the string[]
-	 */
-	public String[] voteCommandRewards() {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		msg.add("&c&lRewards:");
-
-		int count = 1;
-		ArrayList<Reward> rewards = plugin.rewards;
-		if (rewards != null) {
-			for (Reward reward : rewards) {
-				msg.add("&c" + count + ". &6" + reward.getRewardName());
-				count++;
-			}
-		}
-
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
+	
 
 	/**
 	 * Vote command site info.

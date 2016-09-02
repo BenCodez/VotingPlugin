@@ -27,7 +27,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -37,7 +36,6 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -98,9 +96,6 @@ public class Main extends JavaPlugin {
 
 	/** The place holder API enabled. */
 	public boolean placeHolderAPIEnabled;
-
-	/** The rewards. */
-	public ArrayList<Reward> rewards;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -236,18 +231,7 @@ public class Main extends JavaPlugin {
 
 	}
 
-	/**
-	 * Load rewards.
-	 */
-	public void loadRewards() {
-		ConfigRewards.getInstance().setupExample();
-		rewards = new ArrayList<Reward>();
-		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
-			rewards.add(new Reward(reward));
-		}
-		plugin.debug("Loaded rewards");
 
-	}
 
 	/**
 	 * Load vote sites.
@@ -305,7 +289,6 @@ public class Main extends JavaPlugin {
 		checkPlaceHolderAPI();
 
 		loadVoteSites();
-		loadRewards();
 
 		VoteReminding.getInstance().loadRemindChecking();
 
@@ -383,7 +366,6 @@ public class Main extends JavaPlugin {
 		configBonusReward.reloadData();
 		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
-		loadRewards();
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
@@ -445,7 +427,6 @@ public class Main extends JavaPlugin {
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
-			ConfigRewards.getInstance().checkDelayedTimedRewards();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}

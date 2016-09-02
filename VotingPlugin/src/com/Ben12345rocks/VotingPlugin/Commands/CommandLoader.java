@@ -17,12 +17,9 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Report.Report;
@@ -117,18 +114,6 @@ public class CommandLoader {
 							"&cGAL has to be loaded in order to convert"));
 				}
 
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "ConvertData" },
-				"VotingPlugin.Commands.AdminVote.ConvertData",
-				"Convert to new data files") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				Data.getInstance().convert();
-				sender.sendMessage("convert finished");
 			}
 		});
 
@@ -287,40 +272,6 @@ public class CommandLoader {
 				} else {
 					sender.sendMessage("Must be a player to do this");
 				}
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Rewards" },
-				"VotingPlugin.Commands.AdminVote.Rewards", "List Rewards") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					CommandAdminVote.getInstance().openAdminGUIRewards(
-							(Player) sender);
-				} else {
-					sender.sendMessage("Must be a player to do this");
-				}
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"Rewards", "(reward)" },
-				"VotingPlugin.Commands.AdminVote.Rewards.Reward",
-				"View Site Info") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					CommandAdminVote.getInstance().openAdminGUIReward(
-							(Player) sender,
-							ConfigRewards.getInstance().getReward(args[1]));
-				} else {
-					sender.sendMessage("Must be a player to do this");
-				}
-
 			}
 		});
 
@@ -928,21 +879,16 @@ public class CommandLoader {
 		for (VoteSite site : plugin.voteSites) {
 			sites.add(site.getSiteName());
 		}
-		ArrayList<String> rewards = new ArrayList<String>();
-		for (Reward reward : plugin.rewards) {
-			rewards.add(reward.getRewardName());
-		}
+		
 
 		for (int i = 0; i < plugin.voteCommand.size(); i++) {
 			plugin.voteCommand.get(i).addTabCompleteOption("(Sitename)", sites);
-			plugin.voteCommand.get(i).addTabCompleteOption("(reward)", rewards);
+			
 		}
 
 		for (int i = 0; i < plugin.adminVoteCommand.size(); i++) {
 			plugin.adminVoteCommand.get(i).addTabCompleteOption("(Sitename)",
 					sites);
-			plugin.adminVoteCommand.get(i).addTabCompleteOption("(reward)",
-					rewards);
 		}
 	}
 }
