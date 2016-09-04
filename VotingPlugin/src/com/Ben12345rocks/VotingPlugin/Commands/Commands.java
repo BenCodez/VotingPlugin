@@ -28,10 +28,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -230,7 +228,7 @@ public class Commands {
 						.getInstance().getVoteGUISlotMaterial(slot)), ConfigGUI
 						.getInstance().getVoteGUISlotAmount(slot),
 						(short) ConfigGUI.getInstance()
-								.getVoteGUISlotData(slot));
+						.getVoteGUISlotData(slot));
 			} catch (Exception ex) {
 
 			}
@@ -268,19 +266,19 @@ public class Commands {
 					new BInventoryButton(ConfigGUI.getInstance()
 							.getVoteGUISlotName(slot), lore, item) {
 
-						@Override
-						public void onClick(InventoryClickEvent event) {
-							Player player = (Player) event.getWhoClicked();
-							if (player != null) {
-								// plugin.debug("Running cmd");
-								player.closeInventory();
-								player.performCommand(ConfigGUI.getInstance()
-										.getVoteGUISlotCommand(slot));
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					Player player = (Player) event.getWhoClicked();
+					if (player != null) {
+						// plugin.debug("Running cmd");
+						player.closeInventory();
+						player.performCommand(ConfigGUI.getInstance()
+								.getVoteGUISlotCommand(slot));
 
-							}
+					}
 
-						}
-					});
+				}
+			});
 		}
 
 		BInventory.openInventory(player, inv);
@@ -332,8 +330,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Daily"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Daily"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -378,8 +376,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Monthly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -424,8 +422,8 @@ public class Commands {
 
 		String title = Utils.getInstance().colorize(
 				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Weekly"));
+				.replace("%maxpages%", "" + pageSize)
+				.replace("%Top%", "Weekly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -506,9 +504,9 @@ public class Commands {
 					if ((new Date().getDate() == Utils.getInstance()
 							.getDayFromMili(time))
 							&& (new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time))
+							.getMonthFromMili(time))
 							&& (new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time))) {
+							.getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -547,7 +545,7 @@ public class Commands {
 					.getCommandsVoteLastLine()
 					.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
 							"%time%").replace("%time%", timeString)
-					.replace("%SiteName%", voteSite.getSiteName()));
+							.replace("%SiteName%", voteSite.getSiteName()));
 		}
 
 		msg = Utils.getInstance().colorize(msg);
@@ -566,7 +564,7 @@ public class Commands {
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		.format(date);
 		return timeString;
 	}
 
@@ -666,154 +664,6 @@ public class Commands {
 			}
 		}
 		return info;
-	}
-
-	/**
-	 * Vote command reward info.
-	 *
-	 * @param rewardName
-	 *            the reward name
-	 * @return the string[]
-	 */
-	public String[] voteCommandRewardInfo(String rewardName) {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		if (!ConfigRewards.getInstance().getRewardFile(rewardName).exists()) {
-			msg.add("&cInvalid reward, see /av rewards!");
-		} else {
-
-			Reward reward = ConfigRewards.getInstance().getReward(rewardName);
-
-			msg.add("&c&lReward Info for " + reward.getRewardName() + ":");
-
-			msg.add("&cChance: &6" + reward.getChance());
-			msg.add("&cRequirePermission: &6" + reward.isRequirePermission());
-			msg.add("&cWorlds: &6"
-					+ Utils.getInstance().makeStringList(reward.getWorlds()));
-			msg.add("&cGive in each world: &6" + reward.isGiveInEachWorld());
-
-			// items
-			msg.add("&cItems:");
-			for (String item : reward.getItems()) {
-				msg.add("  &c" + item + ":");
-				msg.add("    &cMaterial: &6"
-						+ reward.getItemMaterial().get(item));
-				msg.add("    &cData: &6" + reward.getItemData().get(item));
-				msg.add("    &cAmount: &6" + reward.getItemAmount().get(item));
-				msg.add("    &cMinAmount: &6"
-						+ reward.getItemMinAmount().get(item));
-				msg.add("    &cMaxAmount: &6"
-						+ reward.getItemMaxAmount().get(item));
-				msg.add("    &cName: &6" + reward.getItemName().get(item));
-				msg.add("    &cLore: &6"
-						+ Utils.getInstance().makeStringList(
-								reward.getItemLore().get(item)));
-				msg.add("    &cEnchants:");
-				for (String enchant : reward.getItemEnchants().get(item)
-						.keySet()) {
-					msg.add("      &c" + enchant + ": &6"
-							+ reward.getItemEnchants().get(item).get(enchant));
-				}
-
-			}
-
-			// money
-			msg.add("&cMoney: &6" + reward.getMoney());
-			msg.add("&cMinMoney: &6" + reward.getMinMoney());
-			msg.add("&cMaxMoney: &6" + reward.getMaxMoney());
-
-			// commands
-			msg.add("&cConsole Commands:");
-			for (String consoleCommand : reward.getConsoleCommands()) {
-				msg.add("- &6" + consoleCommand);
-			}
-
-			msg.add("&cPlayer Commands:");
-			for (String playerCommand : reward.getPlayerCommands()) {
-				msg.add("- &6" + playerCommand);
-			}
-
-			// potions
-			msg.add("&cPotions:");
-			for (String potion : reward.getPotions()) {
-				msg.add("&c- " + potion);
-				msg.add("  &cDuration: &6"
-						+ reward.getPotionsDuration().get(potion));
-				msg.add("  &cAmplifier: &6"
-						+ reward.getPotionsAmplifier().get(potion));
-			}
-
-			// title
-			msg.add("&cTitle:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getTitleEnabled(rewardName));
-			msg.add("  &cTitle: &6"
-					+ ConfigRewards.getInstance().getTitleTitle(rewardName));
-			msg.add("  &cSubTitle: &6"
-					+ ConfigRewards.getInstance().getTitleSubTitle(rewardName));
-
-			msg.add("  &cFadeIn: &6"
-					+ ConfigRewards.getInstance().getTitleFadeIn(rewardName));
-			msg.add("  &cShowTime: &6"
-					+ ConfigRewards.getInstance().getTitleShowTime(rewardName));
-			msg.add("  &cFadeOut: &6"
-					+ ConfigRewards.getInstance().getTitleFadeOut(rewardName));
-
-			// sound
-			msg.add("&cSound:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getSoundEnabled(rewardName));
-			msg.add("  &cSound: &6"
-					+ ConfigRewards.getInstance().getSoundSound(rewardName));
-			msg.add("  &cVolume: &6"
-					+ ConfigRewards.getInstance().getSoundVolume(rewardName));
-			msg.add("  &cPitch: &6"
-					+ ConfigRewards.getInstance().getSoundPitch(rewardName));
-
-			// effect
-			msg.add("&cEffect:");
-			msg.add("  &cEnabled: &6"
-					+ ConfigRewards.getInstance().getEffectEnabled(rewardName));
-			msg.add("  &cEffect: &6"
-					+ ConfigRewards.getInstance().getEffectEffect(rewardName));
-			msg.add("  &cData: &6"
-					+ ConfigRewards.getInstance().getEffectData(rewardName));
-			msg.add("  &cParticles: &6"
-					+ ConfigRewards.getInstance()
-							.getEffectParticles(rewardName));
-			msg.add("  &cRadius: &6"
-					+ ConfigRewards.getInstance().getEffectRadius(rewardName));
-
-			// messages
-			msg.add("&cMessages:");
-			msg.add("  &cReward: &6" + reward.getRewardMsg());
-
-		}
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
-	}
-
-	/**
-	 * Vote command rewards.
-	 *
-	 * @return the string[]
-	 */
-	public String[] voteCommandRewards() {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		msg.add("&c&lRewards:");
-
-		int count = 1;
-		ArrayList<Reward> rewards = plugin.rewards;
-		if (rewards != null) {
-			for (Reward reward : rewards) {
-				msg.add("&c" + count + ". &6" + reward.getRewardName());
-				count++;
-			}
-		}
-
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
 	}
 
 	/**
@@ -958,7 +808,7 @@ public class Commands {
 	 * msg.split("-")[0]; texts.add(helpLine.replace("%Command%", command)); } }
 	 * texts = Utils.getInstance().colorize(texts); return
 	 * Utils.getInstance().convertArray(texts);
-	 * 
+	 *
 	 * }
 	 */
 
@@ -1018,11 +868,11 @@ public class Commands {
 							Material.getMaterial(ConfigGUI.getInstance()
 									.getVoteSiteItemMaterial(
 											voteSite.getSiteName())),
-							ConfigGUI.getInstance().getVoteSiteItemAmount(
-									voteSite.getSiteName()),
-							(short) ConfigGUI
-									.getInstance()
-									.getVoteSiteItemData(voteSite.getSiteName()));
+											ConfigGUI.getInstance().getVoteSiteItemAmount(
+													voteSite.getSiteName()),
+													(short) ConfigGUI
+													.getInstance()
+													.getVoteSiteItemData(voteSite.getSiteName()));
 					item = Utils.getInstance().setDurabilty(
 							item,
 							ConfigGUI.getInstance().getVoteSiteItemDurability(
@@ -1037,15 +887,15 @@ public class Commands {
 							count,
 							new BInventoryButton(
 									ConfigGUI.getInstance()
-											.getVoteSiteItemName(
-													voteSite.getSiteName()),
-									Utils.getInstance()
+									.getVoteSiteItemName(
+											voteSite.getSiteName()),
+											Utils.getInstance()
 											.convertArray(
 													(ArrayList<String>) ConfigGUI
-															.getInstance()
-															.getVoteSiteItemLore(
-																	voteSite.getSiteName())),
-									item) {
+													.getInstance()
+													.getVoteSiteItemLore(
+															voteSite.getSiteName())),
+															item) {
 
 								@Override
 								public void onClick(InventoryClickEvent event) {
@@ -1071,9 +921,9 @@ public class Commands {
 				ItemStack item = new ItemStack(Material.getMaterial(ConfigGUI
 						.getInstance().getVoteSiteItemsMaterial(siteName,
 								itemName)), ConfigGUI.getInstance()
-						.getVoteSiteItemsAmount(siteName, itemName),
-						(short) ConfigGUI.getInstance().getVoteSiteItemsData(
-								siteName, itemName));
+								.getVoteSiteItemsAmount(siteName, itemName),
+								(short) ConfigGUI.getInstance().getVoteSiteItemsData(
+										siteName, itemName));
 
 				item = Utils.getInstance().setDurabilty(
 						item,
@@ -1088,10 +938,10 @@ public class Commands {
 				inv.addButton(
 						ConfigGUI.getInstance().getVoteSiteItemsSlot(siteName,
 								itemName),
-						new BInventoryButton(ConfigGUI.getInstance()
-								.getVoteSiteItemsName(siteName, itemName),
-								Utils.getInstance().convertArray(
-										(ArrayList<String>) ConfigGUI
+								new BInventoryButton(ConfigGUI.getInstance()
+										.getVoteSiteItemsName(siteName, itemName),
+										Utils.getInstance().convertArray(
+												(ArrayList<String>) ConfigGUI
 												.getInstance()
 												.getVoteSiteItemsLore(siteName,
 														itemName)), item) {
@@ -1122,7 +972,7 @@ public class Commands {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				String timeString = new SimpleDateFormat(format.getTimeFormat())
-						.format(plugin.voteToday.get(user).get(voteSite));
+				.format(plugin.voteToday.get(user).get(voteSite));
 				msg.add("&6" + user.getPlayerName() + " : "
 						+ voteSite.getSiteName() + " : " + timeString);
 			}
@@ -1148,11 +998,11 @@ public class Commands {
 					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
 					(short) ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemData());
+					.getVoteURLAlreadyVotedItemData());
 			itemAll = Utils.getInstance().setDurabilty(
 					itemAll,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			itemAll = Utils.getInstance().setSkullOwner(
 					itemAll,
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
@@ -1162,11 +1012,11 @@ public class Commands {
 						.getInstance().getVoteURLCanVoteItemMaterial()),
 						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
 						(short) ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemData());
+						.getVoteURLCanVoteItemData());
 				itemAll = Utils.getInstance().setDurabilty(
 						itemAll,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 				itemAll = Utils.getInstance().setSkullOwner(
 						itemAll,
 						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(
@@ -1194,11 +1044,11 @@ public class Commands {
 					.getInstance().getVoteURLAlreadyVotedItemMaterial()),
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemAmount(),
 					(short) ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemData());
+					.getVoteURLAlreadyVotedItemData());
 			item = Utils.getInstance().setDurabilty(
 					item,
 					ConfigGUI.getInstance()
-							.getVoteURLAlreadyVotedItemDurability());
+					.getVoteURLAlreadyVotedItemDurability());
 			item = Utils.getInstance().setSkullOwner(
 					item,
 					ConfigGUI.getInstance().getVoteURLAlreadyVotedItemSkull(
@@ -1211,11 +1061,11 @@ public class Commands {
 						.getInstance().getVoteURLCanVoteItemMaterial()),
 						ConfigGUI.getInstance().getVoteURLCanVoteItemAmount(),
 						(short) ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemData());
+						.getVoteURLCanVoteItemData());
 				item = Utils.getInstance().setDurabilty(
 						item,
 						ConfigGUI.getInstance()
-								.getVoteURLCanVoteItemDurability());
+						.getVoteURLCanVoteItemDurability());
 				item = Utils.getInstance().setSkullOwner(
 						item,
 						ConfigGUI.getInstance().getVoteURLCanVoteItemSkull(

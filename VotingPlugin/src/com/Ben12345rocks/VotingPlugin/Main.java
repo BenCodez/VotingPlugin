@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
@@ -27,7 +26,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -37,7 +35,6 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -48,7 +45,6 @@ import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 import com.vexsoftware.votifier.model.Vote;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class Main.
  */
@@ -99,9 +95,6 @@ public class Main extends JavaPlugin {
 	/** The place holder API enabled. */
 	public boolean placeHolderAPIEnabled;
 
-	/** The rewards. */
-	public ArrayList<Reward> rewards;
-
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
@@ -118,7 +111,7 @@ public class Main extends JavaPlugin {
 			plugin.getLogger().severe(
 					"Failed to find AdvancedCore, plugin disabling");
 			plugin.getLogger()
-					.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
+			.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
 			Bukkit.getPluginManager().disablePlugin(plugin);
 		}
 	}
@@ -152,17 +145,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Debug: " + message);
-			if (config.getDebugInfoIngame()) {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player.hasPermission("VotingPlugin.Admin.Debug")) {
-						player.sendMessage(Utils.getInstance().colorize(
-								"&cVP Debug: " + message));
-					}
-				}
-			}
-		}
+		com.Ben12345rocks.AdvancedCore.Main.plugin.debug(plugin, message);
 	}
 
 	/**
@@ -237,19 +220,6 @@ public class Main extends JavaPlugin {
 	}
 
 	/**
-	 * Load rewards.
-	 */
-	public void loadRewards() {
-		ConfigRewards.getInstance().setupExample();
-		rewards = new ArrayList<Reward>();
-		for (String reward : ConfigRewards.getInstance().getRewardNames()) {
-			rewards.add(new Reward(reward));
-		}
-		plugin.debug("Loaded rewards");
-
-	}
-
-	/**
 	 * Load vote sites.
 	 */
 	public void loadVoteSites() {
@@ -275,7 +245,7 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -286,7 +256,7 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -305,7 +275,6 @@ public class Main extends JavaPlugin {
 		checkPlaceHolderAPI();
 
 		loadVoteSites();
-		loadRewards();
 
 		VoteReminding.getInstance().loadRemindChecking();
 
@@ -327,6 +296,7 @@ public class Main extends JavaPlugin {
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
+		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
 
 	}
 
@@ -383,7 +353,6 @@ public class Main extends JavaPlugin {
 		configBonusReward.reloadData();
 		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
-		loadRewards();
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
@@ -422,11 +391,11 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-					@Override
-					public void run() {
-						update();
-					}
-				}, 50, config.getBackgroundTaskDelay() * 20);
+			@Override
+			public void run() {
+				update();
+			}
+		}, 50, config.getBackgroundTaskDelay() * 20);
 
 		plugin.debug("Loaded timer for background task");
 
@@ -445,7 +414,6 @@ public class Main extends JavaPlugin {
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
-			ConfigRewards.getInstance().checkDelayedTimedRewards();
 			for (Player player : Bukkit.getOnlinePlayers()) {
 				new User(player).offVoteWorld(player.getWorld().getName());
 			}
@@ -453,7 +421,7 @@ public class Main extends JavaPlugin {
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
+			.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

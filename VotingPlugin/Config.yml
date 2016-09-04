@@ -3,14 +3,6 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
-# Wether debug info will be displayed
-Debug: false
-
-# Requires above to be set to true
-# Will give online players with the permission VotingPlugin.Admin.Debug 
-# debug messages ingame
-DebugInfoIngame: false
-
 # Broadcast votes
 BroadcastVote: true
 

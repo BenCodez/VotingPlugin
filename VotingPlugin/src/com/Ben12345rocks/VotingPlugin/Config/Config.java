@@ -106,24 +106,6 @@ public class Config {
 	}
 
 	/**
-	 * Gets the debug enabled.
-	 *
-	 * @return the debug enabled
-	 */
-	public boolean getDebugEnabled() {
-		return getData().getBoolean("Debug");
-	}
-
-	/**
-	 * Gets the debug info ingame.
-	 *
-	 * @return the debug info ingame
-	 */
-	public boolean getDebugInfoIngame() {
-		return getData().getBoolean("DebugInfoIngame");
-	}
-
-	/**
 	 * Gets the rewards.
 	 *
 	 * @return the rewards
@@ -260,7 +242,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

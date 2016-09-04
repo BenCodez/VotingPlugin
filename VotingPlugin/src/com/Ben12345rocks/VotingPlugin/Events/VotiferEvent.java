@@ -57,7 +57,7 @@ public class VotiferEvent implements Listener {
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
 					"Player " + playerName
-							+ " has not joined before, disregarding vote");
+					+ " has not joined before, disregarding vote");
 			return;
 		}
 
@@ -149,16 +149,16 @@ public class VotiferEvent implements Listener {
 														user, votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance()
-													.giveCumulativeVoteReward(
-															user, true,
-															votesRequired);
+											.giveCumulativeVoteReward(
+													user, true,
+													votesRequired);
 
 										}
 										if (offlineVote != 0) {
 											Data.getInstance()
-													.setCumuatliveVotesOffline(
-															user,
-															votesRequired, 0);
+											.setCumuatliveVotesOffline(
+													user,
+													votesRequired, 0);
 										}
 									}
 								}
@@ -183,9 +183,9 @@ public class VotiferEvent implements Listener {
 
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance()
-													.giveMilestoneVoteReward(
-															user, true,
-															votesRequired);
+											.giveMilestoneVoteReward(
+													user, true,
+													votesRequired);
 
 										}
 										if (offlineVote != 0) {
@@ -202,20 +202,20 @@ public class VotiferEvent implements Listener {
 				} else {
 					if (firstVote) {
 						Data.getInstance()
-								.setFirstVoteOffline(
-										user,
-										Data.getInstance().getFirstVoteOffline(
-												user) + 1);
+						.setFirstVoteOffline(
+								user,
+								Data.getInstance().getFirstVoteOffline(
+										user) + 1);
 						plugin.debug("Offline first vote reward set for "
 								+ playerName);
 					}
 
 					if (allSites) {
 						Data.getInstance()
-								.setAllSitesOffline(
-										user,
-										Data.getInstance().getAllSitesOffline(
-												user) + 1);
+						.setAllSitesOffline(
+								user,
+								Data.getInstance().getAllSitesOffline(
+										user) + 1);
 						plugin.debug("Offline bonus reward set for "
 								+ playerName);
 					}
@@ -296,7 +296,7 @@ public class VotiferEvent implements Listener {
 					&& Config.getInstance().getAutoCreateVoteSites()) {
 				plugin.getLogger().warning(
 						"VoteSite " + voteSiteName
-								+ " doe not exist, generaterating one...");
+						+ " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
 						voteSite);
@@ -304,10 +304,10 @@ public class VotiferEvent implements Listener {
 		} else if (Config.getInstance().getAutoCreateVoteSites()) {
 			plugin.getLogger().warning(
 					"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
+					+ " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 			ConfigVoteSites.getInstance()
-					.setServiceSite(voteSiteName, voteSite);
+			.setServiceSite(voteSiteName, voteSite);
 		}
 
 		BungeeVote.getInstance().sendVote(vote);

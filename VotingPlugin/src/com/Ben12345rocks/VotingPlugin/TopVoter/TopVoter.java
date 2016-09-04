@@ -63,43 +63,6 @@ public class TopVoter {
 	}
 
 	/**
-	 * Sort by values.
-	 *
-	 * @param unsortMap
-	 *            the unsort map
-	 * @param order
-	 *            the order
-	 * @return the hash map
-	 */
-	public HashMap<User, Integer> sortByValues(
-			HashMap<User, Integer> unsortMap, final boolean order) {
-
-		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
-				unsortMap.entrySet());
-
-		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
-			@Override
-			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
-				if (order) {
-					return o1.getValue().compareTo(o2.getValue());
-				} else {
-					return o2.getValue().compareTo(o1.getValue());
-
-				}
-			}
-		});
-
-		// Maintaining insertion order with the help of LinkedList
-		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
-		for (Entry<User, Integer> entry : list) {
-			sortedMap.put(entry.getKey(), entry.getValue());
-		}
-
-		return sortedMap;
-	}
-
-	/**
 	 * Check top voter award.
 	 */
 	@SuppressWarnings("deprecation")
@@ -291,6 +254,43 @@ public class TopVoter {
 				user.setTotalWeekly(voteSite, 0);
 			}
 		}
+	}
+
+	/**
+	 * Sort by values.
+	 *
+	 * @param unsortMap
+	 *            the unsort map
+	 * @param order
+	 *            the order
+	 * @return the hash map
+	 */
+	public HashMap<User, Integer> sortByValues(
+			HashMap<User, Integer> unsortMap, final boolean order) {
+
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(
+				unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
+			@Override
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
+				if (order) {
+					return o1.getValue().compareTo(o2.getValue());
+				} else {
+					return o2.getValue().compareTo(o1.getValue());
+
+				}
+			}
+		});
+
+		// Maintaining insertion order with the help of LinkedList
+		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
 	}
 
 	/**

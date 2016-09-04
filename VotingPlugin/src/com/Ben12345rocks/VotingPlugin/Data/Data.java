@@ -10,7 +10,6 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
@@ -72,18 +71,6 @@ public class Data {
 	 */
 	public void addTotal(User user, String voteSite) {
 		set(user, "Total." + voteSite, getTotal(user, voteSite) + 1);
-	}
-
-	/**
-	 * Convert.
-	 */
-	@SuppressWarnings("deprecation")
-	public void convert() {
-		for (User user : getUsers()) {
-			user.setRawData("VotingPlugin", OldData.getInstance().getData(user)
-					.getConfigurationSection(""));
-		}
-
 	}
 
 	/**
@@ -183,19 +170,6 @@ public class Data {
 	}
 
 	/**
-	 * Gets the offline reward.
-	 *
-	 * @param user
-	 *            the user
-	 * @param reward
-	 *            the reward
-	 * @return the offline reward
-	 */
-	public int getOfflineReward(User user, Reward reward) {
-		return getData(user).getInt("OfflineRewards." + reward.getRewardName());
-	}
-
-	/**
 	 * Gets the offline votes site.
 	 *
 	 * @param user
@@ -236,19 +210,6 @@ public class Data {
 	 */
 	public boolean getReminded(User user) {
 		return getData(user).getBoolean("Reminded");
-	}
-
-	/**
-	 * Gets the timed reward.
-	 *
-	 * @param user
-	 *            the user
-	 * @param reward
-	 *            the reward
-	 * @return the timed reward
-	 */
-	public long getTimedReward(User user, String reward) {
-		return getData(user).getLong("Timed." + reward);
 	}
 
 	/**
@@ -469,20 +430,6 @@ public class Data {
 	}
 
 	/**
-	 * Sets the offline reward.
-	 *
-	 * @param user
-	 *            the user
-	 * @param reward
-	 *            the reward
-	 * @param value
-	 *            the value
-	 */
-	public void setOfflineReward(User user, Reward reward, int value) {
-		set(user, "OfflineRewards." + reward.getRewardName(), value);
-	}
-
-	/**
 	 * Sets the offline votes site.
 	 *
 	 * @param user
@@ -551,24 +498,10 @@ public class Data {
 				System.currentTimeMillis());
 	}
 
-	/**
-	 * Sets the timed reward.
-	 *
-	 * @param user
-	 *            the user
-	 * @param reward
-	 *            the reward
-	 * @param time
-	 *            the time
-	 */
-	public void setTimedReward(User user, String reward, long time) {
-		set(user, "Timed." + reward, time);
-	}
-
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 *
+	 * 
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -630,7 +563,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-						place);
+				place);
 	}
 
 	/**
@@ -646,7 +579,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-						place);
+				place);
 	}
 
 	/**

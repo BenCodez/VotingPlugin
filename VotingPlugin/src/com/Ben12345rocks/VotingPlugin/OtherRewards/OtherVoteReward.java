@@ -3,11 +3,11 @@ package com.Ben12345rocks.VotingPlugin.OtherRewards;
 import java.util.Set;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -90,19 +90,19 @@ public class OtherVoteReward {
 					if (ConfigOtherRewards.getInstance()
 							.getCumulativeRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-							.getCumulativeRewards(votesRequired).size() != 0) {
+									.getCumulativeRewards(votesRequired).size() != 0) {
 						if (ConfigOtherRewards.getInstance()
 								.getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getTotalVotesToday();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-								.setCumuatliveVotesOffline(
-										user,
-										votesRequired,
-										Data.getInstance()
-										.getCumulativeVotesOffline(
+										.setCumuatliveVotesOffline(
 												user,
-												votesRequired) + 1);
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
 								return true;
 							}
 						} else {
@@ -110,13 +110,13 @@ public class OtherVoteReward {
 							int userVotesTotal = user.getTotalVotes();
 							if ((userVotesTotal % votesRequired) == 0) {
 								Data.getInstance()
-								.setCumuatliveVotesOffline(
-										user,
-										votesRequired,
-										Data.getInstance()
-										.getCumulativeVotesOffline(
+										.setCumuatliveVotesOffline(
 												user,
-												votesRequired) + 1);
+												votesRequired,
+												Data.getInstance()
+														.getCumulativeVotesOffline(
+																user,
+																votesRequired) + 1);
 								return true;
 							}
 						}
@@ -167,10 +167,11 @@ public class OtherVoteReward {
 					if (ConfigOtherRewards.getInstance()
 							.getMilestoneRewardEnabled(votesRequired)
 							&& ConfigOtherRewards.getInstance()
-							.getMilestoneRewards(votesRequired).size() != 0) {
+									.getMilestoneRewards(votesRequired).size() != 0) {
 
 						int userVotesTotal = user.getTotalMileStone();
-						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
+						if (userVotesTotal >= votesRequired
+								&& !user.hasGottenMilestone(votesRequired)) {
 							user.setOfflineMilestoneVotes(
 									votesRequired,
 									user.getOfflineMilestoneVotes(votesRequired) + 1);
@@ -220,7 +221,7 @@ public class OtherVoteReward {
 				.getAllSitesReward()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -241,7 +242,7 @@ public class OtherVoteReward {
 				.getCumulativeRewards(cumulative)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -259,7 +260,7 @@ public class OtherVoteReward {
 				.getFirstVoteRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -279,7 +280,7 @@ public class OtherVoteReward {
 				.getMilestoneRewards(milestone)) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}
@@ -297,7 +298,7 @@ public class OtherVoteReward {
 				.getMinVotesRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 

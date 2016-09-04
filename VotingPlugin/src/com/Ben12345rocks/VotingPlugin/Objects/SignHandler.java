@@ -11,7 +11,6 @@ import org.bukkit.block.Skull;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -257,7 +256,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+								.replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
@@ -265,7 +264,7 @@ public class SignHandler {
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j,
 								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+								.replace("%player%", playerName));
 					}
 				}
 
@@ -282,8 +281,8 @@ public class SignHandler {
 						ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
 								.getInstance().convertSet(
 										TopVoter.getInstance()
-												.topVotersSortedVoteSite(
-														voteSite).keySet());
+										.topVotersSortedVoteSite(
+												voteSite).keySet());
 
 						if (users.size() >= position) {
 							playerName = users.get(position - 1)
@@ -293,8 +292,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+										.replace("%votes%", "" + votes)
+										.replace("%player%", playerName));
 							}
 						} else {
 							playerName = "No Player";
@@ -303,8 +302,8 @@ public class SignHandler {
 								lines.set(
 										j,
 										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+										.replace("%votes%", "" + votes)
+										.replace("%player%", playerName));
 							}
 						}
 
@@ -312,9 +311,9 @@ public class SignHandler {
 							lines.set(
 									j,
 									lines.get(j)
-											.replace("%SiteName%", data)
-											.replace("%position%",
-													"" + position));
+									.replace("%SiteName%", data)
+									.replace("%position%",
+											"" + position));
 						}
 
 						lines = Utils.getInstance().colorize(lines);
@@ -348,7 +347,8 @@ public class SignHandler {
 					}
 
 				} catch (Exception ex) {
-					if (Config.getInstance().getDebugEnabled()) {
+					if (com.Ben12345rocks.AdvancedCore.Configs.Config
+							.getInstance().getDebugEnabled()) {
 						ex.printStackTrace();
 					}
 				}
