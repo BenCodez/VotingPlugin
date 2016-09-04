@@ -269,8 +269,62 @@ public class CommandAdminVote implements CommandExecutor {
 			inv.openInventory(player);
 		} else {
 			BInventory inv = new BInventory("Player: " + string);
-			inv.addButton(0, new BInventoryButton("SetPoints", new String[0],
-					new ItemStack(Material.STONE)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton("Vote",
+					new String[0], new ItemStack(Material.STONE)) {
+
+				@Override
+				public void onClick(InventoryClickEvent event) {
+					if (event.getWhoClicked() instanceof Player) {
+						Player player = (Player) event.getWhoClicked();
+						String playerName = event.getInventory().getTitle()
+								.split(" ")[1];
+
+						BInventory inv = new BInventory("Vote: " + playerName);
+
+						int count = 0;
+						for (VoteSite site : plugin.voteSites) {
+							inv.addButton(count,
+									new BInventoryButton(site.getSiteName(),
+											new String[0], new ItemStack(
+													Material.STONE)) {
+
+										@Override
+										public void onClick(
+												InventoryClickEvent event) {
+
+											Player player = (Player) event
+													.getWhoClicked();
+											String playerName = event
+													.getInventory().getTitle()
+													.split(" ")[1];
+
+											User user = new User(playerName);
+											VoteSite site = plugin
+													.getVoteSite(event
+															.getCurrentItem()
+															.getItemMeta()
+															.getDisplayName());
+											user.playerVote(
+													site,
+													Utils.getInstance()
+															.isPlayerOnline(
+																	playerName),
+													true);
+											player.sendMessage("Forced vote on site");
+
+										}
+									});
+							count++;
+						}
+
+						inv.openInventory(player);
+
+					}
+
+				}
+			});
+			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetPoints",
+					new String[0], new ItemStack(Material.STONE)) {
 
 				@Override
 				public void onClick(InventoryClickEvent event) {
@@ -308,8 +362,8 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			});
 
-			inv.addButton(1, new BInventoryButton("SetTotal", new String[0],
-					new ItemStack(Material.STONE)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetTotal",
+					new String[0], new ItemStack(Material.STONE)) {
 
 				@Override
 				public void onClick(InventoryClickEvent event) {
