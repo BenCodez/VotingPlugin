@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import javax.xml.bind.DatatypeConverter;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.vexsoftware.votifier.crypto.RSA;
 import com.vexsoftware.votifier.model.Vote;
@@ -133,7 +132,7 @@ public class BungeeVote {
 						"Failed to send vote to " + server + "(" + serverIP
 								+ ":" + serverPort + "): " + vote.toString()
 								+ ", ignore this if server is offline");
-				if (Config.getInstance().getDebugEnabled()) {
+				if (com.Ben12345rocks.AdvancedCore.Configs.Config.getInstance().getDebugEnabled()) {
 					e.printStackTrace();
 				}
 				ArrayList<Vote> votes = plugin.offlineBungee.get(server);

@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
@@ -139,7 +138,7 @@ public class Main extends JavaPlugin {
 			plugin.debug("Votifier not found, votes may not work");
 		}
 	}
-
+	
 	/**
 	 * Debug.
 	 *
@@ -147,17 +146,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		if (config.getDebugEnabled()) {
-			plugin.getLogger().info("Debug: " + message);
-			if (config.getDebugInfoIngame()) {
-				for (Player player : Bukkit.getOnlinePlayers()) {
-					if (player.hasPermission("VotingPlugin.Admin.Debug")) {
-						player.sendMessage(Utils.getInstance().colorize(
-								"&cVP Debug: " + message));
-					}
-				}
-			}
-		}
+		com.Ben12345rocks.AdvancedCore.Main.plugin.debug(plugin, message);
 	}
 
 	/**
@@ -310,6 +299,7 @@ public class Main extends JavaPlugin {
 		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
+		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
 
 	}
 

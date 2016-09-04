@@ -105,23 +105,6 @@ public class Config {
 		return data;
 	}
 
-	/**
-	 * Gets the debug enabled.
-	 *
-	 * @return the debug enabled
-	 */
-	public boolean getDebugEnabled() {
-		return getData().getBoolean("Debug");
-	}
-
-	/**
-	 * Gets the debug info ingame.
-	 *
-	 * @return the debug info ingame
-	 */
-	public boolean getDebugInfoIngame() {
-		return getData().getBoolean("DebugInfoIngame");
-	}
 
 	/**
 	 * Gets the rewards.

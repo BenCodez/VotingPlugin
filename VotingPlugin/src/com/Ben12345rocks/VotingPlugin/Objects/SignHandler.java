@@ -11,7 +11,6 @@ import org.bukkit.block.Skull;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -348,7 +347,7 @@ public class SignHandler {
 					}
 
 				} catch (Exception ex) {
-					if (Config.getInstance().getDebugEnabled()) {
+					if (com.Ben12345rocks.AdvancedCore.Configs.Config.getInstance().getDebugEnabled()) {
 						ex.printStackTrace();
 					}
 				}

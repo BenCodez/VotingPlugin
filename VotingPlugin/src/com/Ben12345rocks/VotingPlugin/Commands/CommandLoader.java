@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
@@ -22,7 +23,6 @@ import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.Report.Report;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
 // TODO: Auto-generated Javadoc

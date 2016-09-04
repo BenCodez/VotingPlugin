@@ -173,8 +173,7 @@ public class CommandAdminVote implements CommandExecutor {
 				}
 			}
 		});
-		
-		
+
 		lore = new ArrayList<String>();
 		inv.addButton(1, new BInventoryButton("&cConfig", Utils.getInstance()
 				.convertArray(lore), new ItemStack(Material.STONE)) {
@@ -403,44 +402,132 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void openAdminGUIConfig(Player player) {
 		BInventory inv = new BInventory("Config");
-		inv.addButton(0, new BInventoryButton("SetDebug", new String[0],
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("BroadcastVote",
+				new String[] { "Currently: "
+						+ Config.getInstance().getBroadCastVotesEnabled() },
 				new ItemStack(Material.STONE)) {
 
 			@Override
 			public void onClick(InventoryClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = (Player) event.getWhoClicked();
-					player.closeInventory();
-					User user = new User(player);
-					new RequestManager(
-							player,
-							user.getInputMethod(),
-							new InputListener() {
+				Player player = (Player) event.getWhoClicked();
+				User user = new User(player);
+				new RequestManager(player, user.getInputMethod(),
+						new InputListener() {
 
-								@Override
-								public void onInput(Player player, String input) {
-									Config.getInstance().setDebugEnabled(
-											Boolean.valueOf(input));
-									player.sendMessage("Set Debug");
-									plugin.reload();
-
-								}
+							@Override
+							public void onInput(Player player, String input) {
+								Config.getInstance().setBroadcastVoteEnabled(
+										Boolean.valueOf(input));
+								player.sendMessage("Value set");
 							}
+						}
 
-							,
-							"Type value in chat to send, cancel by typing cancel",
-							"" + Config.getInstance().getDebugEnabled());
-
-				}
-
+						,
+						"Type value in chat to send, cancel by typing cancel",
+						"" + Config.getInstance().getBroadCastVotesEnabled());
 			}
 		});
+
+		inv.addButton(
+				inv.getNextSlot(),
+				new BInventoryButton("AddRewards", new String[] { "Currently: "
+						+ Utils.getInstance().makeStringList(
+								Config.getInstance().getRewards()) },
+						new ItemStack(Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						Player player = (Player) event.getWhoClicked();
+						BInventory inv = new BInventory("AddReward");
+						int count = 0;
+						for (Reward reward : com.Ben12345rocks.AdvancedCore.Main.plugin.rewards) {
+							inv.addButton(count,
+									new BInventoryButton(
+											reward.getRewardName(),
+											new String[0], new ItemStack(
+													Material.STONE)) {
+
+										@Override
+										public void onClick(
+												InventoryClickEvent event) {
+
+											Player player = (Player) event
+													.getWhoClicked();
+
+											ArrayList<String> rewards = Config
+													.getInstance().getRewards();
+											rewards.add(event.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
+											Config.getInstance().setRewards(
+													rewards);
+											player.sendMessage("Reward added");
+											plugin.reload();
+
+										}
+									});
+							count++;
+						}
+						inv.openInventory(player);
+					}
+				});
+
+		inv.addButton(
+				inv.getNextSlot(),
+				new BInventoryButton("Remove Reward",
+						new String[] { "Currently: "
+								+ Utils.getInstance().makeStringList(
+										Config.getInstance().getRewards()) },
+						new ItemStack(Material.STONE)) {
+
+					@Override
+					public void onClick(InventoryClickEvent event) {
+						Player player = (Player) event.getWhoClicked();
+						BInventory inv = new BInventory("RemoveReward");
+						int count = 0;
+						for (String rewardName : Config.getInstance()
+								.getRewards()) {
+							Reward reward = ConfigRewards.getInstance()
+									.getReward(rewardName);
+							inv.addButton(count,
+									new BInventoryButton(
+											reward.getRewardName(),
+											new String[0], new ItemStack(
+													Material.STONE)) {
+
+										@Override
+										public void onClick(
+												InventoryClickEvent event) {
+
+											Player player = (Player) event
+													.getWhoClicked();
+
+											ArrayList<String> rewards = Config
+													.getInstance().getRewards();
+											rewards.remove(event
+													.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
+											Config.getInstance().setRewards(
+													rewards);
+											player.sendMessage("Reward removed");
+											plugin.reload();
+
+										}
+									});
+							count++;
+
+							inv.openInventory(player);
+
+						}
+
+					}
+				});
 
 		inv.openInventory(player);
 
 	}
 
-	
 	/**
 	 * Open admin GUI vote sites.
 	 *
@@ -706,7 +793,9 @@ public class CommandAdminVote implements CommandExecutor {
 											ArrayList<String> rewards = ConfigVoteSites
 													.getInstance().getRewards(
 															siteName);
-											rewards.add(reward.getRewardName());
+											rewards.add(event.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
 											ConfigVoteSites.getInstance()
 													.setRewards(siteName,
 															rewards);
@@ -757,8 +846,10 @@ public class CommandAdminVote implements CommandExecutor {
 											ArrayList<String> rewards = ConfigVoteSites
 													.getInstance().getRewards(
 															siteName);
-											rewards.remove(reward
-													.getRewardName());
+											rewards.remove(event
+													.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
 											ConfigVoteSites.getInstance()
 													.setRewards(siteName,
 															rewards);
@@ -954,7 +1045,6 @@ public class CommandAdminVote implements CommandExecutor {
 		});
 
 	}
-
 
 	/**
 	 * Sets the config allow unjoined.
