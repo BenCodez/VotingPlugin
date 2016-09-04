@@ -80,14 +80,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		super(plugin, uuid, loadName);
 	}
 
-	public boolean hasTopVoterIgnorePermission() {
-		return getPluginData().getBoolean("TopVoterIgnore");
-	}
-
-	public void setHasTopVoterIgnorePermssion(boolean value) {
-		setPluginData("TopVoterIgnore", value);
-	}
-
 	/**
 	 * Adds the cumulative reward.
 	 *
@@ -145,11 +137,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalDaily(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalDaily(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalDaily(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalDaily(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalDaily(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -160,11 +152,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalWeekly(VoteSite voteSite) {
 		Data.getInstance()
-				.setTotalWeek(
-						this,
-						voteSite.getSiteName(),
-						Data.getInstance().getTotalWeek(this,
-								voteSite.getSiteName()) + 1);
+		.setTotalWeek(
+				this,
+				voteSite.getSiteName(),
+				Data.getInstance().getTotalWeek(this,
+						voteSite.getSiteName()) + 1);
 	}
 
 	/**
@@ -319,7 +311,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(
 						Collectors
-								.toMap(Map.Entry::getKey, Map.Entry::getValue));
+						.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
 	}
 
@@ -393,8 +385,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public long getTime(VoteSite voteSite) {
 		return Data.getInstance().getTimeSite(this, voteSite.getSiteName());
 	}
-
-	
 
 	/**
 	 * Gets the total.
@@ -539,7 +529,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -559,11 +549,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
-
-	
 
 	/**
 	 * Give weekly top voter award.
@@ -581,7 +569,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(Utils.getInstance().colorize(
 					ConfigFormat.getInstance().getTopVoterRewardMsg()
-							.replace("%place%", "" + place)));
+					.replace("%place%", "" + place)));
 		}
 	}
 
@@ -592,6 +580,26 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public boolean hasGottenFirstVote() {
 		return Data.getInstance().getHasGottenFirstReward(this);
+	}
+
+	/**
+	 * Checks for gotten milestone.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @return true, if successful
+	 */
+	public boolean hasGottenMilestone(int votesRequired) {
+		return getPluginData().getBoolean("MilestonesGiven." + votesRequired);
+	}
+
+	/**
+	 * Checks for top voter ignore permission.
+	 *
+	 * @return true, if successful
+	 */
+	public boolean hasTopVoterIgnorePermission() {
+		return getPluginData().getBoolean("TopVoterIgnore");
 	}
 
 	/**
@@ -698,8 +706,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 								.getCumulativeVotesOffline(this, votesRequired);
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-									.giveCumulativeVoteReward(this, false,
-											votesRequired);
+							.giveCumulativeVoteReward(this, false,
+									votesRequired);
 
 						}
 						if (offlineVote != 0) {
@@ -722,8 +730,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 						for (int i = 0; i < offlineVote; i++) {
 							OtherVoteReward.getInstance()
-									.giveMilestoneVoteReward(this, true,
-											votesRequired);
+							.giveMilestoneVoteReward(this, true,
+									votesRequired);
 
 						}
 						if (offlineVote != 0) {
@@ -770,8 +778,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 
 	}
-
-	
 
 	/**
 	 * Player vote.
@@ -828,7 +834,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		for (String reward : Config.getInstance().getRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(this, online);
+				.giveReward(this, online);
 			}
 		}
 	}
@@ -847,6 +853,18 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	/**
+	 * Sets the has gotte milestone.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @param value
+	 *            the value
+	 */
+	public void setHasGotteMilestone(int votesRequired, boolean value) {
+		setPluginData("MilestonesGiven." + votesRequired, value);
+	}
+
+	/**
 	 * Sets the checks for gotten first vote.
 	 *
 	 * @param value
@@ -854,6 +872,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void setHasGottenFirstVote(boolean value) {
 		Data.getInstance().setHasGottenFirstReward(this, value);
+	}
+
+	/**
+	 * Sets the checks for top voter ignore permssion.
+	 *
+	 * @param value
+	 *            the new checks for top voter ignore permssion
+	 */
+	public void setHasTopVoterIgnorePermssion(boolean value) {
+		setPluginData("TopVoterIgnore", value);
 	}
 
 	/**
@@ -934,8 +962,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		Data.getInstance().setTime(voteSite.getSiteName(), user);
 	}
 
-	
-
 	/**
 	 * Sets the total.
 	 *
@@ -1000,29 +1026,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		} else {
 			Data.getInstance().setTopVoterAwardOfflineWeekly(this, place);
 		}
-	}
-
-	/**
-	 * Checks for gotten milestone.
-	 *
-	 * @param votesRequired
-	 *            the votes required
-	 * @return true, if successful
-	 */
-	public boolean hasGottenMilestone(int votesRequired) {
-		return getPluginData().getBoolean("MilestonesGiven." + votesRequired);
-	}
-
-	/**
-	 * Sets the has gotte milestone.
-	 *
-	 * @param votesRequired
-	 *            the votes required
-	 * @param value
-	 *            the value
-	 */
-	public void setHasGotteMilestone(int votesRequired, boolean value) {
-		setPluginData("MilestonesGiven." + votesRequired, value);
 	}
 
 }

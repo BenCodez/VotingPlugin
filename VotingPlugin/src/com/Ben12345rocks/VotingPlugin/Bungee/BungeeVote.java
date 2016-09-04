@@ -60,21 +60,21 @@ public class BungeeVote {
 	}
 
 	/**
-	 * Send vote.
-	 *
-	 * @param vote
-	 *            the vote
+	 * Check offline bungee votes.
 	 */
-	public void sendVote(Vote vote) {
-		if (ConfigBungeeVoting.getInstance().getEnabled()) {
-			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
-
-				try {
-					sendBungeeVoteServer(server, vote);
-				} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-					e.printStackTrace();
+	public void checkOfflineBungeeVotes() {
+		for (String server : plugin.offlineBungee.keySet()) {
+			ArrayList<Vote> votes = plugin.offlineBungee.get(server);
+			if (votes != null) {
+				for (Vote vote : votes) {
+					try {
+						sendBungeeVoteServer(server, vote);
+					} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+						e.printStackTrace();
+					}
 				}
 			}
+			plugin.offlineBungee.put(server, new ArrayList<Vote>());
 		}
 	}
 
@@ -130,9 +130,10 @@ public class BungeeVote {
 			} catch (Exception e) {
 				plugin.getLogger().info(
 						"Failed to send vote to " + server + "(" + serverIP
-								+ ":" + serverPort + "): " + vote.toString()
-								+ ", ignore this if server is offline");
-				if (com.Ben12345rocks.AdvancedCore.Configs.Config.getInstance().getDebugEnabled()) {
+						+ ":" + serverPort + "): " + vote.toString()
+						+ ", ignore this if server is offline");
+				if (com.Ben12345rocks.AdvancedCore.Configs.Config.getInstance()
+						.getDebugEnabled()) {
 					e.printStackTrace();
 				}
 				ArrayList<Vote> votes = plugin.offlineBungee.get(server);
@@ -148,21 +149,21 @@ public class BungeeVote {
 	}
 
 	/**
-	 * Check offline bungee votes.
+	 * Send vote.
+	 *
+	 * @param vote
+	 *            the vote
 	 */
-	public void checkOfflineBungeeVotes() {
-		for (String server : plugin.offlineBungee.keySet()) {
-			ArrayList<Vote> votes = plugin.offlineBungee.get(server);
-			if (votes != null) {
-				for (Vote vote : votes) {
-					try {
-						sendBungeeVoteServer(server, vote);
-					} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-						e.printStackTrace();
-					}
+	public void sendVote(Vote vote) {
+		if (ConfigBungeeVoting.getInstance().getEnabled()) {
+			for (String server : ConfigBungeeVoting.getInstance().getServers()) {
+
+				try {
+					sendBungeeVoteServer(server, vote);
+				} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+					e.printStackTrace();
 				}
 			}
-			plugin.offlineBungee.put(server, new ArrayList<Vote>());
 		}
 	}
 }

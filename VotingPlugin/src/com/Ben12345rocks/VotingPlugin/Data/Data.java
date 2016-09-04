@@ -169,8 +169,6 @@ public class Data {
 		return getData(user).getString("Name");
 	}
 
-	
-
 	/**
 	 * Gets the offline votes site.
 	 *
@@ -503,7 +501,7 @@ public class Data {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 *
+	 * 
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -565,7 +563,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-						place);
+				place);
 	}
 
 	/**
@@ -581,7 +579,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-						place);
+				place);
 	}
 
 	/**
