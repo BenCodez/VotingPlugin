@@ -45,7 +45,6 @@ import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 import com.vexsoftware.votifier.model.Vote;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class Main.
  */
@@ -138,7 +137,7 @@ public class Main extends JavaPlugin {
 			plugin.debug("Votifier not found, votes may not work");
 		}
 	}
-	
+
 	/**
 	 * Debug.
 	 *
@@ -219,8 +218,6 @@ public class Main extends JavaPlugin {
 		return url;
 
 	}
-
-
 
 	/**
 	 * Load vote sites.
