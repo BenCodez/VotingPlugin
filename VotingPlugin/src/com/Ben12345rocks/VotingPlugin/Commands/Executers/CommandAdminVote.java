@@ -10,7 +10,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
@@ -18,6 +17,7 @@ import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Request.InputListener;
 import com.Ben12345rocks.AdvancedCore.Util.Request.RequestManager;
@@ -99,23 +99,23 @@ public class CommandAdminVote implements CommandExecutor {
 		case FAIL_SPIGOT: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&cFailed to check for update for &c&l" + plugin.getName()
-					+ "&c!"));
+							+ "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &cis up to date! Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &cis up to date! Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
 			sender.sendMessage(Utils.getInstance().colorize(
 					"&c&l" + plugin.getName()
-					+ " &chas an update available! Your Version: &c&l"
-					+ plugin.getDescription().getVersion()
-					+ " &cNew Version: &c&l"
-					+ plugin.updater.getVersion()));
+							+ " &chas an update available! Your Version: &c&l"
+							+ plugin.getDescription().getVersion()
+							+ " &cNew Version: &c&l"
+							+ plugin.updater.getVersion()));
 			break;
 		}
 		default: {
@@ -197,7 +197,7 @@ public class CommandAdminVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -235,7 +235,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					if (event.getClick().equals(ClickType.MIDDLE)) {
@@ -250,9 +250,9 @@ public class CommandAdminVote implements CommandExecutor {
 											String input) {
 
 										ConfigVoteSites.getInstance()
-										.generateVoteSite(input);
+												.generateVoteSite(input);
 										ConfigVoteSites.getInstance()
-										.setEnabled(input, true);
+												.setEnabled(input, true);
 										player.sendMessage("Generated site");
 										plugin.reload();
 
@@ -274,7 +274,7 @@ public class CommandAdminVote implements CommandExecutor {
 				.convertArray(lore), new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					openAdminGUIConfig(player);
@@ -286,10 +286,10 @@ public class CommandAdminVote implements CommandExecutor {
 		lore.add("Middle click to enter offline/specific player");
 		inv.addButton(2, new BInventoryButton("&cPlayers", Utils.getInstance()
 				.convertArray(lore), new ItemStack(Material.SKULL_ITEM, 1,
-						(short) 3)) {
+				(short) 3)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					if (event.getClick().equals(ClickType.MIDDLE)) {
@@ -333,26 +333,26 @@ public class CommandAdminVote implements CommandExecutor {
 		inv.addButton(inv.getNextSlot(), new BInventoryButton("BroadcastVote",
 				new String[] { "Currently: "
 						+ Config.getInstance().getBroadCastVotesEnabled() },
-						new ItemStack(Material.STONE)) {
+				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				Player player = (Player) event.getWhoClicked();
 				User user = new User(player);
 				new RequestManager(player, user.getInputMethod(),
 						new InputListener() {
 
-					@Override
-					public void onInput(Player player, String input) {
-						Config.getInstance().setBroadcastVoteEnabled(
-								Boolean.valueOf(input));
-						player.sendMessage("Value set");
-					}
-				}
+							@Override
+							public void onInput(Player player, String input) {
+								Config.getInstance().setBroadcastVoteEnabled(
+										Boolean.valueOf(input));
+								player.sendMessage("Value set");
+							}
+						}
 
-				,
-				"Type value in chat to send, cancel by typing cancel",
-				"" + Config.getInstance().getBroadCastVotesEnabled());
+						,
+						"Type value in chat to send, cancel by typing cancel",
+						"" + Config.getInstance().getBroadCastVotesEnabled());
 			}
 		});
 
@@ -361,10 +361,10 @@ public class CommandAdminVote implements CommandExecutor {
 				new BInventoryButton("AddRewards", new String[] { "Currently: "
 						+ Utils.getInstance().makeStringList(
 								Config.getInstance().getRewards()) },
-								new ItemStack(Material.STONE)) {
+						new ItemStack(Material.STONE)) {
 
 					@Override
-					public void onClick(InventoryClickEvent event) {
+					public void onClick(ClickEvent event) {
 						Player player = (Player) event.getWhoClicked();
 						BInventory inv = new BInventory("AddReward");
 						int count = 0;
@@ -375,25 +375,24 @@ public class CommandAdminVote implements CommandExecutor {
 											new String[0], new ItemStack(
 													Material.STONE)) {
 
-								@Override
-								public void onClick(
-										InventoryClickEvent event) {
+										@Override
+										public void onClick(ClickEvent event) {
 
-									Player player = (Player) event
-											.getWhoClicked();
+											Player player = (Player) event
+													.getWhoClicked();
 
-									ArrayList<String> rewards = Config
-											.getInstance().getRewards();
-									rewards.add(event.getCurrentItem()
-											.getItemMeta()
-											.getDisplayName());
-									Config.getInstance().setRewards(
-											rewards);
-									player.sendMessage("Reward added");
-									plugin.reload();
+											ArrayList<String> rewards = Config
+													.getInstance().getRewards();
+											rewards.add(event.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
+											Config.getInstance().setRewards(
+													rewards);
+											player.sendMessage("Reward added");
+											plugin.reload();
 
-								}
-							});
+										}
+									});
 							count++;
 						}
 						inv.openInventory(player);
@@ -406,10 +405,10 @@ public class CommandAdminVote implements CommandExecutor {
 						new String[] { "Currently: "
 								+ Utils.getInstance().makeStringList(
 										Config.getInstance().getRewards()) },
-										new ItemStack(Material.STONE)) {
+						new ItemStack(Material.STONE)) {
 
 					@Override
-					public void onClick(InventoryClickEvent event) {
+					public void onClick(ClickEvent event) {
 						Player player = (Player) event.getWhoClicked();
 						BInventory inv = new BInventory("RemoveReward");
 						int count = 0;
@@ -423,26 +422,25 @@ public class CommandAdminVote implements CommandExecutor {
 											new String[0], new ItemStack(
 													Material.STONE)) {
 
-								@Override
-								public void onClick(
-										InventoryClickEvent event) {
+										@Override
+										public void onClick(ClickEvent event) {
 
-									Player player = (Player) event
-											.getWhoClicked();
+											Player player = (Player) event
+													.getWhoClicked();
 
-									ArrayList<String> rewards = Config
-											.getInstance().getRewards();
-									rewards.remove(event
-											.getCurrentItem()
-											.getItemMeta()
-											.getDisplayName());
-									Config.getInstance().setRewards(
-											rewards);
-									player.sendMessage("Reward removed");
-									plugin.reload();
+											ArrayList<String> rewards = Config
+													.getInstance().getRewards();
+											rewards.remove(event
+													.getCurrentItem()
+													.getItemMeta()
+													.getDisplayName());
+											Config.getInstance().setRewards(
+													rewards);
+											player.sendMessage("Reward removed");
+											plugin.reload();
 
-								}
-							});
+										}
+									});
 							count++;
 
 							inv.openInventory(player);
@@ -478,7 +476,7 @@ public class CommandAdminVote implements CommandExecutor {
 												(short) 3), players.getName())) {
 
 							@Override
-							public void onClick(InventoryClickEvent event) {
+							public void onClick(ClickEvent event) {
 								if (event.getWhoClicked() instanceof Player) {
 									Player player = (Player) event
 											.getWhoClicked();
@@ -502,7 +500,7 @@ public class CommandAdminVote implements CommandExecutor {
 					new String[0], new ItemStack(Material.STONE)) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
+				public void onClick(ClickEvent event) {
 					if (event.getWhoClicked() instanceof Player) {
 						Player player = (Player) event.getWhoClicked();
 						String playerName = event.getInventory().getTitle()
@@ -517,32 +515,31 @@ public class CommandAdminVote implements CommandExecutor {
 											new String[0], new ItemStack(
 													Material.STONE)) {
 
-								@Override
-								public void onClick(
-										InventoryClickEvent event) {
+										@Override
+										public void onClick(ClickEvent event) {
 
-									Player player = (Player) event
-											.getWhoClicked();
-									String playerName = event
-											.getInventory().getTitle()
-											.split(" ")[1];
+											Player player = (Player) event
+													.getWhoClicked();
+											String playerName = event
+													.getInventory().getTitle()
+													.split(" ")[1];
 
-									User user = new User(playerName);
-									VoteSite site = plugin
-											.getVoteSite(event
-													.getCurrentItem()
-													.getItemMeta()
-													.getDisplayName());
-									user.playerVote(
-											site,
-											Utils.getInstance()
-											.isPlayerOnline(
-													playerName),
+											User user = new User(playerName);
+											VoteSite site = plugin
+													.getVoteSite(event
+															.getCurrentItem()
+															.getItemMeta()
+															.getDisplayName());
+											user.playerVote(
+													site,
+													Utils.getInstance()
+															.isPlayerOnline(
+																	playerName),
 													true);
-									player.sendMessage("Forced vote on site");
+											player.sendMessage("Forced vote on site");
 
-								}
-							});
+										}
+									});
 							count++;
 						}
 
@@ -556,7 +553,7 @@ public class CommandAdminVote implements CommandExecutor {
 					new String[0], new ItemStack(Material.STONE)) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
+				public void onClick(ClickEvent event) {
 					if (event.getWhoClicked() instanceof Player) {
 						Player player = (Player) event.getWhoClicked();
 						String playerName = event.getInventory().getTitle()
@@ -590,12 +587,47 @@ public class CommandAdminVote implements CommandExecutor {
 
 				}
 			});
+			inv.addButton(inv.getNextSlot(), new BInventoryButton("MileStones",
+					new String[0], new ItemStack(Material.STONE)) {
+
+				@Override
+				public void onClick(ClickEvent event) {
+
+					Player player = (Player) event.getWhoClicked();
+					String playerName = event.getInventory().getTitle()
+							.split(" ")[1];
+					player.closeInventory();
+					User user = new User(player);
+					new RequestManager(
+							player,
+							user.getInputMethod(),
+							new InputListener() {
+
+								@Override
+								public void onInput(Player player, String input) {
+									if (Utils.getInstance().isInt(input)) {
+										User user = new User(playerName);
+										user.setPoints(Integer.parseInt(input));
+										player.sendMessage("Set points");
+										plugin.reload();
+									} else {
+										player.sendMessage("Must be an integer");
+									}
+								}
+							}
+
+							,
+							"Type value in chat to send, cancel by typing cancel",
+							"" + new User(playerName).getPoints());
+
+				}
+			});
 
 			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetTotal",
 					new String[0], new ItemStack(Material.STONE)) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
+				public void onClick(ClickEvent event) {
 					if (event.getWhoClicked() instanceof Player) {
 						Player player = (Player) event.getWhoClicked();
 						String playerName = event.getInventory().getTitle()
@@ -612,56 +644,55 @@ public class CommandAdminVote implements CommandExecutor {
 											new String[0], new ItemStack(
 													Material.STONE)) {
 
-								@Override
-								public void onClick(
-										InventoryClickEvent event) {
-									if (event.getWhoClicked() instanceof Player) {
-										Player player = (Player) event
-												.getWhoClicked();
-										String playerName = event
-												.getInventory()
-												.getTitle().split(" ")[1];
-										player.closeInventory();
-										User user = new User(player);
-										new RequestManager(
-												player,
-												user.getInputMethod(),
-												new InputListener() {
+										@Override
+										public void onClick(ClickEvent event) {
+											if (event.getWhoClicked() instanceof Player) {
+												Player player = (Player) event
+														.getWhoClicked();
+												String playerName = event
+														.getInventory()
+														.getTitle().split(" ")[1];
+												player.closeInventory();
+												User user = new User(player);
+												new RequestManager(
+														player,
+														user.getInputMethod(),
+														new InputListener() {
 
-													@Override
-													public void onInput(
-															Player player,
-															String input) {
-														if (Utils
-																.getInstance()
-																.isInt(input)) {
-															User user = new User(
-																	playerName);
-															user.setTotal(
-																	plugin.getVoteSite(event
-																			.getCurrentItem()
-																			.getItemMeta()
-																			.getDisplayName()),
+															@Override
+															public void onInput(
+																	Player player,
+																	String input) {
+																if (Utils
+																		.getInstance()
+																		.isInt(input)) {
+																	User user = new User(
+																			playerName);
+																	user.setTotal(
+																			plugin.getVoteSite(event
+																					.getCurrentItem()
+																					.getItemMeta()
+																					.getDisplayName()),
 																			Integer.parseInt(input));
-															player.sendMessage("Total set");
-															plugin.reload();
-														} else {
-															player.sendMessage("Must be an integer");
+																	player.sendMessage("Total set");
+																	plugin.reload();
+																} else {
+																	player.sendMessage("Must be an integer");
+																}
+															}
 														}
-													}
-												}
 
-												,
-												"Type value in chat to send, cancel by typing cancel",
-												""
-														+ new User(
-																playerName)
-												.getTotal(site));
+														,
+														"Type value in chat to send, cancel by typing cancel",
+														""
+																+ new User(
+																		playerName)
+																		.getTotal(site));
 
-									}
+											}
 
-								}
-							});
+										}
+									});
 							count++;
 						}
 
@@ -704,11 +735,11 @@ public class CommandAdminVote implements CommandExecutor {
 							Material.STONE)) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
-					if (event.getWhoClicked() instanceof Player) {
-						Player player = (Player) event.getWhoClicked();
-						openAdminGUIVoteSiteSite(player, voteSite);
-					}
+				public void onClick(ClickEvent event) {
+
+					Player player = (Player) event.getWhoClicked();
+					openAdminGUIVoteSiteSite(player, voteSite);
+
 				}
 			});
 			count++;
@@ -727,11 +758,12 @@ public class CommandAdminVote implements CommandExecutor {
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		BInventory inv = new BInventory("VoteSite: " + voteSite.getSiteName());
 		User user = new User(player);
+		inv.setMeta(player, "VoteSite", voteSite);
 		inv.addButton(0, new BInventoryButton("SetPriority", new String[0],
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -743,13 +775,13 @@ public class CommandAdminVote implements CommandExecutor {
 								@Override
 								public void onInput(Player player, String input) {
 									if (Utils.getInstance().isInt(input)) {
+										VoteSite voteSite = (VoteSite) event
+												.getMeta("VoteSite");
 										ConfigVoteSites
-										.getInstance()
-										.setPriority(
-												event.getInventory()
-												.getTitle()
-												.split(" ")[1],
-												Integer.parseInt(input));
+												.getInstance()
+												.setPriority(
+														voteSite.getSiteName(),
+														Integer.parseInt(input));
 										player.sendMessage("Set Priority");
 										plugin.reload();
 									} else {
@@ -772,7 +804,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -783,10 +815,11 @@ public class CommandAdminVote implements CommandExecutor {
 
 								@Override
 								public void onInput(Player player, String input) {
-									String siteName = event.getInventory()
-											.getTitle().split(" ")[1];
+									VoteSite voteSite = (VoteSite) event
+											.getMeta("VoteSite");
+									String siteName = voteSite.getSiteName();
 									ConfigVoteSites.getInstance()
-									.setServiceSite(siteName, input);
+											.setServiceSite(siteName, input);
 									player.sendMessage("Set ServiceSite");
 									plugin.reload();
 
@@ -806,7 +839,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -817,8 +850,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 								@Override
 								public void onInput(Player player, String input) {
-									String siteName = event.getInventory()
-											.getTitle().split(" ")[1];
+									VoteSite voteSite = (VoteSite) event
+											.getMeta("VoteSite");
+									String siteName = voteSite.getSiteName();
 									ConfigVoteSites.getInstance().setVoteURL(
 											siteName, input);
 									player.sendMessage("Set VoteURL");
@@ -840,7 +874,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -852,13 +886,14 @@ public class CommandAdminVote implements CommandExecutor {
 								@Override
 								public void onInput(Player player, String input) {
 									if (Utils.getInstance().isInt(input)) {
+										VoteSite voteSite = (VoteSite) event
+												.getMeta("VoteSite");
+										String siteName = voteSite
+												.getSiteName();
 										ConfigVoteSites
-										.getInstance()
-										.setVoteDelay(
-												event.getInventory()
-												.getTitle()
-												.split(" ")[1],
-												Integer.parseInt(input));
+												.getInstance()
+												.setVoteDelay(siteName,
+														Integer.parseInt(input));
 										player.sendMessage("Set VoteDelay");
 										plugin.reload();
 									} else {
@@ -880,7 +915,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -891,8 +926,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 								@Override
 								public void onInput(Player player, String input) {
-									String siteName = event.getInventory()
-											.getTitle().split(" ")[1];
+									VoteSite voteSite = (VoteSite) event
+											.getMeta("VoteSite");
+									String siteName = voteSite.getSiteName();
 									ConfigVoteSites.getInstance().setEnabled(
 											siteName, Boolean.valueOf(input));
 									player.sendMessage("Set Enabled");
@@ -904,8 +940,8 @@ public class CommandAdminVote implements CommandExecutor {
 							"Type value in chat to send, cancel by typing cancel",
 							""
 									+ ConfigVoteSites.getInstance()
-									.getVoteSiteEnabled(
-											voteSite.getSiteName()));
+											.getVoteSiteEnabled(
+													voteSite.getSiteName()));
 
 				}
 
@@ -916,7 +952,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					String siteName = event.getInventory().getTitle()
@@ -929,30 +965,28 @@ public class CommandAdminVote implements CommandExecutor {
 										new String[0], new ItemStack(
 												Material.STONE)) {
 
-							@Override
-							public void onClick(
-									InventoryClickEvent event) {
-								if (event.getWhoClicked() instanceof Player) {
-									Player player = (Player) event
-											.getWhoClicked();
-									player.closeInventory();
-									String siteName = event
-											.getInventory().getTitle()
-											.split(" ")[1];
-									ArrayList<String> rewards = ConfigVoteSites
-											.getInstance().getRewards(
-													siteName);
-									rewards.add(event.getCurrentItem()
-											.getItemMeta()
-											.getDisplayName());
-									ConfigVoteSites.getInstance()
-									.setRewards(siteName,
-											rewards);
-									player.sendMessage("Reward added");
-									plugin.reload();
-								}
-							}
-						});
+									@Override
+									public void onClick(ClickEvent event) {
+
+										Player player = (Player) event
+												.getWhoClicked();
+										player.closeInventory();
+										VoteSite voteSite = (VoteSite) event
+												.getMeta("VoteSite");
+										String siteName = voteSite
+												.getSiteName();
+										ArrayList<String> rewards = ConfigVoteSites
+												.getInstance().getRewards(
+														siteName);
+										rewards.add(event.getCurrentItem()
+												.getItemMeta().getDisplayName());
+										ConfigVoteSites.getInstance()
+												.setRewards(siteName, rewards);
+										player.sendMessage("Reward added");
+										plugin.reload();
+
+									}
+								});
 						count++;
 					}
 
@@ -967,7 +1001,7 @@ public class CommandAdminVote implements CommandExecutor {
 				new ItemStack(Material.STONE)) {
 
 			@Override
-			public void onClick(InventoryClickEvent event) {
+			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = (Player) event.getWhoClicked();
 					String siteName = event.getInventory().getTitle()
@@ -982,31 +1016,28 @@ public class CommandAdminVote implements CommandExecutor {
 										new String[0], new ItemStack(
 												Material.STONE)) {
 
-							@Override
-							public void onClick(
-									InventoryClickEvent event) {
-								if (event.getWhoClicked() instanceof Player) {
-									Player player = (Player) event
-											.getWhoClicked();
-									player.closeInventory();
-									String siteName = event
-											.getInventory().getTitle()
-											.split(" ")[1];
-									ArrayList<String> rewards = ConfigVoteSites
-											.getInstance().getRewards(
-													siteName);
-									rewards.remove(event
-											.getCurrentItem()
-											.getItemMeta()
-											.getDisplayName());
-									ConfigVoteSites.getInstance()
-									.setRewards(siteName,
-											rewards);
-									player.sendMessage("Reward removed");
-									plugin.reload();
-								}
-							}
-						});
+									@Override
+									public void onClick(ClickEvent event) {
+
+										Player player = (Player) event
+												.getWhoClicked();
+										player.closeInventory();
+										VoteSite voteSite = (VoteSite) event
+												.getMeta("VoteSite");
+										String siteName = voteSite
+												.getSiteName();
+										ArrayList<String> rewards = ConfigVoteSites
+												.getInstance().getRewards(
+														siteName);
+										rewards.remove(event.getCurrentItem()
+												.getItemMeta().getDisplayName());
+										ConfigVoteSites.getInstance()
+												.setRewards(siteName, rewards);
+										player.sendMessage("Reward removed");
+										plugin.reload();
+
+									}
+								});
 						count++;
 					}
 

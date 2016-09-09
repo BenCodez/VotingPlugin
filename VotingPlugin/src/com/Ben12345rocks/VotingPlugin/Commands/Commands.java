@@ -14,13 +14,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -267,7 +267,7 @@ public class Commands {
 							.getVoteGUISlotName(slot), lore, item) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
+				public void onClick(ClickEvent event) {
 					Player player = (Player) event.getWhoClicked();
 					if (player != null) {
 						// plugin.debug("Running cmd");
@@ -898,7 +898,7 @@ public class Commands {
 															item) {
 
 								@Override
-								public void onClick(InventoryClickEvent event) {
+								public void onClick(ClickEvent event) {
 									Player player = (Player) event
 											.getWhoClicked();
 									if (player != null) {
@@ -947,7 +947,7 @@ public class Commands {
 														itemName)), item) {
 
 							@Override
-							public void onClick(InventoryClickEvent event) {
+							public void onClick(ClickEvent event) {
 								Player player = (Player) event.getWhoClicked();
 								if (player != null) {
 									player.closeInventory();
@@ -1027,7 +1027,7 @@ public class Commands {
 					new String[] { "&cClick Me" }, itemAll) {
 
 				@Override
-				public void onClick(InventoryClickEvent event) {
+				public void onClick(ClickEvent event) {
 					User user = new User((Player) event.getWhoClicked());
 					Player player = (Player) event.getWhoClicked();
 					player.closeInventory();
@@ -1083,7 +1083,7 @@ public class Commands {
 							.getInstance().convertArray(lore), item) {
 
 						@Override
-						public void onClick(InventoryClickEvent event) {
+						public void onClick(ClickEvent event) {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
