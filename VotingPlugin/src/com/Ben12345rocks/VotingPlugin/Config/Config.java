@@ -105,6 +105,10 @@ public class Config {
 		return data;
 	}
 
+	public boolean getLogVotesToFile() {
+		return getData().getBoolean("LogVotesToFile");
+	}
+
 	/**
 	 * Gets the rewards.
 	 *
@@ -112,17 +116,9 @@ public class Config {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Rewards");
-			if (list != null) {
-				return list;
-			} else {
-				return new ArrayList<String>();
-			}
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+		return (ArrayList<String>) getData().getList("Rewards",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -242,7 +238,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 
