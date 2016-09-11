@@ -130,8 +130,8 @@ public class BungeeVote {
 			} catch (Exception e) {
 				plugin.getLogger().info(
 						"Failed to send vote to " + server + "(" + serverIP
-						+ ":" + serverPort + "): " + vote.toString()
-						+ ", ignore this if server is offline");
+								+ ":" + serverPort + "): " + vote.toString()
+								+ ", ignore this if server is offline");
 				if (com.Ben12345rocks.AdvancedCore.Configs.Config.getInstance()
 						.getDebugEnabled()) {
 					e.printStackTrace();

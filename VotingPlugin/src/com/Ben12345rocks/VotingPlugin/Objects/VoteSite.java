@@ -181,7 +181,7 @@ public class VoteSite {
 	public void giveCulumativeRewards(User user, boolean online) {
 		for (String reward : getCumulativeRewards()) {
 			ConfigRewards.getInstance().getReward(reward)
-			.giveReward(user, online);
+					.giveReward(user, online);
 		}
 	}
 
@@ -197,7 +197,7 @@ public class VoteSite {
 		for (String reward : getRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
-				.giveReward(user, online);
+						.giveReward(user, online);
 			}
 		}
 	}

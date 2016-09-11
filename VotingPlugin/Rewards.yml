@@ -4,13 +4,11 @@
 # FirstVote: [] (All in one line)
 
 # First vote rewards
-FirstVote:
-- 'FirstVote'
+FirstVote: []
 
 # All vote rewards
 # Reward for voting on all sites in one day
-AllSites:
-- 'AllSites'
+AllSites: []
 
 Cumulative:
   # Number of votes required

@@ -1,6 +1,8 @@
 package com.Ben12345rocks.VotingPlugin;
 
+import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -12,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
@@ -100,6 +103,9 @@ public class Main extends JavaPlugin {
 
 	/** The offline bungee. */
 	public HashMap<String, ArrayList<Vote>> offlineBungee;
+
+	/** The vote log. */
+	public Logger voteLog;
 
 	/**
 	 * Check advanced core.
@@ -231,6 +237,24 @@ public class Main extends JavaPlugin {
 	}
 
 	/**
+	 * Log vote.
+	 *
+	 * @param date
+	 *            the date
+	 * @param playerName
+	 *            the player name
+	 * @param voteSite
+	 *            the vote site
+	 */
+	public void logVote(Date date, String playerName, String voteSite) {
+		if (Config.getInstance().getLogVotesToFile()) {
+			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm")
+			.format(date);
+			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
+		}
+	}
+
+	/**
 	 * Metrics.
 	 */
 	private void metrics() {
@@ -290,6 +314,9 @@ public class Main extends JavaPlugin {
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
+
+		voteLog = new Logger(plugin, new File(plugin.getDataFolder(),
+				"votelog.txt"));
 
 		VoteParty.getInstance().check();
 

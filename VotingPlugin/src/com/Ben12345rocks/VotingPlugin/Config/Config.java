@@ -106,23 +106,24 @@ public class Config {
 	}
 
 	/**
+	 * Gets the log votes to file.
+	 *
+	 * @return the log votes to file
+	 */
+	public boolean getLogVotesToFile() {
+		return getData().getBoolean("LogVotesToFile");
+	}
+
+	/**
 	 * Gets the rewards.
 	 *
 	 * @return the rewards
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Rewards");
-			if (list != null) {
-				return list;
-			} else {
-				return new ArrayList<String>();
-			}
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+		return (ArrayList<String>) getData().getList("Rewards",
+				new ArrayList<String>());
+
 	}
 
 	/**
