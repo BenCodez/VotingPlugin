@@ -615,7 +615,8 @@ public class CommandAdminVote implements CommandExecutor {
 																			ConfigOtherRewards
 																					.getInstance()
 																					.getMilestoneRewards(
-																							mileStone)) },
+																							mileStone)),
+													"&cClick to set wether this has been completed or not" },
 											new ItemStack(Material.STONE)) {
 
 										@Override
