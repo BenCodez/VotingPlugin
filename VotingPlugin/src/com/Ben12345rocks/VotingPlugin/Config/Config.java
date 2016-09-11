@@ -105,6 +105,11 @@ public class Config {
 		return data;
 	}
 
+	/**
+	 * Gets the log votes to file.
+	 *
+	 * @return the log votes to file
+	 */
 	public boolean getLogVotesToFile() {
 		return getData().getBoolean("LogVotesToFile");
 	}
@@ -238,7 +243,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
+				.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

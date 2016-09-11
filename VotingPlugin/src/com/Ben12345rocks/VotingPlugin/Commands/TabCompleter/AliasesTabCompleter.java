@@ -27,7 +27,7 @@ public class AliasesTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -55,7 +55,7 @@ public class AliasesTabCompleter implements TabCompleter {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
 							|| cmd.getName()
-							.equalsIgnoreCase("adminvote" + arg)) {
+									.equalsIgnoreCase("adminvote" + arg)) {
 						// plugin.debug("Found cmd... attempting to get tab complete");
 						args[0] = arg;
 						boolean argsMatch = true;
