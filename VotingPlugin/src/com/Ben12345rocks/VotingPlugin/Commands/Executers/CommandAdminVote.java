@@ -552,46 +552,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 				@Override
 				public void onClick(ClickEvent event) {
-				
-						Player player = (Player) event.getWhoClicked();
-						String playerName = (String) event
-								.getMeta(player, "Player");
-						player.closeInventory();
-						User user = new User(player);
-						new RequestManager(
-								player,
-								user.getInputMethod(),
-								new InputListener() {
-
-									@Override
-									public void onInput(Player player,
-											String input) {
-										if (Utils.getInstance().isInt(input)) {
-											String playerName = (String) event
-													.getMeta(player, "Player");
-											User user = new User(playerName);
-											user.setPoints(Integer
-													.parseInt(input));
-											player.sendMessage("Set points");
-											plugin.reload();
-										} else {
-											player.sendMessage("Must be an integer");
-										}
-									}
-								}
-
-								,
-								"Type value in chat to send, cancel by typing cancel",
-								"" + new User(playerName).getPoints());
-					
-
-				}
-			});
-			inv.addButton(inv.getNextSlot(), new BInventoryButton("MileStones",
-					new String[0], new ItemStack(Material.STONE)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
 
 					Player player = (Player) event.getWhoClicked();
 					String playerName = (String) event
@@ -624,6 +584,87 @@ public class CommandAdminVote implements CommandExecutor {
 
 				}
 			});
+			inv.addButton(inv.getNextSlot(), new BInventoryButton("MileStones",
+					new String[0], new ItemStack(Material.STONE)) {
+
+				@Override
+				public void onClick(ClickEvent event) {
+
+					Player player = (Player) event.getWhoClicked();
+					String playerName = (String) event
+							.getMeta(player, "Player");
+					BInventory inv = new BInventory("MileStones: " + playerName);
+					for (String mileStoneName : ConfigOtherRewards
+							.getInstance().getMilestoneVotes()) {
+						if (Utils.getInstance().isInt(mileStoneName)) {
+							int mileStone = Integer.parseInt(mileStoneName);
+
+							inv.addButton(
+									inv.getNextSlot(),
+									new BInventoryButton(
+											"" + mileStone,
+											new String[] {
+													"Enabled: "
+															+ ConfigOtherRewards
+																	.getInstance()
+																	.getMilestoneRewardEnabled(
+																			mileStone),
+													"Rewards: "
+															+ Utils.getInstance()
+																	.makeStringList(
+																			ConfigOtherRewards
+																					.getInstance()
+																					.getMilestoneRewards(
+																							mileStone)) },
+											new ItemStack(Material.STONE)) {
+
+										@Override
+										public void onClick(
+												ClickEvent clickEvent) {
+											if (Utils.getInstance().isInt(
+													clickEvent.getClickedItem()
+															.getItemMeta()
+															.getDisplayName())) {
+												Player player = clickEvent
+														.getPlayer();
+												int mileStone = Integer
+														.parseInt(clickEvent
+																.getClickedItem()
+																.getItemMeta()
+																.getDisplayName());
+												String playerName = (String) event
+														.getMeta(player,
+																"Player");
+												User user = new User(playerName);
+												new RequestManager(
+														player,
+														new InputListener() {
+
+															@Override
+															public void onInput(
+																	Player player,
+																	String input) {
+																String playerName = (String) event
+																		.getMeta(
+																				player,
+																				"Player");
+																User user = new User(
+																		playerName);
+																user.setHasGotteMilestone(
+																		mileStone,
+																		Boolean.valueOf(input));
+																player.sendMessage("Value set");
+															}
+														},
+														""
+																+ user.hasGottenMilestone(mileStone));
+											}
+										}
+									});
+						}
+					}
+				}
+			});
 
 			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetTotal",
 					new String[0], new ItemStack(Material.STONE)) {
@@ -632,8 +673,8 @@ public class CommandAdminVote implements CommandExecutor {
 				public void onClick(ClickEvent event) {
 					if (event.getWhoClicked() instanceof Player) {
 						Player player = (Player) event.getWhoClicked();
-						String playerName = (String) event
-								.getMeta(player, "Player");
+						String playerName = (String) event.getMeta(player,
+								"Player");
 						player.closeInventory();
 
 						BInventory inv = new BInventory("SetTotal: "
@@ -652,7 +693,8 @@ public class CommandAdminVote implements CommandExecutor {
 												Player player = (Player) event
 														.getWhoClicked();
 												String playerName = (String) event
-														.getMeta(player, "Player");
+														.getMeta(player,
+																"Player");
 												player.closeInventory();
 												User user = new User(player);
 												new RequestManager(
