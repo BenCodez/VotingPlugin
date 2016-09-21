@@ -95,7 +95,15 @@ public class VoteSite {
 		String playerName = user.getPlayerName();
 		String bc = Utils.getInstance().colorize(format.getBroadCastMsg());
 		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
-		Bukkit.broadcastMessage(bc);
+		final String str = bc;
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				Bukkit.broadcastMessage(str);
+			}
+		});
+
 	}
 
 	/**
