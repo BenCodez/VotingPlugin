@@ -28,9 +28,8 @@ BackgroundTaskDelay: 600
 # Wether or not to log every vote to a file
 LogVotesToFile: false
 
+# This only runs once for offline voting
 # Any reward files listed here are ran on vote of any site
-# Use this to send sounds/rewards/etc that are the same for all sites
-# This is recommended for use of titles, sounds, etc, 
-# as it works better for offline votes
-# Configure rewards in each site if you want different rewards for every site
+# and only run once for offline votes
+# It is recommended to add rewards to each site instead of here
 Rewards: []
