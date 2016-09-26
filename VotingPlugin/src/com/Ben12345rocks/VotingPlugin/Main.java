@@ -8,7 +8,6 @@ import java.util.Date;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -441,9 +440,6 @@ public class Main extends JavaPlugin {
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
-			for (Player player : Bukkit.getOnlinePlayers()) {
-				new User(player).offVoteWorld(player.getWorld().getName());
-			}
 			plugin.debug("Background task ran");
 
 		} catch (Exception ex) {
