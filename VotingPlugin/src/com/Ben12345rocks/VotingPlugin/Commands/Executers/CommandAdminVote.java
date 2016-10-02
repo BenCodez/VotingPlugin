@@ -232,9 +232,9 @@ public class CommandAdminVote implements CommandExecutor {
 		ArrayList<String> lore = new ArrayList<String>();
 		lore.add("&cOnly enabled sites are listed in this section");
 		lore.add("&cMiddle Click to create");
-		inv.addButton(0, new BInventoryButton("&cVoteSites", Utils
-				.getInstance().convertArray(lore),
-				new ItemStack(Material.STONE)) {
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cVoteSites",
+				Utils.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -262,8 +262,9 @@ public class CommandAdminVote implements CommandExecutor {
 		});
 
 		lore = new ArrayList<String>();
-		inv.addButton(1, new BInventoryButton("&cConfig", Utils.getInstance()
-				.convertArray(lore), new ItemStack(Material.STONE)) {
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cConfig", Utils
+				.getInstance().convertArray(lore),
+				new ItemStack(Material.STONE)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -276,9 +277,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 		lore = new ArrayList<String>();
 		lore.add("Middle click to enter offline/specific player");
-		inv.addButton(2, new BInventoryButton("&cPlayers", Utils.getInstance()
-				.convertArray(lore), new ItemStack(Material.SKULL_ITEM, 1,
-				(short) 3)) {
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cPlayers",
+				Utils.getInstance().convertArray(lore), new ItemStack(
+						Material.SKULL_ITEM, 1, (short) 3)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -301,6 +302,18 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 
 		});
+		lore = new ArrayList<String>();
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cReload Plugin",
+				Utils.getInstance().convertArray(lore), new ItemStack(
+						Material.STONE, 1, (short) 3)) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				event.getPlayer().performCommand("av reload");
+			}
+
+		});
+		
 		inv.openInventory(player);
 	}
 
