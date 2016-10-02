@@ -134,6 +134,11 @@ public class ConfigOtherRewards {
 		return getData().getBoolean(
 				"Cumulative." + cumulative + ".VotesInSameDay");
 	}
+	
+	public boolean getCumulativeVotesInSameWeek(int cumulative) {
+		return getData().getBoolean(
+				"Cumulative." + cumulative + ".VotesInSameWeek");
+	}
 
 	/**
 	 * Gets the data.
