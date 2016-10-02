@@ -8,7 +8,6 @@ import java.util.Date;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -117,7 +116,7 @@ public class Main extends JavaPlugin {
 			plugin.getLogger().severe(
 					"Failed to find AdvancedCore, plugin disabling");
 			plugin.getLogger()
-			.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
+					.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
 			Bukkit.getPluginManager().disablePlugin(plugin);
 		}
 	}
@@ -249,7 +248,7 @@ public class Main extends JavaPlugin {
 	public void logVote(Date date, String playerName, String voteSite) {
 		if (Config.getInstance().getLogVotesToFile()) {
 			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm")
-			.format(date);
+					.format(date);
 			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
 		}
 	}
@@ -269,7 +268,7 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -280,7 +279,7 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -418,14 +417,20 @@ public class Main extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
 				new Runnable() {
 
-			@Override
-			public void run() {
-				update();
-			}
-		}, 50, config.getBackgroundTaskDelay() * 20);
+					@Override
+					public void run() {
+						runBackgroundtask();
+					}
+				}, 50, config.getBackgroundTaskDelay() * 20);
 
 		plugin.debug("Loaded timer for background task");
 
+	}
+
+	public void runBackgroundtask() {
+		BungeeVote.getInstance().checkOfflineBungeeVotes();
+		TopVoter.getInstance().checkTopVoterAward();
+		updater = new Updater(this, 15358, false);
 	}
 
 	/**
@@ -433,22 +438,16 @@ public class Main extends JavaPlugin {
 	 */
 	public void update() {
 		try {
-			BungeeVote.getInstance().checkOfflineBungeeVotes();
-			TopVoter.getInstance().updateTopVoters();
-			TopVoter.getInstance().checkTopVoterAward();
-
-			updater = new Updater(this, 15358, false);
+			runBackgroundtask();
+			TopVoter.getInstance().updateTopVoters();		
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();
-			for (Player player : Bukkit.getOnlinePlayers()) {
-				new User(player).offVoteWorld(player.getWorld().getName());
-			}
 			plugin.debug("Background task ran");
 
 		} catch (Exception ex) {
 			plugin.getLogger()
-			.info("Looks like there are no data files or something went wrong.");
+					.info("Looks like there are no data files or something went wrong.");
 			ex.printStackTrace();
 		}
 	}

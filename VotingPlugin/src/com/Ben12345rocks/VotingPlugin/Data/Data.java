@@ -304,6 +304,15 @@ public class Data {
 	 * @return the total daily
 	 */
 	public int getTotalDaily(User user, String voteSite) {
+		if (user == null) {
+			plugin.debug("user null");
+		}
+		if (voteSite == null) {
+			plugin.debug("site null");
+		}
+		if (getData(user) == null) {
+			plugin.debug("data null");
+		}
 		return getData(user).getInt("TotalDay." + voteSite);
 	}
 
@@ -317,6 +326,15 @@ public class Data {
 	 * @return the total week
 	 */
 	public int getTotalWeek(User user, String voteSite) {
+		if (user == null) {
+			plugin.debug("user null");
+		}
+		if (voteSite == null) {
+			plugin.debug("site null");
+		}
+		if (getData(user) == null) {
+			plugin.debug("data null");
+		}
 		return getData(user).getInt("TotalWeek." + voteSite);
 	}
 
@@ -501,7 +519,7 @@ public class Data {
 	/*
 	 * public int getVotesBonusReward(User user) { return
 	 * getData(user).getInt("BonusVotes"); }
-	 *
+	 * 
 	 * public void setVotesBonusReward(User user, int value) { set(user,
 	 * "BonusVotes", value); }
 	 */
@@ -563,7 +581,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDate(),
-						place);
+				place);
 	}
 
 	/**
@@ -579,7 +597,7 @@ public class Data {
 		set(user,
 				"TopVoter." + new Date().getYear() + "."
 						+ new Date().getMonth() + "." + new Date().getDay(),
-						place);
+				place);
 	}
 
 	/**

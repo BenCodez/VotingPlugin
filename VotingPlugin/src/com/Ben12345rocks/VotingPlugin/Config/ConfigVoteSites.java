@@ -61,18 +61,17 @@ public class ConfigVoteSites {
 	public void generateVoteSite(String siteName) {
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
-				+ " doe not exist, generaterating one...");
-		setEnabled(siteName, false);
+						+ " doe not exist, generaterating one...");
+		setEnabled(siteName, true);
 		setServiceSite(siteName, "Enter Service Site");
 		setVoteURL(siteName, "VoteURL");
 		setVoteDelay(siteName, 24);
 		setRewards(siteName, new ArrayList<String>());
 
 		plugin.loadVoteSites();
-		plugin.getLogger()
-		.info("Created file VoteSites/"
-				+ siteName
-				+ ".yml! Loaded default values into file, remember to turn Enabled to true, else it won't be read by the plugin");
+		plugin.getLogger().info(
+				"Created file VoteSites/" + siteName
+						+ ".yml! Loaded default values into file");
 	}
 
 	/**
@@ -500,12 +499,12 @@ public class ConfigVoteSites {
 		if (!isServiceSiteGood(siteName)) {
 			plugin.getLogger().warning(
 					"Issue with ServiceSite in site " + siteName
-					+ ", votes may not work properly");
+							+ ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
 			plugin.getLogger()
-			.warning("Issue with VoteURL in site " + siteName);
+					.warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
 	}
