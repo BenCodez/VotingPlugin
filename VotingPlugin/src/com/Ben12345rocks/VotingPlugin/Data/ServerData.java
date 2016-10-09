@@ -218,7 +218,7 @@ public class ServerData {
 	/**
 	 * Save data.
 	 */
-	public void saveData() {
+	public synchronized void saveData() {
 		FilesManager.getInstance().editFile(dFile, data);
 	}
 
