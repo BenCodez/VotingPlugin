@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -114,17 +113,7 @@ public class Config {
 		return getData().getBoolean("LogVotesToFile");
 	}
 
-	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRewards() {
-		return (ArrayList<String>) getData().getList("Rewards",
-				new ArrayList<String>());
-
-	}
+	
 
 	/**
 	 * Gets the send scoreboards.
@@ -202,16 +191,7 @@ public class Config {
 		saveData();
 	}
 
-	/**
-	 * Sets the rewards.
-	 *
-	 * @param rewards
-	 *            the new rewards
-	 */
-	public void setRewards(ArrayList<String> rewards) {
-		getData().set("Rewards", rewards);
-		saveData();
-	}
+	
 
 	/**
 	 * Sets the top voter awards enabled.

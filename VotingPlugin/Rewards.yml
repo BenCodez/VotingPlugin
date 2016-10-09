@@ -52,3 +52,9 @@ MinVotes:
   Votes: 5
   Rewards:
   - 'MinVotes'
+  
+# ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
+# IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES
+# Any reward files listed here are ran on vote of any site
+# It is recommended to add rewards to each site instead of here
+AnySiteRewards: []

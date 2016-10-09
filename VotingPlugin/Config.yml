@@ -27,9 +27,3 @@ BackgroundTaskDelay: 600
 
 # Wether or not to log every vote to a file
 LogVotesToFile: false
-
-# This only runs once for offline voting
-# Any reward files listed here are ran on vote of any site
-# and only run once for offline votes
-# It is recommended to add rewards to each site instead of here
-Rewards: []

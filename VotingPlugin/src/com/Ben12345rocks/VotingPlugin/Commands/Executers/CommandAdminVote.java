@@ -13,6 +13,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
@@ -276,36 +277,24 @@ public class CommandAdminVote implements CommandExecutor {
 		});
 
 		lore = new ArrayList<String>();
-		lore.add("Middle click to enter offline/specific player");
 		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cPlayers",
 				Utils.getInstance().convertArray(lore), new ItemStack(
 						Material.SKULL_ITEM, 1, (short) 3)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					if (event.getClick().equals(ClickType.MIDDLE)) {
-						new ValueRequest().requestString(player,
-								new StringListener() {
 
-									@Override
-									public void onInput(Player player,
-											String value) {
-										openAdminGUIPlayers(player, value);
-									}
-								});
-					} else {
-						openAdminGUIPlayers(player, "");
-					}
-				}
+				Player player = event.getWhoClicked();
+
+				UserGUI.getInstance().openUsersGUI(player);
+
 			}
 
 		});
 		lore = new ArrayList<String>();
-		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cReload Plugin",
-				Utils.getInstance().convertArray(lore), new ItemStack(
-						Material.STONE, 1, (short) 3)) {
+		inv.addButton(inv.getNextSlot(), new BInventoryButton(
+				"&cReload Plugin", Utils.getInstance().convertArray(lore),
+				new ItemStack(Material.STONE, 1, (short) 3)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -313,7 +302,7 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 
 		});
-		
+
 		inv.openInventory(player);
 	}
 
@@ -348,357 +337,7 @@ public class CommandAdminVote implements CommandExecutor {
 			}
 		});
 
-		inv.addButton(
-				inv.getNextSlot(),
-				new BInventoryButton("AddRewards", new String[] { "Currently: "
-						+ Utils.getInstance().makeStringList(
-								Config.getInstance().getRewards()) },
-						new ItemStack(Material.STONE)) {
-
-					@Override
-					public void onClick(ClickEvent event) {
-						Player player = event.getWhoClicked();
-						ArrayList<String> options = new ArrayList<String>();
-						for (Reward reward : com.Ben12345rocks.AdvancedCore.Main.plugin.rewards) {
-							options.add(reward.name);
-						}
-						new ValueRequest().requestString(player, "", Utils
-								.getInstance().convertArray(options),
-								new StringListener() {
-
-									@Override
-									public void onInput(Player player,
-											String value) {
-										ArrayList<String> rewards = Config
-												.getInstance().getRewards();
-										rewards.add(value);
-										Config.getInstance()
-												.setRewards(rewards);
-										player.sendMessage("Reward added");
-										plugin.reload();
-									}
-								});
-					}
-				});
-
-		inv.addButton(
-				inv.getNextSlot(),
-				new BInventoryButton("Remove Reward",
-						new String[] { "Currently: "
-								+ Utils.getInstance().makeStringList(
-										Config.getInstance().getRewards()) },
-						new ItemStack(Material.STONE)) {
-
-					@Override
-					public void onClick(ClickEvent event) {
-						Player player = event.getWhoClicked();
-						ArrayList<String> options = new ArrayList<String>();
-						for (String rewardName : Config.getInstance()
-								.getRewards()) {
-							options.add(rewardName);
-						}
-
-						new ValueRequest().requestString(player, "", Utils
-								.getInstance().convertArray(options),
-								new StringListener() {
-
-									@Override
-									public void onInput(Player player,
-											String value) {
-										ArrayList<String> rewards = Config
-												.getInstance().getRewards();
-										rewards.remove(value);
-										Config.getInstance()
-												.setRewards(rewards);
-										player.sendMessage("Reward removed");
-										plugin.reload();
-
-									}
-								});
-					}
-				});
-
 		inv.openInventory(player);
-
-	}
-
-	/**
-	 * Open admin GUI players.
-	 *
-	 * @param player
-	 *            the player
-	 * @param string
-	 *            the string
-	 */
-	public void openAdminGUIPlayers(Player player, String string) {
-
-		if (string.equals("")) {
-			BInventory inv = new BInventory("Players");
-			int count = 0;
-			for (Player players : Bukkit.getOnlinePlayers()) {
-				inv.addButton(
-						count,
-						new BInventoryButton(players.getName(), new String[0],
-								Utils.getInstance().setSkullOwner(
-										new ItemStack(Material.SKULL_ITEM, 1,
-												(short) 3), players.getName())) {
-
-							@Override
-							public void onClick(ClickEvent event) {
-								if (event.getWhoClicked() instanceof Player) {
-									Player player = event.getWhoClicked();
-									player.closeInventory();
-									if (event.getCurrentItem() != null) {
-										String playerName = event
-												.getCurrentItem().getItemMeta()
-												.getDisplayName();
-										openAdminGUIPlayers(player, playerName);
-									}
-								}
-
-							}
-						});
-				count++;
-			}
-			inv.openInventory(player);
-		} else {
-			BInventory inv = new BInventory("Player: " + string);
-			inv.setMeta(player, "Player", string);
-			inv.addButton(inv.getNextSlot(), new BInventoryButton("Vote",
-					new String[0], new ItemStack(Material.STONE)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					Player player = event.getWhoClicked();
-					String playerName = (String) event
-							.getMeta(player, "Player");
-
-					BInventory inv = new BInventory("Vote: " + playerName);
-
-					int count = 0;
-					for (VoteSite site : plugin.voteSites) {
-						inv.addButton(count,
-								new BInventoryButton(site.getSiteName(),
-										new String[0], new ItemStack(
-												Material.STONE)) {
-
-									@Override
-									public void onClick(ClickEvent event) {
-
-										Player player = event.getWhoClicked();
-										String playerName = (String) event
-												.getMeta(player, "Player");
-
-										User user = new User(playerName);
-										VoteSite site = plugin
-												.getVoteSite(event
-														.getCurrentItem()
-														.getItemMeta()
-														.getDisplayName());
-										user.playerVote(
-												site,
-												Utils.getInstance()
-														.isPlayerOnline(
-																playerName),
-												true);
-										player.sendMessage("Forced vote on site");
-
-									}
-								});
-						count++;
-
-						inv.openInventory(player);
-
-					}
-
-				}
-			});
-			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetPoints",
-					new String[0], new ItemStack(Material.STONE)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-
-					Player player = event.getWhoClicked();
-					String playerName = (String) event
-							.getMeta(player, "Player");
-					new ValueRequest().requestNumber(player, ""
-							+ new User(playerName).getPoints(), null,
-							new NumberListener() {
-
-								@Override
-								public void onInput(Player player, Number value) {
-									String playerName = (String) event.getMeta(
-											player, "Player");
-									User user = new User(playerName);
-									user.setPoints(value.intValue());
-									player.sendMessage("Set points");
-									plugin.reload();
-
-								}
-							});
-				}
-			});
-			inv.addButton(inv.getNextSlot(), new BInventoryButton("MileStones",
-					new String[0], new ItemStack(Material.STONE)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-
-					Player player = event.getWhoClicked();
-					String playerName = (String) event
-							.getMeta(player, "Player");
-					BInventory inv = new BInventory("MileStones: " + playerName);
-					for (String mileStoneName : ConfigOtherRewards
-							.getInstance().getMilestoneVotes()) {
-						if (Utils.getInstance().isInt(mileStoneName)) {
-							int mileStone = Integer.parseInt(mileStoneName);
-
-							inv.addButton(
-									inv.getNextSlot(),
-									new BInventoryButton(
-											"" + mileStone,
-											new String[] {
-													"Enabled: "
-															+ ConfigOtherRewards
-																	.getInstance()
-																	.getMilestoneRewardEnabled(
-																			mileStone),
-													"Rewards: "
-															+ Utils.getInstance()
-																	.makeStringList(
-																			ConfigOtherRewards
-																					.getInstance()
-																					.getMilestoneRewards(
-																							mileStone)),
-													"&cClick to set wether this has been completed or not" },
-											new ItemStack(Material.STONE)) {
-
-										@Override
-										public void onClick(
-												ClickEvent clickEvent) {
-											if (Utils.getInstance().isInt(
-													clickEvent.getClickedItem()
-															.getItemMeta()
-															.getDisplayName())) {
-												Player player = clickEvent
-														.getPlayer();
-												int mileStone = Integer
-														.parseInt(clickEvent
-																.getClickedItem()
-																.getItemMeta()
-																.getDisplayName());
-												String playerName = (String) event
-														.getMeta(player,
-																"Player");
-												User user = new User(playerName);
-												new ValueRequest()
-														.requestBoolean(
-																player,
-																""
-																		+ user.hasGottenMilestone(mileStone),
-																new BooleanListener() {
-
-																	@Override
-																	public void onInput(
-																			Player player,
-																			boolean value) {
-																		String playerName = (String) event
-																				.getMeta(
-																						player,
-																						"Player");
-																		User user = new User(
-																				playerName);
-																		user.setHasGotteMilestone(
-																				mileStone,
-																				value);
-																		player.sendMessage("Value set");
-
-																	}
-																});
-											}
-										}
-									});
-						}
-					}
-				}
-			});
-
-			inv.addButton(inv.getNextSlot(), new BInventoryButton("SetTotal",
-					new String[0], new ItemStack(Material.STONE)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					if (event.getWhoClicked() instanceof Player) {
-						Player player = event.getWhoClicked();
-						String playerName = (String) event.getMeta(player,
-								"Player");
-						player.closeInventory();
-
-						BInventory inv = new BInventory("SetTotal: "
-								+ playerName);
-
-						int count = 0;
-						for (VoteSite site : plugin.voteSites) {
-							inv.addButton(count,
-									new BInventoryButton(site.getSiteName(),
-											new String[0], new ItemStack(
-													Material.STONE)) {
-
-										@Override
-										public void onClick(ClickEvent event) {
-											if (event.getWhoClicked() instanceof Player) {
-												Player player = event
-														.getWhoClicked();
-												String playerName = (String) event
-														.getMeta(player,
-																"Player");
-												new ValueRequest()
-														.requestNumber(
-																player,
-																""
-																		+ new User(
-																				playerName)
-																				.getTotal(site),
-																null,
-																new NumberListener() {
-
-																	@Override
-																	public void onInput(
-																			Player player,
-																			Number value) {
-																		String playerName = (String) event
-																				.getMeta(
-																						player,
-																						"Player");
-																		User user = new User(
-																				playerName);
-																		user.setTotal(
-																				plugin.getVoteSite(event
-																						.getCurrentItem()
-																						.getItemMeta()
-																						.getDisplayName()),
-																				value.intValue());
-																		player.sendMessage("Total set");
-
-																	}
-																});
-											}
-
-										}
-									});
-							count++;
-						}
-
-						inv.openInventory(player);
-
-					}
-
-				}
-			});
-
-			inv.openInventory(player);
-		}
 
 	}
 
