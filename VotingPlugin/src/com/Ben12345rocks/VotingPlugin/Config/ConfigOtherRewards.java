@@ -134,7 +134,7 @@ public class ConfigOtherRewards {
 		return getData().getBoolean(
 				"Cumulative." + cumulative + ".VotesInSameDay");
 	}
-	
+
 	public boolean getCumulativeVotesInSameWeek(int cumulative) {
 		return getData().getBoolean(
 				"Cumulative." + cumulative + ".VotesInSameWeek");
@@ -161,6 +161,29 @@ public class ConfigOtherRewards {
 		} catch (Exception ex) {
 			return new ArrayList<String>();
 		}
+	}
+
+	/**
+	 * Gets the rewards.
+	 *
+	 * @return the rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getAnySiteRewards() {
+		return (ArrayList<String>) getData().getList("AnySiteRewards",
+				new ArrayList<String>());
+
+	}
+
+	/**
+	 * Sets the rewards.
+	 *
+	 * @param rewards
+	 *            the new rewards
+	 */
+	public void setAnySiteRewards(ArrayList<String> rewards) {
+		getData().set("AnySiteRewards", rewards);
+		saveData();
 	}
 
 	/**
@@ -335,8 +358,8 @@ public class ConfigOtherRewards {
 				plugin.saveResource("Rewards.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer()
-				.getLogger()
-				.severe(ChatColor.RED + "Could not create Rewards.yml!");
+						.getLogger()
+						.severe(ChatColor.RED + "Could not create Rewards.yml!");
 			}
 		}
 

@@ -6,7 +6,6 @@ import java.util.Map.Entry;
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.swifteh.GAL.GAL;
@@ -87,10 +86,10 @@ public class GALConverter {
 					ConfigVoteSites.getInstance().setEnabled(service, true);
 				} else {
 
-					ArrayList<String> rewards = Config.getInstance()
-							.getRewards();
+					ArrayList<String> rewards = ConfigOtherRewards
+							.getInstance().getAnySiteRewards();
 					rewards.add(service);
-					Config.getInstance().setRewards(rewards);
+					ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 
 				}
 				ConfigRewards.getInstance().setMessagesReward(service,
@@ -119,10 +118,10 @@ public class GALConverter {
 					String rewardMessage = formatPlayer(vote.message);
 					String broadcast = formatPlayer(vote.broadcast);
 
-					ArrayList<String> rewards = Config.getInstance()
-							.getRewards();
+					ArrayList<String> rewards = ConfigOtherRewards
+							.getInstance().getAnySiteRewards();
 					rewards.add("lucky" + key);
-					Config.getInstance().setRewards(rewards);
+					ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 					commands.add("broadcast " + broadcast);
 					ConfigRewards.getInstance().setMessagesReward(
 							"lucky" + key, rewardMessage);
@@ -137,9 +136,10 @@ public class GALConverter {
 				String rewardMessage = formatPlayer(vote.message);
 				String broadcast = formatPlayer(vote.broadcast);
 
-				ArrayList<String> rewards = Config.getInstance().getRewards();
+				ArrayList<String> rewards = ConfigOtherRewards.getInstance()
+						.getAnySiteRewards();
 				rewards.add("perm" + key);
-				Config.getInstance().setRewards(rewards);
+				ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 				commands.add("broadcast " + broadcast);
 				ConfigRewards.getInstance().setMessagesReward("perm" + key,
 						rewardMessage);

@@ -4,12 +4,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
+import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
+import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
+import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
@@ -541,9 +551,295 @@ public class CommandLoader {
 							@Override
 							public void run() {
 								loadTabComplete();
+								BInventory inv = new BInventory(
+										"VotingPlugin UserGUI");
+								inv.addButton(inv.getNextSlot(),
+										new BInventoryButton("Force Vote",
+												new String[] {}, new ItemStack(
+														Material.STONE)) {
+
+											@Override
+											public void onClick(
+													ClickEvent clickEvent) {
+												Player player = clickEvent
+														.getPlayer();
+												ArrayList<String> voteSites = new ArrayList<String>();
+												for (VoteSite voteSite : plugin.voteSites) {
+													voteSites.add(voteSite
+															.getSiteName());
+												}
+												new ValueRequest()
+														.requestString(
+																player,
+																"",
+																Utils.getInstance()
+																		.convertArray(
+																				voteSites),
+																true,
+																new StringListener() {
+
+																	@Override
+																	public void onInput(
+																			Player player,
+																			String value) {
+
+																		CommandAdminVote
+																				.getInstance()
+																				.Vote(player,
+																						UserGUI.getInstance()
+																								.getCurrentPlayer(
+																										player),
+																						value);
+
+																		player.sendMessage("Forced vote for "
+																				+ UserGUI
+																						.getInstance()
+																						.getCurrentPlayer(
+																								player)
+																				+ " on "
+																				+ value);
+																	}
+																});
+
+											}
+										});
+
+								inv.addButton(inv.getNextSlot(),
+										new BInventoryButton("Set Vote Points",
+												new String[] {}, new ItemStack(
+														Material.STONE)) {
+
+											@Override
+											public void onClick(
+													ClickEvent clickEvent) {
+												Player player = clickEvent
+														.getPlayer();
+												User user = new User(UserGUI
+														.getInstance()
+														.getCurrentPlayer(
+																player));
+												new ValueRequest()
+														.requestNumber(
+																player,
+																""
+																		+ user.getPoints(),
+																new Number[] {
+																		0, 5,
+																		100 },
+																true,
+																new NumberListener() {
+
+																	@Override
+																	public void onInput(
+																			Player player,
+																			Number value) {
+																		User user = new User(
+																				UserGUI.getInstance()
+																						.getCurrentPlayer(
+																								player));
+																		user.setPoints(value
+																				.intValue());
+																		player.sendMessage("Points set to "
+																				+ value.intValue()
+																				+ " for "
+																				+ user.getPlayerName());
+
+																	}
+																});
+
+											}
+										});
+								inv.addButton(inv.getNextSlot(),
+										new BInventoryButton("MileStones",
+												new String[0], new ItemStack(
+														Material.STONE)) {
+
+											@Override
+											public void onClick(ClickEvent event) {
+
+												Player player = event
+														.getWhoClicked();
+												String playerName = (String) event
+														.getMeta(player,
+																"Player");
+												BInventory inv = new BInventory(
+														"MileStones: "
+																+ playerName);
+												for (String mileStoneName : ConfigOtherRewards
+														.getInstance()
+														.getMilestoneVotes()) {
+													if (Utils
+															.getInstance()
+															.isInt(mileStoneName)) {
+														int mileStone = Integer
+																.parseInt(mileStoneName);
+
+														inv.addButton(
+																inv.getNextSlot(),
+																new BInventoryButton(
+																		""
+																				+ mileStone,
+																		new String[] {
+																				"Enabled: "
+																						+ ConfigOtherRewards
+																								.getInstance()
+																								.getMilestoneRewardEnabled(
+																										mileStone),
+																				"Rewards: "
+																						+ Utils.getInstance()
+																								.makeStringList(
+																										ConfigOtherRewards
+																												.getInstance()
+																												.getMilestoneRewards(
+																														mileStone)),
+																				"&cClick to set wether this has been completed or not" },
+																		new ItemStack(
+																				Material.STONE)) {
+
+																	@Override
+																	public void onClick(
+																			ClickEvent clickEvent) {
+																		if (Utils
+																				.getInstance()
+																				.isInt(clickEvent
+																						.getClickedItem()
+																						.getItemMeta()
+																						.getDisplayName())) {
+																			Player player = clickEvent
+																					.getPlayer();
+																			int mileStone = Integer
+																					.parseInt(clickEvent
+																							.getClickedItem()
+																							.getItemMeta()
+																							.getDisplayName());
+																			String playerName = (String) event
+																					.getMeta(
+																							player,
+																							"Player");
+																			User user = new User(
+																					playerName);
+																			new ValueRequest()
+																					.requestBoolean(
+																							player,
+																							""
+																									+ user.hasGottenMilestone(mileStone),
+																							new BooleanListener() {
+
+																								@Override
+																								public void onInput(
+																										Player player,
+																										boolean value) {
+																									String playerName = UserGUI
+																											.getInstance()
+																											.getCurrentPlayer(
+																													player);
+																									User user = new User(
+																											playerName);
+																									user.setHasGotteMilestone(
+																											mileStone,
+																											value);
+																									player.sendMessage("Set milestone completetion to "
+																											+ value
+																											+ " on "
+																											+ mileStone);
+
+																								}
+																							});
+																		}
+																	}
+																});
+													}
+												}
+											}
+										});
+
+								inv.addButton(inv.getNextSlot(),
+										new BInventoryButton("SetTotal",
+												new String[] {}, new ItemStack(
+														Material.STONE)) {
+
+											@Override
+											public void onClick(
+													ClickEvent clickEvent) {
+												Player player = clickEvent
+														.getPlayer();
+												ArrayList<String> voteSites = new ArrayList<String>();
+												for (VoteSite voteSite : plugin.voteSites) {
+													voteSites.add(voteSite
+															.getSiteName());
+												}
+												new ValueRequest()
+														.requestString(
+																player,
+																"",
+																Utils.getInstance()
+																		.convertArray(
+																				voteSites),
+																true,
+																new StringListener() {
+
+																	@Override
+																	public void onInput(
+																			Player player,
+																			String value) {
+																		User user = new User(
+																				UserGUI.getInstance()
+																						.getCurrentPlayer(
+																								player));
+																		Utils.getInstance()
+																				.setPlayerMeta(
+																						player,
+																						"SiteName",
+																						value);
+																		new ValueRequest()
+																				.requestNumber(
+																						player,
+																						""
+																								+ user.getTotal(plugin
+																										.getVoteSite(value)),
+																						new Number[] {
+																								0,
+																								10,
+																								100 },
+																						true,
+																						new NumberListener() {
+
+																							@Override
+																							public void onInput(
+																									Player player,
+																									Number value) {
+																								User user = new User(
+																										UserGUI.getInstance()
+																												.getCurrentPlayer(
+																														player));
+																								VoteSite voteSite = plugin
+																										.getVoteSite((String) Utils
+																												.getInstance()
+																												.getPlayerMeta(
+																														player,
+																														"SiteName"));
+																								user.setTotal(
+																										voteSite,
+																										value.intValue());
+																								player.sendMessage("Total set to "
+																										+ value.intValue()
+																										+ " for "
+																										+ user.getPlayerName());
+
+																							}
+																						});
+
+																	}
+																});
+
+											}
+										});
+								UserGUI.getInstance().addPluginButton(plugin,
+										inv);
 							}
 						});
 			}
+
 		});
 
 	}

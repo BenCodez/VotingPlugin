@@ -831,7 +831,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the online
 	 */
 	public void sendVoteEffects(boolean online) {
-		for (String reward : Config.getInstance().getRewards()) {
+		for (String reward : ConfigOtherRewards.getInstance()
+				.getAnySiteRewards()) {
 			if (reward != "") {
 				ConfigRewards.getInstance().getReward(reward)
 						.giveReward(this, online);
