@@ -57,6 +57,22 @@ public class ConfigFormat {
 		ConfigFormat.plugin = plugin;
 	}
 
+	public String getShopPurchaseMsg() {
+		String msg = getData().getString("Format.ShopPurchase",
+				"&aYou bought the %Identifier% for %Points% Points!");
+
+		return msg;
+
+	}
+
+	public String getShopFailedMsg() {
+		String msg = getData()
+				.getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
+
+		return msg;
+
+	}
+
 	/**
 	 * Gets the broad cast msg.
 	 *

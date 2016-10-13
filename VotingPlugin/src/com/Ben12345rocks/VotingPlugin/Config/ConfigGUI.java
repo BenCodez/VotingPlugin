@@ -68,6 +68,83 @@ public class ConfigGUI {
 	public FileConfiguration getData() {
 		return data;
 	}
+	
+	
+
+	public Set<String> getIdentifiers() {
+		return getData().getConfigurationSection("Shop").getKeys(false);
+	}
+
+	public String getIdentifierItemMaterial(String identifier) {
+		return getData().getString("Shop." + identifier + ".Item.Material");
+	}
+
+	public String getIdentifierItemSkull(String identifier) {
+		return getData().getString("Shop." + identifier + ".Item.Skull");
+	}
+
+	public int getIdentifierItemData(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Item.Data");
+	}
+
+	public int getIdentifierItemAmount(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Item.Amount");
+	}
+
+	public String getIdentifierItemName(String identifier) {
+		return getData().getString("Shop." + identifier + ".Item.Name");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getIdentifierItemLore(String identifier) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Shop." + identifier + ".Item.Lore");
+			if (list != null) {
+				return list;
+			}
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	public int getIdentifierCost(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Cost");
+	}
+
+	public int getIdentifierSlot(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Slot");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getIdentifierRewards(String identifier) {
+		try {
+			ArrayList<String> list = (ArrayList<String>) getData().getList(
+					"Shop." + identifier + ".Rewards");
+			if (list != null) {
+				return list;
+			}
+			return new ArrayList<String>();
+		} catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	
+
+	public int getIdentifierItemDurability(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Item.Durability");
+	}
+
+	public String getIdentifierFromSlot(int slot) {
+		for (String identifier : getIdentifiers()) {
+			if (getIdentifierSlot(identifier) == slot) {
+				return identifier;
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * Gets the vote GUI slot amount.

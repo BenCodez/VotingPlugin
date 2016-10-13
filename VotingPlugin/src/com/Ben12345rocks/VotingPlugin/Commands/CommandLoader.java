@@ -34,6 +34,7 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
+import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -878,6 +879,16 @@ public class CommandLoader {
 
 			}
 		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Shop" },
+				"VotingPlugin.Commands.Vote.Shop", "Open VoteShop GUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VoteShop.getInstance().voteShop((Player) sender);
+			}
+		});
+
 		plugin.voteCommand.add(new CommandHandler(new String[] { "URL" },
 				"VotingPlugin.Commands.Vote.URL", "Open VoteURL GUI") {
 

@@ -147,3 +147,7 @@ Format:
   
   # TimeZone
   TimeZone: 'UTC'
+  
+  # Shop messages when using the /vote shop
+  ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
+  ShopFailed: '&cYou do not have %Points% points to purhcase this!'

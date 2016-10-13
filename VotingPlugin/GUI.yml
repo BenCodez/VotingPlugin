@@ -131,4 +131,26 @@ GUI:
           Lore:
           - '&4Line 1'
           Slot: 0
-    
+
+Shop:
+  # Identifier
+  # Used in placeholders for formats
+  Diamond:
+    # Item
+    Item:
+      Material: 'DIAMOND'
+      Data: 0
+      Amount: 1
+      Name: '&4Buy A Diamond'
+      # You can set skulls of the player using the following
+      # Remove the # to enable
+      #Skull: '%Player%'
+      Lore:
+      - '&c&lCost: &c3 Voting Points'
+    # Number of voting points this cost
+    Cost: 3
+    # Rewards to run if player buys succesfully
+    Rewards:
+    - 'VoteShop_Diamond'
+    # Slot
+    Slot: 0          
