@@ -43,6 +43,7 @@ public class VotingPluginUpdateEvent implements Listener {
 				if (plugin.getDescription().getVersion().equals("4.5")) {
 					plugin.getLogger().info("Detected update to 4.5, converting files...");
 					ConfigVoteSitesOld.getInstance().convert();
+					plugin.loadVoteSites();
 				}
 			} 
 				
