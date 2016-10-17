@@ -37,6 +37,7 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Events.VotingPluginUpdateEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -228,7 +229,7 @@ public class Main extends JavaPlugin {
 	 * Load vote sites.
 	 */
 	public void loadVoteSites() {
-		configVoteSites.setup("ExampleVoteSite");
+		configVoteSites.setup(this);
 		voteSites = configVoteSites.getVoteSitesLoad();
 
 		plugin.debug("Loaded VoteSites");
@@ -363,6 +364,8 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 
 		pm.registerEvents(new PlayerInteract(this), this);
+		
+		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 
 		plugin.debug("Loaded Events");
 

@@ -2,6 +2,7 @@
 # To disable reward set value to []
 # Eg:
 # FirstVote: [] (All in one line)
+# By default all rewards are disabled
 
 # First vote rewards
 FirstVote: []
@@ -27,7 +28,7 @@ Cumulative:
 
 VoteParty:
   # Wether or not vote party is enabled
-  Enabled: true
+  Enabled: false
   # Number of votes required to give rewards
   VotesRequired: 20
   # If true, players who did not vote to reach the votes required will 

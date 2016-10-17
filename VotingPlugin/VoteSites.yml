@@ -1,0 +1,40 @@
+VoteSites:
+  # VoteSite name
+  ExampleVoteSite:
+    # Enable voteSite
+    # If false, votesite will not be loaded by plugin
+    # Default: false
+    Enabled: false
+          
+    # Priority of this site
+    # Used for sorted list
+    # High prority, higher on the list
+    Priority: 5
+          
+    # The serviceName from the vote, has to be correct to work correctly
+    # Gotten from voting on the site (will be in console/log)
+    # Usually is the main part of the url(e.g. PlanetMinecraft.com)
+    ServiceSite: 'PlanetMinecraft.com'
+
+    # vote url for /vote
+    # Format for this can be set in Format.yml
+    # Do not include colors here
+    VoteURL: 'link to vote URL here, used in /vote'
+
+    # Time between votes in hours (used for /vote next)
+    # Most sites are 24 hours
+    VoteDelay: 24
+
+    # List of reward files to give to voter
+    Rewards:
+    - 'ExampleReward'
+          
+    # This is not needed
+    # Rewards to give once certain number of votes reached for this vote site
+    # Rewards work similar to above
+    Cumulative:
+      # Number of votes required to give this reward
+      Votes: 20
+      # List of reward files to give on cumulativereward
+      Rewards:
+      - 'ExampleReward'
