@@ -62,11 +62,13 @@ public class ConfigVoteSites {
 	 *            the site name
 	 */
 	public void generateVoteSite(String siteName) {
+		String org = siteName;
+		siteName = siteName.replace(".", "_");
 		plugin.getLogger().warning(
 				"VoteSite " + siteName
 						+ " doe not exist, generaterating one...");
 		setEnabled(siteName, true);
-		setServiceSite(siteName, "Enter Service Site");
+		setServiceSite(siteName, org);
 		setVoteURL(siteName, "VoteURL");
 		setVoteDelay(siteName, 24);
 		ArrayList<String> rewards = new ArrayList<String>();
@@ -75,8 +77,7 @@ public class ConfigVoteSites {
 
 		plugin.loadVoteSites();
 		plugin.getLogger().info(
-				"Created file VoteSites/" + siteName
-						+ ".yml! Loaded default values into file");
+				"Loaded default values into file");
 	}
 
 	/**

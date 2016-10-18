@@ -190,8 +190,8 @@ public class Main extends JavaPlugin {
 			}
 		}
 		if (config.getAutoCreateVoteSites()) {
-			configVoteSites.generateVoteSite(siteName);
-			return new VoteSite(siteName);
+			configVoteSites.generateVoteSite(siteName.replace(".", "_"));
+			return new VoteSite(siteName.replace(".", "_"));
 		} else {
 			return null;
 		}
