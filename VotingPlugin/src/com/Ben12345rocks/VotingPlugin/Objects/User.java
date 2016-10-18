@@ -20,7 +20,6 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
@@ -613,7 +612,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Login message.
 	 */
 	public void loginMessage() {
-		if (ConfigVoteReminding.getInstance().getRemindOnLogin()) {
+		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
 			VoteReminding.getInstance().runRemind(this);
 		}
 	}

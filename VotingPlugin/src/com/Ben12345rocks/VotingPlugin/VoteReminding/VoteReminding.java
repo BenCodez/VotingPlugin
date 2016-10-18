@@ -7,7 +7,7 @@ import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
@@ -63,7 +63,7 @@ public class VoteReminding {
 			if (user.canVoteAll()) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
-					if (!ConfigVoteReminding.getInstance().getRemindOnlyOnce()) {
+					if (!Config.getInstance().getVoteRemindingRemindOnlyOnce()) {
 						runRemind(user);
 						user.setReminded(true);
 					} else if (!user.getReminded()) {
@@ -94,7 +94,7 @@ public class VoteReminding {
 						}
 					}
 				}, 10,
-				ConfigVoteReminding.getInstance().getRemindDelay() * 20 * 60);
+				Config.getInstance().getVoteRemindingRemindDelay() * 20 * 60);
 	}
 
 	/**
@@ -104,9 +104,9 @@ public class VoteReminding {
 	 *            the user
 	 */
 	public void runRemind(User user) {
-		if (ConfigVoteReminding.getInstance().getEnabled() && user.canVoteAll()) {
+		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll()) {
 			user.setReminded(true);
-			for (String reward : ConfigVoteReminding.getInstance().getRewards()) {
+			for (String reward : Config.getInstance().getVoteRemindingRewards()) {
 				if (!reward.equalsIgnoreCase("")) {
 					if (!ConfigRewards.getInstance().isRewardValid(reward)) {
 						ConfigRewards.getInstance().setMessagesReward(reward,

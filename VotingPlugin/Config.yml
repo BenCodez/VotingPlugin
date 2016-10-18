@@ -26,4 +26,38 @@ AutoCreateVoteSites: true
 BackgroundTaskDelay: 600
 
 # Wether or not to log every vote to a file
+# Use this if you wanna track player votes
+# Not recommended though
 LogVotesToFile: false
+
+# Configuration for VoteReminding
+# By default this should be all setup to work
+VoteReminding:
+  # Enable vote reminding
+  # This will remind player when he can vote on all sites
+  # Requires VoteDelay's to be setup properly
+  # Use /vote next to see when you can be reminded
+  # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
+  Enabled: true
+
+  # Wether or not to remind only once when the player can vote
+  # Does not apply to login reminds.
+  RemindOnlyOnce: true
+
+  # Will remind player on login if he can vote
+  # Ignores value above
+  RemindOnLogin: true
+
+  # Delay to remind votes in minutes
+  # Only works if above is false
+  RemindDelay: 30
+
+  # Run reward files on remind
+  # By default, the reward file will be created for you
+  # and have the default message
+  # Edit the message at AdvancedCore/Rewards/Remind.yml (or any other reward listed)
+  # Can add titles and more in the reward file
+  Rewards:
+  - 'Remind'
+
+

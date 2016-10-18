@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 import com.Ben12345rocks.AdvancedCore.Listeners.PluginUpdateVersionEvent;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSitesOld;
+import com.Ben12345rocks.VotingPlugin.Data.ServerDataOld;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -41,20 +42,36 @@ public class VotingPluginUpdateEvent implements Listener {
 			if (!event.getOldVersion().equals("")) {
 				plugin.getLogger().info("Updated VotingPlugin");
 				if (plugin.getDescription().getVersion().equals("4.5")) {
-					plugin.getLogger().info(
-							"Detected update to 4.5, converting files...");
-					ConfigVoteSitesOld.getInstance().convert();
-					plugin.loadVoteSites();
+					convertToVoteSites();
 				} else if (plugin.getDescription().getVersion().equals("4.5.1")
 						&& !event.getOldVersion().equals("4.5")) {
-					plugin.getLogger().info(
-							"Detected using old vote site system, converting files...");
-					ConfigVoteSitesOld.getInstance().convert();
-					plugin.loadVoteSites();
+					convertToVoteSites();
+				} else if (plugin.getDescription().getVersion().equals("4.5.2")) {
+					if (!event.getOldVersion().equals("4.5.1")
+							&& !event.getOldVersion().equals("4.5")) {
+						convertToVoteSites();
+					}
+					updateToNewConfigs();
 				}
 			}
 
 		}
+	}
+
+	public void convertToVoteSites() {
+		plugin.getLogger().info(
+				"Detected using old vote site system, converting files...");
+		ConfigVoteSitesOld.getInstance().convert();
+		plugin.loadVoteSites();
+	}
+
+	@SuppressWarnings("deprecation")
+	public void updateToNewConfigs() {
+		plugin.getLogger().info("Detected using config setup, updating...");
+		ServerDataOld.getInstance().convert();
+		com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding.getInstance()
+				.convert();
+		plugin.reload();
 	}
 
 }

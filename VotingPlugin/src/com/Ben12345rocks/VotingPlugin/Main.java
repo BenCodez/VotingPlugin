@@ -29,7 +29,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
@@ -380,7 +379,6 @@ public class Main extends JavaPlugin {
 		configFormat.reloadData();
 		plugin.loadVoteSites();
 		configBonusReward.reloadData();
-		ConfigVoteReminding.getInstance().reloadData();
 		plugin.setupFiles();
 		ServerData.getInstance().reloadData();
 		plugin.update();
@@ -401,7 +399,6 @@ public class Main extends JavaPlugin {
 		configFormat.setup(this);
 		configBonusReward.setup(this);
 		configGUI.setup(plugin);
-		ConfigVoteReminding.getInstance().setup(plugin);
 
 		ConfigBungeeVoting.getInstance().setup(plugin);
 
