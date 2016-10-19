@@ -16,7 +16,6 @@ import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
-import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -24,7 +23,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigBungeeVoting;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -45,7 +43,6 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
-import com.vexsoftware.votifier.model.Vote;
 
 /**
  * The Class Main.
@@ -100,9 +97,6 @@ public class Main extends JavaPlugin {
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
-	/** The offline bungee. */
-	public HashMap<String, ArrayList<Vote>> offlineBungee;
-
 	/** The vote log. */
 	public Logger voteLog;
 
@@ -138,8 +132,9 @@ public class Main extends JavaPlugin {
 	 * Check votifier.
 	 */
 	public void checkVotifier() {
-		if (getServer().getPluginManager().getPlugin("Votifier") == null) {
-			plugin.debug("Votifier not found, votes may not work");
+		if (getServer().getPluginManager().getPlugin("Votifier") == null
+				&& getServer().getPluginManager().getPlugin("NuVotifier") == null) {
+			plugin.debug("Votifier and NuVotifier not found, votes may not work");
 		}
 	}
 
@@ -285,7 +280,6 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		offlineBungee = new HashMap<String, ArrayList<Vote>>();
 		checkAdvancedCore();
 		setupFiles();
 		registerCommands();
@@ -363,7 +357,7 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 
 		pm.registerEvents(new PlayerInteract(this), this);
-		
+
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 
 		plugin.debug("Loaded Events");
@@ -400,8 +394,6 @@ public class Main extends JavaPlugin {
 		configBonusReward.setup(this);
 		configGUI.setup(plugin);
 
-		ConfigBungeeVoting.getInstance().setup(plugin);
-
 		ServerData.getInstance().setup(plugin);
 
 		ConfigTopVoterAwards.getInstance().setup(plugin);
@@ -428,7 +420,6 @@ public class Main extends JavaPlugin {
 	}
 
 	public void runBackgroundtask() {
-		BungeeVote.getInstance().checkOfflineBungeeVotes();
 		TopVoter.getInstance().checkTopVoterAward();
 		updater = new Updater(this, 15358, false);
 	}
@@ -439,7 +430,7 @@ public class Main extends JavaPlugin {
 	public void update() {
 		try {
 			runBackgroundtask();
-			TopVoter.getInstance().updateTopVoters();		
+			TopVoter.getInstance().updateTopVoters();
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
 			Signs.getInstance().updateSigns();

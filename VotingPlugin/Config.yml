@@ -32,6 +32,7 @@ LogVotesToFile: false
 
 # Configuration for VoteReminding
 # By default this should be all setup to work
+# as long as vote delays are done properly
 VoteReminding:
   # Enable vote reminding
   # This will remind player when he can vote on all sites

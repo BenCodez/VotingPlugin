@@ -67,7 +67,7 @@ public class VotingPluginUpdateEvent implements Listener {
 
 	@SuppressWarnings("deprecation")
 	public void updateToNewConfigs() {
-		plugin.getLogger().info("Detected using config setup, updating...");
+		plugin.getLogger().info("Detected using old config setup, updating...");
 		ServerDataOld.getInstance().convert();
 		com.Ben12345rocks.VotingPlugin.Config.ConfigVoteReminding.getInstance()
 				.convert();

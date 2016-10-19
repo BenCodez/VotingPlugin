@@ -26,7 +26,6 @@ import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListene
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -1065,8 +1064,6 @@ public class CommandAdminVote implements CommandExecutor {
 		Vote vote = new com.vexsoftware.votifier.model.Vote();
 		vote.setServiceName(new VoteSite(voteSite).getServiceSite());
 		vote.setUsername(playerName);
-
-		BungeeVote.getInstance().sendVote(vote);
 
 	}
 
