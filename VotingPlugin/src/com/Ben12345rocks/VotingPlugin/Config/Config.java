@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -53,6 +54,78 @@ public class Config {
 	 */
 	public Config(Main plugin) {
 		Config.plugin = plugin;
+	}
+
+	/**
+	 * Gets the enabled.
+	 *
+	 * @return the enabled
+	 */
+	public boolean getVoteRemindingEnabled() {
+		return getData().getBoolean("VoteReminding.Enabled");
+	}
+	
+	public void setVoteRemindingEnabled(boolean value) {
+		getData().set("VoteReminding.Enabled", value);
+		saveData();
+	}
+
+	/**
+	 * Gets the remind delay.
+	 *
+	 * @return the remind delay
+	 */
+	public int getVoteRemindingRemindDelay() {
+		return getData().getInt("VoteReminding.RemindDelay",30);
+	}
+	
+	public void setVoteRemindingRemindDelay(int value) {
+		getData().set("VoteReminding.RemindDelay", value);
+		saveData();
+	}
+
+	/**
+	 * Gets the remind on login.
+	 *
+	 * @return the remind on login
+	 */
+	public boolean getVoteRemindingRemindOnLogin() {
+		return getData().getBoolean("VoteReminding.RemindOnLogin");
+	}
+	
+	public void setVoteRemindingRemindOnLogin(boolean value) {
+		getData().set("VoteReminding.RemindOnLogin", value);
+		saveData();
+	}
+
+	/**
+	 * Gets the remind only once.
+	 *
+	 * @return the remind only once
+	 */
+	public boolean getVoteRemindingRemindOnlyOnce() {
+		return getData().getBoolean("VoteReminding.RemindOnlyOnce");
+	}
+	
+	public void setVoteRemindingRemindOnlyOnce(boolean value) {
+		getData().set("VoteReminding.RemindOnlyOnce", value);
+		saveData();
+	}
+
+	/**
+	 * Gets the rewards.
+	 *
+	 * @return the rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVoteRemindingRewards() {
+		return (ArrayList<String>) getData().getList("VoteReminding.Rewards",
+				new ArrayList<String>());
+	}
+	
+	public void setVoteRemindingRewards(ArrayList<String> value) {
+		getData().set("VoteReminding.Rewards", value);
+		saveData();
 	}
 
 	/**
@@ -112,8 +185,6 @@ public class Config {
 	public boolean getLogVotesToFile() {
 		return getData().getBoolean("LogVotesToFile");
 	}
-
-	
 
 	/**
 	 * Gets the send scoreboards.
@@ -191,8 +262,6 @@ public class Config {
 		saveData();
 	}
 
-	
-
 	/**
 	 * Sets the top voter awards enabled.
 	 *
@@ -223,7 +292,7 @@ public class Config {
 				plugin.saveResource("Config.yml", true);
 			} catch (IOException e) {
 				Bukkit.getServer().getLogger()
-				.severe(ChatColor.RED + "Could not create Config.yml!");
+						.severe(ChatColor.RED + "Could not create Config.yml!");
 			}
 		}
 

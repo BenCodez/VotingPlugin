@@ -10,7 +10,6 @@ import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Bungee.BungeeVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -309,8 +308,6 @@ public class VotiferEvent implements Listener {
 			ConfigVoteSites.getInstance()
 					.setServiceSite(voteSiteName, voteSite);
 		}
-
-		BungeeVote.getInstance().sendVote(vote);
 
 		playerVote(voteUsername, voteSite);
 

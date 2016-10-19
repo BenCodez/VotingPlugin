@@ -17,6 +17,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 /**
  * The Class ConfigVoteReminding.
  */
+@Deprecated
 public class ConfigVoteReminding {
 
 	/** The instance. */
@@ -44,6 +45,15 @@ public class ConfigVoteReminding {
 	 * Instantiates a new config vote reminding.
 	 */
 	private ConfigVoteReminding() {
+	}
+	
+	public void convert() {
+		setup(plugin);
+		Config.getInstance().setVoteRemindingEnabled(getEnabled());
+		Config.getInstance().setVoteRemindingRemindDelay(getRemindDelay());
+		Config.getInstance().setVoteRemindingRemindOnLogin(getRemindOnLogin());
+		Config.getInstance().setVoteRemindingRemindOnlyOnce(getRemindOnlyOnce());
+		Config.getInstance().setVoteRemindingRewards(getRewards());
 	}
 
 	/**
