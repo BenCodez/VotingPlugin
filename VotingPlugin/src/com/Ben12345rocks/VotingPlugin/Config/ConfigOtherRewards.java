@@ -275,6 +275,10 @@ public class ConfigOtherRewards {
 		return getData().getBoolean("VoteParty.Enabled");
 	}
 
+	public boolean getVotePartyResetEachDay() {
+		return getData().getBoolean("VoteParty.ResetEachDay");
+	}
+
 	/**
 	 * Gets the vote party give all players.
 	 *

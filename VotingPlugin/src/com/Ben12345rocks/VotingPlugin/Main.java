@@ -312,6 +312,9 @@ public class Main extends JavaPlugin {
 				"votelog.txt"));
 
 		VoteParty.getInstance().check();
+		VoteParty.getInstance().register();
+		
+		TopVoter.getInstance().register();
 
 		startTimer();
 		plugin.getLogger().info(
@@ -377,6 +380,7 @@ public class Main extends JavaPlugin {
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
+		com.Ben12345rocks.AdvancedCore.Main.plugin.reload();
 	}
 
 	/**

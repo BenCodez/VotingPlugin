@@ -17,6 +17,7 @@ import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -538,7 +539,7 @@ public class CommandAdminVote implements CommandExecutor {
 					String siteName = voteSite.getSiteName();
 					BInventory inv = new BInventory("AddReward: " + siteName);
 					int count = 0;
-					for (Reward reward : com.Ben12345rocks.AdvancedCore.Main.plugin.rewards) {
+					for (Reward reward : RewardHandler.getInstance().getRewards()) {
 						inv.addButton(count,
 								new BInventoryButton(reward.getRewardName(),
 										new String[0], new ItemStack(
@@ -587,8 +588,7 @@ public class CommandAdminVote implements CommandExecutor {
 					BInventory inv = new BInventory("RemoveReward: " + siteName);
 					int count = 0;
 					for (String rewardName : voteSite.getRewards()) {
-						Reward reward = ConfigRewards.getInstance().getReward(
-								rewardName);
+						Reward reward = RewardHandler.getInstance().getReward(rewardName);
 						inv.addButton(count,
 								new BInventoryButton(reward.getRewardName(),
 										new String[0], new ItemStack(

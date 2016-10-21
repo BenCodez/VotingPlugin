@@ -93,33 +93,6 @@ public class ServerData {
 	}
 
 	/**
-	 * Gets the prev day.
-	 *
-	 * @return the prev day
-	 */
-	public int getPrevDay() {
-		return getData().getInt("PrevDay");
-	}
-
-	/**
-	 * Gets the prev month.
-	 *
-	 * @return the prev month
-	 */
-	public int getPrevMonth() {
-		return getData().getInt("PrevMonth");
-	}
-
-	/**
-	 * Gets the prev week day.
-	 *
-	 * @return the prev week day
-	 */
-	public int getPrevWeekDay() {
-		return getData().getInt("PrevWeek");
-	}
-
-	/**
 	 * Gets the sign data.
 	 *
 	 * @param sign
@@ -216,39 +189,6 @@ public class ServerData {
 	 */
 	public synchronized void saveData() {
 		com.Ben12345rocks.AdvancedCore.Data.ServerData.getInstance().saveData();
-	}
-
-	/**
-	 * Sets the prev day.
-	 *
-	 * @param day
-	 *            the new prev day
-	 */
-	public void setPrevDay(int day) {
-		getData().set("PrevDay", day);
-		saveData();
-	}
-
-	/**
-	 * Sets the prev month.
-	 *
-	 * @param value
-	 *            the new prev month
-	 */
-	public void setPrevMonth(int value) {
-		getData().set("PrevMonth", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the prev week day.
-	 *
-	 * @param week
-	 *            the new prev week day
-	 */
-	public void setPrevWeekDay(int week) {
-		getData().set("PrevWeek", week);
-		saveData();
 	}
 
 	/**
