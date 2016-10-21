@@ -224,31 +224,10 @@ public class ServerData {
 	 * @param p
 	 *            the new up
 	 */
-	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
-		if (isFirstLoad()) {
-
-			java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
-					.getInstance().getTimeZone());
-			java.util.Calendar c = java.util.Calendar.getInstance(tz);
-			setPrevMonth(c.getTime().getMonth());
-			int day = c.getTime().getDay();
-			setPrevDay(day);
-			setPrevWeekDay(c.getTime().getDate());
-		}
 		saveData();
 	}
 
-	public boolean isFirstLoad() {
-		boolean first = getData().getBoolean("Loaded");
-		if (!first) {
-			getData().set("Loaded", true);
-			saveData();
-			return true;
-		}
-		return false;
-
-	}
 
 	/**
 	 * Sets the version.

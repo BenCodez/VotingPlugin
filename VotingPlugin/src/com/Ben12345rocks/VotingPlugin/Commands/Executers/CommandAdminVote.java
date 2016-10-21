@@ -33,7 +33,6 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -853,22 +852,6 @@ public class CommandAdminVote implements CommandExecutor {
 		sender.sendMessage(Utils.getInstance().colorize(
 				"&cSet require permission to &c&l" + value + "&c on &c&l"
 						+ reward));
-	}
-
-	/**
-	 * Sets the server data prev month.
-	 *
-	 * @param sender
-	 *            the sender
-	 * @param month
-	 *            the month
-	 */
-	public void setServerDataPrevMonth(CommandSender sender, int month) {
-
-		ServerData.getInstance().setPrevMonth(month);
-		sender.sendMessage(Utils.getInstance().colorize(
-				"&cSet PreMonth to &c&l" + month));
-
 	}
 
 	/**

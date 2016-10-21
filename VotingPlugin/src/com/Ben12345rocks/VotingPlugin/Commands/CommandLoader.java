@@ -358,20 +358,6 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"ServerData", "SetPrevMonth", "(number)" },
-				"VotingPlugin.Commands.AdminVote.ServerDta.Edit",
-				"Edit PrevMonth, ADVANCED USERS ONLY") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandAdminVote.getInstance().setServerDataPrevMonth(sender,
-						Integer.parseInt(args[2]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
 				"SetTotal", "(player)", "(sitename)", "(number)" },
 				"VotingPlugin.Commands.AdminVote.Set.Total",
 				"Set Total votes of player") {

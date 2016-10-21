@@ -316,7 +316,6 @@ public class Main extends JavaPlugin {
 		
 		TopVoter.getInstance().register();
 
-		startTimer();
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
@@ -407,33 +406,10 @@ public class Main extends JavaPlugin {
 	}
 
 	/**
-	 * Start timer.
-	 */
-	public void startTimer() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-					@Override
-					public void run() {
-						runBackgroundtask();
-					}
-				}, 50, config.getBackgroundTaskDelay() * 20);
-
-		plugin.debug("Loaded timer for background task");
-
-	}
-
-	public void runBackgroundtask() {
-		TopVoter.getInstance().checkTopVoterAward();
-		updater = new Updater(this, 15358, false);
-	}
-
-	/**
 	 * Update.
 	 */
 	public void update() {
 		try {
-			runBackgroundtask();
 			TopVoter.getInstance().updateTopVoters();
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();
