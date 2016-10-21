@@ -303,7 +303,6 @@ public class ServerDataOld {
 	 * @param p
 	 *            the new up
 	 */
-	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
 		if (!p.getDataFolder().exists()) {
 			p.getDataFolder().mkdir();
@@ -311,12 +310,9 @@ public class ServerDataOld {
 
 		dFile = new File(p.getDataFolder(), "ServerData.yml");
 
-		boolean genFile = false;
-
 		if (!dFile.exists()) {
 			try {
 				dFile.createNewFile();
-				genFile = true;
 			} catch (IOException e) {
 				Bukkit.getServer()
 						.getLogger()

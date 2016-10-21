@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -190,8 +190,7 @@ public class VoteSite {
 	 */
 	public void giveCulumativeRewards(User user, boolean online) {
 		for (String reward : getCumulativeRewards()) {
-			ConfigRewards.getInstance().getReward(reward)
-					.giveReward(user, online);
+			RewardHandler.getInstance().giveReward(user, reward, online);
 		}
 	}
 
@@ -205,10 +204,9 @@ public class VoteSite {
 	 */
 	public void giveRewards(User user, boolean online) {
 		for (String reward : getRewards()) {
-			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(user, online);
-			}
+
+			RewardHandler.getInstance().giveReward(user, reward, online);
+
 		}
 	}
 

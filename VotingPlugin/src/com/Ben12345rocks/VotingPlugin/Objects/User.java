@@ -13,7 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -41,6 +41,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param player
 	 *            the player
 	 */
+	@SuppressWarnings("deprecation")
 	public User(Player player) {
 		super(plugin, player);
 	}
@@ -51,6 +52,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param playerName
 	 *            the player name
 	 */
+	@SuppressWarnings("deprecation")
 	public User(String playerName) {
 		super(plugin, playerName);
 
@@ -62,6 +64,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param uuid
 	 *            the uuid
 	 */
+	@SuppressWarnings("deprecation")
 	public User(UUID uuid) {
 		super(plugin, uuid);
 
@@ -75,6 +78,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param loadName
 	 *            the load name
 	 */
+	@SuppressWarnings("deprecation")
 	public User(UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
 	}
@@ -521,8 +525,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void giveDailyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getDailyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
-					.getInstance().isPlayerOnline(getPlayerName()));
+			RewardHandler.getInstance().giveReward(this, reward);
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
@@ -541,8 +544,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void giveMonthlyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getMonthlyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
-					.getInstance().isPlayerOnline(getPlayerName()));
+			RewardHandler.getInstance().giveReward(this, reward);
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
@@ -561,8 +563,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : ConfigTopVoterAwards.getInstance()
 				.getWeeklyAwardRewards(place)) {
-			giveReward(ConfigRewards.getInstance().getReward(reward), Utils
-					.getInstance().isPlayerOnline(getPlayerName()));
+			RewardHandler.getInstance().giveReward(this, reward);
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
@@ -833,8 +834,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		for (String reward : ConfigOtherRewards.getInstance()
 				.getAnySiteRewards()) {
 			if (reward != "") {
-				ConfigRewards.getInstance().getReward(reward)
-						.giveReward(this, online);
+				RewardHandler.getInstance().giveReward(this, reward);
 			}
 		}
 	}
