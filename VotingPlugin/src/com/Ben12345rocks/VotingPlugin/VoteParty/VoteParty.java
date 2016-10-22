@@ -16,6 +16,7 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -199,12 +200,13 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards() {
 		if (ConfigOtherRewards.getInstance().getVotePartyGiveAllPlayers()) {
-			for (User user : Data.getInstance().getUsers()) {
+			for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
-				User user = new User(new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(
+						new UUID(uuid));
 				giveReward(user);
 			}
 		}

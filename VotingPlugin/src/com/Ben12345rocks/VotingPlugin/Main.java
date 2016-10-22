@@ -40,6 +40,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -156,7 +157,7 @@ public class Main extends JavaPlugin {
 	 * @return the user
 	 */
 	public User getUser(String playerName) {
-		return new User(playerName);
+		return UserManager.getInstance().getVotingPluginUser(playerName);
 	}
 
 	/**
@@ -167,7 +168,7 @@ public class Main extends JavaPlugin {
 	 * @return the user
 	 */
 	public User getUser(UUID uuid) {
-		return new User(uuid);
+		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
 	/**
@@ -313,7 +314,7 @@ public class Main extends JavaPlugin {
 
 		VoteParty.getInstance().check();
 		VoteParty.getInstance().register();
-		
+
 		TopVoter.getInstance().register();
 
 		plugin.getLogger().info(

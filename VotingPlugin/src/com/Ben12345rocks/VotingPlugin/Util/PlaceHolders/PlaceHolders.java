@@ -7,6 +7,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
 // TODO: Auto-generated Javadoc
@@ -54,7 +55,8 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public String playerCanVote(Player player) {
-		return Boolean.toString(new User(player).canVoteAll());
+		return Boolean.toString(UserManager.getInstance()
+				.getVotingPluginUser(player).canVoteAll());
 
 	}
 
@@ -74,7 +76,7 @@ public class PlaceHolders {
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = new User(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
@@ -94,7 +96,7 @@ public class PlaceHolders {
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = new User(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 	}
 
@@ -106,7 +108,8 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public String playerPoints(Player player) {
-		return Integer.toString(new User(player).getPoints());
+		return Integer.toString(UserManager.getInstance()
+				.getVotingPluginUser(player).getPoints());
 	}
 
 	/**
@@ -117,7 +120,8 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public String playerTotalVotes(Player player) {
-		return Integer.toString(new User(player).getTotalVotes());
+		return Integer.toString(UserManager.getInstance()
+				.getVotingPluginUser(player).getTotalVotes());
 	}
 
 	/**
@@ -136,7 +140,7 @@ public class PlaceHolders {
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = new User(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 		return Integer.toString(user.getTotalVotesSite(voteSite));
 	}
 
@@ -147,6 +151,62 @@ public class PlaceHolders {
 	 */
 	public String votePartyVotesNeeded() {
 		return Integer.toString(VoteParty.getInstance().getNeededVotes());
+	}
+
+	public String getPlaceHolder(Player p, String identifier) {
+		// %VotingPlugin_total% - Total votes of all vote sites
+		if (identifier.equalsIgnoreCase("total")) {
+			return playerTotalVotes(p);
+		}
+
+		// %VotingPlugin_points% - Total votes of all vote sites
+		if (identifier.equalsIgnoreCase("points")) {
+			return playerPoints(p);
+		}
+
+		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
+		// vote party rewards
+		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
+			return votePartyVotesNeeded();
+		}
+
+		// %VotingPlugin_canvote% - Whether or not a player can vote on all
+		// sites
+		if (identifier.equalsIgnoreCase("canvote")) {
+			return playerCanVote(p);
+		}
+
+		// %VotingPlugin_total_SITENAME% - Total votes for site
+		if (startsWithIgnoreCase(identifier, "total")) {
+			if (identifier.split("_").length > 1) {
+				return playerTotalVotesSite(p, identifier.split("_")[1]);
+			} else {
+				return "";
+			}
+		}
+
+		// %VotingPlugin_next_SITENAME% - Next time you can vote for voteSite
+		if (startsWithIgnoreCase(identifier, "next")) {
+			if (identifier.split("_").length > 1) {
+				return playerNextVote(p, identifier.split("_")[1]);
+			} else {
+				return "";
+			}
+		}
+
+		// %VotingPlugin_last_SITENAME% - Next time you can vote for voteSite
+		if (startsWithIgnoreCase(identifier, "last")) {
+			if (identifier.split("_").length > 1) {
+				return playerLastVote(p, identifier.split("_")[1]);
+			} else {
+				return "";
+			}
+		}
+		return "Invalid Placeholder";
+	}
+
+	public boolean startsWithIgnoreCase(String str1, String str2) {
+		return str1.toLowerCase().startsWith(str2.toLowerCase());
 	}
 
 }

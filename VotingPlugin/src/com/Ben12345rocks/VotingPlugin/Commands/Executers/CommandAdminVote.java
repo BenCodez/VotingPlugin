@@ -37,6 +37,7 @@ import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.vexsoftware.votifier.model.Vote;
 
 // TODO: Auto-generated Javadoc
@@ -185,7 +186,8 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendJson(Commands.getInstance().adminHelp(sender, page - 1));
 		} else {
 			sender.sendMessage(Utils.getInstance()
@@ -538,7 +540,8 @@ public class CommandAdminVote implements CommandExecutor {
 					String siteName = voteSite.getSiteName();
 					BInventory inv = new BInventory("AddReward: " + siteName);
 					int count = 0;
-					for (Reward reward : RewardHandler.getInstance().getRewards()) {
+					for (Reward reward : RewardHandler.getInstance()
+							.getRewards()) {
 						inv.addButton(count,
 								new BInventoryButton(reward.getRewardName(),
 										new String[0], new ItemStack(
@@ -587,7 +590,8 @@ public class CommandAdminVote implements CommandExecutor {
 					BInventory inv = new BInventory("RemoveReward: " + siteName);
 					int count = 0;
 					for (String rewardName : voteSite.getRewards()) {
-						Reward reward = RewardHandler.getInstance().getReward(rewardName);
+						Reward reward = RewardHandler.getInstance().getReward(
+								rewardName);
 						inv.addButton(count,
 								new BInventoryButton(reward.getRewardName(),
 										new String[0], new ItemStack(
@@ -676,7 +680,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotalsPlayer(new User(playerName));
+				TopVoter.getInstance().resetTotalsPlayer(
+						UserManager.getInstance().getVotingPluginUser(
+								playerName));
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cDone resseting totals for &c&l" + playerName));
 				plugin.update();
@@ -869,7 +875,9 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setTotal(CommandSender sender, String playerName,
 			String voteSite, int amount) {
 
-		Data.getInstance().setTotal(new User(playerName), voteSite, amount);
+		Data.getInstance().setTotal(
+				UserManager.getInstance().getVotingPluginUser(playerName),
+				voteSite, amount);
 		sender.sendMessage(ChatColor.GREEN + playerName + " total votes for "
 				+ voteSite + " has been set to " + amount);
 		plugin.update();

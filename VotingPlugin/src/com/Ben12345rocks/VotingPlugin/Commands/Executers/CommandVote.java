@@ -14,6 +14,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -60,7 +61,8 @@ public class CommandVote implements CommandExecutor {
 	 */
 	public void help(CommandSender sender) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendJson(Commands.getInstance().voteHelpText(sender));
 		} else {
 			sender.sendMessage(Utils.getInstance().convertArray(
@@ -84,15 +86,18 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(Utils.getInstance().colorize(
 							"&cGetting player info..."));
 					user.sendMessage(Commands.getInstance().playerInfo(
-							new User(playerName)));
+							UserManager.getInstance().getVotingPluginUser(
+									playerName)));
 				} else {
 					sender.sendMessage(Utils.getInstance().colorize(
 							Commands.getInstance().playerInfo(
-									new User(playerName))));
+									UserManager.getInstance()
+											.getVotingPluginUser(playerName))));
 				}
 			}
 		});
@@ -111,11 +116,11 @@ public class CommandVote implements CommandExecutor {
 
 				@Override
 				public void run() {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(Utils.getInstance().colorize(
 							"&cGetting info..."));
-					user.sendMessage(Commands.getInstance().playerInfo(
-							new User(sender.getName())));
+					user.sendMessage(Commands.getInstance().playerInfo(user));
 				}
 			});
 
@@ -135,13 +140,15 @@ public class CommandVote implements CommandExecutor {
 	public void lastOther(CommandSender sender, String playerName) {
 
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(
-					new User(playerName)));
+					UserManager.getInstance().getVotingPluginUser(playerName)));
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
-					Commands.getInstance()
-							.voteCommandLast(new User(playerName))));
+					Commands.getInstance().voteCommandLast(
+							UserManager.getInstance().getVotingPluginUser(
+									playerName))));
 		}
 
 	}
@@ -154,7 +161,8 @@ public class CommandVote implements CommandExecutor {
 	 */
 	public void lastSelf(CommandSender sender) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandLast(user));
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -171,14 +179,16 @@ public class CommandVote implements CommandExecutor {
 	 */
 	public void nextOther(CommandSender sender, String playerName) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandNext(
-					new User(playerName)));
+					UserManager.getInstance().getVotingPluginUser(playerName)));
 
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
-					Commands.getInstance()
-							.voteCommandNext(new User(playerName))));
+					Commands.getInstance().voteCommandNext(
+							UserManager.getInstance().getVotingPluginUser(
+									playerName))));
 		}
 
 	}
@@ -192,7 +202,8 @@ public class CommandVote implements CommandExecutor {
 	public void nextSelf(CommandSender sender) {
 		if (sender instanceof Player) {
 			String playerName = sender.getName();
-			User user = new User(playerName);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					playerName);
 			user.sendMessage(Commands.getInstance().voteCommandNext(user));
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -201,7 +212,7 @@ public class CommandVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
+	 * 
 	 * @see
 	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
 	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
@@ -235,7 +246,8 @@ public class CommandVote implements CommandExecutor {
 				.replace("%Player%", user.getPlayerName())
 				.replace("%Points%", "" + user.getPoints());
 		if (sender instanceof Player) {
-			new User(sender.getName()).sendMessage(msg);
+			UserManager.getInstance().getVotingPluginUser((Player) sender)
+					.sendMessage(msg);
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(msg));
 		}
@@ -269,7 +281,8 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(Commands.getInstance().commandVoteToday(
 							page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -305,7 +318,8 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(TopVoter.getInstance().topVoterDaily(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -340,7 +354,8 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(TopVoter.getInstance().topVoterMonthly(
 							page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -377,7 +392,8 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(TopVoter.getInstance()
 							.topVoterWeekly(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -412,7 +428,8 @@ public class CommandVote implements CommandExecutor {
 			@Override
 			public void run() {
 				if (sender instanceof Player) {
-					User user = new User((Player) sender);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							(Player) sender);
 					user.sendMessage(Commands.getInstance()
 							.voteCommandTotalAll());
 
@@ -436,13 +453,15 @@ public class CommandVote implements CommandExecutor {
 	 */
 	public void totalOther(CommandSender sender, String playerName) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(
-					new User(playerName)));
+					UserManager.getInstance().getVotingPluginUser(playerName)));
 		} else {
 			sender.sendMessage(Utils.getInstance().colorize(
 					Commands.getInstance().voteCommandTotal(
-							new User(playerName))));
+							UserManager.getInstance().getVotingPluginUser(
+									playerName))));
 		}
 
 	}
@@ -456,7 +475,8 @@ public class CommandVote implements CommandExecutor {
 	public void totalSelf(CommandSender sender) {
 		if (sender instanceof Player) {
 			String playerName = sender.getName();
-			User user = new User(playerName);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					playerName);
 			user.sendMessage(Commands.getInstance().voteCommandTotal(user));
 		} else {
 			sender.sendMessage("You must be a player to do this!");
@@ -515,7 +535,8 @@ public class CommandVote implements CommandExecutor {
 	 */
 	public void voteURLs(CommandSender sender) {
 		if (sender instanceof Player) {
-			User user = new User((Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser(
+					(Player) sender);
 			user.sendMessage(Commands.getInstance().voteURLs());
 		} else {
 			sender.sendMessage(Commands.getInstance().voteURLs());

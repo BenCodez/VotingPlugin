@@ -41,7 +41,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param player
 	 *            the player
 	 */
-	@SuppressWarnings("deprecation")
+	@Deprecated
 	public User(Player player) {
 		super(plugin, player);
 	}
@@ -52,10 +52,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param playerName
 	 *            the player name
 	 */
-	@SuppressWarnings("deprecation")
+	@Deprecated
 	public User(String playerName) {
 		super(plugin, playerName);
-
 	}
 
 	/**
@@ -64,7 +63,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param uuid
 	 *            the uuid
 	 */
-	@SuppressWarnings("deprecation")
+	@Deprecated
 	public User(UUID uuid) {
 		super(plugin, uuid);
 
@@ -78,7 +77,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param loadName
 	 *            the load name
 	 */
-	@SuppressWarnings("deprecation")
+	@Deprecated
 	public User(UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
 	}

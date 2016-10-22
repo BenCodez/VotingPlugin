@@ -9,6 +9,7 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -89,7 +90,7 @@ public class VoteReminding {
 					public void run() {
 						for (Player player : Bukkit.getServer()
 								.getOnlinePlayers()) {
-							User user = new User(player);
+							User user = UserManager.getInstance().getVotingPluginUser(player);
 							checkRemind(user);
 						}
 					}

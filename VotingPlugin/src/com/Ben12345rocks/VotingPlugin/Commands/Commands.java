@@ -33,6 +33,7 @@ import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -246,12 +247,14 @@ public class Commands {
 			if (slot.equalsIgnoreCase("url")) {
 				lore = Commands.getInstance().voteURLs();
 			} else if (slot.equalsIgnoreCase("next")) {
-				lore = Commands.getInstance().voteCommandNext(new User(player));
+				lore = Commands.getInstance().voteCommandNext(
+						UserManager.getInstance().getVotingPluginUser(player));
 			} else if (slot.equalsIgnoreCase("last")) {
-				lore = Commands.getInstance().voteCommandLast(new User(player));
+				lore = Commands.getInstance().voteCommandLast(
+						UserManager.getInstance().getVotingPluginUser(player));
 			} else if (slot.equalsIgnoreCase("total")) {
-				lore = Commands.getInstance()
-						.voteCommandTotal(new User(player));
+				lore = Commands.getInstance().voteCommandTotal(
+						UserManager.getInstance().getVotingPluginUser(player));
 			} else if (slot.equalsIgnoreCase("top")) {
 				lore = TopVoter.getInstance().topVoterMonthly(1);
 			} else if (slot.equalsIgnoreCase("today")) {
@@ -780,7 +783,8 @@ public class Commands {
 			int votes = 0;
 			for (String playerName : voteNames) {
 				if (playerName != null) {
-					User user = new User(playerName);
+					User user = UserManager.getInstance().getVotingPluginUser(
+							playerName);
 					votes += user.getTotal(voteSite);
 				}
 			}
@@ -989,7 +993,7 @@ public class Commands {
 	public void voteURL(Player player) {
 		BInventory inv = new BInventory("VoteURL");
 
-		User user = new User(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 
 		int count = 0;
 		if (ConfigGUI.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
@@ -1027,7 +1031,8 @@ public class Commands {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					User user = new User(event.getWhoClicked());
+					User user = UserManager.getInstance().getVotingPluginUser(
+							event.getPlayer());
 					Player player = event.getWhoClicked();
 					player.closeInventory();
 					user.sendMessage(Commands.getInstance().voteURLs());
@@ -1086,7 +1091,8 @@ public class Commands {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								User user = new User(player);
+								User user = UserManager.getInstance()
+										.getVotingPluginUser(player);
 								user.sendMessage(voteSite.getVoteURL());
 
 							}

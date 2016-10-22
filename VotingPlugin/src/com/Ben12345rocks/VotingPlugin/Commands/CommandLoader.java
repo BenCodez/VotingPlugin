@@ -33,6 +33,7 @@ import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 
@@ -136,7 +137,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin
-						.getVoteSite(args[2]), new User(args[1]));
+						.getVoteSite(args[2]), UserManager.getInstance()
+						.getVotingPluginUser(args[1]));
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			}
@@ -149,7 +151,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = new User(args[1]);
+				User user = UserManager.getInstance().getVotingPluginUser(
+						args[1]);
 				user.setPoints(Integer.parseInt(args[2]));
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cSet " + args[1] + " points to " + args[2]));
@@ -163,7 +166,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = new User(args[1]);
+				User user = UserManager.getInstance().getVotingPluginUser(
+						args[1]);
 				user.addPoints(Integer.parseInt(args[2]));
 				sender.sendMessage(Utils.getInstance().colorize(
 						"&cGave " + args[1] + " " + args[2] + " points"));
@@ -601,10 +605,12 @@ public class CommandLoader {
 													ClickEvent clickEvent) {
 												Player player = clickEvent
 														.getPlayer();
-												User user = new User(UserGUI
+												User user = UserManager
 														.getInstance()
-														.getCurrentPlayer(
-																player));
+														.getVotingPluginUser(
+																UserGUI.getInstance()
+																		.getCurrentPlayer(
+																				player));
 												new ValueRequest()
 														.requestNumber(
 																player,
@@ -620,10 +626,12 @@ public class CommandLoader {
 																	public void onInput(
 																			Player player,
 																			Number value) {
-																		User user = new User(
-																				UserGUI.getInstance()
-																						.getCurrentPlayer(
-																								player));
+																		User user = UserManager
+																				.getInstance()
+																				.getVotingPluginUser(
+																						UserGUI.getInstance()
+																								.getCurrentPlayer(
+																										player));
 																		user.setPoints(value
 																				.intValue());
 																		player.sendMessage("Points set to "
@@ -703,8 +711,10 @@ public class CommandLoader {
 																					.getMeta(
 																							player,
 																							"Player");
-																			User user = new User(
-																					playerName);
+																			User user = UserManager
+																					.getInstance()
+																					.getVotingPluginUser(
+																							playerName);
 																			new ValueRequest()
 																					.requestBoolean(
 																							player,
@@ -720,8 +730,10 @@ public class CommandLoader {
 																											.getInstance()
 																											.getCurrentPlayer(
 																													player);
-																									User user = new User(
-																											playerName);
+																									User user = UserManager
+																											.getInstance()
+																											.getVotingPluginUser(
+																													playerName);
 																									user.setHasGotteMilestone(
 																											mileStone,
 																											value);
@@ -769,10 +781,12 @@ public class CommandLoader {
 																	public void onInput(
 																			Player player,
 																			String value) {
-																		User user = new User(
-																				UserGUI.getInstance()
-																						.getCurrentPlayer(
-																								player));
+																		User user = UserManager
+																				.getInstance()
+																				.getVotingPluginUser(
+																						UserGUI.getInstance()
+																								.getCurrentPlayer(
+																										player));
 																		Utils.getInstance()
 																				.setPlayerMeta(
 																						player,
@@ -795,10 +809,12 @@ public class CommandLoader {
 																							public void onInput(
 																									Player player,
 																									Number value) {
-																								User user = new User(
-																										UserGUI.getInstance()
-																												.getCurrentPlayer(
-																														player));
+																								User user = UserManager
+																										.getInstance()
+																										.getVotingPluginUser(
+																												UserGUI.getInstance()
+																														.getCurrentPlayer(
+																																player));
 																								VoteSite voteSite = plugin
 																										.getVoteSite((String) Utils
 																												.getInstance()
@@ -969,8 +985,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				CommandVote.getInstance()
-						.pointsOther(sender, new User(args[1]));
+				CommandVote.getInstance().pointsOther(sender,
+						UserManager.getInstance().getVotingPluginUser(args[1]));
 
 			}
 		});
@@ -983,7 +999,8 @@ public class CommandLoader {
 
 				if (sender instanceof Player) {
 					CommandVote.getInstance().pointsSelf(
-							new User((Player) sender));
+							UserManager.getInstance().getVotingPluginUser(
+									(Player) sender));
 				} else {
 					sender.sendMessage("Must be a player to use this!");
 				}

@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteShop {
 	static VoteShop instance = new VoteShop();
@@ -76,7 +77,7 @@ public class VoteShop {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								User user = new User(player);
+								User user = UserManager.getInstance().getVotingPluginUser(player);
 								int points = ConfigGUI.getInstance()
 										.getIdentifierCost(identifier);
 								String identifier = ConfigGUI.getInstance()
