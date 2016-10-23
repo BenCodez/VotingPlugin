@@ -382,6 +382,7 @@ public class Main extends JavaPlugin {
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		com.Ben12345rocks.AdvancedCore.Main.plugin.reload();
+		UserManager.getInstance().loadUsers();
 	}
 
 	/**
