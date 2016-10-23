@@ -70,6 +70,7 @@ public class VoteParty implements Listener {
 	public void onDayChange(DayChangeEvent event) {
 		if (ConfigOtherRewards.getInstance().getVotePartyResetEachDay()) {
 			setTotalVotes(0);
+			setVotedUsers(new ArrayList<String>());
 		}
 	}
 
