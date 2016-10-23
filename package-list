@@ -1,5 +1,4 @@
 com.Ben12345rocks.VotingPlugin
-com.Ben12345rocks.VotingPlugin.Bungee
 com.Ben12345rocks.VotingPlugin.Commands
 com.Ben12345rocks.VotingPlugin.Commands.Executers
 com.Ben12345rocks.VotingPlugin.Commands.TabCompleter
@@ -11,7 +10,9 @@ com.Ben12345rocks.VotingPlugin.Objects
 com.Ben12345rocks.VotingPlugin.OtherRewards
 com.Ben12345rocks.VotingPlugin.Signs
 com.Ben12345rocks.VotingPlugin.TopVoter
+com.Ben12345rocks.VotingPlugin.UserManager
 com.Ben12345rocks.VotingPlugin.Util.PlaceHolders
 com.Ben12345rocks.VotingPlugin.Util.Updater
 com.Ben12345rocks.VotingPlugin.VoteParty
 com.Ben12345rocks.VotingPlugin.VoteReminding
+com.Ben12345rocks.VotingPlugin.VoteShop
