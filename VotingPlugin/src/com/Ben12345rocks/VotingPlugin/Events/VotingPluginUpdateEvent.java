@@ -46,7 +46,8 @@ public class VotingPluginUpdateEvent implements Listener {
 				} else if (plugin.getDescription().getVersion().equals("4.5.1")
 						&& !event.getOldVersion().equals("4.5")) {
 					convertToVoteSites();
-				} else if (plugin.getDescription().getVersion().equals("4.5.2")) {
+				} else if (plugin.getDescription().getVersion().equals("4.5.2")
+						|| plugin.getDescription().getVersion().equals("4.5.3")) {
 					if (!event.getOldVersion().equals("4.5.1")
 							&& !event.getOldVersion().equals("4.5")) {
 						convertToVoteSites();

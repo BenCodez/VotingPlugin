@@ -295,6 +295,7 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
+		UserManager.getInstance().loadUsers();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 

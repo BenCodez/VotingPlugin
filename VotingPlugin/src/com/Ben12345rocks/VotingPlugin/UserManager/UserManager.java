@@ -70,10 +70,4 @@ public class UserManager extends
 		}
 	}
 
-	public void saveUsers() {
-		for (User user : users) {
-			user.save();
-		}
-	}
-
 }
