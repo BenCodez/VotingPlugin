@@ -343,6 +343,7 @@ public class Data {
 	 *
 	 * @return the users
 	 */
+	@Deprecated
 	public Set<User> getUsers() {
 		Set<User> users = new HashSet<User>();
 		ArrayList<String> players = com.Ben12345rocks.AdvancedCore.Data.Data

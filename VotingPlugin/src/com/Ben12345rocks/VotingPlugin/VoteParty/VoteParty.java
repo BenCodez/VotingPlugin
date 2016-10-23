@@ -3,9 +3,12 @@ package com.Ben12345rocks.VotingPlugin.VoteParty;
 import java.util.ArrayList;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
+import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -13,12 +16,13 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class VoteParty.
  */
-public class VoteParty {
+public class VoteParty implements Listener {
 
 	/** The instance. */
 	static VoteParty instance = new VoteParty();
@@ -51,11 +55,23 @@ public class VoteParty {
 		VoteParty.plugin = plugin;
 	}
 
+	public void register() {
+		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+	}
+
 	/**
 	 * Adds the total.
 	 */
 	public void addTotal() {
 		setTotalVotes(getTotalVotes() + 1);
+	}
+
+	@EventHandler
+	public void onDayChange(DayChangeEvent event) {
+		if (ConfigOtherRewards.getInstance().getVotePartyResetEachDay()) {
+			setTotalVotes(0);
+			setVotedUsers(new ArrayList<String>());
+		}
 	}
 
 	/**
@@ -173,8 +189,7 @@ public class VoteParty {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
 			for (String reward : ConfigOtherRewards.getInstance()
 					.getVotePartyRewards()) {
-				user.giveReward(ConfigRewards.getInstance().getReward(reward),
-						true);
+				RewardHandler.getInstance().giveReward(user, reward);
 			}
 		} else {
 			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);
@@ -186,12 +201,13 @@ public class VoteParty {
 	 */
 	public void giveRewards() {
 		if (ConfigOtherRewards.getInstance().getVotePartyGiveAllPlayers()) {
-			for (User user : Data.getInstance().getUsers()) {
+			for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
-				User user = new User(new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(
+						new UUID(uuid));
 				giveReward(user);
 			}
 		}

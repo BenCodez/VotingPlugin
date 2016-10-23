@@ -592,19 +592,6 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the time zone.
-	 *
-	 * @return the time zone
-	 */
-	public String getTimeZone() {
-		String str = getData().getString("Format.TimeZone");
-		if (str != null) {
-			return str;
-		}
-		return "UTC";
-	}
-
-	/**
 	 * Gets the top voter reward msg.
 	 *
 	 * @return the top voter reward msg

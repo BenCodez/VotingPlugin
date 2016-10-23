@@ -18,6 +18,7 @@ import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
@@ -52,7 +53,7 @@ public class VotiferEvent implements Listener {
 	 *            the vote site URL
 	 */
 	public static void playerVote(String playerName, String voteSiteURL) {
-		User user = new User(playerName);
+		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 			plugin.getLogger().info(
 					"Player " + playerName
@@ -282,7 +283,8 @@ public class VotiferEvent implements Listener {
 		String voteSiteName = plugin.getVoteSiteName(voteSite);
 
 		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-				plugin.getVoteSite(voteSiteName), new User(voteUsername));
+				plugin.getVoteSite(voteSiteName), UserManager.getInstance()
+						.getVotingPluginUser(voteUsername));
 		plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		if (voteEvent.isCancelled()) {

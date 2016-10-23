@@ -10,7 +10,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,8 +49,8 @@ public class PlayerInteract implements Listener {
 							.getLocation())) {
 						// plugin.debug(player.getName() +
 						// " right clicked a top voter sign, sending message");
-						new User(player.getName()).sendMessage(sign
-								.getRightClickMessage());
+						UserManager.getInstance().getVotingPluginUser(player)
+								.sendMessage(sign.getRightClickMessage());
 					}
 				}
 

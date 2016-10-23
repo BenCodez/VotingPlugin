@@ -76,8 +76,7 @@ public class ConfigVoteSites {
 		setRewards(siteName, rewards);
 
 		plugin.loadVoteSites();
-		plugin.getLogger().info(
-				"Loaded default values into file");
+		plugin.getLogger().info("Loaded default values into file");
 	}
 
 	/**
@@ -89,12 +88,10 @@ public class ConfigVoteSites {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(String siteName) {
-		try {
-			return (ArrayList<String>) getData(siteName).getList(
-					"Cumulative.Rewards");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(siteName).getList(
+				"Cumulative.Rewards", new ArrayList<String>());
+
 	}
 
 	/** The data. */
@@ -147,11 +144,10 @@ public class ConfigVoteSites {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards(String siteName) {
-		try {
-			return (ArrayList<String>) getData(siteName).getList("Rewards");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData(siteName).getList("Rewards",
+				new ArrayList<String>());
+
 	}
 
 	/**
@@ -384,7 +380,7 @@ public class ConfigVoteSites {
 	public void setCumulativeRewards(String siteName, ArrayList<String> value) {
 		set(siteName, "Cumulative.Rewards", value);
 	}
-	
+
 	public void setCumulativeVotes(String siteName, int value) {
 		set(siteName, "Cumulative.Votes", value);
 	}

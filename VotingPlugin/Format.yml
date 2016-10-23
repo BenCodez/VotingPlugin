@@ -145,9 +145,6 @@ Format:
   # Message when player types a command but does not input a number where needed
   NotNumber: '&cError on &6%arg%&c, number expected!'
   
-  # TimeZone
-  TimeZone: 'UTC'
-  
   # Shop messages when using the /vote shop
   ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
   ShopFailed: '&cYou do not have %Points% points to purhcase this!'

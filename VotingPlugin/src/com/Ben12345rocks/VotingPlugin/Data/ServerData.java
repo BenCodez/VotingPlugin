@@ -9,7 +9,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
 // TODO: Auto-generated Javadoc
@@ -90,33 +89,6 @@ public class ServerData {
 					.getConfigurationSection("VotingPlugin");
 		}
 		return data;
-	}
-
-	/**
-	 * Gets the prev day.
-	 *
-	 * @return the prev day
-	 */
-	public int getPrevDay() {
-		return getData().getInt("PrevDay");
-	}
-
-	/**
-	 * Gets the prev month.
-	 *
-	 * @return the prev month
-	 */
-	public int getPrevMonth() {
-		return getData().getInt("PrevMonth");
-	}
-
-	/**
-	 * Gets the prev week day.
-	 *
-	 * @return the prev week day
-	 */
-	public int getPrevWeekDay() {
-		return getData().getInt("PrevWeek");
 	}
 
 	/**
@@ -219,39 +191,6 @@ public class ServerData {
 	}
 
 	/**
-	 * Sets the prev day.
-	 *
-	 * @param day
-	 *            the new prev day
-	 */
-	public void setPrevDay(int day) {
-		getData().set("PrevDay", day);
-		saveData();
-	}
-
-	/**
-	 * Sets the prev month.
-	 *
-	 * @param value
-	 *            the new prev month
-	 */
-	public void setPrevMonth(int value) {
-		getData().set("PrevMonth", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the prev week day.
-	 *
-	 * @param week
-	 *            the new prev week day
-	 */
-	public void setPrevWeekDay(int week) {
-		getData().set("PrevWeek", week);
-		saveData();
-	}
-
-	/**
 	 * Sets the sign.
 	 *
 	 * @param count
@@ -284,31 +223,10 @@ public class ServerData {
 	 * @param p
 	 *            the new up
 	 */
-	@SuppressWarnings("deprecation")
 	public void setup(Plugin p) {
-		if (isFirstLoad()) {
-
-			java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
-					.getInstance().getTimeZone());
-			java.util.Calendar c = java.util.Calendar.getInstance(tz);
-			setPrevMonth(c.getTime().getMonth());
-			int day = c.getTime().getDay();
-			setPrevDay(day);
-			setPrevWeekDay(c.getTime().getDate());
-		}
 		saveData();
 	}
 
-	public boolean isFirstLoad() {
-		boolean first = getData().getBoolean("Loaded");
-		if (!first) {
-			getData().set("Loaded", true);
-			saveData();
-			return true;
-		}
-		return false;
-
-	}
 
 	/**
 	 * Sets the version.

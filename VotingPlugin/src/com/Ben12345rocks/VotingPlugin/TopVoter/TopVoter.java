@@ -11,22 +11,27 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
-import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class TopVoter.
  */
-public class TopVoter {
+public class TopVoter implements Listener {
 
 	/** The format. */
 	static ConfigFormat format = ConfigFormat.getInstance();
@@ -62,157 +67,95 @@ public class TopVoter {
 		TopVoter.plugin = plugin;
 	}
 
-	/**
-	 * Check top voter award.
-	 */
-	@SuppressWarnings("deprecation")
-	public void checkTopVoterAward() {
-		if (hasMonthChanged()) {
-			plugin.getLogger().info("Month changed!");
-			TopVoters.getInstance().storeMonthlyTopVoters(
-					new Date().getYear() + 1900, new Date().getMonth(),
-					topVoterNoColor());
-			if (ConfigTopVoterAwards.getInstance().getMonthlyAwardsEnabled()) {
-				Set<String> places = ConfigTopVoterAwards.getInstance()
-						.getMonthlyPossibleRewardPlaces();
-				int i = 0;
-				for (User user : plugin.topVoterMonthly.keySet()) {
-					if (!user.hasTopVoterIgnorePermission()) {
-						i++;
-						if (places.contains(Integer.toString(i))) {
-							user.monthlyTopVoterAward(i);
-						}
-					}
-				}
-			}
-			resetTotalsMonthly();
-
-		}
-
-		if (hasWeekChanged()) {
-			plugin.getLogger().info("Week changed!");
-			TopVoters.getInstance().storeWeeklyTopVoters(
-					new Date().getYear() + 1900, new Date().getMonth(),
-					new Date().getDate(), topVoterWeeklyNoColor());
-			if (ConfigTopVoterAwards.getInstance().getWeeklyAwardsEnabled()) {
-				Set<String> places = ConfigTopVoterAwards.getInstance()
-						.getWeeklyPossibleRewardPlaces();
-				int i = 0;
-				for (User user : plugin.topVoterWeekly.keySet()) {
-					if (!user.hasTopVoterIgnorePermission()) {
-						i++;
-						if (places.contains(Integer.toString(i))) {
-							user.weeklyTopVoterAward(i);
-						}
-					}
-				}
-			}
-			resetTotalsWeekly();
-
-		}
-
-		if (hasDayChanged()) {
-			plugin.getLogger().info("Day changed!");
-			for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
-				User user = entry.getKey();
-				int votes = entry.getValue();
-				if (OtherVoteReward.getInstance().checkMinVotes(user, votes)) {
-					if (user.isOnline()) {
-						OtherVoteReward.getInstance().giveMinVotesReward(user,
-								true);
-					} else {
-						user.setOfflineMinVote(user.getOfflineMinVotes() + 1);
-					}
-				}
-
-			}
-			TopVoters.getInstance().storeDailyTopVoters(
-					new Date().getYear() + 1900, new Date().getMonth(),
-					new Date().getDate(), topVoterDailyNoColor());
-			if (ConfigTopVoterAwards.getInstance().getDailyAwardsEnabled()) {
-				Set<String> places = ConfigTopVoterAwards.getInstance()
-						.getDailyPossibleRewardPlaces();
-				int i = 0;
-				for (User user : plugin.topVoterDaily.keySet()) {
-
-					if (!user.hasTopVoterIgnorePermission()) {
-						i++;
-						if (places.contains(Integer.toString(i))) {
-							user.dailyTopVoterAward(i);
-						}
-					}
-				}
-			}
-			resetTotalsDaily();
-
-		}
-
-		plugin.debug("Checked Top Voter Awards");
-
+	public void register() {
+		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	/**
-	 * Checks for day changed.
-	 *
-	 * @return true, if successful
-	 */
 	@SuppressWarnings("deprecation")
-	public boolean hasDayChanged() {
-		int prevDay = ServerData.getInstance().getPrevDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
-				.getInstance().getTimeZone());
-		java.util.Calendar c = java.util.Calendar.getInstance(tz);
-		int day = c.getTime().getDay();
-		ServerData.getInstance().setPrevDay(day);
-		if (prevDay != day) {
-			return true;
+	@EventHandler
+	public void onDayChange(DayChangeEvent event) {
+		for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+			User user = entry.getKey();
+			int votes = entry.getValue();
+			if (OtherVoteReward.getInstance().checkMinVotes(user, votes)) {
+				if (user.isOnline()) {
+					OtherVoteReward.getInstance()
+							.giveMinVotesReward(user, true);
+				} else {
+					user.setOfflineMinVote(user.getOfflineMinVotes() + 1);
+				}
+			}
+
 		}
-		return false;
+		TopVoters.getInstance().storeDailyTopVoters(
+				new Date().getYear() + 1900, new Date().getMonth(),
+				new Date().getDate(), topVoterDailyNoColor());
+		if (ConfigTopVoterAwards.getInstance().getDailyAwardsEnabled()) {
+			Set<String> places = ConfigTopVoterAwards.getInstance()
+					.getDailyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterDaily.keySet()) {
+
+				if (!user.hasTopVoterIgnorePermission()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.dailyTopVoterAward(i);
+					}
+				}
+			}
+		}
+		resetTotalsDaily();
 	}
 
-	/**
-	 * Checks for month changed.
-	 *
-	 * @return true, if successful
-	 */
 	@SuppressWarnings("deprecation")
-	public boolean hasMonthChanged() {
-		int prevMonth = ServerData.getInstance().getPrevMonth();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
-				.getInstance().getTimeZone());
-		java.util.Calendar c = java.util.Calendar.getInstance(tz);
-		int month = c.getTime().getMonth();
-		ServerData.getInstance().setPrevMonth(month);
-		if (prevMonth != month) {
-			return true;
+	@EventHandler
+	public void onWeekChange(WeekChangeEvent event) {
+		TopVoters.getInstance().storeWeeklyTopVoters(
+				new Date().getYear() + 1900, new Date().getMonth(),
+				new Date().getDate(), topVoterWeeklyNoColor());
+		if (ConfigTopVoterAwards.getInstance().getWeeklyAwardsEnabled()) {
+			Set<String> places = ConfigTopVoterAwards.getInstance()
+					.getWeeklyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterWeekly.keySet()) {
+				if (!user.hasTopVoterIgnorePermission()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.weeklyTopVoterAward(i);
+					}
+				}
+			}
 		}
-		return false;
+		resetTotalsWeekly();
 	}
 
-	/**
-	 * Checks for week changed.
-	 *
-	 * @return true, if successful
-	 */
 	@SuppressWarnings("deprecation")
-	public boolean hasWeekChanged() {
-		int prevDate = ServerData.getInstance().getPrevWeekDay();
-		java.util.TimeZone tz = java.util.TimeZone.getTimeZone(ConfigFormat
-				.getInstance().getTimeZone());
-		java.util.Calendar c = java.util.Calendar.getInstance(tz);
-		ServerData.getInstance().setPrevWeekDay(c.getTime().getDate());
-		if (ServerData.getInstance().getPrevDay() == 0
-				&& c.getTime().getDate() != prevDate) {
-			return true;
+	@EventHandler
+	public void onMonthChange(MonthChangeEvent event) {
+		TopVoters.getInstance().storeMonthlyTopVoters(
+				new Date().getYear() + 1900, new Date().getMonth(),
+				topVoterNoColor());
+		if (ConfigTopVoterAwards.getInstance().getMonthlyAwardsEnabled()) {
+			Set<String> places = ConfigTopVoterAwards.getInstance()
+					.getMonthlyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterMonthly.keySet()) {
+				if (!user.hasTopVoterIgnorePermission()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.monthlyTopVoterAward(i);
+					}
+				}
+			}
 		}
-		return false;
+		resetTotalsMonthly();
 	}
 
 	/**
 	 * Reset totals daily.
 	 */
 	public void resetTotalsDaily() {
-		for (User user : Data.getInstance().getUsers()) {
+		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
 				user.setTotalDaily(voteSite, 0);
@@ -224,7 +167,7 @@ public class TopVoter {
 	 * Reset totals monthly.
 	 */
 	public void resetTotalsMonthly() {
-		for (User user : Data.getInstance().getUsers()) {
+		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
 				user.setTotal(voteSite, 0);
@@ -248,7 +191,7 @@ public class TopVoter {
 	 * Reset totals weekly.
 	 */
 	public void resetTotalsWeekly() {
-		for (User user : Data.getInstance().getUsers()) {
+		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 			for (VoteSite voteSite : ConfigVoteSites.getInstance()
 					.getVoteSites()) {
 				user.setTotalWeekly(voteSite, 0);
@@ -457,37 +400,35 @@ public class TopVoter {
 	public ArrayList<User> topVotersSortedAll() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-					.getInstance().convertSet(users1);
 
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
+
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalVotes() == 0) {
+				users.remove(i);
+			}
+		}
+		if (blackList != null) {
 			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalVotes() == 0) {
+				if (blackList.contains(users.get(i).getPlayerName())) {
 					users.remove(i);
 				}
 			}
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalVotes();
-					int p2Total = p2.getTotalVotes();
-
-					return Integer.compare(p1Total, p2Total);
-				}
-			});
-
-			return users;
 		}
-		return null;
+		Collections.sort(users, new Comparator<User>() {
+
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotalVotes();
+				int p2Total = p2.getTotalVotes();
+
+				return Integer.compare(p1Total, p2Total);
+			}
+		});
+
+		return users;
+
 	}
 
 	/**
@@ -499,37 +440,35 @@ public class TopVoter {
 	public ArrayList<User> topVotersSortedAllDaily() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-					.getInstance().convertSet(users1);
 
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
+
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalDailyAll() == 0) {
+				users.remove(i);
+			}
+		}
+		if (blackList != null) {
 			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalDailyAll() == 0) {
+				if (blackList.contains(users.get(i).getPlayerName())) {
 					users.remove(i);
 				}
 			}
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalDailyAll();
-					int p2Total = p2.getTotalDailyAll();
-
-					return Integer.compare(p1Total, p2Total);
-				}
-			});
-
-			return users;
 		}
-		return null;
+		Collections.sort(users, new Comparator<User>() {
+
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotalDailyAll();
+				int p2Total = p2.getTotalDailyAll();
+
+				return Integer.compare(p1Total, p2Total);
+			}
+		});
+
+		return users;
+
 	}
 
 	/**
@@ -541,37 +480,35 @@ public class TopVoter {
 	public ArrayList<User> topVotersSortedAllWeekly() {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
-		Set<User> users1 = Data.getInstance().getUsers();
-		if (users1 != null) {
-			ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-					.getInstance().convertSet(users1);
 
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
+
+		for (int i = users.size() - 1; i >= 0; i--) {
+			if (users.get(i).getTotalWeeklyAll() == 0) {
+				users.remove(i);
+			}
+		}
+		if (blackList != null) {
 			for (int i = users.size() - 1; i >= 0; i--) {
-				if (users.get(i).getTotalWeeklyAll() == 0) {
+				if (blackList.contains(users.get(i).getPlayerName())) {
 					users.remove(i);
 				}
 			}
-			if (blackList != null) {
-				for (int i = users.size() - 1; i >= 0; i--) {
-					if (blackList.contains(users.get(i).getPlayerName())) {
-						users.remove(i);
-					}
-				}
-			}
-			Collections.sort(users, new Comparator<User>() {
-
-				@Override
-				public int compare(User p1, User p2) {
-					int p1Total = p1.getTotalWeeklyAll();
-					int p2Total = p2.getTotalWeeklyAll();
-
-					return Integer.compare(p1Total, p2Total);
-				}
-			});
-
-			return users;
 		}
-		return null;
+		Collections.sort(users, new Comparator<User>() {
+
+			@Override
+			public int compare(User p1, User p2) {
+				int p1Total = p1.getTotalWeeklyAll();
+				int p2Total = p2.getTotalWeeklyAll();
+
+				return Integer.compare(p1Total, p2Total);
+			}
+		});
+
+		return users;
+
 	}
 
 	/**
@@ -583,9 +520,8 @@ public class TopVoter {
 	 */
 
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(users1);
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalVotesSite(voteSite) == 0) {
 				users.remove(i);
@@ -618,9 +554,8 @@ public class TopVoter {
 	 */
 
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(users1);
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalDaily(voteSite) == 0) {
 				users.remove(i);
@@ -654,9 +589,8 @@ public class TopVoter {
 
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(
 			VoteSite voteSite) {
-		Set<User> users1 = Data.getInstance().getUsers();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(users1);
+		ArrayList<User> users = UserManager.getInstance()
+				.getVotingPluginUsers();
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalWeekly(voteSite) == 0) {
 				users.remove(i);

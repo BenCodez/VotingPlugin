@@ -40,6 +40,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -156,7 +157,7 @@ public class Main extends JavaPlugin {
 	 * @return the user
 	 */
 	public User getUser(String playerName) {
-		return new User(playerName);
+		return UserManager.getInstance().getVotingPluginUser(playerName);
 	}
 
 	/**
@@ -167,7 +168,7 @@ public class Main extends JavaPlugin {
 	 * @return the user
 	 */
 	public User getUser(UUID uuid) {
-		return new User(uuid);
+		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
 	/**
@@ -294,6 +295,7 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
+		UserManager.getInstance().loadUsers();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -312,8 +314,10 @@ public class Main extends JavaPlugin {
 				"votelog.txt"));
 
 		VoteParty.getInstance().check();
+		VoteParty.getInstance().register();
 
-		startTimer();
+		TopVoter.getInstance().register();
+
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
@@ -377,6 +381,8 @@ public class Main extends JavaPlugin {
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
+		com.Ben12345rocks.AdvancedCore.Main.plugin.reload();
+		UserManager.getInstance().loadUsers();
 	}
 
 	/**
@@ -403,33 +409,10 @@ public class Main extends JavaPlugin {
 	}
 
 	/**
-	 * Start timer.
-	 */
-	public void startTimer() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
-				new Runnable() {
-
-					@Override
-					public void run() {
-						runBackgroundtask();
-					}
-				}, 50, config.getBackgroundTaskDelay() * 20);
-
-		plugin.debug("Loaded timer for background task");
-
-	}
-
-	public void runBackgroundtask() {
-		TopVoter.getInstance().checkTopVoterAward();
-		updater = new Updater(this, 15358, false);
-	}
-
-	/**
 	 * Update.
 	 */
 	public void update() {
 		try {
-			runBackgroundtask();
 			TopVoter.getInstance().updateTopVoters();
 			Commands.getInstance().updateVoteToday();
 			ServerData.getInstance().updateValues();

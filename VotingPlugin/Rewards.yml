@@ -34,6 +34,9 @@ VoteParty:
   # If true, players who did not vote to reach the votes required will 
   # recieve the reward
   GiveAllPlayers: false
+  # If true, the vote count will reset each day
+  ResetEachDay: false
+  # Reward files to give
   Rewards:
   - 'ExampleReward'
   

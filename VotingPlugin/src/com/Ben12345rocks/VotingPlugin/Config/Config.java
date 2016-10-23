@@ -147,19 +147,6 @@ public class Config {
 	}
 
 	/**
-	 * Gets the background task delay.
-	 *
-	 * @return the background task delay
-	 */
-	public int getBackgroundTaskDelay() {
-		int num = getData().getInt("BackgroundTaskDelay");
-		if (num == 0) {
-			num = 600;
-		}
-		return num;
-	}
-
-	/**
 	 * Gets the broad cast votes enabled.
 	 *
 	 * @return the broad cast votes enabled

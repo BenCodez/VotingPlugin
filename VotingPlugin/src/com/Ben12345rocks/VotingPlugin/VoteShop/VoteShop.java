@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteShop {
 	static VoteShop instance = new VoteShop();
@@ -76,7 +77,7 @@ public class VoteShop {
 							Player player = (Player) event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								User user = new User(player);
+								User user = UserManager.getInstance().getVotingPluginUser(player);
 								int points = ConfigGUI.getInstance()
 										.getIdentifierCost(identifier);
 								String identifier = ConfigGUI.getInstance()
@@ -87,11 +88,9 @@ public class VoteShop {
 												.getInstance()
 												.getIdentifierRewards(
 														identifier)) {
-											if (reward != "") {
-												ConfigRewards.getInstance()
-														.getReward(reward)
-														.giveReward(user, true);
-											}
+											RewardHandler.getInstance()
+													.giveReward(user, reward,
+															true);
 										}
 										user.sendMessage(ConfigFormat
 												.getInstance()
