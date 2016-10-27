@@ -321,6 +321,8 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
+		
+		update();
 
 	}
 
