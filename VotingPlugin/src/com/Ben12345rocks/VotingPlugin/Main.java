@@ -12,6 +12,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
@@ -321,6 +322,10 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
+		RewardHandler.getInstance().addRewardFolder(
+				new File(plugin.getDataFolder(), "Rewards"));
+		RewardHandler.getInstance().setDefaultFolder(
+				new File(plugin.getDataFolder(), "Rewards"));
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
