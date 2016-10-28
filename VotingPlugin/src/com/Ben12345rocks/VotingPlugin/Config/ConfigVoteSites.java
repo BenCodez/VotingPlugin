@@ -6,15 +6,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
+import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -22,7 +20,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 /**
  * The Class ConfigVoteSites.
  */
-public class ConfigVoteSites {
+public class ConfigVoteSites extends YMLFile {
 
 	/** The instance. */
 	static ConfigVoteSites instance = new ConfigVoteSites();
@@ -42,17 +40,8 @@ public class ConfigVoteSites {
 	/**
 	 * Instantiates a new config vote sites.
 	 */
-	private ConfigVoteSites() {
-	}
-
-	/**
-	 * Instantiates a new config vote sites.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public ConfigVoteSites(Main plugin) {
-		ConfigVoteSites.plugin = plugin;
+	public ConfigVoteSites() {
+		super(new File(plugin.getDataFolder(), "VoteSites.yml"));
 	}
 
 	/**
@@ -94,12 +83,6 @@ public class ConfigVoteSites {
 
 	}
 
-	/** The data. */
-	FileConfiguration data;
-
-	/** The d file. */
-	File dFile;
-
 	/**
 	 * Gets the cumulative reward votes amount.
 	 *
@@ -119,8 +102,8 @@ public class ConfigVoteSites {
 	 * @return the data
 	 */
 	public ConfigurationSection getData(String siteName) {
-		ConfigurationSection data = this.data
-				.getConfigurationSection("VoteSites." + siteName);
+		ConfigurationSection data = getData().getConfigurationSection(
+				"VoteSites." + siteName);
 		return data;
 	}
 
@@ -270,9 +253,10 @@ public class ConfigVoteSites {
 	 */
 	public ArrayList<String> getVoteSitesNames() {
 		ArrayList<String> siteNames = new ArrayList<String>();
-		if (data.isConfigurationSection("VoteSites")) {
+		if (getData().isConfigurationSection("VoteSites")) {
 			siteNames = Utils.getInstance().convert(
-					data.getConfigurationSection("VoteSites").getKeys(false));
+					getData().getConfigurationSection("VoteSites").getKeys(
+							false));
 		}
 
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
@@ -362,7 +346,7 @@ public class ConfigVoteSites {
 		// String playerName = user.getPlayerName();
 		ConfigurationSection data = getData(siteName);
 		if (data == null) {
-			this.data.createSection("VoteSites." + siteName);
+			getData().createSection("VoteSites." + siteName);
 			data = getData(siteName);
 		}
 		data.set(path, value);
@@ -434,41 +418,6 @@ public class ConfigVoteSites {
 	}
 
 	/**
-	 * Save data.
-	 */
-	public void saveData() {
-		FilesManager.getInstance().editFile(dFile, data);
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "VoteSites.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("VoteSites.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create VoteSites.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	/**
 	 * Sets the vote delay.
 	 *
 	 * @param siteName
@@ -512,6 +461,12 @@ public class ConfigVoteSites {
 					.warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
+	}
+
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("VoteSites.yml", true);
+
 	}
 
 }

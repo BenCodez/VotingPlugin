@@ -1,26 +1,19 @@
 package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
-
-import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
+import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class ConfigTopVoterAwards.
  */
-public class ConfigTopVoterAwards {
+public class ConfigTopVoterAwards extends YMLFile {
 
 	/** The instance. */
 	static ConfigTopVoterAwards instance = new ConfigTopVoterAwards();
@@ -37,26 +30,11 @@ public class ConfigTopVoterAwards {
 		return instance;
 	}
 
-	/** The data. */
-	FileConfiguration data;
-
-	/** The d file. */
-	File dFile;
-
 	/**
 	 * Instantiates a new config top voter awards.
 	 */
-	private ConfigTopVoterAwards() {
-	}
-
-	/**
-	 * Instantiates a new config top voter awards.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public ConfigTopVoterAwards(Main plugin) {
-		ConfigTopVoterAwards.plugin = plugin;
+	public ConfigTopVoterAwards() {
+		super(new File(plugin.getDataFolder(), "TopVoterAwards.yml"));
 	}
 
 	/**
@@ -104,15 +82,6 @@ public class ConfigTopVoterAwards {
 			Set<String> noValues = new HashSet<String>();
 			return noValues;
 		}
-	}
-
-	/**
-	 * Gets the data.
-	 *
-	 * @return the data
-	 */
-	public FileConfiguration getData() {
-		return data;
 	}
 
 	/**
@@ -216,45 +185,9 @@ public class ConfigTopVoterAwards {
 		}
 	}
 
-	/**
-	 * Reload data.
-	 */
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("TopVoterAwards.yml", true);
 
-	/**
-	 * Save data.
-	 */
-	public void saveData() {
-		FilesManager.getInstance().editFile(dFile, data);
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "TopVoterAwards.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("TopVoterAwards.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer()
-						.getLogger()
-						.severe(ChatColor.RED
-								+ "Could not create TopVoterAwards.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
 	}
 }

@@ -225,7 +225,7 @@ public class Main extends JavaPlugin {
 	 * Load vote sites.
 	 */
 	public void loadVoteSites() {
-		configVoteSites.setup(this);
+		configVoteSites.setup();
 		voteSites = configVoteSites.getVoteSitesLoad();
 
 		plugin.debug("Loaded VoteSites");
@@ -408,14 +408,12 @@ public class Main extends JavaPlugin {
 		configBonusReward = ConfigOtherRewards.getInstance();
 		configGUI = ConfigGUI.getInstance();
 
-		config.setup(this);
-		configFormat.setup(this);
-		configBonusReward.setup(this);
-		configGUI.setup(plugin);
+		config.setup();
+		configFormat.setup();
+		configBonusReward.setup();
+		configGUI.setup();
 
-		ServerData.getInstance().setup(plugin);
-
-		ConfigTopVoterAwards.getInstance().setup(plugin);
+		ConfigTopVoterAwards.getInstance().setup();
 
 		plugin.debug("Loaded Files");
 

@@ -1,24 +1,17 @@
 package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
-
-import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
+import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class ConfigFormat.
  */
-public class ConfigFormat {
+public class ConfigFormat extends YMLFile {
 
 	/** The instance. */
 	static ConfigFormat instance = new ConfigFormat();
@@ -35,26 +28,11 @@ public class ConfigFormat {
 		return instance;
 	}
 
-	/** The data. */
-	FileConfiguration data;
-
-	/** The d file. */
-	File dFile;
-
 	/**
 	 * Instantiates a new config format.
 	 */
-	private ConfigFormat() {
-	}
-
-	/**
-	 * Instantiates a new config format.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public ConfigFormat(Main plugin) {
-		ConfigFormat.plugin = plugin;
+	public ConfigFormat() {
+		super(new File(plugin.getDataFolder(), "Format.yml"));
 	}
 
 	public String getShopPurchaseMsg() {
@@ -66,8 +44,8 @@ public class ConfigFormat {
 	}
 
 	public String getShopFailedMsg() {
-		String msg = getData()
-				.getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
+		String msg = getData().getString("Format.ShopFailed",
+				"&cYou do not have %Points% points to purhcase this!");
 
 		return msg;
 
@@ -435,15 +413,6 @@ public class ConfigFormat {
 	}
 
 	/**
-	 * Gets the data.
-	 *
-	 * @return the data
-	 */
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	/**
 	 * Gets the login msg.
 	 *
 	 * @return the login msg
@@ -616,44 +585,8 @@ public class ConfigFormat {
 				"Format.Commands.Vote.Help.Lines");
 	}
 
-	/**
-	 * Reload data.
-	 */
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	/**
-	 * Save data.
-	 */
-	public void saveData() {
-		FilesManager.getInstance().editFile(dFile, data);
-
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "Format.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("Format.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Format.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("Format.yml", true);
 	}
 }
