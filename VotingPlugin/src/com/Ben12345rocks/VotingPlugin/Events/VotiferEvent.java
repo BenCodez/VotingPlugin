@@ -81,9 +81,11 @@ public class VotiferEvent implements Listener {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-				VoteParty.getInstance().addTotal();
-				VoteParty.getInstance().addVotePlayer(user);
-				VoteParty.getInstance().check();
+				if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
+					VoteParty.getInstance().addTotal(user);
+					VoteParty.getInstance().addVotePlayer(user);
+					VoteParty.getInstance().check();
+				}
 
 				// broadcast vote if enabled in config
 				if (config.getBroadCastVotesEnabled()) {

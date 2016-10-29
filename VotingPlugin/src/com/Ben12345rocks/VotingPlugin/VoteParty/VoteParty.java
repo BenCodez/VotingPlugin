@@ -62,8 +62,9 @@ public class VoteParty implements Listener {
 	/**
 	 * Adds the total.
 	 */
-	public void addTotal() {
+	public void addTotal(User user) {
 		setTotalVotes(getTotalVotes() + 1);
+		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
 	}
 
 	@EventHandler
@@ -96,15 +97,14 @@ public class VoteParty implements Listener {
 	 * Check.
 	 */
 	public void check() {
-		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
-			if (getTotalVotes() >= ConfigOtherRewards.getInstance()
-					.getVotePartyVotesRequired()) {
-				setTotalVotes(getTotalVotes()
-						- ConfigOtherRewards.getInstance()
-								.getVotePartyVotesRequired());
-				giveRewards();
-			}
+		if (getTotalVotes() >= ConfigOtherRewards.getInstance()
+				.getVotePartyVotesRequired()) {
+			setTotalVotes(getTotalVotes()
+					- ConfigOtherRewards.getInstance()
+							.getVotePartyVotesRequired());
+			giveRewards();
 		}
+
 	}
 
 	/**
@@ -187,12 +187,16 @@ public class VoteParty implements Listener {
 	 */
 	public void giveReward(User user) {
 		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
-			for (String reward : ConfigOtherRewards.getInstance()
-					.getVotePartyRewards()) {
-				RewardHandler.getInstance().giveReward(user, reward);
+			if (user.getVotePartyVotes() >= ConfigOtherRewards.getInstance()
+					.getUserVotesRequired()) {
+				for (String reward : ConfigOtherRewards.getInstance()
+						.getVotePartyRewards()) {
+					RewardHandler.getInstance().giveReward(user, reward);
+				}
+			} else {
+				setOfflineVotePartyVotes(user,
+						getOfflineVotePartyVotes(user) + 1);
 			}
-		} else {
-			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);
 		}
 	}
 
@@ -211,6 +215,10 @@ public class VoteParty implements Listener {
 				giveReward(user);
 			}
 		}
+		reset();
+	}
+
+	public void reset() {
 		setVotedUsers(new ArrayList<String>());
 	}
 

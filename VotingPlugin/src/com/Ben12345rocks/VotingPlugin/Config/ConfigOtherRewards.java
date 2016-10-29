@@ -276,6 +276,10 @@ public class ConfigOtherRewards extends YMLFile {
 		return getData().getInt("VoteParty.VotesRequired");
 	}
 
+	public int getUserVotesRequired() {
+		return getData().getInt("VoteParty.UserVotesRequired");
+	}
+
 	/**
 	 * Gets the votes required.
 	 *

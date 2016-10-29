@@ -179,6 +179,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
+	public int getVotePartyVotes() {
+		return getPluginData().getInt("VotePartyVotes");
+	}
+
+	public void setVotePartyVotes(int value) {
+		setPluginData("VotePartyVotes", value);
+	}
+
 	/**
 	 * Can vote site.
 	 *

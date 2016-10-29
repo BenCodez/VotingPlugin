@@ -36,6 +36,8 @@ VoteParty:
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
+  # Number of user votes that apply to vote party total the user needs to get rewards
+  UserVotesRequired: 0
   # Reward files to give
   Rewards:
   - 'ExampleReward'
