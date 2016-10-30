@@ -151,14 +151,12 @@ public class PlayerGUIs {
 						.get(user).get(voteSite));
 				String msg = "&6" + user.getPlayerName() + " : "
 						+ voteSite.getSiteName() + " : " + timeString;
-				inv.addButton(
-						inv.getNextSlot(),
+				inv.addButton(inv.getNextSlot(),
 						new BInventoryButton(user.getPlayerName(),
 								new String[] { msg }, Utils.getInstance()
 										.setSkullOwner(
-												new ItemStack(
-														Material.SKULL_ITEM),
-												user.getPlayerName())) {
+
+										user.getPlayerName())) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {
@@ -181,25 +179,20 @@ public class PlayerGUIs {
 		int pos = 0;
 		for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 			pos++;
-			inv.addButton(
-					inv.getNextSlot(),
-					new BInventoryButton(pos + ": "
-							+ entry.getKey().getPlayerName(),
-							new String[] { "Votes: " + entry.getValue() },
-							Utils.getInstance().setSkullOwner(
-									new ItemStack(Material.SKULL_ITEM),
-									entry.getKey().getPlayerName())) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton(pos + ": "
+					+ entry.getKey().getPlayerName(), new String[] { "Votes: "
+					+ entry.getValue() }, Utils.getInstance().setSkullOwner(
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							User user = UserManager.getInstance()
-									.getVotingPluginUser(
-											clickEvent.getClickedItem()
-													.getItemMeta()
-													.getDisplayName());
-							openVoteGUI(player, user);
-						}
-					});
+			entry.getKey().getPlayerName())) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					User user = UserManager.getInstance().getVotingPluginUser(
+							clickEvent.getClickedItem().getItemMeta()
+									.getDisplayName());
+					openVoteGUI(player, user);
+				}
+			});
 		}
 		inv.openInventory(player);
 
