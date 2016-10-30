@@ -191,10 +191,9 @@ public class VoteParty implements Listener {
 						.getVotePartyRewards()) {
 					RewardHandler.getInstance().giveReward(user, reward);
 				}
-			} else {
-				setOfflineVotePartyVotes(user,
-						getOfflineVotePartyVotes(user) + 1);
 			}
+		} else {
+			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);
 		}
 	}
 
