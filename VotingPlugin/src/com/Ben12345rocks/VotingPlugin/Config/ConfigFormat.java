@@ -32,7 +32,7 @@ public class ConfigFormat extends YMLFile {
 	 * Instantiates a new config format.
 	 */
 	public ConfigFormat() {
-		super(new File(plugin.getDataFolder(), "Format.yml"));
+		super(new File(Main.plugin.getDataFolder(), "Format.yml"));
 	}
 
 	public String getShopPurchaseMsg() {

@@ -320,7 +320,7 @@ public class Main extends JavaPlugin {
 				"votelog.txt"));
 
 		AdminGUI.getInstance().addButton(
-				new BInventoryButton("VotingPlugin AdminGUI", new String[] {},
+				new BInventoryButton("&cVotingPlugin AdminGUI", new String[] {},
 						new ItemStack(Material.PAPER)) {
 
 					@Override

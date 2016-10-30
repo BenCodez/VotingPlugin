@@ -41,7 +41,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Instantiates a new config vote sites.
 	 */
 	public ConfigVoteSites() {
-		super(new File(plugin.getDataFolder(), "VoteSites.yml"));
+		super(new File(Main.plugin.getDataFolder(), "VoteSites.yml"));
 	}
 
 	/**

@@ -173,14 +173,18 @@ public class PlayerGUIs {
 						});
 			}
 		}
+		inv.openInventory(player);
 	}
 
 	public void openVoteTopMonthly(Player player) {
 		BInventory inv = new BInventory("VoteTop Monthly");
+		int pos = 0;
 		for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+			pos++;
 			inv.addButton(
 					inv.getNextSlot(),
-					new BInventoryButton(entry.getKey().getPlayerName(),
+					new BInventoryButton(pos + ": "
+							+ entry.getKey().getPlayerName(),
 							new String[] { "Votes: " + entry.getValue() },
 							Utils.getInstance().setSkullOwner(
 									new ItemStack(Material.SKULL_ITEM),
@@ -197,6 +201,7 @@ public class PlayerGUIs {
 						}
 					});
 		}
+		inv.openInventory(player);
 
 	}
 

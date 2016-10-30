@@ -33,7 +33,7 @@ public class ConfigOtherRewards extends YMLFile {
 	 * Instantiates a new config other rewards.
 	 */
 	public ConfigOtherRewards() {
-		super(new File(plugin.getDataFolder(), "Rewards.yml"));
+		super(new File(Main.plugin.getDataFolder(), "Rewards.yml"));
 	}
 
 	/**

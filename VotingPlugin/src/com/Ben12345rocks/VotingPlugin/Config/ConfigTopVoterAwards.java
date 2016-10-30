@@ -34,7 +34,7 @@ public class ConfigTopVoterAwards extends YMLFile {
 	 * Instantiates a new config top voter awards.
 	 */
 	public ConfigTopVoterAwards() {
-		super(new File(plugin.getDataFolder(), "TopVoterAwards.yml"));
+		super(new File(Main.plugin.getDataFolder(), "TopVoterAwards.yml"));
 	}
 
 	/**

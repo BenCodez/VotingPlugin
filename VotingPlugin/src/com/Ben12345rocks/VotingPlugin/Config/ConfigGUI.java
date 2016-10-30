@@ -36,7 +36,7 @@ public class ConfigGUI extends YMLFile {
 	 * Instantiates a new config GUI.
 	 */
 	public ConfigGUI() {
-		super(new File(plugin.getDataFolder(), "GUI.yml"));
+		super(new File(Main.plugin.getDataFolder(), "GUI.yml"));
 	}
 
 	public Set<String> getIdentifiers() {
