@@ -152,15 +152,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the vote URL default.
-	 *
-	 * @return the vote URL default
-	 */
-	public boolean getVoteURLDefault() {
-		return getData().getBoolean("VoteURLDefault");
-	}
-
-	/**
 	 * Sets the allow un joined.
 	 *
 	 * @param value
@@ -218,6 +209,30 @@ public class Config extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("Config.yml", true);
+	}
+
+	public boolean getCommandsUseGUIToday() {
+		return getData().getBoolean("Commands.UseGUI.Today", true);
+	}
+
+	public boolean getCommandsUseGUITotal() {
+		return getData().getBoolean("Commands.UseGUI.Total", true);
+	}
+
+	public boolean getCommandsUseGUINext() {
+		return getData().getBoolean("Commands.UseGUI.Next", true);
+	}
+
+	public boolean getCommandsUseGUITopVoter() {
+		return getData().getBoolean("Commands.UseGUI.TopVoter", true);
+	}
+
+	public boolean getCommandsUseGUILast() {
+		return getData().getBoolean("Commands.UseGUI.Last", true);
+	}
+
+	public boolean getCommandsUseGUIVote() {
+		return getData().getBoolean("Commands.UseGUI.Vote", true);
 	}
 
 }

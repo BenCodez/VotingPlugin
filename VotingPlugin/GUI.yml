@@ -15,7 +15,6 @@ GUI:
         # You can set skulls of the player using the following
         # Remove the # to enable
         #Skull: '%Player%'
-      Command: 'vote'
       Slot: 0
     Next:
       Item:
@@ -23,7 +22,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Next'
-      Command: 'vote next'
       Slot: 1
     Last:
       Item:
@@ -31,7 +29,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Last'
-      Command: 'vote last'
       Slot: 2
     Total:
       Item:
@@ -39,7 +36,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Total'
-      Command: 'vote total'
       Slot: 3
     Top:
       Item:
@@ -47,7 +43,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Top'
-      Command: 'vote top'
       Slot: 4
     Today:
       Item:
@@ -55,7 +50,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Today'
-      Command: 'vote today'
       Slot: 5
     Help:
       Item:
@@ -63,7 +57,6 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Help'
-      Command: 'vote help'
       Slot: 6
     Rewards:
       Item:
@@ -71,8 +64,8 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Voting Rewards'
-      Command: 'vote reward'
       Slot: 7
+      
   # GUI for /vote url
   # And /vote if enabled in Config.yml
   VoteURL:

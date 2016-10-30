@@ -8,12 +8,17 @@ import java.util.Date;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
@@ -314,7 +319,22 @@ public class Main extends JavaPlugin {
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder(),
 				"votelog.txt"));
 
-		VoteParty.getInstance().check();
+		AdminGUI.getInstance().addButton(
+				new BInventoryButton("VotingPlugin AdminGUI", new String[] {},
+						new ItemStack(Material.PAPER)) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI
+								.getInstance().openAdminGUI(
+										clickEvent.getPlayer());
+
+					}
+				});
+
+		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
+			VoteParty.getInstance().check();
+		}
 		VoteParty.getInstance().register();
 
 		TopVoter.getInstance().register();
@@ -322,6 +342,7 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info(
 				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
+
 		RewardHandler.getInstance().addRewardFolder(
 				new File(plugin.getDataFolder(), "Rewards"));
 		RewardHandler.getInstance().setDefaultFolder(

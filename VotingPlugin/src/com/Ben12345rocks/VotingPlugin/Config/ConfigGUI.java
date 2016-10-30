@@ -131,7 +131,7 @@ public class ConfigGUI extends YMLFile {
 	 * @return the vote GUI slot command
 	 */
 	public String getVoteGUISlotCommand(String slot) {
-		return getData().getString("GUI.VoteGUI." + slot + ".Command");
+		return getData().getString("GUI.VoteGUI." + slot + ".Command", "");
 	}
 
 	/**
