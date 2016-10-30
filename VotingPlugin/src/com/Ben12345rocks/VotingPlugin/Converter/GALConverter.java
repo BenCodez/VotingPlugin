@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
-import com.Ben12345rocks.AdvancedCore.Configs.ConfigRewards;
+import com.Ben12345rocks.AdvancedCore.Objects.Reward;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -92,10 +93,11 @@ public class GALConverter {
 					ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 
 				}
-				ConfigRewards.getInstance().setMessagesReward(service,
-						rewardMessage);
-				ConfigRewards.getInstance().setCommandsConsole(service,
-						commands);
+				Reward rewardFile = RewardHandler.getInstance().getReward(
+						service);
+
+				rewardFile.getConfig().setMessagesReward(rewardMessage);
+				rewardFile.getConfig().setCommandsConsole(commands);
 			} else if (entry.getKey().equals(VoteType.CUMULATIVE)) {
 				String key = vote.key;
 				if (Utils.getInstance().isInt(key)) {
@@ -107,10 +109,11 @@ public class GALConverter {
 					ConfigOtherRewards.getInstance().setCumulativeRewards(
 							Integer.parseInt(key), rewards);
 					commands.add("broadcast " + broadcast);
-					ConfigRewards.getInstance().setMessagesReward(
-							"cumulative" + key, rewardMessage);
-					ConfigRewards.getInstance().setCommandsConsole(
-							"cumulative" + key, commands);
+					Reward rewardFile = RewardHandler.getInstance().getReward(
+							"cumulative" + key);
+
+					rewardFile.getConfig().setMessagesReward(rewardMessage);
+					rewardFile.getConfig().setCommandsConsole(commands);
 				}
 			} else if (entry.getKey().equals(VoteType.LUCKY)) {
 				String key = vote.key;
@@ -123,12 +126,12 @@ public class GALConverter {
 					rewards.add("lucky" + key);
 					ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 					commands.add("broadcast " + broadcast);
-					ConfigRewards.getInstance().setMessagesReward(
-							"lucky" + key, rewardMessage);
-					ConfigRewards.getInstance().setChance("lucky" + key,
-							Integer.parseInt(key));
-					ConfigRewards.getInstance().setCommandsConsole(
-							"lucky" + key, commands);
+					Reward rewardFile = RewardHandler.getInstance().getReward(
+							"lucky" + key);
+
+					rewardFile.getConfig().setMessagesReward(rewardMessage);
+					rewardFile.getConfig().setChance(Integer.parseInt(key));
+					rewardFile.getConfig().setCommandsConsole(commands);
 				}
 			} else if (entry.getKey().equals(VoteType.PERMISSION)) {
 				String key = vote.key;
@@ -141,12 +144,11 @@ public class GALConverter {
 				rewards.add("perm" + key);
 				ConfigOtherRewards.getInstance().setAnySiteRewards(rewards);
 				commands.add("broadcast " + broadcast);
-				ConfigRewards.getInstance().setMessagesReward("perm" + key,
-						rewardMessage);
-				ConfigRewards.getInstance().setRequirePermission("perm" + key,
-						true);
-				ConfigRewards.getInstance().setCommandsConsole("perm" + key,
-						commands);
+				Reward rewardFile = RewardHandler.getInstance().getReward(
+						"perm" + key);
+				rewardFile.getConfig().setMessagesReward(rewardMessage);
+				rewardFile.getConfig().setRequirePermission(true);
+				rewardFile.getConfig().setCommandsConsole(commands);
 			}
 		}
 	}

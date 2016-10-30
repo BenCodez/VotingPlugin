@@ -1,23 +1,16 @@
 package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
-
-import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
+import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class Config.
  */
-public class Config {
+public class Config extends YMLFile {
 
 	/** The instance. */
 	static Config instance = new Config();
@@ -34,26 +27,11 @@ public class Config {
 		return instance;
 	}
 
-	/** The data. */
-	FileConfiguration data;
-
-	/** The d file. */
-	File dFile;
-
 	/**
 	 * Instantiates a new config.
 	 */
-	private Config() {
-	}
-
-	/**
-	 * Instantiates a new config.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public Config(Main plugin) {
-		Config.plugin = plugin;
+	public Config() {
+		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
 
 	/**
@@ -64,7 +42,7 @@ public class Config {
 	public boolean getVoteRemindingEnabled() {
 		return getData().getBoolean("VoteReminding.Enabled");
 	}
-	
+
 	public void setVoteRemindingEnabled(boolean value) {
 		getData().set("VoteReminding.Enabled", value);
 		saveData();
@@ -76,9 +54,9 @@ public class Config {
 	 * @return the remind delay
 	 */
 	public int getVoteRemindingRemindDelay() {
-		return getData().getInt("VoteReminding.RemindDelay",30);
+		return getData().getInt("VoteReminding.RemindDelay", 30);
 	}
-	
+
 	public void setVoteRemindingRemindDelay(int value) {
 		getData().set("VoteReminding.RemindDelay", value);
 		saveData();
@@ -92,7 +70,7 @@ public class Config {
 	public boolean getVoteRemindingRemindOnLogin() {
 		return getData().getBoolean("VoteReminding.RemindOnLogin");
 	}
-	
+
 	public void setVoteRemindingRemindOnLogin(boolean value) {
 		getData().set("VoteReminding.RemindOnLogin", value);
 		saveData();
@@ -106,7 +84,7 @@ public class Config {
 	public boolean getVoteRemindingRemindOnlyOnce() {
 		return getData().getBoolean("VoteReminding.RemindOnlyOnce");
 	}
-	
+
 	public void setVoteRemindingRemindOnlyOnce(boolean value) {
 		getData().set("VoteReminding.RemindOnlyOnce", value);
 		saveData();
@@ -122,7 +100,7 @@ public class Config {
 		return (ArrayList<String>) getData().getList("VoteReminding.Rewards",
 				new ArrayList<String>());
 	}
-	
+
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
@@ -156,15 +134,6 @@ public class Config {
 	}
 
 	/**
-	 * Gets the data.
-	 *
-	 * @return the data
-	 */
-	public FileConfiguration getData() {
-		return data;
-	}
-
-	/**
 	 * Gets the log votes to file.
 	 *
 	 * @return the log votes to file
@@ -180,29 +149,6 @@ public class Config {
 	 */
 	public boolean getSendScoreboards() {
 		return getData().getBoolean("SendScoreboards");
-	}
-
-	/**
-	 * Gets the vote URL default.
-	 *
-	 * @return the vote URL default
-	 */
-	public boolean getVoteURLDefault() {
-		return getData().getBoolean("VoteURLDefault");
-	}
-
-	/**
-	 * Reload data.
-	 */
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	/**
-	 * Save data.
-	 */
-	public void saveData() {
-		FilesManager.getInstance().editFile(dFile, data);
 	}
 
 	/**
@@ -260,30 +206,33 @@ public class Config {
 		saveData();
 	}
 
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("Config.yml", true);
+	}
 
-		dFile = new File(p.getDataFolder(), "Config.yml");
+	public boolean getCommandsUseGUIToday() {
+		return getData().getBoolean("Commands.UseGUI.Today", true);
+	}
 
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("Config.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create Config.yml!");
-			}
-		}
+	public boolean getCommandsUseGUITotal() {
+		return getData().getBoolean("Commands.UseGUI.Total", true);
+	}
 
-		data = YamlConfiguration.loadConfiguration(dFile);
+	public boolean getCommandsUseGUINext() {
+		return getData().getBoolean("Commands.UseGUI.Next", true);
+	}
+
+	public boolean getCommandsUseGUITopVoter() {
+		return getData().getBoolean("Commands.UseGUI.TopVoter", true);
+	}
+
+	public boolean getCommandsUseGUILast() {
+		return getData().getBoolean("Commands.UseGUI.Last", true);
+	}
+
+	public boolean getCommandsUseGUIVote() {
+		return getData().getBoolean("Commands.UseGUI.Vote", true);
 	}
 
 }

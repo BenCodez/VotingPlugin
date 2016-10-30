@@ -42,7 +42,8 @@ public class UserManager extends
 	}
 
 	public User getVotingPluginUser(String playerName) {
-		return getVotingPluginUser(new UUID(Utils.getInstance().getUUID(playerName)));
+		return getVotingPluginUser(new UUID(Utils.getInstance().getUUID(
+				playerName)));
 	}
 
 	@SuppressWarnings("deprecation")
@@ -53,6 +54,7 @@ public class UserManager extends
 			}
 		}
 		User user = new User(uuid);
+		user.setPlayerName();
 		users.add(user);
 		return user;
 	}

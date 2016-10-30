@@ -10,9 +10,6 @@ BroadcastVote: true
 # Recommend: False (Will prevent creating random user data files)
 AllowUnjoined: false
 
-# If true /vote will open VoteURL GUI
-VoteURLDefault: false
-
 # If true, plugin will send scoreboards on some commands
 SendScoreboards: true
 
@@ -56,5 +53,15 @@ VoteReminding:
   # Can add titles and more in the reward file
   Rewards:
   - 'Remind'
+  
+Commands:
+  # Wether or not the following commands will open GUIs rather than display text
+  UseGUI:
+    Today: true
+    TopVoter: true
+    Last: true
+    Next: true
+    Total: true
+    Vote: true
 
 

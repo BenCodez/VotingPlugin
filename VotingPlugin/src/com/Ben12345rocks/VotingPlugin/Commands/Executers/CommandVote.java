@@ -484,50 +484,6 @@ public class CommandVote implements CommandExecutor {
 	}
 
 	/**
-	 * Vote GUI.
-	 *
-	 * @param sender
-	 *            the sender
-	 */
-	public void voteGUI(CommandSender sender) {
-		if (sender instanceof Player) {
-			Commands.getInstance().openVoteGUI((Player) sender);
-		} else {
-			sender.sendMessage("Must be a player to do this!");
-		}
-	}
-
-	/**
-	 * Vote reward.
-	 *
-	 * @param sender
-	 *            the sender
-	 * @param siteName
-	 *            the site name
-	 */
-	public void voteReward(CommandSender sender, String siteName) {
-		if (sender instanceof Player) {
-			Commands.getInstance().voteReward((Player) sender, siteName);
-		} else {
-			sender.sendMessage("Must be a player to do this!");
-		}
-	}
-
-	/**
-	 * Vote URL.
-	 *
-	 * @param sender
-	 *            the sender
-	 */
-	public void voteURL(CommandSender sender) {
-		if (sender instanceof Player) {
-			Commands.getInstance().voteURL((Player) sender);
-		} else {
-			sender.sendMessage("Must be a player to do this!");
-		}
-	}
-
-	/**
 	 * Vote UR ls.
 	 *
 	 * @param sender

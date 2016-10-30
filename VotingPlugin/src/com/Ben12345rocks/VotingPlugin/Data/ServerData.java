@@ -6,7 +6,6 @@ import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.plugin.Plugin;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
@@ -214,16 +213,6 @@ public class ServerData {
 		getData().set("Signs." + count + ".Z", z);
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
-		saveData();
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
 		saveData();
 	}
 

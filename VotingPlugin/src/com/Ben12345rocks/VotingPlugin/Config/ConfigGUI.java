@@ -1,27 +1,21 @@
 package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 
-import com.Ben12345rocks.AdvancedCore.Util.Files.FilesManager;
+import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class ConfigGUI.
  */
-public class ConfigGUI {
+public class ConfigGUI extends YMLFile {
 
 	/** The instance. */
 	static ConfigGUI instance = new ConfigGUI();
@@ -38,38 +32,12 @@ public class ConfigGUI {
 		return instance;
 	}
 
-	/** The data. */
-	FileConfiguration data;
-
-	/** The d file. */
-	File dFile;
-
 	/**
 	 * Instantiates a new config GUI.
 	 */
-	private ConfigGUI() {
+	public ConfigGUI() {
+		super(new File(Main.plugin.getDataFolder(), "GUI.yml"));
 	}
-
-	/**
-	 * Instantiates a new config GUI.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public ConfigGUI(Main plugin) {
-		ConfigGUI.plugin = plugin;
-	}
-
-	/**
-	 * Gets the data.
-	 *
-	 * @return the data
-	 */
-	public FileConfiguration getData() {
-		return data;
-	}
-	
-	
 
 	public Set<String> getIdentifiers() {
 		return getData().getConfigurationSection("Shop").getKeys(false);
@@ -131,8 +99,6 @@ public class ConfigGUI {
 		}
 	}
 
-	
-
 	public int getIdentifierItemDurability(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Item.Durability");
 	}
@@ -165,7 +131,7 @@ public class ConfigGUI {
 	 * @return the vote GUI slot command
 	 */
 	public String getVoteGUISlotCommand(String slot) {
-		return getData().getString("GUI.VoteGUI." + slot + ".Command");
+		return getData().getString("GUI.VoteGUI." + slot + ".Command", "");
 	}
 
 	/**
@@ -705,44 +671,9 @@ public class ConfigGUI {
 		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
-	/**
-	 * Reload data.
-	 */
-	public void reloadData() {
-		data = YamlConfiguration.loadConfiguration(dFile);
-	}
-
-	/**
-	 * Save data.
-	 */
-	public void saveData() {
-		FilesManager.getInstance().editFile(dFile, data);
-	}
-
-	/**
-	 * Sets the up.
-	 *
-	 * @param p
-	 *            the new up
-	 */
-	public void setup(Plugin p) {
-		if (!p.getDataFolder().exists()) {
-			p.getDataFolder().mkdir();
-		}
-
-		dFile = new File(p.getDataFolder(), "GUI.yml");
-
-		if (!dFile.exists()) {
-			try {
-				dFile.createNewFile();
-				plugin.saveResource("GUI.yml", true);
-			} catch (IOException e) {
-				Bukkit.getServer().getLogger()
-						.severe(ChatColor.RED + "Could not create GUI.yml!");
-			}
-		}
-
-		data = YamlConfiguration.loadConfiguration(dFile);
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("GUI.yml", true);
 	}
 
 }
