@@ -13,7 +13,6 @@ import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -151,8 +150,7 @@ public class VoteParty implements Listener {
 	 * @return the offline vote party votes
 	 */
 	public int getOfflineVotePartyVotes(User user) {
-		return Data.getInstance().getData(user)
-				.getInt("VoteParty.OfflineVotes");
+		return user.getPluginData().getInt("VoteParty.OfflineVotes");
 	}
 
 	/**
@@ -220,6 +218,11 @@ public class VoteParty implements Listener {
 
 	public void reset() {
 		setVotedUsers(new ArrayList<String>());
+		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+			if (user.getVotePartyVotes() != 0) {
+				user.setVotePartyVotes(0);
+			}
+		}
 	}
 
 	/**
@@ -231,7 +234,7 @@ public class VoteParty implements Listener {
 	 *            the value
 	 */
 	public void setOfflineVotePartyVotes(User user, int value) {
-		Data.getInstance().getData(user).set("VoteParty.OfflineVotes", value);
+		user.setPluginData("VoteParty.OfflineVotes", value);
 	}
 
 	/**

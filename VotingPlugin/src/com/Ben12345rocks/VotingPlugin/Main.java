@@ -320,8 +320,8 @@ public class Main extends JavaPlugin {
 				"votelog.txt"));
 
 		AdminGUI.getInstance().addButton(
-				new BInventoryButton("&cVotingPlugin AdminGUI", new String[] {},
-						new ItemStack(Material.PAPER)) {
+				new BInventoryButton("&cVotingPlugin AdminGUI",
+						new String[] {}, new ItemStack(Material.PAPER)) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
@@ -443,19 +443,28 @@ public class Main extends JavaPlugin {
 	/**
 	 * Update.
 	 */
-	public void update() {
-		try {
-			TopVoter.getInstance().updateTopVoters();
-			Commands.getInstance().updateVoteToday();
-			ServerData.getInstance().updateValues();
-			Signs.getInstance().updateSigns();
-			plugin.debug("Background task ran");
+	public synchronized void update() {
+		com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(
+				new Runnable() {
 
-		} catch (Exception ex) {
-			plugin.getLogger()
-					.info("Looks like there are no data files or something went wrong.");
-			ex.printStackTrace();
-		}
+					@Override
+					public void run() {
+						try {
+							TopVoter.getInstance().updateTopVoters();
+							Commands.getInstance().updateVoteToday();
+							ServerData.getInstance().updateValues();
+							Signs.getInstance().updateSigns();
+							plugin.debug("Background task ran");
+
+						} catch (Exception ex) {
+							plugin.getLogger()
+									.info("Looks like there are no data files or something went wrong.");
+							ex.printStackTrace();
+						}
+
+					}
+				});
+
 	}
 
 }
