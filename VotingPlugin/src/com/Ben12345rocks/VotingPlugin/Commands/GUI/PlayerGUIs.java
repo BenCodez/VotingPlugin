@@ -52,12 +52,6 @@ public class PlayerGUIs {
 		Utils.getInstance().setPlayerMeta(player, "SelectedPlayerGUIs", user);
 	}
 
-	/**
-	 * Open vote GUI.
-	 *
-	 * @param player
-	 *            the player
-	 */
 	public void openVoteGUI(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteGUI: " + user.getPlayerName());

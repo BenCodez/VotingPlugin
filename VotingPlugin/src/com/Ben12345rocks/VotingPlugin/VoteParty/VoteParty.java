@@ -58,9 +58,6 @@ public class VoteParty implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	/**
-	 * Adds the total.
-	 */
 	public void addTotal(User user) {
 		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
