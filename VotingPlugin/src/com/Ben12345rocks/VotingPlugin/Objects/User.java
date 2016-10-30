@@ -778,7 +778,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 
 		if (VoteParty.getInstance().getOfflineVotePartyVotes(this) > 0) {
-			for (int i = VoteParty.getInstance().getOfflineVotePartyVotes(this); i > 0; i++) {
+			for (int i = VoteParty.getInstance().getOfflineVotePartyVotes(this); i > 0; i--) {
 				VoteParty.getInstance().giveReward(this);
 			}
 			VoteParty.getInstance().setOfflineVotePartyVotes(this, 0);
