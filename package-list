@@ -1,6 +1,7 @@
 com.Ben12345rocks.VotingPlugin
 com.Ben12345rocks.VotingPlugin.Commands
 com.Ben12345rocks.VotingPlugin.Commands.Executers
+com.Ben12345rocks.VotingPlugin.Commands.GUI
 com.Ben12345rocks.VotingPlugin.Commands.TabCompleter
 com.Ben12345rocks.VotingPlugin.Config
 com.Ben12345rocks.VotingPlugin.Converter
