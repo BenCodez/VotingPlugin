@@ -92,6 +92,7 @@ public class OtherVoteReward implements Listener {
 						if (ConfigOtherRewards.getInstance().getMilestoneResetMonthly(votesRequired)) {
 							for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 								user.setTotalMileStone(votesRequired, 0);
+								user.setHasGotteMilestone(votesRequired, false);
 							}
 						}
 					}
