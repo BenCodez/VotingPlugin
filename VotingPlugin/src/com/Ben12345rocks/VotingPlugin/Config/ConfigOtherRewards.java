@@ -71,8 +71,7 @@ public class ConfigOtherRewards extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(int cumulative) {
 		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Cumulative." + cumulative + ".Rewards");
+			ArrayList<String> list = (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards");
 			if (list != null) {
 				return list;
 			}
@@ -90,8 +89,7 @@ public class ConfigOtherRewards extends YMLFile {
 	 */
 	public Set<String> getCumulativeVotes() {
 		try {
-			Set<String> set = getData().getConfigurationSection("Cumulative")
-					.getKeys(false);
+			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
 			if (set != null) {
 				return set;
 			}
@@ -109,13 +107,11 @@ public class ConfigOtherRewards extends YMLFile {
 	 * @return the cumulative votes in same day
 	 */
 	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean(
-				"Cumulative." + cumulative + ".VotesInSameDay");
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
 	}
 
 	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean(
-				"Cumulative." + cumulative + ".VotesInSameWeek");
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
 	}
 
 	/**
@@ -139,8 +135,7 @@ public class ConfigOtherRewards extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getAnySiteRewards() {
-		return (ArrayList<String>) getData().getList("AnySiteRewards",
-				new ArrayList<String>());
+		return (ArrayList<String>) getData().getList("AnySiteRewards", new ArrayList<String>());
 
 	}
 
@@ -175,17 +170,11 @@ public class ConfigOtherRewards extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getMilestoneRewards(int milestones) {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"MileStones." + milestones + ".Rewards");
-			if (list != null) {
-				return list;
-			}
+		return (ArrayList<String>) getData().getList("MileStones." + milestones + ".Rewards", new ArrayList<String>());
+	}
 
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+	public boolean getMilestoneResetMonthly(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".ResetMonthly");
 	}
 
 	/**
@@ -195,8 +184,7 @@ public class ConfigOtherRewards extends YMLFile {
 	 */
 	public Set<String> getMilestoneVotes() {
 		try {
-			Set<String> set = getData().getConfigurationSection("MileStones")
-					.getKeys(false);
+			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
 			if (set != null) {
 				return set;
 			}
@@ -222,8 +210,7 @@ public class ConfigOtherRewards extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getMinVotesRewards() {
-		return (ArrayList<String>) getData().getList("MinVotes.Rewards",
-				new ArrayList<String>());
+		return (ArrayList<String>) getData().getList("MinVotes.Rewards", new ArrayList<String>());
 	}
 
 	/**

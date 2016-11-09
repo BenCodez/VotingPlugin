@@ -51,6 +51,7 @@ MileStones:
     Enabled: false
     Rewards:
     - 'MileStone20'
+    ResetMonthly: false
 
 # Run a reward file if player is under number of votes in a day
 MinVotes:

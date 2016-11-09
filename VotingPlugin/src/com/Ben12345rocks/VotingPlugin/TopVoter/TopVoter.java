@@ -401,8 +401,8 @@ public class TopVoter implements Listener {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 
-		ArrayList<User> users = UserManager.getInstance()
-				.getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance()
+				.getVotingPluginUsers());
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalVotes() == 0) {
@@ -441,8 +441,8 @@ public class TopVoter implements Listener {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 
-		ArrayList<User> users = UserManager.getInstance()
-				.getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance()
+				.getVotingPluginUsers());
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalDailyAll() == 0) {
@@ -481,8 +481,8 @@ public class TopVoter implements Listener {
 		ArrayList<String> blackList = (ArrayList<String>) ConfigTopVoterAwards
 				.getInstance().getBlackList();
 
-		ArrayList<User> users = UserManager.getInstance()
-				.getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance()
+				.getVotingPluginUsers());
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalWeeklyAll() == 0) {
@@ -697,7 +697,7 @@ public class TopVoter implements Listener {
 	 * Update top voters.
 	 */
 
-	public void updateTopVoters() {
+	public synchronized void updateTopVoters() {
 		plugin.topVoterMonthly.clear();
 		ArrayList<User> users = topVotersSortedAll();
 		if (users != null) {
