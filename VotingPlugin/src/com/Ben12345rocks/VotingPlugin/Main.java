@@ -44,6 +44,7 @@ import com.Ben12345rocks.VotingPlugin.Events.VotingPluginUpdateEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -114,10 +115,8 @@ public class Main extends JavaPlugin {
 		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
 			plugin.getLogger().info("Found AdvancedCore");
 		} else {
-			plugin.getLogger().severe(
-					"Failed to find AdvancedCore, plugin disabling");
-			plugin.getLogger()
-					.severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
+			plugin.getLogger().severe("Failed to find AdvancedCore, plugin disabling");
+			plugin.getLogger().severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
 			Bukkit.getPluginManager().disablePlugin(plugin);
 		}
 	}
@@ -206,15 +205,13 @@ public class Main extends JavaPlugin {
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String url) {
-		ArrayList<String> sites = ConfigVoteSites.getInstance()
-				.getVoteSitesNames();
+		ArrayList<String> sites = ConfigVoteSites.getInstance().getVoteSitesNames();
 		if (url == null) {
 			return null;
 		}
 		if (sites != null) {
 			for (String siteName : sites) {
-				String URL = ConfigVoteSites.getInstance().getServiceSite(
-						siteName);
+				String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
 				if (URL != null) {
 					if (URL.equals(url)) {
 						return siteName;
@@ -249,8 +246,7 @@ public class Main extends JavaPlugin {
 	 */
 	public void logVote(Date date, String playerName, String voteSite) {
 		if (Config.getInstance().getLogVotesToFile()) {
-			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm")
-					.format(date);
+			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm").format(date);
 			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
 		}
 	}
@@ -316,18 +312,15 @@ public class Main extends JavaPlugin {
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 
-		voteLog = new Logger(plugin, new File(plugin.getDataFolder(),
-				"votelog.txt"));
+		voteLog = new Logger(plugin, new File(plugin.getDataFolder(), "votelog.txt"));
 
 		AdminGUI.getInstance().addButton(
-				new BInventoryButton("&cVotingPlugin AdminGUI",
-						new String[] {}, new ItemStack(Material.PAPER)) {
+				new BInventoryButton("&cVotingPlugin AdminGUI", new String[] {}, new ItemStack(Material.PAPER)) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI
-								.getInstance().openAdminGUI(
-										clickEvent.getPlayer());
+						com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI.getInstance()
+								.openAdminGUI(clickEvent.getPlayer());
 
 					}
 				});
@@ -339,14 +332,11 @@ public class Main extends JavaPlugin {
 
 		TopVoter.getInstance().register();
 
-		plugin.getLogger().info(
-				"Enabled VotingPlgin " + plugin.getDescription().getVersion());
+		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
 
-		RewardHandler.getInstance().addRewardFolder(
-				new File(plugin.getDataFolder(), "Rewards"));
-		RewardHandler.getInstance().setDefaultFolder(
-				new File(plugin.getDataFolder(), "Rewards"));
+		RewardHandler.getInstance().addRewardFolder(new File(plugin.getDataFolder(), "Rewards"));
+		RewardHandler.getInstance().setDefaultFolder(new File(plugin.getDataFolder(), "Rewards"));
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -397,6 +387,7 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerInteract(this), this);
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
+		pm.registerEvents(OtherVoteReward.getInstance(), this);
 
 		plugin.debug("Loaded Events");
 
@@ -444,26 +435,24 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public synchronized void update() {
-		com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(
-				new Runnable() {
+		com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
 
-					@Override
-					public void run() {
-						try {
-							TopVoter.getInstance().updateTopVoters();
-							Commands.getInstance().updateVoteToday();
-							ServerData.getInstance().updateValues();
-							Signs.getInstance().updateSigns();
-							plugin.debug("Background task ran");
+			@Override
+			public void run() {
+				try {
+					TopVoter.getInstance().updateTopVoters();
+					Commands.getInstance().updateVoteToday();
+					ServerData.getInstance().updateValues();
+					Signs.getInstance().updateSigns();
+					plugin.debug("Background task ran");
 
-						} catch (Exception ex) {
-							plugin.getLogger()
-									.info("Looks like there are no data files or something went wrong.");
-							ex.printStackTrace();
-						}
+				} catch (Exception ex) {
+					plugin.getLogger().info("Looks like there are no data files or something went wrong.");
+					ex.printStackTrace();
+				}
 
-					}
-				});
+			}
+		});
 
 	}
 

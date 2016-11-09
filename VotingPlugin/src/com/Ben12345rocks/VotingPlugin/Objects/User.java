@@ -132,7 +132,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			if (Utils.getInstance().isInt(a)) {
 				int m = Integer.parseInt(a);
 				if (m != 0) {
-					setTotalMileStone(m, getTotalMileStone(m) + 1);
+					if (!hasGottenMilestone(m)) {
+						setTotalMileStone(m, getTotalMileStone(m) + 1);
+					}
 				}
 			}
 
