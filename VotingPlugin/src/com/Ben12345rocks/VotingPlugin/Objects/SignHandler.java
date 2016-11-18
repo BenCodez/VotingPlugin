@@ -10,6 +10,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -273,7 +274,7 @@ public class SignHandler {
 							.replace("%position%", "" + position));
 				}
 
-				lines = Utils.getInstance().colorize(lines);
+				lines = ArrayUtils.getInstance().colorize(lines);
 
 			} else {
 				for (VoteSite voteSite : plugin.voteSites) {
@@ -316,7 +317,7 @@ public class SignHandler {
 													"" + position));
 						}
 
-						lines = Utils.getInstance().colorize(lines);
+						lines = ArrayUtils.getInstance().colorize(lines);
 					}
 				}
 			}

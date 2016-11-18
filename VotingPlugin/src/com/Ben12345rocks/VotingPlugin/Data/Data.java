@@ -8,7 +8,7 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
@@ -133,7 +133,7 @@ public class Data {
 	public ArrayList<String> getFiles() {
 		File folder = new File(plugin.getDataFolder() + File.separator + "Data");
 		String[] fileNames = folder.list();
-		return Utils.getInstance().convertArray(fileNames);
+		return ArrayUtils.getInstance().convert(fileNames);
 	}
 
 	/**

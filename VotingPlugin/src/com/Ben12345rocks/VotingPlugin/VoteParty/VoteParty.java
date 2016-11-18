@@ -6,10 +6,12 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
@@ -121,9 +123,9 @@ public class VoteParty implements Listener {
 			line = line.replace("%VotesRequired%", "" + votesRequired)
 					.replace("%NeededVotes%", "" + neededVotes)
 					.replace("%Votes%", "" + votes);
-			lines.add(Utils.getInstance().colorize(line));
+			lines.add(StringUtils.getInstance().colorize(line));
 		}
-		sender.sendMessage(Utils.getInstance().convertArray(lines));
+		sender.sendMessage(ArrayUtils.getInstance().convert(lines));
 	}
 
 	/**
@@ -181,7 +183,7 @@ public class VoteParty implements Listener {
 	 *            the user
 	 */
 	public void giveReward(User user) {
-		if (Utils.getInstance().isPlayerOnline(user.getPlayerName())) {
+		if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) {
 			if (user.getVotePartyVotes() >= ConfigOtherRewards.getInstance()
 					.getUserVotesRequired()) {
 				for (String reward : ConfigOtherRewards.getInstance()

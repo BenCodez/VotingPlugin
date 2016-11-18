@@ -3,9 +3,9 @@ package com.Ben12345rocks.VotingPlugin.VoteReminding;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -57,9 +57,9 @@ public class VoteReminding {
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
 
-		if (Utils.getInstance().hasPermission(playerName,
+		if (PlayerUtils.getInstance().hasServerPermission(playerName,
 				"VotingPlugin.Login.RemindVotes")
-				|| Utils.getInstance().hasPermission(playerName,
+				|| PlayerUtils.getInstance().hasServerPermission(playerName,
 						"VotingPlugin.Player")) {
 			if (user.canVoteAll()) {
 				Player player = Bukkit.getPlayer(playerName);

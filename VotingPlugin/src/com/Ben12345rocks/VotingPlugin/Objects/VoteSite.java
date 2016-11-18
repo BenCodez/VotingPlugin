@@ -4,8 +4,8 @@ import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -95,7 +95,7 @@ public class VoteSite {
 	 */
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
-		String bc = Utils.getInstance().colorize(format.getBroadCastMsg());
+		String bc = StringUtils.getInstance().colorize(format.getBroadCastMsg());
 		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
 		final String str = bc;
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {

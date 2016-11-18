@@ -14,10 +14,11 @@ import java.util.Set;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
@@ -246,7 +247,7 @@ public class TopVoter implements Listener {
 	public String[] topVoterDaily(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(
 				topVotersDaily());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -257,15 +258,15 @@ public class TopVoter implements Listener {
 		String title = format.getCommandVoteTopTitle()
 				.replace("%page%", "" + page)
 				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily");
-		msg.add(Utils.getInstance().colorize(title));
+		msg.add(StringUtils.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -286,7 +287,7 @@ public class TopVoter implements Listener {
 			msg.add(line);
 		}
 
-		return Utils.getInstance().convertArray(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -299,7 +300,7 @@ public class TopVoter implements Listener {
 	public String[] topVoterMonthly(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(
 				topVoters());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -311,15 +312,15 @@ public class TopVoter implements Listener {
 				.replace("%page%", "" + page)
 				.replace("%maxpages%", "" + pageSize)
 				.replace("%Top%", "Monthly");
-		msg.add(Utils.getInstance().colorize(title));
+		msg.add(StringUtils.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -340,7 +341,7 @@ public class TopVoter implements Listener {
 			msg.add(line);
 		}
 
-		return Utils.getInstance().convertArray(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -363,8 +364,8 @@ public class TopVoter implements Listener {
 			i++;
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -387,8 +388,8 @@ public class TopVoter implements Listener {
 			msg.add(line);
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -634,8 +635,8 @@ public class TopVoter implements Listener {
 							"" + plugin.topVoterWeekly.get(users.get(i)));
 			msg.add(line);
 		}
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -648,7 +649,7 @@ public class TopVoter implements Listener {
 	public String[] topVoterWeekly(int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(
 				topVotersWeekly());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -660,15 +661,15 @@ public class TopVoter implements Listener {
 				.replace("%page%", "" + page)
 				.replace("%maxpages%", "" + pageSize)
 				.replace("%Top%", "Weekly");
-		msg.add(Utils.getInstance().colorize(title));
+		msg.add(StringUtils.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size())
 				&& (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -690,7 +691,7 @@ public class TopVoter implements Listener {
 			msg.add(line);
 		}
 
-		return Utils.getInstance().convertArray(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**

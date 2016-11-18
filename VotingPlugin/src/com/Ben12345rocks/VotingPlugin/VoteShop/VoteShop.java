@@ -1,16 +1,12 @@
 package com.Ben12345rocks.VotingPlugin.VoteShop;
 
-import java.util.ArrayList;
-
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
@@ -38,80 +34,32 @@ public class VoteShop {
 
 		for (String identifier : ConfigGUI.getInstance().getIdentifiers()) {
 
-			ItemStack item = new ItemStack(
-					Material.getMaterial(ConfigGUI.getInstance()
-							.getIdentifierItemMaterial(identifier)),
-					ConfigGUI.getInstance().getIdentifierItemAmount(identifier),
-					(short) ConfigGUI.getInstance().getIdentifierItemData(
-							identifier));
-			item = Utils.getInstance().setDurabilty(
-					item,
-					ConfigGUI.getInstance().getIdentifierItemDurability(
-							identifier));
+			ItemBuilder builder = new ItemBuilder(ConfigGUI.getInstance().getIdentifierSection(identifier));
 
-			String skull = ConfigGUI.getInstance().getIdentifierItemSkull(
-					identifier);
-			if (skull != null) {
-
-				item = Utils.getInstance().setSkullOwner(item,
-						skull.replace("%Player%", player.getName()));
-			}
-
-			String itemName = ConfigGUI.getInstance().getIdentifierItemName(
-					identifier);
-			if (itemName != null) {
-				itemName = itemName.replace("%Player%", player.getName());
-			}
-			ArrayList<String> lore = ConfigGUI.getInstance()
-					.getIdentifierItemLore(identifier);
-			lore = Utils.getInstance().replaceIgnoreCase(lore, "%Player%",
-					player.getName());
-
-			inv.addButton(
-					ConfigGUI.getInstance().getIdentifierSlot(identifier),
-					new BInventoryButton(itemName, Utils.getInstance()
-							.convertArray(lore), item) {
+			inv.addButton(ConfigGUI.getInstance().getIdentifierSlot(identifier),
+					new BInventoryButton(builder.toItemStack()) {
 
 						@Override
 						public void onClick(ClickEvent event) {
-							Player player = (Player) event.getWhoClicked();
-							if (player != null) {
-								player.closeInventory();
-								User user = UserManager.getInstance().getVotingPluginUser(player);
-								int points = ConfigGUI.getInstance()
-										.getIdentifierCost(identifier);
-								String identifier = ConfigGUI.getInstance()
-										.getIdentifierFromSlot(event.getSlot());
-								if (identifier != null) {
-									if (user.removePoints(points)) {
-										for (String reward : ConfigGUI
-												.getInstance()
-												.getIdentifierRewards(
-														identifier)) {
-											RewardHandler.getInstance()
-													.giveReward(user, reward,
-															true);
-										}
-										user.sendMessage(ConfigFormat
-												.getInstance()
-												.getShopPurchaseMsg()
-												.replace("%Identifier%",
-														identifier)
-												.replace("%Points%",
-														"" + points));
-									} else {
-										user.sendMessage(ConfigFormat
-												.getInstance()
-												.getShopFailedMsg()
-												.replace("%Identifier%",
-														identifier)
-												.replace("%Points%",
-														"" + points));
+							Player player = event.getWhoClicked();
+
+							User user = UserManager.getInstance().getVotingPluginUser(player);
+							int points = ConfigGUI.getInstance().getIdentifierCost(identifier);
+							String identifier = ConfigGUI.getInstance().getIdentifierFromSlot(event.getSlot());
+							if (identifier != null) {
+								if (user.removePoints(points)) {
+									for (String reward : ConfigGUI.getInstance().getIdentifierRewards(identifier)) {
+										RewardHandler.getInstance().giveReward(user, reward, true);
 									}
+									user.sendMessage(ConfigFormat.getInstance().getShopPurchaseMsg()
+											.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+								} else {
+									user.sendMessage(ConfigFormat.getInstance().getShopFailedMsg()
+											.replace("%Identifier%", identifier).replace("%Points%", "" + points));
 								}
 							}
-
 						}
+
 					});
 		}
 

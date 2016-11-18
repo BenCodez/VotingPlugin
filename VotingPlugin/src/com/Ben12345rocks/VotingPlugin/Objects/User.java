@@ -12,9 +12,11 @@ import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -129,7 +131,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		User user = this;
 		Data.getInstance().addTotal(user, voteSite.getSiteName());
 		for (String a : ConfigOtherRewards.getInstance().getMilestoneVotes()) {
-			if (Utils.getInstance().isInt(a)) {
+			if (StringUtils.getInstance().isInt(a)) {
 				int m = Integer.parseInt(a);
 				if (m != 0) {
 					if (!hasGottenMilestone(m)) {
@@ -251,8 +253,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
 		for (int i = 0; i < voteSites.size(); i++) {
-			months.add(Utils.getInstance().getMonthFromMili(user.getTime(voteSites.get(i))));
-			days.add(Utils.getInstance().getDayFromMili(user.getTime(voteSites.get(i))));
+			months.add(MiscUtils.getInstance().getMonthFromMili(user.getTime(voteSites.get(i))));
+			days.add(MiscUtils.getInstance().getDayFromMili(user.getTime(voteSites.get(i))));
 		}
 
 		// check months
@@ -280,10 +282,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void dailyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
-			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
+			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
+		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveDailyTopVoterAward(place);
 		} else {
@@ -523,7 +525,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
-			player.sendMessage(Utils.getInstance()
+			player.sendMessage(StringUtils.getInstance()
 					.colorize(ConfigFormat.getInstance().getTopVoterRewardMsg().replace("%place%", "" + place)));
 		}
 	}
@@ -540,7 +542,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
-			player.sendMessage(Utils.getInstance()
+			player.sendMessage(StringUtils.getInstance()
 					.colorize(ConfigFormat.getInstance().getTopVoterRewardMsg().replace("%place%", "" + place)));
 		}
 	}
@@ -557,7 +559,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
-			player.sendMessage(Utils.getInstance()
+			player.sendMessage(StringUtils.getInstance()
 					.colorize(ConfigFormat.getInstance().getTopVoterRewardMsg().replace("%place%", "" + place)));
 		}
 	}
@@ -595,7 +597,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Load name.
 	 */
 	public void loadName() {
-		setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
+		setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 	}
 
 	/**
@@ -615,10 +617,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void monthlyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
-			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
+			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
+		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveMonthlyTopVoterAward(place);
 		} else {
@@ -682,7 +684,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 		Set<String> list = ConfigOtherRewards.getInstance().getCumulativeVotes();
 		for (String str : list) {
-			if (Utils.getInstance().isInt(str)) {
+			if (StringUtils.getInstance().isInt(str)) {
 				int votesRequired = Integer.parseInt(str);
 				if (votesRequired != 0) {
 					if (ConfigOtherRewards.getInstance().getCumulativeRewardEnabled(votesRequired)) {
@@ -701,7 +703,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 		list = ConfigOtherRewards.getInstance().getMilestoneVotes();
 		for (String str : list) {
-			if (Utils.getInstance().isInt(str)) {
+			if (StringUtils.getInstance().isInt(str)) {
 				int votesRequired = Integer.parseInt(str);
 				if (votesRequired != 0) {
 					if (ConfigOtherRewards.getInstance().getMilestoneRewardEnabled(votesRequired)) {
@@ -981,10 +983,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void weeklyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
-			setPlayerName(Utils.getInstance().getPlayerName(getUUID()));
+			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
 
-		if (Utils.getInstance().isPlayerOnline(getPlayerName())) {
+		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveWeeklyTopVoterAward(place);
 		} else {

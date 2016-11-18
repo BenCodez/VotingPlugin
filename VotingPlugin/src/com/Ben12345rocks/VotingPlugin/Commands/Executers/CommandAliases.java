@@ -7,8 +7,8 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
@@ -51,7 +51,7 @@ public class CommandAliases implements CommandExecutor {
 		}
 		plugin.debug("Attempting cmd...");
 		plugin.debug("Inputed args: "
-				+ Utils.getInstance().makeStringList(argsNew));
+				+ ArrayUtils.getInstance().makeStringList(argsNew));
 
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
 		cmdHandlers.addAll(plugin.voteCommand);
@@ -75,8 +75,8 @@ public class CommandAliases implements CommandExecutor {
 						}
 
 						if (argsMatch) {
-							if (cmdHandle.runCommand(sender, Utils
-									.getInstance().convertArray(argsNew))) {
+							if (cmdHandle.runCommand(sender, ArrayUtils
+									.getInstance().convert(argsNew))) {
 								plugin.debug("cmd found, ran cmd");
 								return true;
 							}

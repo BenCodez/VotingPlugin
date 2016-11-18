@@ -9,13 +9,15 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
@@ -112,13 +114,13 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage(Utils.getInstance()
+					sender.sendMessage(StringUtils.getInstance()
 							.colorize("&cStarting to convert. Please note this is not a 100% conversion."));
 					GALConverter.getInstance().convert();
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cFinished converting. You will need to change reward messages to your liking."));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
+					sender.sendMessage(StringUtils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
 				}
 
 			}
@@ -144,7 +146,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.setPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(Utils.getInstance().colorize("&cSet " + args[1] + " points to " + args[2]));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cSet " + args[1] + " points to " + args[2]));
 			}
 		});
 
@@ -155,7 +157,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.addPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(Utils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"));
 			}
 		});
 
@@ -380,7 +382,7 @@ public class CommandLoader {
 
 					@Override
 					public void run() {
-						sender.sendMessage(Utils.getInstance().colorize("&cChecking for update..."));
+						sender.sendMessage(StringUtils.getInstance().colorize("&cChecking for update..."));
 						CommandAdminVote.getInstance().checkUpdate(sender);
 					}
 				});
@@ -483,7 +485,7 @@ public class CommandLoader {
 											voteSites.add(voteSite.getSiteName());
 										}
 										new ValueRequest().requestString(player, "",
-												Utils.getInstance().convertArray(voteSites), true,
+												ArrayUtils.getInstance().convert(voteSites), true,
 												new StringListener() {
 
 													@Override
@@ -536,14 +538,14 @@ public class CommandLoader {
 										BInventory inv = new BInventory("MileStones: " + playerName);
 										for (String mileStoneName : ConfigOtherRewards.getInstance()
 												.getMilestoneVotes()) {
-											if (Utils.getInstance().isInt(mileStoneName)) {
+											if (StringUtils.getInstance().isInt(mileStoneName)) {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
 														new BInventoryButton("" + mileStone, new String[] {
 																"Enabled: " + ConfigOtherRewards.getInstance()
 																		.getMilestoneRewardEnabled(mileStone),
-																"Rewards: " + Utils.getInstance()
+																"Rewards: " + ArrayUtils.getInstance()
 																		.makeStringList(ConfigOtherRewards.getInstance()
 																				.getMilestoneRewards(mileStone)),
 																"&cClick to set wether this has been completed or not" },
@@ -551,7 +553,7 @@ public class CommandLoader {
 
 															@Override
 															public void onClick(ClickEvent clickEvent) {
-																if (Utils.getInstance()
+																if (StringUtils.getInstance()
 																		.isInt(clickEvent.getClickedItem().getItemMeta()
 																				.getDisplayName())) {
 																	Player player = clickEvent.getPlayer();
@@ -604,14 +606,14 @@ public class CommandLoader {
 											voteSites.add(voteSite.getSiteName());
 										}
 										new ValueRequest().requestString(player, "",
-												Utils.getInstance().convertArray(voteSites), true,
+												ArrayUtils.getInstance().convert(voteSites), true,
 												new StringListener() {
 
 													@Override
 													public void onInput(Player player, String value) {
 														User user = UserManager.getInstance().getVotingPluginUser(
 																UserGUI.getInstance().getCurrentPlayer(player));
-														Utils.getInstance().setPlayerMeta(player, "SiteName", value);
+														PlayerUtils.getInstance().setPlayerMeta(player, "SiteName", value);
 														new ValueRequest().requestNumber(player,
 																"" + user.getTotal(plugin.getVoteSite(value)),
 																new Number[] { 0, 10, 100 }, true,
@@ -624,7 +626,7 @@ public class CommandLoader {
 																						.getInstance().getCurrentPlayer(
 																								player));
 																		VoteSite voteSite = plugin.getVoteSite(
-																				(String) Utils.getInstance()
+																				(String) PlayerUtils.getInstance()
 																						.getPlayerMeta(player,
 																								"SiteName"));
 																		user.setTotal(voteSite, value.intValue());
@@ -889,11 +891,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterMonthly(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
@@ -921,11 +923,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterWeekly(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
@@ -938,11 +940,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterDaily(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
