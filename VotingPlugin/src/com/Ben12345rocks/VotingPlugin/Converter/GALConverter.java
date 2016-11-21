@@ -3,9 +3,9 @@ package com.Ben12345rocks.VotingPlugin.Converter;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -100,7 +100,7 @@ public class GALConverter {
 				rewardFile.getConfig().setCommandsConsole(commands);
 			} else if (entry.getKey().equals(VoteType.CUMULATIVE)) {
 				String key = vote.key;
-				if (Utils.getInstance().isInt(key)) {
+				if (StringUtils.getInstance().isInt(key)) {
 					String rewardMessage = formatPlayer(vote.message);
 					String broadcast = formatPlayer(vote.broadcast);
 
@@ -117,7 +117,7 @@ public class GALConverter {
 				}
 			} else if (entry.getKey().equals(VoteType.LUCKY)) {
 				String key = vote.key;
-				if (Utils.getInstance().isInt(key)) {
+				if (StringUtils.getInstance().isInt(key)) {
 					String rewardMessage = formatPlayer(vote.message);
 					String broadcast = formatPlayer(vote.broadcast);
 

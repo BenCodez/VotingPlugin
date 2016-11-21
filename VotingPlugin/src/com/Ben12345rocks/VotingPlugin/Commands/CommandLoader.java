@@ -9,13 +9,15 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
@@ -106,103 +108,81 @@ public class CommandLoader {
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"Convert", "GAListener" },
-				"VotingPlugin.Commands.AdminVote.Convert",
-				"Convert from GAL to VotingPlugin") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Convert", "GAListener" },
+				"VotingPlugin.Commands.AdminVote.Convert", "Convert from GAL to VotingPlugin") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage(Utils
-							.getInstance()
-							.colorize(
-									"&cStarting to convert. Please note this is not a 100% conversion."));
+					sender.sendMessage(StringUtils.getInstance()
+							.colorize("&cStarting to convert. Please note this is not a 100% conversion."));
 					GALConverter.getInstance().convert();
-					sender.sendMessage(Utils
-							.getInstance()
-							.colorize(
-									"&cFinished converting. You will need to change reward messages to your liking."));
+					sender.sendMessage(StringUtils.getInstance().colorize(
+							"&cFinished converting. You will need to change reward messages to your liking."));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
-							"&cGAL has to be loaded in order to convert"));
+					sender.sendMessage(StringUtils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
 				}
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
-				"VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent",
-				"Trigger vote event, used for testing") {
+		plugin.adminVoteCommand.add(new CommandHandler(
+				new String[] { "TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
+				"VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent", "Trigger vote event, used for testing") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin
-						.getVoteSite(args[2]), UserManager.getInstance()
-						.getVotingPluginUser(args[1]));
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
+						UserManager.getInstance().getVotingPluginUser(args[1]));
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"SetPoints", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetPoints",
-				"Set players voting points") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetPoints", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetPoints", "Set players voting points") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(
-						args[1]);
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.setPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cSet " + args[1] + " points to " + args[2]));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cSet " + args[1] + " points to " + args[2]));
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"AddPoints", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.AddPoints",
-				"Add to players voting points") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "AddPoints", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.AddPoints", "Add to players voting points") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(
-						args[1]);
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.addPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(Utils.getInstance().colorize(
-						"&cGave " + args[1] + " " + args[2] + " points"));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"));
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Help&?" },
+		plugin.adminVoteCommand.add(
+				new CommandHandler(new String[] { "Help&?" }, "VotingPlugin.Commands.AdminVote.Help", "See this page") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						CommandAdminVote.getInstance().help(sender, 1);
+
+					}
+				});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help&?", "(number)" },
 				"VotingPlugin.Commands.AdminVote.Help", "See this page") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().help(sender, 1);
+				CommandAdminVote.getInstance().help(sender, Integer.parseInt(args[1]));
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Help&?",
-				"(number)" }, "VotingPlugin.Commands.AdminVote.Help",
-				"See this page") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().help(sender,
-						Integer.parseInt(args[1]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Report" },
-				"VotingPlugin.Commands.AdminVote.Report",
-				"Create a zip file to send for debuging") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Report" },
+				"VotingPlugin.Commands.AdminVote.Report", "Create a zip file to send for debuging") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -212,19 +192,17 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Perms" },
-				"VotingPlugin.Commands.AdminVote.Perms", "List perms") {
+		plugin.adminVoteCommand.add(
+				new CommandHandler(new String[] { "Perms" }, "VotingPlugin.Commands.AdminVote.Perms", "List perms") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().permList(sender);
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						CommandAdminVote.getInstance().permList(sender);
 
-			}
-		});
+					}
+				});
 
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Reload" },
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reload" },
 				"VotingPlugin.Commands.AdminVote.Reload", "Reload plugin") {
 
 			@Override
@@ -234,22 +212,18 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand
-				.add(new CommandHandler(new String[] { "Version" },
-						"VotingPlugin.Commands.AdminVote.Version",
-						"List version info") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Version" },
+				"VotingPlugin.Commands.AdminVote.Version", "List version info") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().version(sender);
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				CommandAdminVote.getInstance().version(sender);
 
-					}
-				});
+			}
+		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "Sites" },
-				"VotingPlugin.Commands.AdminVote.Sites", "List VoteSites",
-				false) {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Sites" },
+				"VotingPlugin.Commands.AdminVote.Sites", "List VoteSites", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -258,36 +232,32 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "GUI" },
-				"VotingPlugin.Commands.AdminVote.GUI", "Admin GUI", false) {
+		plugin.adminVoteCommand.add(
+				new CommandHandler(new String[] { "GUI" }, "VotingPlugin.Commands.AdminVote.GUI", "Admin GUI", false) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
+					@Override
+					public void execute(CommandSender sender, String[] args) {
 
-				com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI
-						.getInstance().openGUI((Player) sender);
+						com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI.getInstance().openGUI((Player) sender);
 
-			}
-		});
+					}
+				});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Sites",
-				"(sitename)" }, "VotingPlugin.Commands.AdminVote.Sites.Site",
-				"View Site Info") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Sites", "(sitename)" },
+				"VotingPlugin.Commands.AdminVote.Sites.Site", "View Site Info") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
-					AdminGUI.getInstance().openAdminGUIVoteSiteSite(
-							(Player) sender, plugin.getVoteSite(args[1]));
+					AdminGUI.getInstance().openAdminGUIVoteSiteSite((Player) sender, plugin.getVoteSite(args[1]));
 				} else {
 					sender.sendMessage("Must be a player to do this");
 				}
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UUID",
-				"(player)" }, "VotingPlugin.Commands.AdminVote.UUID",
-				"View UUID of player") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UUID", "(player)" },
+				"VotingPlugin.Commands.AdminVote.UUID", "View UUID of player") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -296,9 +266,8 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset",
-				"Totals" }, "VotingPlugin.Commands.AdminVote.Reset.Total",
-				"Reset totals for all players") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset", "Totals" },
+				"VotingPlugin.Commands.AdminVote.Reset.Total", "Reset totals for all players") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -307,21 +276,17 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset",
-				"Totals", "(player)" },
-				"VotingPlugin.Commands.AdminVote.Reset.Total.Player",
-				"Reset total for player") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset", "Totals", "(player)" },
+				"VotingPlugin.Commands.AdminVote.Reset.Total.Player", "Reset total for player") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().resetPlayerTotals(sender,
-						args[2]);
+				CommandAdminVote.getInstance().resetPlayerTotals(sender, args[2]);
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Vote",
-				"(player)", "(Sitename)" },
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote", "Trigger manual vote") {
 
 			@Override
@@ -331,10 +296,8 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "Create" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Create VoteSite") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "Create" },
+				"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Create VoteSite") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -343,126 +306,105 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Config",
-				"SetDebug", "(boolean)" },
-				"VotingPlugin.Commands.AdminVote.Config.Edit",
-				"Set Debug on or off") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Config", "SetDebug", "(boolean)" },
+				"VotingPlugin.Commands.AdminVote.Config.Edit", "Set Debug on or off") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().setConfigDebug(sender,
-						Boolean.parseBoolean(args[2]));
+				CommandAdminVote.getInstance().setConfigDebug(sender, Boolean.parseBoolean(args[2]));
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"SetTotal", "(player)", "(sitename)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Set.Total",
-				"Set Total votes of player") {
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "SetTotal", "(player)", "(sitename)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.Set.Total", "Set Total votes of player") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+
+						CommandAdminVote.getInstance().setTotal(sender, args[1], args[2], Integer.parseInt(args[3]));
+
+					}
+				});
+
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetServiceSite", "(string)" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Set VoteSite SerivceSite") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						CommandAdminVote.getInstance().setVoteSiteServiceSite(sender, args[1], args[3]);
+					}
+				});
+
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetVoteURL", "(string)" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Set VoteSite VoteURL") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						CommandAdminVote.getInstance().setVoteSiteVoteURL(sender, args[1], args[3]);
+					}
+				});
+
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetPriority", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Set VoteSite Priority") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+
+						CommandAdminVote.getInstance().setVoteSitePriority(sender, args[1], Integer.parseInt(args[3]));
+
+					}
+				});
+
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetVoteDelay", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Set VoteSite VoteDelay") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+
+						CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender, args[1], Integer.parseInt(args[3]));
+
+					}
+				});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UpdateCheck" },
+				"VotingPlugin.Commands.AdminVote.UpdateCheck", "Check for update") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				CommandAdminVote.getInstance().setTotal(sender, args[1],
-						args[2], Integer.parseInt(args[3]));
+				Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+					@Override
+					public void run() {
+						sender.sendMessage(StringUtils.getInstance().colorize("&cChecking for update..."));
+						CommandAdminVote.getInstance().checkUpdate(sender);
+					}
+				});
 
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "SetServiceSite", "(string)" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Set VoteSite SerivceSite") {
+		plugin.adminVoteCommand
+				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetEnabled", "(boolean)" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit", "Set VoteSite Enabled") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().setVoteSiteServiceSite(sender,
-						args[1], args[3]);
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "SetVoteURL", "(string)" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Set VoteSite VoteURL") {
+						CommandAdminVote.getInstance().setVoteSiteEnabled(sender, args[1],
+								Boolean.parseBoolean(args[3]));
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().setVoteSiteVoteURL(sender,
-						args[1], args[3]);
-			}
-		});
+					}
+				});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "SetPriority", "(number)" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Set VoteSite Priority") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandAdminVote.getInstance().setVoteSitePriority(sender,
-						args[1], Integer.parseInt(args[3]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "SetVoteDelay", "(number)" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Set VoteSite VoteDelay") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender,
-						args[1], Integer.parseInt(args[3]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(
-				new String[] { "UpdateCheck" },
-				"VotingPlugin.Commands.AdminVote.UpdateCheck",
-				"Check for update") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				Bukkit.getScheduler().runTaskAsynchronously(plugin,
-						new Runnable() {
-
-							@Override
-							public void run() {
-								sender.sendMessage(Utils.getInstance()
-										.colorize("&cChecking for update..."));
-								CommandAdminVote.getInstance().checkUpdate(
-										sender);
-							}
-						});
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "SetEnabled", "(boolean)" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Edit",
-				"Set VoteSite Enabled") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandAdminVote.getInstance().setVoteSiteEnabled(sender,
-						args[1], Boolean.parseBoolean(args[3]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] {
-				"VoteSite", "(sitename)", "Check" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Check",
-				"Check to see if VoteSite is valid") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "Check" },
+				"VotingPlugin.Commands.AdminVote.VoteSite.Check", "Check to see if VoteSite is valid") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -484,15 +426,12 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("vote" + arg).setExecutor(
-								new CommandAliases(cmdHandle));
+						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle));
 
-						plugin.getCommand("vote" + arg).setTabCompleter(
-								new AliasesTabCompleter()
-										.setCMDHandle(cmdHandle));
+						plugin.getCommand("vote" + arg)
+								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
-						plugin.debug("Failed to load command and tab completer for /vote"
-								+ arg);
+						plugin.debug("Failed to load command and tab completer for /vote" + arg);
 					}
 				}
 
@@ -504,15 +443,13 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("adminvote" + arg).setExecutor(
-								new CommandAliases(cmdHandle));
+						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle));
 
-						plugin.getCommand("adminvote" + arg).setTabCompleter(
-								new AliasesTabCompleter()
-										.setCMDHandle(cmdHandle));
+						plugin.getCommand("adminvote" + arg)
+								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
 					} catch (Exception ex) {
-						plugin.debug("Failed to load command and tab completer for /adminvote"
-								+ arg + ": " + ex.getMessage());
+						plugin.debug("Failed to load command and tab completer for /adminvote" + arg + ": "
+								+ ex.getMessage());
 
 					}
 				}
@@ -531,311 +468,183 @@ public class CommandLoader {
 
 			@Override
 			public void run() {
-				com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(
-						new Runnable() {
+				com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
+
+					@Override
+					public void run() {
+						loadTabComplete();
+						BInventory inv = new BInventory("VotingPlugin UserGUI");
+						inv.addButton(inv.getNextSlot(),
+								new BInventoryButton("Force Vote", new String[] {}, new ItemStack(Material.STONE)) {
+
+									@Override
+									public void onClick(ClickEvent clickEvent) {
+										Player player = clickEvent.getPlayer();
+										ArrayList<String> voteSites = new ArrayList<String>();
+										for (VoteSite voteSite : plugin.voteSites) {
+											voteSites.add(voteSite.getSiteName());
+										}
+										new ValueRequest().requestString(player, "",
+												ArrayUtils.getInstance().convert(voteSites), true,
+												new StringListener() {
+
+													@Override
+													public void onInput(Player player, String value) {
+
+														CommandAdminVote.getInstance().Vote(player,
+																UserGUI.getInstance().getCurrentPlayer(player), value);
+
+														player.sendMessage("Forced vote for "
+																+ UserGUI.getInstance().getCurrentPlayer(player)
+																+ " on " + value);
+													}
+												});
+
+									}
+								});
+
+						inv.addButton(inv.getNextSlot(), new BInventoryButton("Set Vote Points", new String[] {},
+								new ItemStack(Material.STONE)) {
 
 							@Override
-							public void run() {
-								loadTabComplete();
-								BInventory inv = new BInventory(
-										"VotingPlugin UserGUI");
-								inv.addButton(inv.getNextSlot(),
-										new BInventoryButton("Force Vote",
-												new String[] {}, new ItemStack(
-														Material.STONE)) {
+							public void onClick(ClickEvent clickEvent) {
+								Player player = clickEvent.getPlayer();
+								User user = UserManager.getInstance()
+										.getVotingPluginUser(UserGUI.getInstance().getCurrentPlayer(player));
+								new ValueRequest().requestNumber(player, "" + user.getPoints(),
+										new Number[] { 0, 5, 100 }, true, new NumberListener() {
 
 											@Override
-											public void onClick(
-													ClickEvent clickEvent) {
-												Player player = clickEvent
-														.getPlayer();
-												ArrayList<String> voteSites = new ArrayList<String>();
-												for (VoteSite voteSite : plugin.voteSites) {
-													voteSites.add(voteSite
-															.getSiteName());
-												}
-												new ValueRequest()
-														.requestString(
-																player,
-																"",
-																Utils.getInstance()
-																		.convertArray(
-																				voteSites),
-																true,
-																new StringListener() {
-
-																	@Override
-																	public void onInput(
-																			Player player,
-																			String value) {
-
-																		CommandAdminVote
-																				.getInstance()
-																				.Vote(player,
-																						UserGUI.getInstance()
-																								.getCurrentPlayer(
-																										player),
-																						value);
-
-																		player.sendMessage("Forced vote for "
-																				+ UserGUI
-																						.getInstance()
-																						.getCurrentPlayer(
-																								player)
-																				+ " on "
-																				+ value);
-																	}
-																});
+											public void onInput(Player player, Number value) {
+												User user = UserManager.getInstance().getVotingPluginUser(
+														UserGUI.getInstance().getCurrentPlayer(player));
+												user.setPoints(value.intValue());
+												player.sendMessage("Points set to " + value.intValue() + " for "
+														+ user.getPlayerName());
 
 											}
 										});
 
-								inv.addButton(inv.getNextSlot(),
-										new BInventoryButton("Set Vote Points",
-												new String[] {}, new ItemStack(
-														Material.STONE)) {
+							}
+						});
+						inv.addButton(inv.getNextSlot(),
+								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
 
-											@Override
-											public void onClick(
-													ClickEvent clickEvent) {
-												Player player = clickEvent
-														.getPlayer();
-												User user = UserManager
-														.getInstance()
-														.getVotingPluginUser(
-																UserGUI.getInstance()
-																		.getCurrentPlayer(
-																				player));
-												new ValueRequest()
-														.requestNumber(
-																player,
-																""
-																		+ user.getPoints(),
-																new Number[] {
-																		0, 5,
-																		100 },
-																true,
+									@Override
+									public void onClick(ClickEvent event) {
+
+										Player player = event.getWhoClicked();
+										String playerName = (String) event.getMeta(player, "Player");
+										BInventory inv = new BInventory("MileStones: " + playerName);
+										for (String mileStoneName : ConfigOtherRewards.getInstance()
+												.getMilestoneVotes()) {
+											if (StringUtils.getInstance().isInt(mileStoneName)) {
+												int mileStone = Integer.parseInt(mileStoneName);
+
+												inv.addButton(inv.getNextSlot(),
+														new BInventoryButton("" + mileStone, new String[] {
+																"Enabled: " + ConfigOtherRewards.getInstance()
+																		.getMilestoneRewardEnabled(mileStone),
+																"Rewards: " + ArrayUtils.getInstance()
+																		.makeStringList(ConfigOtherRewards.getInstance()
+																				.getMilestoneRewards(mileStone)),
+																"&cClick to set wether this has been completed or not" },
+																new ItemStack(Material.STONE)) {
+
+															@Override
+															public void onClick(ClickEvent clickEvent) {
+																if (StringUtils.getInstance()
+																		.isInt(clickEvent.getClickedItem().getItemMeta()
+																				.getDisplayName())) {
+																	Player player = clickEvent.getPlayer();
+																	int mileStone = Integer
+																			.parseInt(clickEvent.getClickedItem()
+																					.getItemMeta().getDisplayName());
+																	String playerName = (String) event.getMeta(player,
+																			"Player");
+																	User user = UserManager.getInstance()
+																			.getVotingPluginUser(playerName);
+																	new ValueRequest().requestBoolean(player,
+																			"" + user.hasGottenMilestone(mileStone),
+																			new BooleanListener() {
+
+																				@Override
+																				public void onInput(Player player,
+																						boolean value) {
+																					String playerName = UserGUI
+																							.getInstance()
+																							.getCurrentPlayer(player);
+																					User user = UserManager
+																							.getInstance()
+																							.getVotingPluginUser(
+																									playerName);
+																					user.setHasGotteMilestone(mileStone,
+																							value);
+																					player.sendMessage(
+																							"Set milestone completetion to "
+																									+ value + " on "
+																									+ mileStone);
+
+																				}
+																			});
+																}
+															}
+														});
+											}
+										}
+									}
+								});
+
+						inv.addButton(inv.getNextSlot(),
+								new BInventoryButton("SetTotal", new String[] {}, new ItemStack(Material.STONE)) {
+
+									@Override
+									public void onClick(ClickEvent clickEvent) {
+										Player player = clickEvent.getPlayer();
+										ArrayList<String> voteSites = new ArrayList<String>();
+										for (VoteSite voteSite : plugin.voteSites) {
+											voteSites.add(voteSite.getSiteName());
+										}
+										new ValueRequest().requestString(player, "",
+												ArrayUtils.getInstance().convert(voteSites), true,
+												new StringListener() {
+
+													@Override
+													public void onInput(Player player, String value) {
+														User user = UserManager.getInstance().getVotingPluginUser(
+																UserGUI.getInstance().getCurrentPlayer(player));
+														PlayerUtils.getInstance().setPlayerMeta(player, "SiteName", value);
+														new ValueRequest().requestNumber(player,
+																"" + user.getTotal(plugin.getVoteSite(value)),
+																new Number[] { 0, 10, 100 }, true,
 																new NumberListener() {
 
 																	@Override
-																	public void onInput(
-																			Player player,
-																			Number value) {
-																		User user = UserManager
-																				.getInstance()
-																				.getVotingPluginUser(
-																						UserGUI.getInstance()
-																								.getCurrentPlayer(
-																										player));
-																		user.setPoints(value
-																				.intValue());
-																		player.sendMessage("Points set to "
-																				+ value.intValue()
-																				+ " for "
+																	public void onInput(Player player, Number value) {
+																		User user = UserManager.getInstance()
+																				.getVotingPluginUser(UserGUI
+																						.getInstance().getCurrentPlayer(
+																								player));
+																		VoteSite voteSite = plugin.getVoteSite(
+																				(String) PlayerUtils.getInstance()
+																						.getPlayerMeta(player,
+																								"SiteName"));
+																		user.setTotal(voteSite, value.intValue());
+																		player.sendMessage("Total set to "
+																				+ value.intValue() + " for "
 																				+ user.getPlayerName());
 
 																	}
 																});
 
-											}
-										});
-								inv.addButton(inv.getNextSlot(),
-										new BInventoryButton("MileStones",
-												new String[0], new ItemStack(
-														Material.STONE)) {
-
-											@Override
-											public void onClick(ClickEvent event) {
-
-												Player player = event
-														.getWhoClicked();
-												String playerName = (String) event
-														.getMeta(player,
-																"Player");
-												BInventory inv = new BInventory(
-														"MileStones: "
-																+ playerName);
-												for (String mileStoneName : ConfigOtherRewards
-														.getInstance()
-														.getMilestoneVotes()) {
-													if (Utils
-															.getInstance()
-															.isInt(mileStoneName)) {
-														int mileStone = Integer
-																.parseInt(mileStoneName);
-
-														inv.addButton(
-																inv.getNextSlot(),
-																new BInventoryButton(
-																		""
-																				+ mileStone,
-																		new String[] {
-																				"Enabled: "
-																						+ ConfigOtherRewards
-																								.getInstance()
-																								.getMilestoneRewardEnabled(
-																										mileStone),
-																				"Rewards: "
-																						+ Utils.getInstance()
-																								.makeStringList(
-																										ConfigOtherRewards
-																												.getInstance()
-																												.getMilestoneRewards(
-																														mileStone)),
-																				"&cClick to set wether this has been completed or not" },
-																		new ItemStack(
-																				Material.STONE)) {
-
-																	@Override
-																	public void onClick(
-																			ClickEvent clickEvent) {
-																		if (Utils
-																				.getInstance()
-																				.isInt(clickEvent
-																						.getClickedItem()
-																						.getItemMeta()
-																						.getDisplayName())) {
-																			Player player = clickEvent
-																					.getPlayer();
-																			int mileStone = Integer
-																					.parseInt(clickEvent
-																							.getClickedItem()
-																							.getItemMeta()
-																							.getDisplayName());
-																			String playerName = (String) event
-																					.getMeta(
-																							player,
-																							"Player");
-																			User user = UserManager
-																					.getInstance()
-																					.getVotingPluginUser(
-																							playerName);
-																			new ValueRequest()
-																					.requestBoolean(
-																							player,
-																							""
-																									+ user.hasGottenMilestone(mileStone),
-																							new BooleanListener() {
-
-																								@Override
-																								public void onInput(
-																										Player player,
-																										boolean value) {
-																									String playerName = UserGUI
-																											.getInstance()
-																											.getCurrentPlayer(
-																													player);
-																									User user = UserManager
-																											.getInstance()
-																											.getVotingPluginUser(
-																													playerName);
-																									user.setHasGotteMilestone(
-																											mileStone,
-																											value);
-																									player.sendMessage("Set milestone completetion to "
-																											+ value
-																											+ " on "
-																											+ mileStone);
-
-																								}
-																							});
-																		}
-																	}
-																});
 													}
-												}
-											}
-										});
+												});
 
-								inv.addButton(inv.getNextSlot(),
-										new BInventoryButton("SetTotal",
-												new String[] {}, new ItemStack(
-														Material.STONE)) {
-
-											@Override
-											public void onClick(
-													ClickEvent clickEvent) {
-												Player player = clickEvent
-														.getPlayer();
-												ArrayList<String> voteSites = new ArrayList<String>();
-												for (VoteSite voteSite : plugin.voteSites) {
-													voteSites.add(voteSite
-															.getSiteName());
-												}
-												new ValueRequest()
-														.requestString(
-																player,
-																"",
-																Utils.getInstance()
-																		.convertArray(
-																				voteSites),
-																true,
-																new StringListener() {
-
-																	@Override
-																	public void onInput(
-																			Player player,
-																			String value) {
-																		User user = UserManager
-																				.getInstance()
-																				.getVotingPluginUser(
-																						UserGUI.getInstance()
-																								.getCurrentPlayer(
-																										player));
-																		Utils.getInstance()
-																				.setPlayerMeta(
-																						player,
-																						"SiteName",
-																						value);
-																		new ValueRequest()
-																				.requestNumber(
-																						player,
-																						""
-																								+ user.getTotal(plugin
-																										.getVoteSite(value)),
-																						new Number[] {
-																								0,
-																								10,
-																								100 },
-																						true,
-																						new NumberListener() {
-
-																							@Override
-																							public void onInput(
-																									Player player,
-																									Number value) {
-																								User user = UserManager
-																										.getInstance()
-																										.getVotingPluginUser(
-																												UserGUI.getInstance()
-																														.getCurrentPlayer(
-																																player));
-																								VoteSite voteSite = plugin
-																										.getVoteSite((String) Utils
-																												.getInstance()
-																												.getPlayerMeta(
-																														player,
-																														"SiteName"));
-																								user.setTotal(
-																										voteSite,
-																										value.intValue());
-																								player.sendMessage("Total set to "
-																										+ value.intValue()
-																										+ " for "
-																										+ user.getPlayerName());
-
-																							}
-																						});
-
-																	}
-																});
-
-											}
-										});
-								UserGUI.getInstance().addPluginButton(plugin,
-										inv);
-							}
-						});
+									}
+								});
+						UserGUI.getInstance().addPluginButton(plugin, inv);
+					}
+				});
 			}
 
 		});
@@ -857,8 +666,7 @@ public class CommandLoader {
 		}
 
 		for (int i = 0; i < plugin.adminVoteCommand.size(); i++) {
-			plugin.adminVoteCommand.get(i).addTabCompleteOption("(Sitename)",
-					sites);
+			plugin.adminVoteCommand.get(i).addTabCompleteOption("(Sitename)", sites);
 		}
 	}
 
@@ -1083,11 +891,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterMonthly(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
@@ -1115,11 +923,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterWeekly(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
@@ -1132,11 +940,11 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (Utils.getInstance().isInt(args[1])) {
+				if (StringUtils.getInstance().isInt(args[1])) {
 					CommandVote.getInstance().topVoterDaily(sender,
 							Integer.parseInt(args[1]));
 				} else {
-					sender.sendMessage(Utils.getInstance().colorize(
+					sender.sendMessage(StringUtils.getInstance().colorize(
 							"&cError on " + args[1] + ", number expected"));
 				}
 
@@ -1246,6 +1054,8 @@ public class CommandLoader {
 
 			}
 		});
+		
+		plugin.voteCommand.addAll(com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance().getBasicCommands());
 	}
 
 	/**

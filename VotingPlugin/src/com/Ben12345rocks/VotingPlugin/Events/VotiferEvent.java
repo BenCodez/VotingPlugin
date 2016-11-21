@@ -8,7 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -55,9 +55,7 @@ public class VotiferEvent implements Listener {
 	public static void playerVote(String playerName, String voteSiteURL) {
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
-			plugin.getLogger().info(
-					"Player " + playerName
-							+ " has not joined before, disregarding vote");
+			plugin.getLogger().info("Player " + playerName + " has not joined before, disregarding vote");
 			return;
 		}
 
@@ -91,7 +89,7 @@ public class VotiferEvent implements Listener {
 				if (config.getBroadCastVotesEnabled()) {
 					if (!ConfigFormat.getInstance().getBroadcastWhenOnline()) {
 						voteSite.broadcastVote(user);
-					} else if (Utils.getInstance().isPlayerOnline(playerName)) {
+					} else if (user.isOnline()) {
 						voteSite.broadcastVote(user);
 					}
 				}
@@ -108,59 +106,44 @@ public class VotiferEvent implements Listener {
 				user.setReminded(false);
 
 				// check if player has voted on all sites in one day
-				boolean firstVote = OtherVoteReward.getInstance()
-						.checkFirstVote(user);
-				boolean allSites = OtherVoteReward.getInstance().checkAllSites(
-						user);
-				boolean cumulativeVotes = OtherVoteReward.getInstance()
-						.checkCumualativeVotes(user);
-				boolean milestone = OtherVoteReward.getInstance()
-						.checkMilestone(user);
+				boolean firstVote = OtherVoteReward.getInstance().checkFirstVote(user);
+				boolean allSites = OtherVoteReward.getInstance().checkAllSites(user);
+				boolean cumulativeVotes = OtherVoteReward.getInstance().checkCumualativeVotes(user);
+				boolean milestone = OtherVoteReward.getInstance().checkMilestone(user);
 
-				if (Utils.getInstance().isPlayerOnline(playerName)) {
+				if (user.isOnline()) {
 
 					user.playerVote(voteSite, true, false);
 
 					if (firstVote) {
 						plugin.debug("FirstVote: true");
-						OtherVoteReward.getInstance().giveFirstVoteRewards(
-								user, true);
+						OtherVoteReward.getInstance().giveFirstVoteRewards(user, true);
 
 					}
 
 					if (allSites) {
 						plugin.debug("AllSites: true");
-						OtherVoteReward.getInstance().giveAllSitesRewards(user,
-								true);
+						OtherVoteReward.getInstance().giveAllSitesRewards(user, true);
 
 					}
 
 					if (cumulativeVotes) {
 						plugin.debug("Cumulative: true");
-						Set<String> list = ConfigOtherRewards.getInstance()
-								.getCumulativeVotes();
+						Set<String> list = ConfigOtherRewards.getInstance().getCumulativeVotes();
 						for (String str : list) {
-							if (Utils.getInstance().isInt(str)) {
+							if (StringUtils.getInstance().isInt(str)) {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
-									if (ConfigOtherRewards.getInstance()
-											.getCumulativeRewardEnabled(
-													votesRequired)) {
-										int offlineVote = Data.getInstance()
-												.getCumulativeVotesOffline(
-														user, votesRequired);
+									if (ConfigOtherRewards.getInstance().getCumulativeRewardEnabled(votesRequired)) {
+										int offlineVote = Data.getInstance().getCumulativeVotesOffline(user,
+												votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
-											OtherVoteReward.getInstance()
-													.giveCumulativeVoteReward(
-															user, true,
-															votesRequired);
+											OtherVoteReward.getInstance().giveCumulativeVoteReward(user, true,
+													votesRequired);
 
 										}
 										if (offlineVote != 0) {
-											Data.getInstance()
-													.setCumuatliveVotesOffline(
-															user,
-															votesRequired, 0);
+											Data.getInstance().setCumuatliveVotesOffline(user, votesRequired, 0);
 										}
 									}
 								}
@@ -171,28 +154,21 @@ public class VotiferEvent implements Listener {
 
 					if (milestone) {
 						plugin.debug("Milestone: true");
-						Set<String> list = ConfigOtherRewards.getInstance()
-								.getMilestoneVotes();
+						Set<String> list = ConfigOtherRewards.getInstance().getMilestoneVotes();
 						for (String str : list) {
-							if (Utils.getInstance().isInt(str)) {
+							if (StringUtils.getInstance().isInt(str)) {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
-									if (ConfigOtherRewards.getInstance()
-											.getMilestoneRewardEnabled(
-													votesRequired)) {
-										int offlineVote = user
-												.getOfflineMilestoneVotes(votesRequired);
+									if (ConfigOtherRewards.getInstance().getMilestoneRewardEnabled(votesRequired)) {
+										int offlineVote = user.getOfflineMilestoneVotes(votesRequired);
 
 										for (int i = 0; i < offlineVote; i++) {
-											OtherVoteReward.getInstance()
-													.giveMilestoneVoteReward(
-															user, true,
-															votesRequired);
+											OtherVoteReward.getInstance().giveMilestoneVoteReward(user, true,
+													votesRequired);
 
 										}
 										if (offlineVote != 0) {
-											user.setOfflineMilestoneVotes(
-													votesRequired, 0);
+											user.setOfflineMilestoneVotes(votesRequired, 0);
 										}
 									}
 								}
@@ -203,41 +179,28 @@ public class VotiferEvent implements Listener {
 					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
-						Data.getInstance()
-								.setFirstVoteOffline(
-										user,
-										Data.getInstance().getFirstVoteOffline(
-												user) + 1);
-						plugin.debug("Offline first vote reward set for "
-								+ playerName);
+						Data.getInstance().setFirstVoteOffline(user, Data.getInstance().getFirstVoteOffline(user) + 1);
+						plugin.debug("Offline first vote reward set for " + playerName);
 					}
 
 					if (allSites) {
-						Data.getInstance()
-								.setAllSitesOffline(
-										user,
-										Data.getInstance().getAllSitesOffline(
-												user) + 1);
-						plugin.debug("Offline bonus reward set for "
-								+ playerName);
+						Data.getInstance().setAllSitesOffline(user, Data.getInstance().getAllSitesOffline(user) + 1);
+						plugin.debug("Offline bonus reward set for " + playerName);
 					}
 
 					if (cumulativeVotes) {
 						// cumulative votes are automaticly set offline
-						plugin.debug("Offline cumulative reward set for "
-								+ playerName);
+						plugin.debug("Offline cumulative reward set for " + playerName);
 					}
 
 					if (milestone) {
 						// milestone votes are automaticly set offline
-						plugin.debug("Offline milestone reward set for "
-								+ playerName);
+						plugin.debug("Offline milestone reward set for " + playerName);
 					}
 
 					user.addOfflineVote(voteSite);
 
-					plugin.debug("Offline vote set for " + playerName + " on "
-							+ voteSiteName);
+					plugin.debug("Offline vote set for " + playerName + " on " + voteSiteName);
 
 				}
 
@@ -275,18 +238,15 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		plugin.getLogger().info(
-				"Recieved a vote from '" + voteSite + "' by player '"
-						+ voteUsername + "'!");
+		plugin.getLogger().info("Recieved a vote from '" + voteSite + "' by player '" + voteUsername + "'!");
 
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
 
 		String voteSiteName = plugin.getVoteSiteName(voteSite);
 
-		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-				plugin.getVoteSite(voteSiteName), UserManager.getInstance()
-						.getVotingPluginUser(voteUsername));
+		PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
+				UserManager.getInstance().getVotingPluginUser(voteUsername));
 		plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		if (voteEvent.isCancelled()) {
@@ -295,22 +255,15 @@ public class VotiferEvent implements Listener {
 
 		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 		if (sites != null) {
-			if (!sites.contains(voteSiteName)
-					&& Config.getInstance().getAutoCreateVoteSites()) {
-				plugin.getLogger().warning(
-						"VoteSite " + voteSiteName
-								+ " doe not exist, generaterating one...");
+			if (!sites.contains(voteSiteName) && Config.getInstance().getAutoCreateVoteSites()) {
+				plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-				ConfigVoteSites.getInstance().setServiceSite(voteSiteName,
-						voteSite);
+				ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
 			}
 		} else if (Config.getInstance().getAutoCreateVoteSites()) {
-			plugin.getLogger().warning(
-					"VoteSite " + voteSiteName
-							+ " doe not exist, generaterating one...");
+			plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-			ConfigVoteSites.getInstance()
-					.setServiceSite(voteSiteName, voteSite);
+			ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
 		}
 
 		playerVote(voteUsername, voteSite);

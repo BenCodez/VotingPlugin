@@ -1,5 +1,5 @@
-name: VotingPlugin
-version: 4.6.3
+name: ${project.name}
+version: ${project.version}
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
@@ -56,12 +56,18 @@ commands:
   votepoints:
     description: A command
     aliases: vpoints
+  votegivereward:
+    description: A command
+  voteselectChoiceReward:
+    description: A command
   adminvotehelp:
     description: Open adminvote help
     aliases: avhelp
   adminvote?:
     description: Open adminvote help
     aliases: av?
+  adminvoteconvert:
+    description: A command
   adminvotereport:
     description: Command Alias
     aliases: avreport

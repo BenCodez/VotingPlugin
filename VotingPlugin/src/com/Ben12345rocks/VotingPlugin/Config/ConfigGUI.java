@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
@@ -43,14 +44,21 @@ public class ConfigGUI extends YMLFile {
 		return getData().getConfigurationSection("Shop").getKeys(false);
 	}
 
+	public ConfigurationSection getIdentifierSection(String identifier) {
+		return getData().getConfigurationSection("Shop." + identifier);
+	}
+
+	@Deprecated
 	public String getIdentifierItemMaterial(String identifier) {
 		return getData().getString("Shop." + identifier + ".Item.Material");
 	}
 
+	@Deprecated
 	public String getIdentifierItemSkull(String identifier) {
 		return getData().getString("Shop." + identifier + ".Item.Skull");
 	}
 
+	@Deprecated
 	public int getIdentifierItemData(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Item.Data");
 	}
@@ -59,15 +67,16 @@ public class ConfigGUI extends YMLFile {
 		return getData().getInt("Shop." + identifier + ".Item.Amount");
 	}
 
+	@Deprecated
 	public String getIdentifierItemName(String identifier) {
 		return getData().getString("Shop." + identifier + ".Item.Name");
 	}
 
 	@SuppressWarnings("unchecked")
+	@Deprecated
 	public ArrayList<String> getIdentifierItemLore(String identifier) {
 		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Shop." + identifier + ".Item.Lore");
+			ArrayList<String> list = (ArrayList<String>) getData().getList("Shop." + identifier + ".Item.Lore");
 			if (list != null) {
 				return list;
 			}
@@ -88,8 +97,7 @@ public class ConfigGUI extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getIdentifierRewards(String identifier) {
 		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Shop." + identifier + ".Rewards");
+			ArrayList<String> list = (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards");
 			if (list != null) {
 				return list;
 			}
@@ -99,6 +107,7 @@ public class ConfigGUI extends YMLFile {
 		}
 	}
 
+	@Deprecated
 	public int getIdentifierItemDurability(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Item.Durability");
 	}
@@ -119,6 +128,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot amount
 	 */
+	@Deprecated
 	public int getVoteGUISlotAmount(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Amount");
 	}
@@ -130,6 +140,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot command
 	 */
+
 	public String getVoteGUISlotCommand(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Command", "");
 	}
@@ -141,8 +152,13 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot data
 	 */
+	@Deprecated
 	public int getVoteGUISlotData(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Data");
+	}
+
+	public ConfigurationSection getVoteGUISlotSection(String slot) {
+		return getData().getConfigurationSection("GUI.VoteGUI." + slot);
 	}
 
 	/**
@@ -152,6 +168,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot durability
 	 */
+	@Deprecated
 	public int getVoteGUISlotDurability(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Item.Durability");
 	}
@@ -166,8 +183,7 @@ public class ConfigGUI extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVoteGUISlotLore(String slot) {
 
-		ArrayList<String> list = (ArrayList<String>) getData().getList(
-				"GUI.VoteGUI." + slot + ".Lore");
+		ArrayList<String> list = (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Lore");
 		if (list != null) {
 			return list;
 		}
@@ -181,6 +197,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot material
 	 */
+	@Deprecated
 	public String getVoteGUISlotMaterial(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Item.Material");
 	}
@@ -192,6 +209,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot name
 	 */
+	@Deprecated
 	public String getVoteGUISlotName(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Item.Name");
 	}
@@ -203,8 +221,7 @@ public class ConfigGUI extends YMLFile {
 	 */
 	public Set<String> getVoteGUISlots() {
 		try {
-			return getData().getConfigurationSection("GUI.VoteGUI").getKeys(
-					false);
+			return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
@@ -219,6 +236,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the slot
 	 * @return the vote GUI slot skull
 	 */
+	@Deprecated
 	public String getVoteGUISlotSkull(Player player, String slot) {
 		String str = getData().getString("GUI.VoteGUI." + slot + ".Item.Skull");
 		if (str != null) {
@@ -247,9 +265,15 @@ public class ConfigGUI extends YMLFile {
 	 *            the site
 	 * @return the vote site item amount
 	 */
+	@Deprecated
 	public int getVoteSiteItemAmount(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Amount");
+	}
+
+	public ConfigurationSection getVoteSiteItemSection(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getConfigurationSection("GUI.VoteReward." + siteName);
 	}
 
 	/**
@@ -259,6 +283,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the site
 	 * @return the vote site item data
 	 */
+	@Deprecated
 	public int getVoteSiteItemData(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Data");
@@ -271,10 +296,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the site
 	 * @return the vote site item durability
 	 */
+	@Deprecated
 	public int getVoteSiteItemDurability(String site) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Item.Durability");
+		return getData().getInt("GUI.VoteReward." + siteName + ".Item.Durability");
 	}
 
 	/**
@@ -285,10 +310,10 @@ public class ConfigGUI extends YMLFile {
 	 * @return the vote site item lore
 	 */
 	@SuppressWarnings("unchecked")
+	@Deprecated
 	public List<String> getVoteSiteItemLore(String site) {
 		String siteName = site.replace(".", "-");
-		return (List<String>) getData().getList(
-				"GUI.VoteReward." + siteName + ".Item.Lore");
+		return (List<String>) getData().getList("GUI.VoteReward." + siteName + ".Item.Lore");
 	}
 
 	/**
@@ -298,10 +323,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the site
 	 * @return the vote site item material
 	 */
+	@Deprecated
 	public String getVoteSiteItemMaterial(String site) {
 		String siteName = site.replace(".", "-");
-		return getData().getString(
-				"GUI.VoteReward." + siteName + ".Item.Material");
+		return getData().getString("GUI.VoteReward." + siteName + ".Item.Material");
 	}
 
 	/**
@@ -311,6 +336,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the site
 	 * @return the vote site item name
 	 */
+	@Deprecated
 	public String getVoteSiteItemName(String site) {
 		String siteName = site.replace(".", "-");
 		return getData().getString("GUI.VoteReward." + siteName + ".Item.Name");
@@ -326,8 +352,7 @@ public class ConfigGUI extends YMLFile {
 	public Set<String> getVoteSiteItems(String site) {
 		String siteName = site.replace(".", "-");
 		try {
-			return getData().getConfigurationSection(
-					"GUI.VoteReward." + siteName + ".Items").getKeys(false);
+			return getData().getConfigurationSection("GUI.VoteReward." + siteName + ".Items").getKeys(false);
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
@@ -342,10 +367,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items amount
 	 */
+	@Deprecated
 	public int getVoteSiteItemsAmount(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
+		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Amount");
 	}
 
 	/**
@@ -357,10 +382,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items data
 	 */
+	@Deprecated
 	public int getVoteSiteItemsData(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Data");
+		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Data");
 	}
 
 	/**
@@ -372,11 +397,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items durability
 	 */
+	@Deprecated
 	public int getVoteSiteItemsDurability(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData()
-				.getInt("GUI.VoteReward." + siteName + ".Items." + item
-						+ ".Durability");
+		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Durability");
 	}
 
 	/**
@@ -388,9 +412,9 @@ public class ConfigGUI extends YMLFile {
 	 *            the site name
 	 * @return the vote site item skull
 	 */
+	@Deprecated
 	public String getVoteSiteItemSkull(Player player, String siteName) {
-		String str = getData().getString(
-				"GUI.VoteReward." + siteName + ".Item.Skull");
+		String str = getData().getString("GUI.VoteReward." + siteName + ".Item.Skull");
 		if (str != null) {
 			str = str.replace("%Player%", player.getName());
 			return str;
@@ -409,10 +433,15 @@ public class ConfigGUI extends YMLFile {
 	 * @return the vote site items lore
 	 */
 	@SuppressWarnings("unchecked")
+	@Deprecated
 	public List<String> getVoteSiteItemsLore(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return (List<String>) getData().getList(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Lore");
+		return (List<String>) getData().getList("GUI.VoteReward." + siteName + ".Items." + item + ".Lore");
+	}
+
+	public ConfigurationSection getVoteSiteItemsSection(String site, String item) {
+		String siteName = site.replace(".", "-");
+		return getData().getConfigurationSection("GUI.VoteReward." + siteName + ".Items." + item);
 	}
 
 	/**
@@ -424,10 +453,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items material
 	 */
+	@Deprecated
 	public String getVoteSiteItemsMaterial(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getString(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Material");
+		return getData().getString("GUI.VoteReward." + siteName + ".Items." + item + ".Material");
 
 	}
 
@@ -440,10 +469,10 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items name
 	 */
+	@Deprecated
 	public String getVoteSiteItemsName(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getString(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Name");
+		return getData().getString("GUI.VoteReward." + siteName + ".Items." + item + ".Name");
 	}
 
 	/**
@@ -457,10 +486,9 @@ public class ConfigGUI extends YMLFile {
 	 *            the item
 	 * @return the vote site items skull
 	 */
-	public String getVoteSiteItemsSkull(Player player, String siteName,
-			String item) {
-		String str = getData().getString(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Skull");
+	@Deprecated
+	public String getVoteSiteItemsSkull(Player player, String siteName, String item) {
+		String str = getData().getString("GUI.VoteReward." + siteName + ".Items." + item + ".Skull");
 		if (str != null) {
 			str = str.replace("%Player%", player.getName());
 			return str;
@@ -480,8 +508,7 @@ public class ConfigGUI extends YMLFile {
 	 */
 	public int getVoteSiteItemsSlot(String site, String item) {
 		String siteName = site.replace(".", "-");
-		return getData().getInt(
-				"GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
+		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
 	}
 
 	/**
@@ -489,6 +516,7 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL already voted item amount
 	 */
+	@Deprecated
 	public int getVoteURLAlreadyVotedItemAmount() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Amount");
 		if (num != 0) {
@@ -498,11 +526,16 @@ public class ConfigGUI extends YMLFile {
 		}
 	}
 
+	public ConfigurationSection getVoteURLAlreadyVotedItemSection() {
+		return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
+	}
+
 	/**
 	 * Gets the vote URL already voted item data.
 	 *
 	 * @return the vote URL already voted item data
 	 */
+	@Deprecated
 	public int getVoteURLAlreadyVotedItemData() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Data");
 
@@ -515,6 +548,7 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL already voted item durability
 	 */
+	@Deprecated
 	public int getVoteURLAlreadyVotedItemDurability() {
 		int num = getData().getInt("GUI.VoteURL.AlreadyVotedItem.Durability");
 
@@ -527,9 +561,9 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL already voted item material
 	 */
+	@Deprecated
 	public String getVoteURLAlreadyVotedItemMaterial() {
-		String str = getData().getString(
-				"GUI.VoteURL.AlreadyVotedItem.Material");
+		String str = getData().getString("GUI.VoteURL.AlreadyVotedItem.Material");
 		if (str != null) {
 			return str;
 		}
@@ -544,6 +578,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the player
 	 * @return the vote URL already voted item skull
 	 */
+	@Deprecated
 	public String getVoteURLAlreadyVotedItemSkull(Player player) {
 		String str = getData().getString("GUI.VoteURL.AlreadyVotedItem.Skull");
 		if (str != null) {
@@ -559,6 +594,7 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL can vote item amount
 	 */
+	@Deprecated
 	public int getVoteURLCanVoteItemAmount() {
 		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Amount");
 		if (num != 0) {
@@ -573,6 +609,7 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL can vote item data
 	 */
+	@Deprecated
 	public int getVoteURLCanVoteItemData() {
 		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Data");
 
@@ -580,11 +617,16 @@ public class ConfigGUI extends YMLFile {
 
 	}
 
+	public ConfigurationSection getVoteURLCanVoteItemSection() {
+		return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
+	}
+
 	/**
 	 * Gets the vote URL can vote item durability.
 	 *
 	 * @return the vote URL can vote item durability
 	 */
+	@Deprecated
 	public int getVoteURLCanVoteItemDurability() {
 		int num = getData().getInt("GUI.VoteURL.CanVoteItem.Durability");
 		return num;
@@ -596,6 +638,7 @@ public class ConfigGUI extends YMLFile {
 	 *
 	 * @return the vote URL can vote item material
 	 */
+	@Deprecated
 	public String getVoteURLCanVoteItemMaterial() {
 		String str = getData().getString("GUI.VoteURL.CanVoteItem.Material");
 		if (str != null) {
@@ -611,6 +654,7 @@ public class ConfigGUI extends YMLFile {
 	 *            the player
 	 * @return the vote URL can vote item skull
 	 */
+	@Deprecated
 	public String getVoteURLCanVoteItemSkull(Player player) {
 		String str = getData().getString("GUI.VoteURL.CanVoteItem.Skull");
 		if (str != null) {

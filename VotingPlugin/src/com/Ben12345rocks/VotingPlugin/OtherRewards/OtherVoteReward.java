@@ -5,9 +5,9 @@ import java.util.Set;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
@@ -82,7 +82,7 @@ public class OtherVoteReward implements Listener {
 	public void onMonthChange(MonthChangeEvent event) {
 		Set<String> votes = ConfigOtherRewards.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
-			if (Utils.getInstance().isInt(vote)) {
+			if (StringUtils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				plugin.debug("Is int: " + vote);
 				if (votesRequired != 0) {
@@ -112,7 +112,7 @@ public class OtherVoteReward implements Listener {
 	public boolean checkCumualativeVotes(User user) {
 		Set<String> votes = ConfigOtherRewards.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
-			if (Utils.getInstance().isInt(vote)) {
+			if (StringUtils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (ConfigOtherRewards.getInstance().getCumulativeRewardEnabled(votesRequired)
@@ -177,7 +177,7 @@ public class OtherVoteReward implements Listener {
 	public boolean checkMilestone(User user) {
 		Set<String> votes = ConfigOtherRewards.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
-			if (Utils.getInstance().isInt(vote)) {
+			if (StringUtils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				plugin.debug("Is int: " + vote);
 				if (votesRequired != 0) {

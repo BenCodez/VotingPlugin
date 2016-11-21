@@ -7,8 +7,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
-import net.md_5.bungee.api.chat.TextComponent;
-
 import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -17,6 +15,8 @@ import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -28,6 +28,8 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+
+import net.md_5.bungee.api.chat.TextComponent;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -97,13 +99,11 @@ public class Commands {
 			maxPage++;
 		}
 
-		msg.add(Utils.getInstance().stringToComp(
-				"&3&lVotingPlugin Admin Help " + (page + 1) + "/" + maxPage));
-		msg.add(Utils.getInstance().stringToComp("&3&l() = Needed"));
-		msg.add(Utils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
+		msg.add(StringUtils.getInstance().stringToComp("&3&lVotingPlugin Admin Help " + (page + 1) + "/" + maxPage));
+		msg.add(StringUtils.getInstance().stringToComp("&3&l() = Needed"));
+		msg.add(StringUtils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 
-		for (int i = pagesize * page; (i < text.size())
-				&& (i < ((page + 1) * pagesize)); i++) {
+		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)); i++) {
 			msg.add(text.get(i));
 		}
 
@@ -121,16 +121,13 @@ public class Commands {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = ConfigFormat.getInstance()
-				.getCommandsVoteHelpRequirePermission();
+		boolean requirePerms = ConfigFormat.getInstance().getCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"),
-						cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"),
-						cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
 			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
@@ -167,13 +164,12 @@ public class Commands {
 		msg.add("&cPlayerName : VoteSite : Time");
 		page--;
 
-		for (int i = pagesize * page; (i < voteToday.length)
-				&& (i < ((page + 1) * pagesize)); i++) {
+		for (int i = pagesize * page; (i < voteToday.length) && (i < ((page + 1) * pagesize)); i++) {
 			msg.add(voteToday[i]);
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -200,10 +196,10 @@ public class Commands {
 			}
 		}
 
-		msg = Utils.getInstance().colorize(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
 		Collections.sort(msg, String.CASE_INSENSITIVE_ORDER);
 
-		return Utils.getInstance().convertArray(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -220,16 +216,16 @@ public class Commands {
 		msg.add("&cPlayer '" + user.getPlayerName() + "' Info");
 
 		// last vote
-		msg.addAll(Utils.getInstance().convertArray(voteCommandLast(user)));
+		msg.addAll(ArrayUtils.getInstance().convert(voteCommandLast(user)));
 
 		// next vote
-		msg.addAll(Utils.getInstance().convertArray(voteCommandNext(user)));
+		msg.addAll(ArrayUtils.getInstance().convert(voteCommandNext(user)));
 
 		// total
-		msg.addAll(Utils.getInstance().convertArray(voteCommandTotal(user)));
+		msg.addAll(ArrayUtils.getInstance().convert(voteCommandTotal(user)));
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -242,27 +238,22 @@ public class Commands {
 	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				TopVoter.getInstance().topVotersDaily());
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersDaily());
 
 		int pageSize = (topVoters.size() / pagesize);
 		if ((topVoters.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
-		String title = Utils.getInstance().colorize(
-				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Daily"));
+		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(plugin.topVoterDaily.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-					plugin.topVoterDaily.get(users.get(i)));
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterDaily.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(), plugin.topVoterDaily.get(users.get(i)));
 		}
 		scoreboard.build();
 		scoreboard.send(player);
@@ -288,25 +279,21 @@ public class Commands {
 	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				TopVoter.getInstance().topVoters());
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVoters());
 
 		int pageSize = (topVoters.size() / pagesize);
 		if ((topVoters.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
-		String title = Utils.getInstance().colorize(
-				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Monthly"));
+		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(plugin.topVoterMonthly.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterMonthly.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 					plugin.topVoterMonthly.get(users.get(i)));
 		}
@@ -334,27 +321,22 @@ public class Commands {
 	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = ConfigFormat.getInstance().getPageSize();
-		ArrayList<String> topVoters = Utils.getInstance().convertArray(
-				TopVoter.getInstance().topVotersWeekly());
+		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersWeekly());
 
 		int pageSize = (topVoters.size() / pagesize);
 		if ((topVoters.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
-		String title = Utils.getInstance().colorize(
-				format.getCommandVoteTopTitle().replace("%page%", "" + page)
-						.replace("%maxpages%", "" + pageSize)
-						.replace("%Top%", "Weekly"));
+		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
+				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Weekly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(plugin.topVoterWeekly.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size())
-				&& (i < (((page - 1) * pagesize) + 10)); i++) {
-			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-					plugin.topVoterWeekly.get(users.get(i)));
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterWeekly.keySet());
+		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(), plugin.topVoterWeekly.get(users.get(i)));
 		}
 		scoreboard.build();
 		scoreboard.send(player);
@@ -388,11 +370,9 @@ public class Commands {
 			maxPage++;
 		}
 
-		SimpleScoreboard scoreboard = new SimpleScoreboard("&cToday's Votes "
-				+ page + "/" + maxPage);
+		SimpleScoreboard scoreboard = new SimpleScoreboard("&cToday's Votes " + page + "/" + maxPage);
 
-		for (int i = pagesize * page; (i < voteToday.length)
-				&& (i < ((page + 1) * pagesize)); i++) {
+		for (int i = pagesize * page; (i < voteToday.length) && (i < ((page + 1) * pagesize)); i++) {
 			scoreboard.add(voteToday[i], i);
 		}
 		scoreboard.build();
@@ -414,8 +394,8 @@ public class Commands {
 	 */
 	@SuppressWarnings({ "deprecation" })
 	public void updateVoteToday() {
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-				.getInstance().convertSet(Data.getInstance().getUsers());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(Data.getInstance().getUsers());
 		plugin.voteToday.clear();
 
 		if (users != null) {
@@ -423,12 +403,9 @@ public class Commands {
 				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
-					if ((new Date().getDate() == Utils.getInstance()
-							.getDayFromMili(time))
-							&& (new Date().getMonth() == Utils.getInstance()
-									.getMonthFromMili(time))
-							&& (new Date().getYear() == Utils.getInstance()
-									.getYearFromMili(time))) {
+					if ((new Date().getDate() == Utils.getInstance().getDayFromMili(time))
+							&& (new Date().getMonth() == Utils.getInstance().getMonthFromMili(time))
+							&& (new Date().getYear() == Utils.getInstance().getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -445,11 +422,8 @@ public class Commands {
 	public String voteCommandLastLine(User user, VoteSite voteSite) {
 		String timeString = voteCommandLastDate(user, voteSite);
 
-		return format
-				.getCommandsVoteLastLine()
-				.replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%",
-						"%time%").replace("%time%", timeString)
-				.replace("%SiteName%", voteSite.getSiteName());
+		return format.getCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
+				.replace("%time%", timeString).replace("%SiteName%", voteSite.getSiteName());
 	}
 
 	/**
@@ -467,15 +441,14 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(Utils.getInstance().replaceIgnoreCase(
-				format.getCommandsVoteLastTitle(), "%player%", playerName));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteLastTitle(), "%player%", playerName));
 
 		for (VoteSite voteSite : voteSites) {
 			msg.add(voteCommandLastLine(user, voteSite));
 		}
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -489,8 +462,7 @@ public class Commands {
 	 */
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
-		String timeString = new SimpleDateFormat(format.getTimeFormat())
-				.format(date);
+		String timeString = new SimpleDateFormat(format.getTimeFormat()).format(date);
 		return timeString;
 	}
 
@@ -508,24 +480,20 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(Utils.getInstance().colorize(
-				Utils.getInstance().replaceIgnoreCase(
-						format.getCommandsVoteNextTitle(), "%player%",
-						playerName)));
+		msg.add(StringUtils.getInstance().colorize(
+				StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : voteSites) {
 
 			String msgLine = format.getCommandsVoteNextLayout();
 
-			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine, "%info%",
-					voteCommandNextInfo(user, voteSite));
+			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%info%", voteCommandNextInfo(user, voteSite));
 
-			msgLine = Utils.getInstance().replaceIgnoreCase(msgLine,
-					"%SiteName%", voteSite.getSiteName());
-			msg.add(Utils.getInstance().colorize(msgLine));
+			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getSiteName());
+			msg.add(StringUtils.getInstance().colorize(msgLine));
 
 		}
-		return Utils.getInstance().convertArray(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -578,10 +546,8 @@ public class Commands {
 					// long diffDays = diff / (24 * 60 * 60 * 1000);
 
 					String timeMsg = format.getCommandsVoteNextInfoTime();
-					timeMsg = Utils.getInstance().replaceIgnoreCase(timeMsg,
-							"%hours%", Long.toString(diffHours));
-					timeMsg = Utils.getInstance().replaceIgnoreCase(timeMsg,
-							"%minutes%", Long.toString(diffMinutes));
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 					info = timeMsg;
 				} else {
 					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
@@ -594,9 +560,8 @@ public class Commands {
 
 	public String voteCommandTotalLine(User user, VoteSite voteSite) {
 		String line = format.getCommandsVoteTotalLine();
-		return Utils.getInstance().replaceIgnoreCase(
-				Utils.getInstance().replaceIgnoreCase(line, "%Total%",
-						"" + user.getTotal(voteSite)), "%SiteName%",
+		return StringUtils.getInstance().replaceIgnoreCase(
+				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)), "%SiteName%",
 				voteSite.getSiteName());
 	}
 
@@ -613,8 +578,7 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(Utils.getInstance().replaceIgnoreCase(
-				format.getCommandsVoteTotalTitle(), "%player%", playerName));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTitle(), "%player%", playerName));
 
 		// total votes
 		int total = 0;
@@ -625,11 +589,10 @@ public class Commands {
 			total += votes;
 			msg.add(voteCommandTotalLine(user, voteSite));
 		}
-		msg.add(Utils.getInstance().replaceIgnoreCase(
-				format.getCommandsVoteTotalTotal(), "%Totals%", "" + total));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTotal(), "%Totals%", "" + total));
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -643,8 +606,7 @@ public class Commands {
 
 		ArrayList<VoteSite> voteSites = plugin.voteSites;
 
-		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data
-				.getInstance().getPlayerNames();
+		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
 
 		msg.add(format.getCommandsVoteTotalAllTitle());
 		int total = 0;
@@ -652,22 +614,19 @@ public class Commands {
 			int votes = 0;
 			for (String playerName : voteNames) {
 				if (playerName != null) {
-					User user = UserManager.getInstance().getVotingPluginUser(
-							playerName);
+					User user = UserManager.getInstance().getVotingPluginUser(playerName);
 					votes += user.getTotal(voteSite);
 				}
 			}
-			msg.add(Utils.getInstance().replaceIgnoreCase(
-					Utils.getInstance().replaceIgnoreCase(
-							format.getCommandsVoteTotalAllLine(), "%SiteName%",
-							voteSite.getSiteName()), "%Total%", "" + votes));
+			msg.add(StringUtils.getInstance().replaceIgnoreCase(StringUtils.getInstance()
+					.replaceIgnoreCase(format.getCommandsVoteTotalAllLine(), "%SiteName%", voteSite.getSiteName()),
+					"%Total%", "" + votes));
 			total += votes;
 		}
-		msg.add(Utils.getInstance().replaceIgnoreCase(
-				format.getCommandsVoteTotalAllTotal(), "%Totals%", "" + total));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalAllTotal(), "%Totals%", "" + total));
 
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -680,19 +639,15 @@ public class Commands {
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		ArrayList<TextComponent> texts = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
-		texts.add(Utils.getInstance().stringToComp(
-				ConfigFormat.getInstance().getCommandsVoteHelpTitle()));
+		texts.add(StringUtils.getInstance().stringToComp(ConfigFormat.getInstance().getCommandsVoteHelpTitle()));
 
-		boolean requirePerms = ConfigFormat.getInstance()
-				.getCommandsVoteHelpRequirePermission();
+		boolean requirePerms = ConfigFormat.getInstance().getCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"),
-						cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"),
-						cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
 			}
 		}
 
@@ -717,12 +672,11 @@ public class Commands {
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				String timeString = new SimpleDateFormat(format.getTimeFormat())
 						.format(plugin.voteToday.get(user).get(voteSite));
-				msg.add("&6" + user.getPlayerName() + " : "
-						+ voteSite.getSiteName() + " : " + timeString);
+				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString);
 			}
 		}
-		msg = Utils.getInstance().colorize(msg);
-		return Utils.getInstance().convertArray(msg);
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	/**
@@ -742,20 +696,16 @@ public class Commands {
 			int counter = 0;
 			for (VoteSite voteSite : voteSites) {
 				counter++;
-				String voteURL = configVoteSites.getVoteURL(voteSite
-						.getSiteName());
+				String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
 				String msg = format.getCommandsVoteURLS();
-				msg = Utils.getInstance().colorize(msg);
-				msg = Utils.getInstance().replaceIgnoreCase(msg, "%num%",
-						Integer.toString(counter));
-				msg = Utils.getInstance().replaceIgnoreCase(msg, "%url%",
-						voteURL);
-				msg = Utils.getInstance().replaceIgnoreCase(msg, "%SiteName%",
-						voteSite.getSiteName());
+				msg = StringUtils.getInstance().colorize(msg);
+				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%num%", Integer.toString(counter));
+				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
+				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getSiteName());
 				sites.add(msg);
 			}
 		}
-		sites = Utils.getInstance().colorize(sites);
-		return Utils.getInstance().convertArray(sites);
+		sites = ArrayUtils.getInstance().colorize(sites);
+		return ArrayUtils.getInstance().convert(sites);
 	}
 }

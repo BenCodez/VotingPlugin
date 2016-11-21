@@ -11,7 +11,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -254,7 +254,7 @@ public class ConfigVoteSites extends YMLFile {
 	public ArrayList<String> getVoteSitesNames() {
 		ArrayList<String> siteNames = new ArrayList<String>();
 		if (getData().isConfigurationSection("VoteSites")) {
-			siteNames = Utils.getInstance().convert(
+			siteNames = ArrayUtils.getInstance().convert(
 					getData().getConfigurationSection("VoteSites").getKeys(
 							false));
 		}

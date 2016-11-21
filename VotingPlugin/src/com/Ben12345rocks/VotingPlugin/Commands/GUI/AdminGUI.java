@@ -7,13 +7,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
@@ -56,7 +56,7 @@ public class AdminGUI {
 		lore.add("&cOnly enabled sites are listed in this section");
 		lore.add("&cMiddle Click to create");
 		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cVoteSites",
-				Utils.getInstance().convertArray(lore), new ItemStack(
+				ArrayUtils.getInstance().convert(lore), new ItemStack(
 						Material.STONE)) {
 
 			@Override
@@ -85,8 +85,8 @@ public class AdminGUI {
 		});
 
 		lore = new ArrayList<String>();
-		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cConfig", Utils
-				.getInstance().convertArray(lore),
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cConfig", ArrayUtils
+				.getInstance().convert(lore),
 				new ItemStack(Material.STONE)) {
 
 			@Override
@@ -100,7 +100,7 @@ public class AdminGUI {
 
 		lore = new ArrayList<String>();
 		inv.addButton(inv.getNextSlot(), new BInventoryButton("&cPlayers",
-				Utils.getInstance().convertArray(lore), new ItemStack(
+				ArrayUtils.getInstance().convert(lore), new ItemStack(
 						Material.SKULL_ITEM, 1, (short) 3)) {
 
 			@Override
@@ -115,7 +115,7 @@ public class AdminGUI {
 		});
 		lore = new ArrayList<String>();
 		inv.addButton(inv.getNextSlot(), new BInventoryButton(
-				"&cReload Plugin", Utils.getInstance().convertArray(lore),
+				"&cReload Plugin", ArrayUtils.getInstance().convert(lore),
 				new ItemStack(Material.STONE, 1, (short) 3)) {
 
 			@Override
@@ -179,14 +179,14 @@ public class AdminGUI {
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
 			lore.add("Rewards: "
-					+ Utils.getInstance().makeStringList(voteSite.getRewards()));
+					+ ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
 			lore.add("CumulativeVotes: " + voteSite.getCumulativeVotes());
 			lore.add("CumulativeRewards: "
-					+ Utils.getInstance().makeStringList(
+					+ ArrayUtils.getInstance().makeStringList(
 							voteSite.getCumulativeRewards()));
 
 			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(),
-					Utils.getInstance().convertArray(lore), new ItemStack(
+					ArrayUtils.getInstance().convert(lore), new ItemStack(
 							Material.STONE)) {
 
 				@Override

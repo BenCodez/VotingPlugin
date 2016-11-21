@@ -11,11 +11,15 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/PlaceholderAPI.jar"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/Vault.jar"/>
-	<classpathentry kind="lib" path="D:/programming/Liabaries/GAListener.jar"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/AdvancedCore"/>
-	<classpathentry kind="lib" path="D:/Horizon/Test Server/plugins/Votifier.jar"/>
-	<classpathentry kind="lib" path="D:/Horizon/buildtools/1.11/spigot-1.11.jar"/>
+	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry excluding="**" kind="src" output="target/classes" path="Resources">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

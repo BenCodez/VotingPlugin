@@ -20,7 +20,8 @@ import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
-import com.Ben12345rocks.AdvancedCore.Util.Metrics.Metrics;
+import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
+import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
@@ -256,12 +257,14 @@ public class Main extends JavaPlugin {
 	 */
 	private void metrics() {
 		try {
-			Metrics metrics = new Metrics(this);
+			MCStatsMetrics metrics = new MCStatsMetrics(this);
 			metrics.start();
 			plugin.debug("Loaded Metrics");
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
+		
+		new BStatsMetrics(this);
 	}
 
 	/*
