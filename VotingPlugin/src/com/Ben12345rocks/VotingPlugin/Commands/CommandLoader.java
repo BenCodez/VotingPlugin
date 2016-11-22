@@ -425,7 +425,7 @@ public class CommandLoader {
 		for (CommandHandler cmd : avCommands) {
 			cmd.setPerm(cmd.getPerm().replace("AdvancedCore", "VotingPlugin") + "|" + adminPerm);
 		}
-		plugin.voteCommand.addAll(avCommands);
+		plugin.adminVoteCommand.addAll(avCommands);
 
 	}
 
