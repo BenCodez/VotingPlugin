@@ -103,7 +103,7 @@ public class Commands {
 		msg.add(StringUtils.getInstance().stringToComp("&3&l() = Needed"));
 		msg.add(StringUtils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 
-		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)); i++) {
+		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)-1); i++) {
 			msg.add(text.get(i));
 		}
 
@@ -180,20 +180,18 @@ public class Commands {
 	public String[] listPerms() {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		for (Permission perm : plugin.getDescription().getPermissions()) {
-			msg.add(perm.getName());
-		}
+		
 
 		for (CommandHandler handle : plugin.voteCommand) {
-			if (!msg.contains(handle.getPerm())) {
-				msg.add(handle.getPerm());
-			}
+			msg.add(handle.getHelpLineCommand("/v") + " : " + handle.getPerm());
 		}
 
 		for (CommandHandler handle : plugin.adminVoteCommand) {
-			if (!msg.contains(handle.getPerm())) {
-				msg.add(handle.getPerm());
-			}
+			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+		}
+		
+		for (Permission perm : plugin.getDescription().getPermissions()) {
+			msg.add(perm.getName());
 		}
 
 		msg = ArrayUtils.getInstance().colorize(msg);
@@ -480,14 +478,15 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringUtils.getInstance().colorize(
-				StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteNextTitle(), "%player%", playerName)));
+		msg.add(StringUtils.getInstance().colorize(StringUtils.getInstance()
+				.replaceIgnoreCase(format.getCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : voteSites) {
 
 			String msgLine = format.getCommandsVoteNextLayout();
 
-			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%info%", voteCommandNextInfo(user, voteSite));
+			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%info%",
+					voteCommandNextInfo(user, voteSite));
 
 			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getSiteName());
 			msg.add(StringUtils.getInstance().colorize(msgLine));
@@ -547,7 +546,8 @@ public class Commands {
 
 					String timeMsg = format.getCommandsVoteNextInfoTime();
 					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
-					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
 					info = timeMsg;
 				} else {
 					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
@@ -561,8 +561,8 @@ public class Commands {
 	public String voteCommandTotalLine(User user, VoteSite voteSite) {
 		String line = format.getCommandsVoteTotalLine();
 		return StringUtils.getInstance().replaceIgnoreCase(
-				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)), "%SiteName%",
-				voteSite.getSiteName());
+				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
+				"%SiteName%", voteSite.getSiteName());
 	}
 
 	/**
@@ -578,7 +578,8 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTitle(), "%player%", playerName));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTitle(), "%player%",
+				playerName));
 
 		// total votes
 		int total = 0;
@@ -589,7 +590,8 @@ public class Commands {
 			total += votes;
 			msg.add(voteCommandTotalLine(user, voteSite));
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTotal(), "%Totals%", "" + total));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTotal(), "%Totals%",
+				"" + total));
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
@@ -623,7 +625,8 @@ public class Commands {
 					"%Total%", "" + votes));
 			total += votes;
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalAllTotal(), "%Totals%", "" + total));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalAllTotal(), "%Totals%",
+				"" + total));
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
