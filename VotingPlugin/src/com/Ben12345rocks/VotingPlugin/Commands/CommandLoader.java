@@ -102,9 +102,9 @@ public class CommandLoader {
 		return commands;
 	}
 
-	private String adminPerm = "VotingPlugin.Commands.Admin";
-	private String modPerm = "VotingPlugin.Commands.Mod";
-	private String playerPerm = "VotingPlugin.Commands.Player";
+	private String adminPerm = "VotingPlugin.Admin";
+	private String modPerm = "VotingPlugin.Mod";
+	private String playerPerm = "VotingPlugin.Player";
 
 	/**
 	 * Load admin vote command.

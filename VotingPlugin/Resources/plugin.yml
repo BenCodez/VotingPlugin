@@ -129,20 +129,10 @@ permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
     default: true
-    children:
-      VotingPlugin.Login.RemindVotes: true
-      VotingPlugin.Commands.Vote.Next: true
-      VotingPlugin.Commands.Vote.GUI: true
-      VotingPlugin.Commands.Vote.URL: true
-      VotingPlugin.Commands.Vote.Reward: true
-      VotingPlugin.Commands.Vote.Total: true
-      VotingPlugin.Commands.Vote.Last: true
-      VotingPlugin.Commands.Vote.Info: true
-      VotingPlugin.Commands.Vote.Help: true
-      VotingPlugin.Commands.Vote.Top: true
-      VotingPlugin.Commands.Vote.Top.Monthly: true
-      VotingPlugin.Commands.Vote.Top.Weekly: true
-      VotingPlugin.Commands.Vote.Top.Daily: true
+  VotingPlugin.Mod:
+    description: Allows mod access player commands
+  VotingPlugin.Admin:
+    description: Allows admin access player commands
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
