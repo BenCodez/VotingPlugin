@@ -158,7 +158,7 @@ public class ConfigGUI extends YMLFile {
 	}
 
 	public ConfigurationSection getVoteGUISlotSection(String slot) {
-		return getData().getConfigurationSection("GUI.VoteGUI." + slot);
+		return getData().getConfigurationSection("GUI.VoteGUI." + slot + ".Item");
 	}
 
 	/**
