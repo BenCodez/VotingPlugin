@@ -112,7 +112,7 @@ commands:
     aliases: avupdatecheck
   adminvotevote:
     description: Command Alias
-    aliases: avvote
+    aliases: [avvote, fakevote]
   adminvoteTriggerPlayerVoteEvent:
     description: Command Alias
     aliases: avTriggerPlayerVoteEvent

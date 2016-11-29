@@ -50,6 +50,13 @@
 				<version>2.4.3</version>
 				<configuration>
 					<shadedArtifactAttached>false</shadedArtifactAttached>
+					<relocations>
+                    <!-- Lets relocate the shaded API so we dont cause any conflicts with other plugins -->
+                    <relocation>
+                        <pattern>com.Ben12345rocks.AdvancedCore</pattern>
+                        <shadedPattern>${groupId}.${artifactId}.AdvancedCore</shadedPattern>
+                    </relocation>
+                </relocations>
 				</configuration>
 				<executions>
 					<execution>
@@ -162,8 +169,8 @@
 		<dependency>
 			<groupId>com.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
-			<version>LATEST</version>
-			<scope>provided</scope>
+			<version>2.0.1</version>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.spigotmc</groupId>

@@ -421,9 +421,9 @@ public class CommandLoader {
 		});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
-				.getBasicAdminCommands();
+				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
-			cmd.setPerm(cmd.getPerm().replace("AdvancedCore", "VotingPlugin") + "|" + adminPerm);
+			cmd.setPerm(cmd.getPerm() + "|" + adminPerm);
 		}
 		plugin.adminVoteCommand.addAll(avCommands);
 
@@ -486,8 +486,8 @@ public class CommandLoader {
 					@Override
 					public void run() {
 						loadTabComplete();
-						BInventory inv = new BInventory("VotingPlugin UserGUI");
-						inv.addButton(inv.getNextSlot(),
+
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("Force Vote", new String[] {}, new ItemStack(Material.STONE)) {
 
 									@Override
@@ -516,8 +516,8 @@ public class CommandLoader {
 									}
 								});
 
-						inv.addButton(inv.getNextSlot(), new BInventoryButton("Set Vote Points", new String[] {},
-								new ItemStack(Material.STONE)) {
+						UserGUI.getInstance().addPluginButton(plugin, new BInventoryButton("Set Vote Points",
+								new String[] {}, new ItemStack(Material.STONE)) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {
@@ -540,7 +540,7 @@ public class CommandLoader {
 
 							}
 						});
-						inv.addButton(inv.getNextSlot(),
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
 
 									@Override
@@ -608,7 +608,7 @@ public class CommandLoader {
 									}
 								});
 
-						inv.addButton(inv.getNextSlot(),
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("SetTotal", new String[] {}, new ItemStack(Material.STONE)) {
 
 									@Override
@@ -656,7 +656,7 @@ public class CommandLoader {
 
 									}
 								});
-						UserGUI.getInstance().addPluginButton(plugin, inv);
+
 					}
 				});
 			}
@@ -1029,9 +1029,9 @@ public class CommandLoader {
 		});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
-				.getBasicCommands();
+				.getBasicCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
-			cmd.setPerm(cmd.getPerm().replace("AdvancedCore", "VotingPlugin") + "|" + playerPerm);
+			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.voteCommand.addAll(avCommands);
 	}

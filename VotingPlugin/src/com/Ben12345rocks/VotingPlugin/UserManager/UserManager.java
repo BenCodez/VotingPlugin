@@ -5,10 +5,10 @@ import java.util.ArrayList;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Main;
 import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class UserManager extends

@@ -13,9 +13,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -401,9 +401,9 @@ public class Commands {
 				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
-					if ((new Date().getDate() == Utils.getInstance().getDayFromMili(time))
-							&& (new Date().getMonth() == Utils.getInstance().getMonthFromMili(time))
-							&& (new Date().getYear() == Utils.getInstance().getYearFromMili(time))) {
+					if ((new Date().getDate() == MiscUtils.getInstance().getDayFromMili(time))
+							&& (new Date().getMonth() == MiscUtils.getInstance().getMonthFromMili(time))
+							&& (new Date().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 

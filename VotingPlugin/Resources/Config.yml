@@ -3,6 +3,31 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
+# Debug
+Debug: false
+
+# Debug info ingame
+# Players with permission "VotingPlugin.Debug"
+# will see debug info if debug is true
+DebugInGame: false
+
+# Will log debug messages to Advanced/Log/log.txt
+# Requires Debug to be on
+LogDebugToFile: false
+
+# Options for request api
+# Current methods
+# ANVIL
+# BOOK
+# CHAT
+# This is mainly used for admin gui's to type in values
+RequestAPI:
+  DefaultMethod: 'Anvil'
+  DisabledMethods: []
+  
+# TimeZone
+TimeZone: 'UTC'
+
 # Broadcast votes
 BroadcastVote: true
 

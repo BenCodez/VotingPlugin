@@ -8,17 +8,12 @@ import java.util.Date;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI;
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
@@ -27,6 +22,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -100,40 +96,11 @@ public class Main extends JavaPlugin {
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
 
-	/** The place holder API enabled. */
-	public boolean placeHolderAPIEnabled;
-
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
 	/** The vote log. */
 	public Logger voteLog;
-
-	/**
-	 * Check advanced core.
-	 */
-	public void checkAdvancedCore() {
-		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
-			plugin.getLogger().info("Found AdvancedCore");
-		} else {
-			plugin.getLogger().severe("Failed to find AdvancedCore, plugin disabling");
-			plugin.getLogger().severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
-			Bukkit.getPluginManager().disablePlugin(plugin);
-		}
-	}
-
-	/**
-	 * Check place holder API.
-	 */
-	public void checkPlaceHolderAPI() {
-		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-			placeHolderAPIEnabled = true;
-			plugin.debug("PlaceholderAPI found, will attempt to parse placeholders");
-		} else {
-			placeHolderAPIEnabled = false;
-			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
-		}
-	}
 
 	/**
 	 * Check votifier.
@@ -152,7 +119,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		com.Ben12345rocks.AdvancedCore.Main.plugin.debug(plugin, message);
+		AdvancedCoreHook.getInstance().debug(plugin, message);
 	}
 
 	/**
@@ -263,7 +230,7 @@ public class Main extends JavaPlugin {
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
-		
+
 		new BStatsMetrics(this);
 	}
 
@@ -278,6 +245,18 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
+	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
+		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
+		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
+		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(ConfigFormat.getInstance().getNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(ConfigFormat.getInstance().getNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(ConfigFormat.getInstance().getHelpLine());
+		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
+		AdvancedCoreHook.getInstance().setTimeZone(Config.getInstance().getTimeZone());
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -286,7 +265,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		checkAdvancedCore();
+		AdvancedCoreHook.getInstance().loadHook(this);
 		setupFiles();
 		registerCommands();
 		registerEvents();
@@ -294,8 +273,6 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		CheckUpdate.getInstance().startUp();
-
-		checkPlaceHolderAPI();
 
 		loadVoteSites();
 
@@ -315,18 +292,9 @@ public class Main extends JavaPlugin {
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 
-		voteLog = new Logger(plugin, new File(plugin.getDataFolder(), "votelog.txt"));
+		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
-		AdminGUI.getInstance().addButton(
-				new BInventoryButton("&cVotingPlugin AdminGUI", new String[] {}, new ItemStack(Material.PAPER)) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI.getInstance()
-								.openAdminGUI(clickEvent.getPlayer());
-
-					}
-				});
+		AdminGUI.getInstance().loadHook();
 
 		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
 			VoteParty.getInstance().check();
@@ -335,11 +303,10 @@ public class Main extends JavaPlugin {
 
 		TopVoter.getInstance().register();
 
-		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
+		AdvancedCoreHook.getInstance().loadBackgroundTimer(5);
+		updateAdvancedCoreHook();
 
-		RewardHandler.getInstance().addRewardFolder(new File(plugin.getDataFolder(), "Rewards"));
-		RewardHandler.getInstance().setDefaultFolder(new File(plugin.getDataFolder(), "Rewards"));
+		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -409,8 +376,9 @@ public class Main extends JavaPlugin {
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
-		com.Ben12345rocks.AdvancedCore.Main.plugin.reload();
+		AdvancedCoreHook.getInstance().reload();
 		UserManager.getInstance().loadUsers();
+		updateAdvancedCoreHook();
 	}
 
 	/**

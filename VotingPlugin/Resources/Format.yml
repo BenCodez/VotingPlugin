@@ -6,8 +6,19 @@
 # Special PlaceHolders will be commented where available
 # %player% = player name  
 # %SiteName% = vote site name
+#
+# Set Message to '' (2 ') to disable message
 
 Format:
+
+  # Message when player tries to run command without required permissions
+  NoPerms: '&cYou do not have enough permission!'
+  
+  # Message when player types a command but does not input a number where needed
+  NotNumber: '&cError on &6%arg%&c, number expected!'
+  
+  # CommandHandler help message
+  HelpLine: '&3&l%Command% - &3%HelpMessage%'
 
   # Broadcast vote message
   BroadcastMsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'

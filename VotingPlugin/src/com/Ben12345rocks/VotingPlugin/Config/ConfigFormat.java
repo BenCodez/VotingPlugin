@@ -36,16 +36,14 @@ public class ConfigFormat extends YMLFile {
 	}
 
 	public String getShopPurchaseMsg() {
-		String msg = getData().getString("Format.ShopPurchase",
-				"&aYou bought the %Identifier% for %Points% Points!");
+		String msg = getData().getString("Format.ShopPurchase", "&aYou bought the %Identifier% for %Points% Points!");
 
 		return msg;
 
 	}
 
 	public String getShopFailedMsg() {
-		String msg = getData().getString("Format.ShopFailed",
-				"&cYou do not have %Points% points to purhcase this!");
+		String msg = getData().getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
 
 		return msg;
 
@@ -72,6 +70,33 @@ public class ConfigFormat extends YMLFile {
 	 */
 	public boolean getBroadcastWhenOnline() {
 		return getData().getBoolean("Format.BroadcastWhenOnline");
+	}
+
+	/**
+	 * Gets the format help line.
+	 *
+	 * @return the format help line
+	 */
+	public String getHelpLine() {
+		return getData().getString("Format.HelpLine", "&3&l%Command% - &3%HelpMessage%");
+	}
+
+	/**
+	 * Gets the format no perms.
+	 *
+	 * @return the format no perms
+	 */
+	public String getNoPerms() {
+		return getData().getString("Format.NoPerms", "&cYou do not have enough permission!");
+	}
+
+	/**
+	 * Gets the format not number.
+	 *
+	 * @return the format not number
+	 */
+	public String getNotNumber() {
+		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
 
 	/**
@@ -105,8 +130,7 @@ public class ConfigFormat extends YMLFile {
 	 * @return the commands vote help require permission
 	 */
 	public boolean getCommandsVoteHelpRequirePermission() {
-		return getData().getBoolean(
-				"Format.Commands.Vote.Help.RequirePermission");
+		return getData().getBoolean("Format.Commands.Vote.Help.RequirePermission");
 	}
 
 	/**
@@ -158,8 +182,7 @@ public class ConfigFormat extends YMLFile {
 	 * @return the commands vote next info can vote
 	 */
 	public String getCommandsVoteNextInfoCanVote() {
-		String str = getData().getString(
-				"Format.Commands.Vote.Next.Info.CanVote");
+		String str = getData().getString("Format.Commands.Vote.Next.Info.CanVote");
 		if (str != null) {
 			return str;
 		} else {
@@ -173,8 +196,7 @@ public class ConfigFormat extends YMLFile {
 	 * @return the commands vote next info error
 	 */
 	public String getCommandsVoteNextInfoError() {
-		String str = getData()
-				.getString("Format.Commands.Vote.Next.Info.Error");
+		String str = getData().getString("Format.Commands.Vote.Next.Info.Error");
 		if (str != null) {
 			return str;
 		} else {
@@ -188,8 +210,7 @@ public class ConfigFormat extends YMLFile {
 	 * @return the commands vote next info time
 	 */
 	public String getCommandsVoteNextInfoTime() {
-		String str = getData().getString(
-				"Format.Commands.Vote.Next.Info.TimeUntilVote");
+		String str = getData().getString("Format.Commands.Vote.Next.Info.TimeUntilVote");
 		if (str != null) {
 			return str;
 		} else {
@@ -233,8 +254,7 @@ public class ConfigFormat extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCommandsVoteParty() {
 		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList(
-					"Format.Commands.Vote.Party");
+			ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Party");
 			if (list != null) {
 				return list;
 			}
@@ -427,34 +447,6 @@ public class ConfigFormat extends YMLFile {
 	}
 
 	/**
-	 * Gets the no perms.
-	 *
-	 * @return the no perms
-	 */
-	public String getNoPerms() {
-		String str = getData().getString("Format.NoPerms");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cYou do not have enough permission!";
-		}
-	}
-
-	/**
-	 * Gets the not number.
-	 *
-	 * @return the not number
-	 */
-	public String getNotNumber() {
-		String str = getData().getString("Format.NotNumber");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cError on &6%arg%&c, number expected!";
-		}
-	}
-
-	/**
 	 * Gets the page size.
 	 *
 	 * @return the page size
@@ -581,8 +573,7 @@ public class ConfigFormat extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public List<String> getVoteHelp() {
-		return (List<String>) getData().getList(
-				"Format.Commands.Vote.Help.Lines");
+		return (List<String>) getData().getList("Format.Commands.Vote.Help.Lines");
 	}
 
 	@Override
