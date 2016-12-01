@@ -302,8 +302,7 @@ public class Main extends JavaPlugin {
 		VoteParty.getInstance().register();
 
 		TopVoter.getInstance().register();
-
-		AdvancedCoreHook.getInstance().loadBackgroundTimer(5);
+		
 		updateAdvancedCoreHook();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
