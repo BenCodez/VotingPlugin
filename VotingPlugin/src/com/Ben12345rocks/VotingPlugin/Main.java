@@ -252,8 +252,9 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		AdvancedCoreHook.getInstance().loadHook(this);
 		setupFiles();
+		updateAdvancedCoreHook();
+		AdvancedCoreHook.getInstance().loadHook(this);
 		registerCommands();
 		registerEvents();
 		checkVotifier();
@@ -290,7 +291,7 @@ public class Main extends JavaPlugin {
 
 		TopVoter.getInstance().register();
 
-		updateAdvancedCoreHook();
+		
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
