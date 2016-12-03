@@ -12,7 +12,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -224,7 +224,7 @@ public class CommandVote implements CommandExecutor {
 	 *            the user
 	 */
 	public void pointsOther(CommandSender sender, User user) {
-		String msg = ConfigFormat.getInstance().getCommandVotePoints().replace("%Player%", user.getPlayerName())
+		String msg = Config.getInstance().getFormatCommandVotePoints().replace("%Player%", user.getPlayerName())
 				.replace("%Points%", "" + user.getPoints());
 		if (sender instanceof Player) {
 			UserManager.getInstance().getVotingPluginUser((Player) sender).sendMessage(msg);
@@ -241,7 +241,7 @@ public class CommandVote implements CommandExecutor {
 	 *            the user
 	 */
 	public void pointsSelf(User user) {
-		String msg = ConfigFormat.getInstance().getCommandVotePoints().replace("%Player%", user.getPlayerName())
+		String msg = Config.getInstance().getFormatCommandVotePoints().replace("%Player%", user.getPlayerName())
 				.replace("%Points%", "" + user.getPoints());
 		user.sendMessage(msg);
 	}

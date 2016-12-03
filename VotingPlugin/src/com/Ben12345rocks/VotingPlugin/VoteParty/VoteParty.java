@@ -13,8 +13,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -67,7 +66,7 @@ public class VoteParty implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (ConfigOtherRewards.getInstance().getVotePartyResetEachDay()) {
+		if (Config.getInstance().getVotePartyResetEachDay()) {
 			setTotalVotes(0);
 			setVotedUsers(new ArrayList<String>());
 		}
@@ -95,11 +94,8 @@ public class VoteParty implements Listener {
 	 * Check.
 	 */
 	public void check() {
-		if (getTotalVotes() >= ConfigOtherRewards.getInstance()
-				.getVotePartyVotesRequired()) {
-			setTotalVotes(getTotalVotes()
-					- ConfigOtherRewards.getInstance()
-							.getVotePartyVotesRequired());
+		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
+			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
 			giveRewards();
 		}
 
@@ -112,16 +108,13 @@ public class VoteParty implements Listener {
 	 *            the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
-		ArrayList<String> msg = ConfigFormat.getInstance()
-				.getCommandsVoteParty();
+		ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
 		ArrayList<String> lines = new ArrayList<String>();
-		int votesRequired = ConfigOtherRewards.getInstance()
-				.getVotePartyVotesRequired();
+		int votesRequired = Config.getInstance().getVotePartyVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
 		for (String line : msg) {
-			line = line.replace("%VotesRequired%", "" + votesRequired)
-					.replace("%NeededVotes%", "" + neededVotes)
+			line = line.replace("%VotesRequired%", "" + votesRequired).replace("%NeededVotes%", "" + neededVotes)
 					.replace("%Votes%", "" + votes);
 			lines.add(StringUtils.getInstance().colorize(line));
 		}
@@ -134,8 +127,7 @@ public class VoteParty implements Listener {
 	 * @return the needed votes
 	 */
 	public int getNeededVotes() {
-		int votesRequired = ConfigOtherRewards.getInstance()
-				.getVotePartyVotesRequired();
+		int votesRequired = Config.getInstance().getVotePartyVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
 		return neededVotes;
@@ -168,8 +160,7 @@ public class VoteParty implements Listener {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVotedUsers() {
-		ArrayList<String> list = (ArrayList<String>) ServerData.getInstance()
-				.getData().getList("VoteParty.Voted");
+		ArrayList<String> list = (ArrayList<String>) ServerData.getInstance().getData().getList("VoteParty.Voted");
 		if (list != null) {
 			return list;
 		}
@@ -184,10 +175,8 @@ public class VoteParty implements Listener {
 	 */
 	public void giveReward(User user) {
 		if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) {
-			if (user.getVotePartyVotes() >= ConfigOtherRewards.getInstance()
-					.getUserVotesRequired()) {
-				for (String reward : ConfigOtherRewards.getInstance()
-						.getVotePartyRewards()) {
+			if (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
+				for (String reward : Config.getInstance().getVotePartyRewards()) {
 					RewardHandler.getInstance().giveReward(user, reward);
 				}
 			}
@@ -200,14 +189,13 @@ public class VoteParty implements Listener {
 	 * Give rewards.
 	 */
 	public void giveRewards() {
-		if (ConfigOtherRewards.getInstance().getVotePartyGiveAllPlayers()) {
+		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (User user : UserManager.getInstance().getVotingPluginUsers()) {
 				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
-				User user = UserManager.getInstance().getVotingPluginUser(
-						new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		}

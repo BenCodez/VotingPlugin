@@ -26,10 +26,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
@@ -56,15 +52,6 @@ public class Main extends JavaPlugin {
 
 	/** The config. */
 	public static Config config;
-
-	/** The config bonus reward. */
-	public static ConfigOtherRewards configBonusReward;
-
-	/** The config GUI. */
-	public static ConfigGUI configGUI;
-
-	/** The config format. */
-	public static ConfigFormat configFormat;
 
 	/** The config vote sites. */
 	public static ConfigVoteSites configVoteSites;
@@ -250,9 +237,9 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
 		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
 		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
-		AdvancedCoreHook.getInstance().setFormatNoPerms(ConfigFormat.getInstance().getNoPerms());
-		AdvancedCoreHook.getInstance().setFormatNotNumber(ConfigFormat.getInstance().getNotNumber());
-		AdvancedCoreHook.getInstance().setHelpLine(ConfigFormat.getInstance().getHelpLine());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setTimeZone(Config.getInstance().getTimeZone());
 	}
@@ -296,13 +283,13 @@ public class Main extends JavaPlugin {
 
 		AdminGUI.getInstance().loadHook();
 
-		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
+		if (Config.getInstance().getVotePartyEnabled()) {
 			VoteParty.getInstance().check();
 		}
 		VoteParty.getInstance().register();
 
 		TopVoter.getInstance().register();
-		
+
 		updateAdvancedCoreHook();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -367,10 +354,7 @@ public class Main extends JavaPlugin {
 	 */
 	public void reload() {
 		config.reloadData();
-		configGUI.reloadData();
-		configFormat.reloadData();
 		plugin.loadVoteSites();
-		configBonusReward.reloadData();
 		plugin.setupFiles();
 		ServerData.getInstance().reloadData();
 		plugin.update();
@@ -386,16 +370,7 @@ public class Main extends JavaPlugin {
 	public void setupFiles() {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
-		configFormat = ConfigFormat.getInstance();
-		configBonusReward = ConfigOtherRewards.getInstance();
-		configGUI = ConfigGUI.getInstance();
-
 		config.setup();
-		configFormat.setup();
-		configBonusReward.setup();
-		configGUI.setup();
-
-		ConfigTopVoterAwards.getInstance().setup();
 
 		plugin.debug("Loaded Files");
 

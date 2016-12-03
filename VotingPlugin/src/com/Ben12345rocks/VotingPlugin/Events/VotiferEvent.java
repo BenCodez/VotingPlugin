@@ -11,8 +11,6 @@ import org.bukkit.event.Listener;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -29,17 +27,11 @@ import com.vexsoftware.votifier.model.VotifierEvent;
  */
 public class VotiferEvent implements Listener {
 
-	/** The bonus reward. */
-	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
-
 	/** The config. */
 	static Config config = Config.getInstance();
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The format. */
-	static ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;
@@ -79,7 +71,7 @@ public class VotiferEvent implements Listener {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-				if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
+				if (Config.getInstance().getVotePartyEnabled()) {
 					VoteParty.getInstance().addTotal(user);
 					VoteParty.getInstance().addVotePlayer(user);
 					VoteParty.getInstance().check();
@@ -87,7 +79,7 @@ public class VotiferEvent implements Listener {
 
 				// broadcast vote if enabled in config
 				if (config.getBroadCastVotesEnabled()) {
-					if (!ConfigFormat.getInstance().getBroadcastWhenOnline()) {
+					if (!Config.getInstance().getFormatBroadcastWhenOnline()) {
 						voteSite.broadcastVote(user);
 					} else if (user.isOnline()) {
 						voteSite.broadcastVote(user);
@@ -129,12 +121,12 @@ public class VotiferEvent implements Listener {
 
 					if (cumulativeVotes) {
 						plugin.debug("Cumulative: true");
-						Set<String> list = ConfigOtherRewards.getInstance().getCumulativeVotes();
+						Set<String> list = Config.getInstance().getCumulativeVotes();
 						for (String str : list) {
 							if (StringUtils.getInstance().isInt(str)) {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
-									if (ConfigOtherRewards.getInstance().getCumulativeRewardEnabled(votesRequired)) {
+									if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
 										int offlineVote = Data.getInstance().getCumulativeVotesOffline(user,
 												votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
@@ -154,12 +146,12 @@ public class VotiferEvent implements Listener {
 
 					if (milestone) {
 						plugin.debug("Milestone: true");
-						Set<String> list = ConfigOtherRewards.getInstance().getMilestoneVotes();
+						Set<String> list = Config.getInstance().getMilestoneVotes();
 						for (String str : list) {
 							if (StringUtils.getInstance().isInt(str)) {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
-									if (ConfigOtherRewards.getInstance().getMilestoneRewardEnabled(votesRequired)) {
+									if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
 										int offlineVote = user.getOfflineMilestoneVotes(votesRequired);
 
 										for (int i = 0; i < offlineVote; i++) {

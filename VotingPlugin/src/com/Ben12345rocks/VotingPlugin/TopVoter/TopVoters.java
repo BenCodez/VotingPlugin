@@ -11,7 +11,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -70,7 +70,7 @@ public class TopVoters {
 			plugin.getDataFolder().mkdir();
 		}
 
-		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersDaily()) {
+		if (!Config.getInstance().getStoreTopVotersDaily()) {
 			plugin.debug("Not Storing TopVoters Daily");
 			return;
 		}
@@ -132,7 +132,7 @@ public class TopVoters {
 			plugin.getDataFolder().mkdir();
 		}
 
-		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersMonthly()) {
+		if (!Config.getInstance().getStoreTopVotersMonthly()) {
 			plugin.debug("Not Storing TopVoters Monthly");
 			return;
 		}
@@ -197,7 +197,7 @@ public class TopVoters {
 			plugin.getDataFolder().mkdir();
 		}
 
-		if (!ConfigTopVoterAwards.getInstance().getStoreTopVotersWeekly()) {
+		if (!Config.getInstance().getStoreTopVotersWeekly()) {
 			plugin.debug("Not Storing TopVoters Weekly");
 			return;
 		}

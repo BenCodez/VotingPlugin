@@ -13,7 +13,7 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
@@ -132,7 +132,7 @@ public class SignHandler {
 	 * @return the right click message
 	 */
 	public String getRightClickMessage() {
-		String msg = ConfigFormat.getInstance().getSignTopVoterSignRightClickMessage();
+		String msg = Config.getInstance().getFormatSignTopVoterSignRightClickMessage();
 		msg = msg.replace("%player%", playerName);
 		msg = msg.replace("%position%", "" + position);
 		msg = msg.replace("%votes%", "" + votes);
@@ -230,10 +230,10 @@ public class SignHandler {
 		lines = new ArrayList<String>();
 		checkValidSign();
 		if (position != 0) {
-			String line1 = ConfigFormat.getInstance().getSignTopVoterSignLine1();
-			String line2 = ConfigFormat.getInstance().getSignTopVoterSignLine2();
-			String line3 = ConfigFormat.getInstance().getSignTopVoterSignLine3();
-			String line4 = ConfigFormat.getInstance().getSignTopVoterSignLine4();
+			String line1 = Config.getInstance().getFormatSignTopVoterSignLine1();
+			String line2 = Config.getInstance().getFormatSignTopVoterSignLine2();
+			String line3 = Config.getInstance().getFormatSignTopVoterSignLine3();
+			String line4 = Config.getInstance().getFormatSignTopVoterSignLine4();
 			lines.add(line1);
 			lines.add(line2);
 			lines.add(line3);
