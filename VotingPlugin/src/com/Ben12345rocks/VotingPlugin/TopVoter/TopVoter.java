@@ -17,6 +17,7 @@ import org.bukkit.event.Listener;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -145,7 +146,8 @@ public class TopVoter implements Listener {
 	 * Reset totals daily.
 	 */
 	public void resetTotalsDaily() {
-		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
 				user.setTotalDaily(voteSite, 0);
 			}
@@ -156,7 +158,8 @@ public class TopVoter implements Listener {
 	 * Reset totals monthly.
 	 */
 	public void resetTotalsMonthly() {
-		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
 				user.setTotal(voteSite, 0);
 			}
@@ -179,7 +182,8 @@ public class TopVoter implements Listener {
 	 * Reset totals weekly.
 	 */
 	public void resetTotalsWeekly() {
-		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			for (VoteSite voteSite : ConfigVoteSites.getInstance().getVoteSites()) {
 				user.setTotalWeekly(voteSite, 0);
 			}
@@ -369,7 +373,10 @@ public class TopVoter implements Listener {
 	public ArrayList<User> topVotersSortedAll() {
 		ArrayList<String> blackList = (ArrayList<String>) Config.getInstance().getBlackList();
 
-		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance().getVotingPluginUsers());
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalVotes() == 0) {
@@ -407,7 +414,10 @@ public class TopVoter implements Listener {
 	public ArrayList<User> topVotersSortedAllDaily() {
 		ArrayList<String> blackList = (ArrayList<String>) Config.getInstance().getBlackList();
 
-		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance().getVotingPluginUsers());
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalDailyAll() == 0) {
@@ -445,7 +455,10 @@ public class TopVoter implements Listener {
 	public ArrayList<User> topVotersSortedAllWeekly() {
 		ArrayList<String> blackList = (ArrayList<String>) Config.getInstance().getBlackList();
 
-		ArrayList<User> users = new ArrayList<User>(UserManager.getInstance().getVotingPluginUsers());
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalWeeklyAll() == 0) {
@@ -483,7 +496,10 @@ public class TopVoter implements Listener {
 	 */
 
 	public HashMap<User, Integer> topVotersSortedVoteSite(VoteSite voteSite) {
-		ArrayList<User> users = UserManager.getInstance().getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalVotesSite(voteSite) == 0) {
 				users.remove(i);
@@ -515,7 +531,10 @@ public class TopVoter implements Listener {
 	 */
 
 	public HashMap<User, Integer> topVotersSortedVoteSiteDaily(VoteSite voteSite) {
-		ArrayList<User> users = UserManager.getInstance().getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalDaily(voteSite) == 0) {
 				users.remove(i);
@@ -547,7 +566,10 @@ public class TopVoter implements Listener {
 	 */
 
 	public HashMap<User, Integer> topVotersSortedVoteSiteWeekly(VoteSite voteSite) {
-		ArrayList<User> users = UserManager.getInstance().getVotingPluginUsers();
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			users.add(UserManager.getInstance().getVotingPluginUser(new UUID(uuid)));
+		}
 		for (int i = users.size() - 1; i >= 0; i--) {
 			if (users.get(i).getTotalWeekly(voteSite) == 0) {
 				users.remove(i);

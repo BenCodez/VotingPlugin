@@ -190,7 +190,8 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards() {
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
-			for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		} else {
@@ -204,7 +205,8 @@ public class VoteParty implements Listener {
 
 	public void reset() {
 		setVotedUsers(new ArrayList<String>());
-		for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}

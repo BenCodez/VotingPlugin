@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -82,7 +83,8 @@ public class OtherVoteReward implements Listener {
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
 							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
 						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
-							for (User user : UserManager.getInstance().getVotingPluginUsers()) {
+							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 								user.setTotalMileStone(votesRequired, 0);
 								user.setHasGotteMilestone(votesRequired, false);
 							}

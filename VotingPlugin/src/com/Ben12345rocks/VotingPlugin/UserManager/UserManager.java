@@ -1,18 +1,17 @@
 package com.Ben12345rocks.VotingPlugin.UserManager;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
-public class UserManager extends
-		com.Ben12345rocks.AdvancedCore.UserManager.UserManager {
+public class UserManager extends com.Ben12345rocks.AdvancedCore.UserManager.UserManager {
 	/** The instance. */
 	static UserManager instance = new UserManager();
 	/** The plugin. */
@@ -31,7 +30,7 @@ public class UserManager extends
 		super();
 	}
 
-	private ArrayList<User> users;
+	private HashMap<String, User> users = new HashMap<String, User>();
 
 	public User getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
@@ -42,35 +41,30 @@ public class UserManager extends
 	}
 
 	public User getVotingPluginUser(String playerName) {
-		return getVotingPluginUser(new UUID(PlayerUtils.getInstance().getUUID(
-				playerName)));
+		return getVotingPluginUser(new UUID(PlayerUtils.getInstance().getUUID(playerName)));
 	}
 
 	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(UUID uuid) {
-		for (User user : users) {
-			if (user.getUUID().equals(uuid.getUUID())) {
-				return user;
-			}
+		if (users.containsKey(uuid.getUUID())) {
+			return users.get(uuid.getUUID());
 		}
 		User user = new User(uuid);
 		user.setPlayerName();
-		users.add(user);
+		users.put(uuid.getUUID(), user);
 		return user;
 	}
 
-	public ArrayList<User> getVotingPluginUsers() {
-		return users;
-	}
-
-	@SuppressWarnings("deprecation")
-	public void loadUsers() {
-		super.loadUsers();
-		users = new ArrayList<User>();
-		for (String name : Data.getInstance().getPlayerNames()) {
-			User user = new User(name);
-			users.add(user);
-		}
+	public void load() {
+		super.load();
+		Thread.getInstance().run(new Runnable() {
+			@Override
+			public void run() {
+				for (String uuid : getAllUUIDs()) {
+					getVotingPluginUser(new UUID(uuid));
+				}
+			}
+		});
 	}
 
 }

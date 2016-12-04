@@ -113,17 +113,6 @@ public class Main extends JavaPlugin {
 	/**
 	 * Gets the user.
 	 *
-	 * @param playerName
-	 *            the player name
-	 * @return the user
-	 */
-	public User getUser(String playerName) {
-		return UserManager.getInstance().getVotingPluginUser(playerName);
-	}
-
-	/**
-	 * Gets the user.
-	 *
 	 * @param uuid
 	 *            the uuid
 	 * @return the user
@@ -379,12 +368,13 @@ public class Main extends JavaPlugin {
 		registerEvents();
 		checkVotifier();
 
+		UserManager.getInstance().load();
+
 		CheckUpdate.getInstance().startUp();
 
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
-		UserManager.getInstance().loadUsers();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -480,7 +470,7 @@ public class Main extends JavaPlugin {
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
-		UserManager.getInstance().loadUsers();
+		UserManager.getInstance().load();
 		updateAdvancedCoreHook();
 	}
 
