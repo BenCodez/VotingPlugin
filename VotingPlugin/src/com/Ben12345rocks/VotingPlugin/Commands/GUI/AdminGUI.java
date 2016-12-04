@@ -52,8 +52,7 @@ public class AdminGUI {
 	/**
 	 * Open admin GUI.
 	 *
-	 * @param player
-	 *            the player
+	 * @return ArrayList of buttons
 	 */
 	public ArrayList<BInventoryButton> adminGUIButtons() {
 		ArrayList<BInventoryButton> buttons = new ArrayList<BInventoryButton>();
