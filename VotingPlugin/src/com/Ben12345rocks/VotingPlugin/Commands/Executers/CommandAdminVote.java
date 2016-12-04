@@ -15,8 +15,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
@@ -44,14 +42,8 @@ public class CommandAdminVote implements CommandExecutor {
 		return instance;
 	}
 
-	/** The bonus reward. */
-	ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
-
 	/** The config. */
 	Config config = Config.getInstance();
-
-	/** The format. */
-	ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The plugin. */
 	private Main plugin = Main.plugin;
@@ -86,24 +78,19 @@ public class CommandAdminVote implements CommandExecutor {
 		final Updater.UpdateResult result = plugin.updater.getResult();
 		switch (result) {
 		case FAIL_SPIGOT: {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&cFailed to check for update for &c&l" + plugin.getName()
-							+ "&c!"));
+			sender.sendMessage(StringUtils.getInstance()
+					.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
 			break;
 		}
 		case NO_UPDATE: {
 			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&c&l" + plugin.getName()
-							+ " &cis up to date! Version: &c&l"
-							+ plugin.updater.getVersion()));
+					"&c&l" + plugin.getName() + " &cis up to date! Version: &c&l" + plugin.updater.getVersion()));
 			break;
 		}
 		case UPDATE_AVAILABLE: {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&c&l" + plugin.getName()
-							+ " &chas an update available! Your Version: &c&l"
-							+ plugin.getDescription().getVersion()
-							+ " &cNew Version: &c&l"
+			sender.sendMessage(StringUtils.getInstance()
+					.colorize("&c&l" + plugin.getName() + " &chas an update available! Your Version: &c&l"
+							+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
 							+ plugin.updater.getVersion()));
 			break;
 		}
@@ -123,18 +110,15 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void checkVoteSite(CommandSender sender, String siteName) {
 		if (!ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&cServiceSite is invalid, votes may not work properly"));
+			sender.sendMessage(
+					StringUtils.getInstance().colorize("&cServiceSite is invalid, votes may not work properly"));
 		} else {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&aServiceSite is properly setup"));
+			sender.sendMessage(StringUtils.getInstance().colorize("&aServiceSite is properly setup"));
 		}
 		if (!ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&cVoteURL is invalid"));
+			sender.sendMessage(StringUtils.getInstance().colorize("&cVoteURL is invalid"));
 		} else {
-			sender.sendMessage(StringUtils.getInstance().colorize(
-					"&aVoteURL is properly setup"));
+			sender.sendMessage(StringUtils.getInstance().colorize("&aVoteURL is properly setup"));
 		}
 	}
 
@@ -148,15 +132,13 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void createVoteSite(CommandSender sender, String voteSite) {
 
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cCreating VoteSite..."));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cCreating VoteSite..."));
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				ConfigVoteSites.getInstance().generateVoteSite(voteSite);
-				sender.sendMessage(StringUtils.getInstance().colorize(
-						"&cCreated VoteSite: &c&l" + voteSite));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cCreated VoteSite: &c&l" + voteSite));
 			}
 		});
 
@@ -172,15 +154,11 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void help(CommandSender sender, int page) {
 		if (sender instanceof Player) {
-			User user = UserManager.getInstance().getVotingPluginUser(
-					(Player) sender);
+			User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
 			user.sendJson(Commands.getInstance().adminHelp(sender, page - 1));
 		} else {
-			sender.sendMessage(ArrayUtils.getInstance()
-					.convert(
-							ArrayUtils.getInstance().comptoString(
-									Commands.getInstance().adminHelp(sender,
-											page - 1))));
+			sender.sendMessage(ArrayUtils.getInstance().convert(
+					ArrayUtils.getInstance().comptoString(Commands.getInstance().adminHelp(sender, page - 1))));
 		}
 
 	}
@@ -188,13 +166,12 @@ public class CommandAdminVote implements CommandExecutor {
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see
-	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
-	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
+	 * CommandSender , org.bukkit.command.Command, java.lang.String,
+	 * java.lang.String[])
 	 */
 	@Override
-	public boolean onCommand(CommandSender sender, Command cmd, String label,
-			String[] args) {
+	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
 		for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 			if (commandHandler.runCommand(sender, args)) {
@@ -203,8 +180,7 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 
 		// invalid command
-		sender.sendMessage(ChatColor.RED
-				+ "No valid arguments, see /adminvote help!");
+		sender.sendMessage(ChatColor.RED + "No valid arguments, see /adminvote help!");
 
 		return true;
 	}
@@ -233,11 +209,10 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				sender.sendMessage(ChatColor.RED + "Reloading "
-						+ plugin.getName() + "...");
+				sender.sendMessage(ChatColor.RED + "Reloading " + plugin.getName() + "...");
 				plugin.reload();
-				sender.sendMessage(ChatColor.RED + plugin.getName() + " v"
-						+ plugin.getDescription().getVersion() + " reloaded!");
+				sender.sendMessage(
+						ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 			}
 		});
 
@@ -252,17 +227,13 @@ public class CommandAdminVote implements CommandExecutor {
 	 *            the player name
 	 */
 	public void resetPlayerTotals(CommandSender sender, String playerName) {
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cResseting totals for player &c&l" + playerName));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cResseting totals for player &c&l" + playerName));
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotalsPlayer(
-						UserManager.getInstance().getVotingPluginUser(
-								playerName));
-				sender.sendMessage(StringUtils.getInstance().colorize(
-						"&cDone resseting totals for &c&l" + playerName));
+				TopVoter.getInstance().resetTotalsPlayer(UserManager.getInstance().getVotingPluginUser(playerName));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cDone resseting totals for &c&l" + playerName));
 				plugin.update();
 			}
 		});
@@ -276,15 +247,13 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void resetTotals(CommandSender sender) {
 
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cResseting totals for all players..."));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cResseting totals for all players..."));
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				TopVoter.getInstance().resetTotalsMonthly();
-				sender.sendMessage(StringUtils.getInstance().colorize(
-						"&cDone resseting totals"));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cDone resseting totals"));
 				plugin.update();
 			}
 		});
@@ -302,8 +271,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setConfigAllowUnjoined(CommandSender sender, boolean value) {
 
 		Config.getInstance().setAllowUnJoined(value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet AllowUnjoined to &c&l" + value));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet AllowUnjoined to &c&l" + value));
 
 	}
 
@@ -318,8 +286,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setConfigBroadcastVote(CommandSender sender, boolean value) {
 
 		Config.getInstance().setDebugEnabled(value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet BroadcastVote to &c&l" + value));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet BroadcastVote to &c&l" + value));
 
 	}
 
@@ -334,8 +301,7 @@ public class CommandAdminVote implements CommandExecutor {
 	public void setConfigDebug(CommandSender sender, boolean value) {
 
 		Config.getInstance().setDebugEnabled(value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet Debug to &c&l" + value));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet Debug to &c&l" + value));
 
 	}
 
@@ -347,12 +313,10 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param value
 	 *            the value
 	 */
-	public void setConfigEnableTopVoterAwards(CommandSender sender,
-			boolean value) {
+	public void setConfigEnableTopVoterAwards(CommandSender sender, boolean value) {
 
 		Config.getInstance().setTopVoterAwardsEnabled(value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet DisableTopVoterAwards to &c&l" + value));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet DisableTopVoterAwards to &c&l" + value));
 
 	}
 
@@ -368,14 +332,11 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param amount
 	 *            the amount
 	 */
-	public void setTotal(CommandSender sender, String playerName,
-			String voteSite, int amount) {
+	public void setTotal(CommandSender sender, String playerName, String voteSite, int amount) {
 
-		Data.getInstance().setTotal(
-				UserManager.getInstance().getVotingPluginUser(playerName),
-				voteSite, amount);
-		sender.sendMessage(ChatColor.GREEN + playerName + " total votes for "
-				+ voteSite + " has been set to " + amount);
+		Data.getInstance().setTotal(UserManager.getInstance().getVotingPluginUser(playerName), voteSite, amount);
+		sender.sendMessage(
+				ChatColor.GREEN + playerName + " total votes for " + voteSite + " has been set to " + amount);
 		plugin.update();
 
 	}
@@ -390,11 +351,9 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param value
 	 *            the value
 	 */
-	public void setVoteSiteEnabled(CommandSender sender, String voteSite,
-			boolean value) {
+	public void setVoteSiteEnabled(CommandSender sender, String voteSite, boolean value) {
 		ConfigVoteSites.getInstance().setEnabled(voteSite, value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet votesite " + voteSite + " enabled to " + value));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet votesite " + voteSite + " enabled to " + value));
 	}
 
 	/**
@@ -407,12 +366,11 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param value
 	 *            the value
 	 */
-	public void setVoteSitePriority(CommandSender sender, String voteSite,
-			int value) {
+	public void setVoteSitePriority(CommandSender sender, String voteSite, int value) {
 
 		ConfigVoteSites.getInstance().setPriority(voteSite, value);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
+		sender.sendMessage(
+				StringUtils.getInstance().colorize("&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 
 	}
 
@@ -426,13 +384,11 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param serviceSite
 	 *            the service site
 	 */
-	public void setVoteSiteServiceSite(CommandSender sender, String voteSite,
-			String serviceSite) {
+	public void setVoteSiteServiceSite(CommandSender sender, String voteSite, String serviceSite) {
 
 		ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l"
-						+ voteSite));
+		sender.sendMessage(StringUtils.getInstance()
+				.colorize("&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l" + voteSite));
 
 	}
 
@@ -446,12 +402,11 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param delay
 	 *            the delay
 	 */
-	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite,
-			int delay) {
+	public void setVoteSiteVoteDelay(CommandSender sender, String voteSite, int delay) {
 
 		ConfigVoteSites.getInstance().setVoteDelay(voteSite, delay);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
+		sender.sendMessage(
+				StringUtils.getInstance().colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
 
 	}
 
@@ -465,12 +420,10 @@ public class CommandAdminVote implements CommandExecutor {
 	 * @param url
 	 *            the url
 	 */
-	public void setVoteSiteVoteURL(CommandSender sender, String voteSite,
-			String url) {
+	public void setVoteSiteVoteURL(CommandSender sender, String voteSite, String url) {
 
 		ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
-		sender.sendMessage(StringUtils.getInstance().colorize(
-				"&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
+		sender.sendMessage(StringUtils.getInstance().colorize("&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 
 	}
 
@@ -484,9 +437,8 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void uuid(CommandSender sender, String playerName) {
 
-		sender.sendMessage(ChatColor.GREEN + "UUID of player "
-				+ ChatColor.DARK_GREEN + playerName + ChatColor.GREEN + " is: "
-				+ PlayerUtils.getInstance().getUUID(playerName));
+		sender.sendMessage(ChatColor.GREEN + "UUID of player " + ChatColor.DARK_GREEN + playerName + ChatColor.GREEN
+				+ " is: " + PlayerUtils.getInstance().getUUID(playerName));
 
 	}
 
@@ -503,8 +455,7 @@ public class CommandAdminVote implements CommandExecutor {
 			player.performCommand("bukkit:version " + plugin.getName());
 
 		} else {
-			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-					"bukkit:version " + plugin.getName());
+			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "bukkit:version " + plugin.getName());
 		}
 	}
 

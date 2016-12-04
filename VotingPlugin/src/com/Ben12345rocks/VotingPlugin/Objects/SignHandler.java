@@ -9,10 +9,11 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
@@ -78,12 +79,9 @@ public class SignHandler {
 	@SuppressWarnings("deprecation")
 	public void checkSkulls() {
 		Location loc = location;
-		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1,
-				loc.getBlockY() - 1, loc.getBlockZ() - 1);
-		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1,
-				loc.getBlockY() + 1, loc.getBlockZ() + 1);
-		for (Block block : Utils.getInstance().getRegionBlocks(loc.getWorld(),
-				loc1, loc2)) {
+		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1, loc.getBlockY() - 1, loc.getBlockZ() - 1);
+		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1, loc.getBlockY() + 1, loc.getBlockZ() + 1);
+		for (Block block : MiscUtils.getInstance().getRegionBlocks(loc.getWorld(), loc1, loc2)) {
 			if (block.getState() instanceof Skull) {
 				Skull skull = (Skull) block.getState();
 				skull.setOwner(playerName);
@@ -134,8 +132,7 @@ public class SignHandler {
 	 * @return the right click message
 	 */
 	public String getRightClickMessage() {
-		String msg = ConfigFormat.getInstance()
-				.getSignTopVoterSignRightClickMessage();
+		String msg = Config.getInstance().getFormatSignTopVoterSignRightClickMessage();
 		msg = msg.replace("%player%", playerName);
 		msg = msg.replace("%position%", "" + position);
 		msg = msg.replace("%votes%", "" + votes);
@@ -233,45 +230,35 @@ public class SignHandler {
 		lines = new ArrayList<String>();
 		checkValidSign();
 		if (position != 0) {
-			String line1 = ConfigFormat.getInstance()
-					.getSignTopVoterSignLine1();
-			String line2 = ConfigFormat.getInstance()
-					.getSignTopVoterSignLine2();
-			String line3 = ConfigFormat.getInstance()
-					.getSignTopVoterSignLine3();
-			String line4 = ConfigFormat.getInstance()
-					.getSignTopVoterSignLine4();
+			String line1 = Config.getInstance().getFormatSignTopVoterSignLine1();
+			String line2 = Config.getInstance().getFormatSignTopVoterSignLine2();
+			String line3 = Config.getInstance().getFormatSignTopVoterSignLine3();
+			String line4 = Config.getInstance().getFormatSignTopVoterSignLine4();
 			lines.add(line1);
 			lines.add(line2);
 			lines.add(line3);
 			lines.add(line4);
 
 			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-						.getInstance().convertSet(
-								plugin.topVoterMonthly.keySet());
+				ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+						.convertSet(plugin.topVoterMonthly.keySet());
 
 				if (users.size() >= position) {
 					playerName = users.get(position - 1).getPlayerName();
 					votes = users.get(position - 1).getTotalVotes();
 					for (int j = 0; j < lines.size(); j++) {
-						lines.set(j,
-								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+						lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 					}
 				} else {
 					playerName = "No Player";
 					votes = 0;
 					for (int j = 0; j < lines.size(); j++) {
-						lines.set(j,
-								lines.get(j).replace("%votes%", "" + votes)
-										.replace("%player%", playerName));
+						lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 					}
 				}
 
 				for (int j = 0; j < lines.size(); j++) {
-					lines.set(j, lines.get(j).replace("%SiteName%", data)
-							.replace("%position%", "" + position));
+					lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
 				}
 
 				lines = ArrayUtils.getInstance().colorize(lines);
@@ -279,42 +266,27 @@ public class SignHandler {
 			} else {
 				for (VoteSite voteSite : plugin.voteSites) {
 					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-						ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils
-								.getInstance().convertSet(
-										TopVoter.getInstance()
-												.topVotersSortedVoteSite(
-														voteSite).keySet());
+						ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+								.convertSet(TopVoter.getInstance().topVotersSortedVoteSite(voteSite).keySet());
 
 						if (users.size() >= position) {
-							playerName = users.get(position - 1)
-									.getPlayerName();
+							playerName = users.get(position - 1).getPlayerName();
 							votes = users.get(position - 1).getTotal(voteSite);
 							for (int j = 0; j < lines.size(); j++) {
-								lines.set(
-										j,
-										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+								lines.set(j,
+										lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 							}
 						} else {
 							playerName = "No Player";
 							votes = 0;
 							for (int j = 0; j < lines.size(); j++) {
-								lines.set(
-										j,
-										lines.get(j)
-												.replace("%votes%", "" + votes)
-												.replace("%player%", playerName));
+								lines.set(j,
+										lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 							}
 						}
 
 						for (int j = 0; j < lines.size(); j++) {
-							lines.set(
-									j,
-									lines.get(j)
-											.replace("%SiteName%", data)
-											.replace("%position%",
-													"" + position));
+							lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
 						}
 
 						lines = ArrayUtils.getInstance().colorize(lines);
@@ -348,10 +320,7 @@ public class SignHandler {
 					}
 
 				} catch (Exception ex) {
-					if (com.Ben12345rocks.AdvancedCore.Configs.Config
-							.getInstance().getDebugEnabled()) {
-						ex.printStackTrace();
-					}
+					AdvancedCoreHook.getInstance().debug(ex);
 				}
 			}
 		}, delay);

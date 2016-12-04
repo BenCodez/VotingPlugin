@@ -3,6 +3,31 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
+# Debug
+Debug: false
+
+# Debug info ingame
+# Players with permission "VotingPlugin.Debug"
+# will see debug info if debug is true
+DebugInGame: false
+
+# Will log debug messages to Advanced/Log/log.txt
+# Requires Debug to be on
+LogDebugToFile: false
+
+# Options for request api
+# Current methods
+# ANVIL
+# BOOK
+# CHAT
+# This is mainly used for admin gui's to type in values
+RequestAPI:
+  DefaultMethod: 'Anvil'
+  DisabledMethods: []
+  
+# TimeZone
+TimeZone: 'UTC'
+
 # Broadcast votes
 BroadcastVote: true
 
@@ -22,6 +47,10 @@ AutoCreateVoteSites: true
 # Use this if you wanna track player votes
 # Not recommended though
 LogVotesToFile: false
+
+# ------------------------------------------------
+# VoteReminding
+# ------------------------------------------------
 
 # Configuration for VoteReminding
 # By default this should be all setup to work
@@ -63,5 +92,438 @@ Commands:
     Next: true
     Total: true
     Vote: true
+    
+# ------------------------------------------------
+# Format
+# ------------------------------------------------
+    
+# Common PlacesHolders:
+# Please Note: Not all are usable in all sections
+# Special PlaceHolders will be commented where available
+# %player% = player name  
+# %SiteName% = vote site name
+#
+# Set Message to '' (2 ') to disable message
 
+Format:
+  # Message when player tries to run command without required permissions
+  NoPerms: '&cYou do not have enough permission!'
+  
+  # Message when player types a command but does not input a number where needed
+  NotNumber: '&cError on &6%arg%&c, number expected!'
+  
+  # CommandHandler help message
+  HelpLine: '&3&l%Command% - &3%HelpMessage%'
+
+  # Broadcast vote message
+  BroadcastMsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
+  
+  # Broadcast only when player is online
+  BroadcastWhenOnline: false
+  
+  Commands:
+    # Format for /vote
+    # %num% = the number of the site, for a numbered list
+    # %url% = site URL
+    Vote: 
+      Text:
+      - '&4&lVote for our server!'
+      
+      # If you want to want to use the feature below where the plugin will
+      # automaticly list the sites then set the message in the text above
+      AutoInputSites: true
+      # For each VoteSite
+      # make sure to set VoteURL in your VoteSites
+      # Requires above to be true
+      # Text will be sent before this
+      Sites: '&4%num%: &c&l%SiteName% - &c%url%'
+      
+      # Format for /vote next
+      Next: 
+        # First line
+        Title: '&3&l%player% Next Votes:'
+        
+        # How each line is setup for each vote site
+        # %info% = Info - See Below 
+        # %SiteName% = site name from vote
+        Layout: '&3%SiteName%: &6%info%'
+        
+        Info:
+          # Message when player can vote
+          CanVote: 'Go Vote!'
+          # Time until vote msg
+          # %hours% = hours until next vote
+          # %minutes% = minutes until next vote
+          TimeUntilVote: '%hours% Hours and %minutes% Minutes'
+          # If there is an error finding out time until next vote
+          Error: '&cCould not caculate time until next vote!'
+          
+       # Format for /vote last
+      Last:
+        # First line
+        Title: '&3&l%player% Last Vote Times:'
+        # Lines for each vote site
+        # %time% = time, using timeformat below
+        Line: '&3%SiteName%: &6%time%'
+        
+      # Format for /vote total
+      Total:
+        # First line
+        Title: '&3&l%player% Total Votes:'
+        # %Total% = total for that site
+        # %SiteName% = site name
+        Line: '&3%SiteName%: &6%Total%'
+        # %Totals% = totals of all sites added up
+        Total: '&3&lTotal: &6&l%Totals%'
+        
+      # Format for /vote total all  
+      TotalAll:
+        # First line
+        Title: '&3&lAll Votes Total:'
+        # %Total% = total for that site
+        Line: '&3%SiteName% &6%Total%'
+        # %Totals% = totals of all sites added up
+        Total: '&3&lTotal: &6&l%Totals%'
+        
+      # Format for /vote top
+      Top:
+        # First line
+        # %page% = current page
+        # %maxpages% = max number of pages
+        # %Top% = Monthly/Weekly/Daily (depending on command)
+        Title: '&3Top Voters %Top% %page%/%maxpages%'
+        # Line for each player in that page
+        Line: '&c%num%: &6%player%, %votes%'
+        
+      # Format for /vote help
+      Help:
+        # Title of /vote help
+        Title: '&3&lVoting Player Help'
+        # Format for help message in /v help
+        Line: '&3&l%Command% - &3%HelpMessage%'
+        # Require permission to see command in /v help or /av help
+        RequirePermission: true
+
+      # PlaceHolders:
+      # %VotesRequired% = VotesRequired
+      # %NeededVotes% = Number of votes needed to reach VotesRequired
+      # %Votes% = Number of votes
+      Party:
+      - '&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%'
+      
+      # %Points% = player points
+      Points: '&a%Player% currently has &a&l%Points%&a Points!'
+      
+  # Login message if player can vote on all sites
+  # Must be enabled in config.yml  
+  LoginMsg: '&cRemember to vote!'
+  
+  # Msg on top voter award, will only send message if that place has a reward set
+  # %place% = place - 1,2,3,etc
+  TopVoterAwardMsg: '&aYou came in %place% in top voters of the month! Here is an award!'
+  
+  # Time Format
+  # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
+  TimeFormat: 'EEE, d MMM yyyy HH:mm'
+  
+  # Format for signs
+  # SiteName may be all, depending on sign
+  # %position% = position of player, set by sign
+  # %votes% = Number of votes
+  Signs:
+    TopVoterSign:
+      Line1: 'TopVoter: %SiteName%'
+      Line2: '#%position%'
+      Line3: '%player%'
+      Line4: '%votes% Votes'
+    # Message when right clicking sign, uses same placeholders as above
+    RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cvotes in &c&l%SiteName%'
+      
+  # Message when player tries to run command without required permissions
+  NoPerms: '&cYou do not have enough permission!'
+  
+  # Message when player types a command but does not input a number where needed
+  NotNumber: '&cError on &6%arg%&c, number expected!'
+  
+  # Shop messages when using the /vote shop
+  ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
+  ShopFailed: '&cYou do not have %Points% points to purhcase this!'
+
+# ------------------------------------------------
+# GUI Options
+# ------------------------------------------------
+  
+# Configure GUI's here
+# Note: Slots start at 0 instead of 1, max slots 44 (don't go over) (E.g: so last slot in first row of inventory is 8)
+# Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+GUI:
+  # GUI for /vote gui, /vgui, votegui
+  VoteGUI:
+    # Items will be orders as it is below
+    URL:
+      # Standard item format, lore is automaticly applied 
+      Item:
+        Material: 'BOW'
+        Data: 0
+        Amount: 1
+        Name: '&4URL'
+        # You can set skulls of the player using the following
+        # Remove the # to enable
+        #Skull: '%Player%'
+      Slot: 0
+    Next:
+      Item:
+        Material: 'COMPASS'
+        Data: 0
+        Amount: 1
+        Name: '&4Next'
+      Slot: 1
+    Last:
+      Item:
+        Material: 'WATCH'
+        Data: 0
+        Amount: 1
+        Name: '&4Last'
+      Slot: 2
+    Total:
+      Item:
+        Material: 'CHEST'
+        Data: 0
+        Amount: 1
+        Name: '&4Total'
+      Slot: 3
+    Top:
+      Item:
+        Material: 'SIGN'
+        Data: 0
+        Amount: 1
+        Name: '&4Top'
+      Slot: 4
+    Today:
+      Item:
+        Material: 'BOOK'
+        Data: 0
+        Amount: 1
+        Name: '&4Today'
+      Slot: 5
+    Help:
+      Item:
+        Material: 'WRITTEN_BOOK'
+        Data: 0
+        Amount: 1
+        Name: '&4Help'
+      Slot: 6
+    Rewards:
+      Item:
+        Material: 'DIAMOND'
+        Data: 0
+        Amount: 1
+        Name: '&4Voting Rewards'
+      Slot: 7
+      
+  # GUI for /vote url
+  # And /vote if enabled in Config.yml
+  VoteURL:
+    SiteName: '&c%Name%'
+    SeeURL: '&cClick to see URL'
+    NextVote: '&cCan Vote In: %Info%'
+    ViewAllUrlsButtonEnabled: true
+    AlreadyVotedItem:
+      Material: 'REDSTONE_BLOCK'
+      Data: 0 
+      Amount: 1
+    CanVoteItem:
+      Material: 'EMERALD_BLOCK'
+      Data: 0
+      Amount: 1
+  # Customize /vote reward
+  # Show players what you get when you vote on each site
+  VoteReward:
+    # Name of votesite
+    # If your site name contains a dot, replace it with a - and surround the name with ' '
+    SiteName:
+      # Item to display as vote site in /vote reward
+      Item:
+        # Item ID
+        Material: 'DIAMOND'
+        # Item Data (Eg 1:4, data is 4)
+        Data: 0
+        # Amount of items
+        # Should be greater than 0
+        Amount: 1
+        # Item name
+        # Remove this line for no name
+        Name: '&4Example'
+        # Lore
+        # Remove this line for no lore
+        Lore:
+        - '&4Line 1'
+      # items in /vote reward sitename
+      Items:
+        # Item
+        # This is not the item display name
+        # Do not have 2 of the same items
+        Diamond:
+          # Item ID
+          Material: 'DIAMOND'
+          # Item Data (Eg 1:4, data is 4)
+          Data: 0
+          # Amount of items
+          # Should be greater than 0
+          Amount: 1
+          # Item name
+          # Remove this line for no name
+          Name: '&4Example'
+          # Lore
+          # Remove this line for no lore
+          Lore:
+          - '&4Line 1'
+          Slot: 0
+
+Shop:
+  # Identifier
+  # Used in placeholders for formats
+  Diamond:
+    # Item
+    Item:
+      Material: 'DIAMOND'
+      Data: 0
+      Amount: 1
+      Name: '&4Buy A Diamond'
+      # You can set skulls of the player using the following
+      # Remove the # to enable
+      #Skull: '%Player%'
+      Lore:
+      - '&c&lCost: &c3 Voting Points'
+    # Number of voting points this cost
+    Cost: 3
+    # Rewards to run if player buys succesfully
+    Rewards:
+    - 'VoteShop_Diamond'
+    # Slot
+    Slot: 0          
+     
+# ------------------------------------------------
+# Extra Rewards
+# ------------------------------------------------
+    
+# To disable reward set value to []
+# Eg:
+# FirstVote: [] (All in one line)
+# By default all rewards are disabled
+
+# First vote rewards
+FirstVote: []
+
+# All vote rewards
+# Reward for voting on all sites in one day
+AllSites: []
+
+Cumulative:
+  # Number of votes required
+  # Allows multiple cumulative rewards
+  # Number be be around ' (E.g. '1')
+  # Can have multiple listed here
+  '20':
+    Enabled: false
+    # Wether or not votes must be made in same day/week
+    # Useful if you want to require a certain number of voting sites to be voted on
+    # for a daily/weekly reward instead of all of them
+    VotesInSameDay: false
+    VotesInSameWeek: false
+    Rewards:
+    - 'Cumulative'
+
+VoteParty:
+  # Wether or not vote party is enabled
+  Enabled: false
+  # Number of votes required to give rewards
+  VotesRequired: 20
+  # If true, players who did not vote to reach the votes required will 
+  # recieve the reward
+  GiveAllPlayers: false
+  # If true, the vote count will reset each day
+  ResetEachDay: false
+  # Number of user votes that apply to vote party total the user needs to get rewards
+  UserVotesRequired: 0
+  # Reward files to give
+  Rewards:
+  - 'ExampleReward'
+  
+MileStones:
+  # Number of votes required
+  # Allows multiple milestones
+  # Number be be around ' (E.g. '1')
+  # Can have multiple listed here
+  '20':
+    Enabled: false
+    Rewards:
+    - 'MileStone20'
+    ResetMonthly: false
+
+# Run a reward file if player is under number of votes in a day
+MinVotes:
+  Enabled: false
+  Votes: 5
+  Rewards:
+  - 'MinVotes'
+  
+# ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
+# IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES
+# Any reward files listed here are ran on vote of any site
+# It is recommended to add rewards to each site instead of here
+AnySiteRewards: []
+
+
+# ------------------------------------------------
+# Top Voter
+# ------------------------------------------------
+
+# Top voter blacklist
+BlackList:
+- 'Notch'
+
+# When top voter awards are given (if there are none listed) it will store top voters
+# Files will created in TopVoters folder.
+StoreTopVoters:
+  Monthly: true
+  Weekly: true
+  Daily: true
+
+EnableMonthlyAwards: true
+# Rewards to give
+MonthlyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  1:
+    # Reward files to give
+    Rewards:
+    - 'TopVoter1'
+  2:
+    Rewards:
+    - 'TopVoter2'
+    
+EnableWeeklyAwards: false
+# Rewards to give on weekly top voter
+WeeklyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  1:
+    # Reward files to give
+    Rewards:
+    - 'WeeklyTopVoter1'
+  2:
+    Rewards:
+    - 'WeeklyTopVoter2'
+    
+EnableDailyRewards: false
+# Rewards to give on daily top voter
+DailyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  1:
+    # Reward files to give
+    Rewards:
+    - 'DailyTopVoter1'
+  2:
+    Rewards:
+    - 'DailyTopVoter2'
+    
 

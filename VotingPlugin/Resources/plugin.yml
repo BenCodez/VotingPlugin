@@ -112,7 +112,7 @@ commands:
     aliases: avupdatecheck
   adminvotevote:
     description: Command Alias
-    aliases: avvote
+    aliases: [avvote, fakevote]
   adminvoteTriggerPlayerVoteEvent:
     description: Command Alias
     aliases: avTriggerPlayerVoteEvent
@@ -125,6 +125,15 @@ commands:
   adminvotegui:
     description: Command Alias
     aliases: avgui
+  votesetrequestmethod:
+    description: Command Alias
+    aliases: [vsetrequestmethod, setrequesetmethod]
+  adminvotegivereward:
+    description: Command Alias
+    aliases: avgivereward
+  adminvoteusers:
+    description: Command Alias
+    aliases: avusers
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

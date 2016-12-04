@@ -8,8 +8,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -32,11 +31,11 @@ public class VoteShop {
 	public void voteShop(Player player) {
 		BInventory inv = new BInventory("VoteShop");
 
-		for (String identifier : ConfigGUI.getInstance().getIdentifiers()) {
+		for (String identifier : Config.getInstance().getIdentifiers()) {
 
-			ItemBuilder builder = new ItemBuilder(ConfigGUI.getInstance().getIdentifierSection(identifier));
+			ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
-			inv.addButton(ConfigGUI.getInstance().getIdentifierSlot(identifier),
+			inv.addButton(Config.getInstance().getIdentifierSlot(identifier),
 					new BInventoryButton(builder.toItemStack()) {
 
 						@Override
@@ -44,17 +43,17 @@ public class VoteShop {
 							Player player = event.getWhoClicked();
 
 							User user = UserManager.getInstance().getVotingPluginUser(player);
-							int points = ConfigGUI.getInstance().getIdentifierCost(identifier);
-							String identifier = ConfigGUI.getInstance().getIdentifierFromSlot(event.getSlot());
+							int points = Config.getInstance().getIdentifierCost(identifier);
+							String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
 							if (identifier != null) {
 								if (user.removePoints(points)) {
-									for (String reward : ConfigGUI.getInstance().getIdentifierRewards(identifier)) {
+									for (String reward : Config.getInstance().getIdentifierRewards(identifier)) {
 										RewardHandler.getInstance().giveReward(user, reward, true);
 									}
-									user.sendMessage(ConfigFormat.getInstance().getShopPurchaseMsg()
+									user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
 											.replace("%Identifier%", identifier).replace("%Points%", "" + points));
 								} else {
-									user.sendMessage(ConfigFormat.getInstance().getShopFailedMsg()
+									user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
 											.replace("%Identifier%", identifier).replace("%Points%", "" + points));
 								}
 							}

@@ -8,7 +8,6 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 
 // TODO: Auto-generated Javadoc
@@ -22,9 +21,6 @@ public class VoteSite {
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The format. */
-	static ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;
@@ -95,7 +91,7 @@ public class VoteSite {
 	 */
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
-		String bc = StringUtils.getInstance().colorize(format.getBroadCastMsg());
+		String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
 		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
 		final String str = bc;
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -227,8 +223,7 @@ public class VoteSite {
 
 			if (configVoteSites.getCumulativeRewardVotesAmount(siteName) != 0) {
 				user.addCumulativeReward(this);
-				if ((user.getCumulativeReward(this) >= configVoteSites
-						.getCumulativeRewardVotesAmount(siteName))) {
+				if ((user.getCumulativeReward(this) >= configVoteSites.getCumulativeRewardVotesAmount(siteName))) {
 
 					giveCulumativeRewards(user, online);
 
@@ -250,8 +245,7 @@ public class VoteSite {
 		setVoteDelay(configVoteSites.getVoteDelay(siteName));
 		setEnabled(configVoteSites.getVoteSiteEnabled(siteName));
 		setRewards(configVoteSites.getRewards(siteName));
-		setCumulativeVotes(configVoteSites
-				.getCumulativeRewardVotesAmount(siteName));
+		setCumulativeVotes(configVoteSites.getCumulativeRewardVotesAmount(siteName));
 		setCumulativeRewards(configVoteSites.getCumulativeRewards(siteName));
 		setPriority(configVoteSites.getPriority(siteName));
 	}

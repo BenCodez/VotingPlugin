@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import org.bukkit.Location;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
@@ -14,9 +13,6 @@ import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
  * The Class Signs.
  */
 public class Signs {
-
-	/** The format. */
-	static ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The instance. */
 	static Signs instance = new Signs();

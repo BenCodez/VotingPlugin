@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.Ben12345rocks</groupId>
 	<artifactId>VotingPlugin</artifactId>
-	<version>4.7.1</version>
+	<version>5.0</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -50,6 +50,24 @@
 				<version>2.4.3</version>
 				<configuration>
 					<shadedArtifactAttached>false</shadedArtifactAttached>
+					<relocations>
+						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
+							other plugins -->
+						<relocation>
+							<pattern>com.Ben12345rocks.AdvancedCore</pattern>
+							<shadedPattern>${groupId}.${artifactId}.AdvancedCore</shadedPattern>
+						</relocation>
+						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
+							other plugins -->
+						<relocation>
+							<pattern>net.md_5.bungee</pattern>
+							<shadedPattern>${groupId}</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>net.pl3x.bukkit.chatapi</pattern>
+							<shadedPattern>${groupId}</shadedPattern>
+						</relocation>
+					</relocations>
 				</configuration>
 				<executions>
 					<execution>
@@ -66,6 +84,7 @@
 								</excludes>
 							</artifactSet>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
+
 						</configuration>
 					</execution>
 				</executions>
@@ -163,7 +182,7 @@
 			<groupId>com.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
 			<version>LATEST</version>
-			<scope>provided</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.spigotmc</groupId>

@@ -8,17 +8,13 @@ import java.util.Date;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI;
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
@@ -27,13 +23,10 @@ import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigGUI;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigTopVoterAwards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
@@ -60,15 +53,6 @@ public class Main extends JavaPlugin {
 
 	/** The config. */
 	public static Config config;
-
-	/** The config bonus reward. */
-	public static ConfigOtherRewards configBonusReward;
-
-	/** The config GUI. */
-	public static ConfigGUI configGUI;
-
-	/** The config format. */
-	public static ConfigFormat configFormat;
 
 	/** The config vote sites. */
 	public static ConfigVoteSites configVoteSites;
@@ -100,40 +84,11 @@ public class Main extends JavaPlugin {
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
 
-	/** The place holder API enabled. */
-	public boolean placeHolderAPIEnabled;
-
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
 
 	/** The vote log. */
 	public Logger voteLog;
-
-	/**
-	 * Check advanced core.
-	 */
-	public void checkAdvancedCore() {
-		if (Bukkit.getPluginManager().getPlugin("AdvancedCore") != null) {
-			plugin.getLogger().info("Found AdvancedCore");
-		} else {
-			plugin.getLogger().severe("Failed to find AdvancedCore, plugin disabling");
-			plugin.getLogger().severe("Download at: https://www.spigotmc.org/resources/advancedcore.28295/");
-			Bukkit.getPluginManager().disablePlugin(plugin);
-		}
-	}
-
-	/**
-	 * Check place holder API.
-	 */
-	public void checkPlaceHolderAPI() {
-		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-			placeHolderAPIEnabled = true;
-			plugin.debug("PlaceholderAPI found, will attempt to parse placeholders");
-		} else {
-			placeHolderAPIEnabled = false;
-			plugin.debug("PlaceholderAPI not found, PlaceholderAPI placeholders will not work");
-		}
-	}
 
 	/**
 	 * Check votifier.
@@ -152,18 +107,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		com.Ben12345rocks.AdvancedCore.Main.plugin.debug(plugin, message);
-	}
-
-	/**
-	 * Gets the user.
-	 *
-	 * @param playerName
-	 *            the player name
-	 * @return the user
-	 */
-	public User getUser(String playerName) {
-		return UserManager.getInstance().getVotingPluginUser(playerName);
+		AdvancedCoreHook.getInstance().debug(plugin, message);
 	}
 
 	/**
@@ -263,8 +207,127 @@ public class Main extends JavaPlugin {
 		} catch (IOException e) {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
-		
-		new BStatsMetrics(this);
+
+		BStatsMetrics metrics = new BStatsMetrics(this);
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("requestapi_defaultmethod") {
+
+			@Override
+			public String getValue() {
+				return Config.getInstance().getRequestAPIDefaultMethod();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_firstvote") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getFirstVoteRewards().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_allsites") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getAllSitesReward().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_cumulative") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getCumulativeVotes().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_voteparty") {
+
+			@Override
+			public String getValue() {
+				if (!Config.getInstance().getVotePartyEnabled()) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_milestone") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getMilestoneVotes().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_minvotes") {
+
+			@Override
+			public String getValue() {
+				if (!Config.getInstance().getMinVotesEnabled()) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getAnySiteRewards().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofsites") {
+
+			@Override
+			public String getValue() {
+				return "" + plugin.voteSites.size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofrewards") {
+
+			@Override
+			public String getValue() {
+				return "" + RewardHandler.getInstance().getRewards().size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("autocreatevotesites") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getAutoCreateVoteSites();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("sendscoreboards") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getSendScoreboards();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("broadcastvotes") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getBroadCastVotesEnabled();
+			}
+		});
 	}
 
 	/*
@@ -278,6 +341,18 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
+	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
+		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
+		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
+		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
+		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
+		AdvancedCoreHook.getInstance().setTimeZone(Config.getInstance().getTimeZone());
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -286,21 +361,20 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
-		checkAdvancedCore();
 		setupFiles();
+		updateAdvancedCoreHook();
+		AdvancedCoreHook.getInstance().loadHook(this);
 		registerCommands();
 		registerEvents();
 		checkVotifier();
-		metrics();
+
+		UserManager.getInstance().load();
 
 		CheckUpdate.getInstance().startUp();
-
-		checkPlaceHolderAPI();
 
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
-		UserManager.getInstance().loadUsers();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -315,31 +389,20 @@ public class Main extends JavaPlugin {
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
 
-		voteLog = new Logger(plugin, new File(plugin.getDataFolder(), "votelog.txt"));
+		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
-		AdminGUI.getInstance().addButton(
-				new BInventoryButton("&cVotingPlugin AdminGUI", new String[] {}, new ItemStack(Material.PAPER)) {
+		AdminGUI.getInstance().loadHook();
 
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI.getInstance()
-								.openAdminGUI(clickEvent.getPlayer());
-
-					}
-				});
-
-		if (ConfigOtherRewards.getInstance().getVotePartyEnabled()) {
+		if (Config.getInstance().getVotePartyEnabled()) {
 			VoteParty.getInstance().check();
 		}
 		VoteParty.getInstance().register();
 
 		TopVoter.getInstance().register();
 
-		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-		com.Ben12345rocks.AdvancedCore.Main.plugin.registerHook(this);
+		metrics();
 
-		RewardHandler.getInstance().addRewardFolder(new File(plugin.getDataFolder(), "Rewards"));
-		RewardHandler.getInstance().setDefaultFolder(new File(plugin.getDataFolder(), "Rewards"));
+		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -401,16 +464,14 @@ public class Main extends JavaPlugin {
 	 */
 	public void reload() {
 		config.reloadData();
-		configGUI.reloadData();
-		configFormat.reloadData();
 		plugin.loadVoteSites();
-		configBonusReward.reloadData();
 		plugin.setupFiles();
 		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
-		com.Ben12345rocks.AdvancedCore.Main.plugin.reload();
-		UserManager.getInstance().loadUsers();
+		AdvancedCoreHook.getInstance().reload();
+		UserManager.getInstance().load();
+		updateAdvancedCoreHook();
 	}
 
 	/**
@@ -419,16 +480,7 @@ public class Main extends JavaPlugin {
 	public void setupFiles() {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
-		configFormat = ConfigFormat.getInstance();
-		configBonusReward = ConfigOtherRewards.getInstance();
-		configGUI = ConfigGUI.getInstance();
-
 		config.setup();
-		configFormat.setup();
-		configBonusReward.setup();
-		configGUI.setup();
-
-		ConfigTopVoterAwards.getInstance().setup();
 
 		plugin.debug("Loaded Files");
 

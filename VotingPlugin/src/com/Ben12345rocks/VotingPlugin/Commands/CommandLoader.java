@@ -30,8 +30,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
@@ -47,17 +45,11 @@ import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
  */
 public class CommandLoader {
 
-	/** The other reward. */
-	static ConfigOtherRewards otherReward = ConfigOtherRewards.getInstance();
-
 	/** The config. */
 	static Config config = Config.getInstance();
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The format. */
-	static ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The instance. */
 	static CommandLoader instance = new CommandLoader();
@@ -421,9 +413,9 @@ public class CommandLoader {
 		});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
-				.getBasicAdminCommands();
+				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
-			cmd.setPerm(cmd.getPerm().replace("AdvancedCore", "VotingPlugin") + "|" + adminPerm);
+			cmd.setPerm(cmd.getPerm() + "|" + adminPerm);
 		}
 		plugin.adminVoteCommand.addAll(avCommands);
 
@@ -486,8 +478,8 @@ public class CommandLoader {
 					@Override
 					public void run() {
 						loadTabComplete();
-						BInventory inv = new BInventory("VotingPlugin UserGUI");
-						inv.addButton(inv.getNextSlot(),
+
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("Force Vote", new String[] {}, new ItemStack(Material.STONE)) {
 
 									@Override
@@ -516,8 +508,8 @@ public class CommandLoader {
 									}
 								});
 
-						inv.addButton(inv.getNextSlot(), new BInventoryButton("Set Vote Points", new String[] {},
-								new ItemStack(Material.STONE)) {
+						UserGUI.getInstance().addPluginButton(plugin, new BInventoryButton("Set Vote Points",
+								new String[] {}, new ItemStack(Material.STONE)) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {
@@ -540,7 +532,7 @@ public class CommandLoader {
 
 							}
 						});
-						inv.addButton(inv.getNextSlot(),
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
 
 									@Override
@@ -549,17 +541,16 @@ public class CommandLoader {
 										Player player = event.getWhoClicked();
 										String playerName = (String) event.getMeta(player, "Player");
 										BInventory inv = new BInventory("MileStones: " + playerName);
-										for (String mileStoneName : ConfigOtherRewards.getInstance()
-												.getMilestoneVotes()) {
+										for (String mileStoneName : Config.getInstance().getMilestoneVotes()) {
 											if (StringUtils.getInstance().isInt(mileStoneName)) {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
 														new BInventoryButton("" + mileStone, new String[] {
-																"Enabled: " + ConfigOtherRewards.getInstance()
+																"Enabled: " + Config.getInstance()
 																		.getMilestoneRewardEnabled(mileStone),
 																"Rewards: " + ArrayUtils.getInstance()
-																		.makeStringList(ConfigOtherRewards.getInstance()
+																		.makeStringList(Config.getInstance()
 																				.getMilestoneRewards(mileStone)),
 																"&cClick to set wether this has been completed or not" },
 																new ItemStack(Material.STONE)) {
@@ -608,7 +599,7 @@ public class CommandLoader {
 									}
 								});
 
-						inv.addButton(inv.getNextSlot(),
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("SetTotal", new String[] {}, new ItemStack(Material.STONE)) {
 
 									@Override
@@ -656,7 +647,7 @@ public class CommandLoader {
 
 									}
 								});
-						UserGUI.getInstance().addPluginButton(plugin, inv);
+
 					}
 				});
 			}
@@ -1029,9 +1020,9 @@ public class CommandLoader {
 		});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
-				.getBasicCommands();
+				.getBasicCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
-			cmd.setPerm(cmd.getPerm().replace("AdvancedCore", "VotingPlugin") + "|" + playerPerm);
+			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.voteCommand.addAll(avCommands);
 	}

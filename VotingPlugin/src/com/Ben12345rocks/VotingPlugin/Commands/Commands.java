@@ -13,15 +13,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
-import com.Ben12345rocks.AdvancedCore.Utils;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigOtherRewards;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -37,17 +35,11 @@ import net.md_5.bungee.api.chat.TextComponent;
  */
 public class Commands {
 
-	/** The bonus reward. */
-	static ConfigOtherRewards bonusReward = ConfigOtherRewards.getInstance();
-
 	/** The config. */
 	static Config config = Config.getInstance();
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The format. */
-	static ConfigFormat format = ConfigFormat.getInstance();
 
 	/** The instance. */
 	static Commands instance = new Commands();
@@ -90,7 +82,7 @@ public class Commands {
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		ArrayList<TextComponent> text = adminHelpText(sender);
 
@@ -103,7 +95,7 @@ public class Commands {
 		msg.add(StringUtils.getInstance().stringToComp("&3&l() = Needed"));
 		msg.add(StringUtils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 
-		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)-1); i++) {
+		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize) - 1); i++) {
 			msg.add(text.get(i));
 		}
 
@@ -121,7 +113,7 @@ public class Commands {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = ConfigFormat.getInstance().getCommandsVoteHelpRequirePermission();
+		boolean requirePerms = Config.getInstance().getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
@@ -148,7 +140,7 @@ public class Commands {
 	 * @return the string[]
 	 */
 	public String[] commandVoteToday(int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 		if (page < 1) {
 			page = 1;
 		}
@@ -180,8 +172,6 @@ public class Commands {
 	public String[] listPerms() {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		
-
 		for (CommandHandler handle : plugin.voteCommand) {
 			msg.add(handle.getHelpLineCommand("/v") + " : " + handle.getPerm());
 		}
@@ -189,7 +179,7 @@ public class Commands {
 		for (CommandHandler handle : plugin.adminVoteCommand) {
 			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
 		}
-		
+
 		for (Permission perm : plugin.getDescription().getPermissions()) {
 			msg.add(perm.getName());
 		}
@@ -235,7 +225,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersDaily());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -243,8 +233,8 @@ public class Commands {
 			pageSize++;
 		}
 
-		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily"));
+		String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
+				.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "Daily"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -276,7 +266,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVoters());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -284,8 +274,8 @@ public class Commands {
 			pageSize++;
 		}
 
-		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Monthly"));
+		String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
+				.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "Monthly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -318,7 +308,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersWeekly());
 
 		int pageSize = (topVoters.size() / pagesize);
@@ -326,8 +316,8 @@ public class Commands {
 			pageSize++;
 		}
 
-		String title = StringUtils.getInstance().colorize(format.getCommandVoteTopTitle().replace("%page%", "" + page)
-				.replace("%maxpages%", "" + pageSize).replace("%Top%", "Weekly"));
+		String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
+				.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "Weekly"));
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
@@ -359,7 +349,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendVoteTodayScoreBoard(Player player, int page) {
-		int pagesize = ConfigFormat.getInstance().getPageSize();
+		int pagesize = Config.getInstance().getFormatPageSize();
 
 		String[] voteToday = voteToday();
 
@@ -401,9 +391,9 @@ public class Commands {
 				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
 				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
 					long time = user.getTime(voteSite);
-					if ((new Date().getDate() == Utils.getInstance().getDayFromMili(time))
-							&& (new Date().getMonth() == Utils.getInstance().getMonthFromMili(time))
-							&& (new Date().getYear() == Utils.getInstance().getYearFromMili(time))) {
+					if ((new Date().getDate() == MiscUtils.getInstance().getDayFromMili(time))
+							&& (new Date().getMonth() == MiscUtils.getInstance().getMonthFromMili(time))
+							&& (new Date().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
 						times.put(voteSite, new Date(time));
 
@@ -420,7 +410,7 @@ public class Commands {
 	public String voteCommandLastLine(User user, VoteSite voteSite) {
 		String timeString = voteCommandLastDate(user, voteSite);
 
-		return format.getCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
+		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
 				.replace("%time%", timeString).replace("%SiteName%", voteSite.getSiteName());
 	}
 
@@ -439,7 +429,8 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteLastTitle(), "%player%", playerName));
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteLastTitle(), "%player%",
+				playerName));
 
 		for (VoteSite voteSite : voteSites) {
 			msg.add(voteCommandLastLine(user, voteSite));
@@ -460,7 +451,7 @@ public class Commands {
 	 */
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		Date date = new Date(user.getTime(voteSite));
-		String timeString = new SimpleDateFormat(format.getTimeFormat()).format(date);
+		String timeString = new SimpleDateFormat(config.getFormatTimeFormat()).format(date);
 		return timeString;
 	}
 
@@ -479,11 +470,11 @@ public class Commands {
 		String playerName = user.getPlayerName();
 
 		msg.add(StringUtils.getInstance().colorize(StringUtils.getInstance()
-				.replaceIgnoreCase(format.getCommandsVoteNextTitle(), "%player%", playerName)));
+				.replaceIgnoreCase(config.getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : voteSites) {
 
-			String msgLine = format.getCommandsVoteNextLayout();
+			String msgLine = config.getFormatCommandsVoteNextLayout();
 
 			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%info%",
 					voteCommandNextInfo(user, voteSite));
@@ -518,7 +509,7 @@ public class Commands {
 
 		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
 		if (votedelay == 0) {
-			String errorMsg = format.getCommandsVoteNextInfoError();
+			String errorMsg = config.getFormatCommandsVoteNextInfoError();
 			info = errorMsg;
 		} else {
 
@@ -533,7 +524,7 @@ public class Commands {
 			Date currentDate = new Date(cyear, cmonth, cday, chour, cmin);
 
 			if ((nextvote == null) || (day == 0) || (hour == 0)) {
-				String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
+				String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
 				info = canVoteMsg;
 			} else {
 				if (!currentDate.after(nextvote)) {
@@ -544,13 +535,13 @@ public class Commands {
 					long diffHours = diff / (60 * 60 * 1000);
 					// long diffDays = diff / (24 * 60 * 60 * 1000);
 
-					String timeMsg = format.getCommandsVoteNextInfoTime();
+					String timeMsg = config.getFormatCommandsVoteNextInfoTime();
 					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
 					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
 							Long.toString(diffMinutes));
 					info = timeMsg;
 				} else {
-					String canVoteMsg = format.getCommandsVoteNextInfoCanVote();
+					String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
 					info = canVoteMsg;
 				}
 			}
@@ -559,7 +550,7 @@ public class Commands {
 	}
 
 	public String voteCommandTotalLine(User user, VoteSite voteSite) {
-		String line = format.getCommandsVoteTotalLine();
+		String line = config.getFormatCommandsVoteTotalLine();
 		return StringUtils.getInstance().replaceIgnoreCase(
 				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
 				"%SiteName%", voteSite.getSiteName());
@@ -578,7 +569,7 @@ public class Commands {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTitle(), "%player%",
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalTitle(), "%player%",
 				playerName));
 
 		// total votes
@@ -590,7 +581,7 @@ public class Commands {
 			total += votes;
 			msg.add(voteCommandTotalLine(user, voteSite));
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalTotal(), "%Totals%",
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalTotal(), "%Totals%",
 				"" + total));
 
 		msg = ArrayUtils.getInstance().colorize(msg);
@@ -610,7 +601,7 @@ public class Commands {
 
 		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
 
-		msg.add(format.getCommandsVoteTotalAllTitle());
+		msg.add(config.getFormatCommandsVoteTotalAllTitle());
 		int total = 0;
 		for (VoteSite voteSite : voteSites) {
 			int votes = 0;
@@ -620,12 +611,13 @@ public class Commands {
 					votes += user.getTotal(voteSite);
 				}
 			}
-			msg.add(StringUtils.getInstance().replaceIgnoreCase(StringUtils.getInstance()
-					.replaceIgnoreCase(format.getCommandsVoteTotalAllLine(), "%SiteName%", voteSite.getSiteName()),
+			msg.add(StringUtils.getInstance().replaceIgnoreCase(
+					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),
+							"%SiteName%", voteSite.getSiteName()),
 					"%Total%", "" + votes));
 			total += votes;
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(format.getCommandsVoteTotalAllTotal(), "%Totals%",
+		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllTotal(), "%Totals%",
 				"" + total));
 
 		msg = ArrayUtils.getInstance().colorize(msg);
@@ -642,9 +634,9 @@ public class Commands {
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		ArrayList<TextComponent> texts = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
-		texts.add(StringUtils.getInstance().stringToComp(ConfigFormat.getInstance().getCommandsVoteHelpTitle()));
+		texts.add(StringUtils.getInstance().stringToComp(config.getFormatCommandsVoteHelpTitle()));
 
-		boolean requirePerms = ConfigFormat.getInstance().getCommandsVoteHelpRequirePermission();
+		boolean requirePerms = config.getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
@@ -673,7 +665,7 @@ public class Commands {
 		for (User user : plugin.voteToday.keySet()) {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
-				String timeString = new SimpleDateFormat(format.getTimeFormat())
+				String timeString = new SimpleDateFormat(config.getFormatTimeFormat())
 						.format(plugin.voteToday.get(user).get(voteSite));
 				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString);
 			}
@@ -691,16 +683,16 @@ public class Commands {
 		ArrayList<String> sites = new ArrayList<String>();
 		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
 
-		List<String> title = ConfigFormat.getInstance().getCommandsVoteText();
+		List<String> title = config.getFormatCommandsVoteText();
 		if (title != null) {
 			sites.addAll(title);
 		}
-		if (ConfigFormat.getInstance().getCommandsVoteAutoInputSites()) {
+		if (config.getFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
 			for (VoteSite voteSite : voteSites) {
 				counter++;
 				String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
-				String msg = format.getCommandsVoteURLS();
+				String msg = config.getFormatCommandsVoteURLS();
 				msg = StringUtils.getInstance().colorize(msg);
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%num%", Integer.toString(counter));
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);

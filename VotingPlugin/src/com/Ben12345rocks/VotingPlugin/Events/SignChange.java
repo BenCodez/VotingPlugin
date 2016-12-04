@@ -8,7 +8,7 @@ import org.bukkit.event.block.SignChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigFormat;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 
@@ -64,7 +64,7 @@ public class SignChange implements Listener {
 				}
 			} else {
 				event.getPlayer().sendMessage(
-						ConfigFormat.getInstance().getNoPerms());
+						Config.getInstance().getFormatNoPerms());
 			}
 		}
 
