@@ -13,6 +13,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
@@ -218,7 +219,126 @@ public class Main extends JavaPlugin {
 			plugin.getLogger().info("Can't submit metrics stats");
 		}
 
-		new BStatsMetrics(this);
+		BStatsMetrics metrics = new BStatsMetrics(this);
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("requestapi_defaultmethod") {
+
+			@Override
+			public String getValue() {
+				return Config.getInstance().getRequestAPIDefaultMethod();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_firstvote") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getFirstVoteRewards().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_allsites") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getAllSitesReward().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_cumulative") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getCumulativeVotes().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_voteparty") {
+
+			@Override
+			public String getValue() {
+				if (!Config.getInstance().getVotePartyEnabled()) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_milestone") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getMilestoneVotes().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_minvotes") {
+
+			@Override
+			public String getValue() {
+				if (!Config.getInstance().getMinVotesEnabled()) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward") {
+
+			@Override
+			public String getValue() {
+				if (Config.getInstance().getAnySiteRewards().size() == 0) {
+					return "False";
+				} else {
+					return "True";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofsites") {
+
+			@Override
+			public String getValue() {
+				return "" + plugin.voteSites.size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofrewards") {
+
+			@Override
+			public String getValue() {
+				return "" + RewardHandler.getInstance().getRewards().size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("autocreatevotesites") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getAutoCreateVoteSites();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("sendscoreboards") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getSendScoreboards();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("broadcastvotes") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getBroadCastVotesEnabled();
+			}
+		});
 	}
 
 	/*
@@ -258,7 +378,6 @@ public class Main extends JavaPlugin {
 		registerCommands();
 		registerEvents();
 		checkVotifier();
-		metrics();
 
 		CheckUpdate.getInstance().startUp();
 
@@ -291,7 +410,7 @@ public class Main extends JavaPlugin {
 
 		TopVoter.getInstance().register();
 
-		
+		metrics();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 

@@ -65,6 +65,7 @@ public class UserManager extends
 
 	@SuppressWarnings("deprecation")
 	public void loadUsers() {
+		super.loadUsers();
 		users = new ArrayList<User>();
 		for (String name : Data.getInstance().getPlayerNames()) {
 			User user = new User(name);
