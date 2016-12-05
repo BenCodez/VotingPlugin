@@ -6,7 +6,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -56,15 +55,7 @@ public class UserManager extends com.Ben12345rocks.AdvancedCore.UserManager.User
 	}
 
 	public void load() {
-		super.load();
-		Thread.getInstance().run(new Runnable() {
-			@Override
-			public void run() {
-				for (String uuid : getAllUUIDs()) {
-					getVotingPluginUser(new UUID(uuid));
-				}
-			}
-		});
+
 	}
 
 }
