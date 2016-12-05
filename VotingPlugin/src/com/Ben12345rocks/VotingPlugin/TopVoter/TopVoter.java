@@ -14,6 +14,7 @@ import java.util.Set;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
@@ -84,8 +85,12 @@ public class TopVoter implements Listener {
 			}
 
 		}
-		TopVoters.getInstance().storeDailyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
-				new Date().getDate(), topVoterDailyNoColor());
+		if (Config.getInstance().getStoreTopVotersDaily()) {
+			plugin.debug("Storing TopVoters Daily");
+			TopVoters.getInstance().storeDailyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
+					new Date().getDate(), topVoterDailyNoColor());
+		}
+
 		if (Config.getInstance().getDailyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
 			int i = 0;
@@ -105,8 +110,12 @@ public class TopVoter implements Listener {
 	@SuppressWarnings("deprecation")
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		TopVoters.getInstance().storeWeeklyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
-				new Date().getDate(), topVoterWeeklyNoColor());
+		if (Config.getInstance().getStoreTopVotersWeekly()) {
+			plugin.debug("Storing TopVoters Weekly");
+			TopVoters.getInstance().storeWeeklyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
+					new Date().getDate(), topVoterWeeklyNoColor());
+		}
+
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
 			int i = 0;
@@ -125,8 +134,12 @@ public class TopVoter implements Listener {
 	@SuppressWarnings("deprecation")
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		TopVoters.getInstance().storeMonthlyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
-				topVoterNoColor());
+		if (Config.getInstance().getStoreTopVotersMonthly()) {
+			plugin.debug("Storing TopVoters Monthly");
+			TopVoters.getInstance().storeMonthlyTopVoters(new Date().getYear() + 1900, new Date().getMonth(),
+					topVoterNoColor());
+		}
+
 		if (Config.getInstance().getMonthlyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
 			int i = 0;
@@ -312,9 +325,14 @@ public class TopVoter implements Listener {
 		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterMonthly.keySet());
 		for (int i = 0; i < users.size(); i++) {
-			String line = "%num%: %player%, %votes%".replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%", "" + plugin.topVoterMonthly.get(users.get(i)));
+			String line = "%num%: %player%, %votes%";
+			line = line.replace("%num%", "" + (i + 1));
+			try {
+				line = line.replace("%player%", users.get(i).getPlayerName());
+			} catch (Exception ex) {
+				AdvancedCoreHook.getInstance().debug(ex);
+			}
+			line = line.replace("%votes%", "" + plugin.topVoterMonthly.get(users.get(i)));
 			msg.add(line);
 		}
 
@@ -331,9 +349,14 @@ public class TopVoter implements Listener {
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(plugin.topVoterMonthly.entrySet());
 		int i = 0;
 		for (Entry<User, Integer> entry : list) {
-			String line = Config.getInstance().getFormatCommandVoteTopLine().replace("%num%", "" + (i + 1))
-					.replace("%player%", entry.getKey().getPlayerName())
-					.replace("%votes%", "" + entry.getValue().intValue());
+			String line = "%num%: %player%, %votes%";
+			line = line.replace("%num%", "" + (i + 1));
+			try {
+				line = line.replace("%player%", entry.getKey().getPlayerName());
+			} catch (Exception ex) {
+				AdvancedCoreHook.getInstance().debug(ex);
+			}
+			line = line.replace("%votes%", "" + entry.getValue());
 
 			msg.add(line);
 			i++;
@@ -354,9 +377,14 @@ public class TopVoter implements Listener {
 		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterDaily.keySet());
 		for (int i = 0; i < users.size(); i++) {
-			String line = Config.getInstance().getFormatCommandVoteTopLine().replace("%num%", "" + (i + 1))
-					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%", "" + plugin.topVoterDaily.get(users.get(i)));
+			String line = "%num%: %player%, %votes%";
+			line = line.replace("%num%", "" + (i + 1));
+			try {
+				line = line.replace("%player%", users.get(i).getPlayerName());
+			} catch (Exception ex) {
+				AdvancedCoreHook.getInstance().debug(ex);
+			}
+			line = line.replace("%votes%", "" + plugin.topVoterMonthly.get(users.get(i)));
 			msg.add(line);
 		}
 
