@@ -54,8 +54,10 @@ public class UserManager extends com.Ben12345rocks.AdvancedCore.UserManager.User
 		return user;
 	}
 
-	public void load() {
-
+	public void reload() {
+		for (User user : users.values()) {
+			user.reloadData();
+		}
 	}
 
 }

@@ -3,11 +3,11 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import java.util.ArrayList;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -44,33 +44,34 @@ public class VotiferEvent implements Listener {
 	 * @param voteSiteURL
 	 *            the vote site URL
 	 */
-	public static void playerVote(String playerName, String voteSiteURL) {
-		User user = UserManager.getInstance().getVotingPluginUser(playerName);
-		if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
-			plugin.getLogger().info("Player " + playerName + " has not joined before, disregarding vote");
-			return;
-		}
-
-		String voteSiteName = plugin.getVoteSiteName(voteSiteURL);
-
-		if (voteSiteName == null) {
-			plugin.getLogger().info("Error on votesite name");
-			return;
-		}
-
-		// ArrayList<String> sites = configVoteSites.getVoteSitesNames();
-
-		VoteSite voteSite = plugin.getVoteSite(voteSiteName);
-		if (voteSite == null) {
-
-			plugin.debug("VoteSite is null");
-
-			return;
-		}
-
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+	public static void playerVote(final String playerName, final String voteSiteURL) {
+		Thread.getInstance().run(new Runnable() {
 			@Override
 			public void run() {
+				User user = UserManager.getInstance().getVotingPluginUser(playerName);
+				if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
+					plugin.getLogger().info("Player " + playerName + " has not joined before, disregarding vote");
+					return;
+				}
+
+				String voteSiteName = plugin.getVoteSiteName(voteSiteURL);
+
+				if (voteSiteName == null) {
+					plugin.getLogger().info("Error on votesite name");
+					return;
+				}
+
+				// ArrayList<String> sites =
+				// configVoteSites.getVoteSitesNames();
+
+				VoteSite voteSite = plugin.getVoteSite(voteSiteName);
+				if (voteSite == null) {
+
+					plugin.debug("VoteSite is null");
+
+					return;
+				}
+
 				if (Config.getInstance().getVotePartyEnabled()) {
 					VoteParty.getInstance().addTotal(user);
 					VoteParty.getInstance().addVotePlayer(user);

@@ -368,8 +368,6 @@ public class Main extends JavaPlugin {
 		registerEvents();
 		checkVotifier();
 
-		UserManager.getInstance().load();
-
 		CheckUpdate.getInstance().startUp();
 
 		loadVoteSites();
@@ -464,14 +462,13 @@ public class Main extends JavaPlugin {
 	 */
 	public void reload() {
 		config.reloadData();
+		configVoteSites.reloadData();
+		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		plugin.setupFiles();
-		ServerData.getInstance().reloadData();
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
-		UserManager.getInstance().load();
-		updateAdvancedCoreHook();
+		UserManager.getInstance().reload();
 	}
 
 	/**
@@ -481,7 +478,7 @@ public class Main extends JavaPlugin {
 		config = Config.getInstance();
 		configVoteSites = ConfigVoteSites.getInstance();
 		config.setup();
-
+		configVoteSites.setup();
 		plugin.debug("Loaded Files");
 
 	}

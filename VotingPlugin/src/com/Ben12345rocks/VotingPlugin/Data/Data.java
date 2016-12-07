@@ -117,7 +117,7 @@ public class Data {
 	 *            the user
 	 * @return the data
 	 */
-	public ConfigurationSection getData(User user) {
+	public synchronized ConfigurationSection getData(User user) {
 		return user.getPluginData();
 		/*
 		 * File dFile = getPlayerFile(user); FileConfiguration data =

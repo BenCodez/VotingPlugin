@@ -54,7 +54,7 @@ public class PlaceHolders {
 	 *            the player
 	 * @return the string
 	 */
-	public String playerCanVote(Player player) {
+	public synchronized String playerCanVote(Player player) {
 		return Boolean.toString(UserManager.getInstance()
 				.getVotingPluginUser(player).canVoteAll());
 
@@ -69,7 +69,7 @@ public class PlaceHolders {
 	 *            the site name
 	 * @return the string
 	 */
-	public String playerLastVote(Player player, String siteName) {
+	public synchronized String playerLastVote(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
 			return "";
@@ -89,7 +89,7 @@ public class PlaceHolders {
 	 *            the site name
 	 * @return the string
 	 */
-	public String playerNextVote(Player player, String siteName) {
+	public synchronized String playerNextVote(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
 			return "";
@@ -107,7 +107,7 @@ public class PlaceHolders {
 	 *            the player
 	 * @return the string
 	 */
-	public String playerPoints(Player player) {
+	public synchronized String playerPoints(Player player) {
 		return Integer.toString(UserManager.getInstance()
 				.getVotingPluginUser(player).getPoints());
 	}
@@ -119,7 +119,7 @@ public class PlaceHolders {
 	 *            the player
 	 * @return the string
 	 */
-	public String playerTotalVotes(Player player) {
+	public synchronized String playerTotalVotes(Player player) {
 		return Integer.toString(UserManager.getInstance()
 				.getVotingPluginUser(player).getTotalVotes());
 	}
@@ -133,7 +133,7 @@ public class PlaceHolders {
 	 *            the site name
 	 * @return the string
 	 */
-	public String playerTotalVotesSite(Player player, String siteName) {
+	public synchronized String playerTotalVotesSite(Player player, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
 				.contains(siteName)) {
 			return "";
@@ -149,11 +149,11 @@ public class PlaceHolders {
 	 *
 	 * @return the string
 	 */
-	public String votePartyVotesNeeded() {
+	public synchronized String votePartyVotesNeeded() {
 		return Integer.toString(VoteParty.getInstance().getNeededVotes());
 	}
 
-	public String getPlaceHolder(Player p, String identifier) {
+	public synchronized String getPlaceHolder(Player p, String identifier) {
 		// %VotingPlugin_total% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("total")) {
 			return playerTotalVotes(p);

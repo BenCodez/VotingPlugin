@@ -6,6 +6,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -41,33 +42,48 @@ public class PlayerJoinEvent implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(PlayerLoginEvent event) {
-		plugin.getServer().getScheduler().runTaskLater(plugin, new Runnable() {
+		plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				if (event.getPlayer() == null) {
-					return;
-				}
-				Player player = event.getPlayer();
+				Thread.getInstance().run(new Runnable() {
 
-				if (!plugin.getDataFolder().exists()) {
-					plugin.getDataFolder().mkdir();
-				}
+					@Override
+					public void run() {
+						if (event.getPlayer() == null) {
+							return;
+						}
+						Player player = event.getPlayer();
 
-				User user = UserManager.getInstance().getVotingPluginUser(
-						player);
+						if (!plugin.getDataFolder().exists()) {
+							plugin.getDataFolder().mkdir();
+						}
 
-				plugin.getServer().getScheduler()
-						.runTaskLaterAsynchronously(plugin, new Runnable() {
+						User user = UserManager.getInstance().getVotingPluginUser(player);
+
+						plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 							@Override
 							public void run() {
-								// give offline vote (if they voted offline)
-								user.offVote();
+								Thread.getInstance().run(new Runnable() {
 
-								// run remind
-								user.loginMessage();
+									@Override
+									public void run() {
+										if (user.getPlayer() == null) {
+											return;
+										}
+										// give offline vote (if they voted
+										// offline)
+										user.offVote();
+
+										// run remind
+										user.loginMessage();
+									}
+								});
 							}
 						}, 100L);
+					}
+				});
+
 			}
 		}, 20L);
 
