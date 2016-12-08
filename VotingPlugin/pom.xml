@@ -116,52 +116,49 @@
 				<groupId>com.github.github</groupId>
 				<artifactId>site-maven-plugin</artifactId>
 				<version>0.11</version>
-				<configuration>
-					<message>Maven artifacts for ${project.version}</message>
-					<noJekyll>true</noJekyll>
-					<outputDirectory>${project.build.directory}/mvn-repo
-					</outputDirectory>
-					<branch>refs/heads/master</branch>
-					<includes>
-						<include>**/*</include>
-					</includes>
-					<repositoryName>MavenRepo</repositoryName>
-					<repositoryOwner>Ben12345rocks</repositoryOwner>
-					<server>github</server>
-					<merge>true</merge>
-				</configuration>
+
 				<executions>
 					<execution>
+						<id>javadoc</id>
 						<goals>
 							<goal>site</goal>
 						</goals>
 						<phase>deploy</phase>
+						<configuration>
+							<message>Maven javadoc for ${project.version}</message>
+							<noJekyll>true</noJekyll>
+							<outputDirectory>${project.build.directory}/apidocs
+							</outputDirectory>
+							<branch>refs/heads/gh-pages</branch>
+							<includes>
+								<include>**/*</include>
+							</includes>
+							<repositoryName>VotingPlugin</repositoryName>
+							<repositoryOwner>Ben12345rocks</repositoryOwner>
+							<server>github</server>
+						</configuration>
 					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>com.github.github</groupId>
-				<artifactId>site-maven-plugin</artifactId>
-				<version>0.11</version>
-				<configuration>
-					<message>Maven javadoc for ${project.version}</message>
-					<noJekyll>true</noJekyll>
-					<outputDirectory>${project.build.directory}/apidocs
-					</outputDirectory>
-					<branch>refs/heads/gh-pages</branch>
-					<includes>
-						<include>**/*</include>
-					</includes>
-					<repositoryName>VotingPlugin</repositoryName>
-					<repositoryOwner>Ben12345rocks</repositoryOwner>
-					<server>github</server>
-				</configuration>
-				<executions>
+
 					<execution>
+						<id>repo</id>
 						<goals>
 							<goal>site</goal>
 						</goals>
 						<phase>deploy</phase>
+						<configuration>
+							<message>Maven artifacts for ${project.version}</message>
+							<noJekyll>true</noJekyll>
+							<outputDirectory>${project.build.directory}/mvn-repo
+							</outputDirectory>
+							<branch>refs/heads/master</branch>
+							<includes>
+								<include>**/*</include>
+							</includes>
+							<repositoryName>MavenRepo</repositoryName>
+							<repositoryOwner>Ben12345rocks</repositoryOwner>
+							<server>github</server>
+							<merge>true</merge>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
