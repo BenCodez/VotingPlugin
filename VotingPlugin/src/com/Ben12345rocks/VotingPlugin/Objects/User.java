@@ -991,4 +991,22 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
+	public void resetMonthlyTotalVotes() {
+		for (VoteSite site : plugin.voteSites) {
+			setTotal(site, 0);
+		}
+	}
+	
+	public void resetWeeklyTotalVotes() {
+		for (VoteSite site : plugin.voteSites) {
+			setTotalWeekly(site, 0);
+		}
+	}
+	
+	public void resetDailyTotalVotes() {
+		for (VoteSite site : plugin.voteSites) {
+			setTotalDaily(site, 0);
+		}
+	}
+
 }

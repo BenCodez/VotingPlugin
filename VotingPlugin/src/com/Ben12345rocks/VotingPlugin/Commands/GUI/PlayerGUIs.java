@@ -20,7 +20,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class PlayerGUIs {
@@ -72,7 +72,7 @@ public class PlayerGUIs {
 			} else if (slot.equalsIgnoreCase("total")) {
 				lore = Commands.getInstance().voteCommandTotal(user);
 			} else if (slot.equalsIgnoreCase("top")) {
-				lore = TopVoter.getInstance().topVoterMonthly(1);
+				lore = TopVoterHandler.getInstance().topVoterMonthly(1);
 			} else if (slot.equalsIgnoreCase("today")) {
 				lore = Commands.getInstance().voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {

@@ -40,7 +40,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -396,7 +396,7 @@ public class Main extends JavaPlugin {
 		}
 		VoteParty.getInstance().register();
 
-		TopVoter.getInstance().register();
+		TopVoterHandler.getInstance().register();
 
 		metrics();
 
@@ -492,7 +492,7 @@ public class Main extends JavaPlugin {
 			@Override
 			public void run() {
 				try {
-					TopVoter.getInstance().updateTopVoters();
+					TopVoterHandler.getInstance().updateTopVoters();
 					Commands.getInstance().updateVoteToday();
 					ServerData.getInstance().updateValues();
 					Signs.getInstance().updateSigns();

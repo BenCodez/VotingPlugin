@@ -39,32 +39,26 @@ public class SignChange implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
-		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {
+		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]") && event.getLine(1).equalsIgnoreCase("all")) {
 			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
 					"VotingPlugin.Sign.Create")) {
 				try {
-					ServerData.getInstance().addSign(
-							event.getBlock().getLocation(), event.getLine(2),
+					ServerData.getInstance().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
-					event.getPlayer().sendMessage(
-							StringUtils.getInstance().colorize("&aAdded sign!"));
-					Bukkit.getScheduler().runTaskAsynchronously(plugin,
-							new Runnable() {
+					event.getPlayer().sendMessage(StringUtils.getInstance().colorize("&aAdded sign!"));
+					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-								@Override
-								public void run() {
-									Signs.getInstance().updateSigns();
-								}
-							});
+						@Override
+						public void run() {
+							Signs.getInstance().updateSigns();
+						}
+					});
 				} catch (Exception ex) {
-					event.getPlayer().sendMessage(
-							StringUtils.getInstance().colorize(
-									"&cError on sign creation!"));
+					event.getPlayer().sendMessage(StringUtils.getInstance().colorize("&cError on sign creation!"));
 					ex.printStackTrace();
 				}
 			} else {
-				event.getPlayer().sendMessage(
-						Config.getInstance().getFormatNoPerms());
+				event.getPlayer().sendMessage(Config.getInstance().getFormatNoPerms());
 			}
 		}
 

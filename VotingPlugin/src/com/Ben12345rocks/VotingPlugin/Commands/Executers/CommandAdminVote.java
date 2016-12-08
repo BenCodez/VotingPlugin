@@ -20,7 +20,7 @@ import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -232,7 +232,10 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotalsPlayer(UserManager.getInstance().getVotingPluginUser(playerName));
+				User user = UserManager.getInstance().getVotingPluginUser(playerName);
+				user.resetDailyTotalVotes();
+				user.resetMonthlyTotalVotes();
+				user.resetWeeklyTotalVotes();
 				sender.sendMessage(StringUtils.getInstance().colorize("&cDone resseting totals for &c&l" + playerName));
 				plugin.update();
 			}
@@ -252,7 +255,9 @@ public class CommandAdminVote implements CommandExecutor {
 
 			@Override
 			public void run() {
-				TopVoter.getInstance().resetTotalsMonthly();
+				TopVoterHandler.getInstance().resetDailyTotals();
+				TopVoterHandler.getInstance().resetMonthlyTotals();
+				TopVoterHandler.getInstance().resetWeeklyTotals();
 				sender.sendMessage(StringUtils.getInstance().colorize("&cDone resseting totals"));
 				plugin.update();
 			}
