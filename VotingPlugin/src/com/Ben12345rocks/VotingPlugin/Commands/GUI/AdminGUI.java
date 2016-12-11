@@ -152,7 +152,7 @@ public class AdminGUI {
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add("Priority: " + voteSite.getPriority());
 			lore.add("ServiceSite: " + voteSite.getServiceSite());

@@ -155,7 +155,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return true, if successful
 	 */
 	public synchronized boolean canVoteAll() {
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		for (VoteSite voteSite : voteSites) {
 			boolean canVote = canVoteSite(voteSite);
@@ -209,7 +209,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public synchronized boolean checkAllVotes() {
 		User user = this;
 
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
@@ -273,7 +273,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public synchronized HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
 
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			times.put(voteSite, getTime(voteSite));
 		}
 		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times.entrySet().stream()
@@ -377,7 +377,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public synchronized int getTotalVotes() {
 		int total = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			total += getTotal(voteSite);
 		}
 		return total;
@@ -403,7 +403,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	@SuppressWarnings("deprecation")
 	public synchronized int getTotalVotesToday() {
 		int total = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			Date date = new Date(getTime(voteSite));
 			if (date.getDate() == new Date().getDate()) {
 				total++;
@@ -430,7 +430,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public synchronized long getVoteTimeLast() {
 		ArrayList<Long> times = new ArrayList<Long>();
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			times.add(getTime(voteSite));
 		}
 		Long last = Collections.max(times);
@@ -562,7 +562,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Off vote.
 	 */
 	public synchronized void offVote() {
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		ArrayList<String> offlineVotes = new ArrayList<String>();
 
@@ -941,7 +941,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public synchronized void resetMonthlyTotalVotes() {
-		for (VoteSite site : plugin.voteSites) {
+		for (VoteSite site : plugin.getVoteSites()) {
 			setTotal(site, 0);
 		}
 	}

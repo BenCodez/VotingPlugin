@@ -386,14 +386,14 @@ public class Commands {
 
 		for (String uuid : uuids) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
-			for (VoteSite voteSite : plugin.voteSites) {
+			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+			for (VoteSite voteSite : plugin.getVoteSites()) {
 				long time = user.getTime(voteSite);
 				if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
 						&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
 						&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
-					times.put(voteSite, new Date(time));
+					times.put(voteSite, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
 
 				}
 			}
@@ -423,7 +423,7 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -463,7 +463,7 @@ public class Commands {
 	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -497,7 +497,7 @@ public class Commands {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
-		LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+		LocalDateTime date = LocalDateTime.now();
 
 		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
 		if (votedelay == 0) {
@@ -513,9 +513,8 @@ public class Commands {
 			} else {
 				Duration dur = Duration.between(date, nextvote);
 
-				
 				long diffHours = dur.getSeconds() / (60 * 60);
-				long diffMinutes = dur.getSeconds() / 60 - diffHours*60;
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
 				String timeMsg = config.getFormatCommandsVoteNextInfoTime();
 				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
@@ -543,7 +542,7 @@ public class Commands {
 	 */
 	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -575,7 +574,7 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
 
@@ -659,7 +658,7 @@ public class Commands {
 	 */
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		List<String> title = config.getFormatCommandsVoteText();
 		if (title != null) {

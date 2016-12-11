@@ -486,7 +486,7 @@ public class CommandLoader {
 									public void onClick(ClickEvent clickEvent) {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
-										for (VoteSite voteSite : plugin.voteSites) {
+										for (VoteSite voteSite : plugin.getVoteSites()) {
 											voteSites.add(voteSite.getSiteName());
 										}
 										new ValueRequest().requestString(player, "",
@@ -606,7 +606,7 @@ public class CommandLoader {
 									public void onClick(ClickEvent clickEvent) {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
-										for (VoteSite voteSite : plugin.voteSites) {
+										for (VoteSite voteSite : plugin.getVoteSites()) {
 											voteSites.add(voteSite.getSiteName());
 										}
 										new ValueRequest().requestString(player, "",
@@ -661,7 +661,7 @@ public class CommandLoader {
 	 */
 	public void loadTabComplete() {
 		ArrayList<String> sites = new ArrayList<String>();
-		for (VoteSite site : plugin.voteSites) {
+		for (VoteSite site : plugin.getVoteSites()) {
 			sites.add(site.getSiteName());
 		}
 

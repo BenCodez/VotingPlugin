@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -80,10 +81,14 @@ public class Main extends JavaPlugin {
 	public ArrayList<CommandHandler> adminVoteCommand;
 
 	/** The vote sites. */
-	public ArrayList<VoteSite> voteSites;
+	private ArrayList<VoteSite> voteSites;
+
+	public synchronized ArrayList<VoteSite> getVoteSites() {
+		return voteSites;
+	}
 
 	/** The vote today. */
-	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
+	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -381,7 +386,7 @@ public class Main extends JavaPlugin {
 		topVoterMonthly = new HashMap<User, Integer>();
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
-		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
+		voteToday = new HashMap<User, HashMap<VoteSite, LocalDateTime>>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 

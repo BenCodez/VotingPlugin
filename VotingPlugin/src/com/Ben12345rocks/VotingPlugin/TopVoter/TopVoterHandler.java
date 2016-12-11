@@ -229,7 +229,7 @@ public class TopVoterHandler implements Listener {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotalVotes() != 0 && blackList.contains(user.getPlayerName())) {
+			if (user.getTotalVotes() != 0 && !blackList.contains(user.getPlayerName())) {
 				users.add(user);
 			}
 		}
@@ -254,7 +254,7 @@ public class TopVoterHandler implements Listener {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotalWeeklyAll() != 0 && blackList.contains(user.getPlayerName())) {
+			if (user.getTotalWeeklyAll() != 0 && !blackList.contains(user.getPlayerName())) {
 				users.add(user);
 			}
 		}
@@ -279,7 +279,7 @@ public class TopVoterHandler implements Listener {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotalDailyAll() != 0 && blackList.contains(user.getPlayerName())) {
+			if (user.getTotalDailyAll() != 0 && !blackList.contains(user.getPlayerName())) {
 				users.add(user);
 			}
 		}
@@ -307,16 +307,21 @@ public class TopVoterHandler implements Listener {
 		}
 
 		plugin.topVoterWeekly.clear();
-		ArrayList<User> weeklyTopVoters = getWeeklyTopVotersSorted();
+		if (Config.getInstance().getWeeklyAwardsEnabled()) {
+			ArrayList<User> weeklyTopVoters = getWeeklyTopVotersSorted();
 
-		for (User user : weeklyTopVoters) {
-			plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
+			for (User user : weeklyTopVoters) {
+				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
+			}
+
 		}
 
 		plugin.topVoterDaily.clear();
-		ArrayList<User> dailyTopVoters = getDailyTopVotersSorted();
-		for (User user : dailyTopVoters) {
-			plugin.topVoterDaily.put(user, user.getTotalDailyAll());
+		if (Config.getInstance().getDailyAwardsEnabled()) {
+			ArrayList<User> dailyTopVoters = getDailyTopVotersSorted();
+			for (User user : dailyTopVoters) {
+				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
+			}
 		}
 
 		plugin.debug("Updated TopVoter");
