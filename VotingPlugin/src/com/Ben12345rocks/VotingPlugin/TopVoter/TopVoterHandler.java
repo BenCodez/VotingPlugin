@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -234,17 +236,6 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 
-		Collections.sort(users, new Comparator<User>() {
-
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalVotes();
-				int p2Total = p2.getTotalVotes();
-
-				return Integer.compare(p1Total, p2Total);
-			}
-		});
-
 		return users;
 	}
 
@@ -259,18 +250,42 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 
-		Collections.sort(users, new Comparator<User>() {
+		return users;
+	}
 
+	/**
+	 * Sort by values.
+	 *
+	 * @param unsortMap
+	 *            the unsort map
+	 * @param order
+	 *            the order, false for high to low
+	 * @return the hash map
+	 */
+	public HashMap<User, Integer> sortByValues(HashMap<User, Integer> unsortMap, final boolean order) {
+
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
 			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalWeeklyAll();
-				int p2Total = p2.getTotalWeeklyAll();
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
+				if (order) {
+					return o1.getValue().compareTo(o2.getValue());
+				} else {
+					return o2.getValue().compareTo(o1.getValue());
 
-				return Integer.compare(p1Total, p2Total);
+				}
 			}
 		});
 
-		return users;
+		// Maintaining insertion order with the help of LinkedList
+		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
 	}
 
 	public ArrayList<User> getDailyTopVotersSorted() {
@@ -283,18 +298,6 @@ public class TopVoterHandler implements Listener {
 				users.add(user);
 			}
 		}
-
-		Collections.sort(users, new Comparator<User>() {
-
-			@Override
-			public int compare(User p1, User p2) {
-				int p1Total = p1.getTotalDailyAll();
-				int p2Total = p2.getTotalDailyAll();
-
-				return Integer.compare(p1Total, p2Total);
-			}
-		});
-
 		return users;
 	}
 
@@ -305,6 +308,7 @@ public class TopVoterHandler implements Listener {
 		for (User user : monthlyTopVoters) {
 			plugin.topVoterMonthly.put(user, user.getTotalVotes());
 		}
+		plugin.topVoterMonthly = sortByValues(plugin.topVoterMonthly, false);
 
 		plugin.topVoterWeekly.clear();
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
@@ -314,6 +318,8 @@ public class TopVoterHandler implements Listener {
 				plugin.topVoterWeekly.put(user, user.getTotalWeeklyAll());
 			}
 
+			plugin.topVoterWeekly = sortByValues(plugin.topVoterWeekly, false);
+
 		}
 
 		plugin.topVoterDaily.clear();
@@ -322,6 +328,7 @@ public class TopVoterHandler implements Listener {
 			for (User user : dailyTopVoters) {
 				plugin.topVoterDaily.put(user, user.getTotalDailyAll());
 			}
+			plugin.topVoterDaily = sortByValues(plugin.topVoterDaily, false);
 		}
 
 		plugin.debug("Updated TopVoter");
