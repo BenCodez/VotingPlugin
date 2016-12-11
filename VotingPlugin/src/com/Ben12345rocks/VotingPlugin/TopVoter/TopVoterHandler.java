@@ -25,7 +25,6 @@ import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class TopVoterHandler implements Listener {
@@ -60,18 +59,6 @@ public class TopVoterHandler implements Listener {
 
 			@Override
 			public void run() {
-				for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
-					User user = entry.getKey();
-					int votes = entry.getValue();
-					if (OtherVoteReward.getInstance().checkMinVotes(user, votes)) {
-						if (user.isOnline()) {
-							OtherVoteReward.getInstance().giveMinVotesReward(user, true);
-						} else {
-							user.setOfflineMinVote(user.getOfflineMinVotes() + 1);
-						}
-					}
-
-				}
 				if (Config.getInstance().getStoreTopVotersDaily()) {
 					plugin.debug("Storing TopVoters Daily");
 					storeDailyTopVoters();
@@ -394,7 +381,7 @@ public class TopVoterHandler implements Listener {
 	 * @return the string[]
 	 */
 
-	public String[] getCTopVotersWeekly() {
+	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
 				.convertSet(plugin.topVoterWeekly.keySet());

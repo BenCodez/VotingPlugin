@@ -12,7 +12,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
@@ -92,8 +91,8 @@ public class VotiferEvent implements Listener {
 
 				// add to total votes
 				user.addTotal(voteSite);
-				user.addTotalDaily(voteSite);
-				user.addTotalWeekly(voteSite);
+				user.addTotalDaily();
+				user.addTotalWeekly();
 				user.addPoints();
 
 				user.setReminded(false);
@@ -128,7 +127,7 @@ public class VotiferEvent implements Listener {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
 									if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-										int offlineVote = Data.getInstance().getCumulativeVotesOffline(user,
+										int offlineVote = user.getCumulativeVotesOffline(
 												votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance().giveCumulativeVoteReward(user, true,
@@ -136,7 +135,7 @@ public class VotiferEvent implements Listener {
 
 										}
 										if (offlineVote != 0) {
-											Data.getInstance().setCumuatliveVotesOffline(user, votesRequired, 0);
+											user.setCumuatliveVotesOffline( votesRequired, 0);
 										}
 									}
 								}
@@ -153,15 +152,12 @@ public class VotiferEvent implements Listener {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
 									if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-										int offlineVote = user.getOfflineMilestoneVotes(votesRequired);
+										int offlineVote = user.getAllTimeTotal();
 
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance().giveMilestoneVoteReward(user, true,
 													votesRequired);
 
-										}
-										if (offlineVote != 0) {
-											user.setOfflineMilestoneVotes(votesRequired, 0);
 										}
 									}
 								}
@@ -172,12 +168,12 @@ public class VotiferEvent implements Listener {
 					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
-						Data.getInstance().setFirstVoteOffline(user, Data.getInstance().getFirstVoteOffline(user) + 1);
+						user.setFirstVoteOffline(user.getFirstVoteOffline() + 1);
 						plugin.debug("Offline first vote reward set for " + playerName);
 					}
 
 					if (allSites) {
-						Data.getInstance().setAllSitesOffline(user, Data.getInstance().getAllSitesOffline(user) + 1);
+						user.setAllSitesOffline(user.getAllSitesOffline() + 1);
 						plugin.debug("Offline bonus reward set for " + playerName);
 					}
 
@@ -196,7 +192,7 @@ public class VotiferEvent implements Listener {
 					plugin.debug("Offline vote set for " + playerName + " on " + voteSiteName);
 
 				}
-
+				
 				plugin.update();
 			}
 		});

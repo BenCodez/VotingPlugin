@@ -76,16 +76,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the time zone.
-	 *
-	 * @return the time zone
-	 */
-	public String getTimeZone() {
-		return getData().getString("TimeZone", "UTC");
-
-	}
-
-	/**
 	 * Gets the debug info ingame.
 	 *
 	 * @return the debug info ingame
@@ -789,34 +779,6 @@ public class Config extends YMLFile {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
-	}
-
-	/**
-	 * Gets the min votes enabled.
-	 *
-	 * @return the min votes enabled
-	 */
-	public boolean getMinVotesEnabled() {
-		return getData().getBoolean("MinVotes.Enabled");
-	}
-
-	/**
-	 * Gets the min votes rewards.
-	 *
-	 * @return the min votes rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMinVotesRewards() {
-		return (ArrayList<String>) getData().getList("MinVotes.Rewards", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the min votes votes.
-	 *
-	 * @return the min votes votes
-	 */
-	public int getMinVotesVotes() {
-		return getData().getInt("MinVotes.Votes");
 	}
 
 	/**

@@ -28,13 +28,3 @@ VoteSites:
     # List of reward files to give to voter
     Rewards:
     - 'ExampleReward'
-          
-    # This is not needed
-    # Rewards to give once certain number of votes reached for this vote site
-    # Rewards work similar to above
-    Cumulative:
-      # Number of votes required to give this reward
-      Votes: 20
-      # List of reward files to give on cumulativereward
-      Rewards:
-      - 'ExampleReward'

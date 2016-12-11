@@ -159,8 +159,6 @@ public class AdminGUI {
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
 			lore.add("Rewards: " + ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
-			lore.add("CumulativeVotes: " + voteSite.getCumulativeVotes());
-			lore.add("CumulativeRewards: " + ArrayUtils.getInstance().makeStringList(voteSite.getCumulativeRewards()));
 
 			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {

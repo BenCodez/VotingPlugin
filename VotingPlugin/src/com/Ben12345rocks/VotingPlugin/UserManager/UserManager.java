@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.UserManager;
 
-import java.util.HashMap;
-
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -29,35 +27,20 @@ public class UserManager extends com.Ben12345rocks.AdvancedCore.UserManager.User
 		super();
 	}
 
-	private HashMap<String, User> users = new HashMap<String, User>();
-
-	public User getVotingPluginUser(OfflinePlayer player) {
+	public synchronized User getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public User getVotingPluginUser(Player player) {
+	public synchronized User getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public User getVotingPluginUser(String playerName) {
+	public synchronized User getVotingPluginUser(String playerName) {
 		return getVotingPluginUser(new UUID(PlayerUtils.getInstance().getUUID(playerName)));
 	}
 
 	@SuppressWarnings("deprecation")
-	public User getVotingPluginUser(UUID uuid) {
-		if (users.containsKey(uuid.getUUID())) {
-			return users.get(uuid.getUUID());
-		}
-		User user = new User(uuid);
-		user.setPlayerName();
-		users.put(uuid.getUUID(), user);
-		return user;
+	public synchronized User getVotingPluginUser(UUID uuid) {
+		return new User(uuid);
 	}
-
-	public void reload() {
-		for (User user : users.values()) {
-			user.reloadData();
-		}
-	}
-
 }

@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -54,6 +55,11 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteGUI(Player player, User user) {
+		if (!player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
+				&& !player.hasPermission("VotingPlugin.Mod")) {
+			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
+			return;
+		}
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteGUI: " + user.getPlayerName());
 
@@ -148,7 +154,7 @@ public class PlayerGUIs {
 		int pos = 0;
 		for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 			pos++;
-			inv.addButton(inv.getNextSlot(), new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
+			inv.addButton(new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
 					new String[] { "Votes: " + entry.getValue() }, MiscUtils.getInstance().setSkullOwner(
 
 							entry.getKey().getPlayerName())) {
@@ -330,8 +336,7 @@ public class PlayerGUIs {
 			}
 		} else {
 			for (String itemName : Config.getInstance().getVoteSiteItems(siteName)) {
-				ItemBuilder builder = new ItemBuilder(
-						Config.getInstance().getVoteSiteItemsSection(siteName, itemName));
+				ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteSiteItemsSection(siteName, itemName));
 
 				inv.addButton(Config.getInstance().getVoteSiteItemsSlot(siteName, itemName),
 						new BInventoryButton(builder) {

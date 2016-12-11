@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Util.Updater;
 
 import org.bukkit.Bukkit;
 
-import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
 
@@ -51,22 +50,16 @@ public class CheckUpdate {
 		final Updater.UpdateResult result = plugin.updater.getResult();
 		switch (result) {
 		case FAIL_SPIGOT: {
-			plugin.getLogger().info(
-					"Failed to check for update for " + plugin.getName() + "!");
+			plugin.getLogger().info("Failed to check for update for " + plugin.getName() + "!");
 			break;
 		}
 		case NO_UPDATE: {
-			plugin.getLogger().info(
-					plugin.getName() + " is up to date! Version: "
-							+ plugin.updater.getVersion());
+			plugin.getLogger().info(plugin.getName() + " is up to date! Version: " + plugin.updater.getVersion());
 			break;
 		}
 		case UPDATE_AVAILABLE: {
-			plugin.getLogger().info(
-					plugin.getName()
-							+ " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion()
-							+ " New Version: " + plugin.updater.getVersion());
+			plugin.getLogger().info(plugin.getName() + " has an update available! Your Version: "
+					+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion());
 			break;
 		}
 		default: {
@@ -79,20 +72,13 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
-		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin,
-				new Runnable() {
+		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
-					@Override
-					public void run() {
-						Thread.getInstance().run(new Runnable() {
-
-							@Override
-							public void run() {
-								checkUpdate();
-							}
-						});
-					}
-				}, 10l);
+			@Override
+			public void run() {
+				checkUpdate();
+			}
+		}, 10l);
 	}
 
 }

@@ -12,6 +12,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -271,17 +272,6 @@ public class Main extends JavaPlugin {
 				}
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_minvotes") {
-
-			@Override
-			public String getValue() {
-				if (!Config.getInstance().getMinVotesEnabled()) {
-					return "False";
-				} else {
-					return "True";
-				}
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward") {
 
 			@Override
@@ -328,6 +318,13 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getBroadCastVotesEnabled();
 			}
 		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofdatafiles") {
+
+			@Override
+			public String getValue() {
+				return "" + Data.getInstance().getFiles().size();
+			}
+		});
 	}
 
 	/*
@@ -350,7 +347,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setTimeZone(Config.getInstance().getTimeZone());
 	}
 
 	/*
@@ -468,7 +464,6 @@ public class Main extends JavaPlugin {
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
-		UserManager.getInstance().reload();
 	}
 
 	/**
@@ -491,6 +486,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public void run() {
+				plugin.debug("Starting background task");
 				try {
 					TopVoterHandler.getInstance().updateTopVoters();
 					Commands.getInstance().updateVoteToday();

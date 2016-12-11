@@ -16,13 +16,10 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
-import com.vexsoftware.votifier.model.Vote;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -172,7 +169,6 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
 		for (CommandHandler commandHandler : plugin.adminVoteCommand) {
 			if (commandHandler.runCommand(sender, args)) {
 				return true;
@@ -339,7 +335,7 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void setTotal(CommandSender sender, String playerName, String voteSite, int amount) {
 
-		Data.getInstance().setTotal(UserManager.getInstance().getVotingPluginUser(playerName), voteSite, amount);
+		UserManager.getInstance().getVotingPluginUser(playerName).setTotal(plugin.getVoteSite(voteSite), amount);
 		sender.sendMessage(
 				ChatColor.GREEN + playerName + " total votes for " + voteSite + " has been set to " + amount);
 		plugin.update();
@@ -475,13 +471,7 @@ public class CommandAdminVote implements CommandExecutor {
 	 *            the vote site
 	 */
 	public void Vote(CommandSender sender, String playerName, String voteSite) {
-
 		VotiferEvent.playerVote(playerName, voteSite);
-
-		Vote vote = new com.vexsoftware.votifier.model.Vote();
-		vote.setServiceName(new VoteSite(voteSite).getServiceSite());
-		vote.setUsername(playerName);
-
 	}
 
 }

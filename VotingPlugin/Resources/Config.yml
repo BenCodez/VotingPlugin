@@ -24,9 +24,6 @@ LogDebugToFile: false
 RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
-  
-# TimeZone
-TimeZone: 'UTC'
 
 # Broadcast votes
 BroadcastVote: true
@@ -460,13 +457,6 @@ MileStones:
     Rewards:
     - 'MileStone20'
     ResetMonthly: false
-
-# Run a reward file if player is under number of votes in a day
-MinVotes:
-  Enabled: false
-  Votes: 5
-  Rewards:
-  - 'MinVotes'
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
 # IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES

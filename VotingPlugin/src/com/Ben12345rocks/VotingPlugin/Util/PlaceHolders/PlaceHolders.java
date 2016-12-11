@@ -55,8 +55,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerCanVote(Player player) {
-		return Boolean.toString(UserManager.getInstance()
-				.getVotingPluginUser(player).canVoteAll());
+		return Boolean.toString(UserManager.getInstance().getVotingPluginUser(player).canVoteAll());
 
 	}
 
@@ -70,8 +69,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerLastVote(Player player, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
-				.contains(siteName)) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
@@ -90,8 +88,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerNextVote(Player player, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
-				.contains(siteName)) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
@@ -108,8 +105,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerPoints(Player player) {
-		return Integer.toString(UserManager.getInstance()
-				.getVotingPluginUser(player).getPoints());
+		return Integer.toString(UserManager.getInstance().getVotingPluginUser(player).getPoints());
 	}
 
 	/**
@@ -120,8 +116,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerTotalVotes(Player player) {
-		return Integer.toString(UserManager.getInstance()
-				.getVotingPluginUser(player).getTotalVotes());
+		return Integer.toString(UserManager.getInstance().getVotingPluginUser(player).getTotalVotes());
 	}
 
 	/**
@@ -134,14 +129,13 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerTotalVotesSite(Player player, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames()
-				.contains(siteName)) {
+		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		User user = UserManager.getInstance().getVotingPluginUser(player);
-		return Integer.toString(user.getTotalVotesSite(voteSite));
+		return Integer.toString(user.getTotal(voteSite));
 	}
 
 	/**
