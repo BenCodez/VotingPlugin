@@ -196,12 +196,13 @@ public class ConfigVoteSites extends YMLFile {
 	 *
 	 * @return the vote sites
 	 */
+	@Deprecated
 	public ArrayList<VoteSite> getVoteSites() {
-		if (plugin.voteSites != null) {
-			return plugin.voteSites;
+		if (plugin.getVoteSites() != null) {
+			return plugin.getVoteSites();
 		} else {
 			plugin.loadVoteSites();
-			return plugin.voteSites;
+			return plugin.getVoteSites();
 		}
 	}
 

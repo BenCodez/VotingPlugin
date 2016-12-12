@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -77,16 +76,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the time zone.
-	 *
-	 * @return the time zone
-	 */
-	public String getTimeZone() {
-		return getData().getString("TimeZone", "UTC");
-
-	}
-
-	/**
 	 * Gets the debug info ingame.
 	 *
 	 * @return the debug info ingame
@@ -110,14 +99,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote help line
 	 */
 	public String getFormatCommandsVoteHelpLine() {
-
-		String str = getData().getString("Format.Commands.Vote.Help.Line");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&l%Command% - &3%HelpMessage%";
-		}
-
+		return getData().getString("Format.Commands.Vote.Help.Line", "&3&l%Command% - &3%HelpMessage%");
 	}
 
 	/**
@@ -135,12 +117,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote help title
 	 */
 	public String getFormatCommandsVoteHelpTitle() {
-		String str = getData().getString("Format.Commands.Vote.Help.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "Voting Player Help";
-		}
+		return getData().getString("Format.Commands.Vote.Help.Title", "Voting Player Help");
 
 	}
 
@@ -150,12 +127,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote last line
 	 */
 	public String getFormatCommandsVoteLastLine() {
-		String str = getData().getString("Format.Commands.Vote.Last.Line");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3%SiteName%: &6%time%";
-		}
+		return getData().getString("Format.Commands.Vote.Last.Line", "&3%SiteName%: &6%time%");
 	}
 
 	/**
@@ -164,12 +136,8 @@ public class Config extends YMLFile {
 	 * @return the commands vote last title
 	 */
 	public String getFormatCommandsVoteLastTitle() {
-		String str = getData().getString("Format.Commands.Vote.Last.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&l%player% Last Vote Times:";
-		}
+		return getData().getString("Format.Commands.Vote.Last.Title", "&3&l%player% Last Vote Times:");
+
 	}
 
 	/**
@@ -178,12 +146,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote next info can vote
 	 */
 	public String getFormatCommandsVoteNextInfoCanVote() {
-		String str = getData().getString("Format.Commands.Vote.Next.Info.CanVote");
-		if (str != null) {
-			return str;
-		} else {
-			return "Go Vote!";
-		}
+		return getData().getString("Format.Commands.Vote.Next.Info.CanVote", "Go Vote!");
 	}
 
 	/**
@@ -192,12 +155,8 @@ public class Config extends YMLFile {
 	 * @return the commands vote next info error
 	 */
 	public String getFormatCommandsVoteNextInfoError() {
-		String str = getData().getString("Format.Commands.Vote.Next.Info.Error");
-		if (str != null) {
-			return str;
-		} else {
-			return "";
-		}
+		return getData().getString("Format.Commands.Vote.Next.Info.Error", "");
+
 	}
 
 	/**
@@ -206,12 +165,9 @@ public class Config extends YMLFile {
 	 * @return the commands vote next info time
 	 */
 	public String getFormatCommandsVoteNextInfoTime() {
-		String str = getData().getString("Format.Commands.Vote.Next.Info.TimeUntilVote");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cCould not caculate time until next vote!";
-		}
+		return getData().getString("Format.Commands.Vote.Next.Info.TimeUntilVote",
+				"&cCould not caculate time until next vote!");
+
 	}
 
 	/**
@@ -220,12 +176,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote next layout
 	 */
 	public String getFormatCommandsVoteNextLayout() {
-		String str = getData().getString("Format.Commands.Vote.Next.Layout");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3%SiteName%: &6%info%";
-		}
+		return getData().getString("Format.Commands.Vote.Next.Layout", "&3%SiteName%: &6%info%");
 	}
 
 	/**
@@ -234,12 +185,8 @@ public class Config extends YMLFile {
 	 * @return the commands vote next title
 	 */
 	public String getFormatCommandsVoteNextTitle() {
-		String str = getData().getString("Format.Commands.Vote.Next.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&l%player% Next Votes:";
-		}
+		return getData().getString("Format.Commands.Vote.Next.Title", "&3&l%player% Next Votes:");
+
 	}
 
 	/**
@@ -249,19 +196,10 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteParty() {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Party");
-			if (list != null) {
-				return list;
-			}
-			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
-			return msg;
-		} catch (Exception ex) {
-			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
-			return msg;
-		}
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Party", msg);
+
 	}
 
 	/**
@@ -270,22 +208,10 @@ public class Config extends YMLFile {
 	 * @return the commands vote text
 	 */
 	@SuppressWarnings("unchecked")
-	public List<String> getFormatCommandsVoteText() {
-		List<String> str;
-		try {
-			str = (List<String>) getData().getList("Format.Commands.Vote.Text");
-			if (str != null) {
-				return str;
-			} else {
-				str = new ArrayList<String>();
-				str.add("&4&lVote for our server!");
-				return str;
-			}
-		} catch (Exception ex) {
-			str = new ArrayList<String>();
-			str.add("&4&lVote for our server!");
-			return str;
-		}
+	public ArrayList<String> getFormatCommandsVoteText() {
+		ArrayList<String> str = new ArrayList<String>();
+		str.add("&4&lVote for our server!");
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
 	}
 
 	/**
@@ -294,12 +220,8 @@ public class Config extends YMLFile {
 	 * @return the commands vote total all line
 	 */
 	public String getFormatCommandsVoteTotalAllLine() {
-		String str = getData().getString("Format.Commands.Vote.TotalAll.Line");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3%SiteName% &6%Total%";
-		}
+		return getData().getString("Format.Commands.Vote.TotalAll.Line", "&3%SiteName% &6%Total%");
+
 	}
 
 	/**
@@ -308,12 +230,8 @@ public class Config extends YMLFile {
 	 * @return the commands vote total all title
 	 */
 	public String getFormatCommandsVoteTotalAllTitle() {
-		String str = getData().getString("Format.Commands.Vote.TotalAll.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&lAll Votes Total:";
-		}
+		return getData().getString("Format.Commands.Vote.TotalAll.Title", "&3&lAll Votes Total:");
+
 	}
 
 	/**
@@ -322,12 +240,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote total all total
 	 */
 	public String getFormatCommandsVoteTotalAllTotal() {
-		String str = getData().getString("Format.Commands.Vote.TotalAll.Total");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&lTotal: &6&l%Totals%";
-		}
+		return getData().getString("Format.Commands.Vote.TotalAll.Total", "&3&lTotal: &6&l%Totals%");
 	}
 
 	/**
@@ -336,12 +249,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote total line
 	 */
 	public String getFormatCommandsVoteTotalLine() {
-		String str = getData().getString("Format.Commands.Vote.Total.Line");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3%SiteName%: &6%Total%";
-		}
+		return getData().getString("Format.Commands.Vote.Total.Line", "&3%SiteName%: &6%Total%");
 	}
 
 	/**
@@ -350,12 +258,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote total title
 	 */
 	public String getFormatCommandsVoteTotalTitle() {
-		String str = getData().getString("Format.Commands.Vote.Total.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&l%player% Total Votes:";
-		}
+		return getData().getString("Format.Commands.Vote.Total.Title", "&3&l%player% Total Votes:");
 	}
 
 	/**
@@ -364,12 +267,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote total total
 	 */
 	public String getFormatCommandsVoteTotalTotal() {
-		String str = getData().getString("Format.Commands.Vote.Total.Total");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3&lTotal: &6&l%Totals%";
-		}
+		return getData().getString("Format.Commands.Vote.Total.Total", "&3&lTotal: &6&l%Totals%");
 	}
 
 	/**
@@ -378,12 +276,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote URLS
 	 */
 	public String getFormatCommandsVoteURLS() {
-		String str = getData().getString("Format.Commands.Vote.Sites");
-		if (str != null) {
-			return str;
-		} else {
-			return "&4%num%: &c&l%SiteName% - &c%url%";
-		}
+		return getData().getString("Format.Commands.Vote.Sites", "&4%num%: &c&l%SiteName% - &c%url%");
 	}
 
 	/**
@@ -392,12 +285,8 @@ public class Config extends YMLFile {
 	 * @return the command vote points
 	 */
 	public String getFormatCommandVotePoints() {
-		String str = getData().getString("Format.Commands.Vote.Points");
-		if (str != null) {
-			return str;
-		} else {
-			return "&a%Player% currently has &a&l%Points%&a Points!";
-		}
+		return getData().getString("Format.Commands.Vote.Points", "&a%Player% currently has &a&l%Points%&a Points!");
+
 	}
 
 	/**
@@ -406,12 +295,7 @@ public class Config extends YMLFile {
 	 * @return the command vote top line
 	 */
 	public String getFormatCommandVoteTopLine() {
-		String str = getData().getString("Format.Commands.Vote.Top.Line");
-		if (str != null) {
-			return str;
-		} else {
-			return "&c%num%: &6%player%, %votes%";
-		}
+		return getData().getString("Format.Commands.Vote.Top.Line", "&c%num%: &6%player%, %votes%");
 	}
 
 	/**
@@ -420,12 +304,8 @@ public class Config extends YMLFile {
 	 * @return the command vote top title
 	 */
 	public String getFormatCommandVoteTopTitle() {
-		String str = getData().getString("Format.Commands.Vote.Top.Title");
-		if (str != null) {
-			return str;
-		} else {
-			return "&3Top Voters %page%/%maxpages%";
-		}
+		return getData().getString("Format.Commands.Vote.Top.Title", "&3Top Voters %page%/%maxpages%");
+
 	}
 
 	/**
@@ -434,12 +314,9 @@ public class Config extends YMLFile {
 	 * @return the broad cast msg
 	 */
 	public String getFormatBroadCastMsg() {
-		String str = getData().getString("Format.BroadcastMsg");
-		if (str != null) {
-			return str;
-		} else {
-			return "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%";
-		}
+		return getData().getString("Format.BroadcastMsg",
+				"&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%");
+
 	}
 
 	/**
@@ -469,25 +346,6 @@ public class Config extends YMLFile {
 		return getData().getString("Format.NoPerms", "&cYou do not have enough permission!");
 	}
 
-	/**
-	 * Gets the login msg.
-	 *
-	 * @return the login msg
-	 */
-	public String getFormatLoginMsg() {
-		String str = getData().getString("Format.LoginMsg");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cRemember to vote!";
-		}
-	}
-
-	/**
-	 * Gets the format not number.
-	 *
-	 * @return the format not number
-	 */
 	public String getFormatNotNumber() {
 		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
@@ -509,9 +367,7 @@ public class Config extends YMLFile {
 	}
 
 	public String getFormatShopPurchaseMsg() {
-		String msg = getData().getString("Format.ShopPurchase", "&aYou bought the %Identifier% for %Points% Points!");
-
-		return msg;
+		return getData().getString("Format.ShopPurchase", "&aYou bought the %Identifier% for %Points% Points!");
 
 	}
 
@@ -521,12 +377,8 @@ public class Config extends YMLFile {
 	 * @return the sign top voter sign line 1
 	 */
 	public String getFormatSignTopVoterSignLine1() {
-		String str = getData().getString("Format.Signs.TopVoterSign.Line1");
-		if (str != null) {
-			return str;
-		} else {
-			return "TopVoter: %SiteName%";
-		}
+		return getData().getString("Format.Signs.TopVoterSign.Line1", "TopVoter: %SiteName%");
+
 	}
 
 	/**
@@ -535,12 +387,7 @@ public class Config extends YMLFile {
 	 * @return the sign top voter sign line 2
 	 */
 	public String getFormatSignTopVoterSignLine2() {
-		String str = getData().getString("Format.Signs.TopVoterSign.Line2");
-		if (str != null) {
-			return str;
-		} else {
-			return "#%position%";
-		}
+		return getData().getString("Format.Signs.TopVoterSign.Line2", "#%position%");
 	}
 
 	/**
@@ -549,12 +396,8 @@ public class Config extends YMLFile {
 	 * @return the sign top voter sign line 3
 	 */
 	public String getFormatSignTopVoterSignLine3() {
-		String str = getData().getString("Format.Signs.TopVoterSign.Line3");
-		if (str != null) {
-			return str;
-		} else {
-			return "%player%";
-		}
+		return getData().getString("Format.Signs.TopVoterSign.Line3", "%player%");
+
 	}
 
 	/**
@@ -563,12 +406,8 @@ public class Config extends YMLFile {
 	 * @return the sign top voter sign line 4
 	 */
 	public String getFormatSignTopVoterSignLine4() {
-		String str = getData().getString("Format.Signs.TopVoterSign.Line4");
-		if (str != null) {
-			return str;
-		} else {
-			return "%votes% Votes";
-		}
+		return getData().getString("Format.Signs.TopVoterSign.Line4", "%votes% Votes");
+
 	}
 
 	/**
@@ -577,12 +416,9 @@ public class Config extends YMLFile {
 	 * @return the sign top voter sign right click message
 	 */
 	public String getFormatSignTopVoterSignRightClickMessage() {
-		String str = getData().getString("Format.Signs.RightClickMessage");
-		if (str != null) {
-			return str;
-		} else {
-			return "&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%";
-		}
+		return getData().getString("Format.Signs.RightClickMessage",
+				"&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%");
+
 	}
 
 	/**
@@ -591,11 +427,8 @@ public class Config extends YMLFile {
 	 * @return the time format
 	 */
 	public String getFormatTimeFormat() {
-		String string = getData().getString("Format.TimeFormat");
-		if (string == null) {
-			return "EEE, d MMM yyyy HH:mm";
-		}
-		return string;
+		return getData().getString("Format.TimeFormat", "EEE, d MMM yyyy HH:mm");
+
 	}
 
 	/**
@@ -604,12 +437,9 @@ public class Config extends YMLFile {
 	 * @return the top voter reward msg
 	 */
 	public String getFormatTopVoterRewardMsg() {
-		String msg = getData().getString("Format.TopVoterAwardMsg");
-		if (msg != null) {
-			return msg;
-		} else {
-			return "&aYou came in %place% in top voters of the month! Here is an award!";
-		}
+		return getData().getString("Format.TopVoterAwardMsg",
+				"&aYou came in %place% in top voters of the month! Here is an award!");
+
 	}
 
 	/**
@@ -618,8 +448,8 @@ public class Config extends YMLFile {
 	 * @return the vote help
 	 */
 	@SuppressWarnings("unchecked")
-	public List<String> getFormatVoteHelp() {
-		return (List<String>) getData().getList("Format.Commands.Vote.Help.Lines");
+	public ArrayList<String> getFormatVoteHelp() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
 	}
 
 	public Set<String> getIdentifiers() {
@@ -644,15 +474,8 @@ public class Config extends YMLFile {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getIdentifierRewards(String identifier) {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards");
-			if (list != null) {
-				return list;
-			}
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+		return (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards", new ArrayList<String>());
+
 	}
 
 	public String getIdentifierFromSlot(int slot) {
@@ -689,12 +512,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVoteGUISlotLore(String slot) {
-
-		ArrayList<String> list = (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Lore");
-		if (list != null) {
-			return list;
-		}
-		return new ArrayList<String>();
+		return (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Lore", new ArrayList<String>());
 	}
 
 	/**
@@ -775,12 +593,8 @@ public class Config extends YMLFile {
 	 * @return the vote URL next vote
 	 */
 	public String getVoteURLNextVote() {
-		String str = getData().getString("GUI.VoteURL.NextVote");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cCan Vote In: %Info%";
-		}
+		return getData().getString("GUI.VoteURL.NextVote", "&cCan Vote In: %Info%");
+
 	}
 
 	/**
@@ -789,12 +603,7 @@ public class Config extends YMLFile {
 	 * @return the vote URL see URL
 	 */
 	public String getVoteURLSeeURL() {
-		String str = getData().getString("GUI.VoteURL.SeeURL");
-		if (str != null) {
-			return str;
-		} else {
-			return "&cClick to see URL";
-		}
+		return getData().getString("GUI.VoteURL.SeeURL", "&cClick to see URL");
 	}
 
 	/**
@@ -803,12 +612,7 @@ public class Config extends YMLFile {
 	 * @return the vote URL site name
 	 */
 	public String getVoteURLSiteName() {
-		String str = getData().getString("GUI.VoteURL.SiteName");
-		if (str != null) {
-			return str;
-		} else {
-			return "&c%Name%";
-		}
+		return getData().getString("GUI.VoteURL.SiteName", "&c%Name%");
 	}
 
 	/**
@@ -827,11 +631,9 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getAllSitesReward() {
-		try {
-			return (ArrayList<String>) getData().getList("AllSites");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+
+		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
+
 	}
 
 	/**
@@ -854,16 +656,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(int cumulative) {
-		try {
-			ArrayList<String> list = (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards");
-			if (list != null) {
-				return list;
-			}
-
-			return new ArrayList<String>();
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+		return (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards", new ArrayList<String>());
 	}
 
 	/**
@@ -905,11 +698,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFirstVoteRewards() {
-		try {
-			return (ArrayList<String>) getData().getList("FirstVote");
-		} catch (Exception ex) {
-			return new ArrayList<String>();
-		}
+		return (ArrayList<String>) getData().getList("FirstVote", new ArrayList<String>());
 	}
 
 	/**
@@ -979,34 +768,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the min votes enabled.
-	 *
-	 * @return the min votes enabled
-	 */
-	public boolean getMinVotesEnabled() {
-		return getData().getBoolean("MinVotes.Enabled");
-	}
-
-	/**
-	 * Gets the min votes rewards.
-	 *
-	 * @return the min votes rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMinVotesRewards() {
-		return (ArrayList<String>) getData().getList("MinVotes.Rewards", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the min votes votes.
-	 *
-	 * @return the min votes votes
-	 */
-	public int getMinVotesVotes() {
-		return getData().getInt("MinVotes.Votes");
-	}
-
-	/**
 	 * Gets the vote party enabled.
 	 *
 	 * @return the vote party enabled
@@ -1035,7 +796,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVotePartyRewards() {
-		return (ArrayList<String>) getData().getList("VoteParty.Rewards");
+		return (ArrayList<String>) getData().getList("VoteParty.Rewards", new ArrayList<String>());
 	}
 
 	/**
@@ -1079,8 +840,8 @@ public class Config extends YMLFile {
 	 * @return the black list
 	 */
 	@SuppressWarnings("unchecked")
-	public List<String> getBlackList() {
-		return (List<String>) getData().getList("BlackList");
+	public ArrayList<String> getBlackList() {
+		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
 	}
 
 	/**
@@ -1092,7 +853,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getDailyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("DailyAwards." + pos + ".Rewards");
+		return (ArrayList<String>) getData().getList("DailyAwards." + pos + ".Rewards", new ArrayList<String>());
 	}
 
 	/**
@@ -1113,8 +874,8 @@ public class Config extends YMLFile {
 		try {
 			return getData().getConfigurationSection("DailyAwards").getKeys(false);
 		} catch (Exception ex) {
-			Set<String> noValues = new HashSet<String>();
-			return noValues;
+			return new HashSet<String>();
+
 		}
 	}
 
@@ -1148,8 +909,7 @@ public class Config extends YMLFile {
 		try {
 			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
 		} catch (Exception ex) {
-			Set<String> noValues = new HashSet<String>();
-			return noValues;
+			return new HashSet<String>();
 		}
 	}
 
@@ -1189,7 +949,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getWeeklyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("WeeklyAwards." + pos + ".Rewards");
+		return (ArrayList<String>) getData().getList("WeeklyAwards." + pos + ".Rewards", new ArrayList<String>());
 	}
 
 	/**
@@ -1210,8 +970,7 @@ public class Config extends YMLFile {
 		try {
 			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
 		} catch (Exception ex) {
-			Set<String> noValues = new HashSet<String>();
-			return noValues;
+			return new HashSet<String>();
 		}
 	}
 

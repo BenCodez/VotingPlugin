@@ -43,12 +43,6 @@ public class VoteSite {
 	/** The rewards. */
 	private ArrayList<String> rewards;
 
-	/** The cumulative votes. */
-	private int cumulativeVotes;
-
-	/** The cumulative rewards. */
-	private ArrayList<String> cumulativeRewards;
-
 	/** The priority. */
 	private int priority;
 
@@ -102,24 +96,6 @@ public class VoteSite {
 			}
 		});
 
-	}
-
-	/**
-	 * Gets the cumulative rewards.
-	 *
-	 * @return the cumulative rewards
-	 */
-	public ArrayList<String> getCumulativeRewards() {
-		return cumulativeRewards;
-	}
-
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
-	public int getCumulativeVotes() {
-		return cumulativeVotes;
 	}
 
 	/**
@@ -177,20 +153,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * Give culumative rewards.
-	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
-	 */
-	public void giveCulumativeRewards(User user, boolean online) {
-		for (String reward : getCumulativeRewards()) {
-			RewardHandler.getInstance().giveReward(user, reward, online);
-		}
-	}
-
-	/**
 	 * Give rewards.
 	 *
 	 * @param user
@@ -216,24 +178,6 @@ public class VoteSite {
 	 */
 	public void giveSiteReward(User user, boolean online) {
 		giveRewards(user, online);
-
-		try {
-
-			user.addCumulativeReward(this);
-
-			if (configVoteSites.getCumulativeRewardVotesAmount(siteName) != 0) {
-				user.addCumulativeReward(this);
-				if ((user.getCumulativeReward(this) >= configVoteSites.getCumulativeRewardVotesAmount(siteName))) {
-
-					giveCulumativeRewards(user, online);
-
-					user.setCumulativeReward(this, 0);
-				}
-			}
-
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
 	}
 
 	/**
@@ -245,8 +189,6 @@ public class VoteSite {
 		setVoteDelay(configVoteSites.getVoteDelay(siteName));
 		setEnabled(configVoteSites.getVoteSiteEnabled(siteName));
 		setRewards(configVoteSites.getRewards(siteName));
-		setCumulativeVotes(configVoteSites.getCumulativeRewardVotesAmount(siteName));
-		setCumulativeRewards(configVoteSites.getCumulativeRewards(siteName));
 		setPriority(configVoteSites.getPriority(siteName));
 	}
 
@@ -257,26 +199,6 @@ public class VoteSite {
 	 */
 	public boolean isEnabled() {
 		return enabled;
-	}
-
-	/**
-	 * Sets the cumulative rewards.
-	 *
-	 * @param cumulativeRewards
-	 *            the new cumulative rewards
-	 */
-	public void setCumulativeRewards(ArrayList<String> cumulativeRewards) {
-		this.cumulativeRewards = cumulativeRewards;
-	}
-
-	/**
-	 * Sets the cumulative votes.
-	 *
-	 * @param cumulativeVotes
-	 *            the new cumulative votes
-	 */
-	public void setCumulativeVotes(int cumulativeVotes) {
-		this.cumulativeVotes = cumulativeVotes;
 	}
 
 	/**

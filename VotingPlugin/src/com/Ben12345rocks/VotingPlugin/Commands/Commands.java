@@ -1,19 +1,24 @@
 package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -21,10 +26,8 @@ import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Data.Data;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import net.md_5.bungee.api.chat.TextComponent;
@@ -226,10 +229,11 @@ public class Commands {
 	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersDaily());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterDaily.keySet());
 
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
+		int pageSize = (users.size() / pagesize);
+		if ((users.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
@@ -238,9 +242,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterDaily.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(), plugin.topVoterDaily.get(users.get(i)));
 		}
 		scoreboard.build();
@@ -267,10 +269,11 @@ public class Commands {
 	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVoters());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterMonthly.keySet());
 
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
+		int pageSize = (users.size() / pagesize);
+		if ((users.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
@@ -279,9 +282,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterMonthly.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 					plugin.topVoterMonthly.get(users.get(i)));
 		}
@@ -309,10 +310,11 @@ public class Commands {
 	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<String> topVoters = ArrayUtils.getInstance().convert(TopVoter.getInstance().topVotersWeekly());
+		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
+				.convertSet(plugin.topVoterWeekly.keySet());
 
-		int pageSize = (topVoters.size() / pagesize);
-		if ((topVoters.size() % pagesize) != 0) {
+		int pageSize = (users.size() / pagesize);
+		if ((users.size() % pagesize) != 0) {
 			pageSize++;
 		}
 
@@ -321,9 +323,7 @@ public class Commands {
 
 		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
 
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterWeekly.keySet());
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(), plugin.topVoterWeekly.get(users.get(i)));
 		}
 		scoreboard.build();
@@ -380,29 +380,28 @@ public class Commands {
 	/**
 	 * Update vote today.
 	 */
-	@SuppressWarnings({ "deprecation" })
 	public void updateVoteToday() {
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(Data.getInstance().getUsers());
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+
 		plugin.voteToday.clear();
 
-		if (users != null) {
-			for (User user : users) {
-				HashMap<VoteSite, Date> times = new HashMap<VoteSite, Date>();
-				for (VoteSite voteSite : configVoteSites.getVoteSites()) {
-					long time = user.getTime(voteSite);
-					if ((new Date().getDate() == MiscUtils.getInstance().getDayFromMili(time))
-							&& (new Date().getMonth() == MiscUtils.getInstance().getMonthFromMili(time))
-							&& (new Date().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
+		for (String uuid : uuids) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+			for (VoteSite voteSite : plugin.getVoteSites()) {
+				long time = user.getTime(voteSite);
+				if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
+						&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
+						&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
-						times.put(voteSite, new Date(time));
+					times.put(voteSite, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
 
-					}
-				}
-				if (times.keySet().size() > 0) {
-					plugin.voteToday.put(user, times);
 				}
 			}
+			if (times.keySet().size() > 0) {
+				plugin.voteToday.put(user, times);
+			}
+
 		}
 		plugin.debug("Updated VoteToday");
 	}
@@ -425,7 +424,7 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -465,7 +464,7 @@ public class Commands {
 	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -495,17 +494,11 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
-	@SuppressWarnings("deprecation")
 	public String voteCommandNextInfo(User user, VoteSite voteSite) {
 		String info = new String();
 
-		Date date = new Date(user.getTime(voteSite));
-
-		int month = date.getMonth();
-		int day = date.getDate();
-		int hour = date.getHours();
-		int min = date.getMinutes();
-		int year = date.getYear();
+		long time = user.getTime(voteSite);
+		LocalDateTime date = LocalDateTime.now();
 
 		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
 		if (votedelay == 0) {
@@ -513,37 +506,22 @@ public class Commands {
 			info = errorMsg;
 		} else {
 
-			Date voteTime = new Date(year, month, day, hour, min);
-			Date nextvote = DateUtils.addHours(voteTime, votedelay);
+			LocalDateTime nextvote = date.plusHours(votedelay);
 
-			int cday = new Date().getDate();
-			int cmonth = new Date().getMonth();
-			int chour = new Date().getHours();
-			int cmin = new Date().getMinutes();
-			int cyear = new Date().getYear();
-			Date currentDate = new Date(cyear, cmonth, cday, chour, cmin);
-
-			if ((nextvote == null) || (day == 0) || (hour == 0)) {
+			if (time == 0 || date.isAfter(nextvote)) {
 				String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
 				info = canVoteMsg;
 			} else {
-				if (!currentDate.after(nextvote)) {
-					long diff = nextvote.getTime() - currentDate.getTime();
+				Duration dur = Duration.between(date, nextvote);
 
-					// long diffSeconds = (diff / 1000) % 60;
-					long diffMinutes = (diff / (60 * 1000)) % 60;
-					long diffHours = diff / (60 * 60 * 1000);
-					// long diffDays = diff / (24 * 60 * 60 * 1000);
+				long diffHours = dur.getSeconds() / (60 * 60);
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
-					String timeMsg = config.getFormatCommandsVoteNextInfoTime();
-					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
-					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-				} else {
-					String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
-					info = canVoteMsg;
-				}
+				String timeMsg = config.getFormatCommandsVoteNextInfoTime();
+				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
+				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
+				info = timeMsg;
+
 			}
 		}
 		return info;
@@ -565,7 +543,7 @@ public class Commands {
 	 */
 	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		String playerName = user.getPlayerName();
 
@@ -597,7 +575,7 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.voteSites;
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
 
@@ -665,8 +643,8 @@ public class Commands {
 		for (User user : plugin.voteToday.keySet()) {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
-				String timeString = new SimpleDateFormat(config.getFormatTimeFormat())
-						.format(plugin.voteToday.get(user).get(voteSite));
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
+				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
 				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString);
 			}
 		}
@@ -681,7 +659,7 @@ public class Commands {
 	 */
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = configVoteSites.getVoteSites();
+		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		List<String> title = config.getFormatCommandsVoteText();
 		if (title != null) {

@@ -15,7 +15,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -264,35 +263,9 @@ public class SignHandler {
 				lines = ArrayUtils.getInstance().colorize(lines);
 
 			} else {
-				for (VoteSite voteSite : plugin.voteSites) {
-					if (data.equalsIgnoreCase(voteSite.getSiteName())) {
-						ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-								.convertSet(TopVoter.getInstance().topVotersSortedVoteSite(voteSite).keySet());
-
-						if (users.size() >= position) {
-							playerName = users.get(position - 1).getPlayerName();
-							votes = users.get(position - 1).getTotal(voteSite);
-							for (int j = 0; j < lines.size(); j++) {
-								lines.set(j,
-										lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-							}
-						} else {
-							playerName = "No Player";
-							votes = 0;
-							for (int j = 0; j < lines.size(); j++) {
-								lines.set(j,
-										lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-							}
-						}
-
-						for (int j = 0; j < lines.size(); j++) {
-							lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
-						}
-
-						lines = ArrayUtils.getInstance().colorize(lines);
-					}
-				}
+				
 			}
+				
 		}
 
 	}

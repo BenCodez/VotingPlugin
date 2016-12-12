@@ -1,6 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -20,7 +21,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class PlayerGUIs {
@@ -54,6 +55,11 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteGUI(Player player, User user) {
+		if (!player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
+				&& !player.hasPermission("VotingPlugin.Mod")) {
+			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
+			return;
+		}
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteGUI: " + user.getPlayerName());
 
@@ -72,7 +78,7 @@ public class PlayerGUIs {
 			} else if (slot.equalsIgnoreCase("total")) {
 				lore = Commands.getInstance().voteCommandTotal(user);
 			} else if (slot.equalsIgnoreCase("top")) {
-				lore = TopVoter.getInstance().topVoterMonthly(1);
+				lore = TopVoterHandler.getInstance().topVoterMonthly(1);
 			} else if (slot.equalsIgnoreCase("today")) {
 				lore = Commands.getInstance().voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
@@ -122,8 +128,8 @@ public class PlayerGUIs {
 		for (User user : plugin.voteToday.keySet()) {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
-				String timeString = new SimpleDateFormat(Config.getInstance().getFormatTimeFormat())
-						.format(plugin.voteToday.get(user).get(voteSite));
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
+				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
 				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(
@@ -148,7 +154,7 @@ public class PlayerGUIs {
 		int pos = 0;
 		for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 			pos++;
-			inv.addButton(inv.getNextSlot(), new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
+			inv.addButton(new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
 					new String[] { "Votes: " + entry.getValue() }, MiscUtils.getInstance().setSkullOwner(
 
 							entry.getKey().getPlayerName())) {
@@ -201,7 +207,7 @@ public class PlayerGUIs {
 			count++;
 		}
 
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
 
 			if (user.canVoteSite(voteSite)) {
@@ -236,7 +242,7 @@ public class PlayerGUIs {
 	public void openVoteLast(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
-		for (VoteSite site : plugin.voteSites) {
+		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getSiteName(),
 							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
@@ -255,7 +261,7 @@ public class PlayerGUIs {
 	public void openVoteNext(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
-		for (VoteSite site : plugin.voteSites) {
+		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getSiteName(),
 							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
@@ -274,7 +280,7 @@ public class PlayerGUIs {
 	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
-		for (VoteSite site : plugin.voteSites) {
+		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getSiteName(),
 							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
@@ -303,7 +309,7 @@ public class PlayerGUIs {
 
 		if ((siteName == null) || (siteName == "")) {
 			int count = 0;
-			for (VoteSite voteSite : plugin.voteSites) {
+			for (VoteSite voteSite : plugin.getVoteSites()) {
 				plugin.debug(voteSite.getSiteName());
 
 				try {
@@ -330,8 +336,7 @@ public class PlayerGUIs {
 			}
 		} else {
 			for (String itemName : Config.getInstance().getVoteSiteItems(siteName)) {
-				ItemBuilder builder = new ItemBuilder(
-						Config.getInstance().getVoteSiteItemsSection(siteName, itemName));
+				ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteSiteItemsSection(siteName, itemName));
 
 				inv.addButton(Config.getInstance().getVoteSiteItemsSlot(siteName, itemName),
 						new BInventoryButton(builder) {

@@ -14,7 +14,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
@@ -294,7 +294,7 @@ public class CommandVote implements CommandExecutor {
 			public void run() {
 				if (sender instanceof Player) {
 					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoter.getInstance().topVoterDaily(page));
+					user.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 						@Override
@@ -303,7 +303,7 @@ public class CommandVote implements CommandExecutor {
 						}
 					});
 				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoterDaily(page));
+					sender.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
 				}
 
 			}
@@ -327,7 +327,7 @@ public class CommandVote implements CommandExecutor {
 			public void run() {
 				if (sender instanceof Player) {
 					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoter.getInstance().topVoterMonthly(page));
+					user.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 						@Override
@@ -336,7 +336,7 @@ public class CommandVote implements CommandExecutor {
 						}
 					});
 				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoterMonthly(page));
+					sender.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
 				}
 
 			}
@@ -360,7 +360,7 @@ public class CommandVote implements CommandExecutor {
 			public void run() {
 				if (sender instanceof Player) {
 					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoter.getInstance().topVoterWeekly(page));
+					user.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
 					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 						@Override
@@ -369,7 +369,7 @@ public class CommandVote implements CommandExecutor {
 						}
 					});
 				} else {
-					sender.sendMessage(TopVoter.getInstance().topVoterWeekly(page));
+					sender.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
 				}
 
 			}

@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -40,7 +42,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -79,10 +81,14 @@ public class Main extends JavaPlugin {
 	public ArrayList<CommandHandler> adminVoteCommand;
 
 	/** The vote sites. */
-	public ArrayList<VoteSite> voteSites;
+	private ArrayList<VoteSite> voteSites;
+
+	public synchronized ArrayList<VoteSite> getVoteSites() {
+		return voteSites;
+	}
 
 	/** The vote today. */
-	public HashMap<User, HashMap<VoteSite, Date>> voteToday;
+	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -271,17 +277,6 @@ public class Main extends JavaPlugin {
 				}
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_minvotes") {
-
-			@Override
-			public String getValue() {
-				if (!Config.getInstance().getMinVotesEnabled()) {
-					return "False";
-				} else {
-					return "True";
-				}
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward") {
 
 			@Override
@@ -328,6 +323,13 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getBroadCastVotesEnabled();
 			}
 		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofdatafiles") {
+
+			@Override
+			public String getValue() {
+				return "" + Data.getInstance().getFiles().size();
+			}
+		});
 	}
 
 	/*
@@ -350,7 +352,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setTimeZone(Config.getInstance().getTimeZone());
 	}
 
 	/*
@@ -385,7 +386,7 @@ public class Main extends JavaPlugin {
 		topVoterMonthly = new HashMap<User, Integer>();
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
-		voteToday = new HashMap<User, HashMap<VoteSite, Date>>();
+		voteToday = new HashMap<User, HashMap<VoteSite, LocalDateTime>>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
@@ -396,7 +397,7 @@ public class Main extends JavaPlugin {
 		}
 		VoteParty.getInstance().register();
 
-		TopVoter.getInstance().register();
+		TopVoterHandler.getInstance().register();
 
 		metrics();
 
@@ -468,7 +469,6 @@ public class Main extends JavaPlugin {
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
-		UserManager.getInstance().reload();
 	}
 
 	/**
@@ -491,8 +491,9 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public void run() {
+				plugin.debug("Starting background task");
 				try {
-					TopVoter.getInstance().updateTopVoters();
+					TopVoterHandler.getInstance().updateTopVoters();
 					Commands.getInstance().updateVoteToday();
 					ServerData.getInstance().updateValues();
 					Signs.getInstance().updateSigns();

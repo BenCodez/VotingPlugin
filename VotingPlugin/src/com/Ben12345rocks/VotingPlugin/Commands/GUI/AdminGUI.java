@@ -152,15 +152,13 @@ public class AdminGUI {
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
-		for (VoteSite voteSite : plugin.voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add("Priority: " + voteSite.getPriority());
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
 			lore.add("Rewards: " + ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
-			lore.add("CumulativeVotes: " + voteSite.getCumulativeVotes());
-			lore.add("CumulativeRewards: " + ArrayUtils.getInstance().makeStringList(voteSite.getCumulativeRewards()));
 
 			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {
