@@ -128,8 +128,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/**
 	 * Adds the total daily.
 	 *
-	 * @param voteSite
-	 *            the vote site
+	 * 
 	 */
 	public synchronized void addTotalDaily() {
 		if (Config.getInstance().getDailyAwardsEnabled()) {
@@ -140,8 +139,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/**
 	 * Adds the total weekly.
 	 *
-	 * @param voteSite
-	 *            the vote site
+	 * 
 	 */
 	public synchronized void addTotalWeekly() {
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
@@ -285,8 +283,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/**
 	 * Gets the offline milestone votes.
 	 *
-	 * @param votesRequired
-	 *            the votes required
 	 * @return the offline milestone votes
 	 */
 	@SuppressWarnings("unchecked")
@@ -819,8 +815,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/**
 	 * Sets the offline milestone votes.
 	 *
-	 * @param votesRequired
-	 *            the votes required
 	 * @param value
 	 *            the value
 	 */
@@ -901,14 +895,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setPluginData("Total." + voteSite.getSiteName(), amount);
 	}
 
-	/**
-	 * Sets the total daily.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @param amount
-	 *            the amount
-	 */
 	public synchronized void setTotalDaily(int value) {
 		getPluginData().set("TotalDaily", value);
 	}

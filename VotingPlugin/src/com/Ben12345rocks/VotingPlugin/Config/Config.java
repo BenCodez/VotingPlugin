@@ -346,20 +346,6 @@ public class Config extends YMLFile {
 		return getData().getString("Format.NoPerms", "&cYou do not have enough permission!");
 	}
 
-	/**
-	 * Gets the login msg.
-	 *
-	 * @return the login msg
-	 *
-	 *         public String getFormatLoginMsg() { return
-	 *         getData().getString("Format.LoginMsg", "&cRemember to vote!");
-	 * 
-	 *         }
-	 * 
-	 *         /** Gets the format not number.
-	 *
-	 * @return the format not number
-	 */
 	public String getFormatNotNumber() {
 		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
