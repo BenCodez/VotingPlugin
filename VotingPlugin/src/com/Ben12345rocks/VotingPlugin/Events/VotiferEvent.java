@@ -3,11 +3,11 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import java.util.ArrayList;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -44,7 +44,7 @@ public class VotiferEvent implements Listener {
 	 *            the vote site URL
 	 */
 	public static void playerVote(final String playerName, final String voteSiteURL) {
-		Thread.getInstance().run(new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
 				User user = UserManager.getInstance().getVotingPluginUser(playerName);
@@ -127,15 +127,14 @@ public class VotiferEvent implements Listener {
 								int votesRequired = Integer.parseInt(str);
 								if (votesRequired != 0) {
 									if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-										int offlineVote = user.getCumulativeVotesOffline(
-												votesRequired);
+										int offlineVote = user.getCumulativeVotesOffline(votesRequired);
 										for (int i = 0; i < offlineVote; i++) {
 											OtherVoteReward.getInstance().giveCumulativeVoteReward(user, true,
 													votesRequired);
 
 										}
 										if (offlineVote != 0) {
-											user.setCumuatliveVotesOffline( votesRequired, 0);
+											user.setCumuatliveVotesOffline(votesRequired, 0);
 										}
 									}
 								}
@@ -192,7 +191,7 @@ public class VotiferEvent implements Listener {
 					plugin.debug("Offline vote set for " + playerName + " on " + voteSiteName);
 
 				}
-				
+
 				plugin.update();
 			}
 		});
