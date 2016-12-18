@@ -57,17 +57,15 @@ public class VoteReminding {
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
 
-		if (PlayerUtils.getInstance().hasServerPermission(playerName,
-				"VotingPlugin.Login.RemindVotes")
-				|| PlayerUtils.getInstance().hasServerPermission(playerName,
-						"VotingPlugin.Player")) {
+		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
+				|| PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Player")) {
 			if (user.canVoteAll()) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
 					if (!Config.getInstance().getVoteRemindingRemindOnlyOnce()) {
 						runRemind(user);
 						user.setReminded(true);
-					} else if (!user.getReminded()) {
+					} else if (!user.isReminded()) {
 						runRemind(user);
 						user.setReminded(true);
 					}
@@ -82,21 +80,16 @@ public class VoteReminding {
 	 * Load remind checking.
 	 */
 	public void loadRemindChecking() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(
-				plugin,
-				new Runnable() {
+		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new Runnable() {
 
-					@Override
-					public void run() {
-						for (Player player : Bukkit.getServer()
-								.getOnlinePlayers()) {
-							User user = UserManager.getInstance()
-									.getVotingPluginUser(player);
-							checkRemind(user);
-						}
-					}
-				}, 10,
-				Config.getInstance().getVoteRemindingRemindDelay() * 20 * 60);
+			@Override
+			public void run() {
+				for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+					User user = UserManager.getInstance().getVotingPluginUser(player);
+					checkRemind(user);
+				}
+			}
+		}, 10, Config.getInstance().getVoteRemindingRemindDelay() * 20 * 60);
 	}
 
 	/**
@@ -114,8 +107,7 @@ public class VoteReminding {
 					Reward r = RewardHandler.getInstance().getReward(reward);
 					r.getConfig().setMessagesReward("&cRemember to vote");
 				}
-				RewardHandler.getInstance().giveReward(user, reward, true,
-						false);
+				RewardHandler.getInstance().giveReward(user, reward, true, false);
 			}
 
 			plugin.debug(user.getPlayerName() + " was reminded!");

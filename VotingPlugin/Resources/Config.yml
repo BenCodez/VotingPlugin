@@ -3,6 +3,12 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
+# Valid Options:
+# - SQLITE
+# - FLAT
+# - MYSQL
+DataStorage: SQLITE
+
 # Debug
 Debug: false
 

@@ -35,8 +35,7 @@ public class VotingPluginUpdateEvent implements Listener {
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPluginUpdate(PluginUpdateVersionEvent event) {
 
-		if (event.getPlugin().getName()
-				.equals(plugin.getDescription().getName())) {
+		if (event.getPlugin().getName().equals(plugin.getDescription().getName())) {
 			if (!event.getOldVersion().equals("")) {
 				plugin.getLogger().info("Updated VotingPlugin");
 			}

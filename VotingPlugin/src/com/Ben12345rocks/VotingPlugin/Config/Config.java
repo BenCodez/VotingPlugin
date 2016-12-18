@@ -39,6 +39,180 @@ public class Config extends YMLFile {
 	}
 
 	/**
+	 * Allow un joined.
+	 *
+	 * @return true, if successful
+	 */
+	public boolean allowUnJoined() {
+		return getData().getBoolean("AllowUnjoined");
+	}
+
+	/**
+	 * Gets the all sites reward.
+	 *
+	 * @return the all sites reward
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getAllSitesReward() {
+
+		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
+
+	}
+
+	/**
+	 * Gets the rewards.
+	 *
+	 * @return the rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getAnySiteRewards() {
+		return (ArrayList<String>) getData().getList("AnySiteRewards", new ArrayList<String>());
+
+	}
+
+	/**
+	 * Gets the auto create vote sites.
+	 *
+	 * @return the auto create vote sites
+	 */
+	public boolean getAutoCreateVoteSites() {
+		return getData().getBoolean("AutoCreateVoteSites");
+	}
+
+	/**
+	 * Gets the black list.
+	 *
+	 * @return the black list
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getBlackList() {
+		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the broad cast votes enabled.
+	 *
+	 * @return the broad cast votes enabled
+	 */
+	public boolean getBroadCastVotesEnabled() {
+		return getData().getBoolean("BroadcastVote");
+	}
+
+	public boolean getCommandsUseGUILast() {
+		return getData().getBoolean("Commands.UseGUI.Last", true);
+	}
+
+	public boolean getCommandsUseGUINext() {
+		return getData().getBoolean("Commands.UseGUI.Next", true);
+	}
+
+	public boolean getCommandsUseGUIToday() {
+		return getData().getBoolean("Commands.UseGUI.Today", true);
+	}
+
+	public boolean getCommandsUseGUITopVoter() {
+		return getData().getBoolean("Commands.UseGUI.TopVoter", true);
+	}
+
+	public boolean getCommandsUseGUITotal() {
+		return getData().getBoolean("Commands.UseGUI.Total", true);
+	}
+
+	public boolean getCommandsUseGUIVote() {
+		return getData().getBoolean("Commands.UseGUI.Vote", true);
+	}
+
+	/**
+	 * Gets the cumulative reward enabled.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative reward enabled
+	 */
+	public boolean getCumulativeRewardEnabled(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
+	}
+
+	/**
+	 * Gets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getCumulativeRewards(int cumulative) {
+		return (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the cumulative votes.
+	 *
+	 * @return the cumulative votes
+	 */
+	public Set<String> getCumulativeVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the cumulative votes in same day.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes in same day
+	 */
+	public boolean getCumulativeVotesInSameDay(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
+	}
+
+	public boolean getCumulativeVotesInSameWeek(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
+	}
+
+	/**
+	 * Gets the daily award rewards.
+	 *
+	 * @param pos
+	 *            the pos
+	 * @return the daily award rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getDailyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList("DailyAwards." + pos + ".Rewards", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the daily awards enabled.
+	 *
+	 * @return the daily awards enabled
+	 */
+	public boolean getDailyAwardsEnabled() {
+		return getData().getBoolean("EnableDailyAwards");
+	}
+
+	/**
+	 * Gets the daily possible reward places.
+	 *
+	 * @return the daily possible reward places
+	 */
+	public Set<String> getDailyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("DailyAwards").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+
+		}
+	}
+
+	/**
 	 * Gets the debug enabled.
 	 *
 	 * @return the debug enabled
@@ -48,40 +222,42 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the log debug to file.
-	 *
-	 * @return the log debug to file
-	 */
-	public boolean getLogDebugToFile() {
-		return getData().getBoolean("LogDebugToFile", true);
-	}
-
-	/**
-	 * Gets the request API default method.
-	 *
-	 * @return the request API default method
-	 */
-	public String getRequestAPIDefaultMethod() {
-		return getData().getString("RequestAPI.DefaultMethod", "Anvil");
-	}
-
-	/**
-	 * Gets the request API disabled methods.
-	 *
-	 * @return the request API disabled methods
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRequestAPIDisabledMethods() {
-		return (ArrayList<String>) getData().getList("RequestAPI.DisabledMethods", new ArrayList<String>());
-	}
-
-	/**
 	 * Gets the debug info ingame.
 	 *
 	 * @return the debug info ingame
 	 */
 	public boolean getDebugInfoIngame() {
 		return getData().getBoolean("DebugInfoIngame");
+	}
+
+	/**
+	 * Gets the first vote rewards.
+	 *
+	 * @return the first vote rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFirstVoteRewards() {
+		return (ArrayList<String>) getData().getList("FirstVote", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the broad cast msg.
+	 *
+	 * @return the broad cast msg
+	 */
+	public String getFormatBroadCastMsg() {
+		return getData().getString("Format.BroadcastMsg",
+				"&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%");
+
+	}
+
+	/**
+	 * Gets the broadcast when online.
+	 *
+	 * @return the broadcast when online
+	 */
+	public boolean getFormatBroadcastWhenOnline() {
+		return getData().getBoolean("Format.BroadcastWhenOnline");
 	}
 
 	/**
@@ -309,26 +485,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the broad cast msg.
-	 *
-	 * @return the broad cast msg
-	 */
-	public String getFormatBroadCastMsg() {
-		return getData().getString("Format.BroadcastMsg",
-				"&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%");
-
-	}
-
-	/**
-	 * Gets the broadcast when online.
-	 *
-	 * @return the broadcast when online
-	 */
-	public boolean getFormatBroadcastWhenOnline() {
-		return getData().getBoolean("Format.BroadcastWhenOnline");
-	}
-
-	/**
 	 * Gets the format help line.
 	 *
 	 * @return the format help line
@@ -452,30 +608,8 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
 	}
 
-	public Set<String> getIdentifiers() {
-		return getData().getConfigurationSection("Shop").getKeys(false);
-	}
-
-	public ConfigurationSection getIdentifierSection(String identifier) {
-		return getData().getConfigurationSection("Shop." + identifier);
-	}
-
-	public int getIdentifierItemAmount(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Item.Amount");
-	}
-
 	public int getIdentifierCost(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Cost");
-	}
-
-	public int getIdentifierSlot(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Slot");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getIdentifierRewards(String identifier) {
-		return (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards", new ArrayList<String>());
-
 	}
 
 	public String getIdentifierFromSlot(int slot) {
@@ -485,6 +619,183 @@ public class Config extends YMLFile {
 			}
 		}
 		return null;
+	}
+
+	public int getIdentifierItemAmount(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Item.Amount");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getIdentifierRewards(String identifier) {
+		return (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards", new ArrayList<String>());
+
+	}
+
+	public Set<String> getIdentifiers() {
+		return getData().getConfigurationSection("Shop").getKeys(false);
+	}
+
+	public ConfigurationSection getIdentifierSection(String identifier) {
+		return getData().getConfigurationSection("Shop." + identifier);
+	}
+
+	public int getIdentifierSlot(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Slot");
+	}
+
+	/**
+	 * Gets the log debug to file.
+	 *
+	 * @return the log debug to file
+	 */
+	public boolean getLogDebugToFile() {
+		return getData().getBoolean("LogDebugToFile", true);
+	}
+
+	/**
+	 * Gets the log votes to file.
+	 *
+	 * @return the log votes to file
+	 */
+	public boolean getLogVotesToFile() {
+		return getData().getBoolean("LogVotesToFile");
+	}
+
+	public boolean getMilestoneResetMonthly(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".ResetMonthly");
+	}
+
+	/**
+	 * Gets the milestone reward enabled.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone reward enabled
+	 */
+	public boolean getMilestoneRewardEnabled(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".Enabled");
+	}
+
+	/**
+	 * Gets the milestone rewards.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMilestoneRewards(int milestones) {
+		return (ArrayList<String>) getData().getList("MileStones." + milestones + ".Rewards", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the milestone votes.
+	 *
+	 * @return the milestone votes
+	 */
+	public Set<String> getMilestoneVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the monthly award rewards.
+	 *
+	 * @param pos
+	 *            the pos
+	 * @return the monthly award rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getMonthlyAwardRewards(int pos) {
+		return (ArrayList<String>) getData().getList("MonthlyAwards." + pos + ".Rewards");
+	}
+
+	/**
+	 * Gets the monthly awards enabled.
+	 *
+	 * @return the monthly awards enabled
+	 */
+	public boolean getMonthlyAwardsEnabled() {
+		return getData().getBoolean("EnableMonthlyAwards");
+	}
+
+	/**
+	 * Gets the monthly possible reward places.
+	 *
+	 * @return the monthly possible reward places
+	 */
+	public Set<String> getMonthlyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the request API default method.
+	 *
+	 * @return the request API default method
+	 */
+	public String getRequestAPIDefaultMethod() {
+		return getData().getString("RequestAPI.DefaultMethod", "Anvil");
+	}
+
+	/**
+	 * Gets the request API disabled methods.
+	 *
+	 * @return the request API disabled methods
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getRequestAPIDisabledMethods() {
+		return (ArrayList<String>) getData().getList("RequestAPI.DisabledMethods", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the send scoreboards.
+	 *
+	 * @return the send scoreboards
+	 */
+	public boolean getSendScoreboards() {
+		return getData().getBoolean("SendScoreboards");
+	}
+
+	/**
+	 * Gets the store top voters daily.
+	 *
+	 * @return the store top voters daily
+	 */
+	public boolean getStoreTopVotersDaily() {
+		return getData().getBoolean("StoreTopVoters.Daily");
+	}
+
+	/**
+	 * Gets the store top voters monthly.
+	 *
+	 * @return the store top voters monthly
+	 */
+	public boolean getStoreTopVotersMonthly() {
+		return getData().getBoolean("StoreTopVoters.Monthly");
+	}
+
+	/**
+	 * Gets the store top voters weekly.
+	 *
+	 * @return the store top voters weekly
+	 */
+	public boolean getStoreTopVotersWeekly() {
+		return getData().getBoolean("StoreTopVoters.Weekly");
+	}
+
+	public int getUserVotesRequired() {
+		return getData().getInt("VoteParty.UserVotesRequired");
 	}
 
 	/**
@@ -497,10 +808,6 @@ public class Config extends YMLFile {
 
 	public String getVoteGUISlotCommand(String slot) {
 		return getData().getString("GUI.VoteGUI." + slot + ".Command", "");
-	}
-
-	public ConfigurationSection getVoteGUISlotSection(String slot) {
-		return getData().getConfigurationSection("GUI.VoteGUI." + slot + ".Item");
 	}
 
 	/**
@@ -528,6 +835,10 @@ public class Config extends YMLFile {
 		}
 	}
 
+	public ConfigurationSection getVoteGUISlotSection(String slot) {
+		return getData().getConfigurationSection("GUI.VoteGUI." + slot + ".Item");
+	}
+
 	/**
 	 * Gets the vote GUI slot slot.
 	 *
@@ -539,9 +850,91 @@ public class Config extends YMLFile {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
-	public ConfigurationSection getVoteSiteItemSection(String site) {
-		String siteName = site.replace(".", "-");
-		return getData().getConfigurationSection("GUI.VoteReward." + siteName);
+	/**
+	 * Gets the vote party enabled.
+	 *
+	 * @return the vote party enabled
+	 */
+	public boolean getVotePartyEnabled() {
+		return getData().getBoolean("VoteParty.Enabled");
+	}
+
+	/**
+	 * Gets the vote party give all players.
+	 *
+	 * @return the vote party give all players
+	 */
+	public boolean getVotePartyGiveAllPlayers() {
+		return getData().getBoolean("VoteParty.GiveAllPlayers");
+	}
+
+	public boolean getVotePartyResetEachDay() {
+		return getData().getBoolean("VoteParty.ResetEachDay");
+	}
+
+	/**
+	 * Gets the vote party rewards.
+	 *
+	 * @return the vote party rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyRewards() {
+		return (ArrayList<String>) getData().getList("VoteParty.Rewards", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the vote party votes required.
+	 *
+	 * @return the vote party votes required
+	 */
+	public int getVotePartyVotesRequired() {
+		return getData().getInt("VoteParty.VotesRequired");
+	}
+
+	/**
+	 * Gets the enabled.
+	 *
+	 * @return the enabled
+	 */
+	public boolean getVoteRemindingEnabled() {
+		return getData().getBoolean("VoteReminding.Enabled");
+	}
+
+	/**
+	 * Gets the remind delay.
+	 *
+	 * @return the remind delay
+	 */
+	public int getVoteRemindingRemindDelay() {
+		return getData().getInt("VoteReminding.RemindDelay", 30);
+	}
+
+	/**
+	 * Gets the remind on login.
+	 *
+	 * @return the remind on login
+	 */
+	public boolean getVoteRemindingRemindOnLogin() {
+		return getData().getBoolean("VoteReminding.RemindOnLogin");
+	}
+
+	/**
+	 * Gets the remind only once.
+	 *
+	 * @return the remind only once
+	 */
+	public boolean getVoteRemindingRemindOnlyOnce() {
+		return getData().getBoolean("VoteReminding.RemindOnlyOnce");
+	}
+
+	/**
+	 * Gets the rewards.
+	 *
+	 * @return the rewards
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVoteRemindingRewards() {
+		return (ArrayList<String>) getData().getList("VoteReminding.Rewards", new ArrayList<String>());
 	}
 
 	/**
@@ -558,6 +951,11 @@ public class Config extends YMLFile {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
+	}
+
+	public ConfigurationSection getVoteSiteItemSection(String site) {
+		String siteName = site.replace(".", "-");
+		return getData().getConfigurationSection("GUI.VoteReward." + siteName);
 	}
 
 	public ConfigurationSection getVoteSiteItemsSection(String site, String item) {
@@ -577,6 +975,15 @@ public class Config extends YMLFile {
 	public int getVoteSiteItemsSlot(String site, String item) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
+	}
+
+	/**
+	 * Gets the votes required.
+	 *
+	 * @return the votes required
+	 */
+	public int getVotesRequired() {
+		return getData().getInt("VotesRequired");
 	}
 
 	public ConfigurationSection getVoteURLAlreadyVotedItemSection() {
@@ -625,322 +1032,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the all sites reward.
-	 *
-	 * @return the all sites reward
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAllSitesReward() {
-
-		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
-
-	}
-
-	/**
-	 * Gets the cumulative reward enabled.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative reward enabled
-	 */
-	public boolean getCumulativeRewardEnabled(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
-	}
-
-	/**
-	 * Gets the cumulative rewards.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCumulativeRewards(int cumulative) {
-		return (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
-	public Set<String> getCumulativeVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the cumulative votes in same day.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative votes in same day
-	 */
-	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
-	}
-
-	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
-	}
-
-	/**
-	 * Gets the first vote rewards.
-	 *
-	 * @return the first vote rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFirstVoteRewards() {
-		return (ArrayList<String>) getData().getList("FirstVote", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAnySiteRewards() {
-		return (ArrayList<String>) getData().getList("AnySiteRewards", new ArrayList<String>());
-
-	}
-
-	/**
-	 * Sets the rewards.
-	 *
-	 * @param rewards
-	 *            the new rewards
-	 */
-	public void setAnySiteRewards(ArrayList<String> rewards) {
-		getData().set("AnySiteRewards", rewards);
-		saveData();
-	}
-
-	/**
-	 * Gets the milestone reward enabled.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".Enabled");
-	}
-
-	/**
-	 * Gets the milestone rewards.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMilestoneRewards(int milestones) {
-		return (ArrayList<String>) getData().getList("MileStones." + milestones + ".Rewards", new ArrayList<String>());
-	}
-
-	public boolean getMilestoneResetMonthly(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".ResetMonthly");
-	}
-
-	/**
-	 * Gets the milestone votes.
-	 *
-	 * @return the milestone votes
-	 */
-	public Set<String> getMilestoneVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the vote party enabled.
-	 *
-	 * @return the vote party enabled
-	 */
-	public boolean getVotePartyEnabled() {
-		return getData().getBoolean("VoteParty.Enabled");
-	}
-
-	public boolean getVotePartyResetEachDay() {
-		return getData().getBoolean("VoteParty.ResetEachDay");
-	}
-
-	/**
-	 * Gets the vote party give all players.
-	 *
-	 * @return the vote party give all players
-	 */
-	public boolean getVotePartyGiveAllPlayers() {
-		return getData().getBoolean("VoteParty.GiveAllPlayers");
-	}
-
-	/**
-	 * Gets the vote party rewards.
-	 *
-	 * @return the vote party rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyRewards() {
-		return (ArrayList<String>) getData().getList("VoteParty.Rewards", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the vote party votes required.
-	 *
-	 * @return the vote party votes required
-	 */
-	public int getVotePartyVotesRequired() {
-		return getData().getInt("VoteParty.VotesRequired");
-	}
-
-	public int getUserVotesRequired() {
-		return getData().getInt("VoteParty.UserVotesRequired");
-	}
-
-	/**
-	 * Gets the votes required.
-	 *
-	 * @return the votes required
-	 */
-	public int getVotesRequired() {
-		return getData().getInt("VotesRequired");
-	}
-
-	/**
-	 * Sets the cumulative rewards.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @param rewards
-	 *            the rewards
-	 */
-	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
-		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
-		saveData();
-	}
-
-	/**
-	 * Gets the black list.
-	 *
-	 * @return the black list
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getBlackList() {
-		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the daily award rewards.
-	 *
-	 * @param pos
-	 *            the pos
-	 * @return the daily award rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getDailyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("DailyAwards." + pos + ".Rewards", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the daily awards enabled.
-	 *
-	 * @return the daily awards enabled
-	 */
-	public boolean getDailyAwardsEnabled() {
-		return getData().getBoolean("EnableDailyAwards");
-	}
-
-	/**
-	 * Gets the daily possible reward places.
-	 *
-	 * @return the daily possible reward places
-	 */
-	public Set<String> getDailyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("DailyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-
-		}
-	}
-
-	/**
-	 * Gets the monthly award rewards.
-	 *
-	 * @param pos
-	 *            the pos
-	 * @return the monthly award rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMonthlyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("MonthlyAwards." + pos + ".Rewards");
-	}
-
-	/**
-	 * Gets the monthly awards enabled.
-	 *
-	 * @return the monthly awards enabled
-	 */
-	public boolean getMonthlyAwardsEnabled() {
-		return getData().getBoolean("EnableMonthlyAwards");
-	}
-
-	/**
-	 * Gets the monthly possible reward places.
-	 *
-	 * @return the monthly possible reward places
-	 */
-	public Set<String> getMonthlyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the store top voters daily.
-	 *
-	 * @return the store top voters daily
-	 */
-	public boolean getStoreTopVotersDaily() {
-		return getData().getBoolean("StoreTopVoters.Daily");
-	}
-
-	/**
-	 * Gets the store top voters monthly.
-	 *
-	 * @return the store top voters monthly
-	 */
-	public boolean getStoreTopVotersMonthly() {
-		return getData().getBoolean("StoreTopVoters.Monthly");
-	}
-
-	/**
-	 * Gets the store top voters weekly.
-	 *
-	 * @return the store top voters weekly
-	 */
-	public boolean getStoreTopVotersWeekly() {
-		return getData().getBoolean("StoreTopVoters.Weekly");
-	}
-
-	/**
 	 * Gets the weekly award rewards.
 	 *
 	 * @param pos
@@ -974,120 +1065,9 @@ public class Config extends YMLFile {
 		}
 	}
 
-	/**
-	 * Gets the enabled.
-	 *
-	 * @return the enabled
-	 */
-	public boolean getVoteRemindingEnabled() {
-		return getData().getBoolean("VoteReminding.Enabled");
-	}
-
-	public void setVoteRemindingEnabled(boolean value) {
-		getData().set("VoteReminding.Enabled", value);
-		saveData();
-	}
-
-	/**
-	 * Gets the remind delay.
-	 *
-	 * @return the remind delay
-	 */
-	public int getVoteRemindingRemindDelay() {
-		return getData().getInt("VoteReminding.RemindDelay", 30);
-	}
-
-	public void setVoteRemindingRemindDelay(int value) {
-		getData().set("VoteReminding.RemindDelay", value);
-		saveData();
-	}
-
-	/**
-	 * Gets the remind on login.
-	 *
-	 * @return the remind on login
-	 */
-	public boolean getVoteRemindingRemindOnLogin() {
-		return getData().getBoolean("VoteReminding.RemindOnLogin");
-	}
-
-	public void setVoteRemindingRemindOnLogin(boolean value) {
-		getData().set("VoteReminding.RemindOnLogin", value);
-		saveData();
-	}
-
-	/**
-	 * Gets the remind only once.
-	 *
-	 * @return the remind only once
-	 */
-	public boolean getVoteRemindingRemindOnlyOnce() {
-		return getData().getBoolean("VoteReminding.RemindOnlyOnce");
-	}
-
-	public void setVoteRemindingRemindOnlyOnce(boolean value) {
-		getData().set("VoteReminding.RemindOnlyOnce", value);
-		saveData();
-	}
-
-	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVoteRemindingRewards() {
-		return (ArrayList<String>) getData().getList("VoteReminding.Rewards", new ArrayList<String>());
-	}
-
-	public void setVoteRemindingRewards(ArrayList<String> value) {
-		getData().set("VoteReminding.Rewards", value);
-		saveData();
-	}
-
-	/**
-	 * Allow un joined.
-	 *
-	 * @return true, if successful
-	 */
-	public boolean allowUnJoined() {
-		return getData().getBoolean("AllowUnjoined");
-	}
-
-	/**
-	 * Gets the auto create vote sites.
-	 *
-	 * @return the auto create vote sites
-	 */
-	public boolean getAutoCreateVoteSites() {
-		return getData().getBoolean("AutoCreateVoteSites");
-	}
-
-	/**
-	 * Gets the broad cast votes enabled.
-	 *
-	 * @return the broad cast votes enabled
-	 */
-	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("BroadcastVote");
-	}
-
-	/**
-	 * Gets the log votes to file.
-	 *
-	 * @return the log votes to file
-	 */
-	public boolean getLogVotesToFile() {
-		return getData().getBoolean("LogVotesToFile");
-	}
-
-	/**
-	 * Gets the send scoreboards.
-	 *
-	 * @return the send scoreboards
-	 */
-	public boolean getSendScoreboards() {
-		return getData().getBoolean("SendScoreboards");
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("Config.yml", true);
 	}
 
 	/**
@@ -1102,6 +1082,17 @@ public class Config extends YMLFile {
 	}
 
 	/**
+	 * Sets the rewards.
+	 *
+	 * @param rewards
+	 *            the new rewards
+	 */
+	public void setAnySiteRewards(ArrayList<String> rewards) {
+		getData().set("AnySiteRewards", rewards);
+		saveData();
+	}
+
+	/**
 	 * Sets the broadcast vote enabled.
 	 *
 	 * @param value
@@ -1109,6 +1100,19 @@ public class Config extends YMLFile {
 	 */
 	public void setBroadcastVoteEnabled(boolean value) {
 		getData().set("BroadcastVote", value);
+		saveData();
+	}
+
+	/**
+	 * Sets the cumulative rewards.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @param rewards
+	 *            the rewards
+	 */
+	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
+		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
 		saveData();
 	}
 
@@ -1145,33 +1149,33 @@ public class Config extends YMLFile {
 		saveData();
 	}
 
-	@Override
-	public void onFileCreation() {
-		plugin.saveResource("Config.yml", true);
+	public void setVoteRemindingEnabled(boolean value) {
+		getData().set("VoteReminding.Enabled", value);
+		saveData();
 	}
 
-	public boolean getCommandsUseGUIToday() {
-		return getData().getBoolean("Commands.UseGUI.Today", true);
+	public void setVoteRemindingRemindDelay(int value) {
+		getData().set("VoteReminding.RemindDelay", value);
+		saveData();
 	}
 
-	public boolean getCommandsUseGUITotal() {
-		return getData().getBoolean("Commands.UseGUI.Total", true);
+	public void setVoteRemindingRemindOnLogin(boolean value) {
+		getData().set("VoteReminding.RemindOnLogin", value);
+		saveData();
 	}
 
-	public boolean getCommandsUseGUINext() {
-		return getData().getBoolean("Commands.UseGUI.Next", true);
+	public void setVoteRemindingRemindOnlyOnce(boolean value) {
+		getData().set("VoteReminding.RemindOnlyOnce", value);
+		saveData();
 	}
 
-	public boolean getCommandsUseGUITopVoter() {
-		return getData().getBoolean("Commands.UseGUI.TopVoter", true);
+	public void setVoteRemindingRewards(ArrayList<String> value) {
+		getData().set("VoteReminding.Rewards", value);
+		saveData();
 	}
 
-	public boolean getCommandsUseGUILast() {
-		return getData().getBoolean("Commands.UseGUI.Last", true);
-	}
-
-	public boolean getCommandsUseGUIVote() {
-		return getData().getBoolean("Commands.UseGUI.Vote", true);
+	public String getDataStorage() {
+		return getData().getString("DataStorage", "FLAT");
 	}
 
 }

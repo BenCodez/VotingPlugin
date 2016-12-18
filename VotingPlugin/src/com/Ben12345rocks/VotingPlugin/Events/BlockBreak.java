@@ -45,8 +45,7 @@ public class BlockBreak implements Listener {
 				Set<String> signs = ServerData.getInstance().getSigns();
 				if (signs != null) {
 					for (String sign : signs) {
-						if (ServerData.getInstance().getSignLocation(sign)
-								.equals(event.getBlock().getLocation())) {
+						if (ServerData.getInstance().getSignLocation(sign).equals(event.getBlock().getLocation())) {
 							ServerData.getInstance().removeSign(sign);
 						}
 					}

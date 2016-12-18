@@ -239,8 +239,7 @@ public class SignHandler {
 			lines.add(line4);
 
 			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-						.convertSet(plugin.topVoterMonthly.keySet());
+				ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
 
 				if (users.size() >= position) {
 					playerName = users.get(position - 1).getPlayerName();
@@ -263,9 +262,9 @@ public class SignHandler {
 				lines = ArrayUtils.getInstance().colorize(lines);
 
 			} else {
-				
+
 			}
-				
+
 		}
 
 	}

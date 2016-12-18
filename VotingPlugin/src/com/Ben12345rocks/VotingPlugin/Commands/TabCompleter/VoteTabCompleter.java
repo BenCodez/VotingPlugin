@@ -25,30 +25,26 @@ public class VoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
 	 */
 	@Override
-	public List<String> onTabComplete(CommandSender sender, Command cmd,
-			String alias, String[] args) {
+	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
-		if (cmd.getName().equalsIgnoreCase("vote")
-				|| cmd.getName().equalsIgnoreCase("v")) {
+		if (cmd.getName().equalsIgnoreCase("vote") || cmd.getName().equalsIgnoreCase("v")) {
 
 			ArrayList<String> tab = new ArrayList<String>();
 
 			Set<String> cmds = new HashSet<String>();
 
 			for (CommandHandler cmdHandle : plugin.voteCommand) {
-				cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args,
-						args.length - 1));
+				cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args, args.length - 1));
 			}
 
 			for (String str : cmds) {
-				if (StringUtils.getInstance().startsWithIgnoreCase(str,
-						args[args.length - 1])) {
+				if (StringUtils.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
 					tab.add(str);
 				}
 			}

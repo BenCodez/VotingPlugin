@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
@@ -17,6 +18,7 @@ import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
@@ -83,10 +85,6 @@ public class Main extends JavaPlugin {
 	/** The vote sites. */
 	private ArrayList<VoteSite> voteSites;
 
-	public synchronized ArrayList<VoteSite> getVoteSites() {
-		return voteSites;
-	}
-
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
@@ -104,6 +102,10 @@ public class Main extends JavaPlugin {
 				&& getServer().getPluginManager().getPlugin("NuVotifier") == null) {
 			plugin.debug("Votifier and NuVotifier not found, votes may not work");
 		}
+	}
+
+	public ArrayList<User> convertSet(Set<User> set) {
+		return new ArrayList<User>(set);
 	}
 
 	/**
@@ -172,6 +174,10 @@ public class Main extends JavaPlugin {
 		}
 		return url;
 
+	}
+
+	public synchronized ArrayList<VoteSite> getVoteSites() {
+		return voteSites;
 	}
 
 	/**
@@ -334,7 +340,7 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -343,20 +349,9 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
-	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
-		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
-		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
-		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
-		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
-		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
-		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
-		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-	}
-
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -507,6 +502,18 @@ public class Main extends JavaPlugin {
 			}
 		});
 
+	}
+
+	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
+		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
+		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
+		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
+		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 	}
 
 }

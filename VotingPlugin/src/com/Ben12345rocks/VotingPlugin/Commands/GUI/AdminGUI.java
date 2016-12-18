@@ -43,12 +43,6 @@ public class AdminGUI {
 	private AdminGUI() {
 	}
 
-	public void loadHook() {
-		for (BInventoryButton b : adminGUIButtons()) {
-			com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI.getInstance().addButton(b);
-		}
-	}
-
 	/**
 	 * Open admin GUI.
 	 *
@@ -108,6 +102,12 @@ public class AdminGUI {
 
 		});
 		return buttons;
+	}
+
+	public void loadHook() {
+		for (BInventoryButton b : adminGUIButtons()) {
+			com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI.getInstance().addButton(b);
+		}
 	}
 
 	/**

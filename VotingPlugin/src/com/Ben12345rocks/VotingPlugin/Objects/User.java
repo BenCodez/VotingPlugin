@@ -1,18 +1,13 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.temporal.TemporalField;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -39,6 +34,32 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	private int points;
+
+	private ArrayList<String> offlineVotes;
+
+	private ArrayList<String> offlineOtherRewards;
+
+	private int allTimeTotal;
+	private int monthTotal;
+	private int weeklyTotal;
+	private int dailyTotal;
+	private HashMap<VoteSite, Long> lastVotes;
+	private HashMap<VoteSite, Integer> voteSiteTotal;
+	private int votePartyVotes;
+	private boolean reminded;
+	private HashMap<String, Boolean> hasGottenMilestone;
+	private int mileStoneTotal;
+
+	public int getMileStoneTotal() {
+		return mileStoneTotal;
+	}
+
+	public void setMileStoneTotal(int mileStoneTotal) {
+		this.mileStoneTotal = mileStoneTotal;
+		getUserData().setInt("MileStoneTotal", mileStoneTotal);
+	}
+
 	/**
 	 * Instantiates a new user.
 	 *
@@ -48,6 +69,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	@Deprecated
 	public User(Player player) {
 		super(plugin, player);
+		init();
 	}
 
 	/**
@@ -59,6 +81,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	@Deprecated
 	public User(String playerName) {
 		super(plugin, playerName);
+		init();
 	}
 
 	/**
@@ -70,6 +93,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	@Deprecated
 	public User(UUID uuid) {
 		super(plugin, uuid);
+		init();
 
 	}
 
@@ -84,22 +108,17 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	@Deprecated
 	public User(UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
+		init();
 	}
 
-	/**
-	 * Adds the offline vote.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 */
-	public synchronized void addOfflineVote(VoteSite voteSite) {
-		setOfflineVotes(voteSite, getOfflineVotes(voteSite) + 1);
+	public void addAllTimeTotal() {
+		setAllTimeTotal(getAllTimeTotal() + 1);
 	}
 
 	/**
 	 * Adds the points.
 	 */
-	public synchronized void addPoints() {
+	public void addPoints() {
 		setPoints(getPoints() + 1);
 	}
 
@@ -109,7 +128,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param value
 	 *            the value
 	 */
-	public synchronized void addPoints(int value) {
+	public void addPoints(int value) {
 		setPoints(getPoints() + value);
 	}
 
@@ -119,31 +138,30 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param voteSite
 	 *            the vote site
 	 */
-	public synchronized void addTotal(VoteSite voteSite) {
-		setPluginData("Total." + voteSite.getSiteName(), getTotal(voteSite) + 1);
-		setAllTimeTotal(getAllTimeTotal() + 1);
-
+	public void addTotal(VoteSite voteSite) {
+		setTotal(voteSite, getTotal(voteSite) + 1);
+		addAllTimeTotal();
 	}
 
 	/**
 	 * Adds the total daily.
 	 *
-	 * 
+	 *
 	 */
-	public synchronized void addTotalDaily() {
+	public void addTotalDaily() {
 		if (Config.getInstance().getDailyAwardsEnabled()) {
-			setTotalDaily(getTotalDailyAll() + 1);
+			setDailyTotal(getTotalDaily() + 1);
 		}
 	}
 
 	/**
 	 * Adds the total weekly.
 	 *
-	 * 
+	 *
 	 */
-	public synchronized void addTotalWeekly() {
+	public void addTotalWeekly() {
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
-			setTotalWeekly(getTotalWeeklyAll() + 1);
+			setWeeklyTotal(getTotalWeekly() + 1);
 		}
 	}
 
@@ -152,7 +170,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return true, if successful
 	 */
-	public synchronized boolean canVoteAll() {
+	public boolean canVoteAll() {
 		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		for (VoteSite voteSite : voteSites) {
@@ -164,14 +182,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
-	public synchronized int getVotePartyVotes() {
-		return getPluginData().getInt("VotePartyVotes");
-	}
-
-	public synchronized void setVotePartyVotes(int value) {
-		setPluginData("VotePartyVotes", value);
-	}
-
 	/**
 	 * Can vote site.
 	 *
@@ -179,7 +189,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the vote site
 	 * @return true, if successful
 	 */
-	public synchronized boolean canVoteSite(VoteSite voteSite) {
+	public boolean canVoteSite(VoteSite voteSite) {
 		String siteName = voteSite.getSiteName();
 		long time = getTime(voteSite);
 		if (time == 0) {
@@ -204,7 +214,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return true, if successful
 	 */
-	public synchronized boolean checkAllVotes() {
+	public boolean checkAllVotes() {
 		User user = this;
 
 		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
@@ -244,7 +254,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void dailyTopVoterAward(int place) {
+	public void dailyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
 			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
@@ -253,14 +263,24 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			// online
 			giveDailyTopVoterAward(place);
 		} else {
-			setTopVoterAwardOfflineDaily(place);
+			addOfflineOtherReward("DailyTopVoter" + place);
 		}
 	}
 
-	public synchronized void setTopVoterAwardOfflineDaily(int place) {
-		setPluginData("TopVoter." + LocalDateTime.now().getYear() + "." + LocalDateTime.now().getMonth().toString()
-				+ "." + LocalDateTime.now().getDayOfMonth(), place);
+	public int getAllTimeTotal() {
+		return allTimeTotal;
+	}
 
+	public int getDailyTotal() {
+		return dailyTotal;
+	}
+
+	public HashMap<String, Boolean> getHasGottenMilestone() {
+		return hasGottenMilestone;
+	}
+
+	public HashMap<VoteSite, Long> getLastVotes() {
+		return lastVotes;
 	}
 
 	/**
@@ -268,7 +288,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return the last vote times sorted
 	 */
-	public synchronized HashMap<VoteSite, Long> getLastVoteTimesSorted() {
+	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		HashMap<VoteSite, Long> times = new HashMap<VoteSite, Long>();
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
@@ -280,35 +300,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return sorted;
 	}
 
-	/**
-	 * Gets the offline milestone votes.
-	 *
-	 * @return the offline milestone votes
-	 */
-	@SuppressWarnings("unchecked")
-	public synchronized ArrayList<String> getOfflineMilestoneVotes() {
-		return (ArrayList<String>) getPluginData().getList("OfflineMilestones", new ArrayList<String>());
+	public int getMonthTotal() {
+		return monthTotal;
 	}
 
-	/**
-	 * Gets the offline top voter.
-	 *
-	 * @return the offline top voter
-	 */
-	public synchronized int getOfflineTopVoter() {
-		return getPluginData()
-				.getInt("TopVoter." + LocalDateTime.now().getYear() + "." + LocalDateTime.now().getMonth().toString());
+	public ArrayList<String> getOfflineOtherRewards() {
+		return offlineOtherRewards;
 	}
 
-	/**
-	 * Gets the offline votes.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @return the offline votes
-	 */
-	public synchronized int getOfflineVotes(VoteSite voteSite) {
-		return getPluginData().getInt("OfflineVotes." + voteSite.getSiteName());
+	public ArrayList<String> getOfflineVotes() {
+		return offlineVotes;
 	}
 
 	/**
@@ -316,17 +317,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return the points
 	 */
-	public synchronized int getPoints() {
-		return getPluginData().getInt("Points");
-	}
-
-	/**
-	 * Gets the reminded.
-	 *
-	 * @return the reminded
-	 */
-	public synchronized boolean getReminded() {
-		return getPluginData().getBoolean("Reminded");
+	public int getPoints() {
+		return points;
 	}
 
 	/**
@@ -336,19 +328,15 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the vote site
 	 * @return the time
 	 */
-	public synchronized long getTime(VoteSite voteSite) {
-		return getPluginData().getLong("VoteLast." + voteSite.getSiteName());
+	public long getTime(VoteSite voteSite) {
+		return lastVotes.get(voteSite);
 	}
 
-	/**
-	 * Gets the total.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @return the total
-	 */
-	public synchronized int getTotal(VoteSite voteSite) {
-		return getPluginData().getInt("Total." + voteSite.getSiteName());
+	public int getTotal(VoteSite voteSite) {
+		if (voteSiteTotal.containsKey(voteSite)) {
+			return voteSiteTotal.get(voteSite);
+		}
+		return 0;
 	}
 
 	/**
@@ -357,13 +345,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return the total daily all
 	 */
 
-	public synchronized int getTotalDailyAll() {
-		return getPluginData().getInt("TotalDaily");
+	public int getTotalDaily() {
+		return dailyTotal;
 
-	}
-
-	public synchronized int getTotalMileStone(int milestone) {
-		return getPluginData().getInt("Milestone." + milestone);
 	}
 
 	/**
@@ -371,24 +355,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return the total votes
 	 */
-	public synchronized int getTotalVotes() {
-		int total = 0;
-		for (VoteSite voteSite : plugin.getVoteSites()) {
-			total += getTotal(voteSite);
-		}
-		return total;
-	}
-
-	/**
-	 * Gets the total votes site.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @return the total votes site
-	 */
-	@Deprecated
-	public synchronized int getTotalVotesSite(VoteSite voteSite) {
-		return getTotal(voteSite);
+	public int getTotalVotes() {
+		return monthTotal;
 	}
 
 	/**
@@ -396,16 +364,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return the total votes today
 	 */
-	@SuppressWarnings("deprecation")
-	public synchronized int getTotalVotesToday() {
-		int total = 0;
-		for (VoteSite voteSite : plugin.getVoteSites()) {
-			Date date = new Date(getTime(voteSite));
-			if (date.getDate() == new Date().getDate()) {
-				total++;
-			}
-		}
-		return total;
+	public int getTotalVotesToday() {
+		return dailyTotal;
 
 	}
 
@@ -414,23 +374,20 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return the total weekly all
 	 */
-	public synchronized int getTotalWeeklyAll() {
-		return getPluginData().getInt("TotalWeekly");
-
+	public int getTotalWeekly() {
+		return weeklyTotal;
 	}
 
-	/**
-	 * Gets the vote time last.
-	 *
-	 * @return the vote time last
-	 */
-	public synchronized long getVoteTimeLast() {
-		ArrayList<Long> times = new ArrayList<Long>();
-		for (VoteSite voteSite : plugin.getVoteSites()) {
-			times.add(getTime(voteSite));
-		}
-		Long last = Collections.max(times);
-		return last;
+	public int getVotePartyVotes() {
+		return votePartyVotes;
+	}
+
+	public HashMap<VoteSite, Integer> getVoteSiteTotal() {
+		return voteSiteTotal;
+	}
+
+	public int getWeeklyTotal() {
+		return weeklyTotal;
 	}
 
 	/**
@@ -439,7 +396,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void giveDailyTopVoterAward(int place) {
+	public void giveDailyTopVoterAward(int place) {
 		for (String reward : Config.getInstance().getDailyAwardRewards(place)) {
 			RewardHandler.getInstance().giveReward(this, reward);
 		}
@@ -456,7 +413,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void giveMonthlyTopVoterAward(int place) {
+	public void giveMonthlyTopVoterAward(int place) {
 		for (String reward : Config.getInstance().getMonthlyAwardRewards(place)) {
 			RewardHandler.getInstance().giveReward(this, reward);
 		}
@@ -473,7 +430,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void giveWeeklyTopVoterAward(int place) {
+	public void giveWeeklyTopVoterAward(int place) {
 		for (String reward : Config.getInstance().getWeeklyAwardRewards(place)) {
 			RewardHandler.getInstance().giveReward(this, reward);
 		}
@@ -487,10 +444,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/**
 	 * Checks for gotten first vote.
 	 *
-	 * @return true, if successful
+	 * @return true if user got the first vote reward
 	 */
-	public synchronized boolean hasGottenFirstVote() {
-		return getPluginData().getBoolean("FirstVoteGotten");
+	public boolean hasGottenFirstVote() {
+		return allTimeTotal != 0;
 	}
 
 	/**
@@ -500,8 +457,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the votes required
 	 * @return true, if successful
 	 */
-	public synchronized boolean hasGottenMilestone(int votesRequired) {
-		return getPluginData().getBoolean("MilestonesGiven." + votesRequired);
+	public boolean hasGottenMilestone(int votesRequired) {
+		if (hasGottenMilestone.containsKey("" + votesRequired)) {
+			return hasGottenMilestone.get("" + votesRequired);
+		}
+		return false;
 	}
 
 	/**
@@ -509,21 +469,60 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 * @return true, if successful
 	 */
-	public synchronized boolean hasTopVoterIgnorePermission() {
-		return getPluginData().getBoolean("TopVoterIgnore");
+	public boolean hasTopVoterIgnorePermission() {
+		// NEED TO USE VAULT PERMISIONS
+		return false;
 	}
 
-	/**
-	 * Load name.
-	 */
-	public synchronized void loadName() {
-		setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
+	@Override
+	public void init() {
+		mileStoneTotal = getUserData().getInt("MileStoneTotal");
+		points = getUserData().getInt("Points");
+		offlineOtherRewards = getUserData().getStringList("OfflineOtherRewards");
+		allTimeTotal = getUserData().getInt("AllTimeTotal");
+		monthTotal = getUserData().getInt("MonthTotal");
+		weeklyTotal = getUserData().getInt("WeeklyTotal");
+		dailyTotal = getUserData().getInt("DailyTotal");
+		votePartyVotes = getUserData().getInt("VotePartyVotes");
+		reminded = Boolean.valueOf(getUserData().getString("Reminded"));
+
+		offlineVotes = getUserData().getStringList("OfflineVotes");
+
+		lastVotes = new HashMap<VoteSite, Long>();
+		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
+		for (String str : LastVotesList) {
+			String[] data = str.split("//");
+			VoteSite site = plugin.getVoteSite(data[0]);
+			long time = Long.parseLong(data[1]);
+			lastVotes.put(site, time);
+		}
+
+		hasGottenMilestone = new HashMap<String, Boolean>();
+		ArrayList<String> milestoneList = getUserData().getStringList("GottenMileStones");
+		for (String str : milestoneList) {
+			String[] data = str.split("//");
+			boolean gotten = Boolean.parseBoolean(data[1]);
+			hasGottenMilestone.put(data[0], gotten);
+		}
+
+		voteSiteTotal = new HashMap<VoteSite, Integer>();
+		ArrayList<String> voteTotalList = getUserData().getStringList("VoteSiteTotals");
+		for (String str : voteTotalList) {
+			String[] data = str.split("//");
+			VoteSite site = plugin.getVoteSite(data[0]);
+			int total = Integer.parseInt(data[0]);
+			voteSiteTotal.put(site, total);
+		}
+	}
+
+	public boolean isReminded() {
+		return reminded;
 	}
 
 	/**
 	 * Login message.
 	 */
-	public synchronized void loginMessage() {
+	public void loginMessage() {
 		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
 			VoteReminding.getInstance().runRemind(this);
 		}
@@ -535,7 +534,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void monthlyTopVoterAward(int place) {
+	public void monthlyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
 			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
@@ -544,193 +543,89 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			// online
 			giveMonthlyTopVoterAward(place);
 		} else {
-			setTopVoterAwardOffline(place);
+			addOfflineOtherReward("MonthlyTopVoter" + place);
 		}
-	}
-
-	private void setTopVoterAwardOffline(int value) {
-		setPluginData("TopVoter." + LocalDateTime.now().getYear() + "." + LocalDateTime.now().getMonth().toString(),
-				value);
-
 	}
 
 	/**
 	 * Off vote.
 	 */
-	public synchronized void offVote() {
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
-		ArrayList<String> offlineVotes = new ArrayList<String>();
-
-		String playerName = getPlayerName();
-
+	public void offVote() {
 		Player player = getPlayer();
 		if (player != null) {
-			setHasTopVoterIgnorePermssion(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
-		}
-
-		boolean sendEffects = false;
-
-		for (VoteSite voteSite : voteSites) {
-			int offvotes = getOfflineVotes(voteSite);
-			if (offvotes > 0) {
-				sendEffects = true;
-
-				plugin.debug("Offline Vote Reward on Site '" + voteSite.getSiteName() + "' given for player '"
-						+ playerName + "'");
-
-				for (int i = 0; i < offvotes; i++) {
-					offlineVotes.add(voteSite.getSiteName());
-				}
+			if (offlineVotes.size() > 0) {
+				sendVoteEffects(true);
 			}
-		}
 
-		if (sendEffects) {
-			sendVoteEffects(true);
-		}
+			for (int i = 0; i < offlineVotes.size(); i++) {
+				playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+			}
+			setOfflineVotes(new ArrayList<String>());
 
-		for (int i = 0; i < offlineVotes.size(); i++) {
-			playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
-		}
-		for (int i = 0; i < offlineVotes.size(); i++) {
-			setOfflineVotes(plugin.getVoteSite(offlineVotes.get(i)), 0);
-		}
-
-		int firstVotes = getFirstVoteOffline();
-		int allSites = getAllSitesOffline();
-		for (int i = 0; i < firstVotes; i++) {
-			OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
-		}
-
-		for (int i = 0; i < allSites; i++) {
-			OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
-		}
-
-		Set<String> list = Config.getInstance().getCumulativeVotes();
-		for (String str : list) {
-			if (StringUtils.getInstance().isInt(str)) {
-				int votesRequired = Integer.parseInt(str);
-				if (votesRequired != 0) {
-					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-						int offlineVote = getCumulativeVotesOffline(votesRequired);
-						for (int i = 0; i < offlineVote; i++) {
-							OtherVoteReward.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
-
-						}
-						if (offlineVote != 0) {
-							setCumuatliveVotesOffline(votesRequired, 0);
+			for (String str : getOfflineOtherRewards()) {
+				if (str.equalsIgnoreCase("FirstVote")) {
+					OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
+				} else if (str.equalsIgnoreCase("AllSites")) {
+					OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+				} else if (str.equalsIgnoreCase("VoteParty")) {
+					VoteParty.getInstance().giveReward(this);
+				} else if (str.contains("Cumulative")) {
+					String st = str.substring("Cumulative".length());
+					if (StringUtils.getInstance().isInt(st)) {
+						int votesRequired = Integer.parseInt(st);
+						if (votesRequired != 0) {
+							if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
+								OtherVoteReward.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
+							}
 						}
 					}
-				}
-			}
-		}
-
-		ArrayList<String> milestones = getOfflineMilestoneVotes();
-		for (String str : milestones) {
-			if (StringUtils.getInstance().isInt(str)) {
-				int votesRequired = Integer.parseInt(str);
-				if (votesRequired != 0) {
-					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-						OtherVoteReward.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
+				} else if (str.contains("MileStone")) {
+					String st = str.substring("MileStone".length());
+					if (StringUtils.getInstance().isInt(st)) {
+						int votesRequired = Integer.parseInt(st);
+						if (votesRequired > 0) {
+							if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
+								OtherVoteReward.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
+							}
+						}
 					}
+				} else if (str.contains("MontlyTopVoter")) {
+					String st = str.substring("MontlyTopVoter".length());
+					if (StringUtils.getInstance().isInt(st)) {
+						int place = Integer.parseInt(st);
+						if (place > 0) {
+							if (Config.getInstance().getMonthlyAwardsEnabled()) {
+								giveMonthlyTopVoterAward(place);
+							}
+						}
+					}
+				} else if (str.contains("WeeklyTopVoter")) {
+					String st = str.substring("WeeklyTopVoter".length());
+					if (StringUtils.getInstance().isInt(st)) {
+						int place = Integer.parseInt(st);
+						if (place > 0) {
+							if (Config.getInstance().getWeeklyAwardsEnabled()) {
+								giveWeeklyTopVoterAward(place);
+							}
+						}
+					}
+				} else if (str.contains("DailyTopVoter")) {
+					String st = str.substring("DailyTopVoter".length());
+					if (StringUtils.getInstance().isInt(st)) {
+						int place = Integer.parseInt(st);
+						if (place > 0) {
+							if (Config.getInstance().getDailyAwardsEnabled()) {
+								giveDailyTopVoterAward(place);
+							}
+						}
+					}
+				} else {
+					plugin.debug("Reward handle for " + str + " does not exist!");
 				}
+
 			}
+			setOfflineOtherRewards(new ArrayList<String>());
 		}
-		setOfflineMilestoneVotes(new ArrayList<String>());
-
-		if (firstVotes != 0) {
-			setFirstVoteOffline(0);
-		}
-		if (allSites != 0) {
-			setAllSitesOffline(0);
-		}
-
-		int place = getOfflineTopVoter();
-		if (place > 0) {
-			giveMonthlyTopVoterAward(place);
-			setTopVoterAwardOffline(0);
-		}
-
-		if (Config.getInstance().getMonthlyAwardsEnabled()) {
-			for (int i = 0; i <= 6; i++) {
-				int place1 = getTopVoterAwardOfflineWeekly(i);
-				if (place1 > 0) {
-					giveWeeklyTopVoterAward(place1);
-					setTopVoterAwardOfflineWeekly(0);
-				}
-			}
-		}
-
-		if (Config.getInstance().getDailyAwardsEnabled()) {
-			for (int i = 0; i <= 31; i++) {
-				int place2 = getTopVoterAwardOfflineDaily(i);
-				if (place2 > 0) {
-					giveDailyTopVoterAward(place2);
-					setDailyTopVoterAwardOffline(0);
-				}
-			}
-		}
-
-		if (VoteParty.getInstance().getOfflineVotePartyVotes(this) > 0) {
-			for (int i = VoteParty.getInstance().getOfflineVotePartyVotes(this); i > 0; i--) {
-				VoteParty.getInstance().giveReward(this);
-			}
-			VoteParty.getInstance().setOfflineVotePartyVotes(this, 0);
-		}
-
-	}
-
-	public synchronized void setCumuatliveVotesOffline(int votesRequired, int i) {
-		setPluginData("OtherRewards.Cumulative." + votesRequired, i);
-
-	}
-
-	public synchronized int getCumulativeVotesOffline(int votesRequired) {
-		return getPluginData().getInt("OtherRewards.Cumulative." + votesRequired);
-	}
-
-	public synchronized void setDailyTopVoterAwardOffline(int i) {
-		setPluginData("TopVoter." + LocalDateTime.now().getYear() + "." + LocalDateTime.now().getMonth().toString()
-				+ "." + LocalDateTime.now().getDayOfMonth(), i);
-
-	}
-
-	public synchronized void setTopVoterAwardOfflineWeekly(int i) {
-		LocalDate date = LocalDate.now();
-		TemporalField woy = WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear();
-		int weekNumber = date.get(woy);
-		setPluginData("TopVoter." + LocalDateTime.now().getYear() + "." + weekNumber, i);
-
-	}
-
-	public synchronized int getTopVoterAwardOfflineDaily(int i) {
-		return getPluginData().getInt("TopVoter." + LocalDateTime.now().getYear() + "."
-				+ LocalDateTime.now().getMonth().toString() + "." + LocalDateTime.now().getDayOfMonth());
-	}
-
-	public synchronized int getTopVoterAwardOfflineWeekly(int i) {
-		LocalDate date = LocalDate.now();
-		TemporalField woy = WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear();
-		int weekNumber = date.get(woy);
-		return getPluginData().getInt("TopVoter." + LocalDateTime.now().getYear() + "." + weekNumber);
-	}
-
-	public synchronized void setAllSitesOffline(int value) {
-		setPluginData("OtherRewards.AllSites", value);
-
-	}
-
-	public synchronized void setFirstVoteOffline(int value) {
-		setPluginData("OtherRewards.FirstVote", value);
-
-	}
-
-	public synchronized int getAllSitesOffline() {
-		return getPluginData().getInt("OtherRewards.AllSites");
-	}
-
-	public synchronized int getFirstVoteOffline() {
-		return getPluginData().getInt("OtherRewards.FirstVote");
 	}
 
 	/**
@@ -743,7 +638,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param broadcast
 	 *            the broadcast
 	 */
-	public synchronized void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
+	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
 		if (Config.getInstance().getBroadCastVotesEnabled() && Config.getInstance().getFormatBroadcastWhenOnline()
 				&& broadcast) {
 			voteSite.broadcastVote(this);
@@ -758,12 +653,26 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the points
 	 * @return true, if successful
 	 */
-	public synchronized boolean removePoints(int points) {
+	public boolean removePoints(int points) {
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points);
 			return true;
 		}
 		return false;
+	}
+
+	public void resetDailyTotalVotes() {
+		setDailyTotal(0);
+	}
+
+	public void resetMonthlyTotalVotes() {
+		for (VoteSite site : plugin.getVoteSites()) {
+			setTotal(site, 0);
+		}
+	}
+
+	public void resetWeeklyTotalVotes() {
+		setWeeklyTotal(0);
 	}
 
 	/**
@@ -772,7 +681,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param online
 	 *            the online
 	 */
-	public synchronized void sendVoteEffects(boolean online) {
+	public void sendVoteEffects(boolean online) {
 		for (String reward : Config.getInstance().getAnySiteRewards()) {
 			if (reward != "") {
 				RewardHandler.getInstance().giveReward(this, reward);
@@ -780,77 +689,49 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
-	/**
-	 * Sets the has gotte milestone.
-	 *
-	 * @param votesRequired
-	 *            the votes required
-	 * @param value
-	 *            the value
-	 */
-	public synchronized void setHasGotteMilestone(int votesRequired, boolean value) {
-		setPluginData("MilestonesGiven." + votesRequired, value);
+	public void setAllTimeTotal(int allTimeTotal) {
+		this.allTimeTotal = allTimeTotal;
+		getUserData().setInt("AllTimeTotal", allTimeTotal);
 	}
 
-	/**
-	 * Sets the checks for gotten first vote.
-	 *
-	 * @param value
-	 *            the new checks for gotten first vote
-	 */
-	public synchronized void setHasGottenFirstVote(boolean value) {
-		setPluginData("FirstVoteGotten", value);
+	public void setDailyTotal(int dailyTotal) {
+		this.dailyTotal = dailyTotal;
+		getUserData().setInt("DailyTotal", dailyTotal);
 	}
 
-	/**
-	 * Sets the checks for top voter ignore permssion.
-	 *
-	 * @param value
-	 *            the new checks for top voter ignore permssion
-	 */
-	public synchronized void setHasTopVoterIgnorePermssion(boolean value) {
-		setPluginData("TopVoterIgnore", value);
+	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
+		this.hasGottenMilestone = hasGottenMilestone;
+		ArrayList<String> data = new ArrayList<String>();
+		for (Entry<String, Boolean> entry : hasGottenMilestone.entrySet()) {
+			String str = entry.getKey() + "//" + entry.getValue().booleanValue();
+			data.add(str);
+		}
+		getUserData().setStringList("GottenMileStones", data);
 	}
 
-	/**
-	 * Sets the offline milestone votes.
-	 *
-	 * @param value
-	 *            the value
-	 */
-	public synchronized void setOfflineMilestoneVotes(ArrayList<String> value) {
-		setPluginData("OfflineMilestones", value);
+	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
+		this.lastVotes = lastVotes;
+		ArrayList<String> data = new ArrayList<String>();
+		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
+			String str = entry.getKey().getSiteName() + "//" + entry.getValue().longValue();
+			data.add(str);
+		}
+		getUserData().setStringList("LastVotes", data);
 	}
 
-	public synchronized int getAllTimeTotal() {
-		return getPluginData().getInt("AllTimeTotal");
+	public void setMonthTotal(int monthTotal) {
+		this.monthTotal = monthTotal;
+		getUserData().setInt("DailyTotal", monthTotal);
 	}
 
-	public synchronized void setAllTimeTotal(int value) {
-		setPluginData("AllTimeTotal", value);
+	public void setOfflineOtherRewards(ArrayList<String> offlineOtherRewards) {
+		this.offlineOtherRewards = offlineOtherRewards;
+		getUserData().setStringList("OfflineOtherRewards", offlineOtherRewards);
 	}
 
-	/**
-	 * Sets the offline top voter.
-	 *
-	 * @param place
-	 *            the new offline top voter
-	 */
-	public synchronized void setOfflineTopVoter(int place) {
-		setPluginData("TopVoter." + LocalDateTime.now().getYear() + "." + LocalDateTime.now().getMonth().toString(),
-				place);
-	}
-
-	/**
-	 * Sets the offline votes.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @param amount
-	 *            the amount
-	 */
-	public synchronized void setOfflineVotes(VoteSite voteSite, int amount) {
-		setPluginData("OfflineVotes." + voteSite.getSiteName(), amount);
+	public void setOfflineVotes(ArrayList<String> offlineVotes) {
+		this.offlineVotes = offlineVotes;
+		getUserData().setStringList("OfflineVotes", offlineVotes);
 	}
 
 	/**
@@ -859,52 +740,40 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param value
 	 *            the new points
 	 */
-	public synchronized void setPoints(int value) {
-		setPluginData("Points", value);
+	public void setPoints(int value) {
+		points = value;
+		getUserData().setInt("Points", value);
 	}
 
-	/**
-	 * Sets the reminded.
-	 *
-	 * @param reminded
-	 *            the new reminded
-	 */
-	public synchronized void setReminded(boolean reminded) {
-		setPluginData("Reminded", reminded);
+	public void setReminded(boolean reminded) {
+		this.reminded = reminded;
+		getUserData().setString("Reminded", "" + reminded);
 	}
 
-	/**
-	 * Sets the time.
-	 *
-	 * @param voteSite
-	 *            the new time
-	 */
-	public synchronized void setTime(VoteSite voteSite) {
-		setPluginData("VoteLast." + voteSite.getSiteName(), System.currentTimeMillis());
+	public void setTotal(VoteSite voteSite, int value) {
+		voteSiteTotal.put(voteSite, value);
+		setVoteSiteTotal(getVoteSiteTotal());
 	}
 
-	/**
-	 * Sets the total.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @param amount
-	 *            the amount
-	 */
-	public synchronized void setTotal(VoteSite voteSite, int amount) {
-		setPluginData("Total." + voteSite.getSiteName(), amount);
+	public void setVotePartyVotes(int value) {
+		votePartyVotes = value;
+		getUserData().setInt("VotePartyVotes", value);
 	}
 
-	public synchronized void setTotalDaily(int value) {
-		getPluginData().set("TotalDaily", value);
+	public void setVoteSiteTotal(HashMap<VoteSite, Integer> voteSiteTotal) {
+		this.voteSiteTotal = voteSiteTotal;
+		ArrayList<String> data = new ArrayList<String>();
+		for (Entry<VoteSite, Integer> entry : voteSiteTotal.entrySet()) {
+			String str = entry.getKey().getSiteName() + "//" + entry.getValue().intValue();
+			data.add(str);
+		}
+		getUserData().setStringList("VoteSiteTotals", data);
+
 	}
 
-	public synchronized void setTotalMileStone(int milestone, int value) {
-		setPluginData("Milestone." + milestone, value);
-	}
-
-	public synchronized void setTotalWeekly(int value) {
-		setPluginData("TotalWeekly", value);
+	public void setWeeklyTotal(int weeklyTotal) {
+		this.weeklyTotal = weeklyTotal;
+		getUserData().setInt("WeeklyTotal", weeklyTotal);
 	}
 
 	/**
@@ -913,7 +782,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public synchronized void weeklyTopVoterAward(int place) {
+	public void weeklyTopVoterAward(int place) {
 		if (getPlayerName() == null) {
 			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
 		}
@@ -922,22 +791,28 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			// online
 			giveWeeklyTopVoterAward(place);
 		} else {
-			setTopVoterAwardOfflineWeekly(place);
+			addOfflineOtherReward("WeeklyTopVoter" + place);
 		}
 	}
 
-	public synchronized void resetMonthlyTotalVotes() {
-		for (VoteSite site : plugin.getVoteSites()) {
-			setTotal(site, 0);
-		}
+	public void addOfflineOtherReward(String reward) {
+		offlineOtherRewards.add(reward);
+		setOfflineOtherRewards(getOfflineOtherRewards());
 	}
 
-	public synchronized void resetWeeklyTotalVotes() {
-		setTotalWeekly(0);
+	public void setHasGotteMilestone(int votesRequired, boolean b) {
+		hasGottenMilestone.put("" + votesRequired, b);
+		setHasGottenMilestone(getHasGottenMilestone());
 	}
 
-	public synchronized void resetDailyTotalVotes() {
-		setTotalDaily(0);
+	public void setTime(VoteSite voteSite) {
+		lastVotes.put(voteSite, LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+		setLastVotes(getLastVotes());
+	}
+
+	public void addOfflineVote(String voteSiteName) {
+		offlineVotes.add(voteSiteName);
+		setOfflineVotes(getOfflineVotes());
 	}
 
 }

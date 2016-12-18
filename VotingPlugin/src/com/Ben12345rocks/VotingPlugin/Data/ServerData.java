@@ -61,16 +61,14 @@ public class ServerData {
 
 		int count = nextSignNumber();
 
-		getData().set("Signs." + count + ".World",
-				location.getWorld().getName());
+		getData().set("Signs." + count + ".World", location.getWorld().getName());
 		getData().set("Signs." + count + ".X", location.getBlockX());
 		getData().set("Signs." + count + ".Y", location.getBlockY());
 		getData().set("Signs." + count + ".Z", location.getBlockZ());
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
-		plugin.signs.add(new SignHandler("" + count,
-				getSignLocation("" + count), getSignData("" + count),
+		plugin.signs.add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
 				getSignPosition("" + count)));
 	}
 
@@ -109,11 +107,9 @@ public class ServerData {
 	 * @return the sign location
 	 */
 	public Location getSignLocation(String sign) {
-		return new Location(Bukkit.getWorld(getData().getString(
-				"Signs." + sign + ".World")), getData().getDouble(
-				"Signs." + sign + ".X"), getData().getDouble(
-				"Signs." + sign + ".Y"), getData().getDouble(
-				"Signs." + sign + ".Z"));
+		return new Location(Bukkit.getWorld(getData().getString("Signs." + sign + ".World")),
+				getData().getDouble("Signs." + sign + ".X"), getData().getDouble("Signs." + sign + ".Y"),
+				getData().getDouble("Signs." + sign + ".Z"));
 	}
 
 	/**
@@ -201,11 +197,9 @@ public class ServerData {
 	 * @param position
 	 *            the position
 	 */
-	public void setSign(String count, Location location, String data,
-			int position) {
+	public void setSign(String count, Location location, String data, int position) {
 
-		getData().set("Signs." + count + ".World",
-				location.getWorld().getName());
+		getData().set("Signs." + count + ".World", location.getWorld().getName());
 		int x = (int) location.getX();
 		int z = (int) location.getZ();
 		getData().set("Signs." + count + ".X", x);
@@ -215,7 +209,6 @@ public class ServerData {
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
 	}
-
 
 	/**
 	 * Sets the version.

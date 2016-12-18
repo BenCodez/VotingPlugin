@@ -69,6 +69,12 @@ public class CommandLoader {
 	/** The commands. */
 	private HashMap<String, CommandHandler> commands;
 
+	private String adminPerm = "VotingPlugin.Admin";
+
+	private String modPerm = "VotingPlugin.Mod";
+
+	private String playerPerm = "VotingPlugin.Player";
+
 	/**
 	 * Instantiates a new command loader.
 	 */
@@ -93,10 +99,6 @@ public class CommandLoader {
 	public HashMap<String, CommandHandler> getCommands() {
 		return commands;
 	}
-
-	private String adminPerm = "VotingPlugin.Admin";
-	private String modPerm = "VotingPlugin.Mod";
-	private String playerPerm = "VotingPlugin.Player";
 
 	/**
 	 * Load admin vote command.
