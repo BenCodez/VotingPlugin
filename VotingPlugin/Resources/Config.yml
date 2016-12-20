@@ -6,8 +6,11 @@
 # Valid Options:
 # - SQLITE
 # - FLAT
-# - MYSQL
-DataStorage: SQLITE
+DataStorage: FLAT
+
+# Wether or not to check on world change
+# Should only be used if you do per world rewards
+CheckofflineVotesOnWorldChange: false
 
 # Debug
 Debug: false
@@ -66,7 +69,7 @@ VoteReminding:
   # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
   Enabled: true
 
-  # Wether or not to remind only once when the player can vote
+  # Wether or t to remind only once when the player can vote
   # Does not apply to login reminds.
   RemindOnlyOnce: true
 

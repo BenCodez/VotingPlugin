@@ -131,7 +131,7 @@ public class TopVoterHandler implements Listener {
 					int i = 0;
 					for (User user : plugin.topVoterDaily.keySet()) {
 
-						if (!user.hasTopVoterIgnorePermission()) {
+						if (!user.isTopVoterIgnore()) {
 							i++;
 							if (places.contains(Integer.toString(i))) {
 								user.dailyTopVoterAward(i);
@@ -161,7 +161,7 @@ public class TopVoterHandler implements Listener {
 					Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
 					int i = 0;
 					for (User user : plugin.topVoterMonthly.keySet()) {
-						if (!user.hasTopVoterIgnorePermission()) {
+						if (!user.isTopVoterIgnore()) {
 							i++;
 							if (places.contains(Integer.toString(i))) {
 								user.monthlyTopVoterAward(i);
@@ -190,7 +190,7 @@ public class TopVoterHandler implements Listener {
 					Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
 					int i = 0;
 					for (User user : plugin.topVoterWeekly.keySet()) {
-						if (!user.hasTopVoterIgnorePermission()) {
+						if (!user.isTopVoterIgnore()) {
 							i++;
 							if (places.contains(Integer.toString(i))) {
 								user.weeklyTopVoterAward(i);

@@ -142,9 +142,7 @@ public class OtherVoteReward implements Listener {
 		for (String vote : votes) {
 			if (StringUtils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
-				plugin.debug("Is int: " + vote);
 				if (votesRequired != 0) {
-					plugin.debug("not 0");
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
 							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
 

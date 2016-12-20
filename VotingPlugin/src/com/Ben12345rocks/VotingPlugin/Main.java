@@ -14,7 +14,6 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -257,7 +256,12 @@ public class Main extends JavaPlugin {
 				if (Config.getInstance().getCumulativeVotes().size() == 0) {
 					return "False";
 				} else {
-					return "True";
+					for (String cum : Config.getInstance().getCumulativeVotes()) {
+						if (Config.getInstance().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
+							return "True";
+						}
+					}
+					return "False";
 				}
 			}
 		});
@@ -279,7 +283,12 @@ public class Main extends JavaPlugin {
 				if (Config.getInstance().getMilestoneVotes().size() == 0) {
 					return "False";
 				} else {
-					return "True";
+					for (String milestone : Config.getInstance().getMilestoneVotes()) {
+						if (Config.getInstance().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
+							return "True";
+						}
+					}
+					return "False";
 				}
 			}
 		});
@@ -329,11 +338,74 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getBroadCastVotesEnabled();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofdatafiles") {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
 
 			@Override
 			public String getValue() {
-				return "" + Data.getInstance().getFiles().size();
+				return "" + UserManager.getInstance().getAllUUIDs().size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage") {
+
+			@Override
+			public String getValue() {
+				return Config.getInstance().getDataStorage();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("CheckOnWorldChange") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCheckOfflineVotesOnWorldChange();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getVoteRemindingEnabled();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Today") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIToday();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_TopVoter") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUITopVoter();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Last") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUILast();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Next") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUINext();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Total") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUITotal();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Vote") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIVote();
 			}
 		});
 	}
@@ -506,6 +578,8 @@ public class Main extends JavaPlugin {
 
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		AdvancedCoreHook.getInstance()
+				.setCheckOfflineVotesOnWorldChange(Config.getInstance().getCheckOfflineVotesOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
 		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
