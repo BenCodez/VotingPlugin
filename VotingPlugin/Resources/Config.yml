@@ -10,7 +10,7 @@ DataStorage: FLAT
 
 # Wether or not to check on world change
 # Should only be used if you do per world rewards
-CheckofflineVotesOnWorldChange: false
+CheckOnWorldChange: false
 
 # Debug
 Debug: false

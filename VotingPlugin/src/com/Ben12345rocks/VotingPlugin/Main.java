@@ -356,7 +356,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCheckOfflineVotesOnWorldChange();
+				return "" + Config.getInstance().getCheckOnWorldChange();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {
@@ -579,7 +579,7 @@ public class Main extends JavaPlugin {
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		AdvancedCoreHook.getInstance()
-				.setCheckOfflineVotesOnWorldChange(Config.getInstance().getCheckOfflineVotesOnWorldChange());
+				.setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
 		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());

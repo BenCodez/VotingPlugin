@@ -1178,8 +1178,8 @@ public class Config extends YMLFile {
 		return getData().getString("DataStorage", "FLAT");
 	}
 
-	public boolean getCheckOfflineVotesOnWorldChange() {
-		return getData().getBoolean("CheckofflineVotesOnWorldChange");
+	public boolean getCheckOnWorldChange() {
+		return getData().getBoolean("CheckOnWorldChange");
 	}
 
 }
