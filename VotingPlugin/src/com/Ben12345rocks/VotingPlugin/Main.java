@@ -578,8 +578,7 @@ public class Main extends JavaPlugin {
 
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
-		AdvancedCoreHook.getInstance()
-				.setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
+		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
 		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());

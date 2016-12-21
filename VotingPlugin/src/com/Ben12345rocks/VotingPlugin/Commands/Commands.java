@@ -566,18 +566,15 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
-		ArrayList<String> voteNames = UserManager.getInstance().getAllUUIDs();
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 
 		msg.add(config.getFormatCommandsVoteTotalAllTitle());
 		int total = 0;
 		for (VoteSite voteSite : voteSites) {
 			int votes = 0;
-			for (String uuid : voteNames) {
-				if (uuid != null) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					votes += user.getTotal(voteSite);
-				}
+			for (String uuid : uuids) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				votes += user.getTotal(voteSite);
 			}
 			msg.add(StringUtils.getInstance().replaceIgnoreCase(
 					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),
