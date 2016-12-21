@@ -577,17 +577,16 @@ public class Commands {
 
 		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
-		ArrayList<String> voteNames = com.Ben12345rocks.AdvancedCore.Data.Data.getInstance().getPlayerNames();
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 
 		msg.add(config.getFormatCommandsVoteTotalAllTitle());
 		int total = 0;
 		for (VoteSite voteSite : voteSites) {
 			int votes = 0;
-			for (String playerName : voteNames) {
-				if (playerName != null) {
-					User user = UserManager.getInstance().getVotingPluginUser(playerName);
-					votes += user.getTotal(voteSite);
-				}
+			for (String uuid : uuids) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				votes += user.getTotal(voteSite);
+
 			}
 			msg.add(StringUtils.getInstance().replaceIgnoreCase(
 					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),

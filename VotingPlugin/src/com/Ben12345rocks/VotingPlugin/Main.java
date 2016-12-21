@@ -13,7 +13,6 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Data.Data;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -327,7 +326,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Data.getInstance().getFiles().size();
+				return "" + UserManager.getInstance().getAllUUIDs();
 			}
 		});
 	}
