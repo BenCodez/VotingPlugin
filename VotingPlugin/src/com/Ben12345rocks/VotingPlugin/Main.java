@@ -536,6 +536,18 @@ public class Main extends JavaPlugin {
 		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				for (CommandHandler cmd : voteCommand) {
+					cmd.reloadTabComplete();
+				}
+				for (CommandHandler cmd : adminVoteCommand) {
+					cmd.reloadTabComplete();
+				}
+			}
+		});
 	}
 
 	/**
