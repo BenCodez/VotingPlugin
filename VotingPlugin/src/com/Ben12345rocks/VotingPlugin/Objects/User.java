@@ -443,7 +443,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return false;
 	}
 
-	public void loadFromOldData() {
+	public synchronized void loadFromOldData() {
 		setPoints(getData().getData(getUUID()).getInt("VotingPlugin.Points", 0));
 		for (VoteSite site : plugin.getVoteSites()) {
 			setTime(site, getData().getData(getUUID()).getLong("VotingPlugin.VoteLast." + site.getSiteName()));

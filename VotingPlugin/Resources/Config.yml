@@ -54,6 +54,10 @@ AutoCreateVoteSites: true
 # Not recommended though
 LogVotesToFile: false
 
+# Setting this to true will improve performance at a cost of RAM
+# Only use if you don't have many players on your server
+PreLoadUsers: false
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------

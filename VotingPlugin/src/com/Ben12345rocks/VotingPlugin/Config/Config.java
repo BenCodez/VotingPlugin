@@ -1194,4 +1194,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("CheckOnWorldChange");
 	}
 
+	public boolean getPreloadUsers() {
+		return getData().getBoolean("PreLoadUsers");
+	}
+
 }
