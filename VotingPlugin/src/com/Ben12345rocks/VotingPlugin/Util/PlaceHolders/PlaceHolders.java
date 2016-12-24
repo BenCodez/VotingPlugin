@@ -70,6 +70,10 @@ public class PlaceHolders {
 			return playerCanVote(p);
 		}
 
+		if (identifier.equalsIgnoreCase("alltimetotal")) {
+			return playerAllTimeTotal(p);
+		}
+
 		// %VotingPlugin_total_SITENAME% - Total votes for site
 		if (startsWithIgnoreCase(identifier, "total")) {
 			if (identifier.split("_").length > 1) {
@@ -168,7 +172,11 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerTotalVotes(Player player) {
-		return Integer.toString(UserManager.getInstance().getVotingPluginUser(player).getTotalVotes());
+		return Integer.toString(UserManager.getInstance().getVotingPluginUser(player).getMonthTotal());
+	}
+
+	public synchronized String playerAllTimeTotal(Player player) {
+		return Integer.toString(UserManager.getInstance().getVotingPluginUser(player).getAllTimeTotal());
 	}
 
 	/**

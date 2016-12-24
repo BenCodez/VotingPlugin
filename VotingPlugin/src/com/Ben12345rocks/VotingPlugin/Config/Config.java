@@ -70,6 +70,18 @@ public class Config extends YMLFile {
 
 	}
 
+	public boolean getLoadTopVoterMonthly() {
+		return getData().getBoolean("LoadTopVoter.Monthly", true);
+	}
+
+	public boolean getLoadTopVoterWeekly() {
+		return getData().getBoolean("LoadTopVoter.Weekly");
+	}
+
+	public boolean getLoadTopVoterDaily() {
+		return getData().getBoolean("LoadTopVoter.Daily");
+	}
+
 	/**
 	 * Gets the auto create vote sites.
 	 *

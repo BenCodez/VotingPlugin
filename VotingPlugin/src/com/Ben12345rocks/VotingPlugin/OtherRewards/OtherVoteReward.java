@@ -86,13 +86,13 @@ public class OtherVoteReward implements Listener {
 					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)
 							&& Config.getInstance().getCumulativeRewards(votesRequired).size() != 0) {
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
-							int userVotesTotal = user.getTotalVotesToday();
+							int userVotesTotal = user.getDailyTotal();
 							if ((userVotesTotal % votesRequired) == 0) {
 								user.addOfflineOtherReward("Cumulative" + votesRequired);
 								return true;
 							}
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
-							int userVotesTotal = user.getTotalWeekly();
+							int userVotesTotal = user.getWeeklyTotal();
 							if ((userVotesTotal % votesRequired) == 0) {
 								user.addOfflineOtherReward("Cumulative" + votesRequired);
 								return true;

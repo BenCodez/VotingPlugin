@@ -482,12 +482,18 @@ AnySiteRewards: []
 BlackList:
 - 'Notch'
 
-# When top voter awards are given (if there are none listed) it will store top voters
+# These are required to be enabled in order for top voter awards to work
+LoadTopVoter:
+  Monthly: true
+  Weekly: false
+  Daily: false
+
+# When top voter awards are given (even if there are none listed) it will store top voters
 # Files will created in TopVoters folder.
 StoreTopVoters:
   Monthly: true
-  Weekly: true
-  Daily: true
+  Weekly: false
+  Daily: false
 
 EnableMonthlyAwards: true
 # Rewards to give
