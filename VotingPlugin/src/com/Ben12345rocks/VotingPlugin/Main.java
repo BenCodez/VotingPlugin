@@ -408,6 +408,34 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getCommandsUseGUIVote();
 			}
 		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getPreloadUsers();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterMonthly();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Weekly") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterWeekly();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Daily") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterDaily();
+			}
+		});
 	}
 
 	/*
