@@ -452,9 +452,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 		setAllTimeTotal(getData().getData(getUUID()).getInt("VotingPlugin.AllTimeTotal"));
 
-		for (String data : getData().getData(getUUID()).getConfigurationSection("VotingPlugin").getKeys(false)) {
-			if (getData().getData(getUUID()).getBoolean("VotingPlugin.MilestonesGiven")) {
-				setHasGotteMilestone(Integer.parseInt(data), true);
+		if (getData().getData(getUUID()).isConfigurationSection("VotingPlugin.MilestonesGiven")) {
+			for (String data : getData().getData(getUUID()).getConfigurationSection("VotingPlugin.MilestoneGiven")
+					.getKeys(false)) {
+				if (getData().getData(getUUID()).getBoolean("VotingPlugin.MilestonesGiven." + data)) {
+					setHasGotteMilestone(Integer.parseInt(data), true);
+				}
 			}
 		}
 	}
