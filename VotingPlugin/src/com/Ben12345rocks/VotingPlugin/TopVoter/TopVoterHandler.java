@@ -470,6 +470,7 @@ public class TopVoterHandler implements Listener {
 				}
 			}
 			plugin.topVoterMonthly = sortByValues(plugin.topVoterMonthly, false);
+			plugin.debug("Monthly TopVoter loaded");
 		}
 
 		plugin.topVoterWeekly.clear();
@@ -482,7 +483,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			plugin.topVoterWeekly = sortByValues(plugin.topVoterWeekly, false);
-
+			plugin.debug("Weekly TopVoter loaded");
 		}
 
 		plugin.topVoterDaily.clear();
@@ -494,6 +495,7 @@ public class TopVoterHandler implements Listener {
 				}
 			}
 			plugin.topVoterDaily = sortByValues(plugin.topVoterDaily, false);
+			plugin.debug("Daily TopVoter loaded");
 		}
 
 		plugin.debug("Updated TopVoter");

@@ -170,7 +170,7 @@ public class VotiferEvent implements Listener {
 
 				}
 
-				plugin.update();
+				plugin.setUpdate(true);
 			}
 		});
 

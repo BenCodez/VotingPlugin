@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
@@ -92,6 +94,8 @@ public class Main extends JavaPlugin {
 
 	/** The vote log. */
 	public Logger voteLog;
+
+	private boolean update = true;
 
 	/**
 	 * Check votifier.
@@ -497,14 +501,14 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
+		
+		new Timer().schedule(new TimerTask() {
+			
 			@Override
 			public void run() {
 				update();
 			}
-		});
+		}, 1000, 180000);
 
 	}
 
@@ -594,26 +598,31 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public synchronized void update() {
-		com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
+		if (update) {
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-			@Override
-			public void run() {
-				plugin.debug("Starting background task");
-				try {
-					TopVoterHandler.getInstance().updateTopVoters();
-					Commands.getInstance().updateVoteToday();
-					ServerData.getInstance().updateValues();
-					Signs.getInstance().updateSigns();
-					plugin.debug("Background task ran");
+				@Override
+				public void run() {
+					update = false;
+					plugin.debug("Starting background task");
+					try {
+						TopVoterHandler.getInstance().updateTopVoters();
+						Commands.getInstance().updateVoteToday();
+						ServerData.getInstance().updateValues();
+						Signs.getInstance().updateSigns();
+						plugin.debug("Background task ran");
 
-				} catch (Exception ex) {
-					plugin.getLogger().info("Looks like there are no data files or something went wrong.");
-					ex.printStackTrace();
+					} catch (Exception ex) {
+						plugin.getLogger().info("Looks like there are no data files or something went wrong.");
+						ex.printStackTrace();
+					}
 				}
+			});
+		}
+	}
 
-			}
-		});
-
+	public void setUpdate(boolean update) {
+		this.update = update;
 	}
 
 	public void updateAdvancedCoreHook() {
