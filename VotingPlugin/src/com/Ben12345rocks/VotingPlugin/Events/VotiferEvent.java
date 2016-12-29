@@ -89,6 +89,8 @@ public class VotiferEvent implements Listener {
 				// update last vote time
 				user.setTime(voteSite);
 
+				boolean firstVote = OtherVoteReward.getInstance().checkFirstVote(user);
+
 				// add to total votes
 				user.addTotal(voteSite);
 				user.addTotalDaily();
@@ -98,7 +100,7 @@ public class VotiferEvent implements Listener {
 				user.setReminded(false);
 
 				// check if player has voted on all sites in one day
-				boolean firstVote = OtherVoteReward.getInstance().checkFirstVote(user);
+
 				boolean allSites = OtherVoteReward.getInstance().checkAllSites(user);
 				boolean cumulativeVotes = OtherVoteReward.getInstance().checkCumualativeVotes(user);
 				boolean milestone = OtherVoteReward.getInstance().checkMilestone(user);
@@ -116,30 +118,6 @@ public class VotiferEvent implements Listener {
 					if (allSites) {
 						plugin.debug("AllSites: true");
 						OtherVoteReward.getInstance().giveAllSitesRewards(user, true);
-
-					}
-
-					if (cumulativeVotes) {
-						plugin.debug("Cumulative: true");
-						Set<String> list = Config.getInstance().getCumulativeVotes();
-						for (String str : list) {
-							if (StringUtils.getInstance().isInt(str)) {
-								int votesRequired = Integer.parseInt(str);
-								if (votesRequired != 0) {
-									if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-										int offlineVote = user.getCumulativeVotesOffline(votesRequired);
-										for (int i = 0; i < offlineVote; i++) {
-											OtherVoteReward.getInstance().giveCumulativeVoteReward(user, true,
-													votesRequired);
-
-										}
-										if (offlineVote != 0) {
-											user.setCumuatliveVotesOffline(votesRequired, 0);
-										}
-									}
-								}
-							}
-						}
 
 					}
 
@@ -167,12 +145,12 @@ public class VotiferEvent implements Listener {
 					user.sendVoteEffects(true);
 				} else {
 					if (firstVote) {
-						user.setFirstVoteOffline(user.getFirstVoteOffline() + 1);
+						user.addOfflineOtherReward("FirstVote");
 						plugin.debug("Offline first vote reward set for " + playerName);
 					}
 
 					if (allSites) {
-						user.setAllSitesOffline(user.getAllSitesOffline() + 1);
+						user.addOfflineOtherReward("AllSites");
 						plugin.debug("Offline bonus reward set for " + playerName);
 					}
 
@@ -186,13 +164,13 @@ public class VotiferEvent implements Listener {
 						plugin.debug("Offline milestone reward set for " + playerName);
 					}
 
-					user.addOfflineVote(voteSite);
+					user.addOfflineVote(voteSiteName);
 
 					plugin.debug("Offline vote set for " + playerName + " on " + voteSiteName);
 
 				}
 
-				plugin.update();
+				plugin.setUpdate(true);
 			}
 		});
 

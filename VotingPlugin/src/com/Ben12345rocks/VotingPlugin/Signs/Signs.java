@@ -69,10 +69,8 @@ public class Signs {
 		plugin.signs = new ArrayList<SignHandler>();
 		for (String sign : ServerData.getInstance().getSigns()) {
 			// plugin.getLogger().info("Loading sign " + sign);
-			plugin.signs.add(new SignHandler(sign, ServerData.getInstance()
-					.getSignLocation(sign), ServerData.getInstance()
-					.getSignData(sign), ServerData.getInstance()
-					.getSignPosition(sign)));
+			plugin.signs.add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
+					ServerData.getInstance().getSignData(sign), ServerData.getInstance().getSignPosition(sign)));
 		}
 	}
 

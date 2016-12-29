@@ -53,9 +53,7 @@ public class ConfigVoteSites extends YMLFile {
 	public void generateVoteSite(String siteName) {
 		String org = siteName;
 		siteName = siteName.replace(".", "_");
-		plugin.getLogger().warning(
-				"VoteSite " + siteName
-						+ " doe not exist, generaterating one...");
+		plugin.getLogger().warning("VoteSite " + siteName + " doe not exist, generaterating one...");
 		setEnabled(siteName, true);
 		setServiceSite(siteName, org);
 		setVoteURL(siteName, "VoteURL");
@@ -78,8 +76,7 @@ public class ConfigVoteSites extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getCumulativeRewards(String siteName) {
 
-		return (ArrayList<String>) getData(siteName).getList(
-				"Cumulative.Rewards", new ArrayList<String>());
+		return (ArrayList<String>) getData(siteName).getList("Cumulative.Rewards", new ArrayList<String>());
 
 	}
 
@@ -102,8 +99,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the data
 	 */
 	public ConfigurationSection getData(String siteName) {
-		ConfigurationSection data = getData().getConfigurationSection(
-				"VoteSites." + siteName);
+		ConfigurationSection data = getData().getConfigurationSection("VoteSites." + siteName);
 		return data;
 	}
 
@@ -128,8 +124,7 @@ public class ConfigVoteSites extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRewards(String siteName) {
 
-		return (ArrayList<String>) getData(siteName).getList("Rewards",
-				new ArrayList<String>());
+		return (ArrayList<String>) getData(siteName).getList("Rewards", new ArrayList<String>());
 
 	}
 
@@ -174,16 +169,13 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote site file
 	 */
 	public File getVoteSiteFile(String siteName) {
-		File dFile = new File(plugin.getDataFolder() + File.separator
-				+ "VoteSites", siteName + ".yml");
+		File dFile = new File(plugin.getDataFolder() + File.separator + "VoteSites", siteName + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
 			} catch (IOException e) {
-				plugin.getLogger().severe(
-						ChatColor.RED + "Could not create VoteSites/"
-								+ siteName + ".yml!");
+				plugin.getLogger().severe(ChatColor.RED + "Could not create VoteSites/" + siteName + ".yml!");
 
 			}
 		}
@@ -218,8 +210,7 @@ public class ConfigVoteSites extends YMLFile {
 			for (String site : voteSiteNames) {
 				if (getVoteSiteEnabled(site) && !site.equalsIgnoreCase("null")) {
 					if (!siteCheck(site)) {
-						plugin.getLogger().warning(
-								"Failed to load site " + site + ", see above");
+						plugin.getLogger().warning("Failed to load site " + site + ", see above");
 					} else {
 						voteSites.add(new VoteSite(site));
 					}
@@ -255,15 +246,12 @@ public class ConfigVoteSites extends YMLFile {
 	public ArrayList<String> getVoteSitesNames() {
 		ArrayList<String> siteNames = new ArrayList<String>();
 		if (getData().isConfigurationSection("VoteSites")) {
-			siteNames = ArrayUtils.getInstance().convert(
-					getData().getConfigurationSection("VoteSites").getKeys(
-							false));
+			siteNames = ArrayUtils.getInstance().convert(getData().getConfigurationSection("VoteSites").getKeys(false));
 		}
 
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
 			// plugin.getLogger().info(siteNames.get(i));
-			if (!getVoteSiteEnabled(siteNames.get(i))
-					|| siteNames.get(i).equalsIgnoreCase("null")
+			if (!getVoteSiteEnabled(siteNames.get(i)) || siteNames.get(i).equalsIgnoreCase("null")
 					|| !siteCheck(siteNames.get(i))) {
 				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
@@ -318,6 +306,12 @@ public class ConfigVoteSites extends YMLFile {
 		return true;
 	}
 
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("VoteSites.yml", true);
+
+	}
+
 	/**
 	 * Rename vote site.
 	 *
@@ -328,9 +322,8 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true, if successful
 	 */
 	public boolean renameVoteSite(String siteName, String newName) {
-		return getVoteSiteFile(siteName).renameTo(
-				new File(plugin.getDataFolder() + File.separator + "VoteSites",
-						newName + ".yml"));
+		return getVoteSiteFile(siteName)
+				.renameTo(new File(plugin.getDataFolder() + File.separator + "VoteSites", newName + ".yml"));
 	}
 
 	/**
@@ -452,22 +445,13 @@ public class ConfigVoteSites extends YMLFile {
 	public boolean siteCheck(String siteName) {
 		boolean pass = true;
 		if (!isServiceSiteGood(siteName)) {
-			plugin.getLogger().warning(
-					"Issue with ServiceSite in site " + siteName
-							+ ", votes may not work properly");
+			plugin.getLogger().warning("Issue with ServiceSite in site " + siteName + ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
-			plugin.getLogger()
-					.warning("Issue with VoteURL in site " + siteName);
+			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
-	}
-
-	@Override
-	public void onFileCreation() {
-		plugin.saveResource("VoteSites.yml", true);
-
 	}
 
 }

@@ -55,21 +55,9 @@ public class VoteParty implements Listener {
 		VoteParty.plugin = plugin;
 	}
 
-	public void register() {
-		plugin.getServer().getPluginManager().registerEvents(this, plugin);
-	}
-
 	public void addTotal(User user) {
 		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
-	}
-
-	@EventHandler
-	public void onDayChange(DayChangeEvent event) {
-		if (Config.getInstance().getVotePartyResetEachDay()) {
-			setTotalVotes(0);
-			setVotedUsers(new ArrayList<String>());
-		}
 	}
 
 	/**
@@ -134,17 +122,6 @@ public class VoteParty implements Listener {
 	}
 
 	/**
-	 * Gets the offline vote party votes.
-	 *
-	 * @param user
-	 *            the user
-	 * @return the offline vote party votes
-	 */
-	public int getOfflineVotePartyVotes(User user) {
-		return user.getPluginData().getInt("VoteParty.OfflineVotes");
-	}
-
-	/**
 	 * Gets the total votes.
 	 *
 	 * @return the total votes
@@ -181,7 +158,7 @@ public class VoteParty implements Listener {
 				}
 			}
 		} else {
-			setOfflineVotePartyVotes(user, getOfflineVotePartyVotes(user) + 1);
+			user.addOfflineOtherReward("VoteParty");
 		}
 	}
 
@@ -203,6 +180,18 @@ public class VoteParty implements Listener {
 		reset();
 	}
 
+	@EventHandler
+	public void onDayChange(DayChangeEvent event) {
+		if (Config.getInstance().getVotePartyResetEachDay()) {
+			setTotalVotes(0);
+			setVotedUsers(new ArrayList<String>());
+		}
+	}
+
+	public void register() {
+		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+	}
+
 	public void reset() {
 		setVotedUsers(new ArrayList<String>());
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
@@ -211,18 +200,6 @@ public class VoteParty implements Listener {
 				user.setVotePartyVotes(0);
 			}
 		}
-	}
-
-	/**
-	 * Sets the offline vote party votes.
-	 *
-	 * @param user
-	 *            the user
-	 * @param value
-	 *            the value
-	 */
-	public void setOfflineVotePartyVotes(User user, int value) {
-		user.setPluginData("VoteParty.OfflineVotes", value);
 	}
 
 	/**

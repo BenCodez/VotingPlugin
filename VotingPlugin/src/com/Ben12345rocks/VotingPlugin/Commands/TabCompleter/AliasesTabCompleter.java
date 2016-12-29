@@ -28,14 +28,13 @@ public class AliasesTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
 	 */
 	@Override
-	public List<String> onTabComplete(CommandSender sender, Command cmd,
-			String alias, String[] argsIn) {
+	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] argsIn) {
 		ArrayList<String> msgArray = new ArrayList<String>();
 		msgArray.add("");
 		for (String arg : argsIn) {
@@ -55,9 +54,9 @@ public class AliasesTabCompleter implements TabCompleter {
 			if (cmdHandle.getArgs().length >= argsIn.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
-							|| cmd.getName()
-									.equalsIgnoreCase("adminvote" + arg)) {
-						// plugin.debug("Found cmd... attempting to get tab complete");
+							|| cmd.getName().equalsIgnoreCase("adminvote" + arg)) {
+						// plugin.debug("Found cmd... attempting to get tab
+						// complete");
 						args[0] = arg;
 						boolean argsMatch = true;
 						for (int i = 0; i < argsIn.length; i++) {
@@ -70,8 +69,7 @@ public class AliasesTabCompleter implements TabCompleter {
 
 						if (argsMatch) {
 
-							cmds.addAll(cmdHandle.getTabCompleteOptions(sender,
-									args, argsIn.length));
+							cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args, argsIn.length));
 						}
 
 					}
@@ -80,8 +78,7 @@ public class AliasesTabCompleter implements TabCompleter {
 		}
 
 		for (String str : cmds) {
-			if (StringUtils.getInstance().startsWithIgnoreCase(str,
-					args[args.length - 1])) {
+			if (StringUtils.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
 				tab.add(str);
 			}
 		}

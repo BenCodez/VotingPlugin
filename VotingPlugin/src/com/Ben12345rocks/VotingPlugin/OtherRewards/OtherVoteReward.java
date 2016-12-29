@@ -1,6 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
-import java.util.ArrayList;
 import java.util.Set;
 
 import org.bukkit.event.EventHandler;
@@ -71,31 +70,6 @@ public class OtherVoteReward implements Listener {
 
 	}
 
-	@EventHandler
-	public void onMonthChange(MonthChangeEvent event) {
-		Set<String> votes = Config.getInstance().getMilestoneVotes();
-		for (String vote : votes) {
-			if (StringUtils.getInstance().isInt(vote)) {
-				int votesRequired = Integer.parseInt(vote);
-				plugin.debug("Is int: " + vote);
-				if (votesRequired != 0) {
-					plugin.debug("not 0");
-					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
-							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
-						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
-							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-								user.setTotalMileStone(votesRequired, 0);
-								user.setHasGotteMilestone(votesRequired, false);
-							}
-						}
-					}
-				}
-			}
-		}
-
-	}
-
 	/**
 	 * Check cumualative votes.
 	 *
@@ -112,24 +86,21 @@ public class OtherVoteReward implements Listener {
 					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)
 							&& Config.getInstance().getCumulativeRewards(votesRequired).size() != 0) {
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
-							int userVotesTotal = user.getTotalVotesToday();
+							int userVotesTotal = user.getDailyTotal();
 							if ((userVotesTotal % votesRequired) == 0) {
-								user.setCumuatliveVotesOffline(votesRequired,
-										user.getCumulativeVotesOffline(votesRequired) + 1);
+								user.addOfflineOtherReward("Cumulative" + votesRequired);
 								return true;
 							}
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
-							int userVotesTotal = user.getTotalWeeklyAll();
+							int userVotesTotal = user.getWeeklyTotal();
 							if ((userVotesTotal % votesRequired) == 0) {
-								user.setCumuatliveVotesOffline(votesRequired,
-										user.getCumulativeVotesOffline(votesRequired) + 1);
+								user.addOfflineOtherReward("Cumulative" + votesRequired);
 								return true;
 							}
 						} else {
-							int userVotesTotal = user.getTotalVotes();
+							int userVotesTotal = user.getAllTimeTotal();
 							if ((userVotesTotal % votesRequired) == 0) {
-								user.setCumuatliveVotesOffline(votesRequired,
-										user.getCumulativeVotesOffline(votesRequired) + 1);
+								user.addOfflineOtherReward("Cumulative" + votesRequired);
 								return true;
 							}
 						}
@@ -150,10 +121,8 @@ public class OtherVoteReward implements Listener {
 	 * @return true, if successful
 	 */
 	public boolean checkFirstVote(User user) {
-		int userVotesTotal = user.getTotalVotes();
 		if (Config.getInstance().getFirstVoteRewards().size() != 0) {
-			if (userVotesTotal <= 1 && !user.hasGottenFirstVote()) {
-				user.setHasGottenFirstVote(true);
+			if (!user.hasGottenFirstVote()) {
 				return true;
 			}
 
@@ -173,20 +142,15 @@ public class OtherVoteReward implements Listener {
 		for (String vote : votes) {
 			if (StringUtils.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
-				plugin.debug("Is int: " + vote);
 				if (votesRequired != 0) {
-					plugin.debug("not 0");
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
 							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
 
-						int userVotesTotal = user.getTotalMileStone(votesRequired);
+						int userVotesTotal = user.getMileStoneTotal();
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
-							ArrayList<String> list = user.getOfflineMilestoneVotes();
-							list.add("" + votesRequired);
-							user.setOfflineMilestoneVotes(list);
+							user.addOfflineOtherReward("MileStone" + votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
 							return true;
-
 						}
 					}
 				}
@@ -259,5 +223,30 @@ public class OtherVoteReward implements Listener {
 		for (String reward : Config.getInstance().getMilestoneRewards(milestone)) {
 			RewardHandler.getInstance().giveReward(user, reward, online);
 		}
+	}
+
+	@EventHandler
+	public void onMonthChange(MonthChangeEvent event) {
+		Set<String> votes = Config.getInstance().getMilestoneVotes();
+		for (String vote : votes) {
+			if (StringUtils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				plugin.debug("Is int: " + vote);
+				if (votesRequired != 0) {
+					plugin.debug("not 0");
+					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
+							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
+						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
+							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								user.setMileStoneTotal(0);
+								user.setHasGotteMilestone(votesRequired, false);
+							}
+						}
+					}
+				}
+			}
+		}
+
 	}
 }

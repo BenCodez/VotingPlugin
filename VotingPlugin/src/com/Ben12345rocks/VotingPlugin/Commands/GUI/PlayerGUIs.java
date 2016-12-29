@@ -50,10 +50,6 @@ public class PlayerGUIs {
 		return str;
 	}
 
-	public void setSelectedPlayer(Player player, User user) {
-		PlayerUtils.getInstance().setPlayerMeta(player, "SelectedPlayerGUIs", user);
-	}
-
 	public void openVoteGUI(Player player, User user) {
 		if (!player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
 				&& !player.hasPermission("VotingPlugin.Mod")) {
@@ -123,6 +119,44 @@ public class PlayerGUIs {
 		BInventory.openInventory(player, inv);
 	}
 
+	public void openVoteLast(Player player, User user) {
+		setSelectedPlayer(player, user);
+		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
+		for (VoteSite site : plugin.getVoteSites()) {
+			inv.addButton(inv.getNextSlot(),
+					new BInventoryButton(site.getSiteName(),
+							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
+							new ItemStack(Material.STONE)) {
+
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							Player player = clickEvent.getPlayer();
+							openVoteLast(player, getSelectedPlayer(player));
+						}
+					});
+		}
+		inv.openInventory(player);
+	}
+
+	public void openVoteNext(Player player, User user) {
+		setSelectedPlayer(player, user);
+		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
+		for (VoteSite site : plugin.getVoteSites()) {
+			inv.addButton(inv.getNextSlot(),
+					new BInventoryButton(site.getSiteName(),
+							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
+							new ItemStack(Material.STONE)) {
+
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							Player player = clickEvent.getPlayer();
+							openVoteNext(player, getSelectedPlayer(player));
+						}
+					});
+		}
+		inv.openInventory(player);
+	}
+
 	public void openVoteToday(Player player) {
 		BInventory inv = new BInventory("VoteToday");
 		for (User user : plugin.voteToday.keySet()) {
@@ -169,6 +203,25 @@ public class PlayerGUIs {
 		}
 		inv.openInventory(player);
 
+	}
+
+	public void openVoteTotal(Player player, User user) {
+		setSelectedPlayer(player, user);
+		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
+		for (VoteSite site : plugin.getVoteSites()) {
+			inv.addButton(inv.getNextSlot(),
+					new BInventoryButton(site.getSiteName(),
+							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
+							new ItemStack(Material.STONE)) {
+
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							Player player = clickEvent.getPlayer();
+							openVoteTotal(player, getSelectedPlayer(player));
+						}
+					});
+		}
+		inv.openInventory(player);
 	}
 
 	/**
@@ -239,61 +292,8 @@ public class PlayerGUIs {
 		BInventory.openInventory(player, inv);
 	}
 
-	public void openVoteLast(Player player, User user) {
-		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
-							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
-							new ItemStack(Material.STONE)) {
-
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteLast(player, getSelectedPlayer(player));
-						}
-					});
-		}
-		inv.openInventory(player);
-	}
-
-	public void openVoteNext(Player player, User user) {
-		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
-							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
-							new ItemStack(Material.STONE)) {
-
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteNext(player, getSelectedPlayer(player));
-						}
-					});
-		}
-		inv.openInventory(player);
-	}
-
-	public void openVoteTotal(Player player, User user) {
-		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
-							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
-							new ItemStack(Material.STONE)) {
-
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteTotal(player, getSelectedPlayer(player));
-						}
-					});
-		}
-		inv.openInventory(player);
+	public void setSelectedPlayer(Player player, User user) {
+		PlayerUtils.getInstance().setPlayerMeta(player, "SelectedPlayerGUIs", user);
 	}
 
 	/**

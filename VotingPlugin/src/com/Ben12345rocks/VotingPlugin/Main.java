@@ -7,6 +7,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
@@ -16,6 +19,7 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
@@ -82,10 +86,6 @@ public class Main extends JavaPlugin {
 	/** The vote sites. */
 	private ArrayList<VoteSite> voteSites;
 
-	public synchronized ArrayList<VoteSite> getVoteSites() {
-		return voteSites;
-	}
-
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
@@ -95,6 +95,8 @@ public class Main extends JavaPlugin {
 	/** The vote log. */
 	public Logger voteLog;
 
+	private boolean update = true;
+
 	/**
 	 * Check votifier.
 	 */
@@ -103,6 +105,10 @@ public class Main extends JavaPlugin {
 				&& getServer().getPluginManager().getPlugin("NuVotifier") == null) {
 			plugin.debug("Votifier and NuVotifier not found, votes may not work");
 		}
+	}
+
+	public ArrayList<User> convertSet(Set<User> set) {
+		return new ArrayList<User>(set);
 	}
 
 	/**
@@ -171,6 +177,10 @@ public class Main extends JavaPlugin {
 		}
 		return url;
 
+	}
+
+	public synchronized ArrayList<VoteSite> getVoteSites() {
+		return voteSites;
 	}
 
 	/**
@@ -250,7 +260,12 @@ public class Main extends JavaPlugin {
 				if (Config.getInstance().getCumulativeVotes().size() == 0) {
 					return "False";
 				} else {
-					return "True";
+					for (String cum : Config.getInstance().getCumulativeVotes()) {
+						if (Config.getInstance().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
+							return "True";
+						}
+					}
+					return "False";
 				}
 			}
 		});
@@ -272,7 +287,12 @@ public class Main extends JavaPlugin {
 				if (Config.getInstance().getMilestoneVotes().size() == 0) {
 					return "False";
 				} else {
-					return "True";
+					for (String milestone : Config.getInstance().getMilestoneVotes()) {
+						if (Config.getInstance().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
+							return "True";
+						}
+					}
+					return "False";
 				}
 			}
 		});
@@ -322,18 +342,109 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getBroadCastVotesEnabled();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofdatafiles") {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
 
 			@Override
 			public String getValue() {
-				return "" + UserManager.getInstance().getAllUUIDs();
+				return "" + UserManager.getInstance().getAllUUIDs().size();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage") {
+
+			@Override
+			public String getValue() {
+				return Config.getInstance().getDataStorage();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("CheckOnWorldChange") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCheckOnWorldChange();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getVoteRemindingEnabled();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Today") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIToday();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_TopVoter") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUITopVoter();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Last") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUILast();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Next") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUINext();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Total") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUITotal();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Vote") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIVote();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getPreloadUsers();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterMonthly();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Weekly") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterWeekly();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Daily") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getLoadTopVoterDaily();
 			}
 		});
 	}
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -342,20 +453,9 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
-	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
-		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
-		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
-		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
-		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
-		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
-		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
-		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-	}
-
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -401,14 +501,14 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
+		
+		new Timer().schedule(new TimerTask() {
+			
 			@Override
 			public void run() {
 				update();
 			}
-		});
+		}, 1000, 180000);
 
 	}
 
@@ -498,26 +598,45 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public synchronized void update() {
-		com.Ben12345rocks.AdvancedCore.Thread.Thread.getInstance().run(new Runnable() {
+		if (update) {
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-			@Override
-			public void run() {
-				plugin.debug("Starting background task");
-				try {
-					TopVoterHandler.getInstance().updateTopVoters();
-					Commands.getInstance().updateVoteToday();
-					ServerData.getInstance().updateValues();
-					Signs.getInstance().updateSigns();
-					plugin.debug("Background task ran");
+				@Override
+				public void run() {
+					update = false;
+					plugin.debug("Starting background task");
+					try {
+						TopVoterHandler.getInstance().updateTopVoters();
+						Commands.getInstance().updateVoteToday();
+						ServerData.getInstance().updateValues();
+						Signs.getInstance().updateSigns();
+						plugin.debug("Background task ran");
 
-				} catch (Exception ex) {
-					plugin.getLogger().info("Looks like there are no data files or something went wrong.");
-					ex.printStackTrace();
+					} catch (Exception ex) {
+						plugin.getLogger().info("Looks like there are no data files or something went wrong.");
+						ex.printStackTrace();
+					}
 				}
+			});
+		}
+	}
 
-			}
-		});
+	public void setUpdate(boolean update) {
+		this.update = update;
+	}
 
+	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
+		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
+		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
+		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
+		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
+		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
+		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 	}
 
 }

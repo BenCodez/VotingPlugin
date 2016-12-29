@@ -36,13 +36,12 @@ public class CommandAliases implements CommandExecutor {
 	/*
 	 * (non-Javadoc)
 	 *
-	 * @see
-	 * org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.CommandSender
-	 * , org.bukkit.command.Command, java.lang.String, java.lang.String[])
+	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
+	 * CommandSender , org.bukkit.command.Command, java.lang.String,
+	 * java.lang.String[])
 	 */
 	@Override
-	public boolean onCommand(CommandSender sender, Command cmd, String label,
-			String[] args) {
+	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
 		ArrayList<String> argsNew = new ArrayList<String>();
 		argsNew.add(cmdHandle.getArgs()[0]);
@@ -50,8 +49,7 @@ public class CommandAliases implements CommandExecutor {
 			argsNew.add(arg);
 		}
 		plugin.debug("Attempting cmd...");
-		plugin.debug("Inputed args: "
-				+ ArrayUtils.getInstance().makeStringList(argsNew));
+		plugin.debug("Inputed args: " + ArrayUtils.getInstance().makeStringList(argsNew));
 
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
 		cmdHandlers.addAll(plugin.voteCommand);
@@ -60,8 +58,7 @@ public class CommandAliases implements CommandExecutor {
 			if (cmdHandle.getArgs().length > args.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
-							|| cmd.getName()
-									.equalsIgnoreCase("adminvote" + arg)) {
+							|| cmd.getName().equalsIgnoreCase("adminvote" + arg)) {
 						argsNew.set(0, arg);
 
 						boolean argsMatch = true;
@@ -75,8 +72,7 @@ public class CommandAliases implements CommandExecutor {
 						}
 
 						if (argsMatch) {
-							if (cmdHandle.runCommand(sender, ArrayUtils
-									.getInstance().convert(argsNew))) {
+							if (cmdHandle.runCommand(sender, ArrayUtils.getInstance().convert(argsNew))) {
 								plugin.debug("cmd found, ran cmd");
 								return true;
 							}
@@ -89,13 +85,12 @@ public class CommandAliases implements CommandExecutor {
 		/*
 		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0,
 		 * arg); if (cmdHandle.runCommand(sender,
-		 * Utils.getInstance().convertArray(argsNew))) {
-		 * plugin.debug("cmd found, ran cmd"); return true; } }
+		 * Utils.getInstance().convertArray(argsNew))) { plugin.debug(
+		 * "cmd found, ran cmd"); return true; } }
 		 */
 
 		// invalid command
-		sender.sendMessage(ChatColor.RED
-				+ "No valid arguments, see /vote help!");
+		sender.sendMessage(ChatColor.RED + "No valid arguments, see /vote help!");
 		return true;
 	}
 }

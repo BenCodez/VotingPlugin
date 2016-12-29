@@ -3,6 +3,15 @@
 # See wiki for help: 
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
+# Valid Options:
+# - SQLITE
+# - FLAT
+DataStorage: FLAT
+
+# Wether or not to check on world change
+# Should only be used if you do per world rewards
+CheckOnWorldChange: false
+
 # Debug
 Debug: false
 
@@ -45,6 +54,10 @@ AutoCreateVoteSites: true
 # Not recommended though
 LogVotesToFile: false
 
+# Setting this to true will improve performance at a cost of RAM
+# Only use if you don't have many players on your server
+PreLoadUsers: false
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------
@@ -60,7 +73,7 @@ VoteReminding:
   # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
   Enabled: true
 
-  # Wether or not to remind only once when the player can vote
+  # Wether or t to remind only once when the player can vote
   # Does not apply to login reminds.
   RemindOnlyOnce: true
 
@@ -473,12 +486,18 @@ AnySiteRewards: []
 BlackList:
 - 'Notch'
 
-# When top voter awards are given (if there are none listed) it will store top voters
+# These are required to be enabled in order for top voter awards to work
+LoadTopVoter:
+  Monthly: true
+  Weekly: false
+  Daily: false
+
+# When top voter awards are given (even if there are none listed) it will store top voters
 # Files will created in TopVoters folder.
 StoreTopVoters:
   Monthly: true
-  Weekly: true
-  Daily: true
+  Weekly: false
+  Daily: false
 
 EnableMonthlyAwards: true
 # Rewards to give

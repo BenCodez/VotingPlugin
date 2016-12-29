@@ -229,8 +229,7 @@ public class Commands {
 	 */
 	public void sendTopVoterDailyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterDaily.keySet());
+		ArrayList<User> users = plugin.convertSet(plugin.topVoterDaily.keySet());
 
 		int pageSize = (users.size() / pagesize);
 		if ((users.size() % pagesize) != 0) {
@@ -269,8 +268,7 @@ public class Commands {
 	 */
 	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterMonthly.keySet());
+		ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
 
 		int pageSize = (users.size() / pagesize);
 		if ((users.size() % pagesize) != 0) {
@@ -310,8 +308,7 @@ public class Commands {
 	 */
 	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
 		int pagesize = Config.getInstance().getFormatPageSize();
-		ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-				.convertSet(plugin.topVoterWeekly.keySet());
+		ArrayList<User> users = plugin.convertSet(plugin.topVoterWeekly.keySet());
 
 		int pageSize = (users.size() / pagesize);
 		if ((users.size() % pagesize) != 0) {
@@ -406,13 +403,6 @@ public class Commands {
 		plugin.debug("Updated VoteToday");
 	}
 
-	public String voteCommandLastLine(User user, VoteSite voteSite) {
-		String timeString = voteCommandLastDate(user, voteSite);
-
-		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
-				.replace("%time%", timeString).replace("%SiteName%", voteSite.getSiteName());
-	}
-
 	/**
 	 * Vote command last.
 	 *
@@ -452,6 +442,13 @@ public class Commands {
 		Date date = new Date(user.getTime(voteSite));
 		String timeString = new SimpleDateFormat(config.getFormatTimeFormat()).format(date);
 		return timeString;
+	}
+
+	public String voteCommandLastLine(User user, VoteSite voteSite) {
+		String timeString = voteCommandLastDate(user, voteSite);
+
+		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
+				.replace("%time%", timeString).replace("%SiteName%", voteSite.getSiteName());
 	}
 
 	/**
@@ -527,13 +524,6 @@ public class Commands {
 		return info;
 	}
 
-	public String voteCommandTotalLine(User user, VoteSite voteSite) {
-		String line = config.getFormatCommandsVoteTotalLine();
-		return StringUtils.getInstance().replaceIgnoreCase(
-				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
-				"%SiteName%", voteSite.getSiteName());
-	}
-
 	/**
 	 * Vote command total.
 	 *
@@ -576,7 +566,6 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
 		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 
 		msg.add(config.getFormatCommandsVoteTotalAllTitle());
@@ -586,7 +575,6 @@ public class Commands {
 			for (String uuid : uuids) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				votes += user.getTotal(voteSite);
-
 			}
 			msg.add(StringUtils.getInstance().replaceIgnoreCase(
 					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),
@@ -599,6 +587,13 @@ public class Commands {
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
+	}
+
+	public String voteCommandTotalLine(User user, VoteSite voteSite) {
+		String line = config.getFormatCommandsVoteTotalLine();
+		return StringUtils.getInstance().replaceIgnoreCase(
+				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
+				"%SiteName%", voteSite.getSiteName());
 	}
 
 	/**

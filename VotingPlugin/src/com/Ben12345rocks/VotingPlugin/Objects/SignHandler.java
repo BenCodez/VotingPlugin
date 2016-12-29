@@ -239,12 +239,11 @@ public class SignHandler {
 			lines.add(line4);
 
 			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = com.Ben12345rocks.VotingPlugin.Utils.getInstance()
-						.convertSet(plugin.topVoterMonthly.keySet());
+				ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
 
 				if (users.size() >= position) {
 					playerName = users.get(position - 1).getPlayerName();
-					votes = users.get(position - 1).getTotalVotes();
+					votes = users.get(position - 1).getMonthTotal();
 					for (int j = 0; j < lines.size(); j++) {
 						lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 					}
@@ -262,10 +261,8 @@ public class SignHandler {
 
 				lines = ArrayUtils.getInstance().colorize(lines);
 
-			} else {
-				
 			}
-				
+
 		}
 
 	}
