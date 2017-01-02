@@ -598,7 +598,7 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public synchronized void update() {
-		if (update) {
+		if (update && plugin != null) {
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override

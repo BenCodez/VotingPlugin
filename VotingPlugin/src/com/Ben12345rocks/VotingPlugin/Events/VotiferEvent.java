@@ -1,14 +1,12 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
 import java.util.ArrayList;
-import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -60,14 +58,9 @@ public class VotiferEvent implements Listener {
 					return;
 				}
 
-				// ArrayList<String> sites =
-				// configVoteSites.getVoteSitesNames();
-
 				VoteSite voteSite = plugin.getVoteSite(voteSiteName);
 				if (voteSite == null) {
-
 					plugin.debug("VoteSite is null");
-
 					return;
 				}
 
@@ -123,23 +116,7 @@ public class VotiferEvent implements Listener {
 
 					if (milestone) {
 						plugin.debug("Milestone: true");
-						Set<String> list = Config.getInstance().getMilestoneVotes();
-						for (String str : list) {
-							if (StringUtils.getInstance().isInt(str)) {
-								int votesRequired = Integer.parseInt(str);
-								if (votesRequired != 0) {
-									if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-										int offlineVote = user.getAllTimeTotal();
-
-										for (int i = 0; i < offlineVote; i++) {
-											OtherVoteReward.getInstance().giveMilestoneVoteReward(user, true,
-													votesRequired);
-
-										}
-									}
-								}
-							}
-						}
+						user.giveOfflineOtherRewards();
 					}
 
 					user.sendVoteEffects(true);

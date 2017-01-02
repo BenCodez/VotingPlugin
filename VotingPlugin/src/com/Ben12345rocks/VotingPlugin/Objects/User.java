@@ -530,70 +530,74 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 			setOfflineVotes(new ArrayList<String>());
 
-			for (String str : getOfflineOtherRewards()) {
-				if (str.equalsIgnoreCase("FirstVote")) {
-					OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
-				} else if (str.equalsIgnoreCase("AllSites")) {
-					OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
-				} else if (str.equalsIgnoreCase("VoteParty")) {
-					VoteParty.getInstance().giveReward(this);
-				} else if (str.contains("Cumulative")) {
-					String st = str.substring("Cumulative".length());
-					if (StringUtils.getInstance().isInt(st)) {
-						int votesRequired = Integer.parseInt(st);
-						if (votesRequired != 0) {
-							if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-								OtherVoteReward.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
-							}
-						}
-					}
-				} else if (str.contains("MileStone")) {
-					String st = str.substring("MileStone".length());
-					if (StringUtils.getInstance().isInt(st)) {
-						int votesRequired = Integer.parseInt(st);
-						if (votesRequired > 0) {
-							if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-								OtherVoteReward.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
-							}
-						}
-					}
-				} else if (str.contains("MontlyTopVoter")) {
-					String st = str.substring("MontlyTopVoter".length());
-					if (StringUtils.getInstance().isInt(st)) {
-						int place = Integer.parseInt(st);
-						if (place > 0) {
-							if (Config.getInstance().getMonthlyAwardsEnabled()) {
-								giveMonthlyTopVoterAward(place);
-							}
-						}
-					}
-				} else if (str.contains("WeeklyTopVoter")) {
-					String st = str.substring("WeeklyTopVoter".length());
-					if (StringUtils.getInstance().isInt(st)) {
-						int place = Integer.parseInt(st);
-						if (place > 0) {
-							if (Config.getInstance().getWeeklyAwardsEnabled()) {
-								giveWeeklyTopVoterAward(place);
-							}
-						}
-					}
-				} else if (str.contains("DailyTopVoter")) {
-					String st = str.substring("DailyTopVoter".length());
-					if (StringUtils.getInstance().isInt(st)) {
-						int place = Integer.parseInt(st);
-						if (place > 0) {
-							if (Config.getInstance().getDailyAwardsEnabled()) {
-								giveDailyTopVoterAward(place);
-							}
-						}
-					}
-				} else {
-					plugin.debug("Reward handle for " + str + " does not exist!");
-				}
-
-			}
-			setOfflineOtherRewards(new ArrayList<String>());
+			giveOfflineOtherRewards();
 		}
+	}
+	
+	public void giveOfflineOtherRewards() {
+		for (String str : getOfflineOtherRewards()) {
+			if (str.equalsIgnoreCase("FirstVote")) {
+				OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
+			} else if (str.equalsIgnoreCase("AllSites")) {
+				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+			} else if (str.equalsIgnoreCase("VoteParty")) {
+				VoteParty.getInstance().giveReward(this);
+			} else if (str.contains("Cumulative")) {
+				String st = str.substring("Cumulative".length());
+				if (StringUtils.getInstance().isInt(st)) {
+					int votesRequired = Integer.parseInt(st);
+					if (votesRequired != 0) {
+						if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
+							OtherVoteReward.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
+						}
+					}
+				}
+			} else if (str.contains("MileStone")) {
+				String st = str.substring("MileStone".length());
+				if (StringUtils.getInstance().isInt(st)) {
+					int votesRequired = Integer.parseInt(st);
+					if (votesRequired > 0) {
+						if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
+							OtherVoteReward.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
+						}
+					}
+				}
+			} else if (str.contains("MontlyTopVoter")) {
+				String st = str.substring("MontlyTopVoter".length());
+				if (StringUtils.getInstance().isInt(st)) {
+					int place = Integer.parseInt(st);
+					if (place > 0) {
+						if (Config.getInstance().getMonthlyAwardsEnabled()) {
+							giveMonthlyTopVoterAward(place);
+						}
+					}
+				}
+			} else if (str.contains("WeeklyTopVoter")) {
+				String st = str.substring("WeeklyTopVoter".length());
+				if (StringUtils.getInstance().isInt(st)) {
+					int place = Integer.parseInt(st);
+					if (place > 0) {
+						if (Config.getInstance().getWeeklyAwardsEnabled()) {
+							giveWeeklyTopVoterAward(place);
+						}
+					}
+				}
+			} else if (str.contains("DailyTopVoter")) {
+				String st = str.substring("DailyTopVoter".length());
+				if (StringUtils.getInstance().isInt(st)) {
+					int place = Integer.parseInt(st);
+					if (place > 0) {
+						if (Config.getInstance().getDailyAwardsEnabled()) {
+							giveDailyTopVoterAward(place);
+						}
+					}
+				}
+			} else {
+				plugin.debug("Reward handle for " + str + " does not exist!");
+			}
+
+		}
+		setOfflineOtherRewards(new ArrayList<String>());
 	}
 
 	/**

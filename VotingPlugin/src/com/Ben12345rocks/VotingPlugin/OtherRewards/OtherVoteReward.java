@@ -138,6 +138,7 @@ public class OtherVoteReward implements Listener {
 	 * @return true, if successful
 	 */
 	public boolean checkMilestone(User user) {
+		boolean gotMilestone = false;
 		Set<String> votes = Config.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
 			if (StringUtils.getInstance().isInt(vote)) {
@@ -150,7 +151,7 @@ public class OtherVoteReward implements Listener {
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							user.addOfflineOtherReward("MileStone" + votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
-							return true;
+							gotMilestone=true;
 						}
 					}
 				}
@@ -158,7 +159,7 @@ public class OtherVoteReward implements Listener {
 				plugin.debug("Invalid milestone number: " + vote);
 			}
 		}
-		return false;
+		return gotMilestone;
 	}
 
 	/**
