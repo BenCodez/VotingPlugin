@@ -51,7 +51,8 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteGUI(Player player, User user) {
-		if (!player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
+		if (!player.getName().equals(user.getPlayerName())
+				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
 				&& !player.hasPermission("VotingPlugin.Mod")) {
 			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
 			return;
