@@ -39,7 +39,7 @@ public class SignChange implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
-		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]") && event.getLine(1).equalsIgnoreCase("all")) {
+		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]") && event.getLine(2).equalsIgnoreCase("all")) {
 			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
 					"VotingPlugin.Sign.Create")) {
 				try {
