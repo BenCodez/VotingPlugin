@@ -287,6 +287,7 @@ public class SignHandler {
 							s.setLine(j, lines.get(j));
 						}
 						s.update();
+						checkSkulls();
 					}
 
 				} catch (Exception ex) {
