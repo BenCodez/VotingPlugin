@@ -138,7 +138,7 @@ public class Main extends JavaPlugin {
 	/**
 	 * Gets the vote site.
 	 *
-	 * @param siteName
+	 * @param site
 	 *            the site name
 	 * @return the vote site
 	 */
