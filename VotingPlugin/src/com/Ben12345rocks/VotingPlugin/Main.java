@@ -566,6 +566,7 @@ public class Main extends JavaPlugin {
 	 * Reload.
 	 */
 	public void reload() {
+		setUpdate(true);
 		config.reloadData();
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
