@@ -57,10 +57,6 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
 	}
 
-	public boolean getResetCorruptDataFiles() {
-		return getData().getBoolean("ResetCorruptDataFiles");
-	}
-
 	/**
 	 * Gets the rewards.
 	 *

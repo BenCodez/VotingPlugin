@@ -58,11 +58,6 @@ LogVotesToFile: false
 # Only use if you don't have many players on your server
 PreLoadUsers: false
 
-# Reset broken yml user data files
-# Only affects flat storage
-# Only use this if needed, this will delete broken files
-ResetCorruptDataFiles: false
-
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------
