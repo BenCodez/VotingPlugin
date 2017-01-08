@@ -54,9 +54,11 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getAllSitesReward() {
-
 		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
+	}
 
+	public boolean getResetCorruptDataFiles() {
+		return getData().getBoolean("ResetCorruptDataFiles");
 	}
 
 	/**
@@ -492,7 +494,7 @@ public class Config extends YMLFile {
 	 * @return the command vote top title
 	 */
 	public String getFormatCommandVoteTopTitle() {
-		return getData().getString("Format.Commands.Vote.Top.Title", "&3Top Voters %page%/%maxpages%");
+		return getData().getString("Format.Commands.Vote.Top.Title", "&3Top %Top% Voters %page%/%maxpages%");
 
 	}
 
@@ -1196,6 +1198,14 @@ public class Config extends YMLFile {
 
 	public boolean getPreloadUsers() {
 		return getData().getBoolean("PreLoadUsers");
+	}
+
+	public boolean getLoadTopVoterAllTime() {
+		return getData().getBoolean("LoadTopVoter.AllTime", true);
+	}
+
+	public String getVoteTopDefault() {
+		return getData().getString("VoteTopDefault", "Monthly");
 	}
 
 }

@@ -882,9 +882,9 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (!Config.getInstance().getCommandsUseGUITopVoter()) {
-					CommandVote.getInstance().topVoterMonthly(sender, 1);
+					Commands.getInstance().voteTop(sender, 1);
 				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteTopMonthly((Player) sender);
+					PlayerGUIs.getInstance().openVoteTop((Player) sender);
 				}
 
 			}
@@ -895,12 +895,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (StringUtils.getInstance().isInt(args[1])) {
-					CommandVote.getInstance().topVoterMonthly(sender, Integer.parseInt(args[1]));
-				} else {
-					sender.sendMessage(
-							StringUtils.getInstance().colorize("&cError on " + args[1] + ", number expected"));
-				}
+				Commands.getInstance().voteTop(sender, Integer.parseInt(args[1]));
 
 			}
 		});
@@ -912,6 +907,17 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 
 				CommandVote.getInstance().topVoterMonthly(sender, Integer.parseInt(args[1]));
+
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Top", "(number)", "All" },
+				"VotingPlugin.Commands.Vote.Top.All|" + playerPerm, "Open page of Top Voters All Time") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				int page = Integer.parseInt(args[1]);
+				CommandVote.getInstance().topVoterAll(sender, page);
 
 			}
 		});

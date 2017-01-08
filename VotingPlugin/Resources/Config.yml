@@ -58,6 +58,11 @@ LogVotesToFile: false
 # Only use if you don't have many players on your server
 PreLoadUsers: false
 
+# Reset broken yml user data files
+# Only affects flat storage
+# Only use this if needed, this will delete broken files
+ResetCorruptDataFiles: false
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------
@@ -201,7 +206,7 @@ Format:
         # %page% = current page
         # %maxpages% = max number of pages
         # %Top% = Monthly/Weekly/Daily (depending on command)
-        Title: '&3Top Voters %Top% %page%/%maxpages%'
+        Title: '&3Top %Top% Voters %page%/%maxpages%'
         # Line for each player in that page
         Line: '&c%num%: &6%player%, %votes%'
         
@@ -485,8 +490,13 @@ AnySiteRewards: []
 BlackList:
 - 'Notch'
 
+# /vote top default data displayed
+# Valid Options: AllTime, Monthly, Weekly, Daily
+VoteTopDefault: Monthly
+
 # These are required to be enabled in order for top voter awards to work
 LoadTopVoter:
+  AllTime: true
   Monthly: true
   Weekly: false
   Daily: false

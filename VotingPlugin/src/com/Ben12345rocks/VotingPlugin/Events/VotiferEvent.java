@@ -51,19 +51,19 @@ public class VotiferEvent implements Listener {
 					return;
 				}
 
-				String voteSiteName = plugin.getVoteSiteName(voteSiteURL);
-
-				if (voteSiteName == null) {
-					plugin.getLogger().info("Error on votesite name");
-					return;
+				String voteSiteName = voteSiteURL;
+				if (voteSiteURL.equals(voteSiteName)) {
+					plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
 				}
 
-				VoteSite voteSite = plugin.getVoteSite(voteSiteName);
+				VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
 				if (voteSite == null) {
-					plugin.debug("VoteSite is null");
+					plugin.getLogger().warning("Failed to get a vote site for '" + voteSiteName
+							+ "' using service site '" + voteSiteURL + "'");
 					return;
 				}
 
+				// vote party
 				if (Config.getInstance().getVotePartyEnabled()) {
 					VoteParty.getInstance().addTotal(user);
 					VoteParty.getInstance().addVotePlayer(user);

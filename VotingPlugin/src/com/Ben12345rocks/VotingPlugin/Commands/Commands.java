@@ -24,6 +24,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -298,6 +299,59 @@ public class Commands {
 
 	}
 
+	public void voteTop(CommandSender sender, int page) {
+		String str = Config.getInstance().getVoteTopDefault();
+		if (str.equalsIgnoreCase("monthly")) {
+			CommandVote.getInstance().topVoterMonthly(sender, page);
+		} else if (str.equalsIgnoreCase("weekly")) {
+			CommandVote.getInstance().topVoterWeekly(sender, page);
+		} else if (str.equalsIgnoreCase("daily")) {
+			CommandVote.getInstance().topVoterDaily(sender, page);
+		} else {
+
+		}
+	}
+
+	/**
+	 * Send top voter monthly score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
+	public void sendTopVoterAllTimeScoreBoard(Player player, int page) {
+		int pagesize = Config.getInstance().getFormatPageSize();
+		ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+
+		int pageSize = (users.size() / pagesize);
+		if ((users.size() % pagesize) != 0) {
+			pageSize++;
+		}
+
+		String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
+				.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "All"));
+
+		SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+		for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+			scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+					plugin.topVoterAllTime.get(users.get(i)));
+		}
+		scoreboard.build();
+		scoreboard.send(player);
+
+		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				SimpleScoreboard clear = new SimpleScoreboard("Empty");
+				clear.send(player);
+			}
+		}, 90);
+
+	}
+
 	/**
 	 * Send top voter weekly score board.
 	 *
@@ -495,7 +549,9 @@ public class Commands {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
-		LocalDateTime date = LocalDateTime.now();
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+		
 
 		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
 		if (votedelay == 0) {
@@ -503,13 +559,13 @@ public class Commands {
 			info = errorMsg;
 		} else {
 
-			LocalDateTime nextvote = date.plusHours(votedelay);
+			LocalDateTime nextvote = lastVote.plusHours(votedelay);
 
-			if (time == 0 || date.isAfter(nextvote)) {
+			if (time == 0 || now.isAfter(nextvote)) {
 				String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
 				info = canVoteMsg;
 			} else {
-				Duration dur = Duration.between(date, nextvote);
+				Duration dur = Duration.between(now, nextvote);
 
 				long diffHours = dur.getSeconds() / (60 * 60);
 				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;

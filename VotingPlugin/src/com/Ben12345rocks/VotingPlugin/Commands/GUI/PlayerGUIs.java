@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -75,7 +76,16 @@ public class PlayerGUIs {
 			} else if (slot.equalsIgnoreCase("total")) {
 				lore = Commands.getInstance().voteCommandTotal(user);
 			} else if (slot.equalsIgnoreCase("top")) {
-				lore = TopVoterHandler.getInstance().topVoterMonthly(1);
+				String str = Config.getInstance().getVoteTopDefault();
+				if (str.equalsIgnoreCase("monthly")) {
+					lore = TopVoterHandler.getInstance().topVoterMonthly(1);
+				} else if (str.equalsIgnoreCase("weekly")) {
+					lore = TopVoterHandler.getInstance().topVoterWeekly(1);
+				} else if (str.equalsIgnoreCase("daily")) {
+					lore = TopVoterHandler.getInstance().topVoterDaily(1);
+				} else {
+					lore = TopVoterHandler.getInstance().topVoterAllTime(1);
+				}
 			} else if (slot.equalsIgnoreCase("today")) {
 				lore = Commands.getInstance().voteToday();
 			} else if (slot.equalsIgnoreCase("help")) {
@@ -105,7 +115,7 @@ public class PlayerGUIs {
 						} else if (slot.equalsIgnoreCase("total")) {
 							openVoteTotal(player, user);
 						} else if (slot.equalsIgnoreCase("top")) {
-							openVoteTopMonthly(player);
+							openVoteTop(player);
 						} else if (slot.equalsIgnoreCase("today")) {
 							openVoteToday(player);
 						} else if (slot.equalsIgnoreCase("help")) {
@@ -184,10 +194,25 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteTopMonthly(Player player) {
-		BInventory inv = new BInventory("VoteTop Monthly");
+	public void openVoteTop(Player player) {
+		String str = Config.getInstance().getVoteTopDefault();
+		BInventory inv = null;
+		Set<Entry<User, Integer>> users = null;
+		if (str.equalsIgnoreCase("monthly")) {
+			inv = new BInventory("VoteTop Monthly");
+			users = plugin.topVoterMonthly.entrySet();
+		} else if (str.equalsIgnoreCase("weekly")) {
+			inv = new BInventory("VoteTop Weekly");
+			users = plugin.topVoterWeekly.entrySet();
+		} else if (str.equalsIgnoreCase("daily")) {
+			inv = new BInventory("VoteTop Daily");
+			users = plugin.topVoterDaily.entrySet();
+		} else {
+			inv = new BInventory("VoteTop AllTime");
+			users = plugin.topVoterAllTime.entrySet();
+		}
 		int pos = 0;
-		for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+		for (Entry<User, Integer> entry : users) {
 			pos++;
 			inv.addButton(new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
 					new String[] { "Votes: " + entry.getValue() }, MiscUtils.getInstance().setSkullOwner(

@@ -66,6 +66,9 @@ public class Main extends JavaPlugin {
 	public static Main plugin;
 
 	/** The top voter monthly. */
+	public HashMap<User, Integer> topVoterAllTime;
+
+	/** The top voter monthly. */
 	public HashMap<User, Integer> topVoterMonthly;
 
 	/** The top voter weekly. */
@@ -139,7 +142,8 @@ public class Main extends JavaPlugin {
 	 *            the site name
 	 * @return the vote site
 	 */
-	public VoteSite getVoteSite(String siteName) {
+	public VoteSite getVoteSite(String site) {
+		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : voteSites) {
 			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
 				return voteSite;
@@ -486,6 +490,7 @@ public class Main extends JavaPlugin {
 		topVoterWeekly = new HashMap<User, Integer>();
 		topVoterDaily = new HashMap<User, Integer>();
 		voteToday = new HashMap<User, HashMap<VoteSite, LocalDateTime>>();
+		topVoterAllTime = new HashMap<User, Integer>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
@@ -501,9 +506,9 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-		
+
 		new Timer().schedule(new TimerTask() {
-			
+
 			@Override
 			public void run() {
 				update();
@@ -637,6 +642,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
+		AdvancedCoreHook.getInstance().setResetCorruptFile(Config.getInstance().getResetCorruptDataFiles());
 	}
 
 }

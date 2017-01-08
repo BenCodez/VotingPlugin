@@ -238,30 +238,48 @@ public class SignHandler {
 			lines.add(line3);
 			lines.add(line4);
 
-			if (data.equalsIgnoreCase("All")) {
-				ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+			ArrayList<User> users = null;
+			if (data.equalsIgnoreCase("all")) {
+				users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+			} else if (data.equalsIgnoreCase("monthly")) {
+				users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+			} else if (data.equalsIgnoreCase("weekly")) {
+				users = plugin.convertSet(plugin.topVoterWeekly.keySet());
+			} else if (data.equalsIgnoreCase("daily")) {
+				users = plugin.convertSet(plugin.topVoterDaily.keySet());
+			}
 
-				if (users.size() >= position) {
-					playerName = users.get(position - 1).getPlayerName();
-					votes = users.get(position - 1).getMonthTotal();
-					for (int j = 0; j < lines.size(); j++) {
-						lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-					}
-				} else {
-					playerName = "No Player";
-					votes = 0;
-					for (int j = 0; j < lines.size(); j++) {
-						lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-					}
+			if (users != null && users.size() >= position) {
+				User user = users.get(position - 1);
+				playerName = user.getPlayerName();
+
+				votes = 0;
+				if (data.equalsIgnoreCase("all")) {
+					votes = plugin.topVoterAllTime.get(user);
+				} else if (data.equalsIgnoreCase("monthly")) {
+					votes = plugin.topVoterMonthly.get(user);
+				} else if (data.equalsIgnoreCase("weekly")) {
+					votes = plugin.topVoterWeekly.get(user);
+				} else if (data.equalsIgnoreCase("daily")) {
+					votes = plugin.topVoterDaily.get(user);
 				}
 
 				for (int j = 0; j < lines.size(); j++) {
-					lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
+					lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
 				}
-
-				lines = ArrayUtils.getInstance().colorize(lines);
-
+			} else {
+				playerName = "No Player";
+				votes = 0;
+				for (int j = 0; j < lines.size(); j++) {
+					lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
+				}
 			}
+
+			for (int j = 0; j < lines.size(); j++) {
+				lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
+			}
+
+			lines = ArrayUtils.getInstance().colorize(lines);
 
 		}
 

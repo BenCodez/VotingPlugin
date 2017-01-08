@@ -39,9 +39,14 @@ public class SignChange implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
-		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]") && event.getLine(2).equalsIgnoreCase("all")) {
+		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {
 			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
 					"VotingPlugin.Sign.Create")) {
+				String data = event.getLine(2);
+				if (!data.equalsIgnoreCase("all") && !data.equalsIgnoreCase("monthly")
+						&& !data.equalsIgnoreCase("weekly") && !data.equalsIgnoreCase("daily")) {
+					return;
+				}
 				try {
 					ServerData.getInstance().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
