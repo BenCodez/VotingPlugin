@@ -41,7 +41,7 @@ public class VotiferEvent implements Listener {
 	 * @param voteSiteURL
 	 *            the vote site URL
 	 */
-	public static void playerVote(final String playerName, final String voteSiteURL) {
+	public static synchronized void playerVote(final String playerName, final String voteSiteURL) {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
@@ -52,7 +52,13 @@ public class VotiferEvent implements Listener {
 				}
 
 				String voteSiteName = voteSiteURL;
-				if (voteSiteURL.equals(voteSiteName)) {
+				boolean nameExist = false;
+				for (VoteSite site : plugin.getVoteSites()) {
+					if (site.getSiteName().equalsIgnoreCase(voteSiteName)) {
+						nameExist = true;
+					}
+				}
+				if (voteSiteURL.equals(voteSiteName) && !nameExist) {
 					plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
 				}
 
@@ -116,6 +122,14 @@ public class VotiferEvent implements Listener {
 
 					if (milestone) {
 						plugin.debug("Milestone: true");
+
+					}
+
+					if (cumulativeVotes) {
+						plugin.debug("Cumulative: true");
+					}
+
+					if (milestone || cumulativeVotes) {
 						user.giveOfflineOtherRewards();
 					}
 
@@ -209,7 +223,12 @@ public class VotiferEvent implements Listener {
 			ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
 		}
 
-		playerVote(voteUsername, voteSite);
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			@Override
+			public void run() {
+				playerVote(voteUsername, voteSite);
+			}
+		});
 
 	}
 

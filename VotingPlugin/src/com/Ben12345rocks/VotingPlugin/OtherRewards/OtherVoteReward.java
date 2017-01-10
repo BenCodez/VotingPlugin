@@ -78,6 +78,7 @@ public class OtherVoteReward implements Listener {
 	 * @return true, if successful
 	 */
 	public boolean checkCumualativeVotes(User user) {
+		boolean gotCumulative = false;
 		Set<String> votes = Config.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
 			if (StringUtils.getInstance().isInt(vote)) {
@@ -87,21 +88,21 @@ public class OtherVoteReward implements Listener {
 							&& Config.getInstance().getCumulativeRewards(votesRequired).size() != 0) {
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getDailyTotal();
-							if ((userVotesTotal % votesRequired) == 0) {
+							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
 								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								return true;
+								gotCumulative = true;
 							}
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
 							int userVotesTotal = user.getWeeklyTotal();
-							if ((userVotesTotal % votesRequired) == 0) {
+							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
 								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								return true;
+								gotCumulative = true;
 							}
 						} else {
 							int userVotesTotal = user.getAllTimeTotal();
-							if ((userVotesTotal % votesRequired) == 0) {
+							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
 								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								return true;
+								gotCumulative = true;
 							}
 						}
 					}
@@ -110,7 +111,7 @@ public class OtherVoteReward implements Listener {
 				plugin.debug("Invalid cumulative number: " + vote);
 			}
 		}
-		return false;
+		return gotCumulative;
 	}
 
 	/**
@@ -151,7 +152,7 @@ public class OtherVoteReward implements Listener {
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							user.addOfflineOtherReward("MileStone" + votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
-							gotMilestone=true;
+							gotMilestone = true;
 						}
 					}
 				}
