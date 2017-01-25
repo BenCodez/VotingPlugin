@@ -58,6 +58,12 @@ LogVotesToFile: false
 # Only use if you don't have many players on your server
 PreLoadUsers: false
 
+# Delay between background updates like signs and more
+# Default: 3 Minutes
+# Longer times result in longer wait in stuff updating after a vote
+# REQUIRES A RESTART TO TAKE EFFECT
+DelayBetweenUpdates: 3
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------

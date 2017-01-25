@@ -47,6 +47,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
+	public int getDelayBetweenUpdates() {
+		return getData().getInt("DelayBetweenUpdates", 3);
+	}
+
 	/**
 	 * Gets the all sites reward.
 	 *

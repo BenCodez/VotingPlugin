@@ -513,7 +513,7 @@ public class Main extends JavaPlugin {
 			public void run() {
 				update();
 			}
-		}, 1000, 180000);
+		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 
 	}
 
