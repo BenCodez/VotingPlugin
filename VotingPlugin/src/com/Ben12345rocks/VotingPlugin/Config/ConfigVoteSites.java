@@ -121,11 +121,8 @@ public class ConfigVoteSites extends YMLFile {
 	 *            the site name
 	 * @return the rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRewards(String siteName) {
-
-		return (ArrayList<String>) getData(siteName).getList("Rewards", new ArrayList<String>());
-
+	public String getRewardsPath(String siteName) {
+		return "Rewards";
 	}
 
 	/**

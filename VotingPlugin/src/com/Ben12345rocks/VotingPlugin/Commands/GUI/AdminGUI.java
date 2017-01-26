@@ -7,8 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.Objects.Reward;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -158,7 +156,8 @@ public class AdminGUI {
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
-			lore.add("Rewards: " + ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
+			// lore.add("Rewards: " +
+			// ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
 
 			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {
@@ -297,84 +296,68 @@ public class AdminGUI {
 			}
 		});
 
-		inv.addButton(5, new BInventoryButton("Add Reward", new String[0], new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-					String siteName = voteSite.getSiteName();
-					BInventory inv = new BInventory("AddReward: " + siteName);
-					int count = 0;
-					for (Reward reward : RewardHandler.getInstance().getRewards()) {
-						inv.addButton(count, new BInventoryButton(reward.getRewardName(), new String[0],
-								new ItemStack(Material.STONE)) {
-
-							@Override
-							public void onClick(ClickEvent event) {
-
-								Player player = event.getWhoClicked();
-								player.closeInventory();
-								VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-								String siteName = voteSite.getSiteName();
-								ArrayList<String> rewards = ConfigVoteSites.getInstance().getRewards(siteName);
-								rewards.add(event.getCurrentItem().getItemMeta().getDisplayName());
-								ConfigVoteSites.getInstance().setRewards(siteName, rewards);
-								player.sendMessage("Reward added");
-								plugin.reload();
-
-							}
-						});
-						count++;
-					}
-
-					inv.openInventory(player);
-
-				}
-
-			}
-		});
-
-		inv.addButton(6, new BInventoryButton("Remove Reward", new String[0], new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-					String siteName = voteSite.getSiteName();
-					BInventory inv = new BInventory("RemoveReward: " + siteName);
-					int count = 0;
-					for (String rewardName : voteSite.getRewards()) {
-						Reward reward = RewardHandler.getInstance().getReward(rewardName);
-						inv.addButton(count, new BInventoryButton(reward.getRewardName(), new String[0],
-								new ItemStack(Material.STONE)) {
-
-							@Override
-							public void onClick(ClickEvent event) {
-
-								Player player = event.getWhoClicked();
-								player.closeInventory();
-								VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-								String siteName = voteSite.getSiteName();
-								ArrayList<String> rewards = ConfigVoteSites.getInstance().getRewards(siteName);
-								rewards.remove(event.getCurrentItem().getItemMeta().getDisplayName());
-								ConfigVoteSites.getInstance().setRewards(siteName, rewards);
-								player.sendMessage("Reward removed");
-								plugin.reload();
-
-							}
-						});
-						count++;
-					}
-
-					inv.openInventory(player);
-
-				}
-
-			}
-		});
+		/*
+		 * inv.addButton(5, new BInventoryButton("Add Reward", new String[0],
+		 * new ItemStack(Material.STONE)) {
+		 * 
+		 * @Override public void onClick(ClickEvent event) { if
+		 * (event.getWhoClicked() instanceof Player) { Player player =
+		 * event.getWhoClicked(); VoteSite voteSite = (VoteSite)
+		 * event.getMeta("VoteSite"); String siteName = voteSite.getSiteName();
+		 * BInventory inv = new BInventory("AddReward: " + siteName); int count
+		 * = 0; for (Reward reward : RewardHandler.getInstance().getRewards()) {
+		 * inv.addButton(count, new BInventoryButton(reward.getRewardName(), new
+		 * String[0], new ItemStack(Material.STONE)) {
+		 * 
+		 * @Override public void onClick(ClickEvent event) {
+		 * 
+		 * Player player = event.getWhoClicked(); player.closeInventory();
+		 * VoteSite voteSite = (VoteSite) event.getMeta("VoteSite"); String
+		 * siteName = voteSite.getSiteName(); ArrayList<String> rewards =
+		 * ConfigVoteSites.getInstance().getRewards(siteName);
+		 * rewards.add(event.getCurrentItem().getItemMeta().getDisplayName());
+		 * ConfigVoteSites.getInstance().setRewards(siteName, rewards);
+		 * player.sendMessage("Reward added"); plugin.reload();
+		 * 
+		 * } }); count++; }
+		 * 
+		 * inv.openInventory(player);
+		 * 
+		 * }
+		 * 
+		 * } });
+		 * 
+		 * inv.addButton(6, new BInventoryButton("Remove Reward", new String[0],
+		 * new ItemStack(Material.STONE)) {
+		 * 
+		 * @Override public void onClick(ClickEvent event) { if
+		 * (event.getWhoClicked() instanceof Player) { Player player =
+		 * event.getWhoClicked(); VoteSite voteSite = (VoteSite)
+		 * event.getMeta("VoteSite"); String siteName = voteSite.getSiteName();
+		 * BInventory inv = new BInventory("RemoveReward: " + siteName); int
+		 * count = 0; for (String rewardName : voteSite.getRewards()) { Reward
+		 * reward = RewardHandler.getInstance().getReward(rewardName);
+		 * inv.addButton(count, new BInventoryButton(reward.getRewardName(), new
+		 * String[0], new ItemStack(Material.STONE)) {
+		 * 
+		 * @Override public void onClick(ClickEvent event) {
+		 * 
+		 * Player player = event.getWhoClicked(); player.closeInventory();
+		 * VoteSite voteSite = (VoteSite) event.getMeta("VoteSite"); String
+		 * siteName = voteSite.getSiteName(); ArrayList<String> rewards =
+		 * ConfigVoteSites.getInstance().getRewards(siteName);
+		 * rewards.remove(event.getCurrentItem().getItemMeta().getDisplayName())
+		 * ; ConfigVoteSites.getInstance().setRewards(siteName, rewards);
+		 * player.sendMessage("Reward removed"); plugin.reload();
+		 * 
+		 * } }); count++; }
+		 * 
+		 * inv.openInventory(player);
+		 * 
+		 * }
+		 * 
+		 * } });
+		 */
 
 		inv.openInventory(player);
 	}

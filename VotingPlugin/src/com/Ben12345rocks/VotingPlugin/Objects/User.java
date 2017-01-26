@@ -386,9 +386,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveDailyTopVoterAward(int place) {
-		for (String reward : Config.getInstance().getDailyAwardRewards(place)) {
-			RewardHandler.getInstance().giveReward(this, reward);
-		}
+		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+				Config.getInstance().getDailyAwardRewardsPath(place));
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(StringUtils.getInstance()
@@ -403,9 +402,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveMonthlyTopVoterAward(int place) {
-		for (String reward : Config.getInstance().getMonthlyAwardRewards(place)) {
-			RewardHandler.getInstance().giveReward(this, reward);
-		}
+		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+				Config.getInstance().getMonthlyAwardRewardsPath(place));
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(StringUtils.getInstance()
@@ -420,9 +418,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveWeeklyTopVoterAward(int place) {
-		for (String reward : Config.getInstance().getWeeklyAwardRewards(place)) {
-			RewardHandler.getInstance().giveReward(this, reward);
-		}
+		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+				Config.getInstance().getWeeklyAwardRewardsPath(place));
 		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
 		if (player != null) {
 			player.sendMessage(StringUtils.getInstance()
@@ -533,7 +530,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			giveOfflineOtherRewards();
 		}
 	}
-	
+
 	public void giveOfflineOtherRewards() {
 		for (String str : getOfflineOtherRewards()) {
 			if (str.equalsIgnoreCase("FirstVote")) {
@@ -654,11 +651,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the online
 	 */
 	public void sendVoteEffects(boolean online) {
-		for (String reward : Config.getInstance().getAnySiteRewards()) {
-			if (reward != "") {
-				RewardHandler.getInstance().giveReward(this, reward);
-			}
-		}
+		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+				Config.getInstance().getAnySiteRewardsPath(), online);
 	}
 
 	public void setAllTimeTotal(int allTimeTotal) {

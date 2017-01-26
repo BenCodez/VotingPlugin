@@ -33,7 +33,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -107,25 +106,6 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Convert", "GAListener" },
-				"VotingPlugin.Commands.AdminVote.Convert|" + adminPerm, "Convert from GAL to VotingPlugin") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage(StringUtils.getInstance()
-							.colorize("&cStarting to convert. Please note this is not a 100% conversion."));
-					GALConverter.getInstance().convert();
-					sender.sendMessage(StringUtils.getInstance().colorize(
-							"&cFinished converting. You will need to change reward messages to your liking."));
-				} else {
-					sender.sendMessage(
-							StringUtils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
-				}
-
-			}
-		});
 
 		plugin.adminVoteCommand
 				.add(new CommandHandler(new String[] { "TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
@@ -566,13 +546,11 @@ public class CommandLoader {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
-														new BInventoryButton("" + mileStone, new String[] {
-																"Enabled: " + Config.getInstance()
-																		.getMilestoneRewardEnabled(mileStone),
-																"Rewards: " + ArrayUtils.getInstance()
-																		.makeStringList(Config.getInstance()
-																				.getMilestoneRewards(mileStone)),
-																"&cClick to set wether this has been completed or not" },
+														new BInventoryButton("" + mileStone,
+																new String[] {
+																		"Enabled: " + Config.getInstance()
+																				.getMilestoneRewardEnabled(mileStone),
+																		"&cClick to set wether this has been completed or not" },
 																new ItemStack(Material.STONE)) {
 
 															@Override

@@ -85,7 +85,8 @@ public class OtherVoteReward implements Listener {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)
-							&& Config.getInstance().getCumulativeRewards(votesRequired).size() != 0) {
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getCumulativeRewardsPath(votesRequired))) {
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getDailyTotal();
 							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
@@ -122,7 +123,8 @@ public class OtherVoteReward implements Listener {
 	 * @return true, if successful
 	 */
 	public boolean checkFirstVote(User user) {
-		if (Config.getInstance().getFirstVoteRewards().size() != 0) {
+		if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+				Config.getInstance().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
 				return true;
 			}
@@ -146,7 +148,8 @@ public class OtherVoteReward implements Listener {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
-							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
 
 						int userVotesTotal = user.getMileStoneTotal();
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
@@ -172,9 +175,8 @@ public class OtherVoteReward implements Listener {
 	 *            the online
 	 */
 	public void giveAllSitesRewards(User user, boolean online) {
-		for (String reward : Config.getInstance().getAllSitesReward()) {
-			RewardHandler.getInstance().giveReward(user, reward, online);
-		}
+		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+				Config.getInstance().getAllSitesRewardPath(), online);
 	}
 
 	/**
@@ -188,11 +190,8 @@ public class OtherVoteReward implements Listener {
 	 *            the cumulative
 	 */
 	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
-		for (String reward : Config.getInstance().getCumulativeRewards(cumulative)) {
-			if (reward != "") {
-				RewardHandler.getInstance().giveReward(user, reward, online);
-			}
-		}
+		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+				Config.getInstance().getCumulativeRewardsPath(cumulative), online);
 	}
 
 	/**
@@ -204,11 +203,8 @@ public class OtherVoteReward implements Listener {
 	 *            the online
 	 */
 	public void giveFirstVoteRewards(User user, boolean online) {
-		for (String reward : Config.getInstance().getFirstVoteRewards()) {
-
-			RewardHandler.getInstance().giveReward(user, reward, online);
-
-		}
+		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+				Config.getInstance().getFirstVoteRewardsPath(), online);
 	}
 
 	/**
@@ -222,9 +218,8 @@ public class OtherVoteReward implements Listener {
 	 *            the milestone
 	 */
 	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
-		for (String reward : Config.getInstance().getMilestoneRewards(milestone)) {
-			RewardHandler.getInstance().giveReward(user, reward, online);
-		}
+		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+				Config.getInstance().getMilestoneRewardsPath(milestone), online);
 	}
 
 	@EventHandler
@@ -237,7 +232,8 @@ public class OtherVoteReward implements Listener {
 				if (votesRequired != 0) {
 					plugin.debug("not 0");
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
-							&& Config.getInstance().getMilestoneRewards(votesRequired).size() != 0) {
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
 						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
 							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));

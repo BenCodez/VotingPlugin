@@ -239,7 +239,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getFirstVoteRewards().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getFirstVoteRewardsPath())) {
 					return "False";
 				} else {
 					return "True";
@@ -250,7 +251,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getAllSitesReward().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getAllSitesRewardPath())) {
 					return "False";
 				} else {
 					return "True";
@@ -304,7 +306,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getAnySiteRewards().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getAnySiteRewardsPath())) {
 					return "False";
 				} else {
 					return "True";

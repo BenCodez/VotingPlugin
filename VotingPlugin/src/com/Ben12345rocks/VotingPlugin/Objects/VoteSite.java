@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
-import java.util.ArrayList;
-
 import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
@@ -39,9 +37,6 @@ public class VoteSite {
 
 	/** The enabled. */
 	private boolean enabled;
-
-	/** The rewards. */
-	private ArrayList<String> rewards;
 
 	/** The priority. */
 	private int priority;
@@ -108,15 +103,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	public ArrayList<String> getRewards() {
-		return rewards;
-	}
-
-	/**
 	 * Gets the service site.
 	 *
 	 * @return the service site
@@ -161,11 +147,8 @@ public class VoteSite {
 	 *            the online
 	 */
 	public void giveRewards(User user, boolean online) {
-		for (String reward : getRewards()) {
-
-			RewardHandler.getInstance().giveReward(user, reward, online);
-
-		}
+		RewardHandler.getInstance().giveReward(user, configVoteSites.getData(),
+				configVoteSites.getRewardsPath(siteName), online);
 	}
 
 	/**
@@ -188,7 +171,6 @@ public class VoteSite {
 		setServiceSite(configVoteSites.getServiceSite(siteName));
 		setVoteDelay(configVoteSites.getVoteDelay(siteName));
 		setEnabled(configVoteSites.getVoteSiteEnabled(siteName));
-		setRewards(configVoteSites.getRewards(siteName));
 		setPriority(configVoteSites.getPriority(siteName));
 	}
 
@@ -219,16 +201,6 @@ public class VoteSite {
 	 */
 	public void setPriority(int priority) {
 		this.priority = priority;
-	}
-
-	/**
-	 * Sets the rewards.
-	 *
-	 * @param rewards
-	 *            the new rewards
-	 */
-	public void setRewards(ArrayList<String> rewards) {
-		this.rewards = rewards;
 	}
 
 	/**

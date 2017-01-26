@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.VoteReminding;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -101,15 +100,8 @@ public class VoteReminding {
 	public void runRemind(User user) {
 		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll()) {
 			user.setReminded(true);
-			for (String reward : Config.getInstance().getVoteRemindingRewards()) {
-
-				if (!RewardHandler.getInstance().rewardExist(reward)) {
-					Reward r = RewardHandler.getInstance().getReward(reward);
-					r.getConfig().setMessagesReward("&cRemember to vote");
-				}
-				RewardHandler.getInstance().giveReward(user, reward, true, false);
-			}
-
+			RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+					Config.getInstance().getVoteRemindingRewardsPath());
 			plugin.debug(user.getPlayerName() + " was reminded!");
 
 		}
