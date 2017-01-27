@@ -173,7 +173,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return true, if successful
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
-		String siteName = voteSite.getSiteName();
+		String siteName = voteSite.getKey();
 		long time = getTime(voteSite);
 		if (time == 0) {
 			return true;
@@ -451,25 +451,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return false;
 	}
 
-	public void loadFromOldData() {
-		setPoints(getData().getData(getUUID()).getInt("VotingPlugin.Points", 0));
-		for (VoteSite site : plugin.getVoteSites()) {
-			setTime(site, getData().getData(getUUID()).getLong("VotingPlugin.VoteLast." + site.getSiteName()));
-			setTotal(site, getData().getData(getUUID()).getInt("VotingPlugin.Total." + site.getSiteName()));
-		}
-
-		setAllTimeTotal(getData().getData(getUUID()).getInt("VotingPlugin.AllTimeTotal"));
-
-		if (getData().getData(getUUID()).isConfigurationSection("VotingPlugin.MilestonesGiven")) {
-			for (String data : getData().getData(getUUID()).getConfigurationSection("VotingPlugin.MilestoneGiven")
-					.getKeys(false)) {
-				if (getData().getData(getUUID()).getBoolean("VotingPlugin.MilestonesGiven." + data)) {
-					setHasGotteMilestone(Integer.parseInt(data), true);
-				}
-			}
-		}
-	}
-
 	public boolean isTopVoterIgnore() {
 		return Boolean.valueOf(getUserData().getString("TopVoterIgnore"));
 	}
@@ -675,7 +656,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
 		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
-			String str = entry.getKey().getSiteName() + "//" + entry.getValue().longValue();
+			String str = entry.getKey().getKey() + "//" + entry.getValue().longValue();
 			data.add(str);
 		}
 		getUserData().setStringList("LastVotes", data);
@@ -720,7 +701,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void setVoteSiteTotal(HashMap<VoteSite, Integer> voteSiteTotal) {
 		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Integer> entry : voteSiteTotal.entrySet()) {
-			String str = entry.getKey().getSiteName() + "//" + entry.getValue().intValue();
+			String str = entry.getKey().getKey() + "//" + entry.getValue().intValue();
 			data.add(str);
 		}
 		getUserData().setStringList("VoteSiteTotals", data);

@@ -135,7 +135,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -154,7 +154,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -175,7 +175,7 @@ public class PlayerGUIs {
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
-				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString;
+				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(
 
@@ -236,7 +236,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -296,7 +296,7 @@ public class PlayerGUIs {
 						Commands.getInstance().voteCommandNextInfo(user, voteSite)));
 			}
 
-			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getSiteName()));
+			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
 
 			inv.addButton(count, new BInventoryButton(builder) {
 
@@ -336,11 +336,10 @@ public class PlayerGUIs {
 		if ((siteName == null) || (siteName == "")) {
 			int count = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
-				plugin.debug(voteSite.getSiteName());
-
 				try {
 					ItemBuilder builder = new ItemBuilder(
-							Config.getInstance().getVoteSiteItemSection(voteSite.getSiteName()));
+							Config.getInstance().getVoteSiteItemSection(voteSite.getKey()));
+					final VoteSite site = voteSite;
 
 					inv.addButton(count, new BInventoryButton(builder) {
 
@@ -349,7 +348,7 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								player.performCommand("vote reward " + voteSite.getSiteName());
+								player.performCommand("vote reward " + site.getKey());
 
 							}
 

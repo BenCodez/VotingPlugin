@@ -10,9 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
-import com.Ben12345rocks.AdvancedCore.Data.ServerData;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
@@ -396,22 +394,6 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UpdateDataFiles" },
-				"VotingPlugin.Commands.AdminVote.UpdateDataFiles|" + adminPerm, "Update data files") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (!ServerData.getInstance().getData().getBoolean("OldDataUpdated")) {
-					ServerData.getInstance().getData().set("OldDataUpdated", true);
-					ServerData.getInstance().saveData();
-					for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-						user.loadFromOldData();
-					}
-				}
-			}
-		});
-
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
@@ -487,7 +469,7 @@ public class CommandLoader {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
 										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getSiteName());
+											voteSites.add(voteSite.getKey());
 										}
 										new ValueRequest().requestString(player, "",
 												ArrayUtils.getInstance().convert(voteSites), true,
@@ -605,7 +587,7 @@ public class CommandLoader {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
 										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getSiteName());
+											voteSites.add(voteSite.getKey());
 										}
 										new ValueRequest().requestString(player, "",
 												ArrayUtils.getInstance().convert(voteSites), true,
@@ -660,7 +642,7 @@ public class CommandLoader {
 	public void loadTabComplete() {
 		ArrayList<String> sites = new ArrayList<String>();
 		for (VoteSite site : plugin.getVoteSites()) {
-			sites.add(site.getSiteName());
+			sites.add(site.getKey());
 		}
 
 		for (int i = 0; i < plugin.voteCommand.size(); i++) {

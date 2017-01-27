@@ -136,6 +136,10 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
+	public String getDisplayName(String site) {
+		return getData(site).getString("Name");
+	}
+
 	/**
 	 * Gets the vote delay.
 	 *
@@ -218,8 +222,8 @@ public class ConfigVoteSites extends YMLFile {
 		Collections.sort(voteSites, new Comparator<VoteSite>() {
 			@Override
 			public int compare(VoteSite v1, VoteSite v2) {
-				int v1P = getPriority(v1.getSiteName());
-				int v2P = getPriority(v2.getSiteName());
+				int v1P = v1.getPriority();
+				int v2P = v2.getPriority();
 
 				if (v1P < v2P) {
 					return 1;

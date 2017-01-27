@@ -145,7 +145,7 @@ public class Main extends JavaPlugin {
 	public VoteSite getVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : voteSites) {
-			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return voteSite;
 			}
 		}

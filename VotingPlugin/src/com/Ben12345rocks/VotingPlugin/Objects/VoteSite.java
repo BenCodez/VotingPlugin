@@ -30,7 +30,9 @@ public class VoteSite {
 	private String serviceSite;
 
 	/** The site name. */
-	private String siteName;
+	private String key;
+
+	private String displayName;
 
 	/** The vote delay. */
 	private int voteDelay;
@@ -59,8 +61,7 @@ public class VoteSite {
 	 */
 	public VoteSite(String siteName) {
 		String org = siteName;
-		siteName = siteName.replace(".", "_");
-		setSiteName(siteName);
+		key = siteName.replace(".", "_");
 		if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
 			if (Config.getInstance().getAutoCreateVoteSites()) {
 				configVoteSites.generateVoteSite(org);
@@ -81,7 +82,7 @@ public class VoteSite {
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
 		String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
-		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
+		bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
 		final String str = bc;
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -90,7 +91,6 @@ public class VoteSite {
 				Bukkit.broadcastMessage(str);
 			}
 		});
-
 	}
 
 	/**
@@ -109,15 +109,6 @@ public class VoteSite {
 	 */
 	public String getServiceSite() {
 		return serviceSite;
-	}
-
-	/**
-	 * Gets the site name.
-	 *
-	 * @return the site name
-	 */
-	public String getSiteName() {
-		return siteName;
 	}
 
 	/**
@@ -147,8 +138,8 @@ public class VoteSite {
 	 *            the online
 	 */
 	public void giveRewards(User user, boolean online) {
-		RewardHandler.getInstance().giveReward(user, configVoteSites.getData(),
-				configVoteSites.getRewardsPath(siteName), online);
+		RewardHandler.getInstance().giveReward(user, configVoteSites.getData(), configVoteSites.getRewardsPath(key),
+				online);
 	}
 
 	/**
@@ -167,11 +158,42 @@ public class VoteSite {
 	 * Inits the.
 	 */
 	public void init() {
-		setVoteURL(configVoteSites.getVoteURL(siteName));
-		setServiceSite(configVoteSites.getServiceSite(siteName));
-		setVoteDelay(configVoteSites.getVoteDelay(siteName));
-		setEnabled(configVoteSites.getVoteSiteEnabled(siteName));
-		setPriority(configVoteSites.getPriority(siteName));
+		setVoteURL(configVoteSites.getVoteURL(key));
+		setServiceSite(configVoteSites.getServiceSite(key));
+		setVoteDelay(configVoteSites.getVoteDelay(key));
+		setEnabled(configVoteSites.getVoteSiteEnabled(key));
+		setPriority(configVoteSites.getPriority(key));
+		displayName = configVoteSites.getDisplayName(key);
+	}
+
+	/**
+	 * @return the key
+	 */
+	public String getKey() {
+		return key;
+	}
+
+	/**
+	 * @param key
+	 *            the key to set
+	 */
+	public void setKey(String key) {
+		this.key = key;
+	}
+
+	/**
+	 * @return the displayName
+	 */
+	public String getDisplayName() {
+		return displayName;
+	}
+
+	/**
+	 * @param displayName
+	 *            the displayName to set
+	 */
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
 	}
 
 	/**
@@ -211,16 +233,6 @@ public class VoteSite {
 	 */
 	public void setServiceSite(String serviceSite) {
 		this.serviceSite = serviceSite;
-	}
-
-	/**
-	 * Sets the site name.
-	 *
-	 * @param siteName
-	 *            the new site name
-	 */
-	public void setSiteName(String siteName) {
-		this.siteName = siteName;
 	}
 
 	/**

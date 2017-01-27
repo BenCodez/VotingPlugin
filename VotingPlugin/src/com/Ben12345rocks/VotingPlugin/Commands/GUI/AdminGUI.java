@@ -159,7 +159,7 @@ public class AdminGUI {
 			// lore.add("Rewards: " +
 			// ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
 
-			inv.addButton(count, new BInventoryButton(voteSite.getSiteName(), ArrayUtils.getInstance().convert(lore),
+			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {
 
 				@Override
@@ -184,7 +184,7 @@ public class AdminGUI {
 	 *            the vote site
 	 */
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
-		BInventory inv = new BInventory("VoteSite: " + voteSite.getSiteName());
+		BInventory inv = new BInventory("VoteSite: " + voteSite.getDisplayName());
 		inv.setMeta(player, "VoteSite", voteSite);
 		inv.addButton(0, new BInventoryButton("SetPriority", new String[0], new ItemStack(Material.STONE)) {
 
@@ -196,7 +196,7 @@ public class AdminGUI {
 					@Override
 					public void onInput(Player player, Number value) {
 						VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-						ConfigVoteSites.getInstance().setPriority(voteSite.getSiteName(), value.intValue());
+						ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), value.intValue());
 						player.sendMessage("Set Priority");
 						plugin.reload();
 
@@ -217,7 +217,7 @@ public class AdminGUI {
 						@Override
 						public void onInput(Player player, String value) {
 							VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-							String siteName = voteSite.getSiteName();
+							String siteName = voteSite.getKey();
 							ConfigVoteSites.getInstance().setServiceSite(siteName, value);
 							player.sendMessage("Set ServiceSite");
 							plugin.reload();
@@ -240,7 +240,7 @@ public class AdminGUI {
 						@Override
 						public void onInput(Player player, String value) {
 							VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-							String siteName = voteSite.getSiteName();
+							String siteName = voteSite.getKey();
 							ConfigVoteSites.getInstance().setVoteURL(siteName, value);
 							player.sendMessage("Set VoteURL");
 							plugin.reload();
@@ -263,7 +263,7 @@ public class AdminGUI {
 					@Override
 					public void onInput(Player player, Number value) {
 						VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-						String siteName = voteSite.getSiteName();
+						String siteName = voteSite.getKey();
 						ConfigVoteSites.getInstance().setVoteDelay(siteName, value.intValue());
 						player.sendMessage("Set VoteDelay");
 						plugin.reload();
@@ -280,13 +280,13 @@ public class AdminGUI {
 
 				Player player = event.getWhoClicked();
 				new ValueRequest().requestBoolean(player,
-						"" + ConfigVoteSites.getInstance().getVoteSiteEnabled(voteSite.getSiteName()),
+						"" + ConfigVoteSites.getInstance().getVoteSiteEnabled(voteSite.getKey()),
 						new BooleanListener() {
 
 							@Override
 							public void onInput(Player player, boolean value) {
 								VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-								String siteName = voteSite.getSiteName();
+								String siteName = voteSite.getKey();
 								ConfigVoteSites.getInstance().setEnabled(siteName, value);
 								player.sendMessage("Set Enabled");
 								plugin.reload();

@@ -502,7 +502,7 @@ public class Commands {
 		String timeString = voteCommandLastDate(user, voteSite);
 
 		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
-				.replace("%time%", timeString).replace("%SiteName%", voteSite.getSiteName());
+				.replace("%time%", timeString).replace("%SiteName%", voteSite.getDisplayName());
 	}
 
 	/**
@@ -529,7 +529,7 @@ public class Commands {
 			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%info%",
 					voteCommandNextInfo(user, voteSite));
 
-			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getSiteName());
+			msgLine = StringUtils.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
 			msg.add(StringUtils.getInstance().colorize(msgLine));
 
 		}
@@ -551,9 +551,8 @@ public class Commands {
 		long time = user.getTime(voteSite);
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
-		
 
-		int votedelay = configVoteSites.getVoteDelay(voteSite.getSiteName());
+		int votedelay = voteSite.getVoteDelay();
 		if (votedelay == 0) {
 			String errorMsg = config.getFormatCommandsVoteNextInfoError();
 			info = errorMsg;
@@ -634,7 +633,7 @@ public class Commands {
 			}
 			msg.add(StringUtils.getInstance().replaceIgnoreCase(
 					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),
-							"%SiteName%", voteSite.getSiteName()),
+							"%SiteName%", voteSite.getDisplayName()),
 					"%Total%", "" + votes));
 			total += votes;
 		}
@@ -649,7 +648,7 @@ public class Commands {
 		String line = config.getFormatCommandsVoteTotalLine();
 		return StringUtils.getInstance().replaceIgnoreCase(
 				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
-				"%SiteName%", voteSite.getSiteName());
+				"%SiteName%", voteSite.getDisplayName());
 	}
 
 	/**
@@ -695,7 +694,7 @@ public class Commands {
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
-				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString);
+				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
 			}
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);
@@ -719,12 +718,12 @@ public class Commands {
 			int counter = 0;
 			for (VoteSite voteSite : voteSites) {
 				counter++;
-				String voteURL = configVoteSites.getVoteURL(voteSite.getSiteName());
+				String voteURL = voteSite.getVoteURL();
 				String msg = config.getFormatCommandsVoteURLS();
 				msg = StringUtils.getInstance().colorize(msg);
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%num%", Integer.toString(counter));
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
-				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getSiteName());
+				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getDisplayName());
 				sites.add(msg);
 			}
 		}
