@@ -194,6 +194,10 @@ public class Main extends JavaPlugin {
 		configVoteSites.setup();
 		voteSites = configVoteSites.getVoteSitesLoad();
 
+		if (voteSites.size() == 0) {
+			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
+		}
+
 		plugin.debug("Loaded VoteSites");
 
 	}
