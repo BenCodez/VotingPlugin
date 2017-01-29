@@ -666,6 +666,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
+		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 	}
 
 }
