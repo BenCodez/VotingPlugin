@@ -595,6 +595,12 @@ public class Main extends JavaPlugin {
 				}
 			}
 		});
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			MySQL mysql = AdvancedCoreHook.getInstance().getMysql();
+			if (mysql != null) {
+				mysql.loadData();
+			}
+		}
 	}
 
 	/**
