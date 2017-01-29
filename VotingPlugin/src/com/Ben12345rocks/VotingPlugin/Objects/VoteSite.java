@@ -164,6 +164,9 @@ public class VoteSite {
 		setEnabled(configVoteSites.getVoteSiteEnabled(key));
 		setPriority(configVoteSites.getPriority(key));
 		displayName = configVoteSites.getDisplayName(key);
+		if (displayName == null) {
+			displayName = key;
+		}
 	}
 
 	/**

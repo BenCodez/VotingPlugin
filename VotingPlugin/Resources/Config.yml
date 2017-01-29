@@ -6,7 +6,19 @@
 # Valid Options:
 # - SQLITE
 # - FLAT
+# - MYSQL
 DataStorage: FLAT
+
+# Information for mysql
+MySQL:
+  Host: ''
+  # Default port is 3306
+  Port: 3306 
+  Database: ''
+  Username: ''
+  Password: ''
+  # Max number of connections
+  MaxConnections: 1
 
 # Wether or not to check on world change
 # Should only be used if you do per world rewards

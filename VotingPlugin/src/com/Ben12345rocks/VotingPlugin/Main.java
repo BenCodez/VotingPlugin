@@ -20,10 +20,12 @@ import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
+import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -640,6 +642,20 @@ public class Main extends JavaPlugin {
 
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			Thread.getInstance().run(new Runnable() {
+
+				@Override
+				public void run() {
+					AdvancedCoreHook.getInstance()
+							.setMysql(new MySQL(Config.getInstance().getMySqlHost(),
+									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
+									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
+									Config.getInstance().getMySqlMaxConnections()));
+				}
+			});
+
+		}
 		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());

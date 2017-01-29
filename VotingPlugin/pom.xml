@@ -61,11 +61,15 @@
 							other plugins -->
 						<relocation>
 							<pattern>net.md_5.bungee</pattern>
-							<shadedPattern>${groupId}</shadedPattern>
+							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
-							<shadedPattern>${groupId}</shadedPattern>
+							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>me.mrten.mysqlapi</pattern>
+							<shadedPattern>${groupId}.${artifactId}.mysqlapi</shadedPattern>
 						</relocation>
 					</relocations>
 				</configuration>
@@ -199,6 +203,5 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/GAListener.jar</systemPath>
 		</dependency>
-
 	</dependencies>
 </project>
