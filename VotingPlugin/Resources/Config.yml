@@ -109,7 +109,8 @@ VoteReminding:
   # Edit the message at AdvancedCore/Rewards/Remind.yml (or any other reward listed)
   # Can add titles and more in the reward file
   Rewards:
-  - 'Remind'
+    Messages:
+      Player: '&aRemeber to vote!'
   
 Commands:
   # Wether or not the following commands will open GUIs rather than display text
@@ -426,7 +427,9 @@ Shop:
     Cost: 3
     # Rewards to run if player buys succesfully
     Rewards:
-    - 'VoteShop_Diamond'
+      Items:
+        Material: 'DIAMOND'
+        Amount: 1
     # Slot
     Slot: 0          
      
@@ -440,11 +443,16 @@ Shop:
 # By default all rewards are disabled
 
 # First vote rewards
-FirstVote: []
+FirstVote: 
+  Messages:
+    Player: '&aYou voted for your first time!'
+  Money: 100
 
 # All vote rewards
 # Reward for voting on all sites in one day
-AllSites: []
+AllSites: 
+  Messages:
+    Player: '&aYou voted on all sites in 1 day!'
 
 Cumulative:
   # Number of votes required
@@ -458,8 +466,7 @@ Cumulative:
     # for a daily/weekly reward instead of all of them
     VotesInSameDay: false
     VotesInSameWeek: false
-    Rewards:
-    - 'Cumulative'
+    Rewards: []
 
 VoteParty:
   # Wether or not vote party is enabled
@@ -474,8 +481,7 @@ VoteParty:
   # Number of user votes that apply to vote party total the user needs to get rewards
   UserVotesRequired: 0
   # Reward files to give
-  Rewards:
-  - 'ExampleReward'
+  Rewards: []
   
 MileStones:
   # Number of votes required
@@ -484,8 +490,7 @@ MileStones:
   # Can have multiple listed here
   '20':
     Enabled: false
-    Rewards:
-    - 'MileStone20'
+    Rewards: []
     ResetMonthly: false
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
