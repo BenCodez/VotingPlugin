@@ -121,11 +121,8 @@ public class ConfigVoteSites extends YMLFile {
 	 *            the site name
 	 * @return the rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRewards(String siteName) {
-
-		return (ArrayList<String>) getData(siteName).getList("Rewards", new ArrayList<String>());
-
+	public String getRewardsPath(String siteName) {
+		return "VoteSites." + siteName + ".Rewards";
 	}
 
 	/**
@@ -137,6 +134,10 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getServiceSite(String siteName) {
 		return getData(siteName).getString("ServiceSite");
+	}
+
+	public String getDisplayName(String site) {
+		return getData(site).getString("Name");
 	}
 
 	/**
@@ -221,8 +222,8 @@ public class ConfigVoteSites extends YMLFile {
 		Collections.sort(voteSites, new Comparator<VoteSite>() {
 			@Override
 			public int compare(VoteSite v1, VoteSite v2) {
-				int v1P = getPriority(v1.getSiteName());
-				int v2P = getPriority(v2.getSiteName());
+				int v1P = v1.getPriority();
+				int v2P = v2.getPriority();
 
 				if (v1P < v2P) {
 					return 1;
@@ -452,6 +453,10 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
+	}
+
+	public void setDisplayName(String siteName, String value) {
+		set(siteName, "Name", value);
 	}
 
 }

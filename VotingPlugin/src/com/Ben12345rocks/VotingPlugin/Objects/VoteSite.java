@@ -1,7 +1,5 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
-import java.util.ArrayList;
-
 import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
@@ -32,16 +30,15 @@ public class VoteSite {
 	private String serviceSite;
 
 	/** The site name. */
-	private String siteName;
+	private String key;
+
+	private String displayName;
 
 	/** The vote delay. */
 	private int voteDelay;
 
 	/** The enabled. */
 	private boolean enabled;
-
-	/** The rewards. */
-	private ArrayList<String> rewards;
 
 	/** The priority. */
 	private int priority;
@@ -64,8 +61,7 @@ public class VoteSite {
 	 */
 	public VoteSite(String siteName) {
 		String org = siteName;
-		siteName = siteName.replace(".", "_");
-		setSiteName(siteName);
+		key = siteName.replace(".", "_");
 		if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
 			if (Config.getInstance().getAutoCreateVoteSites()) {
 				configVoteSites.generateVoteSite(org);
@@ -86,7 +82,7 @@ public class VoteSite {
 	public void broadcastVote(User user) {
 		String playerName = user.getPlayerName();
 		String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
-		bc = bc.replace("%player%", playerName).replace("%SiteName%", siteName);
+		bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
 		final String str = bc;
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -95,7 +91,6 @@ public class VoteSite {
 				Bukkit.broadcastMessage(str);
 			}
 		});
-
 	}
 
 	/**
@@ -108,30 +103,12 @@ public class VoteSite {
 	}
 
 	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	public ArrayList<String> getRewards() {
-		return rewards;
-	}
-
-	/**
 	 * Gets the service site.
 	 *
 	 * @return the service site
 	 */
 	public String getServiceSite() {
 		return serviceSite;
-	}
-
-	/**
-	 * Gets the site name.
-	 *
-	 * @return the site name
-	 */
-	public String getSiteName() {
-		return siteName;
 	}
 
 	/**
@@ -161,11 +138,8 @@ public class VoteSite {
 	 *            the online
 	 */
 	public void giveRewards(User user, boolean online) {
-		for (String reward : getRewards()) {
-
-			RewardHandler.getInstance().giveReward(user, reward, online);
-
-		}
+		RewardHandler.getInstance().giveReward(user, configVoteSites.getData(), configVoteSites.getRewardsPath(key),
+				online);
 	}
 
 	/**
@@ -184,12 +158,45 @@ public class VoteSite {
 	 * Inits the.
 	 */
 	public void init() {
-		setVoteURL(configVoteSites.getVoteURL(siteName));
-		setServiceSite(configVoteSites.getServiceSite(siteName));
-		setVoteDelay(configVoteSites.getVoteDelay(siteName));
-		setEnabled(configVoteSites.getVoteSiteEnabled(siteName));
-		setRewards(configVoteSites.getRewards(siteName));
-		setPriority(configVoteSites.getPriority(siteName));
+		setVoteURL(configVoteSites.getVoteURL(key));
+		setServiceSite(configVoteSites.getServiceSite(key));
+		setVoteDelay(configVoteSites.getVoteDelay(key));
+		setEnabled(configVoteSites.getVoteSiteEnabled(key));
+		setPriority(configVoteSites.getPriority(key));
+		displayName = configVoteSites.getDisplayName(key);
+		if (displayName == null || displayName.equals("")) {
+			displayName = key;
+		}
+	}
+
+	/**
+	 * @return the key
+	 */
+	public String getKey() {
+		return key;
+	}
+
+	/**
+	 * @param key
+	 *            the key to set
+	 */
+	public void setKey(String key) {
+		this.key = key;
+	}
+
+	/**
+	 * @return the displayName
+	 */
+	public String getDisplayName() {
+		return displayName;
+	}
+
+	/**
+	 * @param displayName
+	 *            the displayName to set
+	 */
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
 	}
 
 	/**
@@ -222,16 +229,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * Sets the rewards.
-	 *
-	 * @param rewards
-	 *            the new rewards
-	 */
-	public void setRewards(ArrayList<String> rewards) {
-		this.rewards = rewards;
-	}
-
-	/**
 	 * Sets the service site.
 	 *
 	 * @param serviceSite
@@ -239,16 +236,6 @@ public class VoteSite {
 	 */
 	public void setServiceSite(String serviceSite) {
 		this.serviceSite = serviceSite;
-	}
-
-	/**
-	 * Sets the site name.
-	 *
-	 * @param siteName
-	 *            the new site name
-	 */
-	public void setSiteName(String siteName) {
-		this.siteName = siteName;
 	}
 
 	/**

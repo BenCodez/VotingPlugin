@@ -10,9 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
-import com.Ben12345rocks.AdvancedCore.Data.ServerData;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
@@ -33,7 +31,6 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Converter.GALConverter;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -107,25 +104,6 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Convert", "GAListener" },
-				"VotingPlugin.Commands.AdminVote.Convert|" + adminPerm, "Convert from GAL to VotingPlugin") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Bukkit.getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage(StringUtils.getInstance()
-							.colorize("&cStarting to convert. Please note this is not a 100% conversion."));
-					GALConverter.getInstance().convert();
-					sender.sendMessage(StringUtils.getInstance().colorize(
-							"&cFinished converting. You will need to change reward messages to your liking."));
-				} else {
-					sender.sendMessage(
-							StringUtils.getInstance().colorize("&cGAL has to be loaded in order to convert"));
-				}
-
-			}
-		});
 
 		plugin.adminVoteCommand
 				.add(new CommandHandler(new String[] { "TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
@@ -416,22 +394,6 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "UpdateDataFiles" },
-				"VotingPlugin.Commands.AdminVote.UpdateDataFiles|" + adminPerm, "Update data files") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (!ServerData.getInstance().getData().getBoolean("OldDataUpdated")) {
-					ServerData.getInstance().getData().set("OldDataUpdated", true);
-					ServerData.getInstance().saveData();
-					for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-						user.loadFromOldData();
-					}
-				}
-			}
-		});
-
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
@@ -507,7 +469,7 @@ public class CommandLoader {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
 										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getSiteName());
+											voteSites.add(voteSite.getKey());
 										}
 										new ValueRequest().requestString(player, "",
 												ArrayUtils.getInstance().convert(voteSites), true,
@@ -566,13 +528,11 @@ public class CommandLoader {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
-														new BInventoryButton("" + mileStone, new String[] {
-																"Enabled: " + Config.getInstance()
-																		.getMilestoneRewardEnabled(mileStone),
-																"Rewards: " + ArrayUtils.getInstance()
-																		.makeStringList(Config.getInstance()
-																				.getMilestoneRewards(mileStone)),
-																"&cClick to set wether this has been completed or not" },
+														new BInventoryButton("" + mileStone,
+																new String[] {
+																		"Enabled: " + Config.getInstance()
+																				.getMilestoneRewardEnabled(mileStone),
+																		"&cClick to set wether this has been completed or not" },
 																new ItemStack(Material.STONE)) {
 
 															@Override
@@ -627,7 +587,7 @@ public class CommandLoader {
 										Player player = clickEvent.getPlayer();
 										ArrayList<String> voteSites = new ArrayList<String>();
 										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getSiteName());
+											voteSites.add(voteSite.getKey());
 										}
 										new ValueRequest().requestString(player, "",
 												ArrayUtils.getInstance().convert(voteSites), true,
@@ -682,7 +642,7 @@ public class CommandLoader {
 	public void loadTabComplete() {
 		ArrayList<String> sites = new ArrayList<String>();
 		for (VoteSite site : plugin.getVoteSites()) {
-			sites.add(site.getSiteName());
+			sites.add(site.getKey());
 		}
 
 		for (int i = 0; i < plugin.voteCommand.size(); i++) {

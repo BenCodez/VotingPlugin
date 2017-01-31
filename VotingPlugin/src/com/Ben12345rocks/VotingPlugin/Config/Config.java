@@ -38,6 +38,34 @@ public class Config extends YMLFile {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
 
+	public String getMySqlHost() {
+		return getData().getString("MySQL.Host", "");
+	}
+
+	public int getMySqlPort() {
+		return getData().getInt("MySQL.Port");
+	}
+	
+	public boolean getMySqlPreloadTable() {
+		return getData().getBoolean("MySQL.PreLoadTable");
+	}
+
+	public int getMySqlMaxConnections() {
+		return getData().getInt("MySQL.MaxConnections", 1);
+	}
+
+	public String getMySqlDatabase() {
+		return getData().getString("MySQL.Database", "");
+	}
+
+	public String getMySqlUsername() {
+		return getData().getString("MySQL.Username", "");
+	}
+
+	public String getMySqlPassword() {
+		return getData().getString("MySQL.Password", "");
+	}
+
 	/**
 	 * Allow un joined.
 	 *
@@ -56,9 +84,8 @@ public class Config extends YMLFile {
 	 *
 	 * @return the all sites reward
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAllSitesReward() {
-		return (ArrayList<String>) getData().getList("AllSites", new ArrayList<String>());
+	public String getAllSitesRewardPath() {
+		return "AllSites";
 	}
 
 	/**
@@ -66,9 +93,8 @@ public class Config extends YMLFile {
 	 *
 	 * @return the rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getAnySiteRewards() {
-		return (ArrayList<String>) getData().getList("AnySiteRewards", new ArrayList<String>());
+	public String getAnySiteRewardsPath() {
+		return "AnySiteRewards";
 
 	}
 
@@ -148,15 +174,14 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the cumulative rewards.
+	 * Gets the cumulative rewards path
 	 *
 	 * @param cumulative
 	 *            the cumulative
 	 * @return the cumulative rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCumulativeRewards(int cumulative) {
-		return (ArrayList<String>) getData().getList("Cumulative." + cumulative + ".Rewards", new ArrayList<String>());
+	public String getCumulativeRewardsPath(int cumulative) {
+		return "Cumulative." + cumulative + ".Rewards";
 	}
 
 	/**
@@ -192,15 +217,14 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the daily award rewards.
+	 * Gets the daily award rewards path
 	 *
 	 * @param pos
 	 *            the pos
 	 * @return the daily award rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getDailyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("DailyAwards." + pos + ".Rewards", new ArrayList<String>());
+	public String getDailyAwardRewardsPath(int pos) {
+		return "DailyAwards." + pos + ".Rewards";
 	}
 
 	/**
@@ -249,9 +273,8 @@ public class Config extends YMLFile {
 	 *
 	 * @return the first vote rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFirstVoteRewards() {
-		return (ArrayList<String>) getData().getList("FirstVote", new ArrayList<String>());
+	public String getFirstVoteRewardsPath() {
+		return "FirstVote";
 	}
 
 	/**
@@ -639,9 +662,8 @@ public class Config extends YMLFile {
 		return getData().getInt("Shop." + identifier + ".Item.Amount");
 	}
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getIdentifierRewards(String identifier) {
-		return (ArrayList<String>) getData().getList("Shop." + identifier + ".Rewards", new ArrayList<String>());
+	public String getIdentifierRewardsPath(String identifier) {
+		return "Shop." + identifier + ".Rewards";
 
 	}
 
@@ -697,9 +719,8 @@ public class Config extends YMLFile {
 	 *            the milestones
 	 * @return the milestone rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMilestoneRewards(int milestones) {
-		return (ArrayList<String>) getData().getList("MileStones." + milestones + ".Rewards", new ArrayList<String>());
+	public String getMilestoneRewardsPath(int milestones) {
+		return "MileStones." + milestones + ".Rewards";
 	}
 
 	/**
@@ -726,9 +747,8 @@ public class Config extends YMLFile {
 	 *            the pos
 	 * @return the monthly award rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getMonthlyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("MonthlyAwards." + pos + ".Rewards");
+	public String getMonthlyAwardRewardsPath(int pos) {
+		return "MonthlyAwards." + pos + ".Rewards";
 	}
 
 	/**
@@ -891,9 +911,8 @@ public class Config extends YMLFile {
 	 *
 	 * @return the vote party rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyRewards() {
-		return (ArrayList<String>) getData().getList("VoteParty.Rewards", new ArrayList<String>());
+	public String getVotePartyRewardsPath() {
+		return "VoteParty.Rewards";
 	}
 
 	/**
@@ -946,9 +965,8 @@ public class Config extends YMLFile {
 	 *
 	 * @return the rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVoteRemindingRewards() {
-		return (ArrayList<String>) getData().getList("VoteReminding.Rewards", new ArrayList<String>());
+	public String getVoteRemindingRewardsPath() {
+		return "VoteReminding.Rewards";
 	}
 
 	/**
@@ -1052,9 +1070,8 @@ public class Config extends YMLFile {
 	 *            the pos
 	 * @return the weekly award rewards
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getWeeklyAwardRewards(int pos) {
-		return (ArrayList<String>) getData().getList("WeeklyAwards." + pos + ".Rewards", new ArrayList<String>());
+	public String getWeeklyAwardRewardsPath(int pos) {
+		return "WeeklyAwards." + pos + ".Rewards";
 	}
 
 	/**
@@ -1114,19 +1131,6 @@ public class Config extends YMLFile {
 	 */
 	public void setBroadcastVoteEnabled(boolean value) {
 		getData().set("BroadcastVote", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the cumulative rewards.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @param rewards
-	 *            the rewards
-	 */
-	public void setCumulativeRewards(int cumulative, ArrayList<String> rewards) {
-		getData().set("Cumulative." + cumulative + ".Rewards", rewards);
 		saveData();
 	}
 

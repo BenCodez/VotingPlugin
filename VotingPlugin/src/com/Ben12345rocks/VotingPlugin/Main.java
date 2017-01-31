@@ -20,10 +20,12 @@ import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
+import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
+import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -104,9 +106,11 @@ public class Main extends JavaPlugin {
 	 * Check votifier.
 	 */
 	public void checkVotifier() {
-		if (getServer().getPluginManager().getPlugin("Votifier") == null
-				&& getServer().getPluginManager().getPlugin("NuVotifier") == null) {
-			plugin.debug("Votifier and NuVotifier not found, votes may not work");
+		try {
+			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
+		} catch (ClassNotFoundException e) {
+			plugin.getLogger()
+					.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 		}
 	}
 
@@ -145,7 +149,7 @@ public class Main extends JavaPlugin {
 	public VoteSite getVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : voteSites) {
-			if (voteSite.getSiteName().equalsIgnoreCase(siteName)) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return voteSite;
 			}
 		}
@@ -194,6 +198,10 @@ public class Main extends JavaPlugin {
 		configVoteSites.setup();
 		voteSites = configVoteSites.getVoteSitesLoad();
 
+		if (voteSites.size() == 0) {
+			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
+		}
+
 		plugin.debug("Loaded VoteSites");
 
 	}
@@ -239,7 +247,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getFirstVoteRewards().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getFirstVoteRewardsPath())) {
 					return "False";
 				} else {
 					return "True";
@@ -250,7 +259,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getAllSitesReward().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getAllSitesRewardPath())) {
 					return "False";
 				} else {
 					return "True";
@@ -304,7 +314,8 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getAnySiteRewards().size() == 0) {
+				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+						Config.getInstance().getAnySiteRewardsPath())) {
 					return "False";
 				} else {
 					return "True";
@@ -632,7 +643,24 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setPreloadTable(Config.getInstance().getMySqlPreloadTable());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			Thread.getInstance().run(new Runnable() {
+
+				@Override
+				public void run() {
+
+					AdvancedCoreHook.getInstance()
+							.setMysql(new MySQL(Config.getInstance().getMySqlHost(),
+									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
+									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
+									Config.getInstance().getMySqlMaxConnections()));
+				}
+			});
+
+		}
+
 		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
@@ -643,6 +671,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
+		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 	}
 
 }

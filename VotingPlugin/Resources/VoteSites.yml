@@ -5,6 +5,9 @@ VoteSites:
     # If false, votesite will not be loaded by plugin
     # Default: false
     Enabled: false
+    
+    # Display name of voting site
+    Name: 'ExampleVoteSite'
           
     # Priority of this site
     # Used for sorted list

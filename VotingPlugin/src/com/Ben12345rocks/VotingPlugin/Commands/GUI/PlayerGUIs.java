@@ -67,31 +67,33 @@ public class PlayerGUIs {
 			String[] lore = new String[1];
 
 			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
-			if (slot.equalsIgnoreCase("url")) {
-				lore = Commands.getInstance().voteURLs();
-			} else if (slot.equalsIgnoreCase("next")) {
-				lore = Commands.getInstance().voteCommandNext(user);
-			} else if (slot.equalsIgnoreCase("last")) {
-				lore = Commands.getInstance().voteCommandLast(user);
-			} else if (slot.equalsIgnoreCase("total")) {
-				lore = Commands.getInstance().voteCommandTotal(user);
-			} else if (slot.equalsIgnoreCase("top")) {
-				String str = Config.getInstance().getVoteTopDefault();
-				if (str.equalsIgnoreCase("monthly")) {
-					lore = TopVoterHandler.getInstance().topVoterMonthly(1);
-				} else if (str.equalsIgnoreCase("weekly")) {
-					lore = TopVoterHandler.getInstance().topVoterWeekly(1);
-				} else if (str.equalsIgnoreCase("daily")) {
-					lore = TopVoterHandler.getInstance().topVoterDaily(1);
-				} else {
-					lore = TopVoterHandler.getInstance().topVoterAllTime(1);
+			if (lore.length == 0) {
+				if (slot.equalsIgnoreCase("url")) {
+					lore = Commands.getInstance().voteURLs();
+				} else if (slot.equalsIgnoreCase("next")) {
+					lore = Commands.getInstance().voteCommandNext(user);
+				} else if (slot.equalsIgnoreCase("last")) {
+					lore = Commands.getInstance().voteCommandLast(user);
+				} else if (slot.equalsIgnoreCase("total")) {
+					lore = Commands.getInstance().voteCommandTotal(user);
+				} else if (slot.equalsIgnoreCase("top")) {
+					String str = Config.getInstance().getVoteTopDefault();
+					if (str.equalsIgnoreCase("monthly")) {
+						lore = TopVoterHandler.getInstance().topVoterMonthly(1);
+					} else if (str.equalsIgnoreCase("weekly")) {
+						lore = TopVoterHandler.getInstance().topVoterWeekly(1);
+					} else if (str.equalsIgnoreCase("daily")) {
+						lore = TopVoterHandler.getInstance().topVoterDaily(1);
+					} else {
+						lore = TopVoterHandler.getInstance().topVoterAllTime(1);
+					}
+				} else if (slot.equalsIgnoreCase("today")) {
+					lore = Commands.getInstance().voteToday();
+				} else if (slot.equalsIgnoreCase("help")) {
+					ArrayList<String> loreSt = new ArrayList<String>();
+					loreSt = ArrayUtils.getInstance().comptoString(Commands.getInstance().voteHelpText(player));
+					lore = ArrayUtils.getInstance().convert(loreSt);
 				}
-			} else if (slot.equalsIgnoreCase("today")) {
-				lore = Commands.getInstance().voteToday();
-			} else if (slot.equalsIgnoreCase("help")) {
-				ArrayList<String> loreSt = new ArrayList<String>();
-				loreSt = ArrayUtils.getInstance().comptoString(Commands.getInstance().voteHelpText(player));
-				lore = ArrayUtils.getInstance().convert(loreSt);
 			}
 
 			builder.setLore(lore);
@@ -135,7 +137,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -154,7 +156,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -175,7 +177,7 @@ public class PlayerGUIs {
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
-				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getSiteName() + " : " + timeString;
+				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(
 
@@ -236,7 +238,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getSiteName(),
+					new BInventoryButton(site.getDisplayName(),
 							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
 							new ItemStack(Material.STONE)) {
 
@@ -296,7 +298,7 @@ public class PlayerGUIs {
 						Commands.getInstance().voteCommandNextInfo(user, voteSite)));
 			}
 
-			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getSiteName()));
+			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
 
 			inv.addButton(count, new BInventoryButton(builder) {
 
@@ -336,11 +338,10 @@ public class PlayerGUIs {
 		if ((siteName == null) || (siteName == "")) {
 			int count = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
-				plugin.debug(voteSite.getSiteName());
-
 				try {
 					ItemBuilder builder = new ItemBuilder(
-							Config.getInstance().getVoteSiteItemSection(voteSite.getSiteName()));
+							Config.getInstance().getVoteSiteItemSection(voteSite.getKey()));
+					final VoteSite site = voteSite;
 
 					inv.addButton(count, new BInventoryButton(builder) {
 
@@ -349,7 +350,7 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								player.performCommand("vote reward " + voteSite.getSiteName());
+								player.performCommand("vote reward " + site.getKey());
 
 							}
 

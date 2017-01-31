@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.Ben12345rocks</groupId>
 	<artifactId>VotingPlugin</artifactId>
-	<version>5.3.3</version>
+	<version>5.4</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -61,11 +61,23 @@
 							other plugins -->
 						<relocation>
 							<pattern>net.md_5.bungee</pattern>
-							<shadedPattern>${groupId}</shadedPattern>
+							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
-							<shadedPattern>${groupId}</shadedPattern>
+							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>me.mrten.mysqlapi</pattern>
+							<shadedPattern>${groupId}.${artifactId}.mysqlapi</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>com.zaxxer.HikariCP</pattern>
+							<shadedPattern>${groupId}.${artifactId}.HikariCP</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>org.slf4j.slf4j-simple</pattern>
+							<shadedPattern>${groupId}.${artifactId}.slf4j-simple</shadedPattern>
 						</relocation>
 					</relocations>
 				</configuration>
@@ -199,6 +211,5 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/GAListener.jar</systemPath>
 		</dependency>
-
 	</dependencies>
 </project>

@@ -47,9 +47,8 @@ public class VoteShop {
 							String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
 							if (identifier != null) {
 								if (user.removePoints(points)) {
-									for (String reward : Config.getInstance().getIdentifierRewards(identifier)) {
-										RewardHandler.getInstance().giveReward(user, reward, true);
-									}
+									RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+											Config.getInstance().getIdentifierRewardsPath(identifier));
 									user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
 											.replace("%Identifier%", identifier).replace("%Points%", "" + points));
 								} else {
