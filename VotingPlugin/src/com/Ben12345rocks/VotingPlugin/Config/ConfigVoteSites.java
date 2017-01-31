@@ -122,7 +122,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the rewards
 	 */
 	public String getRewardsPath(String siteName) {
-		return "Rewards";
+		return "VoteSites." + siteName + ".Rewards";
 	}
 
 	/**
