@@ -71,6 +71,14 @@
 							<pattern>me.mrten.mysqlapi</pattern>
 							<shadedPattern>${groupId}.${artifactId}.mysqlapi</shadedPattern>
 						</relocation>
+						<relocation>
+							<pattern>com.zaxxer.HikariCP</pattern>
+							<shadedPattern>${groupId}.${artifactId}.HikariCP</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>org.slf4j.slf4j-simple</pattern>
+							<shadedPattern>${groupId}.${artifactId}.slf4j-simple</shadedPattern>
+						</relocation>
 					</relocations>
 				</configuration>
 				<executions>

@@ -153,6 +153,7 @@ public class AdminGUI {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add("Priority: " + voteSite.getPriority());
+			lore.add("Name: " + voteSite.getDisplayName());
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
@@ -186,26 +187,53 @@ public class AdminGUI {
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		BInventory inv = new BInventory("VoteSite: " + voteSite.getDisplayName());
 		inv.setMeta(player, "VoteSite", voteSite);
-		inv.addButton(0, new BInventoryButton("SetPriority", new String[0], new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				Player player = event.getWhoClicked();
-				new ValueRequest().requestNumber(player, "" + voteSite.getPriority(), null, new NumberListener() {
+		inv.addButton(inv.getNextSlot(),
+				new BInventoryButton("SetPriority", new String[0], new ItemStack(Material.STONE)) {
 
 					@Override
-					public void onInput(Player player, Number value) {
-						VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-						ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), value.intValue());
-						player.sendMessage("Set Priority");
-						plugin.reload();
+					public void onClick(ClickEvent event) {
+						Player player = event.getWhoClicked();
+						new ValueRequest().requestNumber(player, "" + voteSite.getPriority(), null,
+								new NumberListener() {
+
+									@Override
+									public void onInput(Player player, Number value) {
+										VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
+										ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), value.intValue());
+										player.sendMessage("Set Priority");
+										plugin.reload();
+
+									}
+								});
+					}
+				});
+
+		inv.addButton(inv.getNextSlot(),
+				new BInventoryButton("SetServiceSite", new String[0], new ItemStack(Material.STONE)) {
+
+					@Override
+					public void onClick(ClickEvent event) {
+						if (event.getWhoClicked() instanceof Player) {
+							Player player = event.getWhoClicked();
+							player.closeInventory();
+							new ValueRequest().requestString(player, voteSite.getServiceSite(), null,
+									new StringListener() {
+
+										@Override
+										public void onInput(Player player, String value) {
+											VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
+											String siteName = voteSite.getKey();
+											ConfigVoteSites.getInstance().setServiceSite(siteName, value);
+											player.sendMessage("Set ServiceSite");
+											plugin.reload();
+										}
+									});
+						}
 
 					}
 				});
-			}
-		});
 
-		inv.addButton(1, new BInventoryButton("SetServiceSite", new String[0], new ItemStack(Material.STONE)) {
+		inv.addButton(inv.getNextSlot(), new BInventoryButton("SetName", new String[0], new ItemStack(Material.STONE)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -217,9 +245,8 @@ public class AdminGUI {
 						@Override
 						public void onInput(Player player, String value) {
 							VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-							String siteName = voteSite.getKey();
-							ConfigVoteSites.getInstance().setServiceSite(siteName, value);
-							player.sendMessage("Set ServiceSite");
+							ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), value);
+							player.sendMessage("Set name");
 							plugin.reload();
 						}
 					});
@@ -228,136 +255,77 @@ public class AdminGUI {
 			}
 		});
 
-		inv.addButton(2, new BInventoryButton("SetVoteURL", new String[0], new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					player.closeInventory();
-					new ValueRequest().requestString(player, voteSite.getVoteURL(), null, new StringListener() {
-
-						@Override
-						public void onInput(Player player, String value) {
-							VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-							String siteName = voteSite.getKey();
-							ConfigVoteSites.getInstance().setVoteURL(siteName, value);
-							player.sendMessage("Set VoteURL");
-							plugin.reload();
-
-						}
-					});
-
-				}
-
-			}
-		});
-
-		inv.addButton(3, new BInventoryButton("SetVoteDelay", new String[0], new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				Player player = event.getWhoClicked();
-				new ValueRequest().requestNumber(player, "" + voteSite.getVoteDelay(), null, new NumberListener() {
+		inv.addButton(inv.getNextSlot(),
+				new BInventoryButton("SetVoteURL", new String[0], new ItemStack(Material.STONE)) {
 
 					@Override
-					public void onInput(Player player, Number value) {
-						VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-						String siteName = voteSite.getKey();
-						ConfigVoteSites.getInstance().setVoteDelay(siteName, value.intValue());
-						player.sendMessage("Set VoteDelay");
-						plugin.reload();
+					public void onClick(ClickEvent event) {
+						if (event.getWhoClicked() instanceof Player) {
+							Player player = event.getWhoClicked();
+							player.closeInventory();
+							new ValueRequest().requestString(player, voteSite.getVoteURL(), null, new StringListener() {
+
+								@Override
+								public void onInput(Player player, String value) {
+									VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
+									String siteName = voteSite.getKey();
+									ConfigVoteSites.getInstance().setVoteURL(siteName, value);
+									player.sendMessage("Set VoteURL");
+									plugin.reload();
+
+								}
+							});
+
+						}
 
 					}
 				});
 
-			}
-		});
-		inv.addButton(4, new BInventoryButton("SetEnabled", new String[0], new ItemStack(Material.STONE)) {
+		inv.addButton(inv.getNextSlot(),
+				new BInventoryButton("SetVoteDelay", new String[0], new ItemStack(Material.STONE)) {
 
-			@Override
-			public void onClick(ClickEvent event) {
+					@Override
+					public void onClick(ClickEvent event) {
+						Player player = event.getWhoClicked();
+						new ValueRequest().requestNumber(player, "" + voteSite.getVoteDelay(), null,
+								new NumberListener() {
 
-				Player player = event.getWhoClicked();
-				new ValueRequest().requestBoolean(player,
-						"" + ConfigVoteSites.getInstance().getVoteSiteEnabled(voteSite.getKey()),
-						new BooleanListener() {
+									@Override
+									public void onInput(Player player, Number value) {
+										VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
+										String siteName = voteSite.getKey();
+										ConfigVoteSites.getInstance().setVoteDelay(siteName, value.intValue());
+										player.sendMessage("Set VoteDelay");
+										plugin.reload();
 
-							@Override
-							public void onInput(Player player, boolean value) {
-								VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
-								String siteName = voteSite.getKey();
-								ConfigVoteSites.getInstance().setEnabled(siteName, value);
-								player.sendMessage("Set Enabled");
-								plugin.reload();
+									}
+								});
 
-							}
-						});
-			}
-		});
+					}
+				});
+		inv.addButton(inv.getNextSlot(),
+				new BInventoryButton("SetEnabled", new String[0], new ItemStack(Material.STONE)) {
 
-		/*
-		 * inv.addButton(5, new BInventoryButton("Add Reward", new String[0],
-		 * new ItemStack(Material.STONE)) {
-		 * 
-		 * @Override public void onClick(ClickEvent event) { if
-		 * (event.getWhoClicked() instanceof Player) { Player player =
-		 * event.getWhoClicked(); VoteSite voteSite = (VoteSite)
-		 * event.getMeta("VoteSite"); String siteName = voteSite.getSiteName();
-		 * BInventory inv = new BInventory("AddReward: " + siteName); int count
-		 * = 0; for (Reward reward : RewardHandler.getInstance().getRewards()) {
-		 * inv.addButton(count, new BInventoryButton(reward.getRewardName(), new
-		 * String[0], new ItemStack(Material.STONE)) {
-		 * 
-		 * @Override public void onClick(ClickEvent event) {
-		 * 
-		 * Player player = event.getWhoClicked(); player.closeInventory();
-		 * VoteSite voteSite = (VoteSite) event.getMeta("VoteSite"); String
-		 * siteName = voteSite.getSiteName(); ArrayList<String> rewards =
-		 * ConfigVoteSites.getInstance().getRewards(siteName);
-		 * rewards.add(event.getCurrentItem().getItemMeta().getDisplayName());
-		 * ConfigVoteSites.getInstance().setRewards(siteName, rewards);
-		 * player.sendMessage("Reward added"); plugin.reload();
-		 * 
-		 * } }); count++; }
-		 * 
-		 * inv.openInventory(player);
-		 * 
-		 * }
-		 * 
-		 * } });
-		 * 
-		 * inv.addButton(6, new BInventoryButton("Remove Reward", new String[0],
-		 * new ItemStack(Material.STONE)) {
-		 * 
-		 * @Override public void onClick(ClickEvent event) { if
-		 * (event.getWhoClicked() instanceof Player) { Player player =
-		 * event.getWhoClicked(); VoteSite voteSite = (VoteSite)
-		 * event.getMeta("VoteSite"); String siteName = voteSite.getSiteName();
-		 * BInventory inv = new BInventory("RemoveReward: " + siteName); int
-		 * count = 0; for (String rewardName : voteSite.getRewards()) { Reward
-		 * reward = RewardHandler.getInstance().getReward(rewardName);
-		 * inv.addButton(count, new BInventoryButton(reward.getRewardName(), new
-		 * String[0], new ItemStack(Material.STONE)) {
-		 * 
-		 * @Override public void onClick(ClickEvent event) {
-		 * 
-		 * Player player = event.getWhoClicked(); player.closeInventory();
-		 * VoteSite voteSite = (VoteSite) event.getMeta("VoteSite"); String
-		 * siteName = voteSite.getSiteName(); ArrayList<String> rewards =
-		 * ConfigVoteSites.getInstance().getRewards(siteName);
-		 * rewards.remove(event.getCurrentItem().getItemMeta().getDisplayName())
-		 * ; ConfigVoteSites.getInstance().setRewards(siteName, rewards);
-		 * player.sendMessage("Reward removed"); plugin.reload();
-		 * 
-		 * } }); count++; }
-		 * 
-		 * inv.openInventory(player);
-		 * 
-		 * }
-		 * 
-		 * } });
-		 */
+					@Override
+					public void onClick(ClickEvent event) {
+
+						Player player = event.getWhoClicked();
+						new ValueRequest().requestBoolean(player,
+								"" + ConfigVoteSites.getInstance().getVoteSiteEnabled(voteSite.getKey()),
+								new BooleanListener() {
+
+									@Override
+									public void onInput(Player player, boolean value) {
+										VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
+										String siteName = voteSite.getKey();
+										ConfigVoteSites.getInstance().setEnabled(siteName, value);
+										player.sendMessage("Set Enabled");
+										plugin.reload();
+
+									}
+								});
+					}
+				});
 
 		inv.openInventory(player);
 	}

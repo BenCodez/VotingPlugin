@@ -106,9 +106,11 @@ public class Main extends JavaPlugin {
 	 * Check votifier.
 	 */
 	public void checkVotifier() {
-		if (getServer().getPluginManager().getPlugin("Votifier") == null
-				&& getServer().getPluginManager().getPlugin("NuVotifier") == null) {
-			plugin.debug("Votifier and NuVotifier not found, votes may not work");
+		try {
+			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
+		} catch (ClassNotFoundException e) {
+			plugin.getLogger()
+					.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 		}
 	}
 
@@ -595,12 +597,6 @@ public class Main extends JavaPlugin {
 				}
 			}
 		});
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-			MySQL mysql = AdvancedCoreHook.getInstance().getMysql();
-			if (mysql != null) {
-				mysql.loadData();
-			}
-		}
 	}
 
 	/**
@@ -647,12 +643,14 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setPreloadTable(Config.getInstance().getMySqlPreloadTable());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {
 
 				@Override
 				public void run() {
+
 					AdvancedCoreHook.getInstance()
 							.setMysql(new MySQL(Config.getInstance().getMySqlHost(),
 									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
@@ -662,6 +660,7 @@ public class Main extends JavaPlugin {
 			});
 
 		}
+
 		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());

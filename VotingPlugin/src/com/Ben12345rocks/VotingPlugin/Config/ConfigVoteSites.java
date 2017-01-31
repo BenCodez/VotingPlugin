@@ -455,4 +455,8 @@ public class ConfigVoteSites extends YMLFile {
 		return pass;
 	}
 
+	public void setDisplayName(String siteName, String value) {
+		set(siteName, "Name", value);
+	}
+
 }
