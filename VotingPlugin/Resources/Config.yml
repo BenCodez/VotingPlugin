@@ -80,6 +80,9 @@ PreLoadUsers: false
 # REQUIRES A RESTART TO TAKE EFFECT
 DelayBetweenUpdates: 3
 
+# Set to true to disable no service site message on voting
+DisableNoServiceSiteMessage: false
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------

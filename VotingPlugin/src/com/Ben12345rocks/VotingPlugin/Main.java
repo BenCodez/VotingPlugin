@@ -464,7 +464,13 @@ public class Main extends JavaPlugin {
 	 */
 	@Override
 	public void onDisable() {
-		Signs.getInstance().storeSigns();
+		new Timer().schedule(new TimerTask() {
+			
+			@Override
+			public void run() {
+				Signs.getInstance().storeSigns();
+			}
+		}, 0);
 		plugin = null;
 	}
 

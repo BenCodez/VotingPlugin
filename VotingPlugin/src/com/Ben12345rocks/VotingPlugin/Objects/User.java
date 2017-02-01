@@ -279,7 +279,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			if (data.length > 1) {
 				VoteSite site = plugin.getVoteSite(data[0]);
 				if (site != null) {
-					long time = Long.parseLong(data[1]);
+					long time = 0;
+					try {
+						time = Long.parseLong(data[1]);
+					} catch (NumberFormatException e) {
+						time = 0;
+						plugin.debug("Not long: " + data[1]);
+					}
 					lastVotes.put(site, time);
 				}
 			}
@@ -367,7 +373,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			if (data.length > 1) {
 				VoteSite site = plugin.getVoteSite(data[0]);
 				if (site != null) {
-					int total = Integer.parseInt(data[1]);
+					int total = 0;
+					try {
+						total = Integer.parseInt(data[1]);
+					} catch (NumberFormatException e) {
+						total = 0;
+						plugin.debug("Not int: " + data[1]);
+					}
 					voteSiteTotal.put(site, total);
 				}
 			}

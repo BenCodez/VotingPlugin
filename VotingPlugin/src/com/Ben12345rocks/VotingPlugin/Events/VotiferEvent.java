@@ -52,14 +52,15 @@ public class VotiferEvent implements Listener {
 					return;
 				}
 
-				String voteSiteName = voteSiteURL;
+				String voteSiteName = plugin.getVoteSiteName(voteSiteURL);
 				boolean nameExist = false;
 				for (VoteSite site : plugin.getVoteSites()) {
 					if (site.getKey().equalsIgnoreCase(voteSiteName)) {
 						nameExist = true;
 					}
 				}
-				if (voteSiteURL.equals(voteSiteName) && !nameExist) {
+				if (voteSiteURL.equals(voteSiteName) && !nameExist
+						&& !Config.getInstance().getDisableNoServiceSiteMessage()) {
 					plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
 				}
 

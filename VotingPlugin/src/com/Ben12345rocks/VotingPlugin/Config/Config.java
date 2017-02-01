@@ -118,6 +118,10 @@ public class Config extends YMLFile {
 	public boolean getAutoCreateVoteSites() {
 		return getData().getBoolean("AutoCreateVoteSites");
 	}
+	
+	public boolean getDisableNoServiceSiteMessage() {
+		return getData().getBoolean("DisableNoServiceSiteMessage");
+	}
 
 	/**
 	 * Gets the black list.
