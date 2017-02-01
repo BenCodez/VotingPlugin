@@ -40,8 +40,9 @@ public class SignChange implements Listener {
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
 		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {
-			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
-					"VotingPlugin.Sign.Create")) {
+			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(), "VotingPlugin.Sign.Create")
+					|| PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
+							"VotingPlugin.Admin")) {
 				String data = event.getLine(2);
 				if (!data.equalsIgnoreCase("all") && !data.equalsIgnoreCase("monthly")
 						&& !data.equalsIgnoreCase("weekly") && !data.equalsIgnoreCase("daily")) {
@@ -63,7 +64,8 @@ public class SignChange implements Listener {
 					ex.printStackTrace();
 				}
 			} else {
-				event.getPlayer().sendMessage(Config.getInstance().getFormatNoPerms());
+				event.getPlayer()
+						.sendMessage(StringUtils.getInstance().colorize(Config.getInstance().getFormatNoPerms()));
 			}
 		}
 

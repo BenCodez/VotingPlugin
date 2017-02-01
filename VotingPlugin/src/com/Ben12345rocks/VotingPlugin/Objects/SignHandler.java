@@ -75,12 +75,19 @@ public class SignHandler {
 	/**
 	 * Check skulls.
 	 */
-	@SuppressWarnings("deprecation")
 	public void checkSkulls() {
+		if (playerName.equalsIgnoreCase("No Player") || playerName.equals("")) {
+			return;
+		}
 		Location loc = location;
 		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1, loc.getBlockY() - 1, loc.getBlockZ() - 1);
 		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1, loc.getBlockY() + 1, loc.getBlockZ() + 1);
-		for (Block block : MiscUtils.getInstance().getRegionBlocks(loc.getWorld(), loc1, loc2)) {
+		updateSkulls(loc1, loc2);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void updateSkulls(Location loc1, Location loc2) {
+		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
 			if (block.getState() instanceof Skull) {
 				Skull skull = (Skull) block.getState();
 				skull.setOwner(playerName);
