@@ -45,7 +45,7 @@ public class Config extends YMLFile {
 	public int getMySqlPort() {
 		return getData().getInt("MySQL.Port");
 	}
-	
+
 	public boolean getMySqlPreloadTable() {
 		return getData().getBoolean("MySQL.PreLoadTable");
 	}
@@ -118,7 +118,7 @@ public class Config extends YMLFile {
 	public boolean getAutoCreateVoteSites() {
 		return getData().getBoolean("AutoCreateVoteSites");
 	}
-	
+
 	public boolean getDisableNoServiceSiteMessage() {
 		return getData().getBoolean("DisableNoServiceSiteMessage");
 	}
@@ -1028,6 +1028,22 @@ public class Config extends YMLFile {
 
 	public ConfigurationSection getVoteURLCanVoteItemSection() {
 		return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
+	}
+
+	public ConfigurationSection getVoteURLAlreadyVotedAllUrlsButtonItemSection() {
+		if (getData().isConfigurationSection("GUI.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
+			return getData().getConfigurationSection("GUI.VoteURL.AllUrlsButton.AlreadyVotedItem");
+		} else {
+			return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
+		}
+	}
+
+	public ConfigurationSection getVoteURLCanVoteAllUrlsButtonItemSection() {
+		if (getData().isConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem")) {
+			return getData().getConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem");
+		} else {
+			return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
+		}
 	}
 
 	/**

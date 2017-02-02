@@ -364,6 +364,15 @@ GUI:
     SeeURL: '&cClick to see URL'
     NextVote: '&cCan Vote In: %Info%'
     ViewAllUrlsButtonEnabled: true
+    AllUrlsButton:
+      AlreadyVotedItem:
+        Material: 'REDSTONE_BLOCK'
+        Data: 0 
+        Amount: 1
+      CanVoteItem:
+        Material: 'EMERALD_BLOCK'
+        Data: 0
+        Amount: 1
     AlreadyVotedItem:
       Material: 'REDSTONE_BLOCK'
       Data: 0 

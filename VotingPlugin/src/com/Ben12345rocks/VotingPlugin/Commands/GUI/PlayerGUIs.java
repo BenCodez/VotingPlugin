@@ -265,9 +265,9 @@ public class PlayerGUIs {
 
 		int count = 0;
 		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
-			ItemBuilder builderAll = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
+			ItemBuilder builderAll = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
 			if (user.canVoteAll()) {
-				builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
+				builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
 			}
 
 			builderAll.setName("&4All Voting Sites");
