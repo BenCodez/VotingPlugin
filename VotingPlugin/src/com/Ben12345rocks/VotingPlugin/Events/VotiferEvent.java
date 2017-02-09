@@ -204,31 +204,34 @@ public class VotiferEvent implements Listener {
 
 		String voteSiteName = plugin.getVoteSiteName(voteSite);
 
-		PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
-				UserManager.getInstance().getVotingPluginUser(voteUsername));
-		plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-		if (voteEvent.isCancelled()) {
-			return;
-		}
-
-		ArrayList<String> sites = configVoteSites.getVoteSitesNames();
-		if (sites != null) {
-			if (!sites.contains(voteSiteName) && Config.getInstance().getAutoCreateVoteSites()) {
-				plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
-				ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-				ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
-			}
-		} else if (Config.getInstance().getAutoCreateVoteSites()) {
-			plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
-			ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-			ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
-		}
-
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
 			@Override
 			public void run() {
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
+						UserManager.getInstance().getVotingPluginUser(voteUsername));
+				plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+				if (voteEvent.isCancelled()) {
+					return;
+				}
+
+				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
+				if (sites != null) {
+					if (!sites.contains(voteSiteName) && Config.getInstance().getAutoCreateVoteSites()) {
+						plugin.getLogger()
+								.warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
+						ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+						ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
+					}
+				} else if (Config.getInstance().getAutoCreateVoteSites()) {
+					plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
+					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+					ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
+				}
+
 				playerVote(voteUsername, voteSite);
+
 			}
 		});
 

@@ -132,9 +132,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 */
 	public void addTotalDaily() {
-		if (Config.getInstance().getDailyAwardsEnabled()) {
-			setDailyTotal(getDailyTotal() + 1);
-		}
+		setDailyTotal(getDailyTotal() + 1);
 	}
 
 	/**
@@ -143,9 +141,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *
 	 */
 	public void addTotalWeekly() {
-		if (Config.getInstance().getWeeklyAwardsEnabled()) {
-			setWeeklyTotal(getWeeklyTotal() + 1);
-		}
+		setWeeklyTotal(getWeeklyTotal() + 1);
 	}
 
 	/**

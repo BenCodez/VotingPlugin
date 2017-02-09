@@ -494,6 +494,8 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
+		
+		plugin.signs = new ArrayList<SignHandler>();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -658,7 +660,7 @@ public class Main extends JavaPlugin {
 				public void run() {
 
 					AdvancedCoreHook.getInstance()
-							.setMysql(new MySQL(Config.getInstance().getMySqlHost(),
+							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
 									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
 									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
 									Config.getInstance().getMySqlMaxConnections()));
