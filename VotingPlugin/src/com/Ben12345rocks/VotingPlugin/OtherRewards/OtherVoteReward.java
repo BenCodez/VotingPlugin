@@ -106,6 +106,9 @@ public class OtherVoteReward implements Listener {
 								gotCumulative = true;
 							}
 						}
+						if (gotCumulative) {
+							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
+						}
 					}
 				}
 			} else {
@@ -156,6 +159,9 @@ public class OtherVoteReward implements Listener {
 							user.addOfflineOtherReward("MileStone" + votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
 							gotMilestone = true;
+
+							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
+
 						}
 					}
 				}

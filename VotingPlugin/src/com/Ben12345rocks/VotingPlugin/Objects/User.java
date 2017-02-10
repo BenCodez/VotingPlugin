@@ -174,7 +174,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (time == 0) {
 			return true;
 		}
-		LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
 		int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
 
@@ -182,10 +183,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			return false;
 		}
 
-		LocalDateTime nextvote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(votedelay);
+		LocalDateTime nextvote = lastVote.plusHours(votedelay);
 
-		return date.isAfter(nextvote);
+		return now.isAfter(nextvote);
 	}
 
 	/**
