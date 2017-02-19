@@ -204,22 +204,19 @@ Format:
         
       # Format for /vote total
       Total:
-        # First line
-        Title: '&3&l%player% Total Votes:'
-        # %Total% = total for that site
-        # %SiteName% = site name
-        Line: '&3%SiteName%: &6%Total%'
-        # %Totals% = totals of all sites added up
-        Total: '&3&lTotal: &6&l%Totals%'
+      - '&3&l%player% Total Votes:'
+      - '&3&lDaily Total: &6&l%DailyTotal%'
+      - '&3&lWeekly Total: &6&l%WeeklyTotal%'
+      - '&3&lMonthly Total: &6&l%MonthlyTotal%'
+      - '&3&lAllTime Total: &6&l%AllTimeTotal%'
         
       # Format for /vote total all  
       TotalAll:
-        # First line
-        Title: '&3&lAll Votes Total:'
-        # %Total% = total for that site
-        Line: '&3%SiteName% &6%Total%'
-        # %Totals% = totals of all sites added up
-        Total: '&3&lTotal: &6&l%Totals%'
+      - '&3&lServer Total Votes:'
+      - '&3&lDaily Total: &6&l%DailyTotal%'
+      - '&3&lWeekly Total: &6&l%WeeklyTotal%'
+      - '&3&lMonthly Total: &6&l%MonthlyTotal%'
+      - '&3&lAllTime Total: &6&l%AllTimeTotal%'
         
       # Format for /vote top
       Top:

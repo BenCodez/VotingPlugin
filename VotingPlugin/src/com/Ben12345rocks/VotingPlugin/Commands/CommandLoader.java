@@ -15,8 +15,8 @@ import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
@@ -296,17 +296,16 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand
-				.add(new CommandHandler(new String[] { "SetTotal", "(player)", "(sitename)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.Set.Total|" + adminPerm, "Set Total votes of player") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Set.Total|" + adminPerm, "Set Total votes of player") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setTotal(sender, args[1], args[2], Integer.parseInt(args[3]));
+				CommandAdminVote.getInstance().setTotal(sender, args[1], Integer.parseInt(args[2]));
 
-					}
-				});
+			}
+		});
 
 		plugin.adminVoteCommand
 				.add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "SetServiceSite", "(string)" },
@@ -515,6 +514,31 @@ public class CommandLoader {
 							}
 						});
 						UserGUI.getInstance().addPluginButton(plugin,
+								new BInventoryButton(new ItemBuilder(Material.BOOK).setName("Set Month Total")) {
+
+									@Override
+									public void onClick(ClickEvent clickEvent) {
+										String playerName = (String) clickEvent.getMeta(clickEvent.getPlayer(),
+												"Player");
+										User user = UserManager.getInstance().getVotingPluginUser(playerName);
+										new ValueRequest().requestNumber(clickEvent.getPlayer(),
+												"" + user.getMonthTotal(), new Number[] { 0, 10, 50, 100 },
+												new NumberListener() {
+
+													@Override
+													public void onInput(Player player, Number value) {
+														String playerName = (String) clickEvent
+																.getMeta(clickEvent.getPlayer(), "Player");
+														User user = UserManager.getInstance()
+																.getVotingPluginUser(playerName);
+														user.setMonthTotal(value.intValue());
+														player.sendMessage(
+																StringUtils.getInstance().colorize("&cTotal set"));
+													}
+												});
+									}
+								});
+						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
 
 									@Override
@@ -579,55 +603,6 @@ public class CommandLoader {
 									}
 								});
 
-						UserGUI.getInstance().addPluginButton(plugin,
-								new BInventoryButton("SetTotal", new String[] {}, new ItemStack(Material.STONE)) {
-
-									@Override
-									public void onClick(ClickEvent clickEvent) {
-										Player player = clickEvent.getPlayer();
-										ArrayList<String> voteSites = new ArrayList<String>();
-										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getKey());
-										}
-										new ValueRequest().requestString(player, "",
-												ArrayUtils.getInstance().convert(voteSites), true,
-												new StringListener() {
-
-													@Override
-													public void onInput(Player player, String value) {
-														User user = UserManager.getInstance().getVotingPluginUser(
-																UserGUI.getInstance().getCurrentPlayer(player));
-														PlayerUtils.getInstance().setPlayerMeta(player, "SiteName",
-																value);
-														new ValueRequest().requestNumber(player,
-																"" + user.getTotal(plugin.getVoteSite(value)),
-																new Number[] { 0, 10, 100 }, true,
-																new NumberListener() {
-
-																	@Override
-																	public void onInput(Player player, Number value) {
-																		User user = UserManager.getInstance()
-																				.getVotingPluginUser(UserGUI
-																						.getInstance().getCurrentPlayer(
-																								player));
-																		VoteSite voteSite = plugin.getVoteSite(
-																				(String) PlayerUtils.getInstance()
-																						.getPlayerMeta(player,
-																								"SiteName"));
-																		user.setTotal(voteSite, value.intValue());
-																		player.sendMessage("Total set to "
-																				+ value.intValue() + " for "
-																				+ user.getPlayerName());
-
-																	}
-																});
-
-													}
-												});
-
-									}
-								});
-
 					}
 				});
 			}
@@ -685,6 +660,15 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				PlayerGUIs.getInstance().openVoteURL((Player) sender);
+
+			}
+		});
+		plugin.voteCommand.add(new CommandHandler(new String[] { "URL", "(SiteName)" },
+				"VotingPlugin.Commands.Vote.URL.VoteSite|" + playerPerm, "Open VoteURL GUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				PlayerGUIs.getInstance().openVoteURL((Player) sender, args[1]);
 
 			}
 		});

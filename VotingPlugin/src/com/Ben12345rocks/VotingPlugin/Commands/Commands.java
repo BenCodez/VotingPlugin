@@ -598,24 +598,20 @@ public class Commands {
 	 */
 	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
-		String playerName = user.getPlayerName();
+		int daily = user.getDailyTotal();
+		int weekly = user.getWeeklyTotal();
+		int month = user.getMonthTotal();
+		int all = user.getAllTimeTotal();
 
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalTitle(), "%player%",
-				playerName));
-
-		// total votes
-		int total = 0;
-
-		for (VoteSite voteSite : voteSites) {
-			int votes = user.getTotal(voteSite);
-			// int votes = Data.getInstance().getTotal(playerName, siteName);
-			total += votes;
-			msg.add(voteCommandTotalLine(user, voteSite));
+		for (String s : config.getFormatCommandsVoteTotal()) {
+			String str = StringUtils.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%player%", user.getPlayerName());
+			msg.add(str);
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalTotal(), "%Totals%",
-				"" + total));
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
@@ -630,35 +626,31 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 
-		msg.add(config.getFormatCommandsVoteTotalAllTitle());
-		int total = 0;
-		for (VoteSite voteSite : voteSites) {
-			int votes = 0;
-			for (String uuid : uuids) {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				votes += user.getTotal(voteSite);
-			}
-			msg.add(StringUtils.getInstance().replaceIgnoreCase(
-					StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllLine(),
-							"%SiteName%", voteSite.getDisplayName()),
-					"%Total%", "" + votes));
-			total += votes;
+		int daily = 0;
+		int weekly = 0;
+		int month = 0;
+		int all = 0;
+
+		for (String uuid : uuids) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			daily += user.getDailyTotal();
+			weekly += user.getWeeklyTotal();
+			month += user.getMonthTotal();
+			all += user.getAllTimeTotal();
 		}
-		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteTotalAllTotal(), "%Totals%",
-				"" + total));
+
+		for (String s : config.getFormatCommandsVoteTotalAll()) {
+			String str = StringUtils.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
+			str = StringUtils.getInstance().replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
+			msg.add(str);
+		}
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
-	}
-
-	public String voteCommandTotalLine(User user, VoteSite voteSite) {
-		String line = config.getFormatCommandsVoteTotalLine();
-		return StringUtils.getInstance().replaceIgnoreCase(
-				StringUtils.getInstance().replaceIgnoreCase(line, "%Total%", "" + user.getTotal(voteSite)),
-				"%SiteName%", voteSite.getDisplayName());
 	}
 
 	/**

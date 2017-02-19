@@ -236,19 +236,42 @@ public class PlayerGUIs {
 	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getDisplayName(),
-							new String[] { Commands.getInstance().voteCommandTotalLine(user, site) },
-							new ItemStack(Material.STONE)) {
+		inv.addButton(
+				new BInventoryButton(new ItemBuilder(Material.STONE).setName("Daily Total: " + user.getDailyTotal())) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteTotal(player, getSelectedPlayer(player));
-						}
-					});
-		}
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						Player player = clickEvent.getPlayer();
+						openVoteTotal(player, getSelectedPlayer(player));
+					}
+				});
+		inv.addButton(new BInventoryButton(
+				new ItemBuilder(Material.STONE).setName("Weekly Total: " + user.getWeeklyTotal())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteTotal(player, getSelectedPlayer(player));
+			}
+		});
+		inv.addButton(new BInventoryButton(
+				new ItemBuilder(Material.STONE).setName("Monthly Total: " + user.getMonthTotal())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteTotal(player, getSelectedPlayer(player));
+			}
+		});
+		inv.addButton(new BInventoryButton(
+				new ItemBuilder(Material.STONE).setName("AllTime Total: " + user.getAllTimeTotal())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteTotal(player, getSelectedPlayer(player));
+			}
+		});
 		inv.openInventory(player);
 	}
 
@@ -265,7 +288,8 @@ public class PlayerGUIs {
 
 		int count = 0;
 		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
-			ItemBuilder builderAll = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
+			ItemBuilder builderAll = new ItemBuilder(
+					Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
 			if (user.canVoteAll()) {
 				builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
 			}
@@ -318,6 +342,43 @@ public class PlayerGUIs {
 		}
 
 		BInventory.openInventory(player, inv);
+	}
+
+	public void openVoteURL(Player player, String voteSite) {
+		User user = UserManager.getInstance().getVotingPluginUser(player);
+		VoteSite site = plugin.getVoteSite(voteSite);
+		BInventory inv = new BInventory("VoteSite: " + site.getDisplayName());
+		inv.setMeta(player, "VoteSite", site);
+
+		inv.addButton(
+				new BInventoryButton(new ItemBuilder(Material.BOW).setName("&4URL").addLoreLine("Click to see URL")) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						VoteSite site = (VoteSite) clickEvent.getMeta("VoteSite");
+						clickEvent.getWhoClicked().sendMessage(site.getVoteURL());
+					}
+				});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.COMPASS).setName("&4Next Vote")
+				.addLoreLine(Commands.getInstance().voteCommandNextInfo(user, site))) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				openVoteURL(clickEvent.getPlayer());
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.WATCH).setName("&4Last Vote")
+				.addLoreLine(Commands.getInstance().voteCommandLastLine(user, site))) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				openVoteURL(clickEvent.getPlayer());
+			}
+		});
+
+		inv.openInventory(player);
 	}
 
 	public void setSelectedPlayer(Player player, User user) {

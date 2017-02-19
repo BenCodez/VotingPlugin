@@ -328,16 +328,13 @@ public class CommandAdminVote implements CommandExecutor {
 	 *            the sender
 	 * @param playerName
 	 *            the player name
-	 * @param voteSite
-	 *            the vote site
 	 * @param amount
 	 *            the amount
 	 */
-	public void setTotal(CommandSender sender, String playerName, String voteSite, int amount) {
+	public void setTotal(CommandSender sender, String playerName, int amount) {
 
-		UserManager.getInstance().getVotingPluginUser(playerName).setTotal(plugin.getVoteSite(voteSite), amount);
-		sender.sendMessage(
-				ChatColor.GREEN + playerName + " total votes for " + voteSite + " has been set to " + amount);
+		UserManager.getInstance().getVotingPluginUser(playerName).setMonthTotal(amount);
+		sender.sendMessage(ChatColor.GREEN + playerName + " total votes has been set to " + amount);
 		plugin.update();
 
 	}

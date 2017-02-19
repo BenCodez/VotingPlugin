@@ -431,60 +431,31 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
 	}
 
-	/**
-	 * Gets the commands vote total all line.
-	 *
-	 * @return the commands vote total all line
-	 */
-	public String getFormatCommandsVoteTotalAllLine() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Line", "&3%SiteName% &6%Total%");
-
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteTotal() {
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",new ArrayList<String>());
+		if (list.isEmpty()) {
+			list.add("&3&l%player% Total Votes:");
+			list.add("&3&lDaily Total: &6&l%DailyTotal%");
+			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
+			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
+			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
+		}
+		return list;
 	}
 
-	/**
-	 * Gets the commands vote total all title.
-	 *
-	 * @return the commands vote total all title
-	 */
-	public String getFormatCommandsVoteTotalAllTitle() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Title", "&3&lAll Votes Total:");
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteTotalAll() {
 
-	}
-
-	/**
-	 * Gets the commands vote total all total.
-	 *
-	 * @return the commands vote total all total
-	 */
-	public String getFormatCommandsVoteTotalAllTotal() {
-		return getData().getString("Format.Commands.Vote.TotalAll.Total", "&3&lTotal: &6&l%Totals%");
-	}
-
-	/**
-	 * Gets the commands vote total line.
-	 *
-	 * @return the commands vote total line
-	 */
-	public String getFormatCommandsVoteTotalLine() {
-		return getData().getString("Format.Commands.Vote.Total.Line", "&3%SiteName%: &6%Total%");
-	}
-
-	/**
-	 * Gets the commands vote total title.
-	 *
-	 * @return the commands vote total title
-	 */
-	public String getFormatCommandsVoteTotalTitle() {
-		return getData().getString("Format.Commands.Vote.Total.Title", "&3&l%player% Total Votes:");
-	}
-
-	/**
-	 * Gets the commands vote total total.
-	 *
-	 * @return the commands vote total total
-	 */
-	public String getFormatCommandsVoteTotalTotal() {
-		return getData().getString("Format.Commands.Vote.Total.Total", "&3&lTotal: &6&l%Totals%");
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.TotalAll",new ArrayList<String>());
+		if (list.isEmpty()) {
+			list.add("&3&lServer Total Votes:");
+			list.add("&3&lDaily Total: &6&l%DailyTotal%");
+			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
+			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
+			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
+		}
+		return list;
 	}
 
 	/**

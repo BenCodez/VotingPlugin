@@ -121,9 +121,28 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the vote site
 	 */
 	public void addTotal(VoteSite voteSite) {
-		setTotal(voteSite, getTotal(voteSite) + 1);
+		addMonthTotal();
 		addAllTimeTotal();
 		addMilestoneTotal();
+	}
+	
+	
+	public void addMonthTotal() {
+		setMonthTotal(getMonthTotal() + 1);
+	}
+	public int getMonthTotal() {
+		int num = getData().getInt("MonthTotal");
+		if (num != 0) {
+			return num;
+		}
+		num = getMonthTotalVoteSites();
+		setMonthTotal(num);
+		return num;
+		
+	}
+	
+	public void setMonthTotal(int total) {
+		getData().setInt("MonthTotal", total);
 	}
 
 	/**
@@ -306,7 +325,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return sorted;
 	}
 
-	public int getMonthTotal() {
+	@Deprecated
+	public int getMonthTotalVoteSites() {
 		HashMap<VoteSite, Integer> totals = getVoteSiteTotal();
 		int total = 0;
 		for (int value : totals.values()) {
@@ -349,6 +369,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return 0;
 	}
 
+	@Deprecated
 	public int getTotal(VoteSite voteSite) {
 		HashMap<VoteSite, Integer> voteSiteTotal = getVoteSiteTotal();
 		if (voteSiteTotal.containsKey(voteSite)) {
@@ -361,6 +382,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getUserData().getInt("VotePartyVotes");
 	}
 
+	@Deprecated
 	public HashMap<VoteSite, Integer> getVoteSiteTotal() {
 		HashMap<VoteSite, Integer> voteSiteTotal = new HashMap<VoteSite, Integer>();
 		ArrayList<String> voteTotalList = getUserData().getStringList("VoteSiteTotals");
@@ -670,10 +692,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setStringList("LastVotes", data);
 	}
 
-	public void setMonthTotal(int monthTotal) {
-		getUserData().setInt("DailyTotal", monthTotal);
-	}
-
 	public void setOfflineOtherRewards(ArrayList<String> offlineOtherRewards) {
 		getUserData().setStringList("OfflineOtherRewards", offlineOtherRewards);
 	}
@@ -696,6 +714,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setString("Reminded", "" + reminded);
 	}
 
+	@Deprecated
 	public void setTotal(VoteSite voteSite, int value) {
 		HashMap<VoteSite, Integer> voteSiteTotal = getVoteSiteTotal();
 		voteSiteTotal.put(voteSite, value);
@@ -706,6 +725,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setInt("VotePartyVotes", value);
 	}
 
+	@Deprecated
 	public void setVoteSiteTotal(HashMap<VoteSite, Integer> voteSiteTotal) {
 		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Integer> entry : voteSiteTotal.entrySet()) {

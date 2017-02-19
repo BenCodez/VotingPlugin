@@ -189,13 +189,7 @@ public class PlaceHolders {
 	 * @return the string
 	 */
 	public synchronized String playerTotalVotesSite(Player player, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
-			return "";
-		}
-
-		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = UserManager.getInstance().getVotingPluginUser(player);
-		return Integer.toString(user.getTotal(voteSite));
+		return "0";
 	}
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {
