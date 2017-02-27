@@ -52,7 +52,7 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public void generateVoteSite(String siteName) {
 		String org = siteName;
-		siteName = siteName.replace(".", "_");
+		siteName = siteName.replaceAll(".", "_");
 		plugin.getLogger().warning("VoteSite " + siteName + " doe not exist, generaterating one...");
 		setEnabled(siteName, true);
 		setServiceSite(siteName, org);

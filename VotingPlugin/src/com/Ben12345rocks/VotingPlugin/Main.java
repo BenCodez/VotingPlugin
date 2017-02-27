@@ -154,7 +154,7 @@ public class Main extends JavaPlugin {
 			}
 		}
 		if (config.getAutoCreateVoteSites()) {
-			configVoteSites.generateVoteSite(siteName.replace(".", "_"));
+			configVoteSites.generateVoteSite(siteName.replaceAll(".", "_"));
 			return new VoteSite(siteName.replace(".", "_"));
 		} else {
 			return null;
