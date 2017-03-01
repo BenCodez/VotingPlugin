@@ -106,60 +106,66 @@ public class PlaceHolders {
 		if (args.length > 2) {
 			if (args[0].equalsIgnoreCase("votetop")) {
 				if (StringUtils.getInstance().isInt(args[2])) {
+					int number = Integer.parseInt(args[2]);
 					int num = 1;
 					if (args[1].equalsIgnoreCase("all")) {
 						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
-							if (entry.getValue().intValue() == num) {
+							if (num == number) {
 								return entry.getKey().getPlayerName();
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
 						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
-							if (entry.getValue().intValue() == num) {
+							if (num == number) {
 								return entry.getKey().getPlayerName();
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
 						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
-							if (entry.getValue().intValue() == num) {
+							if (num == number) {
 								return entry.getKey().getPlayerName();
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
 						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
-							if (entry.getValue().intValue() == num) {
+							if (num == number) {
 								return entry.getKey().getPlayerName();
 							}
 							num++;
 						}
 					}
 				} else if (args[2].equalsIgnoreCase("Position")) {
+					int num = 1;
 					if (args[1].equalsIgnoreCase("all")) {
 						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return entry.getKey().getPlayerName();
+								return "" + num;
 							}
+							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
 						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return entry.getKey().getPlayerName();
+								return "" + num;
 							}
+							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
 						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return entry.getKey().getPlayerName();
+								return "" + num;
 							}
+							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
 						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return entry.getKey().getPlayerName();
+								return "" + num;
 							}
+							num++;
 						}
 					}
 				}

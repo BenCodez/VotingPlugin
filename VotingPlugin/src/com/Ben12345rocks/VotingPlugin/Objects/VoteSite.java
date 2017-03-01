@@ -60,11 +60,10 @@ public class VoteSite {
 	 *            the site name
 	 */
 	public VoteSite(String siteName) {
-		String org = siteName;
 		key = siteName.replace(".", "_");
 		if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
 			if (Config.getInstance().getAutoCreateVoteSites()) {
-				configVoteSites.generateVoteSite(org);
+				configVoteSites.generateVoteSite(key);
 			}
 			init();
 			plugin.loadVoteSites();
