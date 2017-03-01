@@ -31,10 +31,3 @@ VoteSites:
     # List of reward files to give to voter
     Rewards:
     - 'ExampleReward'
-    
-    # Advanced options
-    # Don't mess with unless you know what you are doing
-    # Disable counts toward certain things
-    DisableCumulivate: false
-    DisableMilestone: false
-    DisableVoteParty: false
