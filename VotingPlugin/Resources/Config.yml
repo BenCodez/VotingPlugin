@@ -19,10 +19,6 @@ MySQL:
   Password: ''
   # Max number of connections
   MaxConnections: 1
-  # Wether or not to preload table
-  # Increases performance greatly when using mysql
-  # Set to false if you want multiple servers using the same table
-  PreLoadTable: true
 
 # Wether or not to check on world change
 # Should only be used if you do per world rewards

@@ -465,7 +465,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		new Timer().schedule(new TimerTask() {
-			
+
 			@Override
 			public void run() {
 				Signs.getInstance().storeSigns();
@@ -494,7 +494,7 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
-		
+
 		plugin.signs = new ArrayList<SignHandler>();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -628,6 +628,11 @@ public class Main extends JavaPlugin {
 
 				@Override
 				public void run() {
+					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+							&& AdvancedCoreHook.getInstance().getMysql() == null) {
+						plugin.debug("MySQL not loaded yet");
+						return;
+					}
 					update = false;
 					plugin.debug("Starting background task");
 					try {
@@ -638,10 +643,11 @@ public class Main extends JavaPlugin {
 						plugin.debug("Background task ran");
 
 					} catch (Exception ex) {
-						plugin.getLogger().info("Looks like there are no data files or something went wrong.");
+						plugin.getLogger().info("Looks like something went wrong.");
 						ex.printStackTrace();
 					}
 				}
+
 			});
 		}
 	}
@@ -651,14 +657,12 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setPreloadTable(Config.getInstance().getMySqlPreloadTable());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {
 
 				@Override
 				public void run() {
-
 					AdvancedCoreHook.getInstance()
 							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
 									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
