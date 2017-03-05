@@ -104,7 +104,7 @@ public class PlaceHolders {
 			}
 		}
 		if (args.length > 2) {
-			if (args[0].equalsIgnoreCase("votetop")) {
+			if (args[0].equalsIgnoreCase("top")) {
 				if (StringUtils.getInstance().isInt(args[2])) {
 					int number = Integer.parseInt(args[2]);
 					int num = 1;

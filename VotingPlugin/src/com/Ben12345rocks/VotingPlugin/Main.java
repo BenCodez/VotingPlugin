@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -90,7 +91,7 @@ public class Main extends JavaPlugin {
 	public ArrayList<CommandHandler> adminVoteCommand;
 
 	/** The vote sites. */
-	private ArrayList<VoteSite> voteSites;
+	private List<VoteSite> voteSites;
 
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
@@ -188,7 +189,7 @@ public class Main extends JavaPlugin {
 
 	}
 
-	public ArrayList<VoteSite> getVoteSites() {
+	public List<VoteSite> getVoteSites() {
 		return voteSites;
 	}
 
@@ -197,7 +198,7 @@ public class Main extends JavaPlugin {
 	 */
 	public void loadVoteSites() {
 		configVoteSites.setup();
-		voteSites = (ArrayList<VoteSite>) Collections.synchronizedList(new ArrayList<VoteSite>());
+		voteSites = Collections.synchronizedList(new ArrayList<VoteSite>());
 		voteSites.addAll(configVoteSites.getVoteSitesLoad());
 
 		if (voteSites.size() == 0) {
@@ -484,7 +485,9 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+
 		setupFiles();
+		loadVoteSites();
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
 		registerCommands();
@@ -492,8 +495,6 @@ public class Main extends JavaPlugin {
 		checkVotifier();
 
 		CheckUpdate.getInstance().startUp();
-
-		loadVoteSites();
 
 		VoteReminding.getInstance().loadRemindChecking();
 

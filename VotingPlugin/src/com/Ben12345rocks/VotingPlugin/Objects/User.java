@@ -169,9 +169,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return true, if successful
 	 */
 	public boolean canVoteAll() {
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
-		for (VoteSite voteSite : voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			boolean canVote = canVoteSite(voteSite);
 			if (!canVote) {
 				return false;
@@ -215,12 +213,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public boolean checkAllVotes() {
 		User user = this;
 
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
-		for (int i = 0; i < voteSites.size(); i++) {
-			long time = user.getTime(voteSites.get(i));
+		for (VoteSite voteSite : plugin.getVoteSites()) {
+			long time = user.getTime(voteSite);
 			if (time != 0) {
 				months.add(MiscUtils.getInstance().getMonthFromMili(time));
 				days.add(MiscUtils.getInstance().getDayFromMili(time));
@@ -253,10 +250,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void dailyTopVoterAward(int place) {
-		if (getPlayerName() == null) {
-			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
-		}
-
 		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveDailyTopVoterAward(place);
@@ -509,10 +502,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void monthlyTopVoterAward(int place) {
-		if (getPlayerName() == null) {
-			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
-		}
-
 		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveMonthlyTopVoterAward(place);
@@ -747,10 +736,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void weeklyTopVoterAward(int place) {
-		if (getPlayerName() == null) {
-			setPlayerName(PlayerUtils.getInstance().getPlayerName(getUUID()));
-		}
-
 		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
 			// online
 			giveWeeklyTopVoterAward(place);
