@@ -644,10 +644,9 @@ public class Main extends JavaPlugin {
 						ServerData.getInstance().updateValues();
 						Signs.getInstance().updateSigns();
 						plugin.debug("Background task ran");
-
 					} catch (Exception ex) {
-						plugin.getLogger().info("Looks like something went wrong.");
 						ex.printStackTrace();
+						plugin.getLogger().info("Looks like something went wrong.");
 					}
 				}
 
