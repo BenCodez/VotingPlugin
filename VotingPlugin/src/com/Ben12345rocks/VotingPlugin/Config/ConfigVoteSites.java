@@ -51,19 +51,21 @@ public class ConfigVoteSites extends YMLFile {
 	 *            the site name
 	 */
 	public void generateVoteSite(String siteName) {
-		String org = siteName;
-		siteName = siteName.replaceAll(".", "_");
-		plugin.getLogger().warning("VoteSite " + siteName + " doe not exist, generaterating one...");
-		setEnabled(siteName, true);
-		setServiceSite(siteName, org);
-		setVoteURL(siteName, "VoteURL");
-		setVoteDelay(siteName, 24);
-		ArrayList<String> rewards = new ArrayList<String>();
-		rewards.add(siteName.replace(".", "_"));
-		setRewards(siteName, rewards);
+		if (Config.getInstance().getAutoCreateVoteSites()) {
+			String org = siteName;
+			siteName = siteName.replace(".", "_");
+			plugin.getLogger().warning("VoteSite " + siteName
+					+ " doe not exist, creating one, set AutoCreateVoteSites to false to prevent this");
+			setEnabled(siteName, true);
+			setServiceSite(siteName, org);
+			setVoteURL(siteName, "VoteURL");
+			setVoteDelay(siteName, 24);
+			ArrayList<String> rewards = new ArrayList<String>();
+			rewards.add(siteName);
+			setRewards(siteName, rewards);
 
-		plugin.loadVoteSites();
-		plugin.getLogger().info("Loaded default values into file");
+			plugin.loadVoteSites();
+		}
 	}
 
 	/**

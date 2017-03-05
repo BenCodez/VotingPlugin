@@ -61,15 +61,7 @@ public class VoteSite {
 	 */
 	public VoteSite(String siteName) {
 		key = siteName.replace(".", "_");
-		if (!configVoteSites.getVoteSitesNames().contains(siteName)) {
-			if (Config.getInstance().getAutoCreateVoteSites()) {
-				configVoteSites.generateVoteSite(key);
-			}
-			init();
-			plugin.loadVoteSites();
-		} else {
-			init();
-		}
+		init();
 	}
 
 	/**

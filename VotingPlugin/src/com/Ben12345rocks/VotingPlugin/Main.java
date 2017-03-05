@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Set;
@@ -148,17 +149,17 @@ public class Main extends JavaPlugin {
 	 */
 	public VoteSite getVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
-		for (VoteSite voteSite : voteSites) {
+		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return voteSite;
 			}
 		}
-		if (config.getAutoCreateVoteSites()) {
+		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(site)) {
 			configVoteSites.generateVoteSite(siteName.replace(".", "_"));
-			return new VoteSite(siteName.replace(".", "_"));
-		} else {
-			return null;
+			return getVoteSite(site);
 		}
+		return null;
+
 	}
 
 	/**
@@ -187,7 +188,7 @@ public class Main extends JavaPlugin {
 
 	}
 
-	public synchronized ArrayList<VoteSite> getVoteSites() {
+	public ArrayList<VoteSite> getVoteSites() {
 		return voteSites;
 	}
 
@@ -196,7 +197,8 @@ public class Main extends JavaPlugin {
 	 */
 	public void loadVoteSites() {
 		configVoteSites.setup();
-		voteSites = configVoteSites.getVoteSitesLoad();
+		voteSites = (ArrayList<VoteSite>) Collections.synchronizedList(new ArrayList<VoteSite>());
+		voteSites.addAll(configVoteSites.getVoteSitesLoad());
 
 		if (voteSites.size() == 0) {
 			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
