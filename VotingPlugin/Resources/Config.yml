@@ -19,10 +19,6 @@ MySQL:
   Password: ''
   # Max number of connections
   MaxConnections: 1
-  # Wether or not to preload table
-  # Increases performance greatly when using mysql
-  # Set to false if you want multiple servers using the same table
-  PreLoadTable: true
 
 # Wether or not to check on world change
 # Should only be used if you do per world rewards
@@ -61,8 +57,7 @@ AllowUnjoined: false
 SendScoreboards: true
 
 # If true, plugin will automaticly generate votesites
-# Disable this if you experience issues with sites being 
-# created randomly
+# Disable this if you experience issues with sites being created randomly
 AutoCreateVoteSites: true
 
 # Wether or not to log every vote to a file
@@ -81,6 +76,7 @@ PreLoadUsers: false
 DelayBetweenUpdates: 3
 
 # Set to true to disable no service site message on voting
+# You should never have to touch this if everything is setup properly
 DisableNoServiceSiteMessage: false
 
 # ------------------------------------------------

@@ -478,14 +478,12 @@ public class Commands {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
 		String playerName = user.getPlayerName();
 
 		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteLastTitle(), "%player%",
 				playerName));
 
-		for (VoteSite voteSite : voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 			msg.add(voteCommandLastLine(user, voteSite));
 		}
 
@@ -525,14 +523,12 @@ public class Commands {
 	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
-
 		String playerName = user.getPlayerName();
 
 		msg.add(StringUtils.getInstance().colorize(StringUtils.getInstance()
 				.replaceIgnoreCase(config.getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
-		for (VoteSite voteSite : voteSites) {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
 
 			String msgLine = config.getFormatCommandsVoteNextLayout();
 
@@ -710,7 +706,6 @@ public class Commands {
 	 */
 	public String[] voteURLs() {
 		ArrayList<String> sites = new ArrayList<String>();
-		ArrayList<VoteSite> voteSites = plugin.getVoteSites();
 
 		List<String> title = config.getFormatCommandsVoteText();
 		if (title != null) {
@@ -718,7 +713,7 @@ public class Commands {
 		}
 		if (config.getFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
-			for (VoteSite voteSite : voteSites) {
+			for (VoteSite voteSite : plugin.getVoteSites()) {
 				counter++;
 				String voteURL = voteSite.getVoteURL();
 				String msg = config.getFormatCommandsVoteURLS();

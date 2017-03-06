@@ -6,6 +6,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -42,14 +44,12 @@ public class PlayerJoinEvent implements Listener {
 			@Override
 			public void run() {
 
-				if (event.getPlayer() == null) {
+				if (event.getPlayer() == null
+						|| (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+								&& AdvancedCoreHook.getInstance().getMysql() == null)) {
 					return;
 				}
 				Player player = event.getPlayer();
-
-				if (!plugin.getDataFolder().exists()) {
-					plugin.getDataFolder().mkdir();
-				}
 
 				User user = UserManager.getInstance().getVotingPluginUser(player);
 

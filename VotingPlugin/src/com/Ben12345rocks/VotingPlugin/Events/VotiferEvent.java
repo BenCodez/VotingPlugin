@@ -47,27 +47,16 @@ public class VotiferEvent implements Listener {
 			public void run() {
 				User user = UserManager.getInstance().getVotingPluginUser(playerName);
 				if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
-					plugin.getLogger().info("Player " + playerName
-							+ " has not joined before and AllowUnjoined is false, disregarding vote");
+					plugin.getLogger().warning("Player " + playerName
+							+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 					return;
-				}
-
-				String voteSiteName = plugin.getVoteSiteName(voteSiteURL);
-				boolean nameExist = false;
-				for (VoteSite site : plugin.getVoteSites()) {
-					if (site.getKey().equalsIgnoreCase(voteSiteName)) {
-						nameExist = true;
-					}
-				}
-				if (voteSiteURL.equals(voteSiteName) && !nameExist
-						&& !Config.getInstance().getDisableNoServiceSiteMessage()) {
-					plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
 				}
 
 				VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
 				if (voteSite == null) {
-					plugin.getLogger().warning("Failed to get a vote site for '" + voteSiteName
-							+ "' using service site '" + voteSiteURL + "'");
+					if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
+						plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
+					}
 					return;
 				}
 
@@ -157,9 +146,9 @@ public class VotiferEvent implements Listener {
 						plugin.debug("Offline milestone reward set for " + playerName);
 					}
 
-					user.addOfflineVote(voteSiteName);
+					user.addOfflineVote(voteSite.getKey());
 
-					plugin.debug("Offline vote set for " + playerName + " on " + voteSiteName);
+					plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());
 
 				}
 

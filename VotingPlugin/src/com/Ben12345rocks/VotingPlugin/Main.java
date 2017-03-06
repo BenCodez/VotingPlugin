@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -89,7 +91,7 @@ public class Main extends JavaPlugin {
 	public ArrayList<CommandHandler> adminVoteCommand;
 
 	/** The vote sites. */
-	private ArrayList<VoteSite> voteSites;
+	private List<VoteSite> voteSites;
 
 	/** The vote today. */
 	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
@@ -148,17 +150,17 @@ public class Main extends JavaPlugin {
 	 */
 	public VoteSite getVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
-		for (VoteSite voteSite : voteSites) {
+		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return voteSite;
 			}
 		}
-		if (config.getAutoCreateVoteSites()) {
+		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(site)) {
 			configVoteSites.generateVoteSite(siteName.replace(".", "_"));
-			return new VoteSite(siteName.replace(".", "_"));
-		} else {
-			return null;
+			return getVoteSite(site);
 		}
+		return null;
+
 	}
 
 	/**
@@ -187,7 +189,7 @@ public class Main extends JavaPlugin {
 
 	}
 
-	public synchronized ArrayList<VoteSite> getVoteSites() {
+	public List<VoteSite> getVoteSites() {
 		return voteSites;
 	}
 
@@ -196,7 +198,8 @@ public class Main extends JavaPlugin {
 	 */
 	public void loadVoteSites() {
 		configVoteSites.setup();
-		voteSites = configVoteSites.getVoteSitesLoad();
+		voteSites = Collections.synchronizedList(new ArrayList<VoteSite>());
+		voteSites.addAll(configVoteSites.getVoteSitesLoad());
 
 		if (voteSites.size() == 0) {
 			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
@@ -465,7 +468,7 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		new Timer().schedule(new TimerTask() {
-			
+
 			@Override
 			public void run() {
 				Signs.getInstance().storeSigns();
@@ -482,7 +485,9 @@ public class Main extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		plugin = this;
+
 		setupFiles();
+		loadVoteSites();
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
 		registerCommands();
@@ -491,10 +496,8 @@ public class Main extends JavaPlugin {
 
 		CheckUpdate.getInstance().startUp();
 
-		loadVoteSites();
-
 		VoteReminding.getInstance().loadRemindChecking();
-		
+
 		plugin.signs = new ArrayList<SignHandler>();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -628,6 +631,11 @@ public class Main extends JavaPlugin {
 
 				@Override
 				public void run() {
+					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+							&& AdvancedCoreHook.getInstance().getMysql() == null) {
+						plugin.debug("MySQL not loaded yet");
+						return;
+					}
 					update = false;
 					plugin.debug("Starting background task");
 					try {
@@ -636,12 +644,12 @@ public class Main extends JavaPlugin {
 						ServerData.getInstance().updateValues();
 						Signs.getInstance().updateSigns();
 						plugin.debug("Background task ran");
-
 					} catch (Exception ex) {
-						plugin.getLogger().info("Looks like there are no data files or something went wrong.");
 						ex.printStackTrace();
+						plugin.getLogger().info("Looks like something went wrong.");
 					}
 				}
+
 			});
 		}
 	}
@@ -651,14 +659,12 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setPreloadTable(Config.getInstance().getMySqlPreloadTable());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {
 
 				@Override
 				public void run() {
-
 					AdvancedCoreHook.getInstance()
 							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
 									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
