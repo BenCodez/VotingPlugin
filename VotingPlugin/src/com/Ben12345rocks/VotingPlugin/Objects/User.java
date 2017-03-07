@@ -125,22 +125,25 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		addAllTimeTotal();
 		addMilestoneTotal();
 	}
-	
-	
+
 	public void addMonthTotal() {
 		setMonthTotal(getMonthTotal() + 1);
 	}
+
 	public int getMonthTotal() {
 		int num = getData().getInt("MonthTotal");
 		if (num != 0) {
 			return num;
 		}
 		num = getMonthTotalVoteSites();
-		setMonthTotal(num);
-		return num;
-		
+		if (num > 0) {
+			setMonthTotal(num);
+			return num;
+		}
+		return 0;
+
 	}
-	
+
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
 	}
