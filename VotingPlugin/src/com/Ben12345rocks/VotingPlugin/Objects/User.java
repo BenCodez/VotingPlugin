@@ -638,6 +638,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		for (VoteSite site : plugin.getVoteSites()) {
 			setTotal(site, 0);
 		}
+		setMonthTotal(0);
 	}
 
 	public void resetWeeklyTotalVotes() {
