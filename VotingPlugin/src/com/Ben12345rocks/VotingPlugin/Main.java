@@ -19,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
@@ -686,6 +687,52 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
+	}
+
+	public void convertDataStorage(UserStorage from, UserStorage to) {
+		if (from == null || to == null) {
+			throw new RuntimeException("Invalid Storage Method");
+		}
+		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+
+			AdvancedCoreHook.getInstance().setStorageType(from);
+
+			ArrayList<String> choiceRewards = user.getChoiceRewards();
+			String inputMethod = user.getInputMethod();
+			ArrayList<String> offlineRewards = user.getOfflineRewards();
+			HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
+			int allTime = user.getAllTimeTotal();
+			int dailyTotal = user.getDailyTotal();
+			HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
+			HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
+			int monthTotals = user.getMonthTotal();
+			ArrayList<String> otherRewards = user.getOfflineOtherRewards();
+			ArrayList<String> offlineVotes = user.getOfflineVotes();
+			int points = user.getPoints();
+			int votePartyVotes = user.getVotePartyVotes();
+			int weeklyTotal = user.getWeeklyTotal();
+
+			AdvancedCoreHook.getInstance().setStorageType(to);
+
+			user.setChoiceRewards(choiceRewards);
+			user.setInputMethod(inputMethod);
+			user.setOfflineRewards(offlineRewards);
+			user.setTimedRewards(timed);
+			user.setAllTimeTotal(allTime);
+			user.setDailyTotal(dailyTotal);
+			user.setHasGottenMilestone(mileStone);
+			user.setLastVotes(lastVotes);
+			user.setMonthTotal(monthTotals);
+			user.setOfflineOtherRewards(otherRewards);
+			user.setOfflineVotes(offlineVotes);
+			user.setPoints(points);
+			user.setVotePartyVotes(votePartyVotes);
+			user.setWeeklyTotal(weeklyTotal);
+
+		}
+		AdvancedCoreHook.getInstance().setStorageType(cur);
 	}
 
 }

@@ -35,18 +35,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	public void addMilestoneTotal() {
-		setMileStoneTotal(getMileStoneTotal() + 1);
-	}
-
-	public int getMileStoneTotal() {
-		return getUserData().getInt("MileStoneTotal");
-	}
-
-	public void setMileStoneTotal(int mileStoneTotal) {
-		getUserData().setInt("MileStoneTotal", mileStoneTotal);
-	}
-
 	/**
 	 * Instantiates a new user.
 	 *
@@ -123,7 +111,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addTotal(VoteSite voteSite) {
 		addMonthTotal();
 		addAllTimeTotal();
-		addMilestoneTotal();
 	}
 
 	public void addMonthTotal() {
@@ -774,6 +761,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		ArrayList<String> offlineVotes = getOfflineVotes();
 		offlineVotes.add(voteSiteName);
 		setOfflineVotes(offlineVotes);
+	}
+
+	public void clearTotals() {
+		setAllTimeTotal(0);
+		resetDailyTotalVotes();
+		resetMonthlyTotalVotes();
+		setWeeklyTotal(0);
 	}
 
 }

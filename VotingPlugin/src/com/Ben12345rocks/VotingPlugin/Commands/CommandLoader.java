@@ -9,8 +9,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
@@ -246,23 +249,96 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset", "Totals" },
-				"VotingPlugin.Commands.AdminVote.Reset.Total|" + adminPerm, "Reset totals for all players") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearTotal" },
+				"VotingPlugin.Commands.AdminVote.ClearTotal.All|" + adminPerm, "Reset totals for all players") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().resetTotals(sender);
+				if (sender instanceof Player) {
+					sender.sendMessage(
+							StringUtils.getInstance().colorize("&cThis command can not be done from ingame"));
+					return;
+				}
 
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					user.clearTotals();
+				}
+				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Reset", "Totals", "(player)" },
-				"VotingPlugin.Commands.AdminVote.Reset.Total.Player|" + adminPerm, "Reset total for player") {
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFromData", "(userstorage)" },
+				"VotingPlugin.Commands.AdminVote.ConvertFromData",
+				"Convert from selected user storage to current user storage") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().resetPlayerTotals(sender, args[2]);
+				if (sender instanceof Player) {
+					sender.sendMessage(StringUtils.getInstance().colorize("&cThis can not be done ingame"));
+					return;
+				}
+				try {
+					UserStorage prevStorage = UserStorage.valueOf(args[1].toUpperCase());
+					plugin.convertDataStorage(prevStorage, AdvancedCoreHook.getInstance().getStorageType());
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
+			}
+		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "Month", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetTotal.Month|" + adminPerm, "Set month totals for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				UserManager.getInstance().getVotingPluginUser(args[2]).setMonthTotal(Integer.parseInt(args[3]));
+				sender.sendMessage(
+						StringUtils.getInstance().colorize("&cSet month total for '" + args[2] + "' to " + args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "AllTime", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetTotal.AllTime|" + adminPerm, "Set alltime totals for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				UserManager.getInstance().getVotingPluginUser(args[2]).setAllTimeTotal(Integer.parseInt(args[3]));
+				sender.sendMessage(
+						StringUtils.getInstance().colorize("&cSet alltime total for '" + args[2] + "' to " + args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "Week", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetTotal.Week|" + adminPerm, "Set week totals for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				UserManager.getInstance().getVotingPluginUser(args[2]).setWeeklyTotal(Integer.parseInt(args[3]));
+				sender.sendMessage(
+						StringUtils.getInstance().colorize("&cSet week total for '" + args[2] + "' to " + args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "Day", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetTotal.Day|" + adminPerm, "Set day totals for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				UserManager.getInstance().getVotingPluginUser(args[2]).setDailyTotal(Integer.parseInt(args[3]));
+				sender.sendMessage(
+						StringUtils.getInstance().colorize("&cSet day total for '" + args[2] + "' to " + args[3]));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearTotal", "(player)" },
+				"VotingPlugin.Commands.AdminVote.ClearTotal|" + adminPerm, "Clear Totals for player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				user.clearTotals();
+				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for '" + args[1] + "'"));
 			}
 		});
 
@@ -292,17 +368,6 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandAdminVote.getInstance().setConfigDebug(sender, Boolean.parseBoolean(args[2]));
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetTotal", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Set.Total|" + adminPerm, "Set Total votes of player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandAdminVote.getInstance().setTotal(sender, args[1], Integer.parseInt(args[2]));
 
 			}
 		});

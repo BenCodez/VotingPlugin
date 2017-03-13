@@ -154,7 +154,7 @@ public class OtherVoteReward implements Listener {
 							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
 
-						int userVotesTotal = user.getMileStoneTotal();
+						int userVotesTotal = user.getAllTimeTotal();
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							user.addOfflineOtherReward("MileStone" + votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
@@ -243,7 +243,6 @@ public class OtherVoteReward implements Listener {
 						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
 							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-								user.setMileStoneTotal(0);
 								user.setHasGotteMilestone(votesRequired, false);
 							}
 						}
