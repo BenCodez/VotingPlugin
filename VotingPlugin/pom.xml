@@ -60,10 +60,6 @@
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
 						<relocation>
-							<pattern>net.md_5.bungee</pattern>
-							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
-						</relocation>
-						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
 							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
 						</relocation>
