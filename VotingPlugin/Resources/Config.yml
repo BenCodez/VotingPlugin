@@ -517,6 +517,11 @@ AnySiteRewards: []
 BlackList:
 - 'Notch'
 
+# If true players with the permission 'VotingPlugin.TopVoter.Ignore' will act 
+# as if there name was added on the the blacklist above
+# This also applies for ops
+TopVoterIgnorePermission: false
+
 # /vote top default data displayed
 # Valid Options: AllTime, Monthly, Weekly, Daily
 VoteTopDefault: Monthly
