@@ -465,7 +465,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.setUpdate(true);
 				plugin.update();
-				sender.sendMessage(StringUtils.getInstance().colorize("&cUpdated in the background!"));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cUpdating..."));
 			}
 		});
 
