@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.Ben12345rocks</groupId>
 	<artifactId>VotingPlugin</artifactId>
-	<version>5.5.5</version>
+	<version>5.6</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -59,10 +59,6 @@
 						</relocation>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
-						<relocation>
-							<pattern>net.md_5.bungee</pattern>
-							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
-						</relocation>
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
 							<shadedPattern>${groupId}.${artifactId}</shadedPattern>

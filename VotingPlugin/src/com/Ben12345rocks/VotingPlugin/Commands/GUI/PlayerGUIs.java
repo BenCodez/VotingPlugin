@@ -17,6 +17,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -59,7 +60,8 @@ public class PlayerGUIs {
 			return;
 		}
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteGUI: " + user.getPlayerName());
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteGUIName(), "player", player.getName()));
 
 		for (String slot : Config.getInstance().getVoteGUISlots()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteGUISlotSection(slot));
@@ -134,7 +136,8 @@ public class PlayerGUIs {
 
 	public void openVoteLast(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteLast: " + user.getPlayerName());
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", player.getName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getDisplayName(),
@@ -153,7 +156,8 @@ public class PlayerGUIs {
 
 	public void openVoteNext(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteNext: " + user.getPlayerName());
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", player.getName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getDisplayName(),
@@ -171,7 +175,7 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteToday(Player player) {
-		BInventory inv = new BInventory("VoteToday");
+		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
 		for (User user : plugin.voteToday.keySet()) {
 
 			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
@@ -200,19 +204,22 @@ public class PlayerGUIs {
 		String str = Config.getInstance().getVoteTopDefault();
 		BInventory inv = null;
 		Set<Entry<User, Integer>> users = null;
+		String topVoter = "";
 		if (str.equalsIgnoreCase("monthly")) {
-			inv = new BInventory("VoteTop Monthly");
+			topVoter = "Monthly";
 			users = plugin.topVoterMonthly.entrySet();
 		} else if (str.equalsIgnoreCase("weekly")) {
-			inv = new BInventory("VoteTop Weekly");
+			topVoter = "Weekly";
 			users = plugin.topVoterWeekly.entrySet();
 		} else if (str.equalsIgnoreCase("daily")) {
-			inv = new BInventory("VoteTop Daily");
+			topVoter = "Daily";
 			users = plugin.topVoterDaily.entrySet();
 		} else {
-			inv = new BInventory("VoteTop AllTime");
+			topVoter = "AllTime";
 			users = plugin.topVoterAllTime.entrySet();
 		}
+		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
+				"topvoter", topVoter));
 		int pos = 0;
 		for (Entry<User, Integer> entry : users) {
 			pos++;
@@ -235,7 +242,8 @@ public class PlayerGUIs {
 
 	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory("VoteTotal: " + user.getPlayerName());
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", player.getName()));
 		inv.addButton(
 				new BInventoryButton(new ItemBuilder(Material.STONE).setName("Daily Total: " + user.getDailyTotal())) {
 
@@ -282,7 +290,7 @@ public class PlayerGUIs {
 	 *            the player
 	 */
 	public void openVoteURL(Player player) {
-		BInventory inv = new BInventory("Vote Links");
+		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
 
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 
@@ -347,7 +355,8 @@ public class PlayerGUIs {
 	public void openVoteURL(Player player, String voteSite) {
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 		VoteSite site = plugin.getVoteSite(voteSite);
-		BInventory inv = new BInventory("VoteSite: " + site.getDisplayName());
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteURLSiteName(), "site", site.getDisplayName()));
 		inv.setMeta(player, "VoteSite", site);
 
 		inv.addButton(
@@ -394,7 +403,7 @@ public class PlayerGUIs {
 	 *            the site name
 	 */
 	public void voteReward(Player player, String siteName) {
-		BInventory inv = new BInventory("VoteReward");
+		BInventory inv = new BInventory(Config.getInstance().getGUIVoteRewardName());
 
 		if ((siteName == null) || (siteName == "")) {
 			int count = 0;

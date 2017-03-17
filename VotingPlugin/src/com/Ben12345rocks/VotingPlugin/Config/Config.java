@@ -42,6 +42,10 @@ public class Config extends YMLFile {
 		return getData().getString("MySQL.Host", "");
 	}
 
+	public boolean getTopVoterIgnorePermission() {
+		return getData().getBoolean("TopVoterIgnorePermission");
+	}
+
 	public int getMySqlPort() {
 		return getData().getInt("MySQL.Port");
 	}
@@ -108,6 +112,46 @@ public class Config extends YMLFile {
 
 	public boolean getLoadTopVoterDaily() {
 		return getData().getBoolean("LoadTopVoter.Daily");
+	}
+
+	public String getGUIVoteGUIName() {
+		return getData().getString("GUI.VoteGUI.Name", "&cVoteGUI: &c&l%player%");
+	}
+
+	public String getGUIVoteRewardName() {
+		return getData().getString("GUI.VoteReward.Name", "VoteReward");
+	}
+
+	public String getVoteShopName() {
+		return getData().getString("Shop.Name", "VoteShop");
+	}
+
+	public String getGUIVoteURLName() {
+		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
+	}
+
+	public String getGUIVoteLastName() {
+		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
+	}
+
+	public String getGUIVoteNextName() {
+		return getData().getString("GUI.VoteNext.Name", "VoteNext: %player%");
+	}
+
+	public String getGUIVoteTodayName() {
+		return getData().getString("GUI.VoteToday.Name", "VoteToday");
+	}
+
+	public String getGUIVoteTopName() {
+		return getData().getString("GUI.VoteURL.Name", "VoteTop %topvoter%");
+	}
+
+	public String getGUIVoteURLSiteName() {
+		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
+	}
+
+	public String getGUIVoteTotalName() {
+		return getData().getString("GUI.VoteTotal.Name", "VoteTotal: %player%");
 	}
 
 	/**
@@ -433,7 +477,8 @@ public class Config extends YMLFile {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteTotal() {
-		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",new ArrayList<String>());
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",
+				new ArrayList<String>());
 		if (list.isEmpty()) {
 			list.add("&3&l%player% Total Votes:");
 			list.add("&3&lDaily Total: &6&l%DailyTotal%");
@@ -447,7 +492,8 @@ public class Config extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteTotalAll() {
 
-		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.TotalAll",new ArrayList<String>());
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.TotalAll",
+				new ArrayList<String>());
 		if (list.isEmpty()) {
 			list.add("&3&lServer Total Votes:");
 			list.add("&3&lDaily Total: &6&l%DailyTotal%");

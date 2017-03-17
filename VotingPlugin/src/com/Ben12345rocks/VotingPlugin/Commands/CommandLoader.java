@@ -458,6 +458,17 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "BackgroundUpdate" },
+				"VotingPlugin.Commands.AdminVote.BackgroundUpdate|" + adminPerm, "Force a background update") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.setUpdate(true);
+				plugin.update();
+				sender.sendMessage(StringUtils.getInstance().colorize("&cUpdating..."));
+			}
+		});
+
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
