@@ -524,7 +524,8 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> blackList = getTopVoterBlackList();
 		for (String uuid : uuids) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (!blackList.contains(user.getPlayerName()) && !(user.isTopVoterIgnore() && Config.getInstance().getTopVoterIgnorePermission())) {
+			if (!blackList.contains(user.getPlayerName())
+					&& (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())) {
 				users.add(user);
 			}
 		}

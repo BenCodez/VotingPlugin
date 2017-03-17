@@ -61,7 +61,7 @@ public class PlayerGUIs {
 		}
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteGUIName(), "player", player.getName()));
+				.replacePlaceHolder(Config.getInstance().getGUIVoteGUIName(), "player", user.getPlayerName()));
 
 		for (String slot : Config.getInstance().getVoteGUISlots()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteGUISlotSection(slot));
@@ -137,7 +137,7 @@ public class PlayerGUIs {
 	public void openVoteLast(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", player.getName()));
+				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getDisplayName(),
@@ -157,7 +157,7 @@ public class PlayerGUIs {
 	public void openVoteNext(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", player.getName()));
+				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
 					new BInventoryButton(site.getDisplayName(),
@@ -243,7 +243,7 @@ public class PlayerGUIs {
 	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", player.getName()));
+				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", user.getPlayerName()));
 		inv.addButton(
 				new BInventoryButton(new ItemBuilder(Material.STONE).setName("Daily Total: " + user.getDailyTotal())) {
 
