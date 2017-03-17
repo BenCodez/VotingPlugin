@@ -29,7 +29,7 @@ public class VoteShop {
 	}
 
 	public void voteShop(Player player) {
-		BInventory inv = new BInventory("VoteShop");
+		BInventory inv = new BInventory(Config.getInstance().getVoteShopName());
 
 		for (String identifier : Config.getInstance().getIdentifiers()) {
 

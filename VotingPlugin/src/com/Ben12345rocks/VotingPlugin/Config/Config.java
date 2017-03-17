@@ -114,6 +114,46 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LoadTopVoter.Daily");
 	}
 
+	public String getGUIVoteGUIName() {
+		return getData().getString("GUI.VoteGUI.Name", "&cVoteGUI: &c&l%player%");
+	}
+
+	public String getGUIVoteRewardName() {
+		return getData().getString("GUI.VoteReward.Name", "VoteReward");
+	}
+
+	public String getVoteShopName() {
+		return getData().getString("Shop.Name", "VoteShop");
+	}
+
+	public String getGUIVoteURLName() {
+		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
+	}
+
+	public String getGUIVoteLastName() {
+		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
+	}
+
+	public String getGUIVoteNextName() {
+		return getData().getString("GUI.VoteNext.Name", "VoteNext: %player%");
+	}
+
+	public String getGUIVoteTodayName() {
+		return getData().getString("GUI.VoteToday.Name", "VoteToday");
+	}
+
+	public String getGUIVoteTopName() {
+		return getData().getString("GUI.VoteURL.Name", "VoteTop %topvoter%");
+	}
+
+	public String getGUIVoteURLSiteName() {
+		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
+	}
+
+	public String getGUIVoteTotalName() {
+		return getData().getString("GUI.VoteTotal.Name", "VoteTotal: %player%");
+	}
+
 	/**
 	 * Gets the auto create vote sites.
 	 *
