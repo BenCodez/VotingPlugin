@@ -115,11 +115,11 @@ public class Config extends YMLFile {
 	}
 
 	public String getGUIVoteGUIName() {
-		return getData().getString("GUI.VoteGUI.Name", "&cVoteGUI: &c&l%player%");
+		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
 	}
 
 	public String getGUIVoteRewardName() {
-		return getData().getString("GUI.VoteReward.Name", "VoteReward");
+		return getData().getString("GUI.VoteRewardName", "VoteReward");
 	}
 
 	public String getVoteShopName() {
