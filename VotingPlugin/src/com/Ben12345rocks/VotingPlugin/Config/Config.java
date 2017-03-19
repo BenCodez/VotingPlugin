@@ -118,6 +118,30 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
 	}
 
+	public String getGUIVoteTopItemName() {
+		return getData().getString("GUI.VoteTop.Item.Name", "&3&l%position%: &3%player%");
+	}
+
+	public String getGUIVoteTopItemLore() {
+		return getData().getString("GUI.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
+	}
+
+	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
+	}
+
+	public ConfigurationSection getGUIVoteTotalWeekTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.WeekTotal.Item");
+	}
+
+	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.MonthTotal.Item");
+	}
+
+	public ConfigurationSection getGUIVoteTotalAllTimeTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
+	}
+
 	public String getGUIVoteRewardName() {
 		return getData().getString("GUI.VoteRewardName", "VoteReward");
 	}
@@ -143,7 +167,7 @@ public class Config extends YMLFile {
 	}
 
 	public String getGUIVoteTopName() {
-		return getData().getString("GUI.VoteURL.Name", "VoteTop %topvoter%");
+		return getData().getString("GUI.VoteTop.Name", "VoteTop %topvoter%");
 	}
 
 	public String getGUIVoteURLSiteName() {

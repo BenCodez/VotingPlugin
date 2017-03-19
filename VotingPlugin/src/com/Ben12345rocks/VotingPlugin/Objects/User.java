@@ -118,17 +118,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public int getMonthTotal() {
-		int num = getData().getInt("MonthTotal");
-		if (num != 0) {
-			return num;
-		}
-		num = getMonthTotalVoteSites();
-		if (num > 0) {
-			setMonthTotal(num);
-			return num;
-		}
-		return 0;
-
+		return getData().getInt("MonthTotal");
 	}
 
 	public void setMonthTotal(int total) {
@@ -274,7 +264,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
-			if (data.length > 1) {
+			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
 				VoteSite site = plugin.getVoteSite(data[0]);
 				if (site != null) {
 					long time = 0;
@@ -306,18 +296,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
-	}
-
-	@Deprecated
-	public int getMonthTotalVoteSites() {
-		HashMap<VoteSite, Integer> totals = getVoteSiteTotal();
-		int total = 0;
-		for (int value : totals.values()) {
-			total += value;
-		}
-
-		return total;
-
 	}
 
 	public ArrayList<String> getOfflineOtherRewards() {
@@ -352,40 +330,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return 0;
 	}
 
-	@Deprecated
-	public int getTotal(VoteSite voteSite) {
-		HashMap<VoteSite, Integer> voteSiteTotal = getVoteSiteTotal();
-		if (voteSiteTotal.containsKey(voteSite)) {
-			return voteSiteTotal.get(voteSite);
-		}
-		return 0;
-	}
-
 	public int getVotePartyVotes() {
 		return getUserData().getInt("VotePartyVotes");
-	}
-
-	@Deprecated
-	public HashMap<VoteSite, Integer> getVoteSiteTotal() {
-		HashMap<VoteSite, Integer> voteSiteTotal = new HashMap<VoteSite, Integer>();
-		ArrayList<String> voteTotalList = getUserData().getStringList("VoteSiteTotals");
-		for (String str : voteTotalList) {
-			String[] data = str.split("//");
-			if (data.length > 1) {
-				VoteSite site = plugin.getVoteSite(data[0]);
-				if (site != null) {
-					int total = 0;
-					try {
-						total = Integer.parseInt(data[1]);
-					} catch (NumberFormatException e) {
-						total = 0;
-						plugin.debug("Not int: " + data[1]);
-					}
-					voteSiteTotal.put(site, total);
-				}
-			}
-		}
-		return voteSiteTotal;
 	}
 
 	public int getWeeklyTotal() {
@@ -513,7 +459,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 
 			for (int i = 0; i < offlineVotes.size(); i++) {
-				playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+				if (plugin.hasVoteSite(offlineVotes.get(i))) {
+					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+				}
 			}
 			setOfflineVotes(new ArrayList<String>());
 
@@ -625,9 +573,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public void resetMonthlyTotalVotes() {
-		for (VoteSite site : plugin.getVoteSites()) {
-			setTotal(site, 0);
-		}
 		setMonthTotal(0);
 	}
 
@@ -694,26 +639,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setString("Reminded", "" + reminded);
 	}
 
-	@Deprecated
-	public void setTotal(VoteSite voteSite, int value) {
-		HashMap<VoteSite, Integer> voteSiteTotal = getVoteSiteTotal();
-		voteSiteTotal.put(voteSite, value);
-		setVoteSiteTotal(voteSiteTotal);
-	}
-
 	public void setVotePartyVotes(int value) {
 		getUserData().setInt("VotePartyVotes", value);
-	}
-
-	@Deprecated
-	public void setVoteSiteTotal(HashMap<VoteSite, Integer> voteSiteTotal) {
-		ArrayList<String> data = new ArrayList<String>();
-		for (Entry<VoteSite, Integer> entry : voteSiteTotal.entrySet()) {
-			String str = entry.getKey().getKey() + "//" + entry.getValue().intValue();
-			data.add(str);
-		}
-		getUserData().setStringList("VoteSiteTotals", data);
-
 	}
 
 	public void setWeeklyTotal(int weeklyTotal) {

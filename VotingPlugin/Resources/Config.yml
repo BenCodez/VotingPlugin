@@ -114,6 +114,13 @@ VoteReminding:
   Rewards:
     Messages:
       Player: '&aRemeber to vote!'
+    Title:
+      Enabled: false
+      Title: '&cRemember to vote!'
+      SubTitle: '&aType /vote'
+      FadeIn: 10
+      ShowTime: 50
+      FadeOut: 10
   
 Commands:
   # Wether or not the following commands will open GUIs rather than display text
@@ -283,7 +290,7 @@ Format:
 # ------------------------------------------------
   
 # Configure GUI's here
-# Note: Slots start at 0 instead of 1, max slots 44 (don't go over) (E.g: so last slot in first row of inventory is 8)
+# Note: Slots start at 0 instead of 1, max slot is 53 (don't go over) (E.g: last slot in first row of inventory is 8)
 # Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
 GUI:
   # GUI for /vote gui, /vgui, votegui
@@ -427,8 +434,35 @@ GUI:
     Name: 'VoteToday'
   VoteTop:
     Name: 'VoteTop %topvoter%'
+    Item:
+      Name: '&3&l%position%: &3%player%'
+      Lore: '&3&lVotes: &3%votes%'
   VoteTotal:
     Name: 'VoteTotal: %player%'
+    DayTotal:
+      Item:
+        Material: 'WATCH'
+        Name: '&cDaily Total'
+        Lore: '&c&lTotal: &c%Total'
+        Amount: 1
+    WeekTotal:
+      Item:
+        Material: 'WATCH'
+        Name: '&cWeekly Total'
+        Lore: '&c&lTotal: &c%Total'
+        Amount: 1
+    MonthTotal:
+      Item:
+        Material: 'WATCH'
+        Name: '&cMonthly Total'
+        Lore: '&c&lTotal: &c%Total'
+        Amount: 1
+    AllTimeTotal:
+      Item:
+        Material: 'WATCH'
+        Name: '&cAllTime Total'
+        Lore: '&c&lTotal: &c%Total'
+        Amount: 1
   VoteURLSite:
     Name: 'VoteSite: %site%'
   VoteGUIName: '&cVoteGUI: &c&l%player%'

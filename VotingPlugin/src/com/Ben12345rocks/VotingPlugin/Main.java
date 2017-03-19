@@ -156,7 +156,7 @@ public class Main extends JavaPlugin {
 				return voteSite;
 			}
 		}
-		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(site)) {
+		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
 			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(siteName.replace(".", "_"));
 		}
@@ -359,6 +359,18 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				return "" + Config.getInstance().getBroadCastVotesEnabled();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
+
+			@Override
+			public String getValue() {
+				int total = UserManager.getInstance().getAllUUIDs().size();
+				int num = (int) (total / 100);
+				num = num * 100;
+				int num2 = (int) ((total + 100) / 100);
+				num2 = num2 * 100;
+				return "" + num + "-" + num2;
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
@@ -733,6 +745,16 @@ public class Main extends JavaPlugin {
 
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
+	}
+
+	public boolean hasVoteSite(String site) {
+		String siteName = getVoteSiteName(site);
+		for (VoteSite voteSite : getVoteSites()) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }
