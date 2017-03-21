@@ -183,9 +183,7 @@ public class PlayerGUIs {
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
 				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
-						MiscUtils.getInstance().setSkullOwner(
-
-								user.getPlayerName())) {
+						MiscUtils.getInstance().setSkullOwner(user.getPlayerName())) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
@@ -220,13 +218,15 @@ public class PlayerGUIs {
 		}
 		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
 				"topvoter", topVoter));
-		int pos = 0;
+		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
-			pos++;
-			inv.addButton(new BInventoryButton(pos + ": " + entry.getKey().getPlayerName(),
-					new String[] { "Votes: " + entry.getValue() }, MiscUtils.getInstance().setSkullOwner(
-
-							entry.getKey().getPlayerName())) {
+			inv.addButton(new BInventoryButton(
+					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getPlayerName()))
+							.setName(Config.getInstance().getGUIVoteTopItemName())
+							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
+							.addPlaceholder("position", "" + pos)
+							.addPlaceholder("player", entry.getKey().getPlayerName())
+							.addPlaceholder("votes", "" + entry.getValue())) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
@@ -235,6 +235,7 @@ public class PlayerGUIs {
 					openVoteGUI(player, user);
 				}
 			});
+			pos++;
 		}
 		inv.openInventory(player);
 
@@ -244,17 +245,8 @@ public class PlayerGUIs {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", user.getPlayerName()));
-		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Material.STONE).setName("Daily Total: " + user.getDailyTotal())) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						Player player = clickEvent.getPlayer();
-						openVoteTotal(player, getSelectedPlayer(player));
-					}
-				});
-		inv.addButton(new BInventoryButton(
-				new ItemBuilder(Material.STONE).setName("Weekly Total: " + user.getWeeklyTotal())) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalDayTotalItem())
+				.addPlaceholder("Total", "" + user.getDailyTotal())) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -262,8 +254,8 @@ public class PlayerGUIs {
 				openVoteTotal(player, getSelectedPlayer(player));
 			}
 		});
-		inv.addButton(new BInventoryButton(
-				new ItemBuilder(Material.STONE).setName("Monthly Total: " + user.getMonthTotal())) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalWeekTotalItem())
+				.addPlaceholder("Total", "" + user.getWeeklyTotal())) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -271,8 +263,17 @@ public class PlayerGUIs {
 				openVoteTotal(player, getSelectedPlayer(player));
 			}
 		});
-		inv.addButton(new BInventoryButton(
-				new ItemBuilder(Material.STONE).setName("AllTime Total: " + user.getAllTimeTotal())) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalMonthTotalItem())
+				.addPlaceholder("Total", "" + user.getMonthTotal())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteTotal(player, getSelectedPlayer(player));
+			}
+		});
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalAllTimeTotalItem())
+				.addPlaceholder("Total", "" + user.getAllTimeTotal())) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
