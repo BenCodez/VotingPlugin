@@ -443,25 +443,25 @@ GUI:
       Item:
         Material: 'WATCH'
         Name: '&cDaily Total'
-        Lore: '&c&lTotal: &c%Total'
+        Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     WeekTotal:
       Item:
         Material: 'WATCH'
         Name: '&cWeekly Total'
-        Lore: '&c&lTotal: &c%Total'
+        Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     MonthTotal:
       Item:
         Material: 'WATCH'
         Name: '&cMonthly Total'
-        Lore: '&c&lTotal: &c%Total'
+        Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     AllTimeTotal:
       Item:
         Material: 'WATCH'
         Name: '&cAllTime Total'
-        Lore: '&c&lTotal: &c%Total'
+        Lore: '&c&lTotal: &c%Total%'
         Amount: 1
   VoteURLSite:
     Name: 'VoteSite: %site%'
