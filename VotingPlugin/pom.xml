@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.Ben12345rocks</groupId>
 	<artifactId>VotingPlugin</artifactId>
-	<version>5.6.4</version>
+	<version>5.6.5</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>

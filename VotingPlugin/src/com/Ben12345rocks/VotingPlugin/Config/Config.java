@@ -147,7 +147,7 @@ public class Config extends YMLFile {
 	}
 
 	public String getVoteShopName() {
-		return getData().getString("Shop.Name", "VoteShop");
+		return getData().getString("GUI.VoteShopName", "VoteShop");
 	}
 
 	public String getGUIVoteURLName() {

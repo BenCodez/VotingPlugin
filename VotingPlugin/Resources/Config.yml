@@ -467,10 +467,9 @@ GUI:
     Name: 'VoteSite: %site%'
   VoteGUIName: '&cVoteGUI: &c&l%player%'
   VoteRewardName: 'VoteReward'
+  VoteShopName: 'VoteShop'
 
 Shop:
-  # GUI name
-  Name: 'VoteShop'
   # Identifier
   # Used in placeholders for formats
   Diamond:
