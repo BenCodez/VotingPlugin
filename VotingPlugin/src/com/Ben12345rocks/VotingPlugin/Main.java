@@ -707,42 +707,47 @@ public class Main extends JavaPlugin {
 		}
 		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			try {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 
-			AdvancedCoreHook.getInstance().setStorageType(from);
+				AdvancedCoreHook.getInstance().setStorageType(from);
 
-			ArrayList<String> choiceRewards = user.getChoiceRewards();
-			String inputMethod = user.getInputMethod();
-			ArrayList<String> offlineRewards = user.getOfflineRewards();
-			HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
-			int allTime = user.getAllTimeTotal();
-			int dailyTotal = user.getDailyTotal();
-			HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
-			HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
-			int monthTotals = user.getMonthTotal();
-			ArrayList<String> otherRewards = user.getOfflineOtherRewards();
-			ArrayList<String> offlineVotes = user.getOfflineVotes();
-			int points = user.getPoints();
-			int votePartyVotes = user.getVotePartyVotes();
-			int weeklyTotal = user.getWeeklyTotal();
+				ArrayList<String> choiceRewards = user.getChoiceRewards();
+				String inputMethod = user.getInputMethod();
+				ArrayList<String> offlineRewards = user.getOfflineRewards();
+				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
+				int allTime = user.getAllTimeTotal();
+				int dailyTotal = user.getDailyTotal();
+				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
+				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
+				int monthTotals = user.getMonthTotal();
+				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
+				ArrayList<String> offlineVotes = user.getOfflineVotes();
+				int points = user.getPoints();
+				int votePartyVotes = user.getVotePartyVotes();
+				int weeklyTotal = user.getWeeklyTotal();
 
-			AdvancedCoreHook.getInstance().setStorageType(to);
+				AdvancedCoreHook.getInstance().setStorageType(to);
 
-			user.setChoiceRewards(choiceRewards);
-			user.setInputMethod(inputMethod);
-			user.setOfflineRewards(offlineRewards);
-			user.setTimedRewards(timed);
-			user.setAllTimeTotal(allTime);
-			user.setDailyTotal(dailyTotal);
-			user.setHasGottenMilestone(mileStone);
-			user.setLastVotes(lastVotes);
-			user.setMonthTotal(monthTotals);
-			user.setOfflineOtherRewards(otherRewards);
-			user.setOfflineVotes(offlineVotes);
-			user.setPoints(points);
-			user.setVotePartyVotes(votePartyVotes);
-			user.setWeeklyTotal(weeklyTotal);
-
+				user.setChoiceRewards(choiceRewards);
+				user.setInputMethod(inputMethod);
+				user.setOfflineRewards(offlineRewards);
+				user.setTimedRewards(timed);
+				user.setAllTimeTotal(allTime);
+				user.setDailyTotal(dailyTotal);
+				user.setHasGottenMilestone(mileStone);
+				user.setLastVotes(lastVotes);
+				user.setMonthTotal(monthTotals);
+				user.setOfflineOtherRewards(otherRewards);
+				user.setOfflineVotes(offlineVotes);
+				user.setPoints(points);
+				user.setVotePartyVotes(votePartyVotes);
+				user.setWeeklyTotal(weeklyTotal);
+			} catch (Exception e) {
+				AdvancedCoreHook.getInstance().debug(e);
+				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
+						+ ", turn debug on to see full stack traces");
+			}
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
 	}
