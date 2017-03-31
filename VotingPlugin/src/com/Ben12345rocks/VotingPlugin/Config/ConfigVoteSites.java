@@ -60,7 +60,7 @@ public class ConfigVoteSites extends YMLFile {
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, 24);
-			getData(siteName).set("Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
+			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
 		}

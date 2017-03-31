@@ -673,6 +673,7 @@ public class Main extends JavaPlugin {
 
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358, "VotingPlugin");
+		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {

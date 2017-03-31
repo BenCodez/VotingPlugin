@@ -77,6 +77,10 @@ public class Config extends YMLFile {
 	public String getMySqlPassword() {
 		return getData().getString("MySQL.Password", "");
 	}
+	
+	public boolean getExtraDebug() {
+		return getData().getBoolean("ExtraDebug");
+	}
 
 	/**
 	 * Allow un joined.

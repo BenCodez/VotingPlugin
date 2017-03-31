@@ -27,6 +27,10 @@ CheckOnWorldChange: false
 # Debug
 Debug: false
 
+# Extra Debug
+# Only needed in extreme cases
+ExtraDebug: false
+
 # Debug info ingame
 # Players with permission "VotingPlugin.Debug"
 # will see debug info if debug is true

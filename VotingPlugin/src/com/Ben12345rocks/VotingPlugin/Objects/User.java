@@ -123,9 +123,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
-		if (getHighestMonthlyTotal() < total) {
-			setHighestMonthlyTotal(total);
-		}
 	}
 
 	/**
@@ -600,9 +597,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setDailyTotal(int total) {
 		getUserData().setInt("DailyTotal", total);
-		if (getHighestDailyTotal() < total) {
-			setHighestDailyTotal(total);
-		}
 	}
 
 	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
@@ -651,9 +645,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setWeeklyTotal(int total) {
 		getUserData().setInt("WeeklyTotal", total);
-		if (getHighestWeeklyTotal() < total) {
-			setHighestWeeklyTotal(total);
-		}
 	}
 
 	/**

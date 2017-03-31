@@ -87,6 +87,10 @@ public class TopVoterHandler implements Listener {
 					} else {
 						user.addDayVoteStreak();
 					}
+
+					if (user.getHighestDailyTotal() < user.getDailyTotal()) {
+						user.setHighestDailyTotal(user.getDailyTotal());
+					}
 				}
 
 				if (Config.getInstance().getStoreTopVotersDaily()) {
@@ -127,6 +131,10 @@ public class TopVoterHandler implements Listener {
 					} else {
 						user.addMonthVoteStreak();
 					}
+
+					if (user.getHighestMonthlyTotal() < user.getMonthTotal()) {
+						user.setHighestMonthlyTotal(user.getMonthTotal());
+					}
 				}
 
 				if (Config.getInstance().getStoreTopVotersMonthly()) {
@@ -164,6 +172,10 @@ public class TopVoterHandler implements Listener {
 						user.setWeekVoteStreak(0);
 					} else {
 						user.addWeekVoteStreak();
+					}
+
+					if (user.getHighestWeeklyTotal() < user.getWeeklyTotal()) {
+						user.setHighestWeeklyTotal(user.getWeeklyTotal());
 					}
 				}
 
@@ -269,7 +281,7 @@ public class TopVoterHandler implements Listener {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
-		file.getData().set("All", topVoters);
+		file.getData().set("Day", topVoters);
 		file.saveData();
 	}
 
@@ -285,7 +297,7 @@ public class TopVoterHandler implements Listener {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
-		file.getData().set("All", topVoters);
+		file.getData().set("Month", topVoters);
 		file.saveData();
 	}
 
@@ -302,7 +314,7 @@ public class TopVoterHandler implements Listener {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
-		file.getData().set("All", topVoters);
+		file.getData().set("Week", topVoters);
 		file.saveData();
 	}
 

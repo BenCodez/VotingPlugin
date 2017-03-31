@@ -740,6 +740,8 @@ public class Commands {
 		placeholders.put("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal());
 		placeholders.put("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal());
 
+		placeholders.put("player", name);
+
 		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
 
 		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
@@ -760,6 +762,8 @@ public class Commands {
 		placeholders.put("BestDailyStreak", "" + user.getBestDayVoteStreak());
 		placeholders.put("BestWeeklyStreak", "" + user.getBestWeekVoteStreak());
 		placeholders.put("BestMonthlyStreak", "" + user.getBestMonthVoteStreak());
+
+		placeholders.put("player", name);
 
 		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
 
