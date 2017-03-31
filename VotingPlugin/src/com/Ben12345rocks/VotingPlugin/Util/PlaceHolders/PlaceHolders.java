@@ -71,6 +71,26 @@ public class PlaceHolders {
 			}
 		}
 
+		if (identifier.equalsIgnoreCase("BestDailyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestDailyTotal();
+		} else if (identifier.equalsIgnoreCase("BestWeeklyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestWeeklyTotal();
+		} else if (identifier.equalsIgnoreCase("BestMonthlyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestMonthlyTotal();
+		} else if (identifier.equalsIgnoreCase("DailyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getDayVoteStreak();
+		} else if (identifier.equalsIgnoreCase("WeeklyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getWeekVoteStreak();
+		} else if (identifier.equalsIgnoreCase("MonthlyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getMonthVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestDailyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestDayVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestWeeklyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestWeekVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestMonthlyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestMonthVoteStreak();
+		}
+
 		// %VotingPlugin_points% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("points")) {
 			return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getPoints());
