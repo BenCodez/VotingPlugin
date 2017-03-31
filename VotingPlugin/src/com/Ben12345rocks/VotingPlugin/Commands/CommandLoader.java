@@ -1050,6 +1050,62 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Best" },
+				"VotingPlugin.Commands.Vote.Best|" + playerPerm, "View your best voting", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!Config.getInstance().getCommandsUseGUIBest()) {
+					sender.sendMessage(Commands.getInstance().best(sender, sender.getName()));
+				} else {
+					PlayerGUIs.getInstance().openVoteBest((Player) sender,
+							UserManager.getInstance().getVotingPluginUser(sender.getName()));
+				}
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Best", "(player)" },
+				"VotingPlugin.Commands.Vote.Best.Other|" + playerPerm, "View someone's best voting") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!Config.getInstance().getCommandsUseGUIBest()) {
+					sender.sendMessage(Commands.getInstance().best(sender, args[1]));
+				} else if (sender instanceof Player) {
+					PlayerGUIs.getInstance().openVoteBest((Player) sender,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				}
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Streak" },
+				"VotingPlugin.Commands.Vote.Streak|" + playerPerm, "View your voting streak", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!Config.getInstance().getCommandsUseGUIBest()) {
+					sender.sendMessage(Commands.getInstance().streak(sender, sender.getName()));
+				} else {
+					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
+							UserManager.getInstance().getVotingPluginUser(sender.getName()));
+				}
+			}
+		});
+
+		plugin.voteCommand.add(new CommandHandler(new String[] { "Streak", "(player)" },
+				"VotingPlugin.Commands.Vote.Streak.Other|" + playerPerm, "View someone's voting streak") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!Config.getInstance().getCommandsUseGUIStreak()) {
+					sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
+				} else if (sender instanceof Player) {
+					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				}
+			}
+		});
+
 		plugin.voteCommand.add(new CommandHandler(new String[] {}, "", "See voting URLs") {
 
 			@Override

@@ -123,6 +123,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
+		if (getHighestMonthlyTotal() < total) {
+			setHighestMonthlyTotal(total);
+		}
 	}
 
 	/**
@@ -595,8 +598,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setInt("AllTimeTotal", allTimeTotal);
 	}
 
-	public void setDailyTotal(int dailyTotal) {
-		getUserData().setInt("DailyTotal", dailyTotal);
+	public void setDailyTotal(int total) {
+		getUserData().setInt("DailyTotal", total);
+		if (getHighestDailyTotal() < total) {
+			setHighestDailyTotal(total);
+		}
 	}
 
 	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
@@ -643,8 +649,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setInt("VotePartyVotes", value);
 	}
 
-	public void setWeeklyTotal(int weeklyTotal) {
-		getUserData().setInt("WeeklyTotal", weeklyTotal);
+	public void setWeeklyTotal(int total) {
+		getUserData().setInt("WeeklyTotal", total);
+		if (getHighestWeeklyTotal() < total) {
+			setHighestWeeklyTotal(total);
+		}
 	}
 
 	/**
@@ -695,6 +704,99 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		resetDailyTotalVotes();
 		resetMonthlyTotalVotes();
 		setWeeklyTotal(0);
+	}
+
+	public int getDayVoteStreak() {
+		return getData().getInt("DayVoteStreak");
+	}
+
+	public void setDayVoteStreak(int streak) {
+		getData().setInt("DayVoteStreak", streak);
+		if (getBestDayVoteStreak() < streak) {
+			setBestDayVoteStreak(streak);
+		}
+	}
+
+	public void addDayVoteStreak() {
+		setDayVoteStreak(getDayVoteStreak() + 1);
+	}
+
+	public int getBestDayVoteStreak() {
+		return getData().getInt("BestDayVoteStreak");
+	}
+
+	public void setBestDayVoteStreak(int streak) {
+		getData().setInt("BestDayVoteStreak", streak);
+	}
+
+	public int getMonthVoteStreak() {
+		return getData().getInt("MonthVoteStreak");
+	}
+
+	public void setMonthVoteStreak(int streak) {
+		getData().setInt("MonthVoteStreak", streak);
+		if (getBestMonthVoteStreak() < streak) {
+			setBestMonthVoteStreak(streak);
+		}
+	}
+
+	public void addMonthVoteStreak() {
+		setMonthVoteStreak(getMonthVoteStreak() + 1);
+	}
+
+	public int getBestMonthVoteStreak() {
+		return getData().getInt("BestMonthVoteStreak");
+	}
+
+	public void setBestMonthVoteStreak(int streak) {
+		getData().setInt("BestMonthVoteStreak", streak);
+	}
+
+	public int getWeekVoteStreak() {
+		return getData().getInt("WeekVoteStreak");
+	}
+
+	public void setWeekVoteStreak(int streak) {
+		getData().setInt("WeekVoteStreak", streak);
+		if (getBestWeekVoteStreak() < streak) {
+			setBestWeekVoteStreak(streak);
+		}
+	}
+
+	public void addWeekVoteStreak() {
+		setWeekVoteStreak(getWeekVoteStreak() + 1);
+	}
+
+	public int getBestWeekVoteStreak() {
+		return getData().getInt("BestWeekVoteStreak");
+	}
+
+	public void setBestWeekVoteStreak(int streak) {
+		getData().setInt("BestWeekVoteStreak", streak);
+	}
+
+	public int getHighestDailyTotal() {
+		return getData().getInt("HighestDailyTotal");
+	}
+
+	public void setHighestDailyTotal(int total) {
+		getData().setInt("HighestDailyTotal", total);
+	}
+
+	public int getHighestWeeklyTotal() {
+		return getData().getInt("HighestWeeklyTotal");
+	}
+
+	public void setHighestWeeklyTotal(int total) {
+		getData().setInt("HighestWeeklyTotal", total);
+	}
+
+	public int getHighestMonthlyTotal() {
+		return getData().getInt("HighestMonthlyTotal");
+	}
+
+	public void setHighestMonthlyTotal(int total) {
+		getData().setInt("HighestMonthlyTotal", total);
 	}
 
 }

@@ -80,6 +80,15 @@ public class TopVoterHandler implements Listener {
 
 			@Override
 			public void run() {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					if (user.getDailyTotal() == 0 && user.getDayVoteStreak() != 0) {
+						user.setDayVoteStreak(0);
+					} else {
+						user.addDayVoteStreak();
+					}
+				}
+
 				if (Config.getInstance().getStoreTopVotersDaily()) {
 					plugin.debug("Storing TopVoters Daily");
 					storeDailyTopVoters();
@@ -111,6 +120,15 @@ public class TopVoterHandler implements Listener {
 
 			@Override
 			public void run() {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					if (user.getMonthTotal() == 0 && user.getMonthVoteStreak() != 0) {
+						user.setMonthVoteStreak(0);
+					} else {
+						user.addMonthVoteStreak();
+					}
+				}
+
 				if (Config.getInstance().getStoreTopVotersMonthly()) {
 					plugin.debug("Storing TopVoters Monthly");
 					storeMonthlyTopVoters();
@@ -140,6 +158,15 @@ public class TopVoterHandler implements Listener {
 
 			@Override
 			public void run() {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					if (user.getWeeklyTotal() == 0 && user.getWeekVoteStreak() != 0) {
+						user.setWeekVoteStreak(0);
+					} else {
+						user.addWeekVoteStreak();
+					}
+				}
+
 				if (Config.getInstance().getStoreTopVotersWeekly()) {
 					plugin.debug("Storing TopVoters Weekly");
 					storeWeeklyTopVoters();

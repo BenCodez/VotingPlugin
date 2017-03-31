@@ -727,4 +727,42 @@ public class Commands {
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);
 	}
+
+	public String[] best(CommandSender sender, String name) {
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add(config.getFormatCommandsVoteBestTitle());
+		msg.addAll(config.getFormatCommandsVoteBestLines());
+
+		User user = UserManager.getInstance().getVotingPluginUser(name);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
+		placeholders.put("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal());
+		placeholders.put("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal());
+
+		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
+
+		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
+	}
+
+	public String[] streak(CommandSender sender, String name) {
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add(config.getFormatCommandsVoteStreakTitle());
+		msg.addAll(config.getFormatCommandsVoteStreakLines());
+
+		User user = UserManager.getInstance().getVotingPluginUser(name);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
+		placeholders.put("WeeklyStreak", "" + user.getWeekVoteStreak());
+		placeholders.put("MonthlyStreak", "" + user.getMonthVoteStreak());
+
+		placeholders.put("BestDailyStreak", "" + user.getBestDayVoteStreak());
+		placeholders.put("BestWeeklyStreak", "" + user.getBestWeekVoteStreak());
+		placeholders.put("BestMonthlyStreak", "" + user.getBestMonthVoteStreak());
+
+		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
+
+		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
+	}
 }

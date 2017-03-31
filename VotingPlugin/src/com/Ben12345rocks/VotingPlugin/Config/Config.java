@@ -54,6 +54,14 @@ public class Config extends YMLFile {
 		return getData().getBoolean("MySQL.PreLoadTable");
 	}
 
+	public boolean getCommandsUseGUIBest() {
+		return getData().getBoolean("Commands.UseGUI.Best");
+	}
+
+	public boolean getCommandsUseGUIStreak() {
+		return getData().getBoolean("Commands.UseGUI.Streak");
+	}
+
 	public int getMySqlMaxConnections() {
 		return getData().getInt("MySQL.MaxConnections", 1);
 	}
@@ -124,6 +132,42 @@ public class Config extends YMLFile {
 
 	public String getGUIVoteTopItemLore() {
 		return getData().getString("GUI.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentDayStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentDayStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentWeekStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentWeekStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentMonthStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentMonthStreak.Item");
+	}
+	
+	public ConfigurationSection getGUIVoteStreakHighestDayStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestDayStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakHighestWeekStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestWeekStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakHighestMonthStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestMonthStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteBestDayBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.DayBest.Item");
+	}
+
+	public ConfigurationSection getGUIVoteBestWeekBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.WeekBest.Item");
+	}
+
+	public ConfigurationSection getGUIVoteBestMonthBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.MonthBest.Item");
 	}
 
 	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
@@ -385,6 +429,32 @@ public class Config extends YMLFile {
 	 */
 	public String getFormatCommandsVoteHelpLine() {
 		return getData().getString("Format.Commands.Vote.Help.Line", "&3&l%Command% - &3%HelpMessage%");
+	}
+
+	public String getFormatCommandsVoteBestTitle() {
+		return getData().getString("Format.Commands.Vote.Best.Title", "&3&l%player% Best Votes");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteBestLines() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Best.Lines", new ArrayList<String>());
+	}
+
+	public String getFormatCommandsVoteStreakTitle() {
+		return getData().getString("Format.Commands.Vote.Streak.Title", "&3&l%player% Vote Streak");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteStreakLines() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<String>());
+	}
+
+	public String getGUIVoteBestName() {
+		return getData().getString("GUI.VoteBest.Name", "VoteBest: %player%");
+	}
+
+	public String getGUIVoteStreakName() {
+		return getData().getString("GUI.VoteStreak.Name", "VoteStreak");
 	}
 
 	/**
