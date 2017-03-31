@@ -7,7 +7,7 @@
 # - SQLITE
 # - FLAT
 # - MYSQL
-DataStorage: FLAT
+DataStorage: SQLITE
 
 # Information for mysql
 MySQL:
