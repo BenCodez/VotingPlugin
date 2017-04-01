@@ -110,8 +110,12 @@ public class PlaceHolders {
 
 		// %VotingPlugin_next_SITENAME% - Next time you can vote for voteSite
 		if (startsWithIgnoreCase(identifier, "next")) {
-			if (identifier.split("_").length > 1) {
-				return playerNextVote(p, identifier.split("_")[1]);
+			if (args.length > 1) {
+				String str = args[1];
+				for (int i = 2; i < args.length; i++) {
+					str += "_" + args[i];
+				}
+				return playerNextVote(p, str);
 			} else {
 				return "";
 			}
@@ -119,8 +123,12 @@ public class PlaceHolders {
 
 		// %VotingPlugin_last_SITENAME% - Next time you can vote for voteSite
 		if (startsWithIgnoreCase(identifier, "last")) {
-			if (identifier.split("_").length > 1) {
-				return playerLastVote(p, identifier.split("_")[1]);
+			if (args.length > 1) {
+				String str = args[1];
+				for (int i = 2; i < args.length; i++) {
+					str += "_" + args[i];
+				}
+				return playerLastVote(p, str);
 			}
 		}
 		if (args.length > 2) {
