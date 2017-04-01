@@ -131,28 +131,44 @@ public class PlaceHolders {
 					if (args[1].equalsIgnoreCase("all")) {
 						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
 						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
 						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
 						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
