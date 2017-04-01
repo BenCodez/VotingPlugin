@@ -469,7 +469,7 @@ public class PlayerGUIs {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestWeekBestItem())
 				.addPlaceholder("Best", "" + user.getBestWeekVoteStreak())) {
 
 			@Override
@@ -479,7 +479,7 @@ public class PlayerGUIs {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestMonthBestItem())
 				.addPlaceholder("Best", "" + user.getBestMonthVoteStreak())) {
 
 			@Override
