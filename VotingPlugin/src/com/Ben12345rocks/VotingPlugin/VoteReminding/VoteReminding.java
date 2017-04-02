@@ -75,6 +75,11 @@ public class VoteReminding {
 		}
 	}
 
+	private void giveReward(User user) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteRemindingRewardsPath())
+				.setGiveOffline(false).send(user);
+	}
+
 	/**
 	 * Load remind checking.
 	 */
@@ -105,11 +110,6 @@ public class VoteReminding {
 			plugin.debug(user.getPlayerName() + " was reminded!");
 
 		}
-	}
-
-	private void giveReward(User user) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteRemindingRewardsPath())
-				.setGiveOffline(false).send(user);
 	}
 
 	public void runRemindLogin(User user) {

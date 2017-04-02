@@ -85,17 +85,6 @@ public class SignHandler {
 		updateSkulls(loc1, loc2);
 	}
 
-	@SuppressWarnings("deprecation")
-	public void updateSkulls(Location loc1, Location loc2) {
-		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
-			if (block.getState() instanceof Skull) {
-				Skull skull = (Skull) block.getState();
-				skull.setOwner(playerName);
-				skull.update();
-			}
-		}
-	}
-
 	/**
 	 * Check valid sign.
 	 */
@@ -320,5 +309,16 @@ public class SignHandler {
 				}
 			}
 		}, delay);
+	}
+
+	@SuppressWarnings("deprecation")
+	public void updateSkulls(Location loc1, Location loc2) {
+		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
+			if (block.getState() instanceof Skull) {
+				Skull skull = (Skull) block.getState();
+				skull.setOwner(playerName);
+				skull.update();
+			}
+		}
 	}
 }

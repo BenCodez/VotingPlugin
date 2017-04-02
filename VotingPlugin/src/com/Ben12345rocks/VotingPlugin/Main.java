@@ -118,6 +118,57 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void convertDataStorage(UserStorage from, UserStorage to) {
+		if (from == null || to == null) {
+			throw new RuntimeException("Invalid Storage Method");
+		}
+		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			try {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+
+				AdvancedCoreHook.getInstance().setStorageType(from);
+
+				ArrayList<String> choiceRewards = user.getChoiceRewards();
+				String inputMethod = user.getInputMethod();
+				ArrayList<String> offlineRewards = user.getOfflineRewards();
+				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
+				int allTime = user.getAllTimeTotal();
+				int dailyTotal = user.getDailyTotal();
+				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
+				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
+				int monthTotals = user.getMonthTotal();
+				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
+				ArrayList<String> offlineVotes = user.getOfflineVotes();
+				int points = user.getPoints();
+				int votePartyVotes = user.getVotePartyVotes();
+				int weeklyTotal = user.getWeeklyTotal();
+
+				AdvancedCoreHook.getInstance().setStorageType(to);
+
+				user.setChoiceRewards(choiceRewards);
+				user.setInputMethod(inputMethod);
+				user.setOfflineRewards(offlineRewards);
+				user.setTimedRewards(timed);
+				user.setAllTimeTotal(allTime);
+				user.setDailyTotal(dailyTotal);
+				user.setHasGottenMilestone(mileStone);
+				user.setLastVotes(lastVotes);
+				user.setMonthTotal(monthTotals);
+				user.setOfflineOtherRewards(otherRewards);
+				user.setOfflineVotes(offlineVotes);
+				user.setPoints(points);
+				user.setVotePartyVotes(votePartyVotes);
+				user.setWeeklyTotal(weeklyTotal);
+			} catch (Exception e) {
+				AdvancedCoreHook.getInstance().debug(e);
+				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
+						+ ", turn debug on to see full stack traces");
+			}
+		}
+		AdvancedCoreHook.getInstance().setStorageType(cur);
+	}
+
 	public ArrayList<User> convertSet(Set<User> set) {
 		return new ArrayList<User>(set);
 	}
@@ -193,6 +244,16 @@ public class Main extends JavaPlugin {
 
 	public List<VoteSite> getVoteSites() {
 		return voteSites;
+	}
+
+	public boolean hasVoteSite(String site) {
+		String siteName = getVoteSiteName(site);
+		for (VoteSite voteSite : getVoteSites()) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -420,9 +481,9 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				int total = UserManager.getInstance().getAllUUIDs().size();
-				int num = (int) (total / 100);
+				int num = total / 100;
 				num = num * 100;
-				int num2 = (int) ((total + 100) / 100);
+				int num2 = (total + 100) / 100;
 				num2 = num2 * 100;
 				return "" + num + "-" + num2;
 			}
@@ -691,6 +752,10 @@ public class Main extends JavaPlugin {
 		});
 	}
 
+	public void setUpdate(boolean update) {
+		this.update = update;
+	}
+
 	/**
 	 * Setup files.
 	 */
@@ -735,10 +800,6 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void setUpdate(boolean update) {
-		this.update = update;
-	}
-
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358, "VotingPlugin");
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
@@ -769,67 +830,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
-	}
-
-	public void convertDataStorage(UserStorage from, UserStorage to) {
-		if (from == null || to == null) {
-			throw new RuntimeException("Invalid Storage Method");
-		}
-		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			try {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-
-				AdvancedCoreHook.getInstance().setStorageType(from);
-
-				ArrayList<String> choiceRewards = user.getChoiceRewards();
-				String inputMethod = user.getInputMethod();
-				ArrayList<String> offlineRewards = user.getOfflineRewards();
-				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
-				int allTime = user.getAllTimeTotal();
-				int dailyTotal = user.getDailyTotal();
-				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
-				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
-				int monthTotals = user.getMonthTotal();
-				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
-				ArrayList<String> offlineVotes = user.getOfflineVotes();
-				int points = user.getPoints();
-				int votePartyVotes = user.getVotePartyVotes();
-				int weeklyTotal = user.getWeeklyTotal();
-
-				AdvancedCoreHook.getInstance().setStorageType(to);
-
-				user.setChoiceRewards(choiceRewards);
-				user.setInputMethod(inputMethod);
-				user.setOfflineRewards(offlineRewards);
-				user.setTimedRewards(timed);
-				user.setAllTimeTotal(allTime);
-				user.setDailyTotal(dailyTotal);
-				user.setHasGottenMilestone(mileStone);
-				user.setLastVotes(lastVotes);
-				user.setMonthTotal(monthTotals);
-				user.setOfflineOtherRewards(otherRewards);
-				user.setOfflineVotes(offlineVotes);
-				user.setPoints(points);
-				user.setVotePartyVotes(votePartyVotes);
-				user.setWeeklyTotal(weeklyTotal);
-			} catch (Exception e) {
-				AdvancedCoreHook.getInstance().debug(e);
-				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
-						+ ", turn debug on to see full stack traces");
-			}
-		}
-		AdvancedCoreHook.getInstance().setStorageType(cur);
-	}
-
-	public boolean hasVoteSite(String site) {
-		String siteName = getVoteSiteName(site);
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 }

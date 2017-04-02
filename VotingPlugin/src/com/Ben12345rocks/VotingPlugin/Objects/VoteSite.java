@@ -85,6 +85,20 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the displayName
+	 */
+	public String getDisplayName() {
+		return displayName;
+	}
+
+	/**
+	 * @return the key
+	 */
+	public String getKey() {
+		return key;
+	}
+
+	/**
 	 * Gets the priority.
 	 *
 	 * @return the priority
@@ -162,25 +176,12 @@ public class VoteSite {
 	}
 
 	/**
-	 * @return the key
+	 * Checks if is enabled.
+	 *
+	 * @return true, if is enabled
 	 */
-	public String getKey() {
-		return key;
-	}
-
-	/**
-	 * @param key
-	 *            the key to set
-	 */
-	public void setKey(String key) {
-		this.key = key;
-	}
-
-	/**
-	 * @return the displayName
-	 */
-	public String getDisplayName() {
-		return displayName;
+	public boolean isEnabled() {
+		return enabled;
 	}
 
 	/**
@@ -192,15 +193,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * Checks if is enabled.
-	 *
-	 * @return true, if is enabled
-	 */
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	/**
 	 * Sets the enabled.
 	 *
 	 * @param enabled
@@ -208,6 +200,14 @@ public class VoteSite {
 	 */
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	/**
+	 * @param key
+	 *            the key to set
+	 */
+	public void setKey(String key) {
+		this.key = key;
 	}
 
 	/**

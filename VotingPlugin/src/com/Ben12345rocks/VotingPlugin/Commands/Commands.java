@@ -137,6 +137,25 @@ public class Commands {
 		return msg;
 	}
 
+	public String[] best(CommandSender sender, String name) {
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add(config.getFormatCommandsVoteBestTitle());
+		msg.addAll(config.getFormatCommandsVoteBestLines());
+
+		User user = UserManager.getInstance().getVotingPluginUser(name);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
+		placeholders.put("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal());
+		placeholders.put("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal());
+
+		placeholders.put("player", name);
+
+		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
+
+		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
+	}
+
 	/**
 	 * Command vote today.
 	 *
@@ -222,6 +241,47 @@ public class Commands {
 	}
 
 	/**
+	 * Send top voter monthly score board.
+	 *
+	 * @param player
+	 *            the player
+	 * @param page
+	 *            the page
+	 */
+	public void sendTopVoterAllTimeScoreBoard(Player player, int page) {
+		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+			int pagesize = Config.getInstance().getFormatPageSize();
+			ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+
+			int pageSize = (users.size() / pagesize);
+			if ((users.size() % pagesize) != 0) {
+				pageSize++;
+			}
+
+			String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
+					.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "All"));
+
+			SimpleScoreboard scoreboard = new SimpleScoreboard(title);
+
+			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
+						plugin.topVoterAllTime.get(users.get(i)));
+			}
+			scoreboard.build();
+			scoreboard.send(player);
+
+			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					SimpleScoreboard clear = new SimpleScoreboard("Empty");
+					clear.send(player);
+				}
+			}, 90);
+		}
+	}
+
+	/**
 	 * Send top voter daily score board.
 	 *
 	 * @param player
@@ -288,60 +348,6 @@ public class Commands {
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
 						plugin.topVoterMonthly.get(users.get(i)));
-			}
-			scoreboard.build();
-			scoreboard.send(player);
-
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
-				}
-			}, 90);
-		}
-	}
-
-	public void voteTop(CommandSender sender, int page) {
-		String str = Config.getInstance().getVoteTopDefault();
-		if (str.equalsIgnoreCase("monthly")) {
-			CommandVote.getInstance().topVoterMonthly(sender, page);
-		} else if (str.equalsIgnoreCase("weekly")) {
-			CommandVote.getInstance().topVoterWeekly(sender, page);
-		} else if (str.equalsIgnoreCase("daily")) {
-			CommandVote.getInstance().topVoterDaily(sender, page);
-		} else {
-
-		}
-	}
-
-	/**
-	 * Send top voter monthly score board.
-	 *
-	 * @param player
-	 *            the player
-	 * @param page
-	 *            the page
-	 */
-	public void sendTopVoterAllTimeScoreBoard(Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
-			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
-
-			int pageSize = (users.size() / pagesize);
-			if ((users.size() % pagesize) != 0) {
-				pageSize++;
-			}
-
-			String title = StringUtils.getInstance().colorize(config.getFormatCommandVoteTopTitle()
-					.replace("%page%", "" + page).replace("%maxpages%", "" + pageSize).replace("%Top%", "All"));
-
-			SimpleScoreboard scoreboard = new SimpleScoreboard(title);
-
-			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
-				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterAllTime.get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
@@ -436,6 +442,29 @@ public class Commands {
 			}, 90);
 
 		}
+	}
+
+	public String[] streak(CommandSender sender, String name) {
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add(config.getFormatCommandsVoteStreakTitle());
+		msg.addAll(config.getFormatCommandsVoteStreakLines());
+
+		User user = UserManager.getInstance().getVotingPluginUser(name);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
+		placeholders.put("WeeklyStreak", "" + user.getWeekVoteStreak());
+		placeholders.put("MonthlyStreak", "" + user.getMonthVoteStreak());
+
+		placeholders.put("BestDailyStreak", "" + user.getBestDayVoteStreak());
+		placeholders.put("BestWeeklyStreak", "" + user.getBestWeekVoteStreak());
+		placeholders.put("BestMonthlyStreak", "" + user.getBestMonthVoteStreak());
+
+		placeholders.put("player", name);
+
+		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
+
+		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
 	}
 
 	/**
@@ -699,6 +728,19 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
+	public void voteTop(CommandSender sender, int page) {
+		String str = Config.getInstance().getVoteTopDefault();
+		if (str.equalsIgnoreCase("monthly")) {
+			CommandVote.getInstance().topVoterMonthly(sender, page);
+		} else if (str.equalsIgnoreCase("weekly")) {
+			CommandVote.getInstance().topVoterWeekly(sender, page);
+		} else if (str.equalsIgnoreCase("daily")) {
+			CommandVote.getInstance().topVoterDaily(sender, page);
+		} else {
+
+		}
+	}
+
 	/**
 	 * Vote UR ls.
 	 *
@@ -726,47 +768,5 @@ public class Commands {
 		}
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);
-	}
-
-	public String[] best(CommandSender sender, String name) {
-		ArrayList<String> msg = new ArrayList<String>();
-		msg.add(config.getFormatCommandsVoteBestTitle());
-		msg.addAll(config.getFormatCommandsVoteBestLines());
-
-		User user = UserManager.getInstance().getVotingPluginUser(name);
-
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
-		placeholders.put("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal());
-		placeholders.put("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal());
-
-		placeholders.put("player", name);
-
-		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
-
-		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
-	}
-
-	public String[] streak(CommandSender sender, String name) {
-		ArrayList<String> msg = new ArrayList<String>();
-		msg.add(config.getFormatCommandsVoteStreakTitle());
-		msg.addAll(config.getFormatCommandsVoteStreakLines());
-
-		User user = UserManager.getInstance().getVotingPluginUser(name);
-
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
-		placeholders.put("WeeklyStreak", "" + user.getWeekVoteStreak());
-		placeholders.put("MonthlyStreak", "" + user.getMonthVoteStreak());
-
-		placeholders.put("BestDailyStreak", "" + user.getBestDayVoteStreak());
-		placeholders.put("BestWeeklyStreak", "" + user.getBestWeekVoteStreak());
-		placeholders.put("BestMonthlyStreak", "" + user.getBestMonthVoteStreak());
-
-		placeholders.put("player", name);
-
-		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
-
-		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
 	}
 }

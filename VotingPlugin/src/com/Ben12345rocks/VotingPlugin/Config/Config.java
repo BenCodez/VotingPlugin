@@ -38,50 +38,6 @@ public class Config extends YMLFile {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
 
-	public String getMySqlHost() {
-		return getData().getString("MySQL.Host", "");
-	}
-
-	public boolean getTopVoterIgnorePermission() {
-		return getData().getBoolean("TopVoterIgnorePermission");
-	}
-
-	public int getMySqlPort() {
-		return getData().getInt("MySQL.Port");
-	}
-
-	public boolean getMySqlPreloadTable() {
-		return getData().getBoolean("MySQL.PreLoadTable");
-	}
-
-	public boolean getCommandsUseGUIBest() {
-		return getData().getBoolean("Commands.UseGUI.Best");
-	}
-
-	public boolean getCommandsUseGUIStreak() {
-		return getData().getBoolean("Commands.UseGUI.Streak");
-	}
-
-	public int getMySqlMaxConnections() {
-		return getData().getInt("MySQL.MaxConnections", 1);
-	}
-
-	public String getMySqlDatabase() {
-		return getData().getString("MySQL.Database", "");
-	}
-
-	public String getMySqlUsername() {
-		return getData().getString("MySQL.Username", "");
-	}
-
-	public String getMySqlPassword() {
-		return getData().getString("MySQL.Password", "");
-	}
-
-	public boolean getExtraDebug() {
-		return getData().getBoolean("ExtraDebug");
-	}
-
 	/**
 	 * Allow un joined.
 	 *
@@ -89,10 +45,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean allowUnJoined() {
 		return getData().getBoolean("AllowUnjoined");
-	}
-
-	public int getDelayBetweenUpdates() {
-		return getData().getInt("DelayBetweenUpdates", 3);
 	}
 
 	/**
@@ -114,118 +66,6 @@ public class Config extends YMLFile {
 
 	}
 
-	public boolean getLoadTopVoterMonthly() {
-		return getData().getBoolean("LoadTopVoter.Monthly", true);
-	}
-
-	public boolean getLoadTopVoterWeekly() {
-		return getData().getBoolean("LoadTopVoter.Weekly");
-	}
-
-	public boolean getLoadTopVoterDaily() {
-		return getData().getBoolean("LoadTopVoter.Daily");
-	}
-
-	public String getGUIVoteGUIName() {
-		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
-	}
-
-	public String getGUIVoteTopItemName() {
-		return getData().getString("GUI.VoteTop.Item.Name", "&3&l%position%: &3%player%");
-	}
-
-	public String getGUIVoteTopItemLore() {
-		return getData().getString("GUI.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentDayStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentDayStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentWeekStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentWeekStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentMonthStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentMonthStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestDayStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestDayStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestWeekStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestWeekStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestMonthStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestMonthStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteBestDayBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.DayBest.Item");
-	}
-
-	public ConfigurationSection getGUIVoteBestWeekBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.WeekBest.Item");
-	}
-
-	public ConfigurationSection getGUIVoteBestMonthBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.MonthBest.Item");
-	}
-
-	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
-	}
-
-	public ConfigurationSection getGUIVoteTotalWeekTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.WeekTotal.Item");
-	}
-
-	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.MonthTotal.Item");
-	}
-
-	public ConfigurationSection getGUIVoteTotalAllTimeTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
-	}
-
-	public String getGUIVoteRewardName() {
-		return getData().getString("GUI.VoteRewardName", "VoteReward");
-	}
-
-	public String getVoteShopName() {
-		return getData().getString("GUI.VoteShopName", "VoteShop");
-	}
-
-	public String getGUIVoteURLName() {
-		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
-	}
-
-	public String getGUIVoteLastName() {
-		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
-	}
-
-	public String getGUIVoteNextName() {
-		return getData().getString("GUI.VoteNext.Name", "VoteNext: %player%");
-	}
-
-	public String getGUIVoteTodayName() {
-		return getData().getString("GUI.VoteToday.Name", "VoteToday");
-	}
-
-	public String getGUIVoteTopName() {
-		return getData().getString("GUI.VoteTop.Name", "VoteTop %topvoter%");
-	}
-
-	public String getGUIVoteURLSiteName() {
-		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
-	}
-
-	public String getGUIVoteTotalName() {
-		return getData().getString("GUI.VoteTotal.Name", "VoteTotal: %player%");
-	}
-
 	/**
 	 * Gets the auto create vote sites.
 	 *
@@ -233,10 +73,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean getAutoCreateVoteSites() {
 		return getData().getBoolean("AutoCreateVoteSites");
-	}
-
-	public boolean getDisableNoServiceSiteMessage() {
-		return getData().getBoolean("DisableNoServiceSiteMessage");
 	}
 
 	/**
@@ -258,12 +94,24 @@ public class Config extends YMLFile {
 		return getData().getBoolean("BroadcastVote");
 	}
 
+	public boolean getCheckOnWorldChange() {
+		return getData().getBoolean("CheckOnWorldChange");
+	}
+
+	public boolean getCommandsUseGUIBest() {
+		return getData().getBoolean("Commands.UseGUI.Best");
+	}
+
 	public boolean getCommandsUseGUILast() {
 		return getData().getBoolean("Commands.UseGUI.Last", true);
 	}
 
 	public boolean getCommandsUseGUINext() {
 		return getData().getBoolean("Commands.UseGUI.Next", true);
+	}
+
+	public boolean getCommandsUseGUIStreak() {
+		return getData().getBoolean("Commands.UseGUI.Streak");
 	}
 
 	public boolean getCommandsUseGUIToday() {
@@ -280,45 +128,6 @@ public class Config extends YMLFile {
 
 	public boolean getCommandsUseGUIVote() {
 		return getData().getBoolean("Commands.UseGUI.Vote", true);
-	}
-
-	/**
-	 * Gets the cumulative reward enabled.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative reward enabled
-	 */
-	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
-		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
-	}
-
-	/**
-	 * Gets the cumulative rewards path
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
-	 */
-	public String getVoteStreakRewardsPath(String type, int votestreak) {
-		return "VoteStreak." + type + "." + votestreak + ".Rewards";
-	}
-
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
-	public Set<String> getVoteStreakVotes(String type) {
-		try {
-			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
 	}
 
 	/**
@@ -409,6 +218,10 @@ public class Config extends YMLFile {
 		}
 	}
 
+	public String getDataStorage() {
+		return getData().getString("DataStorage", "FLAT");
+	}
+
 	/**
 	 * Gets the debug enabled.
 	 *
@@ -425,6 +238,18 @@ public class Config extends YMLFile {
 	 */
 	public boolean getDebugInfoIngame() {
 		return getData().getBoolean("DebugInfoIngame");
+	}
+
+	public int getDelayBetweenUpdates() {
+		return getData().getInt("DelayBetweenUpdates", 3);
+	}
+
+	public boolean getDisableNoServiceSiteMessage() {
+		return getData().getBoolean("DisableNoServiceSiteMessage");
+	}
+
+	public boolean getExtraDebug() {
+		return getData().getBoolean("ExtraDebug");
 	}
 
 	/**
@@ -465,6 +290,15 @@ public class Config extends YMLFile {
 		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteBestLines() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Best.Lines", new ArrayList<String>());
+	}
+
+	public String getFormatCommandsVoteBestTitle() {
+		return getData().getString("Format.Commands.Vote.Best.Title", "&3&l%player% Best Votes");
+	}
+
 	/**
 	 * Gets the commands vote help line.
 	 *
@@ -472,32 +306,6 @@ public class Config extends YMLFile {
 	 */
 	public String getFormatCommandsVoteHelpLine() {
 		return getData().getString("Format.Commands.Vote.Help.Line", "&3&l%Command% - &3%HelpMessage%");
-	}
-
-	public String getFormatCommandsVoteBestTitle() {
-		return getData().getString("Format.Commands.Vote.Best.Title", "&3&l%player% Best Votes");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteBestLines() {
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Best.Lines", new ArrayList<String>());
-	}
-
-	public String getFormatCommandsVoteStreakTitle() {
-		return getData().getString("Format.Commands.Vote.Streak.Title", "&3&l%player% Vote Streak");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteStreakLines() {
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<String>());
-	}
-
-	public String getGUIVoteBestName() {
-		return getData().getString("GUI.VoteBest.Name", "VoteBest: %player%");
-	}
-
-	public String getGUIVoteStreakName() {
-		return getData().getString("GUI.VoteStreak.Name", "VoteStreak");
 	}
 
 	/**
@@ -598,6 +406,15 @@ public class Config extends YMLFile {
 		msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Party", msg);
 
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteStreakLines() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<String>());
+	}
+
+	public String getFormatCommandsVoteStreakTitle() {
+		return getData().getString("Format.Commands.Vote.Streak.Title", "&3&l%player% Vote Streak");
 	}
 
 	/**
@@ -803,6 +620,110 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
 	}
 
+	public ConfigurationSection getGUIVoteBestDayBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.DayBest.Item");
+	}
+
+	public ConfigurationSection getGUIVoteBestMonthBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.MonthBest.Item");
+	}
+
+	public String getGUIVoteBestName() {
+		return getData().getString("GUI.VoteBest.Name", "VoteBest: %player%");
+	}
+
+	public ConfigurationSection getGUIVoteBestWeekBestItem() {
+		return getData().getConfigurationSection("GUI.VoteBest.WeekBest.Item");
+	}
+
+	public String getGUIVoteGUIName() {
+		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
+	}
+
+	public String getGUIVoteLastName() {
+		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
+	}
+
+	public String getGUIVoteNextName() {
+		return getData().getString("GUI.VoteNext.Name", "VoteNext: %player%");
+	}
+
+	public String getGUIVoteRewardName() {
+		return getData().getString("GUI.VoteRewardName", "VoteReward");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentDayStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentDayStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentMonthStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentMonthStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakCurrentWeekStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.CurrentWeekStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakHighestDayStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestDayStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakHighestMonthStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestMonthStreak.Item");
+	}
+
+	public ConfigurationSection getGUIVoteStreakHighestWeekStreakItem() {
+		return getData().getConfigurationSection("GUI.VoteStreak.HighestWeekStreak.Item");
+	}
+
+	public String getGUIVoteStreakName() {
+		return getData().getString("GUI.VoteStreak.Name", "VoteStreak");
+	}
+
+	public String getGUIVoteTodayName() {
+		return getData().getString("GUI.VoteToday.Name", "VoteToday");
+	}
+
+	public String getGUIVoteTopItemLore() {
+		return getData().getString("GUI.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
+	}
+
+	public String getGUIVoteTopItemName() {
+		return getData().getString("GUI.VoteTop.Item.Name", "&3&l%position%: &3%player%");
+	}
+
+	public String getGUIVoteTopName() {
+		return getData().getString("GUI.VoteTop.Name", "VoteTop %topvoter%");
+	}
+
+	public ConfigurationSection getGUIVoteTotalAllTimeTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
+	}
+
+	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
+	}
+
+	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.MonthTotal.Item");
+	}
+
+	public String getGUIVoteTotalName() {
+		return getData().getString("GUI.VoteTotal.Name", "VoteTotal: %player%");
+	}
+
+	public ConfigurationSection getGUIVoteTotalWeekTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.WeekTotal.Item");
+	}
+
+	public String getGUIVoteURLName() {
+		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
+	}
+
+	public String getGUIVoteURLSiteName() {
+		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
+	}
+
 	public int getIdentifierCost(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Cost");
 	}
@@ -835,6 +756,22 @@ public class Config extends YMLFile {
 
 	public int getIdentifierSlot(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Slot");
+	}
+
+	public boolean getLoadTopVoterAllTime() {
+		return getData().getBoolean("LoadTopVoter.AllTime", true);
+	}
+
+	public boolean getLoadTopVoterDaily() {
+		return getData().getBoolean("LoadTopVoter.Daily");
+	}
+
+	public boolean getLoadTopVoterMonthly() {
+		return getData().getBoolean("LoadTopVoter.Monthly", true);
+	}
+
+	public boolean getLoadTopVoterWeekly() {
+		return getData().getBoolean("LoadTopVoter.Weekly");
 	}
 
 	/**
@@ -931,6 +868,38 @@ public class Config extends YMLFile {
 		}
 	}
 
+	public String getMySqlDatabase() {
+		return getData().getString("MySQL.Database", "");
+	}
+
+	public String getMySqlHost() {
+		return getData().getString("MySQL.Host", "");
+	}
+
+	public int getMySqlMaxConnections() {
+		return getData().getInt("MySQL.MaxConnections", 1);
+	}
+
+	public String getMySqlPassword() {
+		return getData().getString("MySQL.Password", "");
+	}
+
+	public int getMySqlPort() {
+		return getData().getInt("MySQL.Port");
+	}
+
+	public boolean getMySqlPreloadTable() {
+		return getData().getBoolean("MySQL.PreLoadTable");
+	}
+
+	public String getMySqlUsername() {
+		return getData().getString("MySQL.Username", "");
+	}
+
+	public boolean getPreloadUsers() {
+		return getData().getBoolean("PreLoadUsers");
+	}
+
 	/**
 	 * Gets the request API default method.
 	 *
@@ -984,6 +953,10 @@ public class Config extends YMLFile {
 	 */
 	public boolean getStoreTopVotersWeekly() {
 		return getData().getBoolean("StoreTopVoters.Weekly");
+	}
+
+	public boolean getTopVoterIgnorePermission() {
+		return getData().getBoolean("TopVoterIgnorePermission");
 	}
 
 	public int getUserVotesRequired() {
@@ -1127,6 +1100,10 @@ public class Config extends YMLFile {
 		return "VoteReminding.Rewards";
 	}
 
+	public String getVoteShopName() {
+		return getData().getString("GUI.VoteShopName", "VoteShop");
+	}
+
 	/**
 	 * Gets the vote site items.
 	 *
@@ -1176,12 +1153,47 @@ public class Config extends YMLFile {
 		return getData().getInt("VotesRequired");
 	}
 
-	public ConfigurationSection getVoteURLAlreadyVotedItemSection() {
-		return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
+	/**
+	 * Gets the cumulative reward enabled.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative reward enabled
+	 */
+	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
+		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
 	}
 
-	public ConfigurationSection getVoteURLCanVoteItemSection() {
-		return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
+	/**
+	 * Gets the cumulative rewards path
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
+	 */
+	public String getVoteStreakRewardsPath(String type, int votestreak) {
+		return "VoteStreak." + type + "." + votestreak + ".Rewards";
+	}
+
+	/**
+	 * Gets the cumulative votes.
+	 *
+	 * @return the cumulative votes
+	 */
+	public Set<String> getVoteStreakVotes(String type) {
+		try {
+			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public String getVoteTopDefault() {
+		return getData().getString("VoteTopDefault", "Monthly");
 	}
 
 	public ConfigurationSection getVoteURLAlreadyVotedAllUrlsButtonItemSection() {
@@ -1192,12 +1204,20 @@ public class Config extends YMLFile {
 		}
 	}
 
+	public ConfigurationSection getVoteURLAlreadyVotedItemSection() {
+		return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
+	}
+
 	public ConfigurationSection getVoteURLCanVoteAllUrlsButtonItemSection() {
 		if (getData().isConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem")) {
 			return getData().getConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem");
 		} else {
 			return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
 		}
+	}
+
+	public ConfigurationSection getVoteURLCanVoteItemSection() {
+		return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
 	}
 
 	/**
@@ -1364,26 +1384,6 @@ public class Config extends YMLFile {
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
-	}
-
-	public String getDataStorage() {
-		return getData().getString("DataStorage", "FLAT");
-	}
-
-	public boolean getCheckOnWorldChange() {
-		return getData().getBoolean("CheckOnWorldChange");
-	}
-
-	public boolean getPreloadUsers() {
-		return getData().getBoolean("PreLoadUsers");
-	}
-
-	public boolean getLoadTopVoterAllTime() {
-		return getData().getBoolean("LoadTopVoter.AllTime", true);
-	}
-
-	public String getVoteTopDefault() {
-		return getData().getString("VoteTopDefault", "Monthly");
 	}
 
 }

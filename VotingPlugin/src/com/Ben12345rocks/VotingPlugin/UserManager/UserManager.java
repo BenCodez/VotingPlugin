@@ -29,25 +29,25 @@ public class UserManager {
 		super();
 	}
 
-	public  User getVotingPluginUser(OfflinePlayer player) {
+	public ArrayList<String> getAllUUIDs() {
+		return com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getAllUUIDs();
+	}
+
+	public User getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public  User getVotingPluginUser(Player player) {
+	public User getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public  User getVotingPluginUser(String playerName) {
+	public User getVotingPluginUser(String playerName) {
 		return getVotingPluginUser(new UUID(PlayerUtils.getInstance().getUUID(playerName)));
 	}
 
 	@SuppressWarnings("deprecation")
-	public  User getVotingPluginUser(UUID uuid) {
-		User user = new User(uuid);	
+	public User getVotingPluginUser(UUID uuid) {
+		User user = new User(uuid);
 		return user;
-	}
-
-	public  ArrayList<String> getAllUUIDs() {
-		return com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getAllUUIDs();
 	}
 }

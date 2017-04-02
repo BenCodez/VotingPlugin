@@ -85,6 +85,30 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setAllTimeTotal(getAllTimeTotal() + 1);
 	}
 
+	public void addDayVoteStreak() {
+		setDayVoteStreak(getDayVoteStreak() + 1);
+	}
+
+	public void addMonthTotal() {
+		setMonthTotal(getMonthTotal() + 1);
+	}
+
+	public void addMonthVoteStreak() {
+		setMonthVoteStreak(getMonthVoteStreak() + 1);
+	}
+
+	public void addOfflineOtherReward(String reward) {
+		ArrayList<String> offlineOtherRewards = getOfflineOtherRewards();
+		offlineOtherRewards.add(reward);
+		setOfflineOtherRewards(offlineOtherRewards);
+	}
+
+	public void addOfflineVote(String voteSiteName) {
+		ArrayList<String> offlineVotes = getOfflineVotes();
+		offlineVotes.add(voteSiteName);
+		setOfflineVotes(offlineVotes);
+	}
+
 	/**
 	 * Adds the points.
 	 */
@@ -101,7 +125,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addPoints(int value) {
 		setPoints(getPoints() + value);
 	}
-	
+
 	/**
 	 * Adds the total.
 	 *
@@ -109,18 +133,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addTotal() {
 		addMonthTotal();
 		addAllTimeTotal();
-	}
-
-	public void addMonthTotal() {
-		setMonthTotal(getMonthTotal() + 1);
-	}
-
-	public int getMonthTotal() {
-		return getData().getInt("MonthTotal");
-	}
-
-	public void setMonthTotal(int total) {
-		getData().setInt("MonthTotal", total);
 	}
 
 	/**
@@ -139,6 +151,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void addTotalWeekly() {
 		setWeeklyTotal(getWeeklyTotal() + 1);
+	}
+
+	public void addWeekVoteStreak() {
+		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
 
 	/**
@@ -221,6 +237,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
+	public void clearTotals() {
+		setAllTimeTotal(0);
+		resetDailyTotalVotes();
+		resetMonthlyTotalVotes();
+		setWeeklyTotal(0);
+	}
+
 	/**
 	 * Daily top voter award.
 	 *
@@ -240,8 +263,24 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getUserData().getInt("AllTimeTotal");
 	}
 
+	public int getBestDayVoteStreak() {
+		return getData().getInt("BestDayVoteStreak");
+	}
+
+	public int getBestMonthVoteStreak() {
+		return getData().getInt("BestMonthVoteStreak");
+	}
+
+	public int getBestWeekVoteStreak() {
+		return getData().getInt("BestWeekVoteStreak");
+	}
+
 	public int getDailyTotal() {
 		return getUserData().getInt("DailyTotal");
+	}
+
+	public int getDayVoteStreak() {
+		return getData().getInt("DayVoteStreak");
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
@@ -255,6 +294,18 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 		}
 		return hasGottenMilestone;
+	}
+
+	public int getHighestDailyTotal() {
+		return getData().getInt("HighestDailyTotal");
+	}
+
+	public int getHighestMonthlyTotal() {
+		return getData().getInt("HighestMonthlyTotal");
+	}
+
+	public int getHighestWeeklyTotal() {
+		return getData().getInt("HighestWeeklyTotal");
 	}
 
 	public HashMap<VoteSite, Long> getLastVotes() {
@@ -294,6 +345,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
+	}
+
+	public int getMonthTotal() {
+		return getData().getInt("MonthTotal");
+	}
+
+	public int getMonthVoteStreak() {
+		return getData().getInt("MonthVoteStreak");
 	}
 
 	public ArrayList<String> getOfflineOtherRewards() {
@@ -336,6 +395,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getUserData().getInt("WeeklyTotal");
 	}
 
+	public int getWeekVoteStreak() {
+		return getData().getInt("WeekVoteStreak");
+	}
+
 	/**
 	 * Give daily top voter award.
 	 *
@@ -365,105 +428,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			player.sendMessage(StringUtils.getInstance()
 					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
-		}
-	}
-
-	/**
-	 * Give weekly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
-	public void giveWeeklyTopVoterAward(int place) {
-		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getWeeklyAwardRewardsPath(place));
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
-		if (player != null) {
-			player.sendMessage(StringUtils.getInstance()
-					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
-		}
-	}
-
-	/**
-	 * Checks for gotten first vote.
-	 *
-	 * @return true if user got the first vote reward
-	 */
-	public boolean hasGottenFirstVote() {
-		return getAllTimeTotal() != 0;
-	}
-
-	/**
-	 * Checks for gotten milestone.
-	 *
-	 * @param votesRequired
-	 *            the votes required
-	 * @return true, if successful
-	 */
-	public boolean hasGottenMilestone(int votesRequired) {
-		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
-		if (hasGottenMilestone.containsKey("" + votesRequired)) {
-			return hasGottenMilestone.get("" + votesRequired);
-		}
-		return false;
-	}
-
-	public boolean isTopVoterIgnore() {
-		return Boolean.valueOf(getUserData().getString("TopVoterIgnore"));
-	}
-
-	public void setTopVoterIgnore(boolean topVoterIgnore) {
-		getUserData().setString("TopVoterIgnore", "" + topVoterIgnore);
-	}
-
-	public boolean isReminded() {
-		return Boolean.valueOf(getUserData().getString("Reminded"));
-	}
-
-	/**
-	 * Login message.
-	 */
-	public void loginMessage() {
-		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
-			VoteReminding.getInstance().runRemindLogin(this);
-		}
-	}
-
-	/**
-	 * Monthly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
-	public void monthlyTopVoterAward(int place) {
-		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
-			// online
-			giveMonthlyTopVoterAward(place);
-		} else {
-			addOfflineOtherReward("MonthlyTopVoter" + place);
-		}
-	}
-
-	/**
-	 * Off vote.
-	 */
-	public void offVote() {
-		Player player = getPlayer();
-		if (player != null) {
-			setTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
-			ArrayList<String> offlineVotes = getOfflineVotes();
-			if (offlineVotes.size() > 0) {
-				sendVoteEffects(true);
-			}
-
-			for (int i = 0; i < offlineVotes.size(); i++) {
-				if (plugin.hasVoteSite(offlineVotes.get(i))) {
-					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
-				}
-			}
-			setOfflineVotes(new ArrayList<String>());
-
-			giveOfflineOtherRewards();
 		}
 	}
 
@@ -548,6 +512,101 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	/**
+	 * Give weekly top voter award.
+	 *
+	 * @param place
+	 *            the place
+	 */
+	public void giveWeeklyTopVoterAward(int place) {
+		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+				Config.getInstance().getWeeklyAwardRewardsPath(place));
+		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
+		if (player != null) {
+			player.sendMessage(StringUtils.getInstance()
+					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
+		}
+	}
+
+	/**
+	 * Checks for gotten first vote.
+	 *
+	 * @return true if user got the first vote reward
+	 */
+	public boolean hasGottenFirstVote() {
+		return getAllTimeTotal() != 0;
+	}
+
+	/**
+	 * Checks for gotten milestone.
+	 *
+	 * @param votesRequired
+	 *            the votes required
+	 * @return true, if successful
+	 */
+	public boolean hasGottenMilestone(int votesRequired) {
+		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
+		if (hasGottenMilestone.containsKey("" + votesRequired)) {
+			return hasGottenMilestone.get("" + votesRequired);
+		}
+		return false;
+	}
+
+	public boolean isReminded() {
+		return Boolean.valueOf(getUserData().getString("Reminded"));
+	}
+
+	public boolean isTopVoterIgnore() {
+		return Boolean.valueOf(getUserData().getString("TopVoterIgnore"));
+	}
+
+	/**
+	 * Login message.
+	 */
+	public void loginMessage() {
+		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
+			VoteReminding.getInstance().runRemindLogin(this);
+		}
+	}
+
+	/**
+	 * Monthly top voter award.
+	 *
+	 * @param place
+	 *            the place
+	 */
+	public void monthlyTopVoterAward(int place) {
+		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
+			// online
+			giveMonthlyTopVoterAward(place);
+		} else {
+			addOfflineOtherReward("MonthlyTopVoter" + place);
+		}
+	}
+
+	/**
+	 * Off vote.
+	 */
+	public void offVote() {
+		Player player = getPlayer();
+		if (player != null) {
+			setTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+			ArrayList<String> offlineVotes = getOfflineVotes();
+			if (offlineVotes.size() > 0) {
+				sendVoteEffects(true);
+			}
+
+			for (int i = 0; i < offlineVotes.size(); i++) {
+				if (plugin.hasVoteSite(offlineVotes.get(i))) {
+					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+				}
+			}
+			setOfflineVotes(new ArrayList<String>());
+
+			giveOfflineOtherRewards();
+		}
+	}
+
+	/**
 	 * Player vote.
 	 *
 	 * @param voteSite
@@ -607,8 +666,33 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setInt("AllTimeTotal", allTimeTotal);
 	}
 
+	public void setBestDayVoteStreak(int streak) {
+		getData().setInt("BestDayVoteStreak", streak);
+	}
+
+	public void setBestMonthVoteStreak(int streak) {
+		getData().setInt("BestMonthVoteStreak", streak);
+	}
+
+	public void setBestWeekVoteStreak(int streak) {
+		getData().setInt("BestWeekVoteStreak", streak);
+	}
+
 	public void setDailyTotal(int total) {
 		getUserData().setInt("DailyTotal", total);
+	}
+
+	public void setDayVoteStreak(int streak) {
+		getData().setInt("DayVoteStreak", streak);
+		if (getBestDayVoteStreak() < streak) {
+			setBestDayVoteStreak(streak);
+		}
+	}
+
+	public void setHasGotteMilestone(int votesRequired, boolean b) {
+		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
+		hasGottenMilestone.put("" + votesRequired, b);
+		setHasGottenMilestone(hasGottenMilestone);
 	}
 
 	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
@@ -620,6 +704,18 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setStringList("GottenMileStones", data);
 	}
 
+	public void setHighestDailyTotal(int total) {
+		getData().setInt("HighestDailyTotal", total);
+	}
+
+	public void setHighestMonthlyTotal(int total) {
+		getData().setInt("HighestMonthlyTotal", total);
+	}
+
+	public void setHighestWeeklyTotal(int total) {
+		getData().setInt("HighestWeeklyTotal", total);
+	}
+
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
 		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
@@ -627,6 +723,17 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			data.add(str);
 		}
 		getUserData().setStringList("LastVotes", data);
+	}
+
+	public void setMonthTotal(int total) {
+		getData().setInt("MonthTotal", total);
+	}
+
+	public void setMonthVoteStreak(int streak) {
+		getData().setInt("MonthVoteStreak", streak);
+		if (getBestMonthVoteStreak() < streak) {
+			setBestMonthVoteStreak(streak);
+		}
 	}
 
 	public void setOfflineOtherRewards(ArrayList<String> offlineOtherRewards) {
@@ -651,12 +758,33 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getUserData().setString("Reminded", "" + reminded);
 	}
 
+	public void setTime(VoteSite voteSite) {
+		setTime(voteSite, LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+	}
+
+	public void setTime(VoteSite voteSite, Long time) {
+		HashMap<VoteSite, Long> lastVotes = getLastVotes();
+		lastVotes.put(voteSite, time);
+		setLastVotes(lastVotes);
+	}
+
+	public void setTopVoterIgnore(boolean topVoterIgnore) {
+		getUserData().setString("TopVoterIgnore", "" + topVoterIgnore);
+	}
+
 	public void setVotePartyVotes(int value) {
 		getUserData().setInt("VotePartyVotes", value);
 	}
 
 	public void setWeeklyTotal(int total) {
 		getUserData().setInt("WeeklyTotal", total);
+	}
+
+	public void setWeekVoteStreak(int streak) {
+		getData().setInt("WeekVoteStreak", streak);
+		if (getBestWeekVoteStreak() < streak) {
+			setBestWeekVoteStreak(streak);
+		}
 	}
 
 	/**
@@ -672,134 +800,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		} else {
 			addOfflineOtherReward("WeeklyTopVoter" + place);
 		}
-	}
-
-	public void addOfflineOtherReward(String reward) {
-		ArrayList<String> offlineOtherRewards = getOfflineOtherRewards();
-		offlineOtherRewards.add(reward);
-		setOfflineOtherRewards(offlineOtherRewards);
-	}
-
-	public void setHasGotteMilestone(int votesRequired, boolean b) {
-		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
-		hasGottenMilestone.put("" + votesRequired, b);
-		setHasGottenMilestone(hasGottenMilestone);
-	}
-
-	public void setTime(VoteSite voteSite) {
-		setTime(voteSite, LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
-	}
-
-	public void setTime(VoteSite voteSite, Long time) {
-		HashMap<VoteSite, Long> lastVotes = getLastVotes();
-		lastVotes.put(voteSite, time);
-		setLastVotes(lastVotes);
-	}
-
-	public void addOfflineVote(String voteSiteName) {
-		ArrayList<String> offlineVotes = getOfflineVotes();
-		offlineVotes.add(voteSiteName);
-		setOfflineVotes(offlineVotes);
-	}
-
-	public void clearTotals() {
-		setAllTimeTotal(0);
-		resetDailyTotalVotes();
-		resetMonthlyTotalVotes();
-		setWeeklyTotal(0);
-	}
-
-	public int getDayVoteStreak() {
-		return getData().getInt("DayVoteStreak");
-	}
-
-	public void setDayVoteStreak(int streak) {
-		getData().setInt("DayVoteStreak", streak);
-		if (getBestDayVoteStreak() < streak) {
-			setBestDayVoteStreak(streak);
-		}
-	}
-
-	public void addDayVoteStreak() {
-		setDayVoteStreak(getDayVoteStreak() + 1);
-	}
-
-	public int getBestDayVoteStreak() {
-		return getData().getInt("BestDayVoteStreak");
-	}
-
-	public void setBestDayVoteStreak(int streak) {
-		getData().setInt("BestDayVoteStreak", streak);
-	}
-
-	public int getMonthVoteStreak() {
-		return getData().getInt("MonthVoteStreak");
-	}
-
-	public void setMonthVoteStreak(int streak) {
-		getData().setInt("MonthVoteStreak", streak);
-		if (getBestMonthVoteStreak() < streak) {
-			setBestMonthVoteStreak(streak);
-		}
-	}
-
-	public void addMonthVoteStreak() {
-		setMonthVoteStreak(getMonthVoteStreak() + 1);
-	}
-
-	public int getBestMonthVoteStreak() {
-		return getData().getInt("BestMonthVoteStreak");
-	}
-
-	public void setBestMonthVoteStreak(int streak) {
-		getData().setInt("BestMonthVoteStreak", streak);
-	}
-
-	public int getWeekVoteStreak() {
-		return getData().getInt("WeekVoteStreak");
-	}
-
-	public void setWeekVoteStreak(int streak) {
-		getData().setInt("WeekVoteStreak", streak);
-		if (getBestWeekVoteStreak() < streak) {
-			setBestWeekVoteStreak(streak);
-		}
-	}
-
-	public void addWeekVoteStreak() {
-		setWeekVoteStreak(getWeekVoteStreak() + 1);
-	}
-
-	public int getBestWeekVoteStreak() {
-		return getData().getInt("BestWeekVoteStreak");
-	}
-
-	public void setBestWeekVoteStreak(int streak) {
-		getData().setInt("BestWeekVoteStreak", streak);
-	}
-
-	public int getHighestDailyTotal() {
-		return getData().getInt("HighestDailyTotal");
-	}
-
-	public void setHighestDailyTotal(int total) {
-		getData().setInt("HighestDailyTotal", total);
-	}
-
-	public int getHighestWeeklyTotal() {
-		return getData().getInt("HighestWeeklyTotal");
-	}
-
-	public void setHighestWeeklyTotal(int total) {
-		getData().setInt("HighestWeeklyTotal", total);
-	}
-
-	public int getHighestMonthlyTotal() {
-		return getData().getInt("HighestMonthlyTotal");
-	}
-
-	public void setHighestMonthlyTotal(int total) {
-		getData().setInt("HighestMonthlyTotal", total);
 	}
 
 }

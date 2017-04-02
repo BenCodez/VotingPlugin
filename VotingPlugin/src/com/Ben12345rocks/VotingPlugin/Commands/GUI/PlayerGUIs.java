@@ -52,6 +52,44 @@ public class PlayerGUIs {
 		return str;
 	}
 
+	public void openVoteBest(Player player, User user) {
+		setSelectedPlayer(player, user);
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteBestName(), "player", user.getPlayerName()));
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
+				.addPlaceholder("Best", "" + user.getBestDayVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestWeekBestItem())
+				.addPlaceholder("Best", "" + user.getBestWeekVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestMonthBestItem())
+				.addPlaceholder("Best", "" + user.getBestMonthVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.openInventory(player);
+	}
+
 	public void openVoteGUI(Player player, User user) {
 		if (!player.getName().equals(user.getPlayerName())
 				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
@@ -171,6 +209,76 @@ public class PlayerGUIs {
 						}
 					});
 		}
+		inv.openInventory(player);
+	}
+
+	public void openVoteStreak(Player player, User user) {
+		setSelectedPlayer(player, user);
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteStreakName(), "player", user.getPlayerName()));
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentDayStreakItem())
+				.addPlaceholder("Streak", "" + user.getDayVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentWeekStreakItem())
+				.addPlaceholder("Streak", "" + user.getWeekVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(
+				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentMonthStreakItem())
+						.addPlaceholder("Streak", "" + user.getMonthVoteStreak())) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						Player player = clickEvent.getPlayer();
+						openVoteBest(player, getSelectedPlayer(player));
+					}
+				});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestDayStreakItem())
+				.addPlaceholder("Streak", "" + user.getBestDayVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestWeekStreakItem())
+				.addPlaceholder("Streak", "" + user.getBestWeekVoteStreak())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Player player = clickEvent.getPlayer();
+				openVoteBest(player, getSelectedPlayer(player));
+			}
+		});
+
+		inv.addButton(
+				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestMonthStreakItem())
+						.addPlaceholder("Streak", "" + user.getBestMonthVoteStreak())) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						Player player = clickEvent.getPlayer();
+						openVoteBest(player, getSelectedPlayer(player));
+					}
+				});
+
 		inv.openInventory(player);
 	}
 
@@ -452,113 +560,5 @@ public class PlayerGUIs {
 		}
 
 		BInventory.openInventory(player, inv);
-	}
-
-	public void openVoteBest(Player player, User user) {
-		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteBestName(), "player", user.getPlayerName()));
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
-				.addPlaceholder("Best", "" + user.getBestDayVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestWeekBestItem())
-				.addPlaceholder("Best", "" + user.getBestWeekVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestMonthBestItem())
-				.addPlaceholder("Best", "" + user.getBestMonthVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.openInventory(player);
-	}
-
-	public void openVoteStreak(Player player, User user) {
-		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteStreakName(), "player", user.getPlayerName()));
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentDayStreakItem())
-				.addPlaceholder("Streak", "" + user.getDayVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentWeekStreakItem())
-				.addPlaceholder("Streak", "" + user.getWeekVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentMonthStreakItem())
-						.addPlaceholder("Streak", "" + user.getMonthVoteStreak())) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						Player player = clickEvent.getPlayer();
-						openVoteBest(player, getSelectedPlayer(player));
-					}
-				});
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestDayStreakItem())
-				.addPlaceholder("Streak", "" + user.getBestDayVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestWeekStreakItem())
-				.addPlaceholder("Streak", "" + user.getBestWeekVoteStreak())) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
-			}
-		});
-
-		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestMonthStreakItem())
-						.addPlaceholder("Streak", "" + user.getBestMonthVoteStreak())) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						Player player = clickEvent.getPlayer();
-						openVoteBest(player, getSelectedPlayer(player));
-					}
-				});
-
-		inv.openInventory(player);
 	}
 }
