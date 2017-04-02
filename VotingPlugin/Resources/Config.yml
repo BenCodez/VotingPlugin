@@ -610,7 +610,7 @@ Cumulative:
     VotesInSameWeek: false
     Rewards: 
       Messages:
-        Player: 'You got %cumulative% cumulative votes!'
+        Player: '&aYou got %cumulative% cumulative votes!'
 
 VoteParty:
   # Wether or not vote party is enabled
@@ -636,7 +636,7 @@ MileStones:
     Enabled: false
     Rewards: 
       Messages:
-        Player: 'You got %milestone% milestone votes!'
+        Player: '&aYou got %milestone% milestone votes!'
     ResetMonthly: false
     
 VoteStreak:
@@ -713,24 +713,26 @@ EnableMonthlyAwards: true
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
   1:
-    # Reward files to give
-    Rewards:
-    - 'TopVoter1'
+   Rewards:
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'TopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 EnableWeeklyAwards: false
 # Rewards to give on weekly top voter
 WeeklyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
   1:
-    # Reward files to give
     Rewards:
-    - 'WeeklyTopVoter1'
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'WeeklyTopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 EnableDailyRewards: false
 # Rewards to give on daily top voter
@@ -739,9 +741,11 @@ DailyAwards:
   1:
     # Reward files to give
     Rewards:
-    - 'DailyTopVoter1'
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'DailyTopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 

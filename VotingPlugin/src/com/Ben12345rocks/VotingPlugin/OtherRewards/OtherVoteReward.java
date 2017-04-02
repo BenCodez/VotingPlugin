@@ -68,7 +68,11 @@ public class OtherVoteReward implements Listener {
 	 * @return true, if successful
 	 */
 	public boolean checkAllSites(User user) {
-		return user.checkAllVotes();
+		boolean checkAllVotes = user.checkAllVotes();
+		if (checkAllVotes) {
+			giveAllSitesRewards(user, user.isOnline());
+		}
+		return checkAllVotes;
 
 	}
 
@@ -89,22 +93,20 @@ public class OtherVoteReward implements Listener {
 					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)
 							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 									Config.getInstance().getCumulativeRewardsPath(votesRequired))) {
+						int total = 0;
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
-							int userVotesTotal = user.getDailyTotal();
-							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
-							}
+							total = user.getDailyTotal();
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
-							int userVotesTotal = user.getWeeklyTotal();
-							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
-							}
+							total = user.getWeeklyTotal();
 						} else {
-							int userVotesTotal = user.getAllTimeTotal();
-							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
-							}
+							total = user.getAllTimeTotal();
 						}
+
+						if ((total % votesRequired) == 0 && total != 0) {
+							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
+							gotCumulative = true;
+						}
+
 						if (gotCumulative) {
 							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						}
@@ -169,6 +171,7 @@ public class OtherVoteReward implements Listener {
 		if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
+				giveFirstVoteRewards(user, user.isOnline());
 				return true;
 			}
 

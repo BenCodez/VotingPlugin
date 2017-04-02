@@ -101,14 +101,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addPoints(int value) {
 		setPoints(getPoints() + value);
 	}
-
+	
 	/**
 	 * Adds the total.
 	 *
-	 * @param voteSite
-	 *            the vote site
 	 */
-	public void addTotal(VoteSite voteSite) {
+	public void addTotal() {
 		addMonthTotal();
 		addAllTimeTotal();
 	}
