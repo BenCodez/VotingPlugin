@@ -608,7 +608,9 @@ Cumulative:
     # for a daily/weekly reward instead of all of them
     VotesInSameDay: false
     VotesInSameWeek: false
-    Rewards: []
+    Rewards: 
+      Messages:
+        Player: 'You got %cumulative% cumulative votes!'
 
 VoteParty:
   # Wether or not vote party is enabled
@@ -632,7 +634,9 @@ MileStones:
   # Can have multiple listed here
   '20':
     Enabled: false
-    Rewards: []
+    Rewards: 
+      Messages:
+        Player: 'You got %milestone% milestone votes!'
     ResetMonthly: false
     
 VoteStreak:
@@ -645,7 +649,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for 2 days in a row!'
+          Player: '&aYou voted for %Streak% %Type%'s in a row!'
   Week:
     # Number of days in a row
     '2':
@@ -654,7 +658,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for 2 weeks in a row!'
+          Player: '&aYou voted for %Streak% %Type%'s in a row!'
   Month:
     # Number of days in a row
     '2':
@@ -663,7 +667,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for 2 months in a row!'          
+          Player: '&aYou voted for %Streak% %Type%'s in a row!'          
           
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS

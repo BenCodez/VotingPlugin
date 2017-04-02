@@ -427,7 +427,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void loginMessage() {
 		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
-			VoteReminding.getInstance().runRemind(this);
+			VoteReminding.getInstance().runRemindLogin(this);
 		}
 	}
 

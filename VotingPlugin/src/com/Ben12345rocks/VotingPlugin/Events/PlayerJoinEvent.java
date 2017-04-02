@@ -51,13 +51,13 @@ public class PlayerJoinEvent implements Listener {
 				}
 				Player player = event.getPlayer();
 
-				if (player != null
-						&& UserManager.getInstance().getAllUUIDs().contains(player.getUniqueId().toString())) {
+				if (player != null) {
 					User user = UserManager.getInstance().getVotingPluginUser(player);
-
-					// give offline vote (if they voted
-					// offline)
-					user.offVote();
+					if (UserManager.getInstance().getAllUUIDs().contains(player.getUniqueId().toString())) {
+						// give offline vote (if they voted
+						// offline)
+						user.offVote();
+					}
 
 					// run remind
 					user.loginMessage();

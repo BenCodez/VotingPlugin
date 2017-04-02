@@ -106,5 +106,14 @@ public class VoteReminding {
 
 		}
 	}
+	
+	public void runRemindLogin(User user) {
+		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll()) {
+			RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+					Config.getInstance().getVoteRemindingRewardsPath());
+			plugin.debug(user.getPlayerName() + " was reminded!");
+
+		}
+	}
 
 }
