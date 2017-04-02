@@ -71,6 +71,26 @@ public class PlaceHolders {
 			}
 		}
 
+		if (identifier.equalsIgnoreCase("BestDailyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestDailyTotal();
+		} else if (identifier.equalsIgnoreCase("BestWeeklyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestWeeklyTotal();
+		} else if (identifier.equalsIgnoreCase("BestMonthlyTotal")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestMonthlyTotal();
+		} else if (identifier.equalsIgnoreCase("DailyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getDayVoteStreak();
+		} else if (identifier.equalsIgnoreCase("WeeklyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getWeekVoteStreak();
+		} else if (identifier.equalsIgnoreCase("MonthlyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getMonthVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestDailyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestDayVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestWeeklyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestWeekVoteStreak();
+		} else if (identifier.equalsIgnoreCase("BestMonthlyVoteStreak")) {
+			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestMonthVoteStreak();
+		}
+
 		// %VotingPlugin_points% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("points")) {
 			return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getPoints());
@@ -90,8 +110,12 @@ public class PlaceHolders {
 
 		// %VotingPlugin_next_SITENAME% - Next time you can vote for voteSite
 		if (startsWithIgnoreCase(identifier, "next")) {
-			if (identifier.split("_").length > 1) {
-				return playerNextVote(p, identifier.split("_")[1]);
+			if (args.length > 1) {
+				String str = args[1];
+				for (int i = 2; i < args.length; i++) {
+					str += "_" + args[i];
+				}
+				return playerNextVote(p, str);
 			} else {
 				return "";
 			}
@@ -99,8 +123,12 @@ public class PlaceHolders {
 
 		// %VotingPlugin_last_SITENAME% - Next time you can vote for voteSite
 		if (startsWithIgnoreCase(identifier, "last")) {
-			if (identifier.split("_").length > 1) {
-				return playerLastVote(p, identifier.split("_")[1]);
+			if (args.length > 1) {
+				String str = args[1];
+				for (int i = 2; i < args.length; i++) {
+					str += "_" + args[i];
+				}
+				return playerLastVote(p, str);
 			}
 		}
 		if (args.length > 2) {
@@ -111,28 +139,44 @@ public class PlaceHolders {
 					if (args[1].equalsIgnoreCase("all")) {
 						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
 						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
 						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
 						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
 							if (num == number) {
-								return entry.getKey().getPlayerName();
+								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
+									return "" + entry.getValue().intValue();
+								} else {
+									return entry.getKey().getPlayerName();
+								}
 							}
 							num++;
 						}

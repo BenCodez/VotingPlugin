@@ -7,10 +7,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -151,14 +150,18 @@ public class VoteParty implements Listener {
 	 *            the user
 	 */
 	public void giveReward(User user) {
-		if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) {
-			if (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
-				RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-						Config.getInstance().getVotePartyRewardsPath());
-			}
-		} else {
-			user.addOfflineOtherReward("VoteParty");
-		}
+		/*
+		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) {
+		 * if (user.getVotePartyVotes() >=
+		 * Config.getInstance().getUserVotesRequired()) {
+		 * RewardHandler.getInstance().giveReward(user,
+		 * Config.getInstance().getData(),
+		 * Config.getInstance().getVotePartyRewardsPath()); } } else {
+		 * user.addOfflineOtherReward("VoteParty"); }
+		 */
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVotePartyRewardsPath())
+				.setOnline(user.isOnline())
+				.withPlaceHolder("VotesRequired", "" + Config.getInstance().getVotePartyVotesRequired()).send(user);
 	}
 
 	/**

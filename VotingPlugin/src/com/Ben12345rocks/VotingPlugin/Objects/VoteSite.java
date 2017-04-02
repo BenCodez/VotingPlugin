@@ -2,7 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Objects;
 
 import org.bukkit.Bukkit;
 
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -85,6 +85,20 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the displayName
+	 */
+	public String getDisplayName() {
+		return displayName;
+	}
+
+	/**
+	 * @return the key
+	 */
+	public String getKey() {
+		return key;
+	}
+
+	/**
 	 * Gets the priority.
 	 *
 	 * @return the priority
@@ -129,8 +143,9 @@ public class VoteSite {
 	 *            the online
 	 */
 	public void giveRewards(User user, boolean online) {
-		RewardHandler.getInstance().giveReward(user, configVoteSites.getData(), configVoteSites.getRewardsPath(key),
-				online);
+		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
+				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
+				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
 	}
 
 	/**
@@ -161,25 +176,12 @@ public class VoteSite {
 	}
 
 	/**
-	 * @return the key
+	 * Checks if is enabled.
+	 *
+	 * @return true, if is enabled
 	 */
-	public String getKey() {
-		return key;
-	}
-
-	/**
-	 * @param key
-	 *            the key to set
-	 */
-	public void setKey(String key) {
-		this.key = key;
-	}
-
-	/**
-	 * @return the displayName
-	 */
-	public String getDisplayName() {
-		return displayName;
+	public boolean isEnabled() {
+		return enabled;
 	}
 
 	/**
@@ -191,15 +193,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * Checks if is enabled.
-	 *
-	 * @return true, if is enabled
-	 */
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	/**
 	 * Sets the enabled.
 	 *
 	 * @param enabled
@@ -207,6 +200,14 @@ public class VoteSite {
 	 */
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	/**
+	 * @param key
+	 *            the key to set
+	 */
+	public void setKey(String key) {
+		this.key = key;
 	}
 
 	/**

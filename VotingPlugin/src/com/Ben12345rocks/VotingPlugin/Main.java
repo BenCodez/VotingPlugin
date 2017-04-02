@@ -27,6 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
@@ -117,6 +118,57 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public void convertDataStorage(UserStorage from, UserStorage to) {
+		if (from == null || to == null) {
+			throw new RuntimeException("Invalid Storage Method");
+		}
+		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			try {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+
+				AdvancedCoreHook.getInstance().setStorageType(from);
+
+				ArrayList<String> choiceRewards = user.getChoiceRewards();
+				String inputMethod = user.getInputMethod();
+				ArrayList<String> offlineRewards = user.getOfflineRewards();
+				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
+				int allTime = user.getAllTimeTotal();
+				int dailyTotal = user.getDailyTotal();
+				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
+				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
+				int monthTotals = user.getMonthTotal();
+				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
+				ArrayList<String> offlineVotes = user.getOfflineVotes();
+				int points = user.getPoints();
+				int votePartyVotes = user.getVotePartyVotes();
+				int weeklyTotal = user.getWeeklyTotal();
+
+				AdvancedCoreHook.getInstance().setStorageType(to);
+
+				user.setChoiceRewards(choiceRewards);
+				user.setInputMethod(inputMethod);
+				user.setOfflineRewards(offlineRewards);
+				user.setTimedRewards(timed);
+				user.setAllTimeTotal(allTime);
+				user.setDailyTotal(dailyTotal);
+				user.setHasGottenMilestone(mileStone);
+				user.setLastVotes(lastVotes);
+				user.setMonthTotal(monthTotals);
+				user.setOfflineOtherRewards(otherRewards);
+				user.setOfflineVotes(offlineVotes);
+				user.setPoints(points);
+				user.setVotePartyVotes(votePartyVotes);
+				user.setWeeklyTotal(weeklyTotal);
+			} catch (Exception e) {
+				AdvancedCoreHook.getInstance().debug(e);
+				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
+						+ ", turn debug on to see full stack traces");
+			}
+		}
+		AdvancedCoreHook.getInstance().setStorageType(cur);
+	}
+
 	public ArrayList<User> convertSet(Set<User> set) {
 		return new ArrayList<User>(set);
 	}
@@ -194,6 +246,16 @@ public class Main extends JavaPlugin {
 		return voteSites;
 	}
 
+	public boolean hasVoteSite(String site) {
+		String siteName = getVoteSiteName(site);
+		for (VoteSite voteSite : getVoteSites()) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Load vote sites.
 	 */
@@ -253,9 +315,9 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getFirstVoteRewardsPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
 			}
 		});
@@ -265,9 +327,9 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getAllSitesRewardPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
 			}
 		});
@@ -320,10 +382,63 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getAnySiteRewardsPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakday") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Day")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Day", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Day", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
+			}
+		});
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakweek") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Week")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Week", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Week", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
+			}
+		});
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakmonth") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Month")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Month", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Month", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofsites") {
@@ -366,9 +481,9 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				int total = UserManager.getInstance().getAllUUIDs().size();
-				int num = (int) (total / 100);
+				int num = total / 100;
 				num = num * 100;
-				int num2 = (int) ((total + 100) / 100);
+				int num2 = (total + 100) / 100;
 				num2 = num2 * 100;
 				return "" + num + "-" + num2;
 			}
@@ -441,6 +556,20 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				return "" + Config.getInstance().getCommandsUseGUIVote();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Best") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIBest();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Streak") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIStreak();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
@@ -623,6 +752,10 @@ public class Main extends JavaPlugin {
 		});
 	}
 
+	public void setUpdate(boolean update) {
+		this.update = update;
+	}
+
 	/**
 	 * Setup files.
 	 */
@@ -667,11 +800,9 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public void setUpdate(boolean update) {
-		this.update = update;
-	}
-
 	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358, "VotingPlugin");
+		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {
@@ -699,67 +830,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
-	}
-
-	public void convertDataStorage(UserStorage from, UserStorage to) {
-		if (from == null || to == null) {
-			throw new RuntimeException("Invalid Storage Method");
-		}
-		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			try {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-
-				AdvancedCoreHook.getInstance().setStorageType(from);
-
-				ArrayList<String> choiceRewards = user.getChoiceRewards();
-				String inputMethod = user.getInputMethod();
-				ArrayList<String> offlineRewards = user.getOfflineRewards();
-				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
-				int allTime = user.getAllTimeTotal();
-				int dailyTotal = user.getDailyTotal();
-				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
-				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
-				int monthTotals = user.getMonthTotal();
-				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
-				ArrayList<String> offlineVotes = user.getOfflineVotes();
-				int points = user.getPoints();
-				int votePartyVotes = user.getVotePartyVotes();
-				int weeklyTotal = user.getWeeklyTotal();
-
-				AdvancedCoreHook.getInstance().setStorageType(to);
-
-				user.setChoiceRewards(choiceRewards);
-				user.setInputMethod(inputMethod);
-				user.setOfflineRewards(offlineRewards);
-				user.setTimedRewards(timed);
-				user.setAllTimeTotal(allTime);
-				user.setDailyTotal(dailyTotal);
-				user.setHasGottenMilestone(mileStone);
-				user.setLastVotes(lastVotes);
-				user.setMonthTotal(monthTotals);
-				user.setOfflineOtherRewards(otherRewards);
-				user.setOfflineVotes(offlineVotes);
-				user.setPoints(points);
-				user.setVotePartyVotes(votePartyVotes);
-				user.setWeeklyTotal(weeklyTotal);
-			} catch (Exception e) {
-				AdvancedCoreHook.getInstance().debug(e);
-				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
-						+ ", turn debug on to see full stack traces");
-			}
-		}
-		AdvancedCoreHook.getInstance().setStorageType(cur);
-	}
-
-	public boolean hasVoteSite(String site) {
-		String siteName = getVoteSiteName(site);
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 }

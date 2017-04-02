@@ -7,7 +7,7 @@
 # - SQLITE
 # - FLAT
 # - MYSQL
-DataStorage: FLAT
+DataStorage: SQLITE
 
 # Information for mysql
 MySQL:
@@ -26,6 +26,10 @@ CheckOnWorldChange: false
 
 # Debug
 Debug: false
+
+# Extra Debug
+# Only needed in extreme cases
+ExtraDebug: false
 
 # Debug info ingame
 # Players with permission "VotingPlugin.Debug"
@@ -131,6 +135,8 @@ Commands:
     Next: true
     Total: true
     Vote: true
+    Best: true
+    Streak: true
     
 # ------------------------------------------------
 # Format
@@ -239,7 +245,25 @@ Format:
         Line: '&3&l%Command% - &3%HelpMessage%'
         # Require permission to see command in /v help or /av help
         RequirePermission: true
-
+        
+      Best:
+        Title: '&3&l%player% Best Votes'
+        Lines:
+        - '&3Highest Daily Total: &3&l%HighestDailyTotal%'
+        - '&3Highest Week Total: &3&l%HighestWeeklyTotal%'
+        - '&3Highest Month Total: &3&l%HighestMonthlyTotal%'
+        
+      Streak:
+        Title: '&3&l%player% Vote Streak'
+        Lines:
+        - '&3Current Daily Streak: &3&l%DailyStreak%'
+        - '&3Current Week Streak: &3&l%WeeklyStreak%'
+        - '&3Current Month Streak: &3&l%MonthlyStreak%'
+        - '&3&lHighest Streaks:'
+        - '&3Highest Daily Streak: &3&l%BestDailyStreak%'
+        - '&3Highest Week Streak: &3&l%BestWeeklyStreak%'
+        - '&3Highest Month Streak: &3&l%BestMonthlyStreak%'
+        
       # PlaceHolders:
       # %VotesRequired% = VotesRequired
       # %NeededVotes% = Number of votes needed to reach VotesRequired
@@ -463,6 +487,64 @@ GUI:
         Name: '&cAllTime Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
+  VoteBest:
+    Name: 'VoteBest: %player%'
+    DayBest:
+      Item:
+        Material: 'WATCH'
+        Name: '&cDaily Best'
+        Lore: '&c&lBest: &c%Best%'
+        Amount: 1
+    WeekBest:
+      Item:
+        Material: 'WATCH'
+        Name: '&cWeekly Best'
+        Lore: '&c&lBest: &c%Best%'
+        Amount: 1
+    MonthBest:
+      Item:
+        Material: 'WATCH'
+        Name: '&cMonthly Best'
+        Lore: '&c&lBest: &c%Best%'
+        Amount: 1
+  VoteStreak:
+    Name: 'VoteBest: %player%'
+    CurrentDayStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cCurrent Daily Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
+    CurrentWeekStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cCurrent Weekly Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
+    CurrentMonthStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cCurrent Monthly Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
+    HighestDayStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cHighest Daily Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
+    HighestWeekStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cHighest Weekly Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
+    HighestMonthStreak:
+      Item:
+        Material: 'WATCH'
+        Name: '&cHighest Monthly Streak'
+        Lore: '&c&lStreak: &c%Streak%'
+        Amount: 1
   VoteURLSite:
     Name: 'VoteSite: %site%'
   VoteGUIName: '&cVoteGUI: &c&l%player%'
@@ -526,7 +608,9 @@ Cumulative:
     # for a daily/weekly reward instead of all of them
     VotesInSameDay: false
     VotesInSameWeek: false
-    Rewards: []
+    Rewards: 
+      Messages:
+        Player: '&aYou got %cumulative% cumulative votes!'
 
 VoteParty:
   # Wether or not vote party is enabled
@@ -550,8 +634,41 @@ MileStones:
   # Can have multiple listed here
   '20':
     Enabled: false
-    Rewards: []
+    Rewards: 
+      Messages:
+        Player: '&aYou got %milestone% milestone votes!'
     ResetMonthly: false
+    
+VoteStreak:
+  # Valid options: Day, Week, Month
+  Day:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Week:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Month:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+          
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
 # IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES
@@ -596,24 +713,26 @@ EnableMonthlyAwards: true
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
   1:
-    # Reward files to give
-    Rewards:
-    - 'TopVoter1'
+   Rewards:
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'TopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 EnableWeeklyAwards: false
 # Rewards to give on weekly top voter
 WeeklyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
   1:
-    # Reward files to give
     Rewards:
-    - 'WeeklyTopVoter1'
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'WeeklyTopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 EnableDailyRewards: false
 # Rewards to give on daily top voter
@@ -622,9 +741,11 @@ DailyAwards:
   1:
     # Reward files to give
     Rewards:
-    - 'DailyTopVoter1'
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
   2:
     Rewards:
-    - 'DailyTopVoter2'
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
     
 

@@ -53,6 +53,12 @@ commands:
   voteshop:
     description: A command
     aliases: vshop
+  votebest:
+    description: A command
+    aliases: vbest
+  votestreak:
+    description: A command
+    aliases: vstreak
   votepoints:
     description: A command
     aliases: vpoints
@@ -74,6 +80,9 @@ commands:
   adminvoteperms:
     description: Command Alias
     aliases: avperms
+  adminvoteDownload:
+    description: Command Alias
+    aliases: avdownload
   adminvotereload:
     description: Command Alias
     aliases: avreload

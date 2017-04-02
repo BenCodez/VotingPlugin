@@ -270,6 +270,22 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
+	public void topVoterAll(CommandSender sender, int page) {
+		if (sender instanceof Player) {
+			User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+			user.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					Commands.getInstance().sendTopVoterAllTimeScoreBoard((Player) sender, page);
+				}
+			});
+		} else {
+			sender.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
+		}
+	}
+
 	/**
 	 * Top voter daily.
 	 *
@@ -319,22 +335,6 @@ public class CommandVote implements CommandExecutor {
 			sender.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
 		}
 
-	}
-
-	public void topVoterAll(CommandSender sender, int page) {
-		if (sender instanceof Player) {
-			User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-			user.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-			Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					Commands.getInstance().sendTopVoterAllTimeScoreBoard((Player) sender, page);
-				}
-			});
-		} else {
-			sender.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-		}
 	}
 
 	/**

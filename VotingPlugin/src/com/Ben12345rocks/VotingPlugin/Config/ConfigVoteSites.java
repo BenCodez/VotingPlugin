@@ -60,9 +60,7 @@ public class ConfigVoteSites extends YMLFile {
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, 24);
-			ArrayList<String> rewards = new ArrayList<String>();
-			rewards.add(siteName);
-			setRewards(siteName, rewards);
+			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
 		}
@@ -105,6 +103,10 @@ public class ConfigVoteSites extends YMLFile {
 		return data;
 	}
 
+	public String getDisplayName(String site) {
+		return getData(site).getString("Name");
+	}
+
 	/**
 	 * Gets the priority.
 	 *
@@ -136,10 +138,6 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getServiceSite(String siteName) {
 		return getData(siteName).getString("ServiceSite");
-	}
-
-	public String getDisplayName(String site) {
-		return getData(site).getString("Name");
 	}
 
 	/**
@@ -351,6 +349,10 @@ public class ConfigVoteSites extends YMLFile {
 		set(siteName, "Cumulative.Votes", value);
 	}
 
+	public void setDisplayName(String siteName, String value) {
+		set(siteName, "Name", value);
+	}
+
 	/**
 	 * Sets the enabled.
 	 *
@@ -440,10 +442,6 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
-	}
-
-	public void setDisplayName(String siteName, String value) {
-		set(siteName, "Name", value);
 	}
 
 }

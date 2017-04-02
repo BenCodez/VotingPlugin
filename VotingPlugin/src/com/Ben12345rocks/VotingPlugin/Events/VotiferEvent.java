@@ -41,118 +41,69 @@ public class VotiferEvent implements Listener {
 	 * @param voteSiteURL
 	 *            the vote site URL
 	 */
-	public static synchronized void playerVote(final String playerName, final String voteSiteURL) {
+	public static void playerVote(final String playerName, final String voteSiteURL) {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-				User user = UserManager.getInstance().getVotingPluginUser(playerName);
-				if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
-					plugin.getLogger().warning("Player " + playerName
-							+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
-					return;
+				synchronized (plugin) {
+
+					User user = UserManager.getInstance().getVotingPluginUser(playerName);
+					if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
+						plugin.getLogger().warning("Player " + playerName
+								+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+						return;
+					}
+
+					VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
+					if (voteSite == null) {
+						if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
+							plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
+						}
+						return;
+					}
+
+					// vote party
+					if (Config.getInstance().getVotePartyEnabled()) {
+						VoteParty.getInstance().addTotal(user);
+						VoteParty.getInstance().addVotePlayer(user);
+						VoteParty.getInstance().check();
+					}
+
+					// broadcast vote if enabled in config
+					if (config.getBroadCastVotesEnabled()) {
+						if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
+							voteSite.broadcastVote(user);
+						}
+					}
+
+					// update last vote time
+					user.setTime(voteSite);
+
+					OtherVoteReward.getInstance().checkFirstVote(user);
+
+					// add to total votes
+					user.addTotal();
+					user.addTotalDaily();
+					user.addTotalWeekly();
+					user.addPoints();
+
+					user.setReminded(false);
+
+					// check if player has voted on all sites in one day
+
+					OtherVoteReward.getInstance().checkAllSites(user);
+					OtherVoteReward.getInstance().checkCumualativeVotes(user);
+					OtherVoteReward.getInstance().checkMilestone(user);
+
+					if (user.isOnline()) {
+						user.playerVote(voteSite, true, false);
+					} else {
+						user.addOfflineVote(voteSite.getKey());
+						plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());
+					}
+
+					plugin.setUpdate(true);
 				}
-
-				VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
-				if (voteSite == null) {
-					if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
-						plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
-					}
-					return;
-				}
-
-				// vote party
-				if (Config.getInstance().getVotePartyEnabled()) {
-					VoteParty.getInstance().addTotal(user);
-					VoteParty.getInstance().addVotePlayer(user);
-					VoteParty.getInstance().check();
-				}
-
-				// broadcast vote if enabled in config
-				if (config.getBroadCastVotesEnabled()) {
-					if (!Config.getInstance().getFormatBroadcastWhenOnline()) {
-						voteSite.broadcastVote(user);
-					} else if (user.isOnline()) {
-						voteSite.broadcastVote(user);
-					}
-				}
-
-				// update last vote time
-				user.setTime(voteSite);
-
-				boolean firstVote = OtherVoteReward.getInstance().checkFirstVote(user);
-
-				// add to total votes
-				user.addTotal(voteSite);
-				user.addTotalDaily();
-				user.addTotalWeekly();
-				user.addPoints();
-
-				user.setReminded(false);
-
-				// check if player has voted on all sites in one day
-
-				boolean allSites = OtherVoteReward.getInstance().checkAllSites(user);
-				boolean cumulativeVotes = OtherVoteReward.getInstance().checkCumualativeVotes(user);
-				boolean milestone = OtherVoteReward.getInstance().checkMilestone(user);
-
-				if (user.isOnline()) {
-
-					user.playerVote(voteSite, true, false);
-
-					if (firstVote) {
-						plugin.debug("FirstVote: true");
-						OtherVoteReward.getInstance().giveFirstVoteRewards(user, true);
-
-					}
-
-					if (allSites) {
-						plugin.debug("AllSites: true");
-						OtherVoteReward.getInstance().giveAllSitesRewards(user, true);
-
-					}
-
-					if (milestone) {
-						plugin.debug("Milestone: true");
-
-					}
-
-					if (cumulativeVotes) {
-						plugin.debug("Cumulative: true");
-					}
-
-					if (milestone || cumulativeVotes) {
-						user.giveOfflineOtherRewards();
-					}
-
-					user.sendVoteEffects(true);
-				} else {
-					if (firstVote) {
-						user.addOfflineOtherReward("FirstVote");
-						plugin.debug("Offline first vote reward set for " + playerName);
-					}
-
-					if (allSites) {
-						user.addOfflineOtherReward("AllSites");
-						plugin.debug("Offline bonus reward set for " + playerName);
-					}
-
-					if (cumulativeVotes) {
-						// cumulative votes are automaticly set offline
-						plugin.debug("Offline cumulative reward set for " + playerName);
-					}
-
-					if (milestone) {
-						// milestone votes are automaticly set offline
-						plugin.debug("Offline milestone reward set for " + playerName);
-					}
-
-					user.addOfflineVote(voteSite.getKey());
-
-					plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());
-
-				}
-
-				plugin.setUpdate(true);
 			}
 		});
 
