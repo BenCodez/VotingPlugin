@@ -1153,33 +1153,16 @@ public class Config extends YMLFile {
 		return getData().getInt("VotesRequired");
 	}
 
-	/**
-	 * Gets the cumulative reward enabled.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative reward enabled
-	 */
 	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
 		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
 	}
 
-	/**
-	 * Gets the cumulative rewards path
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
-	 */
+	
 	public String getVoteStreakRewardsPath(String type, int votestreak) {
 		return "VoteStreak." + type + "." + votestreak + ".Rewards";
 	}
 
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
+	
 	public Set<String> getVoteStreakVotes(String type) {
 		try {
 			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
