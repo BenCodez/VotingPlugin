@@ -649,7 +649,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for %Streak% %Type%'s in a row!'
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Week:
     # Number of days in a row
     '2':
@@ -658,7 +658,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for %Streak% %Type%'s in a row!'
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Month:
     # Number of days in a row
     '2':
@@ -667,7 +667,7 @@ VoteStreak:
       # Rewards to give
       Rewards:
         Messages:
-          Player: '&aYou voted for %Streak% %Type%'s in a row!'          
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
           
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS

@@ -27,6 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
@@ -253,9 +254,9 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getFirstVoteRewardsPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
 			}
 		});
@@ -265,9 +266,9 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getAllSitesRewardPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
 			}
 		});
@@ -320,10 +321,63 @@ public class Main extends JavaPlugin {
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getAnySiteRewardsPath())) {
-					return "False";
-				} else {
 					return "True";
+				} else {
+					return "False";
 				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakday") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Day")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Day", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Day", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
+			}
+		});
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakweek") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Week")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Week", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Week", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
+			}
+		});
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakmonth") {
+
+			@Override
+			public String getValue() {
+				for (String s : Config.getInstance().getVoteStreakVotes("Month")) {
+					if (StringUtils.getInstance().isInt(s)) {
+						int streak = Integer.parseInt(s);
+						if (Config.getInstance().getVoteStreakRewardEnabled("Month", streak)
+								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+										Config.getInstance().getVoteStreakRewardsPath("Month", streak))) {
+							return "True";
+						}
+					}
+				}
+				return "False";
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofsites") {
@@ -441,6 +495,20 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				return "" + Config.getInstance().getCommandsUseGUIVote();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Best") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIBest();
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Streak") {
+
+			@Override
+			public String getValue() {
+				return "" + Config.getInstance().getCommandsUseGUIStreak();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
