@@ -77,7 +77,7 @@ public class Config extends YMLFile {
 	public String getMySqlPassword() {
 		return getData().getString("MySQL.Password", "");
 	}
-	
+
 	public boolean getExtraDebug() {
 		return getData().getBoolean("ExtraDebug");
 	}
@@ -149,7 +149,7 @@ public class Config extends YMLFile {
 	public ConfigurationSection getGUIVoteStreakCurrentMonthStreakItem() {
 		return getData().getConfigurationSection("GUI.VoteStreak.CurrentMonthStreak.Item");
 	}
-	
+
 	public ConfigurationSection getGUIVoteStreakHighestDayStreakItem() {
 		return getData().getConfigurationSection("GUI.VoteStreak.HighestDayStreak.Item");
 	}
@@ -280,6 +280,45 @@ public class Config extends YMLFile {
 
 	public boolean getCommandsUseGUIVote() {
 		return getData().getBoolean("Commands.UseGUI.Vote", true);
+	}
+
+	/**
+	 * Gets the cumulative reward enabled.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative reward enabled
+	 */
+	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
+		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
+	}
+
+	/**
+	 * Gets the cumulative rewards path
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative rewards
+	 */
+	public String getVoteStreakRewardsPath(String type, int votestreak) {
+		return "VoteStreak." + type + "." + votestreak + ".Rewards";
+	}
+
+	/**
+	 * Gets the cumulative votes.
+	 *
+	 * @return the cumulative votes
+	 */
+	public Set<String> getVoteStreakVotes(String type) {
+		try {
+			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
 	}
 
 	/**

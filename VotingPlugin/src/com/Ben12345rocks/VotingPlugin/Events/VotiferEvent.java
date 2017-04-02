@@ -111,17 +111,8 @@ public class VotiferEvent implements Listener {
 
 					}
 
-					if (milestone) {
-						plugin.debug("Milestone: true");
-
-					}
-
-					if (cumulativeVotes) {
-						plugin.debug("Cumulative: true");
-					}
-
 					if (milestone || cumulativeVotes) {
-						user.giveOfflineOtherRewards();
+						//user.giveOfflineOtherRewards();
 					}
 
 					user.sendVoteEffects(true);

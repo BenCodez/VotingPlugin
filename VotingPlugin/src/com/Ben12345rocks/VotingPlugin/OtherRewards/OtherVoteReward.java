@@ -90,20 +90,17 @@ public class OtherVoteReward implements Listener {
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
 							int userVotesTotal = user.getDailyTotal();
 							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								gotCumulative = true;
+								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							}
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
 							int userVotesTotal = user.getWeeklyTotal();
 							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								gotCumulative = true;
+								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							}
 						} else {
 							int userVotesTotal = user.getAllTimeTotal();
 							if ((userVotesTotal % votesRequired) == 0 && userVotesTotal != 0) {
-								user.addOfflineOtherReward("Cumulative" + votesRequired);
-								gotCumulative = true;
+								giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							}
 						}
 						if (gotCumulative) {
@@ -116,6 +113,47 @@ public class OtherVoteReward implements Listener {
 			}
 		}
 		return gotCumulative;
+	}
+
+	public boolean checkVoteStreak(User user, String type) {
+		boolean gotReward = false;
+
+		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
+		for (String streak : streaks) {
+			if (StringUtils.getInstance().isInt(streak)) {
+				int streakRequired = Integer.parseInt(streak);
+				if (streakRequired != 0) {
+					if (Config.getInstance().getVoteStreakRewardEnabled(type, streakRequired)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath(type, streakRequired))) {
+						int curStreak = 0;
+						if (type.equalsIgnoreCase("day")) {
+							curStreak = user.getDayVoteStreak();
+						} else if (type.equalsIgnoreCase("week")) {
+							curStreak = user.getWeekVoteStreak();
+						} else if (type.equalsIgnoreCase("month")) {
+							curStreak = user.getMonthVoteStreak();
+						}
+						if (curStreak == streakRequired) {
+							giveVoteStreakReward(user, user.isOnline(), type, streakRequired);
+							gotReward = true;
+						}
+						if (gotReward) {
+							plugin.debug(user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
+						}
+					}
+				}
+			}
+
+		}
+
+		return gotReward;
+
+	}
+
+	public void giveVoteStreakReward(User user, boolean online, String type, int streak) {
+		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+				Config.getInstance().getVoteStreakRewardsPath(type, streak), online);
 	}
 
 	/**
@@ -156,10 +194,8 @@ public class OtherVoteReward implements Listener {
 
 						int userVotesTotal = user.getAllTimeTotal();
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
-							user.addOfflineOtherReward("MileStone" + votesRequired);
+							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
-							gotMilestone = true;
-
 							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
 						}

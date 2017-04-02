@@ -634,6 +634,37 @@ MileStones:
     Enabled: false
     Rewards: []
     ResetMonthly: false
+    
+VoteStreak:
+  # Valid options: Day, Week, Month
+  Day:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: '&aYou voted for 2 days in a row!'
+  Week:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: '&aYou voted for 2 days in a row!'
+  Month:
+    # Number of days in a row
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: '&aYou voted for 2 days in a row!'          
+          
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
 # IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES

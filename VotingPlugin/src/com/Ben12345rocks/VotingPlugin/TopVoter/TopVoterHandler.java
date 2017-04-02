@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -20,13 +21,13 @@ import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class TopVoterHandler implements Listener {
@@ -76,7 +77,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		Thread.getInstance().run(new Runnable() {
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -87,6 +88,7 @@ public class TopVoterHandler implements Listener {
 					} else {
 						user.addDayVoteStreak();
 					}
+					OtherVoteReward.getInstance().checkVoteStreak(user, "Day");
 
 					if (user.getHighestDailyTotal() < user.getDailyTotal()) {
 						user.setHighestDailyTotal(user.getDailyTotal());
@@ -120,7 +122,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		Thread.getInstance().run(new Runnable() {
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -130,6 +132,7 @@ public class TopVoterHandler implements Listener {
 						user.setMonthVoteStreak(0);
 					} else {
 						user.addMonthVoteStreak();
+						OtherVoteReward.getInstance().checkVoteStreak(user, "Month");
 					}
 
 					if (user.getHighestMonthlyTotal() < user.getMonthTotal()) {
@@ -162,7 +165,8 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		Thread.getInstance().run(new Runnable() {
+
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -172,6 +176,7 @@ public class TopVoterHandler implements Listener {
 						user.setWeekVoteStreak(0);
 					} else {
 						user.addWeekVoteStreak();
+						OtherVoteReward.getInstance().checkVoteStreak(user, "Week");
 					}
 
 					if (user.getHighestWeeklyTotal() < user.getWeeklyTotal()) {
