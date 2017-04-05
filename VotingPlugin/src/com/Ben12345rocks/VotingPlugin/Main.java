@@ -143,6 +143,16 @@ public class Main extends JavaPlugin {
 				int points = user.getPoints();
 				int votePartyVotes = user.getVotePartyVotes();
 				int weeklyTotal = user.getWeeklyTotal();
+				
+				int highestDailyTotal = user.getHighestDailyTotal();
+				int highestWeeklyTotal = user.getHighestWeeklyTotal();
+				int highestMonthlyTotal = user.getHighestMonthlyTotal();
+				int voteStreakDay = user.getDayVoteStreak();
+				int voteStreakWeek = user.getWeekVoteStreak();
+				int voteStreakMonth = user.getMonthVoteStreak();
+				int bestVoteStreakDay = user.getBestDayVoteStreak();
+				int bestVoteStreakWeek = user.getBestWeekVoteStreak();
+				int bestVoteStreakMonth = user.getBestMonthVoteStreak();
 
 				AdvancedCoreHook.getInstance().setStorageType(to);
 
@@ -160,6 +170,16 @@ public class Main extends JavaPlugin {
 				user.setPoints(points);
 				user.setVotePartyVotes(votePartyVotes);
 				user.setWeeklyTotal(weeklyTotal);
+				
+				user.setHighestDailyTotal(highestDailyTotal);
+				user.setHighestWeeklyTotal(highestWeeklyTotal);
+				user.setHighestMonthlyTotal(highestMonthlyTotal);
+				user.setDayVoteStreak(voteStreakDay);
+				user.setWeekVoteStreak(voteStreakWeek);
+				user.setMonthVoteStreak(voteStreakMonth);
+				user.setBestDayVoteStreak(bestVoteStreakDay);
+				user.setBestWeekVoteStreak(bestVoteStreakWeek);
+				user.setBestMonthVoteStreak(bestVoteStreakMonth);
 			} catch (Exception e) {
 				AdvancedCoreHook.getInstance().debug(e);
 				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
