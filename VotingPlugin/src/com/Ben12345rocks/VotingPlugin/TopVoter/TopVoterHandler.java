@@ -77,7 +77,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -122,7 +122,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -165,8 +165,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {

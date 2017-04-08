@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -51,61 +52,68 @@ public class PlaceHolders {
 	}
 
 	public synchronized String getPlaceHolder(Player p, String identifier) {
+
+		User user = UserManager.getInstance().getVotingPluginUser(p);
+
 		// %VotingPlugin_total% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("total")) {
-			return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getMonthTotal());
+			return Integer.toString(user.getMonthTotal());
 		} else if (identifier.equalsIgnoreCase("alltimetotal")) {
-			return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getAllTimeTotal());
+			return Integer.toString(user.getAllTimeTotal());
 		}
 
 		String[] args = identifier.split("_");
 		if (args.length > 1 && args[0].equalsIgnoreCase("total")) {
 			if (args[1].equalsIgnoreCase("all")) {
-				return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getAllTimeTotal());
+				return Integer.toString(user.getAllTimeTotal());
 			} else if (args[1].equalsIgnoreCase("month")) {
-				return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getMonthTotal());
+				return Integer.toString(user.getMonthTotal());
 			} else if (args[1].equalsIgnoreCase("week")) {
-				return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getWeeklyTotal());
+				return Integer.toString(user.getWeeklyTotal());
 			} else if (args[1].equalsIgnoreCase("daily")) {
-				return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getDailyTotal());
+				return Integer.toString(user.getDailyTotal());
 			}
 		}
 
 		if (identifier.equalsIgnoreCase("BestDailyTotal")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestDailyTotal();
+			return "" + user.getHighestDailyTotal();
 		} else if (identifier.equalsIgnoreCase("BestWeeklyTotal")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestWeeklyTotal();
+			return "" + user.getHighestWeeklyTotal();
 		} else if (identifier.equalsIgnoreCase("BestMonthlyTotal")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getHighestMonthlyTotal();
+			return "" + user.getHighestMonthlyTotal();
 		} else if (identifier.equalsIgnoreCase("DailyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getDayVoteStreak();
+			return "" + user.getDayVoteStreak();
 		} else if (identifier.equalsIgnoreCase("WeeklyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getWeekVoteStreak();
+			return "" + user.getWeekVoteStreak();
 		} else if (identifier.equalsIgnoreCase("MonthlyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getMonthVoteStreak();
+			return "" + user.getMonthVoteStreak();
 		} else if (identifier.equalsIgnoreCase("BestDailyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestDayVoteStreak();
+			return "" + user.getBestDayVoteStreak();
 		} else if (identifier.equalsIgnoreCase("BestWeeklyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestWeekVoteStreak();
+			return "" + user.getBestWeekVoteStreak();
 		} else if (identifier.equalsIgnoreCase("BestMonthlyVoteStreak")) {
-			return "" + UserManager.getInstance().getVotingPluginUser(p).getBestMonthVoteStreak();
+			return "" + user.getBestMonthVoteStreak();
 		}
 
 		// %VotingPlugin_points% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("points")) {
-			return Integer.toString(UserManager.getInstance().getVotingPluginUser(p).getPoints());
+			return Integer.toString(user.getPoints());
 		}
 
 		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
 		// vote party rewards
 		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
 			return Integer.toString(VoteParty.getInstance().getNeededVotes());
-		}
+		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
+			return Integer.toString(VoteParty.getInstance().getTotalVotes());
+		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
+			return Integer.toString(Config.getInstance().getVotePartyVotesRequired());
+		} 
 
 		// %VotingPlugin_canvote% - Whether or not a player can vote on all
 		// sites
 		if (identifier.equalsIgnoreCase("canvote")) {
-			return Boolean.toString(UserManager.getInstance().getVotingPluginUser(p).canVoteAll());
+			return Boolean.toString(user.canVoteAll());
 		}
 
 		// %VotingPlugin_next_SITENAME% - Next time you can vote for voteSite
@@ -115,7 +123,7 @@ public class PlaceHolders {
 				for (int i = 2; i < args.length; i++) {
 					str += "_" + args[i];
 				}
-				return playerNextVote(p, str);
+				return playerNextVote(user, str);
 			} else {
 				return "";
 			}
@@ -128,7 +136,7 @@ public class PlaceHolders {
 				for (int i = 2; i < args.length; i++) {
 					str += "_" + args[i];
 				}
-				return playerLastVote(p, str);
+				return playerLastVote(user, str);
 			}
 		}
 		if (args.length > 2) {
@@ -227,13 +235,12 @@ public class PlaceHolders {
 	 *            the site name
 	 * @return the string
 	 */
-	public String playerLastVote(Player player, String siteName) {
+	public String playerLastVote(User user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = UserManager.getInstance().getVotingPluginUser(player);
 		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
@@ -246,13 +253,12 @@ public class PlaceHolders {
 	 *            the site name
 	 * @return the string
 	 */
-	public String playerNextVote(Player player, String siteName) {
+	public String playerNextVote(User user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		User user = UserManager.getInstance().getVotingPluginUser(player);
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 	}
 

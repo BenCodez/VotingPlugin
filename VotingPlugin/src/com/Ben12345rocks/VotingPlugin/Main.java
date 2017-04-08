@@ -143,7 +143,7 @@ public class Main extends JavaPlugin {
 				int points = user.getPoints();
 				int votePartyVotes = user.getVotePartyVotes();
 				int weeklyTotal = user.getWeeklyTotal();
-				
+
 				int highestDailyTotal = user.getHighestDailyTotal();
 				int highestWeeklyTotal = user.getHighestWeeklyTotal();
 				int highestMonthlyTotal = user.getHighestMonthlyTotal();
@@ -170,7 +170,7 @@ public class Main extends JavaPlugin {
 				user.setPoints(points);
 				user.setVotePartyVotes(votePartyVotes);
 				user.setWeeklyTotal(weeklyTotal);
-				
+
 				user.setHighestDailyTotal(highestDailyTotal);
 				user.setHighestWeeklyTotal(highestWeeklyTotal);
 				user.setHighestMonthlyTotal(highestMonthlyTotal);
@@ -797,10 +797,13 @@ public class Main extends JavaPlugin {
 
 				@Override
 				public void run() {
-					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-							&& AdvancedCoreHook.getInstance().getMysql() == null) {
-						plugin.debug("MySQL not loaded yet");
-						return;
+					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+						if (AdvancedCoreHook.getInstance().getMysql() == null) {
+							plugin.debug("MySQL not loaded yet");
+							return;
+						} else {
+							AdvancedCoreHook.getInstance().getMysql().clearCache();
+						}
 					}
 					update = false;
 					plugin.debug("Starting background task");

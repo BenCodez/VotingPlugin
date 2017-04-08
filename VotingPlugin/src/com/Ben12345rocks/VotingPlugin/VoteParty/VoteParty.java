@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.VoteParty;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
@@ -10,7 +11,6 @@ import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -96,16 +96,15 @@ public class VoteParty implements Listener {
 	 */
 	public void commandVoteParty(CommandSender sender) {
 		ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
-		ArrayList<String> lines = new ArrayList<String>();
 		int votesRequired = Config.getInstance().getVotePartyVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
-		for (String line : msg) {
-			line = line.replace("%VotesRequired%", "" + votesRequired).replace("%NeededVotes%", "" + neededVotes)
-					.replace("%Votes%", "" + votes);
-			lines.add(StringUtils.getInstance().colorize(line));
-		}
-		sender.sendMessage(ArrayUtils.getInstance().convert(lines));
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("votesrequired", "" + votesRequired);
+		placeholders.put("neededvotes", "" + neededVotes);
+		placeholders.put("votes", "" + votes);
+		msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
+		sender.sendMessage(ArrayUtils.getInstance().convert(msg));
 	}
 
 	/**
