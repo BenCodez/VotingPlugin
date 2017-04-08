@@ -226,15 +226,6 @@ public class PlaceHolders {
 		return "";
 	}
 
-	/**
-	 * Player last vote.
-	 *
-	 * @param player
-	 *            the player
-	 * @param siteName
-	 *            the site name
-	 * @return the string
-	 */
 	public String playerLastVote(User user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
@@ -244,15 +235,6 @@ public class PlaceHolders {
 		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
-	/**
-	 * Player next vote.
-	 *
-	 * @param player
-	 *            the player
-	 * @param siteName
-	 *            the site name
-	 * @return the string
-	 */
 	public String playerNextVote(User user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
