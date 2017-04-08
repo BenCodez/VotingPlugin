@@ -6,7 +6,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
@@ -41,13 +40,13 @@ public class UserManager {
 		return getVotingPluginUser(player.getName());
 	}
 
+	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(String playerName) {
-		return getVotingPluginUser(new UUID(PlayerUtils.getInstance().getUUID(playerName)));
+		return new User(playerName);
 	}
 
 	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(UUID uuid) {
-		User user = new User(uuid);
-		return user;
+		return new User(uuid);
 	}
 }

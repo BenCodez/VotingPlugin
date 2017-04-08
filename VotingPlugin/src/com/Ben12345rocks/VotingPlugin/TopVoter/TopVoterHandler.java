@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -20,6 +19,7 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -77,133 +77,120 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-			@Override
-			public void run() {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					if (user.getDailyTotal() == 0 && user.getDayVoteStreak() != 0) {
-						user.setDayVoteStreak(0);
-					} else {
-						user.addDayVoteStreak();
-					}
-					OtherVoteReward.getInstance().checkVoteStreak(user, "Day");
-
-					if (user.getHighestDailyTotal() < user.getDailyTotal()) {
-						user.setHighestDailyTotal(user.getDailyTotal());
-					}
-				}
-
-				if (Config.getInstance().getStoreTopVotersDaily()) {
-					plugin.debug("Storing TopVoters Daily");
-					storeDailyTopVoters();
-				}
-
-				if (Config.getInstance().getDailyAwardsEnabled()) {
-					Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
-					int i = 0;
-					for (User user : plugin.topVoterDaily.keySet()) {
-
-						if (!user.isTopVoterIgnore()) {
-							i++;
-							if (places.contains(Integer.toString(i))) {
-								user.dailyTopVoterAward(i);
-							}
-						}
-					}
-				}
-				resetDailyTotals();
-
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			if (user.getDailyTotal() == 0 && user.getDayVoteStreak() != 0) {
+				user.setDayVoteStreak(0);
+			} else {
+				user.addDayVoteStreak();
 			}
-		});
+			OtherVoteReward.getInstance().checkVoteStreak(user, "Day");
+
+			if (user.getHighestDailyTotal() < user.getDailyTotal()) {
+				user.setHighestDailyTotal(user.getDailyTotal());
+			}
+		}
+
+		if (Config.getInstance().getStoreTopVotersDaily()) {
+			plugin.debug("Storing TopVoters Daily");
+			storeDailyTopVoters();
+		}
+
+		if (Config.getInstance().getDailyAwardsEnabled()) {
+			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterDaily.keySet()) {
+
+				if (!user.isTopVoterIgnore()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.dailyTopVoterAward(i);
+					}
+				}
+			}
+		}
+		resetDailyTotals();
 
 	}
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					if (user.getMonthTotal() == 0 && user.getMonthVoteStreak() != 0) {
-						user.setMonthVoteStreak(0);
-					} else {
-						user.addMonthVoteStreak();
-						OtherVoteReward.getInstance().checkVoteStreak(user, "Month");
-					}
-
-					if (user.getHighestMonthlyTotal() < user.getMonthTotal()) {
-						user.setHighestMonthlyTotal(user.getMonthTotal());
-					}
-				}
-
-				if (Config.getInstance().getStoreTopVotersMonthly()) {
-					plugin.debug("Storing TopVoters Monthly");
-					storeMonthlyTopVoters();
-				}
-
-				if (Config.getInstance().getMonthlyAwardsEnabled()) {
-					Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
-					int i = 0;
-					for (User user : plugin.topVoterMonthly.keySet()) {
-						if (!user.isTopVoterIgnore()) {
-							i++;
-							if (places.contains(Integer.toString(i))) {
-								user.monthlyTopVoterAward(i);
-							}
-						}
-					}
-				}
-				resetMonthlyTotals();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			if (user.getMonthTotal() == 0 && user.getMonthVoteStreak() != 0) {
+				user.setMonthVoteStreak(0);
+			} else {
+				user.addMonthVoteStreak();
+				OtherVoteReward.getInstance().checkVoteStreak(user, "Month");
 			}
-		});
+
+			if (user.getHighestMonthlyTotal() < user.getMonthTotal()) {
+				user.setHighestMonthlyTotal(user.getMonthTotal());
+			}
+		}
+
+		if (Config.getInstance().getStoreTopVotersMonthly()) {
+			plugin.debug("Storing TopVoters Monthly");
+			storeMonthlyTopVoters();
+		}
+
+		if (Config.getInstance().getMonthlyAwardsEnabled()) {
+			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterMonthly.keySet()) {
+				if (!user.isTopVoterIgnore()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.monthlyTopVoterAward(i);
+					}
+				}
+			}
+		}
+		resetMonthlyTotals();
 
 	}
 
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					if (user.getWeeklyTotal() == 0 && user.getWeekVoteStreak() != 0) {
-						user.setWeekVoteStreak(0);
-					} else {
-						user.addWeekVoteStreak();
-						OtherVoteReward.getInstance().checkVoteStreak(user, "Week");
-					}
-
-					if (user.getHighestWeeklyTotal() < user.getWeeklyTotal()) {
-						user.setHighestWeeklyTotal(user.getWeeklyTotal());
-					}
-				}
-
-				if (Config.getInstance().getStoreTopVotersWeekly()) {
-					plugin.debug("Storing TopVoters Weekly");
-					storeWeeklyTopVoters();
-				}
-
-				if (Config.getInstance().getWeeklyAwardsEnabled()) {
-					Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
-					int i = 0;
-					for (User user : plugin.topVoterWeekly.keySet()) {
-						if (!user.isTopVoterIgnore()) {
-							i++;
-							if (places.contains(Integer.toString(i))) {
-								user.weeklyTopVoterAward(i);
-							}
-						}
-					}
-				}
-				resetWeeklyTotals();
+		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			if (user.getWeeklyTotal() == 0 && user.getWeekVoteStreak() != 0) {
+				user.setWeekVoteStreak(0);
+			} else {
+				user.addWeekVoteStreak();
+				OtherVoteReward.getInstance().checkVoteStreak(user, "Week");
 			}
-		});
 
+			if (user.getHighestWeeklyTotal() < user.getWeeklyTotal()) {
+				user.setHighestWeeklyTotal(user.getWeeklyTotal());
+			}
+		}
+
+		if (Config.getInstance().getStoreTopVotersWeekly()) {
+			plugin.debug("Storing TopVoters Weekly");
+			storeWeeklyTopVoters();
+		}
+
+		if (Config.getInstance().getWeeklyAwardsEnabled()) {
+			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
+			int i = 0;
+			for (User user : plugin.topVoterWeekly.keySet()) {
+				if (!user.isTopVoterIgnore()) {
+					i++;
+					if (places.contains(Integer.toString(i))) {
+						user.weeklyTopVoterAward(i);
+					}
+				}
+			}
+		}
+		resetWeeklyTotals();
+
+	}
+
+	@EventHandler
+	public void onDateChanged(DateChangedEvent event) {
+		updateTopVoters();
 	}
 
 	public void register() {

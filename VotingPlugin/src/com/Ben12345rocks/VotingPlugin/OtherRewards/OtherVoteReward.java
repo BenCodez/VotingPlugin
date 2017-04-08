@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
 import java.util.Set;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -271,32 +270,25 @@ public class OtherVoteReward implements Listener {
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				Set<String> votes = Config.getInstance().getMilestoneVotes();
-				for (String vote : votes) {
-					if (StringUtils.getInstance().isInt(vote)) {
-						int votesRequired = Integer.parseInt(vote);
-						plugin.debug("Is int: " + vote);
-						if (votesRequired != 0) {
-							plugin.debug("not 0");
-							if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
-									&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-											Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
-								if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
-									for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-										User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-										user.setHasGotteMilestone(votesRequired, false);
-									}
-								}
+		Set<String> votes = Config.getInstance().getMilestoneVotes();
+		for (String vote : votes) {
+			if (StringUtils.getInstance().isInt(vote)) {
+				int votesRequired = Integer.parseInt(vote);
+				plugin.debug("Is int: " + vote);
+				if (votesRequired != 0) {
+					plugin.debug("not 0");
+					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
+						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
+							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								user.setHasGotteMilestone(votesRequired, false);
 							}
 						}
 					}
 				}
 			}
-		});
-
+		}
 	}
 }
