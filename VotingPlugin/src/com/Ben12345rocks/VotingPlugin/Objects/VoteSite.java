@@ -1,8 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
-import org.bukkit.Bukkit;
-
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -74,14 +73,7 @@ public class VoteSite {
 		String playerName = user.getPlayerName();
 		String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
 		bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
-		final String str = bc;
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				Bukkit.broadcastMessage(str);
-			}
-		});
+		MiscUtils.getInstance().broadcast(bc);
 	}
 
 	/**

@@ -822,8 +822,13 @@ public class Main extends JavaPlugin {
 			});
 		}
 	}
+	
+	public UserManager getUserManager() {
+		return UserManager.getInstance();
+	}
 
 	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358, "VotingPlugin");
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
