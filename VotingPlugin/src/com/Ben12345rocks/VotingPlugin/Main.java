@@ -699,6 +699,7 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
+
 		plugin.debug("Loaded Commands");
 
 	}
