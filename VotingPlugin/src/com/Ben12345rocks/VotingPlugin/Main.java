@@ -489,13 +489,6 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getSendScoreboards();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("broadcastvotes") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().getBroadCastVotesEnabled();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
 
 			@Override
@@ -506,13 +499,6 @@ public class Main extends JavaPlugin {
 				int num2 = (total + 100) / 100;
 				num2 = num2 * 100;
 				return "" + num + "-" + num2;
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
-
-			@Override
-			public String getValue() {
-				return "" + UserManager.getInstance().getAllUUIDs().size();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage") {
@@ -590,13 +576,6 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				return "" + Config.getInstance().getCommandsUseGUIStreak();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().getPreloadUsers();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
@@ -822,7 +801,7 @@ public class Main extends JavaPlugin {
 			});
 		}
 	}
-	
+
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
 	}
@@ -856,7 +835,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 	}
 

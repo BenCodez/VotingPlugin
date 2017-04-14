@@ -91,7 +91,7 @@ public class Config extends YMLFile {
 	 * @return the broad cast votes enabled
 	 */
 	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("BroadcastVote");
+		return getData().getBoolean("BroadcastVote",true);
 	}
 
 	public boolean getCheckOnWorldChange() {
@@ -894,10 +894,6 @@ public class Config extends YMLFile {
 
 	public String getMySqlUsername() {
 		return getData().getString("MySQL.Username", "");
-	}
-
-	public boolean getPreloadUsers() {
-		return getData().getBoolean("PreLoadUsers");
 	}
 
 	/**

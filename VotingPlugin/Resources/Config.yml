@@ -20,39 +20,6 @@ MySQL:
   # Max number of connections
   MaxConnections: 1
 
-# Wether or not to check on world change
-# Should only be used if you do per world rewards
-CheckOnWorldChange: false
-
-# Debug
-Debug: false
-
-# Extra Debug
-# Only needed in extreme cases
-ExtraDebug: false
-
-# Debug info ingame
-# Players with permission "VotingPlugin.Debug"
-# will see debug info if debug is true
-DebugInGame: false
-
-# Will log debug messages to Advanced/Log/log.txt
-# Requires Debug to be on
-LogDebugToFile: false
-
-# Options for request api
-# Current methods
-# ANVIL
-# BOOK
-# CHAT
-# This is mainly used for admin gui's to type in values
-RequestAPI:
-  DefaultMethod: 'Anvil'
-  DisabledMethods: []
-
-# Broadcast votes
-BroadcastVote: true
-
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data files)
 AllowUnjoined: false
@@ -63,25 +30,6 @@ SendScoreboards: true
 # If true, plugin will automaticly generate votesites
 # Disable this if you experience issues with sites being created randomly
 AutoCreateVoteSites: true
-
-# Wether or not to log every vote to a file
-# Use this if you wanna track player votes
-# Not recommended though
-LogVotesToFile: false
-
-# Setting this to true will improve performance at a cost of RAM
-# Only use if you don't have many players on your server
-PreLoadUsers: false
-
-# Delay between background updates like signs and more
-# Default: 3 Minutes
-# Longer times result in longer wait in stuff updating after a vote
-# REQUIRES A RESTART TO TAKE EFFECT
-DelayBetweenUpdates: 3
-
-# Set to true to disable no service site message on voting
-# You should never have to touch this if everything is setup properly
-DisableNoServiceSiteMessage: false
 
 # ------------------------------------------------
 # VoteReminding
@@ -748,4 +696,52 @@ DailyAwards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
     
+# ------------------------------------------------
+# Advanced
+# Most of these values can be left untouched
+# ------------------------------------------------
 
+# Wether or not to check on world change
+# Should only be used if you do per world rewards
+CheckOnWorldChange: false
+
+# Debug
+Debug: false
+
+# Extra Debug
+# Only needed in extreme cases
+ExtraDebug: false
+
+# Debug info ingame
+# Players with permission "VotingPlugin.Debug"
+# will see debug info if debug is true
+DebugInGame: false
+
+# Will log debug messages to Advanced/Log/log.txt
+# Requires Debug to be on
+LogDebugToFile: false
+
+# Options for request api
+# Current methods
+# ANVIL
+# BOOK
+# CHAT
+# This is mainly used for admin gui's to type in values
+RequestAPI:
+  DefaultMethod: 'Anvil'
+  DisabledMethods: []
+  
+# Wether or not to log every vote to a file
+# Use this if you wanna track player votes
+# Not recommended though
+LogVotesToFile: false
+
+# Delay between background updates like signs and more
+# Default: 3 Minutes
+# Longer times result in longer wait in stuff updating after a vote
+# REQUIRES A RESTART TO TAKE EFFECT
+DelayBetweenUpdates: 3
+
+# Set to true to disable no service site message on voting
+# You should never have to touch this if everything is setup properly
+DisableNoServiceSiteMessage: false
