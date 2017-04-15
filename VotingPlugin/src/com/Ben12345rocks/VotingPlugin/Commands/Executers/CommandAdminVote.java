@@ -448,10 +448,8 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	public void version(CommandSender sender) {
 		if (sender instanceof Player) {
-
 			Player player = (Player) sender;
 			player.performCommand("bukkit:version " + plugin.getName());
-
 		} else {
 			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "bukkit:version " + plugin.getName());
 		}

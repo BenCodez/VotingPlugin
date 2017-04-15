@@ -769,27 +769,6 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Info" },
-				"VotingPlugin.Commands.Vote.Info|" + playerPerm, "See player info") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				CommandVote.getInstance().infoSelf(sender);
-
-			}
-		});
-
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Info", "(player)" },
-				"VotingPlugin.Commands.Vote.Info.Other|" + modPerm, "See other players info") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().infoOther(sender, args[1]);
-
-			}
-		});
-
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Last", "(player)" },
 				"VotingPlugin.Commands.Vote.Last.Other|" + modPerm, "See other players last votes") {
 

@@ -225,7 +225,7 @@ public class PlaceHolders {
 			}
 		}
 
-		return "";
+		return identifier;
 	}
 
 	public String playerLastVote(User user, String siteName) {
