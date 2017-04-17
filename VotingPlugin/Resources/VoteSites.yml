@@ -27,6 +27,11 @@ VoteSites:
     # Time between votes in hours (used for /vote next)
     # Most sites are 24 hours
     VoteDelay: 24
+    
+    # VoteSite Material for GUI's
+    Item:
+      Material: 'DIAMOND'
+      Amount: 1
 
     # List of reward files to give to voter
     Rewards:

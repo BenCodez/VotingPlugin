@@ -883,7 +883,7 @@ public class CommandLoader {
 				if (!Config.getInstance().getCommandsUseGUITopVoter()) {
 					Commands.getInstance().voteTop(sender, 1);
 				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteTop((Player) sender);
+					PlayerGUIs.getInstance().openVoteTop((Player) sender,null);
 				}
 
 			}

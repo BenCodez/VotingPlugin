@@ -7,7 +7,6 @@ import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -21,6 +20,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Objects.TopVoter;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
@@ -157,7 +157,7 @@ public class PlayerGUIs {
 						} else if (slot.equalsIgnoreCase("total")) {
 							openVoteTotal(player, user);
 						} else if (slot.equalsIgnoreCase("top")) {
-							openVoteTop(player);
+							openVoteTop(player, null);
 						} else if (slot.equalsIgnoreCase("today")) {
 							openVoteToday(player);
 						} else if (slot.equalsIgnoreCase("help")) {
@@ -177,17 +177,15 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getDisplayName(),
-							new String[] { Commands.getInstance().voteCommandLastLine(user, site) },
-							new ItemStack(Material.STONE)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton(new ItemBuilder(site.getItem())
+					.setName(site.getDisplayName()).setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteLast(player, getSelectedPlayer(player));
-						}
-					});
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					Player player = clickEvent.getPlayer();
+					openVoteLast(player, getSelectedPlayer(player));
+				}
+			});
 		}
 		inv.openInventory(player);
 	}
@@ -197,17 +195,15 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getDisplayName(),
-							new String[] { Commands.getInstance().voteCommandNextInfo(user, site) },
-							new ItemStack(Material.STONE)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton(new ItemBuilder(site.getItem())
+					.setName(site.getDisplayName()).setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteNext(player, getSelectedPlayer(player));
-						}
-					});
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					Player player = clickEvent.getPlayer();
+					openVoteNext(player, getSelectedPlayer(player));
+				}
+			});
 		}
 		inv.openInventory(player);
 	}
@@ -306,18 +302,20 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteTop(Player player) {
-		String str = Config.getInstance().getVoteTopDefault();
+	public void openVoteTop(Player player, TopVoter top) {
+		if (top == null) {
+			top = TopVoter.getDefault();
+		}
 		BInventory inv = null;
 		Set<Entry<User, Integer>> users = null;
 		String topVoter = "";
-		if (str.equalsIgnoreCase("monthly")) {
+		if (top.equals(TopVoter.Monthly)) {
 			topVoter = "Monthly";
 			users = plugin.topVoterMonthly.entrySet();
-		} else if (str.equalsIgnoreCase("weekly")) {
+		} else if (top.equals(TopVoter.Weekly)) {
 			topVoter = "Weekly";
 			users = plugin.topVoterWeekly.entrySet();
-		} else if (str.equalsIgnoreCase("daily")) {
+		} else if (top.equals(TopVoter.Daily)) {
 			topVoter = "Daily";
 			users = plugin.topVoterDaily.entrySet();
 		} else {
@@ -345,8 +343,18 @@ public class PlayerGUIs {
 			});
 			pos++;
 		}
-		inv.openInventory(player);
+		final TopVoter cur = top;
+		inv.getPageButtons().add(new BInventoryButton(
+				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", cur.toString())) {
 
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				openVoteTop(player, cur.next());
+			}
+		});
+		inv.setPages(true);
+		inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
+		inv.openInventory(player);
 	}
 
 	public void openVoteTotal(Player player, User user) {
@@ -518,8 +526,7 @@ public class PlayerGUIs {
 			int count = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				try {
-					ItemBuilder builder = new ItemBuilder(
-							Config.getInstance().getVoteSiteItemSection(voteSite.getKey()));
+					ItemBuilder builder = new ItemBuilder(voteSite.getItem());
 					final VoteSite site = voteSite;
 
 					inv.addButton(count, new BInventoryButton(builder) {

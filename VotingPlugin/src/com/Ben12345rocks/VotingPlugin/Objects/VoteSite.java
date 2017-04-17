@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import org.bukkit.configuration.ConfigurationSection;
+
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -41,6 +43,8 @@ public class VoteSite {
 
 	/** The priority. */
 	private int priority;
+
+	private ConfigurationSection item;
 
 	/**
 	 * Instantiates a new vote site.
@@ -165,6 +169,14 @@ public class VoteSite {
 		if (displayName == null || displayName.equals("")) {
 			displayName = key;
 		}
+		item = configVoteSites.getItem(key);
+	}
+
+	/**
+	 * @return the item
+	 */
+	public ConfigurationSection getItem() {
+		return item;
 	}
 
 	/**

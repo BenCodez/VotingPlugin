@@ -75,6 +75,16 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AutoCreateVoteSites");
 	}
 
+	public ConfigurationSection getGUIVoteTopSwitchItem() {
+		return getData().getConfigurationSection("GUI.VoteTop.SwitchItem");
+	}
+
+	public int getGUIVoteTopSize() {
+		return getData().getInt("GUI.VoteTop.Size");
+	}
+	
+	
+
 	/**
 	 * Gets the black list.
 	 *
@@ -91,7 +101,7 @@ public class Config extends YMLFile {
 	 * @return the broad cast votes enabled
 	 */
 	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("BroadcastVote",true);
+		return getData().getBoolean("BroadcastVote", true);
 	}
 
 	public boolean getCheckOnWorldChange() {
@@ -896,6 +906,10 @@ public class Config extends YMLFile {
 		return getData().getString("MySQL.Username", "");
 	}
 
+	public boolean getAutoDownload() {
+		return getData().getBoolean("AutoDownload");
+	}
+
 	/**
 	 * Gets the request API default method.
 	 *
@@ -1116,11 +1130,6 @@ public class Config extends YMLFile {
 		}
 	}
 
-	public ConfigurationSection getVoteSiteItemSection(String site) {
-		String siteName = site.replace(".", "-");
-		return getData().getConfigurationSection("GUI.VoteReward." + siteName);
-	}
-
 	public ConfigurationSection getVoteSiteItemsSection(String site, String item) {
 		String siteName = site.replace(".", "-");
 		return getData().getConfigurationSection("GUI.VoteReward." + siteName + ".Items." + item);
@@ -1153,12 +1162,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
 	}
 
-	
 	public String getVoteStreakRewardsPath(String type, int votestreak) {
 		return "VoteStreak." + type + "." + votestreak + ".Rewards";
 	}
 
-	
 	public Set<String> getVoteStreakVotes(String type) {
 		try {
 			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
