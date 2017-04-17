@@ -80,10 +80,8 @@ public class Config extends YMLFile {
 	}
 
 	public int getGUIVoteTopSize() {
-		return getData().getInt("GUI.VoteTop.Size");
+		return getData().getInt("GUI.VoteTop.Size",27);
 	}
-	
-	
 
 	/**
 	 * Gets the black list.
