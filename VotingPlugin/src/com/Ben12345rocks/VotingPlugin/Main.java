@@ -14,6 +14,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -24,6 +25,7 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Thread.Thread;
+import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
@@ -105,7 +107,6 @@ public class Main extends JavaPlugin {
 	public Logger voteLog;
 
 	private boolean update = true;
-
 	/**
 	 * Check votifier.
 	 */
@@ -489,13 +490,6 @@ public class Main extends JavaPlugin {
 				return "" + Config.getInstance().getSendScoreboards();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("broadcastvotes") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().getBroadCastVotesEnabled();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
 
 			@Override
@@ -506,13 +500,6 @@ public class Main extends JavaPlugin {
 				int num2 = (total + 100) / 100;
 				num2 = num2 * 100;
 				return "" + num + "-" + num2;
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
-
-			@Override
-			public String getValue() {
-				return "" + UserManager.getInstance().getAllUUIDs().size();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage") {
@@ -590,13 +577,6 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				return "" + Config.getInstance().getCommandsUseGUIStreak();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("PreloadUsers") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().getPreloadUsers();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
@@ -689,16 +669,28 @@ public class Main extends JavaPlugin {
 
 		metrics();
 
+		AdvancedCoreHook.getInstance().getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
+
+			@Override
+			public Object getObject(Player player) {
+				return getUserManager().getVotingPluginUser(player);
+			}
+		});
+
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
-		new Timer().schedule(new TimerTask() {
+		loadTimer();
+
+	}
+
+	private void loadTimer() {
+		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
 
 			@Override
 			public void run() {
 				update();
 			}
 		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
-
 	}
 
 	/**
@@ -755,7 +747,6 @@ public class Main extends JavaPlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		plugin.update();
 		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -770,6 +761,7 @@ public class Main extends JavaPlugin {
 				}
 			}
 		});
+		loadTimer();
 	}
 
 	public void setUpdate(boolean update) {
@@ -823,8 +815,14 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public UserManager getUserManager() {
+		return UserManager.getInstance();
+	}
+
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358, "VotingPlugin");
+		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
+		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
+		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
@@ -851,7 +849,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setPreloadUsers(Config.getInstance().getPreloadUsers());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 	}
 

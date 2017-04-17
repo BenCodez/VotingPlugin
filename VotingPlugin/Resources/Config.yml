@@ -20,39 +20,6 @@ MySQL:
   # Max number of connections
   MaxConnections: 1
 
-# Wether or not to check on world change
-# Should only be used if you do per world rewards
-CheckOnWorldChange: false
-
-# Debug
-Debug: false
-
-# Extra Debug
-# Only needed in extreme cases
-ExtraDebug: false
-
-# Debug info ingame
-# Players with permission "VotingPlugin.Debug"
-# will see debug info if debug is true
-DebugInGame: false
-
-# Will log debug messages to Advanced/Log/log.txt
-# Requires Debug to be on
-LogDebugToFile: false
-
-# Options for request api
-# Current methods
-# ANVIL
-# BOOK
-# CHAT
-# This is mainly used for admin gui's to type in values
-RequestAPI:
-  DefaultMethod: 'Anvil'
-  DisabledMethods: []
-
-# Broadcast votes
-BroadcastVote: true
-
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data files)
 AllowUnjoined: false
@@ -64,24 +31,10 @@ SendScoreboards: true
 # Disable this if you experience issues with sites being created randomly
 AutoCreateVoteSites: true
 
-# Wether or not to log every vote to a file
-# Use this if you wanna track player votes
-# Not recommended though
-LogVotesToFile: false
-
-# Setting this to true will improve performance at a cost of RAM
-# Only use if you don't have many players on your server
-PreLoadUsers: false
-
-# Delay between background updates like signs and more
-# Default: 3 Minutes
-# Longer times result in longer wait in stuff updating after a vote
-# REQUIRES A RESTART TO TAKE EFFECT
-DelayBetweenUpdates: 3
-
-# Set to true to disable no service site message on voting
-# You should never have to touch this if everything is setup properly
-DisableNoServiceSiteMessage: false
+# Automaticly download the latest version
+# Will require a restart to actually update
+# Note that updates take 30-40 minutes to load before they can be downloaded
+AutoDownload: false
 
 # ------------------------------------------------
 # VoteReminding
@@ -366,20 +319,13 @@ GUI:
         Amount: 1
         Name: '&4Today'
       Slot: 5
-    Help:
-      Item:
-        Material: 'WRITTEN_BOOK'
-        Data: 0
-        Amount: 1
-        Name: '&4Help'
-      Slot: 6
     Rewards:
       Item:
         Material: 'DIAMOND'
         Data: 0
         Amount: 1
         Name: '&4Voting Rewards'
-      Slot: 7
+      Slot: 6
       
   # GUI for /vote url
   # And /vote if enabled in Config.yml
@@ -411,24 +357,7 @@ GUI:
   # Show players what you get when you vote on each site
   VoteReward:
     # Name of votesite
-    # If your site name contains a dot, replace it with a - and surround the name with ' '
-    SiteName:
-      # Item to display as vote site in /vote reward
-      Item:
-        # Item ID
-        Material: 'DIAMOND'
-        # Item Data (Eg 1:4, data is 4)
-        Data: 0
-        # Amount of items
-        # Should be greater than 0
-        Amount: 1
-        # Item name
-        # Remove this line for no name
-        Name: '&4Example'
-        # Lore
-        # Remove this line for no lore
-        Lore:
-        - '&4Line 1'
+    ExampleVoteSite:
       # items in /vote reward sitename
       Items:
         # Item
@@ -461,6 +390,16 @@ GUI:
     Item:
       Name: '&3&l%position%: &3%player%'
       Lore: '&3&lVotes: &3%votes%'
+    SwitchItem:
+      Name: 'Switch TopVoter'
+      Lore: 'Currently: %Top%'
+      Material: 'SIGN'
+      Amount: 1
+      # 8 Slots over from the bottom left
+      Slot: 7
+    # Number of topvoters to display on page +9
+    # 9 Slots on the botton are used for page buttons
+    Size: 27
   VoteTotal:
     Name: 'VoteTotal: %player%'
     DayTotal:
@@ -748,4 +687,51 @@ DailyAwards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
     
+# ------------------------------------------------
+# Advanced
+# Most of these values can be left untouched
+# ------------------------------------------------
 
+# Wether or not to check on world change
+# Should only be used if you do per world rewards
+CheckOnWorldChange: false
+
+# Debug
+Debug: false
+
+# Extra Debug
+# Only needed in extreme cases
+ExtraDebug: false
+
+# Debug info ingame
+# Players with permission "VotingPlugin.Debug"
+# will see debug info if debug is true
+DebugInGame: false
+
+# Will log debug messages to VotingPlugin/Log/log.txt
+# Requires Debug to be on
+LogDebugToFile: false
+
+# Options for request api
+# Current methods
+# ANVIL
+# BOOK
+# CHAT
+# This is mainly used for admin gui's to type in values
+RequestAPI:
+  DefaultMethod: 'Anvil'
+  DisabledMethods: []
+  
+# Wether or not to log every vote to a file
+# Use this if you wanna track player votes
+# Not recommended though
+LogVotesToFile: false
+
+# Delay between background updates like signs and more
+# Default: 3 Minutes
+# Longer times result in longer wait in stuff updating after a vote, like topvoter
+DelayBetweenUpdates: 3
+
+# Set to true to disable no service site message on voting
+# You should never have to touch this if everything is setup properly
+DisableNoServiceSiteMessage: false

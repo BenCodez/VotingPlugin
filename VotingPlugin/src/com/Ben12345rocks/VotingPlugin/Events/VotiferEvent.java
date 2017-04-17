@@ -46,7 +46,6 @@ public class VotiferEvent implements Listener {
 			@Override
 			public void run() {
 				synchronized (plugin) {
-
 					User user = UserManager.getInstance().getVotingPluginUser(playerName);
 					if (!user.hasJoinedBefore() && !config.allowUnJoined()) {
 						plugin.getLogger().warning("Player " + playerName

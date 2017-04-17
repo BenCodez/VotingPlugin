@@ -107,6 +107,10 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(site).getString("Name");
 	}
 
+	public ConfigurationSection getItem(String site) {
+		return getData(site).getConfigurationSection("Item");
+	}
+
 	/**
 	 * Gets the priority.
 	 *

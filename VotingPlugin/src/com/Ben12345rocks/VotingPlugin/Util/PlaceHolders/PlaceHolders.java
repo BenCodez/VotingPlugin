@@ -52,6 +52,7 @@ public class PlaceHolders {
 	}
 
 	public synchronized String getPlaceHolder(Player p, String identifier) {
+		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
@@ -108,7 +109,7 @@ public class PlaceHolders {
 			return Integer.toString(VoteParty.getInstance().getTotalVotes());
 		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
 			return Integer.toString(Config.getInstance().getVotePartyVotesRequired());
-		} 
+		}
 
 		// %VotingPlugin_canvote% - Whether or not a player can vote on all
 		// sites
@@ -223,7 +224,8 @@ public class PlaceHolders {
 				}
 			}
 		}
-		return "";
+
+		return identifier;
 	}
 
 	public String playerLastVote(User user, String siteName) {
