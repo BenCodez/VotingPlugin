@@ -509,8 +509,9 @@ Shop:
     # Rewards to run if player buys succesfully
     Rewards:
       Items:
-        Material: 'DIAMOND'
-        Amount: 1
+        Diamond:
+          Material: 'DIAMOND'
+          Amount: 1
     # Slot
     Slot: 0          
      

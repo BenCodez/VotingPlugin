@@ -179,13 +179,16 @@
 			<id>AdvancedCore-mvn-repo</id>
 			<url>https://raw.github.com/Ben12345rocks/MavenRepo</url>
 		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
-			<groupId>com.Ben12345rocks</groupId>
+			<groupId>com.github.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
-			<version>LATEST</version>
-			<scope>compile</scope>
+			<version>2.7.2-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.spigotmc</groupId>
