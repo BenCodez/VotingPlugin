@@ -88,6 +88,13 @@ public class VoteSite {
 	}
 
 	/**
+	 * @return the item
+	 */
+	public ConfigurationSection getItem() {
+		return item;
+	}
+
+	/**
 	 * @return the key
 	 */
 	public String getKey() {
@@ -170,13 +177,6 @@ public class VoteSite {
 			displayName = key;
 		}
 		item = configVoteSites.getItem(key);
-	}
-
-	/**
-	 * @return the item
-	 */
-	public ConfigurationSection getItem() {
-		return item;
 	}
 
 	/**

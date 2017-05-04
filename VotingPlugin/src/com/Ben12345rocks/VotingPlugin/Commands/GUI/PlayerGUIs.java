@@ -177,15 +177,16 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(), new BInventoryButton(new ItemBuilder(site.getItem())
-					.setName(site.getDisplayName()).setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
+			inv.addButton(inv.getNextSlot(),
+					new BInventoryButton(new ItemBuilder(site.getItem()).setName(site.getDisplayName())
+							.setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
 
-				@Override
-				public void onClick(ClickEvent clickEvent) {
-					Player player = clickEvent.getPlayer();
-					openVoteLast(player, getSelectedPlayer(player));
-				}
-			});
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							Player player = clickEvent.getPlayer();
+							openVoteLast(player, getSelectedPlayer(player));
+						}
+					});
 		}
 		inv.openInventory(player);
 	}
@@ -195,15 +196,16 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(), new BInventoryButton(new ItemBuilder(site.getItem())
-					.setName(site.getDisplayName()).setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
+			inv.addButton(inv.getNextSlot(),
+					new BInventoryButton(new ItemBuilder(site.getItem()).setName(site.getDisplayName())
+							.setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
 
-				@Override
-				public void onClick(ClickEvent clickEvent) {
-					Player player = clickEvent.getPlayer();
-					openVoteNext(player, getSelectedPlayer(player));
-				}
-			});
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							Player player = clickEvent.getPlayer();
+							openVoteNext(player, getSelectedPlayer(player));
+						}
+					});
 		}
 		inv.openInventory(player);
 	}

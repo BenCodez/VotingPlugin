@@ -16,10 +16,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -73,6 +73,11 @@ public class TopVoterHandler implements Listener {
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
+	}
+
+	@EventHandler
+	public void onDateChanged(DateChangedEvent event) {
+		updateTopVoters();
 	}
 
 	@EventHandler
@@ -185,11 +190,6 @@ public class TopVoterHandler implements Listener {
 		}
 		resetWeeklyTotals();
 
-	}
-
-	@EventHandler
-	public void onDateChanged(DateChangedEvent event) {
-		updateTopVoters();
 	}
 
 	public void register() {

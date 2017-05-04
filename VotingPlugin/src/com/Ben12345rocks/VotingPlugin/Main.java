@@ -107,6 +107,7 @@ public class Main extends JavaPlugin {
 	public Logger voteLog;
 
 	private boolean update = true;
+
 	/**
 	 * Check votifier.
 	 */
@@ -215,6 +216,10 @@ public class Main extends JavaPlugin {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
+	public UserManager getUserManager() {
+		return UserManager.getInstance();
+	}
+
 	/**
 	 * Gets the vote site.
 	 *
@@ -275,6 +280,16 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return false;
+	}
+
+	private void loadTimer() {
+		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+
+			@Override
+			public void run() {
+				update();
+			}
+		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 	}
 
 	/**
@@ -683,16 +698,6 @@ public class Main extends JavaPlugin {
 
 	}
 
-	private void loadTimer() {
-		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-				update();
-			}
-		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
-	}
-
 	/**
 	 * Register commands.
 	 */
@@ -813,10 +818,6 @@ public class Main extends JavaPlugin {
 
 			});
 		}
-	}
-
-	public UserManager getUserManager() {
-		return UserManager.getInstance();
 	}
 
 	public void updateAdvancedCoreHook() {

@@ -75,12 +75,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AutoCreateVoteSites");
 	}
 
-	public ConfigurationSection getGUIVoteTopSwitchItem() {
-		return getData().getConfigurationSection("GUI.VoteTop.SwitchItem");
-	}
-
-	public int getGUIVoteTopSize() {
-		return getData().getInt("GUI.VoteTop.Size",27);
+	public boolean getAutoDownload() {
+		return getData().getBoolean("AutoDownload");
 	}
 
 	/**
@@ -704,6 +700,14 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteTop.Name", "VoteTop %topvoter%");
 	}
 
+	public int getGUIVoteTopSize() {
+		return getData().getInt("GUI.VoteTop.Size", 27);
+	}
+
+	public ConfigurationSection getGUIVoteTopSwitchItem() {
+		return getData().getConfigurationSection("GUI.VoteTop.SwitchItem");
+	}
+
 	public ConfigurationSection getGUIVoteTotalAllTimeTotalItem() {
 		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
 	}
@@ -902,10 +906,6 @@ public class Config extends YMLFile {
 
 	public String getMySqlUsername() {
 		return getData().getString("MySQL.Username", "");
-	}
-
-	public boolean getAutoDownload() {
-		return getData().getBoolean("AutoDownload");
 	}
 
 	/**
