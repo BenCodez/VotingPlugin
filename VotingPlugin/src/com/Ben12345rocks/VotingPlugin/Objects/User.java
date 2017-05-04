@@ -459,7 +459,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 						}
 					}
 				}
-			} else if (str.contains("MontlyTopVoter")) {
+			} else if (str.contains("MonthlyTopVoter")) {
 				String st = str.substring("MontlyTopVoter".length());
 				if (StringUtils.getInstance().isInt(st)) {
 					int place = Integer.parseInt(st);

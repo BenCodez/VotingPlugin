@@ -16,10 +16,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -76,6 +76,11 @@ public class TopVoterHandler implements Listener {
 	}
 
 	@EventHandler
+	public void onDateChanged(DateChangedEvent event) {
+		updateTopVoters();
+	}
+
+	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
@@ -101,8 +106,7 @@ public class TopVoterHandler implements Listener {
 			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
 			int i = 0;
 			for (User user : plugin.topVoterDaily.keySet()) {
-
-				if (!user.isTopVoterIgnore()) {
+				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
 						user.dailyTopVoterAward(i);
@@ -139,7 +143,7 @@ public class TopVoterHandler implements Listener {
 			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
 			int i = 0;
 			for (User user : plugin.topVoterMonthly.keySet()) {
-				if (!user.isTopVoterIgnore()) {
+				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
 						user.monthlyTopVoterAward(i);
@@ -176,7 +180,7 @@ public class TopVoterHandler implements Listener {
 			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
 			int i = 0;
 			for (User user : plugin.topVoterWeekly.keySet()) {
-				if (!user.isTopVoterIgnore()) {
+				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
 						user.weeklyTopVoterAward(i);
@@ -186,11 +190,6 @@ public class TopVoterHandler implements Listener {
 		}
 		resetWeeklyTotals();
 
-	}
-
-	@EventHandler
-	public void onDateChanged(DateChangedEvent event) {
-		updateTopVoters();
 	}
 
 	public void register() {
