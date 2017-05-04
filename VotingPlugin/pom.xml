@@ -146,20 +146,15 @@
 			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
 		</repository>
 		<repository>
-			<id>AdvancedCore-mvn-repo</id>
-			<url>https://raw.github.com/Ben12345rocks/MavenRepo</url>
-		</repository>
-		<repository>
 			<id>jitpack.io</id>
 			<url>https://jitpack.io</url>
 		</repository>
 	</repositories>
 	<dependencies>
-
 		<dependency>
 			<groupId>com.github.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
-			<version>2.7.2-SNAPSHOT</version>
+			<version>master-SNAPSHOT</version>
 		</dependency>
 
 		<!-- <dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
