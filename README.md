@@ -17,6 +17,7 @@ https://github.com/Ben12345rocks/VotingPlugin/blob/master/VotingPlugin/LICENSE.t
 	    <groupId>com.github.Ben12345rocks</groupId>
 	    <artifactId>VotingPlugin</artifactId>
 	    <version>LATEST</version>
+	    <scope>provided</scope>
 	</dependency>
   
   Versions:  
