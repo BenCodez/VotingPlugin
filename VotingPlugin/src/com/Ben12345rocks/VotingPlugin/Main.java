@@ -15,6 +15,7 @@ import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -631,6 +632,7 @@ public class Main extends JavaPlugin {
 				Signs.getInstance().storeSigns();
 			}
 		}, 0);
+		HandlerList.unregisterAll(plugin);
 		plugin = null;
 	}
 
