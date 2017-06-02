@@ -567,6 +567,9 @@ VoteParty:
   # Reward files to give
   Rewards: []
   
+# Reset milestons at end of the month
+ResetMilestonesMonthly: false
+  
 MileStones:
   # Number of votes required
   # Allows multiple milestones
@@ -577,7 +580,6 @@ MileStones:
     Rewards: 
       Messages:
         Player: '&aYou got %milestone% milestone votes!'
-    ResetMonthly: false
     
 VoteStreak:
   # Valid options: Day, Week, Month

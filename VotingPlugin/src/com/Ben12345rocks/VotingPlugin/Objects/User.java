@@ -156,6 +156,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addWeekVoteStreak() {
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
+	
+	public int getMilestoneCount() {
+		return getData().getInt("MilestoneCount",getAllTimeTotal());
+	}
+	
+	public void setMilestoneCount(int value) {
+		getData().setInt("MilestoneCount", value);
+	}
 
 	/**
 	 * Can vote all.

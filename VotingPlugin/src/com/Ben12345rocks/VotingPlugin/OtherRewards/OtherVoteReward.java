@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
+import java.util.HashMap;
 import java.util.Set;
 
 import org.bukkit.event.EventHandler;
@@ -155,7 +156,7 @@ public class OtherVoteReward implements Listener {
 							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
 
-						int userVotesTotal = user.getAllTimeTotal();
+						int userVotesTotal = user.getMilestoneCount();
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
@@ -270,25 +271,13 @@ public class OtherVoteReward implements Listener {
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		Set<String> votes = Config.getInstance().getMilestoneVotes();
-		for (String vote : votes) {
-			if (StringUtils.getInstance().isInt(vote)) {
-				int votesRequired = Integer.parseInt(vote);
-				plugin.debug("Is int: " + vote);
-				if (votesRequired != 0) {
-					plugin.debug("not 0");
-					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
-							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-									Config.getInstance().getMilestoneRewardsPath(votesRequired))) {
-						if (Config.getInstance().getMilestoneResetMonthly(votesRequired)) {
-							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-								user.setHasGotteMilestone(votesRequired, false);
-							}
-						}
-					}
-				}
+		if (Config.getInstance().getResetMilestonesMonthly()) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				user.setMilestoneCount(0);
+				user.setHasGottenMilestone(new HashMap<String, Boolean>());
 			}
+
 		}
 	}
 }
