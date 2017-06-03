@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.Ben12345rocks</groupId>
 	<artifactId>VotingPlugin</artifactId>
-	<version>5.8.3</version>
+	<version>5.8.4</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -55,25 +55,25 @@
 							other plugins -->
 						<relocation>
 							<pattern>com.Ben12345rocks.AdvancedCore</pattern>
-							<shadedPattern>${groupId}.${artifactId}.AdvancedCore</shadedPattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.AdvancedCore</shadedPattern>
 						</relocation>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
-							<shadedPattern>${groupId}.${artifactId}</shadedPattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>me.mrten.mysqlapi</pattern>
-							<shadedPattern>${groupId}.${artifactId}.mysqlapi</shadedPattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.mysqlapi</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.HikariCP</pattern>
-							<shadedPattern>${groupId}.${artifactId}.HikariCP</shadedPattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.HikariCP</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.slf4j.slf4j-simple</pattern>
-							<shadedPattern>${groupId}.${artifactId}.slf4j-simple</shadedPattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.slf4j-simple</shadedPattern>
 						</relocation>
 					</relocations>
 				</configuration>
@@ -154,7 +154,7 @@
 		<dependency>
 			<groupId>com.github.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
-			<version>master-SNAPSHOT</version>
+			<version>2.7.4-SNAPSHOT</version>
 		</dependency>
 
 		<!-- <dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
@@ -162,7 +162,7 @@
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
-			<version>1.12-pre2-SNAPSHOT</version>
+			<version>1.12-pre6-SNAPSHOT</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>

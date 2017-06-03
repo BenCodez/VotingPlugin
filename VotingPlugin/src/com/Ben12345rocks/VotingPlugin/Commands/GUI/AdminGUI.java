@@ -16,7 +16,6 @@ import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListene
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -59,7 +58,7 @@ public class AdminGUI {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = event.getWhoClicked();
 					if (event.getClick().equals(ClickType.MIDDLE)) {
-						player.closeInventory();
+
 						new ValueRequest().requestString(player, new StringListener() {
 
 							@Override
@@ -72,19 +71,6 @@ public class AdminGUI {
 					} else {
 						openAdminGUIVoteSites(player);
 					}
-				}
-			}
-		});
-
-		lore = new ArrayList<String>();
-		buttons.add(new BInventoryButton("&cConfig", ArrayUtils.getInstance().convert(lore),
-				new ItemStack(Material.STONE)) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					openAdminGUIConfig(player);
 				}
 			}
 		});
@@ -106,39 +92,6 @@ public class AdminGUI {
 		for (BInventoryButton b : adminGUIButtons()) {
 			com.Ben12345rocks.AdvancedCore.Commands.GUI.AdminGUI.getInstance().addButton(b);
 		}
-	}
-
-	/**
-	 * Open admin GUI config.
-	 *
-	 * @param player
-	 *            the player
-	 */
-	public void openAdminGUIConfig(Player player) {
-		BInventory inv = new BInventory("Config");
-		inv.addButton(inv.getNextSlot(),
-				new BInventoryButton("BroadcastVote",
-						new String[] { "Currently: " + Config.getInstance().getBroadCastVotesEnabled() },
-						new ItemStack(Material.STONE)) {
-
-					@Override
-					public void onClick(ClickEvent event) {
-						Player player = event.getWhoClicked();
-						new ValueRequest().requestBoolean(player, "" + Config.getInstance().getBroadCastVotesEnabled(),
-								new BooleanListener() {
-
-									@Override
-									public void onInput(Player player, boolean value) {
-										Config.getInstance().setBroadcastVoteEnabled(value);
-										player.sendMessage("Value set");
-
-									}
-								});
-					}
-				});
-
-		inv.openInventory(player);
-
 	}
 
 	/**
@@ -215,7 +168,7 @@ public class AdminGUI {
 					public void onClick(ClickEvent event) {
 						if (event.getWhoClicked() instanceof Player) {
 							Player player = event.getWhoClicked();
-							player.closeInventory();
+
 							new ValueRequest().requestString(player, voteSite.getServiceSite(), null,
 									new StringListener() {
 
@@ -239,7 +192,6 @@ public class AdminGUI {
 			public void onClick(ClickEvent event) {
 				if (event.getWhoClicked() instanceof Player) {
 					Player player = event.getWhoClicked();
-					player.closeInventory();
 					new ValueRequest().requestString(player, voteSite.getServiceSite(), null, new StringListener() {
 
 						@Override
@@ -262,7 +214,7 @@ public class AdminGUI {
 					public void onClick(ClickEvent event) {
 						if (event.getWhoClicked() instanceof Player) {
 							Player player = event.getWhoClicked();
-							player.closeInventory();
+
 							new ValueRequest().requestString(player, voteSite.getVoteURL(), null, new StringListener() {
 
 								@Override

@@ -319,13 +319,22 @@ GUI:
         Amount: 1
         Name: '&4Today'
       Slot: 5
-    Rewards:
+    Shop:
       Item:
         Material: 'DIAMOND'
         Data: 0
         Amount: 1
-        Name: '&4Voting Rewards'
+        Name: '&4Vote Shop'
       Slot: 6
+    # /vote Reward gui item
+    # Uncomment to use, most likely will be unused
+    #Rewards:
+    #  Item:
+    #    Material: 'DIAMOND'
+    #    Data: 0
+    #    Amount: 1
+    #    Name: '&4Voting Rewards'
+    #  Slot: 7
       
   # GUI for /vote url
   # And /vote if enabled in Config.yml
@@ -567,6 +576,9 @@ VoteParty:
   # Reward files to give
   Rewards: []
   
+# Reset milestons at end of the month
+ResetMilestonesMonthly: false
+  
 MileStones:
   # Number of votes required
   # Allows multiple milestones
@@ -577,7 +589,6 @@ MileStones:
     Rewards: 
       Messages:
         Player: '&aYou got %milestone% milestone votes!'
-    ResetMonthly: false
     
 VoteStreak:
   # Valid options: Day, Week, Month

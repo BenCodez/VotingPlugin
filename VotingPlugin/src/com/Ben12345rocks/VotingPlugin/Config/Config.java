@@ -804,8 +804,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LogVotesToFile");
 	}
 
-	public boolean getMilestoneResetMonthly(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".ResetMonthly");
+	public boolean getResetMilestonesMonthly() {
+		return getData().getBoolean("ResetMilestonesMonthly");
 	}
 
 	/**
