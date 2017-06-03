@@ -1,7 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -130,9 +129,7 @@ public class PlayerGUIs {
 				} else if (slot.equalsIgnoreCase("today")) {
 					lore = Commands.getInstance().voteToday();
 				} else if (slot.equalsIgnoreCase("help")) {
-					ArrayList<String> loreSt = new ArrayList<String>();
-					loreSt = ArrayUtils.getInstance().comptoString(Commands.getInstance().voteHelpText(player));
-					lore = ArrayUtils.getInstance().convert(loreSt);
+					lore[0] = "Click to view help";
 				}
 			}
 

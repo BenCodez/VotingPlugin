@@ -319,13 +319,20 @@ GUI:
         Amount: 1
         Name: '&4Today'
       Slot: 5
-    Rewards:
+    Shop:
       Item:
         Material: 'DIAMOND'
         Data: 0
         Amount: 1
-        Name: '&4Voting Rewards'
+        Name: '&4Vote Shop'
       Slot: 6
+    #Rewards:
+    #  Item:
+    #    Material: 'DIAMOND'
+    #    Data: 0
+    #    Amount: 1
+    #    Name: '&4Voting Rewards'
+    #  Slot: 6
       
   # GUI for /vote url
   # And /vote if enabled in Config.yml
