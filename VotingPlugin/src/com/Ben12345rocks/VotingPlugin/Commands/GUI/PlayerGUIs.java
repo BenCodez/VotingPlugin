@@ -24,6 +24,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 
 public class PlayerGUIs {
 	static PlayerGUIs instance = new PlayerGUIs();
@@ -158,7 +159,9 @@ public class PlayerGUIs {
 						} else if (slot.equalsIgnoreCase("today")) {
 							openVoteToday(player);
 						} else if (slot.equalsIgnoreCase("help")) {
-							player.performCommand("v help");
+							player.performCommand("vote help");
+						} else if (slot.equalsIgnoreCase("shop")) {
+							VoteShop.getInstance().voteShop(player);
 						}
 					}
 

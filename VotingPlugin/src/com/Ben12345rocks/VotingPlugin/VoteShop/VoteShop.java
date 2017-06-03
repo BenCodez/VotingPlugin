@@ -61,6 +61,6 @@ public class VoteShop {
 					});
 		}
 
-		BInventory.openInventory(player, inv);
+		inv.openInventory(player);
 	}
 }
