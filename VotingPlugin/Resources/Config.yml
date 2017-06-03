@@ -326,13 +326,15 @@ GUI:
         Amount: 1
         Name: '&4Vote Shop'
       Slot: 6
+    # /vote Reward gui item
+    # Uncomment to use, most likely will be unused
     #Rewards:
     #  Item:
     #    Material: 'DIAMOND'
     #    Data: 0
     #    Amount: 1
     #    Name: '&4Voting Rewards'
-    #  Slot: 6
+    #  Slot: 7
       
   # GUI for /vote url
   # And /vote if enabled in Config.yml
