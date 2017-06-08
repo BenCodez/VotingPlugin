@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -21,7 +22,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.Reward;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
@@ -132,57 +132,66 @@ public class Main extends JavaPlugin {
 
 				AdvancedCoreHook.getInstance().setStorageType(from);
 
-				ArrayList<String> choiceRewards = user.getChoiceRewards();
-				String inputMethod = user.getInputMethod();
-				ArrayList<String> offlineRewards = user.getOfflineRewards();
-				HashMap<Reward, ArrayList<Long>> timed = user.getTimedRewards();
-				int allTime = user.getAllTimeTotal();
-				int dailyTotal = user.getDailyTotal();
-				HashMap<String, Boolean> mileStone = user.getHasGottenMilestone();
-				HashMap<VoteSite, Long> lastVotes = user.getLastVotes();
-				int monthTotals = user.getMonthTotal();
-				ArrayList<String> otherRewards = user.getOfflineOtherRewards();
-				ArrayList<String> offlineVotes = user.getOfflineVotes();
-				int points = user.getPoints();
-				int votePartyVotes = user.getVotePartyVotes();
-				int weeklyTotal = user.getWeeklyTotal();
+				HashMap<String, String> values = new HashMap<String, String>();
+				for (String key : user.getData().getKeys()) {
+					values.put(key, user.getData().getString(key));
+				}
 
-				int highestDailyTotal = user.getHighestDailyTotal();
-				int highestWeeklyTotal = user.getHighestWeeklyTotal();
-				int highestMonthlyTotal = user.getHighestMonthlyTotal();
-				int voteStreakDay = user.getDayVoteStreak();
-				int voteStreakWeek = user.getWeekVoteStreak();
-				int voteStreakMonth = user.getMonthVoteStreak();
-				int bestVoteStreakDay = user.getBestDayVoteStreak();
-				int bestVoteStreakWeek = user.getBestWeekVoteStreak();
-				int bestVoteStreakMonth = user.getBestMonthVoteStreak();
+				/*
+				 * ArrayList<String> choiceRewards = user.getChoiceRewards();
+				 * String inputMethod = user.getInputMethod(); ArrayList<String>
+				 * offlineRewards = user.getOfflineRewards(); HashMap<Reward,
+				 * ArrayList<Long>> timed = user.getTimedRewards(); int allTime
+				 * = user.getAllTimeTotal(); int dailyTotal =
+				 * user.getDailyTotal(); HashMap<String, Boolean> mileStone =
+				 * user.getHasGottenMilestone(); HashMap<VoteSite, Long>
+				 * lastVotes = user.getLastVotes(); int monthTotals =
+				 * user.getMonthTotal(); ArrayList<String> otherRewards =
+				 * user.getOfflineOtherRewards(); ArrayList<String> offlineVotes
+				 * = user.getOfflineVotes(); int points = user.getPoints(); int
+				 * votePartyVotes = user.getVotePartyVotes(); int weeklyTotal =
+				 * user.getWeeklyTotal();
+				 * 
+				 * int highestDailyTotal = user.getHighestDailyTotal(); int
+				 * highestWeeklyTotal = user.getHighestWeeklyTotal(); int
+				 * highestMonthlyTotal = user.getHighestMonthlyTotal(); int
+				 * voteStreakDay = user.getDayVoteStreak(); int voteStreakWeek =
+				 * user.getWeekVoteStreak(); int voteStreakMonth =
+				 * user.getMonthVoteStreak(); int bestVoteStreakDay =
+				 * user.getBestDayVoteStreak(); int bestVoteStreakWeek =
+				 * user.getBestWeekVoteStreak(); int bestVoteStreakMonth =
+				 * user.getBestMonthVoteStreak();
+				 */
 
 				AdvancedCoreHook.getInstance().setStorageType(to);
 
-				user.setChoiceRewards(choiceRewards);
-				user.setInputMethod(inputMethod);
-				user.setOfflineRewards(offlineRewards);
-				user.setTimedRewards(timed);
-				user.setAllTimeTotal(allTime);
-				user.setDailyTotal(dailyTotal);
-				user.setHasGottenMilestone(mileStone);
-				user.setLastVotes(lastVotes);
-				user.setMonthTotal(monthTotals);
-				user.setOfflineOtherRewards(otherRewards);
-				user.setOfflineVotes(offlineVotes);
-				user.setPoints(points);
-				user.setVotePartyVotes(votePartyVotes);
-				user.setWeeklyTotal(weeklyTotal);
-
-				user.setHighestDailyTotal(highestDailyTotal);
-				user.setHighestWeeklyTotal(highestWeeklyTotal);
-				user.setHighestMonthlyTotal(highestMonthlyTotal);
-				user.setDayVoteStreak(voteStreakDay);
-				user.setWeekVoteStreak(voteStreakWeek);
-				user.setMonthVoteStreak(voteStreakMonth);
-				user.setBestDayVoteStreak(bestVoteStreakDay);
-				user.setBestWeekVoteStreak(bestVoteStreakWeek);
-				user.setBestMonthVoteStreak(bestVoteStreakMonth);
+				/*
+				 * user.setChoiceRewards(choiceRewards);
+				 * user.setInputMethod(inputMethod);
+				 * user.setOfflineRewards(offlineRewards);
+				 * user.setTimedRewards(timed); user.setAllTimeTotal(allTime);
+				 * user.setDailyTotal(dailyTotal);
+				 * user.setHasGottenMilestone(mileStone);
+				 * user.setLastVotes(lastVotes);
+				 * user.setMonthTotal(monthTotals);
+				 * user.setOfflineOtherRewards(otherRewards);
+				 * user.setOfflineVotes(offlineVotes); user.setPoints(points);
+				 * user.setVotePartyVotes(votePartyVotes);
+				 * user.setWeeklyTotal(weeklyTotal);
+				 * 
+				 * user.setHighestDailyTotal(highestDailyTotal);
+				 * user.setHighestWeeklyTotal(highestWeeklyTotal);
+				 * user.setHighestMonthlyTotal(highestMonthlyTotal);
+				 * user.setDayVoteStreak(voteStreakDay);
+				 * user.setWeekVoteStreak(voteStreakWeek);
+				 * user.setMonthVoteStreak(voteStreakMonth);
+				 * user.setBestDayVoteStreak(bestVoteStreakDay);
+				 * user.setBestWeekVoteStreak(bestVoteStreakWeek);
+				 * user.setBestMonthVoteStreak(bestVoteStreakMonth);
+				 */
+				for (Entry<String, String> entry : values.entrySet()) {
+					user.getData().setString(entry.getKey(), entry.getValue());
+				}
 			} catch (Exception e) {
 				AdvancedCoreHook.getInstance().debug(e);
 				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
