@@ -1,5 +1,8 @@
 package com.Ben12345rocks.VotingPlugin.Util.Updater;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
@@ -58,8 +61,27 @@ public class CheckUpdate {
 			break;
 		}
 		case UPDATE_AVAILABLE: {
-			plugin.getLogger().info(plugin.getName() + " has an update available! Your Version: "
-					+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion());
+			plugin.getLogger()
+					.info(plugin.getName() + " has an update available! Your Version: "
+							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
+							+ " Use /av download to get the latest update!");
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+	}
+
+	public void checkUpdateBasic() {
+		plugin.updater = new Updater(plugin, 15358, false);
+		final Updater.UpdateResult result = plugin.updater.getResult();
+		switch (result) {
+		case UPDATE_AVAILABLE: {
+			plugin.getLogger()
+					.info(plugin.getName() + " has an update available! Your Version: "
+							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
+							+ " Use /av download to get the latest update!");
 			break;
 		}
 		default: {
@@ -77,6 +99,14 @@ public class CheckUpdate {
 			@Override
 			public void run() {
 				checkUpdate();
+				new Timer().schedule(new TimerTask() {
+
+					@Override
+					public void run() {
+						checkUpdateBasic();
+					}
+				}, 1000 * 60 * 1200, 1000 * 60 * 1200);
+
 			}
 		}, 10l);
 	}

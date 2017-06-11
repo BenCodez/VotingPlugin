@@ -99,8 +99,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the data
 	 */
 	public ConfigurationSection getData(String siteName) {
-		ConfigurationSection data = getData().getConfigurationSection("VoteSites." + siteName);
-		return data;
+		return getData().getConfigurationSection("VoteSites." + siteName);
 	}
 
 	public String getDisplayName(String site) {
@@ -272,9 +271,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true, if is service site good
 	 */
 	public boolean isServiceSiteGood(String siteName) {
-		if (getServiceSite(siteName) == null) {
-			return false;
-		} else if (getServiceSite(siteName).equalsIgnoreCase("")) {
+		if (getServiceSite(siteName) == null || getServiceSite(siteName).equals("")) {
 			return false;
 		}
 		return true;
@@ -288,9 +285,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true, if is vote URL good
 	 */
 	public boolean isVoteURLGood(String siteName) {
-		if (getVoteURL(siteName) == null) {
-			return false;
-		} else if (getVoteURL(siteName).equalsIgnoreCase("")) {
+		if (getVoteURL(siteName) == null || getVoteURL(siteName).equals("")) {
 			return false;
 		}
 		return true;
