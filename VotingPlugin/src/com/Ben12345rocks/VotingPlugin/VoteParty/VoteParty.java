@@ -11,6 +11,7 @@ import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -84,6 +85,7 @@ public class VoteParty implements Listener {
 		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
 			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
 			giveRewards();
+			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
 		}
 
 	}

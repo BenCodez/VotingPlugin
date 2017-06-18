@@ -573,6 +573,8 @@ VoteParty:
   ResetEachDay: false
   # Number of user votes that apply to vote party total the user needs to get rewards
   UserVotesRequired: 0
+  # Broadcast when vote party reached
+  Broadcast: '&cReached the vote party amount!'
   # Reward files to give
   Rewards: []
   
