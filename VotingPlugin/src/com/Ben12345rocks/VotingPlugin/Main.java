@@ -348,19 +348,25 @@ public class Main extends JavaPlugin {
 		}
 
 		BStatsMetrics metrics = new BStatsMetrics(this);
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("requestapi_defaultmethod") {
 
-			@Override
-			public String getValue() {
-				return Config.getInstance().getRequestAPIDefaultMethod();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_firstvote") {
 
 			@Override
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getFirstVoteRewardsPath())) {
+					return "True";
+				} else {
+					return "False";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_everysite") {
+
+			@Override
+			public String getValue() {
+				if (RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
+						ConfigVoteSites.getInstance().getEverySiteRewardPath())) {
 					return "True";
 				} else {
 					return "False";
