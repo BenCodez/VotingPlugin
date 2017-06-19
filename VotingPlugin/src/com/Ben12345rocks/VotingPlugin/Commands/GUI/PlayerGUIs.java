@@ -130,7 +130,7 @@ public class PlayerGUIs {
 				} else if (slot.equalsIgnoreCase("today")) {
 					lore = Commands.getInstance().voteToday();
 				} else if (slot.equalsIgnoreCase("help")) {
-					lore[0] = "Click to view help";
+					lore = new String[] {"Click to view help"};
 				}
 			}
 

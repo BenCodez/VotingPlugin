@@ -1054,6 +1054,10 @@ public class Config extends YMLFile {
 		return "VoteParty.Rewards";
 	}
 
+	public String getVotePartyBroadcast() {
+		return getData().getString("VoteParty.Broadcast", "");
+	}
+
 	/**
 	 * Gets the vote party votes required.
 	 *

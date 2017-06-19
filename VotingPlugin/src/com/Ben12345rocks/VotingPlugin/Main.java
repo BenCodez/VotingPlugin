@@ -348,19 +348,25 @@ public class Main extends JavaPlugin {
 		}
 
 		BStatsMetrics metrics = new BStatsMetrics(this);
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("requestapi_defaultmethod") {
 
-			@Override
-			public String getValue() {
-				return Config.getInstance().getRequestAPIDefaultMethod();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_firstvote") {
 
 			@Override
 			public String getValue() {
 				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 						Config.getInstance().getFirstVoteRewardsPath())) {
+					return "True";
+				} else {
+					return "False";
+				}
+			}
+		});
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_everysite") {
+
+			@Override
+			public String getValue() {
+				if (RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
+						ConfigVoteSites.getInstance().getEverySiteRewardPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -799,31 +805,33 @@ public class Main extends JavaPlugin {
 	/**
 	 * Update.
 	 */
-	public synchronized void update() {
+	public void update() {
 		if (update && plugin != null) {
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
-					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-						if (AdvancedCoreHook.getInstance().getMysql() == null) {
-							plugin.debug("MySQL not loaded yet");
-							return;
-						} else {
-							AdvancedCoreHook.getInstance().getMysql().clearCache();
+					synchronized (plugin) {
+						if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+							if (AdvancedCoreHook.getInstance().getMysql() == null) {
+								plugin.debug("MySQL not loaded yet");
+								return;
+							} else {
+								AdvancedCoreHook.getInstance().getMysql().clearCache();
+							}
 						}
-					}
-					update = false;
-					plugin.debug("Starting background task");
-					try {
-						TopVoterHandler.getInstance().updateTopVoters();
-						Commands.getInstance().updateVoteToday();
-						ServerData.getInstance().updateValues();
-						Signs.getInstance().updateSigns();
-						plugin.debug("Background task ran");
-					} catch (Exception ex) {
-						ex.printStackTrace();
-						plugin.getLogger().info("Looks like something went wrong.");
+						update = false;
+						plugin.debug("Starting background task");
+						try {
+							TopVoterHandler.getInstance().updateTopVoters();
+							Commands.getInstance().updateVoteToday();
+							ServerData.getInstance().updateValues();
+							Signs.getInstance().updateSigns();
+							plugin.debug("Background task ran");
+						} catch (Exception ex) {
+							ex.printStackTrace();
+							plugin.getLogger().info("Looks like something went wrong.");
+						}
 					}
 				}
 

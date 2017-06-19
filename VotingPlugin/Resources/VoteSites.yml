@@ -36,3 +36,7 @@ VoteSites:
     # List of reward files to give to voter
     Rewards:
     - 'ExampleReward'
+    
+# Reward for any site
+# Similar to AnySiteReward
+EverySiteReward: []

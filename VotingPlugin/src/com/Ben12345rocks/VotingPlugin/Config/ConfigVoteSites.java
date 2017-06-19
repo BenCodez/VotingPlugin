@@ -67,31 +67,6 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	/**
-	 * Gets the cumulative rewards.
-	 *
-	 * @param siteName
-	 *            the site name
-	 * @return the cumulative rewards
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getCumulativeRewards(String siteName) {
-
-		return (ArrayList<String>) getData(siteName).getList("Cumulative.Rewards", new ArrayList<String>());
-
-	}
-
-	/**
-	 * Gets the cumulative reward votes amount.
-	 *
-	 * @param siteName
-	 *            the site name
-	 * @return the cumulative reward votes amount
-	 */
-	public int getCumulativeRewardVotesAmount(String siteName) {
-		return getData(siteName).getInt("Cumulative.Votes");
-	}
-
-	/**
 	 * Gets the data.
 	 *
 	 * @param siteName
@@ -130,6 +105,10 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getRewardsPath(String siteName) {
 		return "VoteSites." + siteName + ".Rewards";
+	}
+	
+	public String getEverySiteRewardPath() {
+		return "EverySiteReward";
 	}
 
 	/**
