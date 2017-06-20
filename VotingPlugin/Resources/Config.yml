@@ -70,7 +70,7 @@ VoteReminding:
   # Can add titles and more in the reward file
   Rewards:
     Messages:
-      Player: '&aRemeber to vote!'
+      Player: '&aRemember to vote!'
     Title:
       Enabled: false
       Title: '&cRemember to vote!'
