@@ -706,6 +706,10 @@ DailyAwards:
 # Most of these values can be left untouched
 # ------------------------------------------------
 
+# Number of points to give on vote
+# Set to 0 to give no points
+PointsOnVote: 1
+
 # Wether or not to check on world change
 # Should only be used if you do per world rewards
 CheckOnWorldChange: false
