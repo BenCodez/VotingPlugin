@@ -2,10 +2,13 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -40,6 +43,12 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Table;
+import com.google.common.collect.Table.Cell;
+import com.swifteh.GAL.GAL;
+import com.swifteh.GAL.GALVote;
+import com.swifteh.GAL.VoteType;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -121,6 +130,48 @@ public class CommandLoader {
 
 					}
 				});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFrom", "GAL" },
+				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from GAL") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Bukkit.getServer().getPluginManager().getPlugin("GAListener") != null) {
+					Table<String, Integer, Long> totals = GAL.p.db.getTotals();
+					for (Cell<String, Integer, Long> entry : totals.cellSet()) {
+						String name = entry.getRowKey();
+						int total = entry.getColumnKey();
+						User user = UserManager.getInstance().getVotingPluginUser(name);
+						user.setAllTimeTotal(user.getAllTimeTotal() + total);
+					}
+
+					ListMultimap<VoteType, GALVote> votes = GAL.p.galVote;
+					for (Entry<VoteType, GALVote> entry : votes.entries()) {
+						if (entry.getKey().equals(VoteType.NORMAL)) {
+							String msg = entry.getValue().message;
+							List<String> cmds = entry.getValue().commands;
+							String service = entry.getValue().key;
+							if (service.equalsIgnoreCase("default")) {
+
+							} else {
+								VoteSite site = plugin.getVoteSite(service);
+								if (site == null) {
+									sender.sendMessage("Failed to create vote site, autogeneratesites false?");
+									return;
+								}
+								ConfigurationSection data = configVoteSites.getData()
+										.getConfigurationSection(configVoteSites.getRewardsPath(site.getKey()));
+								data.set("Commands.Console", cmds);
+								data.set("Messages.Player", msg);
+								configVoteSites.saveData();
+							}
+						}
+					}
+				} else {
+					sender.sendMessage("GAL not loaded");
+				}
+			}
+		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetPoints", "(player)", "(number)" },
 				"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
