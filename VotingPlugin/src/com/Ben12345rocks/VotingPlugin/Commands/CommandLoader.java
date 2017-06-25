@@ -144,6 +144,7 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(name);
 						user.setAllTimeTotal(user.getAllTimeTotal() + total);
 					}
+					sender.sendMessage("Totals added");
 
 					ListMultimap<VoteType, GALVote> votes = GAL.p.galVote;
 					for (Entry<VoteType, GALVote> entry : votes.entries()) {
@@ -164,7 +165,9 @@ public class CommandLoader {
 								data.set("Commands.Console", cmds);
 								data.set("Messages.Player", msg);
 								configVoteSites.saveData();
+								sender.sendMessage("created vote site: " + site.getKey());
 							}
+							
 						}
 					}
 				} else {
