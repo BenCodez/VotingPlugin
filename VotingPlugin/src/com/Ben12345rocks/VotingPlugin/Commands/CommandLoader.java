@@ -7,6 +7,7 @@ import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -46,6 +47,8 @@ import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Table;
 import com.google.common.collect.Table.Cell;
+import com.mythicacraft.voteroulette.VoteRoulette;
+import com.mythicacraft.voteroulette.Voter;
 import com.swifteh.GAL.GAL;
 import com.swifteh.GAL.GALVote;
 import com.swifteh.GAL.VoteType;
@@ -167,11 +170,31 @@ public class CommandLoader {
 								configVoteSites.saveData();
 								sender.sendMessage("created vote site: " + site.getKey());
 							}
-							
+
 						}
 					}
 				} else {
 					sender.sendMessage("GAL not loaded");
+				}
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFrom", "VoteRoulette" },
+				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from VoteRoulette") {
+
+			@SuppressWarnings("static-access")
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
+					for (OfflinePlayer offPlayer : Bukkit.getOfflinePlayers()) {
+						Voter voter = VoteRoulette.getInstance().getVoterManager().getVoter(offPlayer.getUniqueId(),
+								offPlayer.getName());
+						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
+						user.setAllTimeTotal(user.getAllTimeTotal() + voter.getStatSheet().getLifetimeVotes());
+						user.setMonthTotal(user.getMonthTotal() + voter.getStatSheet().getCurrentMonthVotes());
+					}
+				} else {
+					sender.sendMessage("VoteRoulette not loaded");
 				}
 			}
 		});

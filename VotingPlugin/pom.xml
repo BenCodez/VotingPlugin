@@ -179,5 +179,12 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/GAListener.jar</systemPath>
 		</dependency>
+		<dependency>
+			<groupId>com.mythicacraft</groupId>
+			<artifactId>voteroulette</artifactId>
+			<version>3.2.2</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/Jars/VoteRoulette.jar</systemPath>
+		</dependency>
 	</dependencies>
 </project>
