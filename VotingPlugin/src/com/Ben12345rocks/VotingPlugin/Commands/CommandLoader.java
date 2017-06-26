@@ -333,8 +333,10 @@ public class CommandLoader {
 					return;
 				}
 				try {
+					sender.sendMessage("Starting to convert");
 					UserStorage prevStorage = UserStorage.valueOf(args[1].toUpperCase());
 					plugin.convertDataStorage(prevStorage, AdvancedCoreHook.getInstance().getStorageType());
+					sender.sendMessage("Finished converting!");
 				} catch (Exception ex) {
 					ex.printStackTrace();
 				}

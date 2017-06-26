@@ -126,76 +126,37 @@ public class Main extends JavaPlugin {
 			throw new RuntimeException("Invalid Storage Method");
 		}
 		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
+		AdvancedCoreHook.getInstance().setStorageType(from);
+		loadMySQL();
+		HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			try {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-
-				AdvancedCoreHook.getInstance().setStorageType(from);
 
 				HashMap<String, String> values = new HashMap<String, String>();
 				for (String key : user.getData().getKeys()) {
 					values.put(key, user.getData().getString(key));
 				}
-
-				/*
-				 * ArrayList<String> choiceRewards = user.getChoiceRewards();
-				 * String inputMethod = user.getInputMethod(); ArrayList<String>
-				 * offlineRewards = user.getOfflineRewards(); HashMap<Reward,
-				 * ArrayList<Long>> timed = user.getTimedRewards(); int allTime
-				 * = user.getAllTimeTotal(); int dailyTotal =
-				 * user.getDailyTotal(); HashMap<String, Boolean> mileStone =
-				 * user.getHasGottenMilestone(); HashMap<VoteSite, Long>
-				 * lastVotes = user.getLastVotes(); int monthTotals =
-				 * user.getMonthTotal(); ArrayList<String> otherRewards =
-				 * user.getOfflineOtherRewards(); ArrayList<String> offlineVotes
-				 * = user.getOfflineVotes(); int points = user.getPoints(); int
-				 * votePartyVotes = user.getVotePartyVotes(); int weeklyTotal =
-				 * user.getWeeklyTotal();
-				 * 
-				 * int highestDailyTotal = user.getHighestDailyTotal(); int
-				 * highestWeeklyTotal = user.getHighestWeeklyTotal(); int
-				 * highestMonthlyTotal = user.getHighestMonthlyTotal(); int
-				 * voteStreakDay = user.getDayVoteStreak(); int voteStreakWeek =
-				 * user.getWeekVoteStreak(); int voteStreakMonth =
-				 * user.getMonthVoteStreak(); int bestVoteStreakDay =
-				 * user.getBestDayVoteStreak(); int bestVoteStreakWeek =
-				 * user.getBestWeekVoteStreak(); int bestVoteStreakMonth =
-				 * user.getBestMonthVoteStreak();
-				 */
-
-				AdvancedCoreHook.getInstance().setStorageType(to);
-
-				/*
-				 * user.setChoiceRewards(choiceRewards);
-				 * user.setInputMethod(inputMethod);
-				 * user.setOfflineRewards(offlineRewards);
-				 * user.setTimedRewards(timed); user.setAllTimeTotal(allTime);
-				 * user.setDailyTotal(dailyTotal);
-				 * user.setHasGottenMilestone(mileStone);
-				 * user.setLastVotes(lastVotes);
-				 * user.setMonthTotal(monthTotals);
-				 * user.setOfflineOtherRewards(otherRewards);
-				 * user.setOfflineVotes(offlineVotes); user.setPoints(points);
-				 * user.setVotePartyVotes(votePartyVotes);
-				 * user.setWeeklyTotal(weeklyTotal);
-				 * 
-				 * user.setHighestDailyTotal(highestDailyTotal);
-				 * user.setHighestWeeklyTotal(highestWeeklyTotal);
-				 * user.setHighestMonthlyTotal(highestMonthlyTotal);
-				 * user.setDayVoteStreak(voteStreakDay);
-				 * user.setWeekVoteStreak(voteStreakWeek);
-				 * user.setMonthVoteStreak(voteStreakMonth);
-				 * user.setBestDayVoteStreak(bestVoteStreakDay);
-				 * user.setBestWeekVoteStreak(bestVoteStreakWeek);
-				 * user.setBestMonthVoteStreak(bestVoteStreakMonth);
-				 */
-				for (Entry<String, String> entry : values.entrySet()) {
-					user.getData().setString(entry.getKey(), entry.getValue());
-				}
+				data.put(user, values);
 			} catch (Exception e) {
 				AdvancedCoreHook.getInstance().debug(e);
 				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
 						+ ", turn debug on to see full stack traces");
+			}
+		}
+
+		AdvancedCoreHook.getInstance().setStorageType(to);
+		loadMySQL();
+
+		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
+			try {
+				for (Entry<String, String> values : entry.getValue().entrySet()) {
+					entry.getKey().getData().setString(values.getKey(), values.getValue());
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				plugin.getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
+						+ e.getMessage() + ", turn debug on to see full stack traces");
 			}
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
@@ -845,6 +806,21 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		loadMySQL();
+
+		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
+		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
+		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
+		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
+		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
+		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
+		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
+		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
+		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
+		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
+	}
+
+	private void loadMySQL() {
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 			Thread.getInstance().run(new Runnable() {
 
@@ -859,17 +835,6 @@ public class Main extends JavaPlugin {
 			});
 
 		}
-
-		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
-		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
-		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
-		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
-		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
-		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
-		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
-		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
-		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 	}
 
 }
