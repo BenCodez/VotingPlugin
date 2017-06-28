@@ -36,7 +36,7 @@ public class VoteShop {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
 			inv.addButton(Config.getInstance().getIdentifierSlot(identifier),
-					new BInventoryButton(builder.toItemStack()) {
+					new BInventoryButton(builder) {
 
 						@Override
 						public void onClick(ClickEvent event) {
