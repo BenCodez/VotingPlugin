@@ -2,10 +2,14 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -40,6 +44,14 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Table;
+import com.google.common.collect.Table.Cell;
+import com.mythicacraft.voteroulette.VoteRoulette;
+import com.mythicacraft.voteroulette.Voter;
+import com.swifteh.GAL.GAL;
+import com.swifteh.GAL.GALVote;
+import com.swifteh.GAL.VoteType;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -121,6 +133,71 @@ public class CommandLoader {
 
 					}
 				});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFrom", "GAL" },
+				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from GAL") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Bukkit.getServer().getPluginManager().getPlugin("GAListener") != null) {
+					Table<String, Integer, Long> totals = GAL.p.db.getTotals();
+					for (Cell<String, Integer, Long> entry : totals.cellSet()) {
+						String name = entry.getRowKey();
+						int total = entry.getColumnKey();
+						User user = UserManager.getInstance().getVotingPluginUser(name);
+						user.setAllTimeTotal(user.getAllTimeTotal() + total);
+					}
+					sender.sendMessage("Totals added");
+
+					ListMultimap<VoteType, GALVote> votes = GAL.p.galVote;
+					for (Entry<VoteType, GALVote> entry : votes.entries()) {
+						if (entry.getKey().equals(VoteType.NORMAL)) {
+							String msg = entry.getValue().message;
+							List<String> cmds = entry.getValue().commands;
+							String service = entry.getValue().key;
+							if (service.equalsIgnoreCase("default")) {
+
+							} else {
+								VoteSite site = plugin.getVoteSite(service);
+								if (site == null) {
+									sender.sendMessage("Failed to create vote site, autogeneratesites false?");
+									return;
+								}
+								ConfigurationSection data = configVoteSites.getData()
+										.getConfigurationSection(configVoteSites.getRewardsPath(site.getKey()));
+								data.set("Commands.Console", cmds);
+								data.set("Messages.Player", msg);
+								configVoteSites.saveData();
+								sender.sendMessage("created vote site: " + site.getKey());
+							}
+
+						}
+					}
+				} else {
+					sender.sendMessage("GAL not loaded");
+				}
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFrom", "VoteRoulette" },
+				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from VoteRoulette") {
+
+			@SuppressWarnings("static-access")
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
+					for (OfflinePlayer offPlayer : Bukkit.getOfflinePlayers()) {
+						Voter voter = VoteRoulette.getInstance().getVoterManager().getVoter(offPlayer.getUniqueId(),
+								offPlayer.getName());
+						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
+						user.setAllTimeTotal(user.getAllTimeTotal() + voter.getStatSheet().getLifetimeVotes());
+						user.setMonthTotal(user.getMonthTotal() + voter.getStatSheet().getCurrentMonthVotes());
+					}
+				} else {
+					sender.sendMessage("VoteRoulette not loaded");
+				}
+			}
+		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetPoints", "(player)", "(number)" },
 				"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
@@ -279,8 +356,10 @@ public class CommandLoader {
 					return;
 				}
 				try {
+					sender.sendMessage("Starting to convert");
 					UserStorage prevStorage = UserStorage.valueOf(args[1].toUpperCase());
 					plugin.convertDataStorage(prevStorage, AdvancedCoreHook.getInstance().getStorageType());
+					sender.sendMessage("Finished converting!");
 				} catch (Exception ex) {
 					ex.printStackTrace();
 				}

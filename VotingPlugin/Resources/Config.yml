@@ -70,7 +70,7 @@ VoteReminding:
   # Can add titles and more in the reward file
   Rewards:
     Messages:
-      Player: '&aRemeber to vote!'
+      Player: '&aRemember to vote!'
     Title:
       Enabled: false
       Title: '&cRemember to vote!'
@@ -705,6 +705,10 @@ DailyAwards:
 # Advanced
 # Most of these values can be left untouched
 # ------------------------------------------------
+
+# Number of points to give on vote
+# Set to 0 to give no points
+PointsOnVote: 1
 
 # Wether or not to check on world change
 # Should only be used if you do per world rewards
