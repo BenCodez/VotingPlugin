@@ -1193,6 +1193,27 @@ public class CommandLoader {
 	}
 
 	/**
+	 * @return the adminPerm
+	 */
+	public String getAdminPerm() {
+		return adminPerm;
+	}
+
+	/**
+	 * @return the modPerm
+	 */
+	public String getModPerm() {
+		return modPerm;
+	}
+
+	/**
+	 * @return the playerPerm
+	 */
+	public String getPlayerPerm() {
+		return playerPerm;
+	}
+
+	/**
 	 * Sets the commands.
 	 *
 	 * @param commands

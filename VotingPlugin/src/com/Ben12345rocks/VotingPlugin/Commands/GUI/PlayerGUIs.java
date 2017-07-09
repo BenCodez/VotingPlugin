@@ -17,6 +17,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.TopVoter;
@@ -62,8 +63,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -72,8 +72,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -82,8 +81,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -91,9 +89,11 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteGUI(Player player, User user) {
-		if (!player.getName().equals(user.getPlayerName())
+		if ((!player.getName().equals(user.getPlayerName())
 				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
-				&& !player.hasPermission("VotingPlugin.Mod")) {
+				&& !player.hasPermission("VotingPlugin.Mod"))
+				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
+						&& !player.hasPermission(CommandLoader.getInstance().getPlayerPerm()))) {
 			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
 			return;
 		}
@@ -183,11 +183,17 @@ public class PlayerGUIs {
 
 						@Override
 						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteLast(player, getSelectedPlayer(player));
+
 						}
 					});
 		}
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 		inv.openInventory(player);
 	}
 
@@ -202,11 +208,18 @@ public class PlayerGUIs {
 
 						@Override
 						public void onClick(ClickEvent clickEvent) {
-							Player player = clickEvent.getPlayer();
-							openVoteNext(player, getSelectedPlayer(player));
+
 						}
 					});
 		}
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 		inv.openInventory(player);
 	}
 
@@ -220,8 +233,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -230,8 +242,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -241,8 +252,7 @@ public class PlayerGUIs {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						Player player = clickEvent.getPlayer();
-						openVoteBest(player, getSelectedPlayer(player));
+
 					}
 				});
 
@@ -251,8 +261,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -261,8 +270,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteBest(player, getSelectedPlayer(player));
+
 			}
 		});
 
@@ -272,10 +280,17 @@ public class PlayerGUIs {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						Player player = clickEvent.getPlayer();
-						openVoteBest(player, getSelectedPlayer(player));
+
 					}
 				});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 
 		inv.openInventory(player);
 	}
@@ -354,6 +369,13 @@ public class PlayerGUIs {
 				openVoteTop(player, cur.next());
 			}
 		});
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 		inv.setPages(true);
 		inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
 		inv.openInventory(player);
@@ -368,8 +390,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteTotal(player, getSelectedPlayer(player));
+
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalWeekTotalItem())
@@ -377,8 +398,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteTotal(player, getSelectedPlayer(player));
+
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalMonthTotalItem())
@@ -386,8 +406,7 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteTotal(player, getSelectedPlayer(player));
+
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalAllTimeTotalItem())
@@ -395,8 +414,13 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				Player player = clickEvent.getPlayer();
-				openVoteTotal(player, getSelectedPlayer(player));
+			}
+		});
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
 			}
 		});
 		inv.openInventory(player);
@@ -468,6 +492,14 @@ public class PlayerGUIs {
 			count++;
 		}
 
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
+
 		BInventory.openInventory(player, inv);
 	}
 
@@ -506,6 +538,13 @@ public class PlayerGUIs {
 			}
 		});
 
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 		inv.openInventory(player);
 	}
 
@@ -568,6 +607,6 @@ public class PlayerGUIs {
 			}
 		}
 
-		BInventory.openInventory(player, inv);
+		inv.openInventory(player);
 	}
 }
