@@ -128,8 +128,8 @@ public class VotiferEvent implements Listener {
 	public void onVotiferEvent(VotifierEvent event) {
 
 		Vote vote = event.getVote();
-		String voteSite = vote.getServiceName();
-		String voteUsername = vote.getUsername();
+		final String voteSite = vote.getServiceName();
+		final String voteUsername = vote.getUsername();
 
 		if (voteUsername.length() == 0) {
 			plugin.getLogger().warning("No name from vote on " + voteSite);
@@ -141,12 +141,14 @@ public class VotiferEvent implements Listener {
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
 
-		String voteSiteName = plugin.getVoteSiteName(voteSite);
+		
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
+				String voteSiteName = plugin.getVoteSiteName(voteSite);
+				
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
 						UserManager.getInstance().getVotingPluginUser(voteUsername));
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
@@ -161,12 +163,10 @@ public class VotiferEvent implements Listener {
 						plugin.getLogger()
 								.warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 						ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-						ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
 					}
 				} else if (Config.getInstance().getAutoCreateVoteSites()) {
 					plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
-					ConfigVoteSites.getInstance().setServiceSite(voteSiteName, voteSite);
 				}
 
 				playerVote(voteUsername, voteSite);
