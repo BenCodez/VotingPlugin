@@ -750,12 +750,7 @@ public class Commands {
 
 		}
 	}
-
-	/**
-	 * Vote UR ls.
-	 *
-	 * @return the string[]
-	 */
+	
 	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
