@@ -315,6 +315,13 @@ public class PlayerGUIs {
 				});
 			}
 		}
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+			}
+		});
 		inv.openInventory(player);
 	}
 

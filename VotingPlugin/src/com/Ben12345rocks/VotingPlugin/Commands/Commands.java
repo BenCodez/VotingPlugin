@@ -597,8 +597,7 @@ public class Commands {
 				LocalDateTime nextvote = lastVote.plusHours(votedelay);
 
 				if (time == 0 || now.isAfter(nextvote)) {
-					String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
-					info = canVoteMsg;
+					info = config.getFormatCommandsVoteNextInfoCanVote();
 				} else {
 					Duration dur = Duration.between(now, nextvote);
 
@@ -614,7 +613,13 @@ public class Commands {
 				}
 			}
 		} else {
-			info = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
+			if (lastVote.getDayOfYear()==now.getDayOfYear() && lastVote.getYear()==now.getYear()) {
+				info = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
+			} else {
+				info = config.getFormatCommandsVoteNextInfoCanVote();
+			}
+			
+			
 		}
 		return info;
 	}
