@@ -17,7 +17,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.TopVoter;
@@ -93,7 +92,7 @@ public class PlayerGUIs {
 				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
 				&& !player.hasPermission("VotingPlugin.Mod"))
 				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
-						&& !player.hasPermission(CommandLoader.getInstance().getPlayerPerm()))) {
+						&& !player.hasPermission("VotingPlugin.Player"))) {
 			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
 			return;
 		}
