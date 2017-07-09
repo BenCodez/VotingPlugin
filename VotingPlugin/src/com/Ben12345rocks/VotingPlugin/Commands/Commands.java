@@ -122,9 +122,9 @@ public class Commands {
 
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
@@ -694,9 +694,9 @@ public class Commands {
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			}
 		}
 
