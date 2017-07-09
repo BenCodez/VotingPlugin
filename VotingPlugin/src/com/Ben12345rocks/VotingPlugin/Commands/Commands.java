@@ -587,29 +587,34 @@ public class Commands {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
-		int votedelay = voteSite.getVoteDelay();
-		if (votedelay == 0) {
-			String errorMsg = config.getFormatCommandsVoteNextInfoError();
-			info = errorMsg;
-		} else {
-
-			LocalDateTime nextvote = lastVote.plusHours(votedelay);
-
-			if (time == 0 || now.isAfter(nextvote)) {
-				String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
-				info = canVoteMsg;
+		if (!voteSite.isVoteDelayDaily()) {
+			int votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0) {
+				String errorMsg = config.getFormatCommandsVoteNextInfoError();
+				info = errorMsg;
 			} else {
-				Duration dur = Duration.between(now, nextvote);
 
-				long diffHours = dur.getSeconds() / (60 * 60);
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+				LocalDateTime nextvote = lastVote.plusHours(votedelay);
 
-				String timeMsg = config.getFormatCommandsVoteNextInfoTime();
-				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
-				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
-				info = timeMsg;
+				if (time == 0 || now.isAfter(nextvote)) {
+					String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
+					info = canVoteMsg;
+				} else {
+					Duration dur = Duration.between(now, nextvote);
 
+					long diffHours = dur.getSeconds() / (60 * 60);
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					String timeMsg = config.getFormatCommandsVoteNextInfoTime();
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+
+				}
 			}
+		} else {
+			info = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
 		}
 		return info;
 	}

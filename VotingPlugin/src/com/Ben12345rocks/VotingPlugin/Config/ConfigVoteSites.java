@@ -106,7 +106,7 @@ public class ConfigVoteSites extends YMLFile {
 	public String getRewardsPath(String siteName) {
 		return "VoteSites." + siteName + ".Rewards";
 	}
-	
+
 	public String getEverySiteRewardPath() {
 		return "EverySiteReward";
 	}
@@ -142,6 +142,10 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public boolean getVoteSiteEnabled(String siteName) {
 		return getData(siteName).getBoolean("Enabled");
+	}
+
+	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {
+		return getData(siteName).getBoolean("VoteDelayDaily");
 	}
 
 	/**

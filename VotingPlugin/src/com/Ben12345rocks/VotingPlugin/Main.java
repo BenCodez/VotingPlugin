@@ -206,7 +206,7 @@ public class Main extends JavaPlugin {
 			}
 		}
 		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
-			configVoteSites.generateVoteSite(siteName);
+			configVoteSites.generateVoteSite(siteName.replace(".", "_"));
 			return new VoteSite(siteName.replace(".", "_"));
 		}
 		return null;

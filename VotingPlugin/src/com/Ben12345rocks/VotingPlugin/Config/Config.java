@@ -366,7 +366,6 @@ public class Config extends YMLFile {
 	 */
 	public String getFormatCommandsVoteNextInfoError() {
 		return getData().getString("Format.Commands.Vote.Next.Info.Error", "");
-
 	}
 
 	/**
@@ -377,7 +376,10 @@ public class Config extends YMLFile {
 	public String getFormatCommandsVoteNextInfoTime() {
 		return getData().getString("Format.Commands.Vote.Next.Info.TimeUntilVote",
 				"&cCould not caculate time until next vote!");
+	}
 
+	public String getFormatCommandsVoteNextInfoVoteDelayDaily() {
+		return getData().getString("Format.Commands.Vote.Next.Info.VoteDelayDaily", "Tomorrow");
 	}
 
 	/**
@@ -1057,7 +1059,7 @@ public class Config extends YMLFile {
 	public String getVotePartyBroadcast() {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
-	
+
 	public int getPointsOnVote() {
 		return getData().getInt("PointsOnVote", 1);
 	}

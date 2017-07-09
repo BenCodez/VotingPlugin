@@ -28,6 +28,9 @@ VoteSites:
     # Most sites are 24 hours
     VoteDelay: 24
     
+    # Reset vote delay each day (for certain sites that do this)
+    VoteDelayDaily: false
+    
     # VoteSite Material for GUI's
     Item:
       Material: 'DIAMOND'

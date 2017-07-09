@@ -156,11 +156,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addWeekVoteStreak() {
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
-	
+
 	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount",getAllTimeTotal());
+		return getData().getInt("MilestoneCount", getAllTimeTotal());
 	}
-	
+
 	public void setMilestoneCount(int value) {
 		getData().setInt("MilestoneCount", value);
 	}
@@ -188,6 +188,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return true, if successful
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
+
 		String siteName = voteSite.getKey();
 		long time = getTime(voteSite);
 		if (time == 0) {
@@ -196,15 +197,23 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
-		int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
+		if (!voteSite.isVoteDelayDaily()) {
+			int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
 
-		if (votedelay == 0) {
+			if (votedelay == 0) {
+				return false;
+			}
+
+			LocalDateTime nextvote = lastVote.plusHours(votedelay);
+
+			return now.isAfter(nextvote);
+		} else {
+			if (now.getDayOfYear() != lastVote.getDayOfYear() && now.getYear() != lastVote.getYear()) {
+				return true;
+			}
 			return false;
 		}
 
-		LocalDateTime nextvote = lastVote.plusHours(votedelay);
-
-		return now.isAfter(nextvote);
 	}
 
 	/**
