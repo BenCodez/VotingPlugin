@@ -40,6 +40,8 @@ public class VoteSite {
 
 	/** The enabled. */
 	private boolean enabled;
+	
+	private boolean voteDelayDaily;
 
 	/** The priority. */
 	private int priority;
@@ -65,6 +67,20 @@ public class VoteSite {
 	public VoteSite(String siteName) {
 		key = siteName.replace(".", "_");
 		init();
+	}
+
+	/**
+	 * @return the voteDelayDaily
+	 */
+	public boolean isVoteDelayDaily() {
+		return voteDelayDaily;
+	}
+
+	/**
+	 * @param voteDelayDaily the voteDelayDaily to set
+	 */
+	public void setVoteDelayDaily(boolean voteDelayDaily) {
+		this.voteDelayDaily = voteDelayDaily;
 	}
 
 	/**
@@ -181,6 +197,7 @@ public class VoteSite {
 			displayName = key;
 		}
 		item = configVoteSites.getItem(key);
+		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
 	}
 
 	/**

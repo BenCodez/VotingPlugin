@@ -1169,7 +1169,12 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (!Config.getInstance().getCommandsUseGUIVote()) {
-					CommandVote.getInstance().voteURLs(sender);
+					if (isPlayer(sender)) {
+						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+						user.sendMessage(Commands.getInstance().voteURLs(user));
+					} else {
+						sender.sendMessage(Commands.getInstance().voteURLs(null));
+					}
 				} else {
 					if (sender instanceof Player) {
 						PlayerGUIs.getInstance().openVoteURL((Player) sender);
@@ -1185,6 +1190,27 @@ public class CommandLoader {
 			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.voteCommand.addAll(avCommands);
+	}
+
+	/**
+	 * @return the adminPerm
+	 */
+	public String getAdminPerm() {
+		return adminPerm;
+	}
+
+	/**
+	 * @return the modPerm
+	 */
+	public String getModPerm() {
+		return modPerm;
+	}
+
+	/**
+	 * @return the playerPerm
+	 */
+	public String getPlayerPerm() {
+		return playerPerm;
 	}
 
 	/**

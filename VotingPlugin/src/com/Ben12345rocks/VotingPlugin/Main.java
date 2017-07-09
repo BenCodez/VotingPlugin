@@ -205,7 +205,7 @@ public class Main extends JavaPlugin {
 				return voteSite;
 			}
 		}
-		if (config.getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
+		if (Config.getInstance().getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
 			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(siteName.replace(".", "_"));
 		}
@@ -745,6 +745,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 		loadTimer();
+
 	}
 
 	public void setUpdate(boolean update) {
@@ -759,6 +760,7 @@ public class Main extends JavaPlugin {
 		configVoteSites = ConfigVoteSites.getInstance();
 		config.setup();
 		configVoteSites.setup();
+
 		plugin.debug("Loaded Files");
 
 	}

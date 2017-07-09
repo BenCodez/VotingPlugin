@@ -155,6 +155,8 @@ Format:
           TimeUntilVote: '%hours% Hours and %minutes% Minutes'
           # If there is an error finding out time until next vote
           Error: '&cCould not caculate time until next vote!'
+          # For sites that have this, requires votedelaydaily to be set to true in the site
+          VoteDelayDaily: 'Tomorrow'
           
        # Format for /vote last
       Last:
@@ -596,6 +598,7 @@ VoteStreak:
   # Valid options: Day, Week, Month
   Day:
     # Number of days in a row
+    # Each day requires one vote
     '2':
       # Enabled or not
       Enabled: false
@@ -604,7 +607,8 @@ VoteStreak:
         Messages:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Week:
-    # Number of days in a row
+    # Number of weeks in a row
+    # Requires atleast one vote per week
     '2':
       # Enabled or not
       Enabled: false
@@ -613,7 +617,8 @@ VoteStreak:
         Messages:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Month:
-    # Number of days in a row
+    # Number of months in a row
+    # Requires atleast 1 vote per month
     '2':
       # Enabled or not
       Enabled: false

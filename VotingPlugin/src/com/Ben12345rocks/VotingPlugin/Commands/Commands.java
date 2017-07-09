@@ -122,9 +122,9 @@ public class Commands {
 
 		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/av"), cmdHandle.getHelpLine("/av"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
@@ -587,29 +587,39 @@ public class Commands {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
-		int votedelay = voteSite.getVoteDelay();
-		if (votedelay == 0) {
-			String errorMsg = config.getFormatCommandsVoteNextInfoError();
-			info = errorMsg;
-		} else {
-
-			LocalDateTime nextvote = lastVote.plusHours(votedelay);
-
-			if (time == 0 || now.isAfter(nextvote)) {
-				String canVoteMsg = config.getFormatCommandsVoteNextInfoCanVote();
-				info = canVoteMsg;
+		if (!voteSite.isVoteDelayDaily()) {
+			int votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0) {
+				String errorMsg = config.getFormatCommandsVoteNextInfoError();
+				info = errorMsg;
 			} else {
-				Duration dur = Duration.between(now, nextvote);
 
-				long diffHours = dur.getSeconds() / (60 * 60);
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+				LocalDateTime nextvote = lastVote.plusHours(votedelay);
 
-				String timeMsg = config.getFormatCommandsVoteNextInfoTime();
-				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
-				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
-				info = timeMsg;
+				if (time == 0 || now.isAfter(nextvote)) {
+					info = config.getFormatCommandsVoteNextInfoCanVote();
+				} else {
+					Duration dur = Duration.between(now, nextvote);
 
+					long diffHours = dur.getSeconds() / (60 * 60);
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					String timeMsg = config.getFormatCommandsVoteNextInfoTime();
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Long.toString(diffHours));
+					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+
+				}
 			}
+		} else {
+			if (lastVote.getDayOfYear()==now.getDayOfYear() && lastVote.getYear()==now.getYear()) {
+				info = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
+			} else {
+				info = config.getFormatCommandsVoteNextInfoCanVote();
+			}
+			
+			
 		}
 		return info;
 	}
@@ -694,9 +704,9 @@ public class Commands {
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			} else {
-				unsorted.put(cmdHandle.getHelpLineCommand("/v"), cmdHandle.getHelpLine("/v"));
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			}
 		}
 
@@ -746,7 +756,7 @@ public class Commands {
 	 *
 	 * @return the string[]
 	 */
-	public String[] voteURLs() {
+	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();
@@ -765,6 +775,15 @@ public class Commands {
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getDisplayName());
 				sites.add(msg);
 			}
+		}
+		if (user != null) {
+			HashMap<String, String> phs = new HashMap<String, String>();
+			phs.put("DailyTotal", "" + user.getDailyTotal());
+			phs.put("WeekTotal", "" + user.getWeeklyTotal());
+			phs.put("MonthTotal", "" + user.getMonthTotal());
+			phs.put("Total", "" + user.getAllTimeTotal());
+
+			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);
