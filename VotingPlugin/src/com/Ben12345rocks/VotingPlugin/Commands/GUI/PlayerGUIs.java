@@ -109,7 +109,7 @@ public class PlayerGUIs {
 			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
 			if (lore.length == 0) {
 				if (slot.equalsIgnoreCase("url")) {
-					lore = Commands.getInstance().voteURLs();
+					lore = Commands.getInstance().voteURLs(user);
 				} else if (slot.equalsIgnoreCase("next")) {
 					lore = Commands.getInstance().voteCommandNext(user);
 				} else if (slot.equalsIgnoreCase("last")) {
@@ -130,7 +130,7 @@ public class PlayerGUIs {
 				} else if (slot.equalsIgnoreCase("today")) {
 					lore = Commands.getInstance().voteToday();
 				} else if (slot.equalsIgnoreCase("help")) {
-					lore = new String[] {"Click to view help"};
+					lore = new String[] { "Click to view help" };
 				}
 			}
 
@@ -431,7 +431,7 @@ public class PlayerGUIs {
 					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
 					Player player = event.getWhoClicked();
 					player.closeInventory();
-					user.sendMessage(Commands.getInstance().voteURLs());
+					user.sendMessage(Commands.getInstance().voteURLs(user));
 
 				}
 			});

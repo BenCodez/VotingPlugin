@@ -751,7 +751,7 @@ public class Commands {
 	 *
 	 * @return the string[]
 	 */
-	public String[] voteURLs() {
+	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();
@@ -770,6 +770,15 @@ public class Commands {
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getDisplayName());
 				sites.add(msg);
 			}
+		}
+		if (user != null) {
+			HashMap<String, String> phs = new HashMap<String, String>();
+			phs.put("DailyTotal", "" + user.getDailyTotal());
+			phs.put("WeekTotal", "" + user.getWeeklyTotal());
+			phs.put("MonthTotal", "" + user.getMonthTotal());
+			phs.put("Total", "" + user.getAllTimeTotal());
+
+			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);

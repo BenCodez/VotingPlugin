@@ -431,19 +431,4 @@ public class CommandVote implements CommandExecutor {
 		}
 	}
 
-	/**
-	 * Vote UR ls.
-	 *
-	 * @param sender
-	 *            the sender
-	 */
-	public void voteURLs(CommandSender sender) {
-		if (sender instanceof Player) {
-			User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-			user.sendMessage(Commands.getInstance().voteURLs());
-		} else {
-			sender.sendMessage(Commands.getInstance().voteURLs());
-		}
-	}
-
 }
