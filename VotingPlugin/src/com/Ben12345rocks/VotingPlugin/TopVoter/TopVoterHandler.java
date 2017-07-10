@@ -153,6 +153,15 @@ public class TopVoterHandler implements Listener {
 		}
 		resetMonthlyTotals();
 
+		if (Config.getInstance().getResetMilestonesMonthly()) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				user.setMilestoneCount(0);
+				user.setHasGottenMilestone(new HashMap<String, Boolean>());
+			}
+
+		}
+
 	}
 
 	@EventHandler
