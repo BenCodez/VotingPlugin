@@ -52,7 +52,6 @@ import com.Ben12345rocks.VotingPlugin.Events.VotingPluginUpdateEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -715,7 +714,6 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerInteract(this), this);
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
-		pm.registerEvents(OtherVoteReward.getInstance(), this);
 
 		plugin.debug("Loaded Events");
 

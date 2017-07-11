@@ -1,27 +1,20 @@
 package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
-import java.util.HashMap;
 import java.util.Set;
 
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-
-import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class OtherVoteReward.
  */
-public class OtherVoteReward implements Listener {
+public class OtherVoteReward {
 
 	/** The config. */
 	static Config config = Config.getInstance();
@@ -267,17 +260,5 @@ public class OtherVoteReward implements Listener {
 	public void giveVoteStreakReward(User user, boolean online, String type, int streak) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, streak))
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + streak).send(user);
-	}
-
-	@EventHandler
-	public void onMonthChange(MonthChangeEvent event) {
-		if (Config.getInstance().getResetMilestonesMonthly()) {
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				user.setMilestoneCount(0);
-				user.setHasGottenMilestone(new HashMap<String, Boolean>());
-			}
-
-		}
 	}
 }
