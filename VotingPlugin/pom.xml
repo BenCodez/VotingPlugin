@@ -151,15 +151,13 @@
 		</repository>
 	</repositories>
 	<dependencies>
-		<!-- <dependency> <groupId>com.github.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
-			<version>master-SNAPSHOT</version> </dependency> -->
-
 		<dependency>
-			<groupId>com.Ben12345rocks</groupId>
+			<groupId>com.github.Ben12345rocks</groupId>
 			<artifactId>AdvancedCore</artifactId>
-			<version>LATEST</version>
-			<scope>compile</scope>
+			<version>master-SNAPSHOT</version>
 		</dependency>
+		<!-- <dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
+			<version>LATEST</version> <scope>compile</scope> </dependency> -->
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
