@@ -110,6 +110,10 @@ public class ConfigVoteSites extends YMLFile {
 	public String getEverySiteRewardPath() {
 		return "EverySiteReward";
 	}
+	
+	public boolean getVoteSiteGiveOffline(String site) {
+		return getData(site).getBoolean("GiveOffline");
+	}
 
 	/**
 	 * Gets the service site.

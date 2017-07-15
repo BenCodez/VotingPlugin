@@ -40,13 +40,15 @@ public class VoteSite {
 
 	/** The enabled. */
 	private boolean enabled;
-	
+
 	private boolean voteDelayDaily;
 
 	/** The priority. */
 	private int priority;
 
 	private ConfigurationSection item;
+
+	private boolean giveOffline;
 
 	/**
 	 * Instantiates a new vote site.
@@ -77,7 +79,8 @@ public class VoteSite {
 	}
 
 	/**
-	 * @param voteDelayDaily the voteDelayDaily to set
+	 * @param voteDelayDaily
+	 *            the voteDelayDaily to set
 	 */
 	public void setVoteDelayDaily(boolean voteDelayDaily) {
 		this.voteDelayDaily = voteDelayDaily;
@@ -198,6 +201,28 @@ public class VoteSite {
 		}
 		item = configVoteSites.getItem(key);
 		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
+		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
+	}
+
+	/**
+	 * @return the giveOffline
+	 */
+	public boolean isGiveOffline() {
+		return giveOffline;
+	}
+
+	/**
+	 * @param giveOffline the giveOffline to set
+	 */
+	public void setGiveOffline(boolean giveOffline) {
+		this.giveOffline = giveOffline;
+	}
+
+	/**
+	 * @param item the item to set
+	 */
+	public void setItem(ConfigurationSection item) {
+		this.item = item;
 	}
 
 	/**

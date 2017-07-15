@@ -31,6 +31,9 @@ VoteSites:
     # Reset vote delay each day (for certain sites that do this)
     VoteDelayDaily: false
     
+    # If true, rewards can be executed offline (required ForceOffline to be true in the reward)
+    GiveOffline: false
+    
     # VoteSite Material for GUI's
     Item:
       Material: 'DIAMOND'

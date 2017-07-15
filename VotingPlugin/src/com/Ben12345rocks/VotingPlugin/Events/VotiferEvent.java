@@ -94,7 +94,7 @@ public class VotiferEvent implements Listener {
 					OtherVoteReward.getInstance().checkCumualativeVotes(user);
 					OtherVoteReward.getInstance().checkMilestone(user);
 
-					if (user.isOnline()) {
+					if (user.isOnline() || voteSite.isGiveOffline()) {
 						user.playerVote(voteSite, true, false);
 					} else {
 						user.addOfflineVote(voteSite.getKey());
