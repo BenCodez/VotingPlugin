@@ -45,7 +45,7 @@ public class VotiferEvent implements Listener {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
-				synchronized (plugin) {
+				synchronized (configVoteSites) {
 					User user = UserManager.getInstance().getVotingPluginUser(playerName);
 					if (!user.hasLoggedOnBefore() && !config.allowUnJoined()) {
 						plugin.getLogger().warning("Player " + playerName
@@ -141,14 +141,12 @@ public class VotiferEvent implements Listener {
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
 
-		
-
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
-				
+
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
 						UserManager.getInstance().getVotingPluginUser(voteUsername));
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
