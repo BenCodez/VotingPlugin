@@ -15,7 +15,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -664,7 +664,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
 
 			@Override
-			public Object getObject(Player player) {
+			public Object getObject(OfflinePlayer player) {
 				return getUserManager().getVotingPluginUser(player);
 			}
 		});
