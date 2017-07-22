@@ -784,8 +784,15 @@ public class Main extends JavaPlugin {
 						update = false;
 						plugin.debug("Starting background task");
 						try {
-							TopVoterHandler.getInstance().updateTopVoters();
-							Commands.getInstance().updateVoteToday();
+							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+							ArrayList<User> users = new ArrayList<User>();
+							for (String uuid : uuids) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								users.add(user);
+							}
+							plugin.debug("Finished loading player data");
+							TopVoterHandler.getInstance().updateTopVoters(users);
+							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 							plugin.debug("Background task ran");

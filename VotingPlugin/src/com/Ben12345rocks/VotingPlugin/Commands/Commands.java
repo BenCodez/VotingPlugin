@@ -470,13 +470,10 @@ public class Commands {
 	/**
 	 * Update vote today.
 	 */
-	public void updateVoteToday() {
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-
+	public void updateVoteToday(ArrayList<User> users) {
 		plugin.voteToday.clear();
 
-		for (String uuid : uuids) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+		for (User user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				long time = user.getTime(voteSite);
