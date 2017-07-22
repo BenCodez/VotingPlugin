@@ -685,8 +685,8 @@ public class Main extends JavaPlugin {
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
 		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		getCommand("v").setExecutor(new CommandVote(this));
-		getCommand("v").setTabCompleter(new VoteTabCompleter());
+		//getCommand("v").setExecutor(new CommandVote(this));
+		//getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
