@@ -88,6 +88,10 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteGUI(Player player, User user) {
+		if (user == null) {
+			user = UserManager.getInstance().getVotingPluginUser(player);
+			setSelectedPlayer(player, user);
+		}
 		if ((!player.getName().equals(user.getPlayerName())
 				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
 				&& !player.hasPermission("VotingPlugin.Mod"))
