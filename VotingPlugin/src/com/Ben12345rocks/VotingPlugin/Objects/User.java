@@ -157,14 +157,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
 
-	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount", getAllTimeTotal());
-	}
-
-	public void setMilestoneCount(int value) {
-		getData().setInt("MilestoneCount", value);
-	}
-
 	/**
 	 * Can vote all.
 	 *
@@ -362,6 +354,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
+	}
+
+	public int getMilestoneCount() {
+		return getData().getInt("MilestoneCount", getAllTimeTotal());
 	}
 
 	public int getMonthTotal() {
@@ -740,6 +736,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			data.add(str);
 		}
 		getUserData().setStringList("LastVotes", data);
+	}
+
+	public void setMilestoneCount(int value) {
+		getData().setInt("MilestoneCount", value);
 	}
 
 	public void setMonthTotal(int total) {

@@ -72,21 +72,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * @return the voteDelayDaily
-	 */
-	public boolean isVoteDelayDaily() {
-		return voteDelayDaily;
-	}
-
-	/**
-	 * @param voteDelayDaily
-	 *            the voteDelayDaily to set
-	 */
-	public void setVoteDelayDaily(boolean voteDelayDaily) {
-		this.voteDelayDaily = voteDelayDaily;
-	}
-
-	/**
 	 * Broadcast vote.
 	 *
 	 * @param user
@@ -205,6 +190,15 @@ public class VoteSite {
 	}
 
 	/**
+	 * Checks if is enabled.
+	 *
+	 * @return true, if is enabled
+	 */
+	public boolean isEnabled() {
+		return enabled;
+	}
+
+	/**
 	 * @return the giveOffline
 	 */
 	public boolean isGiveOffline() {
@@ -212,26 +206,10 @@ public class VoteSite {
 	}
 
 	/**
-	 * @param giveOffline the giveOffline to set
+	 * @return the voteDelayDaily
 	 */
-	public void setGiveOffline(boolean giveOffline) {
-		this.giveOffline = giveOffline;
-	}
-
-	/**
-	 * @param item the item to set
-	 */
-	public void setItem(ConfigurationSection item) {
-		this.item = item;
-	}
-
-	/**
-	 * Checks if is enabled.
-	 *
-	 * @return true, if is enabled
-	 */
-	public boolean isEnabled() {
-		return enabled;
+	public boolean isVoteDelayDaily() {
+		return voteDelayDaily;
 	}
 
 	/**
@@ -250,6 +228,22 @@ public class VoteSite {
 	 */
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	/**
+	 * @param giveOffline
+	 *            the giveOffline to set
+	 */
+	public void setGiveOffline(boolean giveOffline) {
+		this.giveOffline = giveOffline;
+	}
+
+	/**
+	 * @param item
+	 *            the item to set
+	 */
+	public void setItem(ConfigurationSection item) {
+		this.item = item;
 	}
 
 	/**
@@ -288,6 +282,14 @@ public class VoteSite {
 	 */
 	public void setVoteDelay(int voteDelay) {
 		this.voteDelay = voteDelay;
+	}
+
+	/**
+	 * @param voteDelayDaily
+	 *            the voteDelayDaily to set
+	 */
+	public void setVoteDelayDaily(boolean voteDelayDaily) {
+		this.voteDelayDaily = voteDelayDaily;
 	}
 
 	/**

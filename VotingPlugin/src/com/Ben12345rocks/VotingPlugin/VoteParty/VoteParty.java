@@ -152,11 +152,9 @@ public class VoteParty implements Listener {
 	 */
 	public void giveReward(User user) {
 		/*
-		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) {
-		 * if (user.getVotePartyVotes() >=
-		 * Config.getInstance().getUserVotesRequired()) {
-		 * RewardHandler.getInstance().giveReward(user,
-		 * Config.getInstance().getData(),
+		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) { if
+		 * (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
+		 * RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 		 * Config.getInstance().getVotePartyRewardsPath()); } } else {
 		 * user.addOfflineOtherReward("VoteParty"); }
 		 */

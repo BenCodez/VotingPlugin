@@ -806,10 +806,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LogVotesToFile");
 	}
 
-	public boolean getResetMilestonesMonthly() {
-		return getData().getBoolean("ResetMilestonesMonthly");
-	}
-
 	/**
 	 * Gets the milestone reward enabled.
 	 *
@@ -910,6 +906,10 @@ public class Config extends YMLFile {
 		return getData().getString("MySQL.Username", "");
 	}
 
+	public int getPointsOnVote() {
+		return getData().getInt("PointsOnVote", 1);
+	}
+
 	/**
 	 * Gets the request API default method.
 	 *
@@ -927,6 +927,10 @@ public class Config extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRequestAPIDisabledMethods() {
 		return (ArrayList<String>) getData().getList("RequestAPI.DisabledMethods", new ArrayList<String>());
+	}
+
+	public boolean getResetMilestonesMonthly() {
+		return getData().getBoolean("ResetMilestonesMonthly");
 	}
 
 	/**
@@ -1025,6 +1029,10 @@ public class Config extends YMLFile {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
 	}
 
+	public String getVotePartyBroadcast() {
+		return getData().getString("VoteParty.Broadcast", "");
+	}
+
 	/**
 	 * Gets the vote party enabled.
 	 *
@@ -1054,14 +1062,6 @@ public class Config extends YMLFile {
 	 */
 	public String getVotePartyRewardsPath() {
 		return "VoteParty.Rewards";
-	}
-
-	public String getVotePartyBroadcast() {
-		return getData().getString("VoteParty.Broadcast", "");
-	}
-
-	public int getPointsOnVote() {
-		return getData().getInt("PointsOnVote", 1);
 	}
 
 	/**

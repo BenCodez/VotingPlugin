@@ -107,12 +107,33 @@ public class CommandLoader {
 	}
 
 	/**
+	 * @return the adminPerm
+	 */
+	public String getAdminPerm() {
+		return adminPerm;
+	}
+
+	/**
 	 * Gets the commands.
 	 *
 	 * @return the commands
 	 */
 	public HashMap<String, CommandHandler> getCommands() {
 		return commands;
+	}
+
+	/**
+	 * @return the modPerm
+	 */
+	public String getModPerm() {
+		return modPerm;
+	}
+
+	/**
+	 * @return the playerPerm
+	 */
+	public String getPlayerPerm() {
+		return playerPerm;
 	}
 
 	/**
@@ -174,7 +195,8 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
 					for (OfflinePlayer offPlayer : Bukkit.getOfflinePlayers()) {
-						Voter voter = VoteRoulette.getInstance().getVoterManager().getVoter(offPlayer.getUniqueId(),
+						VoteRoulette.getInstance();
+						Voter voter = VoteRoulette.getVoterManager().getVoter(offPlayer.getUniqueId(),
 								offPlayer.getName());
 						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
 						user.setAllTimeTotal(user.getAllTimeTotal() + voter.getStatSheet().getLifetimeVotes());
@@ -1177,27 +1199,6 @@ public class CommandLoader {
 			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.voteCommand.addAll(avCommands);
-	}
-
-	/**
-	 * @return the adminPerm
-	 */
-	public String getAdminPerm() {
-		return adminPerm;
-	}
-
-	/**
-	 * @return the modPerm
-	 */
-	public String getModPerm() {
-		return modPerm;
-	}
-
-	/**
-	 * @return the playerPerm
-	 */
-	public String getPlayerPerm() {
-		return playerPerm;
 	}
 
 	/**

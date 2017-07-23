@@ -610,13 +610,12 @@ public class Commands {
 				}
 			}
 		} else {
-			if (lastVote.getDayOfYear()==now.getDayOfYear() && lastVote.getYear()==now.getYear()) {
+			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
 				info = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
 			} else {
 				info = config.getFormatCommandsVoteNextInfoCanVote();
 			}
-			
-			
+
 		}
 		return info;
 	}
@@ -747,7 +746,7 @@ public class Commands {
 
 		}
 	}
-	
+
 	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
