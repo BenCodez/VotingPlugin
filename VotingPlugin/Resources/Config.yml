@@ -343,6 +343,7 @@ GUI:
   VoteURL:
     # GUI Name
     Name: '&cVoteURL'
+    BackButton: true
     SiteName: '&c%Name%'
     SeeURL: '&cClick to see URL'
     NextVote: '&cCan Vote In: %Info%'
@@ -392,12 +393,16 @@ GUI:
           Slot: 0
   VoteLast:
     Name: 'VoteLast: %player%'
+    BackButton: true
   VoteNext:
     Name: 'VoteNext: %player%'
+    BackButton: true
   VoteToday:
     Name: 'VoteToday'
+    BackButton: true
   VoteTop:
     Name: 'VoteTop %topvoter%'
+    BackButton: false
     Item:
       Name: '&3&l%position%: &3%player%'
       Lore: '&3&lVotes: &3%votes%'
@@ -413,6 +418,7 @@ GUI:
     Size: 27
   VoteTotal:
     Name: 'VoteTotal: %player%'
+    BackButton: true
     DayTotal:
       Item:
         Material: 'WATCH'
@@ -459,6 +465,7 @@ GUI:
         Amount: 1
   VoteStreak:
     Name: 'VoteBest: %player%'
+    BackButton: false
     CurrentDayStreak:
       Item:
         Material: 'WATCH'

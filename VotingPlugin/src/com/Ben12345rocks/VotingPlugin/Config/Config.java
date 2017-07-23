@@ -46,6 +46,10 @@ public class Config extends YMLFile {
 	public boolean allowUnJoined() {
 		return getData().getBoolean("AllowUnjoined");
 	}
+	
+	public boolean getGUIVoteLastBackButton() {
+		return getData().getBoolean("GUI.VoteLast.BackButton");
+	}
 
 	/**
 	 * Gets the all sites reward.
@@ -1378,6 +1382,30 @@ public class Config extends YMLFile {
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
+	}
+
+	public boolean getGUIVoteStreakBackButton() {
+		return getData().getBoolean("GUI.VoteStreak.BackButton");
+	}
+	
+	public boolean getGUIVoteNextBackButton() {
+		return getData().getBoolean("GUI.VoteNext.BackButton");
+	}
+	
+	public boolean getGUIVoteTodayBackButton() {
+		return getData().getBoolean("GUI.VoteToday.BackButton");
+	}
+	
+	public boolean getGUIVoteTopBackButton() {
+		return getData().getBoolean("GUI.VoteToday.BackButton");
+	}
+	
+	public boolean getGUIVoteTotalBackButton() {
+		return getData().getBoolean("GUI.VoteTotal.BackButton");
+	}
+	
+	public boolean getGUIVoteURLBackButton() {
+		return getData().getBoolean("GUI.VoteURL.BackButton");
 	}
 
 }
