@@ -16,7 +16,6 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -453,20 +452,6 @@ public class CommandAdminVote implements CommandExecutor {
 		} else {
 			Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "bukkit:version " + plugin.getName());
 		}
-	}
-
-	/**
-	 * Vote.
-	 *
-	 * @param sender
-	 *            the sender
-	 * @param playerName
-	 *            the player name
-	 * @param voteSite
-	 *            the vote site
-	 */
-	public void Vote(CommandSender sender, String playerName, String voteSite) {
-		VotiferEvent.playerVote(playerName, voteSite);
 	}
 
 }

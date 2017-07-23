@@ -39,6 +39,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
+import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -106,6 +107,13 @@ public class CommandLoader {
 	}
 
 	/**
+	 * @return the adminPerm
+	 */
+	public String getAdminPerm() {
+		return adminPerm;
+	}
+
+	/**
 	 * Gets the commands.
 	 *
 	 * @return the commands
@@ -115,24 +123,24 @@ public class CommandLoader {
 	}
 
 	/**
+	 * @return the modPerm
+	 */
+	public String getModPerm() {
+		return modPerm;
+	}
+
+	/**
+	 * @return the playerPerm
+	 */
+	public String getPlayerPerm() {
+		return playerPerm;
+	}
+
+	/**
 	 * Load admin vote command.
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.adminVoteCommand = new ArrayList<CommandHandler>();
-
-		plugin.adminVoteCommand
-				.add(new CommandHandler(new String[] { "TriggerPlayerVoteEvent", "(player)", "(Sitename)" },
-						"VotingPlugin.Commands.AdminVote.TriggerPlayerVoteEvent|" + adminPerm,
-						"Trigger vote event, used for testing") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-						plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-					}
-				});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFrom", "GAL" },
 				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from GAL") {
@@ -187,7 +195,8 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
 					for (OfflinePlayer offPlayer : Bukkit.getOfflinePlayers()) {
-						Voter voter = VoteRoulette.getInstance().getVoterManager().getVoter(offPlayer.getUniqueId(),
+						VoteRoulette.getInstance();
+						Voter voter = VoteRoulette.getVoterManager().getVoter(offPlayer.getUniqueId(),
 								offPlayer.getName());
 						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
 						user.setAllTimeTotal(user.getAllTimeTotal() + voter.getStatSheet().getLifetimeVotes());
@@ -426,8 +435,10 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().Vote(sender, args[1], args[2]);
-
+				VotiferEvent.playerVote(args[1], args[2]);
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
+						UserManager.getInstance().getVotingPluginUser(args[1]));
+				plugin.getServer().getPluginManager().callEvent(voteEvent);
 			}
 		});
 
@@ -631,8 +642,7 @@ public class CommandLoader {
 
 													@Override
 													public void onInput(Player player, String value) {
-
-														CommandAdminVote.getInstance().Vote(player,
+														VotiferEvent.playerVote(
 																UserGUI.getInstance().getCurrentPlayer(player), value);
 
 														player.sendMessage("Forced vote for "
@@ -707,11 +717,10 @@ public class CommandLoader {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
-														new BInventoryButton("" + mileStone,
-																new String[] {
-																		"Enabled: " + Config.getInstance()
-																				.getMilestoneRewardEnabled(mileStone),
-																		"&cClick to set wether this has been completed or not" },
+														new BInventoryButton("" + mileStone, new String[] {
+																"Enabled: " + Config.getInstance()
+																		.getMilestoneRewardEnabled(mileStone),
+																"&cClick to set wether this has been completed or not" },
 																new ItemStack(Material.STONE)) {
 
 															@Override
@@ -1190,27 +1199,6 @@ public class CommandLoader {
 			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.voteCommand.addAll(avCommands);
-	}
-
-	/**
-	 * @return the adminPerm
-	 */
-	public String getAdminPerm() {
-		return adminPerm;
-	}
-
-	/**
-	 * @return the modPerm
-	 */
-	public String getModPerm() {
-		return modPerm;
-	}
-
-	/**
-	 * @return the playerPerm
-	 */
-	public String getPlayerPerm() {
-		return playerPerm;
 	}
 
 	/**

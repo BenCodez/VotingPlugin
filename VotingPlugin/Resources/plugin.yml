@@ -8,8 +8,6 @@ softdepend: [AdvancedCore]
 commands:
   vote:
     description: Vote command
-  v:
-    description: Vote command
   adminvote:
     description: Admin commands for VotingPlugin
   av:

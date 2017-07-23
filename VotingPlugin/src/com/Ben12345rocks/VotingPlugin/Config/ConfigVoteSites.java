@@ -55,7 +55,7 @@ public class ConfigVoteSites extends YMLFile {
 			String org = siteName;
 			siteName = siteName.replace(".", "_");
 			plugin.getLogger().warning("VoteSite " + siteName
-					+ " doe not exist, creating one, set AutoCreateVoteSites to false to prevent this");
+					+ " does not exist, creating one, set AutoCreateVoteSites to false to prevent this");
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
@@ -79,6 +79,10 @@ public class ConfigVoteSites extends YMLFile {
 
 	public String getDisplayName(String site) {
 		return getData(site).getString("Name");
+	}
+
+	public String getEverySiteRewardPath() {
+		return "EverySiteReward";
 	}
 
 	public ConfigurationSection getItem(String site) {
@@ -105,14 +109,6 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getRewardsPath(String siteName) {
 		return "VoteSites." + siteName + ".Rewards";
-	}
-
-	public String getEverySiteRewardPath() {
-		return "EverySiteReward";
-	}
-	
-	public boolean getVoteSiteGiveOffline(String site) {
-		return getData(site).getBoolean("GiveOffline");
 	}
 
 	/**
@@ -148,10 +144,6 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getBoolean("Enabled");
 	}
 
-	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {
-		return getData(siteName).getBoolean("VoteDelayDaily");
-	}
-
 	/**
 	 * Gets the vote site file.
 	 *
@@ -172,6 +164,14 @@ public class ConfigVoteSites extends YMLFile {
 		}
 		return dFile;
 
+	}
+
+	public boolean getVoteSiteGiveOffline(String site) {
+		return getData(site).getBoolean("GiveOffline");
+	}
+
+	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {
+		return getData(siteName).getBoolean("VoteDelayDaily");
 	}
 
 	/**

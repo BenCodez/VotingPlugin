@@ -252,6 +252,23 @@ public class Main extends JavaPlugin {
 		return false;
 	}
 
+	private void loadMySQL() {
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			Thread.getInstance().run(new Runnable() {
+
+				@Override
+				public void run() {
+					AdvancedCoreHook.getInstance()
+							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
+									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
+									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
+									Config.getInstance().getMySqlMaxConnections()));
+				}
+			});
+
+		}
+	}
+
 	private void loadTimer() {
 		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
 
@@ -685,8 +702,8 @@ public class Main extends JavaPlugin {
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
 		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		getCommand("v").setExecutor(new CommandVote(this));
-		getCommand("v").setTabCompleter(new VoteTabCompleter());
+		// getCommand("v").setExecutor(new CommandVote(this));
+		// getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
@@ -784,8 +801,15 @@ public class Main extends JavaPlugin {
 						update = false;
 						plugin.debug("Starting background task");
 						try {
-							TopVoterHandler.getInstance().updateTopVoters();
-							Commands.getInstance().updateVoteToday();
+							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+							ArrayList<User> users = new ArrayList<User>();
+							for (String uuid : uuids) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								users.add(user);
+							}
+							plugin.debug("Finished loading player data");
+							TopVoterHandler.getInstance().updateTopVoters(users);
+							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 							plugin.debug("Background task ran");
@@ -818,23 +842,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
-	}
-
-	private void loadMySQL() {
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-			Thread.getInstance().run(new Runnable() {
-
-				@Override
-				public void run() {
-					AdvancedCoreHook.getInstance()
-							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
-									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
-									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
-									Config.getInstance().getMySqlMaxConnections()));
-				}
-			});
-
-		}
 	}
 
 }

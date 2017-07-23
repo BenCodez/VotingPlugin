@@ -77,7 +77,13 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler
 	public void onDateChanged(DateChangedEvent event) {
-		updateTopVoters();
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+		ArrayList<User> users = new ArrayList<User>();
+		for (String uuid : uuids) {
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			users.add(user);
+		}
+		updateTopVoters(users);
 	}
 
 	@EventHandler
@@ -556,12 +562,10 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public synchronized void updateTopVoters() {
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+	public synchronized void updateTopVoters(ArrayList<User> users1) {
 		ArrayList<User> users = new ArrayList<User>();
 		ArrayList<String> blackList = getTopVoterBlackList();
-		for (String uuid : uuids) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+		for (User user : users1) {
 			if (!blackList.contains(user.getPlayerName())) {
 				if ((!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())
 						&& !user.isBanned()) {
