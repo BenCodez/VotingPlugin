@@ -527,9 +527,13 @@ public class Commands {
 	 * @return the string
 	 */
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
-		Date date = new Date(user.getTime(voteSite));
-		String timeString = new SimpleDateFormat(config.getFormatTimeFormat()).format(date);
-		return timeString;
+		long time = user.getTime(voteSite);
+		if (time > 0) {
+			Date date = new Date(time);
+			String timeString = new SimpleDateFormat(config.getFormatTimeFormat()).format(date);
+			return timeString;
+		}
+		return "";
 	}
 
 	public String voteCommandLastLine(User user, VoteSite voteSite) {
