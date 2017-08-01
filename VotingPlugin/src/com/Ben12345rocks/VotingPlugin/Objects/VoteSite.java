@@ -78,10 +78,12 @@ public class VoteSite {
 	 *            the user
 	 */
 	public void broadcastVote(User user) {
-		String playerName = user.getPlayerName();
-		String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
-		bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
-		MiscUtils.getInstance().broadcast(bc);
+		if (!user.isVanished()) {
+			String playerName = user.getPlayerName();
+			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
+			bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
+			MiscUtils.getInstance().broadcast(bc);
+		}
 	}
 
 	/**
