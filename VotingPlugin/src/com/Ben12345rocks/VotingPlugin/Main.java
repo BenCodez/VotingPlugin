@@ -233,6 +233,11 @@ public class Main extends JavaPlugin {
 					}
 				}
 			}
+			for (String siteName : sites) {
+				if (siteName.equalsIgnoreCase(url)) {
+					return siteName;
+				}
+			}
 		}
 		return url;
 
