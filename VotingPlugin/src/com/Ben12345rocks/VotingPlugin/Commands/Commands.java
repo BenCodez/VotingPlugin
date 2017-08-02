@@ -197,7 +197,7 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		for (CommandHandler handle : plugin.voteCommand) {
-			msg.add(handle.getHelpLineCommand("/v") + " : " + handle.getPerm());
+			msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
 		}
 
 		for (CommandHandler handle : plugin.adminVoteCommand) {
