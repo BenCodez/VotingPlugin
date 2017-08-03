@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
@@ -418,13 +419,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveDailyTopVoterAward(int place) {
-		if (isOnline()) {
-			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-					Config.getInstance().getDailyAwardRewardsPath(place));
-			sendMessage(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place));
-		} else {
-			addOfflineOtherReward("DailyTopVoter" + place);
-		}
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(place))
+				.withPlaceHolder("place", "" + place).send(this);
 	}
 
 	/**
@@ -434,14 +430,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveMonthlyTopVoterAward(int place) {
-
-		if (isOnline()) {
-			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-					Config.getInstance().getMonthlyAwardRewardsPath(place));
-			sendMessage(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place));
-		} else {
-			addOfflineOtherReward("MonthlyTopVoter" + place);
-		}
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(place))
+				.withPlaceHolder("place", "" + place).send(this);
 	}
 
 	public void giveOfflineOtherRewards() {
@@ -531,14 +521,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveWeeklyTopVoterAward(int place) {
-		if (isOnline()) {
-			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-					Config.getInstance().getWeeklyAwardRewardsPath(place));
-			sendMessage(StringUtils.getInstance()
-					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
-		} else {
-			addOfflineOtherReward("WeeklyTopVoter" + place);
-		}
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(place))
+				.withPlaceHolder("place", "" + place).send(this);
 	}
 
 	/**
