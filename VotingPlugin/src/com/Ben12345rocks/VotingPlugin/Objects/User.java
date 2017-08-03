@@ -17,7 +17,6 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -253,21 +252,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setWeeklyTotal(0);
 	}
 
-	/**
-	 * Daily top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
-	public void dailyTopVoterAward(int place) {
-		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
-			// online
-			giveDailyTopVoterAward(place);
-		} else {
-			addOfflineOtherReward("DailyTopVoter" + place);
-		}
-	}
-
 	public int getAllTimeTotal() {
 		return getUserData().getInt("AllTimeTotal");
 	}
@@ -420,7 +404,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void giveDailyTopVoterAward(int place) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(place))
-				.withPlaceHolder("place", "" + place).send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily").send(this);
 	}
 
 	/**
@@ -431,7 +415,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void giveMonthlyTopVoterAward(int place) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(place))
-				.withPlaceHolder("place", "" + place).send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly").send(this);
 	}
 
 	public void giveOfflineOtherRewards() {
@@ -522,7 +506,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void giveWeeklyTopVoterAward(int place) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(place))
-				.withPlaceHolder("place", "" + place).send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly").send(this);
 	}
 
 	/**
@@ -563,21 +547,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void loginMessage() {
 		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
 			VoteReminding.getInstance().runRemindLogin(this);
-		}
-	}
-
-	/**
-	 * Monthly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
-	public void monthlyTopVoterAward(int place) {
-		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
-			// online
-			giveMonthlyTopVoterAward(place);
-		} else {
-			addOfflineOtherReward("MonthlyTopVoter" + place);
 		}
 	}
 
@@ -786,21 +755,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getData().setInt("WeekVoteStreak", streak);
 		if (getBestWeekVoteStreak() < streak) {
 			setBestWeekVoteStreak(streak);
-		}
-	}
-
-	/**
-	 * Weekly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
-	public void weeklyTopVoterAward(int place) {
-		if (PlayerUtils.getInstance().isPlayerOnline(getPlayerName())) {
-			// online
-			giveWeeklyTopVoterAward(place);
-		} else {
-			addOfflineOtherReward("WeeklyTopVoter" + place);
 		}
 	}
 
