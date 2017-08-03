@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
@@ -419,12 +418,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveDailyTopVoterAward(int place) {
-		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getDailyAwardRewardsPath(place));
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
-		if (player != null) {
-			player.sendMessage(StringUtils.getInstance()
-					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
+		if (isOnline()) {
+			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+					Config.getInstance().getDailyAwardRewardsPath(place));
+			sendMessage(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place));
+		} else {
+			addOfflineOtherReward("DailyTopVoter" + place);
 		}
 	}
 
@@ -435,12 +434,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveMonthlyTopVoterAward(int place) {
-		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getMonthlyAwardRewardsPath(place));
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
-		if (player != null) {
-			player.sendMessage(StringUtils.getInstance()
-					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
+
+		if (isOnline()) {
+			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+					Config.getInstance().getMonthlyAwardRewardsPath(place));
+			sendMessage(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place));
+		} else {
+			addOfflineOtherReward("MonthlyTopVoter" + place);
 		}
 	}
 
@@ -531,12 +531,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the place
 	 */
 	public void giveWeeklyTopVoterAward(int place) {
-		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getWeeklyAwardRewardsPath(place));
-		Player player = Bukkit.getPlayer(java.util.UUID.fromString(getUUID()));
-		if (player != null) {
-			player.sendMessage(StringUtils.getInstance()
+		if (isOnline()) {
+			RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
+					Config.getInstance().getWeeklyAwardRewardsPath(place));
+			sendMessage(StringUtils.getInstance()
 					.colorize(Config.getInstance().getFormatTopVoterRewardMsg().replace("%place%", "" + place)));
+		} else {
+			addOfflineOtherReward("WeeklyTopVoter" + place);
 		}
 	}
 
