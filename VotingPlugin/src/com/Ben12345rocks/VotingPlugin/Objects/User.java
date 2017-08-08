@@ -132,6 +132,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addTotal() {
 		addMonthTotal();
 		addAllTimeTotal();
+		setMilestoneCount(getMilestoneCount()+1);
 	}
 
 	/**
