@@ -13,6 +13,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
@@ -75,7 +76,7 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 		ArrayList<User> users = new ArrayList<User>();
@@ -86,7 +87,7 @@ public class TopVoterHandler implements Listener {
 		updateTopVoters(users);
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
@@ -115,7 +116,7 @@ public class TopVoterHandler implements Listener {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
-						user.dailyTopVoterAward(i);
+						user.giveDailyTopVoterAward(i);
 					}
 				}
 			}
@@ -124,7 +125,7 @@ public class TopVoterHandler implements Listener {
 
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -152,7 +153,7 @@ public class TopVoterHandler implements Listener {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
-						user.monthlyTopVoterAward(i);
+						user.giveMonthlyTopVoterAward(i);
 					}
 				}
 			}
@@ -170,7 +171,7 @@ public class TopVoterHandler implements Listener {
 
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -198,7 +199,7 @@ public class TopVoterHandler implements Listener {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					i++;
 					if (places.contains(Integer.toString(i))) {
-						user.weeklyTopVoterAward(i);
+						user.giveWeeklyTopVoterAward(i);
 					}
 				}
 			}

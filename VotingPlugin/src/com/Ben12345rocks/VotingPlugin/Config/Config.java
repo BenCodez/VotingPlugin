@@ -859,6 +859,10 @@ public class Config extends YMLFile {
 	public String getMonthlyAwardRewardsPath(int pos) {
 		return "MonthlyAwards." + pos + ".Rewards";
 	}
+	
+	public boolean getAlternateUUIDLookup() {
+		return getData().getBoolean("AlternateUUIDLookup");
+	}
 
 	/**
 	 * Gets the monthly awards enabled.

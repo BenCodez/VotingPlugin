@@ -678,7 +678,7 @@ EnableMonthlyAwards: true
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
   1:
-   Rewards:
+    Rewards:
       Messages:
         Player: '&aYou came in first place in %TopVoter%!'
   2:
@@ -765,3 +765,7 @@ DelayBetweenUpdates: 3
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
 DisableNoServiceSiteMessage: false
+
+# Used in special cases
+# Much slower, but may work better
+AlternateUUIDLookup: false

@@ -468,7 +468,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().setVoteSiteServiceSite(sender, args[1], args[3]);
+						CommandAdminVote.getInstance().setVoteSiteServiceSite(sender, plugin.getVoteSiteName(args[1]), args[3]);
 					}
 				});
 
@@ -478,7 +478,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().setVoteSiteVoteURL(sender, args[1], args[3]);
+						CommandAdminVote.getInstance().setVoteSiteVoteURL(sender, plugin.getVoteSiteName(args[1]), args[3]);
 					}
 				});
 
@@ -489,7 +489,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setVoteSitePriority(sender, args[1], Integer.parseInt(args[3]));
+						CommandAdminVote.getInstance().setVoteSitePriority(sender, plugin.getVoteSiteName(args[1]), Integer.parseInt(args[3]));
 
 					}
 				});
@@ -501,7 +501,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender, args[1], Integer.parseInt(args[3]));
+						CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender, plugin.getVoteSiteName(args[1]), Integer.parseInt(args[3]));
 
 					}
 				});
@@ -531,7 +531,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setVoteSiteEnabled(sender, args[1],
+						CommandAdminVote.getInstance().setVoteSiteEnabled(sender, plugin.getVoteSiteName(args[1]),
 								Boolean.parseBoolean(args[3]));
 
 					}
@@ -543,7 +543,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				CommandAdminVote.getInstance().checkVoteSite(sender, args[1]);
+				CommandAdminVote.getInstance().checkVoteSite(sender, plugin.getVoteSiteName(args[1]));
 
 			}
 		});

@@ -233,6 +233,11 @@ public class Main extends JavaPlugin {
 					}
 				}
 			}
+			for (String siteName : sites) {
+				if (siteName.equalsIgnoreCase(url)) {
+					return siteName;
+				}
+			}
 		}
 		return url;
 
@@ -842,6 +847,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
+		AdvancedCoreHook.getInstance().setAlternateUUIDLookUp(Config.getInstance().getAlternateUUIDLookup());
 	}
 
 }

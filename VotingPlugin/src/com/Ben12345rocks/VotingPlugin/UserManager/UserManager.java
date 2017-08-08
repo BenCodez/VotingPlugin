@@ -33,11 +33,11 @@ public class UserManager {
 	}
 
 	public User getVotingPluginUser(OfflinePlayer player) {
-		return getVotingPluginUser(player.getName());
+		return getVotingPluginUser(new UUID(player.getUniqueId().toString()));
 	}
 
 	public User getVotingPluginUser(Player player) {
-		return getVotingPluginUser(player.getName());
+		return getVotingPluginUser(new UUID(player.getUniqueId().toString()));
 	}
 
 	@SuppressWarnings("deprecation")
