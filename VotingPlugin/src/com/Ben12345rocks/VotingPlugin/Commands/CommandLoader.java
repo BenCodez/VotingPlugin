@@ -226,7 +226,20 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.addPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"
+						+ ", " + args[1] + " now has " + args[2] + " points"));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "RemovePoints", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				user.removePoints(Integer.parseInt(args[2]));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cRemoved " + args[2] + " points from " + args[1]
+						+ ", " + args[1] + " now has " + args[2] + " points"));
 			}
 		});
 
@@ -468,7 +481,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().setVoteSiteServiceSite(sender, plugin.getVoteSiteName(args[1]), args[3]);
+						CommandAdminVote.getInstance().setVoteSiteServiceSite(sender, plugin.getVoteSiteName(args[1]),
+								args[3]);
 					}
 				});
 
@@ -478,7 +492,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						CommandAdminVote.getInstance().setVoteSiteVoteURL(sender, plugin.getVoteSiteName(args[1]), args[3]);
+						CommandAdminVote.getInstance().setVoteSiteVoteURL(sender, plugin.getVoteSiteName(args[1]),
+								args[3]);
 					}
 				});
 
@@ -489,7 +504,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setVoteSitePriority(sender, plugin.getVoteSiteName(args[1]), Integer.parseInt(args[3]));
+						CommandAdminVote.getInstance().setVoteSitePriority(sender, plugin.getVoteSiteName(args[1]),
+								Integer.parseInt(args[3]));
 
 					}
 				});
@@ -501,7 +517,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 
-						CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender, plugin.getVoteSiteName(args[1]), Integer.parseInt(args[3]));
+						CommandAdminVote.getInstance().setVoteSiteVoteDelay(sender, plugin.getVoteSiteName(args[1]),
+								Integer.parseInt(args[3]));
 
 					}
 				});
