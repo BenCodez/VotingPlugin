@@ -227,7 +227,7 @@ public class CommandLoader {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.addPoints(Integer.parseInt(args[2]));
 				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"
-						+ ", " + args[1] + " now has " + args[2] + " points"));
+						+ ", " + args[1] + " now has " + user.getPoints() + " points"));
 			}
 		});
 
@@ -239,7 +239,7 @@ public class CommandLoader {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.removePoints(Integer.parseInt(args[2]));
 				sender.sendMessage(StringUtils.getInstance().colorize("&cRemoved " + args[2] + " points from " + args[1]
-						+ ", " + args[1] + " now has " + args[2] + " points"));
+						+ ", " + args[1] + " now has " + user.getPoints() + " points"));
 			}
 		});
 
