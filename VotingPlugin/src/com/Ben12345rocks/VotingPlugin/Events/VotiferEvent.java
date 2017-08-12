@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -57,7 +58,15 @@ public class VotiferEvent implements Listener {
 					if (voteSite == null) {
 						if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
 							plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
-							plugin.getLogger().warning("Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
+							plugin.getLogger().warning(
+									"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
+
+							ArrayList<String> services = new ArrayList<String>();
+							for (VoteSite site : plugin.getVoteSites()) {
+								services.add(site.getServiceSite());
+							}
+							plugin.getLogger().warning(
+									"Current service sites: " + ArrayUtils.getInstance().makeStringList(services));
 						}
 						return;
 					}
