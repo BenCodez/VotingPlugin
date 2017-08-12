@@ -228,7 +228,7 @@ public class Main extends JavaPlugin {
 			for (String siteName : sites) {
 				String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
 				if (URL != null) {
-					if (URL.equals(url)) {
+					if (URL.equalsIgnoreCase(url)) {
 						return siteName;
 					}
 				}

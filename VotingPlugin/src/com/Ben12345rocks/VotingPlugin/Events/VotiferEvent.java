@@ -57,6 +57,7 @@ public class VotiferEvent implements Listener {
 					if (voteSite == null) {
 						if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
 							plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
+							plugin.getLogger().warning("Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
 						}
 						return;
 					}
