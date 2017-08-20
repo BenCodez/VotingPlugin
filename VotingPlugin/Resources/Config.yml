@@ -19,6 +19,10 @@ MySQL:
   Password: ''
   # Max number of connections
   MaxConnections: 1
+  # Maxium size of caching mysql
+  # -1 for no limit
+  # Affecting this value may affect performance
+  MaxSize: -1
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data files)
