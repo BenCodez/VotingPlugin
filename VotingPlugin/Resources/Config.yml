@@ -357,10 +357,16 @@ GUI:
         Material: 'REDSTONE_BLOCK'
         Data: 0 
         Amount: 1
+        Name: '&4All Voting Sites'
+        Lore:
+        - '&cClick Me'
       CanVoteItem:
         Material: 'EMERALD_BLOCK'
         Data: 0
         Amount: 1
+        Name: '&4All Voting Sites'
+        Lore:
+        - '&cClick Me'
     AlreadyVotedItem:
       Material: 'REDSTONE_BLOCK'
       Data: 0 
@@ -511,6 +517,12 @@ GUI:
   VoteGUIName: '&cVoteGUI: &c&l%player%'
   VoteRewardName: 'VoteReward'
   VoteShopName: 'VoteShop'
+  
+BackButton:
+  Material: 'PAPER'
+  Data: 0
+  Amount: 1
+  Name: '&8Back to VoteGUI'
 
 Shop:
   # Identifier

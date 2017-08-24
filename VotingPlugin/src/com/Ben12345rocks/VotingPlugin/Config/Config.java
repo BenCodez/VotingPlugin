@@ -867,6 +867,10 @@ public class Config extends YMLFile {
 	public int getMysqlMaxSize() {
 		return getData().getInt("MySQL.MaxSize", -1);
 	}
+	
+	public ConfigurationSection getBackButton() {
+		return getData().getConfigurationSection("BackButton");
+	}
 
 	/**
 	 * Gets the monthly awards enabled.
