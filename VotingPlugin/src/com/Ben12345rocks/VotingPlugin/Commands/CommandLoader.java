@@ -576,6 +576,19 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearOfflineVotes" },
+				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					user.setOfflineVotes(new ArrayList<String>());
+				}
+				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared"));
+			}
+		});
+
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
