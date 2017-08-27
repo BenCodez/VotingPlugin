@@ -106,6 +106,7 @@ public class VotiferEvent implements Listener {
 
 					if (user.isOnline() || voteSite.isGiveOffline()) {
 						user.playerVote(voteSite, true, false);
+						user.closeInv();
 					} else {
 						user.addOfflineVote(voteSite.getKey());
 						plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());

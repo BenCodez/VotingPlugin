@@ -5,6 +5,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
@@ -192,7 +193,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteLastBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -222,7 +223,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteNextBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -296,7 +297,7 @@ public class PlayerGUIs {
 				});
 
 		if (Config.getInstance().getGUIVoteStreakBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -331,7 +332,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteTodayBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -395,7 +396,7 @@ public class PlayerGUIs {
 		});
 
 		if (Config.getInstance().getGUIVoteTopBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -446,7 +447,7 @@ public class PlayerGUIs {
 		});
 
 		if (Config.getInstance().getGUIVoteTotalBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -476,8 +477,12 @@ public class PlayerGUIs {
 				builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
 			}
 
-			builderAll.setName("&4All Voting Sites");
-			builderAll.setLore("&cClick Me");
+			if (!builderAll.hasCustomDisplayName()) {
+				builderAll.setName("&4All Voting Sites");
+			}
+			if (!builderAll.hasCustomLore()) {
+				builderAll.setLore("&cClick Me");
+			}
 
 			inv.addButton(count, new BInventoryButton(builderAll) {
 
@@ -524,7 +529,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteURLBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -573,7 +578,7 @@ public class PlayerGUIs {
 		});
 
 		if (Config.getInstance().getGUIVoteURLBackButton()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI")) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -644,5 +649,13 @@ public class PlayerGUIs {
 		}
 
 		inv.openInventory(player);
+	}
+
+	public ItemBuilder getBackButton() {
+		ConfigurationSection sec = Config.getInstance().getBackButton();
+		if (sec != null) {
+			return new ItemBuilder(sec);
+		}
+		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
 	}
 }

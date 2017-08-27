@@ -830,6 +830,7 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
+		AdvancedCoreHook.getInstance().setMaxMysqlSize(Config.getInstance().getMysqlMaxSize());
 		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
