@@ -785,3 +785,6 @@ DisableNoServiceSiteMessage: false
 # Used in special cases
 # Much slower, but may work better
 AlternateUUIDLookup: false
+
+# Shouldn't need to change this
+AutoKillInvs: true

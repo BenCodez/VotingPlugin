@@ -871,6 +871,10 @@ public class Config extends YMLFile {
 	public ConfigurationSection getBackButton() {
 		return getData().getConfigurationSection("BackButton");
 	}
+	
+	public boolean getAutoKillInvs() {
+		return getData().getBoolean("AutoKillInvs",true);
+	}
 
 	/**
 	 * Gets the monthly awards enabled.
