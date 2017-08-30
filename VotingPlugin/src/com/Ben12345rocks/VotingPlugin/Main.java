@@ -829,6 +829,10 @@ public class Main extends JavaPlugin {
 		}
 	}
 
+	public VoteParty getVoteParty() {
+		return VoteParty.getInstance();
+	}
+
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setMaxMysqlSize(Config.getInstance().getMysqlMaxSize());
 		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
