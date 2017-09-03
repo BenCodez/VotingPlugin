@@ -819,6 +819,10 @@ public class Main extends JavaPlugin {
 							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
+
+							for (User user : users) {
+								user.offVote();
+							}
 							plugin.debug("Background task ran");
 						} catch (Exception ex) {
 							ex.printStackTrace();
