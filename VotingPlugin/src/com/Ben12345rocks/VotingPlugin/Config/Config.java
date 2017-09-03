@@ -867,9 +867,17 @@ public class Config extends YMLFile {
 	public int getMysqlMaxSize() {
 		return getData().getInt("MySQL.MaxSize", -1);
 	}
-	
+
 	public ConfigurationSection getBackButton() {
 		return getData().getConfigurationSection("BackButton");
+	}
+
+	public boolean getAutoKillInvs() {
+		return getData().getBoolean("AutoKillInvs", true);
+	}
+
+	public boolean getVotePartyCountFakeVotes() {
+		return getData().getBoolean("VoteParty.CountFakeVotes", true);
 	}
 
 	/**
@@ -879,6 +887,10 @@ public class Config extends YMLFile {
 	 */
 	public boolean getMonthlyAwardsEnabled() {
 		return getData().getBoolean("EnableMonthlyAwards");
+	}
+
+	public boolean getClearCacheOnUpdate() {
+		return getData().getBoolean("ClearCacheOnUpdate");
 	}
 
 	/**

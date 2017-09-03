@@ -799,8 +799,10 @@ public class Main extends JavaPlugin {
 							if (AdvancedCoreHook.getInstance().getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
-							} else {
+							} else if (Config.getInstance().getClearCacheOnUpdate()) {
 								AdvancedCoreHook.getInstance().getMysql().clearCache();
+							} else {
+								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
 						update = false;
@@ -817,6 +819,10 @@ public class Main extends JavaPlugin {
 							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
+
+							for (User user : users) {
+								user.offVote();
+							}
 							plugin.debug("Background task ran");
 						} catch (Exception ex) {
 							ex.printStackTrace();
@@ -827,6 +833,10 @@ public class Main extends JavaPlugin {
 
 			});
 		}
+	}
+
+	public VoteParty getVoteParty() {
+		return VoteParty.getInstance();
 	}
 
 	public void updateAdvancedCoreHook() {
@@ -849,6 +859,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 		AdvancedCoreHook.getInstance().setAlternateUUIDLookUp(Config.getInstance().getAlternateUUIDLookup());
+		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
 	}
 
 }

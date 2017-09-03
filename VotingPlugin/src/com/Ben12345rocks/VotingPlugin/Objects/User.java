@@ -132,7 +132,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void addTotal() {
 		addMonthTotal();
 		addAllTimeTotal();
-		setMilestoneCount(getMilestoneCount()+1);
+		setMilestoneCount(getMilestoneCount() + 1);
 	}
 
 	/**
@@ -559,16 +559,22 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (player != null) {
 			setTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
 			ArrayList<String> offlineVotes = getOfflineVotes();
+			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
 				sendVoteEffects(true);
 			}
 
 			for (int i = 0; i < offlineVotes.size(); i++) {
 				if (plugin.hasVoteSite(offlineVotes.get(i))) {
+					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
 					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+				} else {
+					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
-			setOfflineVotes(new ArrayList<String>());
+			if (!offlineVotes.isEmpty()) {
+				setOfflineVotes(new ArrayList<String>());
+			}
 
 			giveOfflineOtherRewards();
 		}

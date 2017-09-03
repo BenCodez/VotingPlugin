@@ -448,7 +448,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				VotiferEvent.playerVote(args[1], args[2]);
+				VotiferEvent.playerVote(args[1], args[2], false);
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
 						UserManager.getInstance().getVotingPluginUser(args[1]));
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
@@ -576,6 +576,16 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetVotePartyCount", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetVotePartyCount|" + adminPerm, "Set voteparty count") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.getVoteParty().setTotalVotes(Integer.parseInt(args[1]));
+				sendMessage(sender, "&cSet vote party count to " + args[1]);
+			}
+		});
+
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearOfflineVotes" },
 				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
 
@@ -673,7 +683,8 @@ public class CommandLoader {
 													@Override
 													public void onInput(Player player, String value) {
 														VotiferEvent.playerVote(
-																UserGUI.getInstance().getCurrentPlayer(player), value);
+																UserGUI.getInstance().getCurrentPlayer(player), value,
+																false);
 
 														player.sendMessage("Forced vote for "
 																+ UserGUI.getInstance().getCurrentPlayer(player)
