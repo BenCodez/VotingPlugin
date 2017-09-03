@@ -799,8 +799,10 @@ public class Main extends JavaPlugin {
 							if (AdvancedCoreHook.getInstance().getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
-							} else {
+							} else if (Config.getInstance().getClearCacheOnUpdate()) {
 								AdvancedCoreHook.getInstance().getMysql().clearCache();
+							} else {
+								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
 						update = false;

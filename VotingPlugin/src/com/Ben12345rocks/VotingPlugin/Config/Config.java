@@ -889,6 +889,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("EnableMonthlyAwards");
 	}
 
+	public boolean getClearCacheOnUpdate() {
+		return getData().getBoolean("ClearCacheOnUpdate");
+	}
+
 	/**
 	 * Gets the monthly possible reward places.
 	 *

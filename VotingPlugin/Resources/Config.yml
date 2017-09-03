@@ -780,6 +780,9 @@ LogVotesToFile: false
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
 DelayBetweenUpdates: 3
 
+# Clear cache on update, setting to true reduces performance
+ClearCacheOnUpdate: false
+
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
 DisableNoServiceSiteMessage: false
