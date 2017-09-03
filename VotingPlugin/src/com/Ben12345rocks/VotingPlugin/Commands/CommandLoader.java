@@ -576,6 +576,16 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "SetVotePartyCount", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetVotePartyCount|" + adminPerm, "Set voteparty count") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.getVoteParty().setTotalVotes(Integer.parseInt(args[1]));
+				sendMessage(sender, "&cSet vote party count to " + args[1]);
+			}
+		});
+
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearOfflineVotes" },
 				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
 
