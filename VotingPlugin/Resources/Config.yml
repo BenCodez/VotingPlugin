@@ -596,6 +596,8 @@ VoteParty:
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
+  # Count votes from /av vote?
+  CountFakeVotes: true
   # Number of user votes that apply to vote party total the user needs to get rewards
   UserVotesRequired: 0
   # Broadcast when vote party reached

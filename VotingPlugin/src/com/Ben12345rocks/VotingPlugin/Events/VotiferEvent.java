@@ -34,15 +34,11 @@ public class VotiferEvent implements Listener {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	/**
-	 * Player vote.
-	 *
-	 * @param playerName
-	 *            the player name
-	 * @param voteSiteURL
-	 *            the vote site URL
-	 */
 	public static void playerVote(final String playerName, final String voteSiteURL) {
+		playerVote(playerName, voteSiteURL, true);
+	}
+
+	public static void playerVote(final String playerName, final String voteSiteURL, final boolean realVote) {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 			@Override
 			public void run() {
@@ -73,9 +69,11 @@ public class VotiferEvent implements Listener {
 
 					// vote party
 					if (Config.getInstance().getVotePartyEnabled()) {
-						VoteParty.getInstance().addTotal(user);
-						VoteParty.getInstance().addVotePlayer(user);
-						VoteParty.getInstance().check();
+						if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
+							VoteParty.getInstance().addTotal(user);
+							VoteParty.getInstance().addVotePlayer(user);
+							VoteParty.getInstance().check();
+						}
 					}
 
 					// broadcast vote if enabled in config
@@ -178,7 +176,7 @@ public class VotiferEvent implements Listener {
 					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				}
 
-				playerVote(voteUsername, voteSite);
+				playerVote(voteUsername, voteSite, true);
 
 			}
 		});
