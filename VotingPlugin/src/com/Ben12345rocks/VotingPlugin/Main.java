@@ -16,6 +16,7 @@ import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -820,8 +821,8 @@ public class Main extends JavaPlugin {
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 
-							for (User user : users) {
-								user.offVote();
+							for (Player player : Bukkit.getOnlinePlayers()) {
+								UserManager.getInstance().getVotingPluginUser(player).offVote();
 							}
 							plugin.debug("Background task ran");
 						} catch (Exception ex) {
