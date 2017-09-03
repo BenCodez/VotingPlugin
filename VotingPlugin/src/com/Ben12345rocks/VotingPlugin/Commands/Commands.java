@@ -467,9 +467,6 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
 	}
 
-	/**
-	 * Update vote today.
-	 */
 	public void updateVoteToday(ArrayList<User> users) {
 		plugin.voteToday.clear();
 
