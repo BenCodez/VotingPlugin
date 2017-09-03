@@ -107,7 +107,7 @@ public class VotiferEvent implements Listener {
 						user.closeInv();
 					} else {
 						user.addOfflineVote(voteSite.getKey());
-						plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
+						// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
 						plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());
 					}
 
