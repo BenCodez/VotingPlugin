@@ -777,10 +777,34 @@ public class Main extends JavaPlugin {
 	 * Setup files.
 	 */
 	public void setupFiles() {
-		config = Config.getInstance();
-		configVoteSites = ConfigVoteSites.getInstance();
-		config.setup();
-		configVoteSites.setup();
+		try {
+			config = Config.getInstance();
+			config.setup();
+		} catch (Exception e) {
+			e.printStackTrace();
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+				
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load Config.yml");
+					e.printStackTrace();
+				}
+			}, 10);
+		}
+		try {
+			configVoteSites = ConfigVoteSites.getInstance();
+			configVoteSites.setup();
+		} catch (Exception e) {
+			e.printStackTrace();
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+				
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load VoteSites.yml");
+					e.printStackTrace();
+				}
+			}, 10);
+		}
 
 		plugin.debug("Loaded Files");
 
