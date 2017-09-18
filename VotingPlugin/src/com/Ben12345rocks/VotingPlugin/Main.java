@@ -647,6 +647,9 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			debug("UseBatchUpdates: " + AdvancedCoreHook.getInstance().getMysql().isUseBatchUpdates());
+		}
 		registerCommands();
 		registerEvents();
 		checkVotifier();
@@ -783,7 +786,7 @@ public class Main extends JavaPlugin {
 		} catch (Exception e) {
 			e.printStackTrace();
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-				
+
 				@Override
 				public void run() {
 					plugin.getLogger().severe("Failed to load Config.yml");
@@ -797,7 +800,7 @@ public class Main extends JavaPlugin {
 		} catch (Exception e) {
 			e.printStackTrace();
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-				
+
 				@Override
 				public void run() {
 					plugin.getLogger().severe("Failed to load VoteSites.yml");
