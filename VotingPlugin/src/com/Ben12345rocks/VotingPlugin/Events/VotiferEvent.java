@@ -139,7 +139,7 @@ public class VotiferEvent implements Listener {
 
 		Vote vote = event.getVote();
 		final String voteSite = vote.getServiceName();
-		final String voteUsername = vote.getUsername();
+		final String voteUsername = vote.getUsername().trim();
 
 		if (voteUsername.length() == 0) {
 			plugin.getLogger().warning("No name from vote on " + voteSite);
