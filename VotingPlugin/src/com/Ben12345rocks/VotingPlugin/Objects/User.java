@@ -112,7 +112,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Adds the points.
 	 */
 	public void addPoints() {
-		addPoints(Config.getInstance().getPointsOnVote());
+		int points = Config.getInstance().getPointsOnVote();
+		if (points != 0) {
+			addPoints(points);
+		}
 	}
 
 	/**
