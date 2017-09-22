@@ -108,6 +108,8 @@ public class Main extends JavaPlugin {
 	public Logger voteLog;
 
 	private boolean update = true;
+	
+	private boolean updateStarted = false;
 
 	/**
 	 * Check votifier.
@@ -647,6 +649,9 @@ public class Main extends JavaPlugin {
 		loadVoteSites();
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			debug("UseBatchUpdates: " + AdvancedCoreHook.getInstance().getMysql().isUseBatchUpdates());
+		}
 		registerCommands();
 		registerEvents();
 		checkVotifier();
@@ -777,10 +782,34 @@ public class Main extends JavaPlugin {
 	 * Setup files.
 	 */
 	public void setupFiles() {
-		config = Config.getInstance();
-		configVoteSites = ConfigVoteSites.getInstance();
-		config.setup();
-		configVoteSites.setup();
+		try {
+			config = Config.getInstance();
+			config.setup();
+		} catch (Exception e) {
+			e.printStackTrace();
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load Config.yml");
+					e.printStackTrace();
+				}
+			}, 10);
+		}
+		try {
+			configVoteSites = ConfigVoteSites.getInstance();
+			configVoteSites.setup();
+		} catch (Exception e) {
+			e.printStackTrace();
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load VoteSites.yml");
+					e.printStackTrace();
+				}
+			}, 10);
+		}
 
 		plugin.debug("Loaded Files");
 
@@ -790,7 +819,9 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update && plugin != null) {
+		if (update && plugin != null && !updateStarted) {
+			updateStarted = true;
+			update = false;
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -806,7 +837,6 @@ public class Main extends JavaPlugin {
 								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
-						update = false;
 						plugin.debug("Starting background task");
 						try {
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
@@ -824,7 +854,7 @@ public class Main extends JavaPlugin {
 							for (Player player : Bukkit.getOnlinePlayers()) {
 								UserManager.getInstance().getVotingPluginUser(player).offVote();
 							}
-							plugin.debug("Background task ran");
+							plugin.debug("Background task finished");
 						} catch (Exception ex) {
 							ex.printStackTrace();
 							plugin.getLogger().info("Looks like something went wrong.");
@@ -833,6 +863,7 @@ public class Main extends JavaPlugin {
 				}
 
 			});
+			updateStarted = false;
 		}
 	}
 
