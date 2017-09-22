@@ -108,6 +108,8 @@ public class Main extends JavaPlugin {
 	public Logger voteLog;
 
 	private boolean update = true;
+	
+	private boolean updateStarted = false;
 
 	/**
 	 * Check votifier.
@@ -817,7 +819,9 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update && plugin != null) {
+		if (update && plugin != null && !updateStarted) {
+			updateStarted = true;
+			update = false;
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -833,7 +837,6 @@ public class Main extends JavaPlugin {
 								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
-						update = false;
 						plugin.debug("Starting background task");
 						try {
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
@@ -851,7 +854,7 @@ public class Main extends JavaPlugin {
 							for (Player player : Bukkit.getOnlinePlayers()) {
 								UserManager.getInstance().getVotingPluginUser(player).offVote();
 							}
-							plugin.debug("Background task ran");
+							plugin.debug("Background task finished");
 						} catch (Exception ex) {
 							ex.printStackTrace();
 							plugin.getLogger().info("Looks like something went wrong.");
@@ -860,6 +863,7 @@ public class Main extends JavaPlugin {
 				}
 
 			});
+			updateStarted = false;
 		}
 	}
 
