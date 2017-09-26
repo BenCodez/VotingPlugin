@@ -612,7 +612,7 @@ public class Commands {
 			}
 		} else {
 			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
-				LocalDateTime midnight = LocalDateTime.now().withHour(23).plusDays(1);
+				LocalDateTime midnight = LocalDateTime.now().plusDays(1).withHour(0);
 				Duration dur = Duration.between(now, midnight);
 
 				long diffHours = dur.getSeconds() / (60 * 60);
