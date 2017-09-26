@@ -468,7 +468,7 @@ GUI:
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
   VoteStreak:
-    Name: 'VoteBest: %player%'
+    Name: 'VoteStreak: %player%'
     BackButton: false
     CurrentDayStreak:
       Item:

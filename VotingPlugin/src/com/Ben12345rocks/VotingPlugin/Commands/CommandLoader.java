@@ -1218,7 +1218,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIBest()) {
+				if (!Config.getInstance().getCommandsUseGUIStreak()) {
 					sender.sendMessage(Commands.getInstance().streak(sender, sender.getName()));
 				} else {
 					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
