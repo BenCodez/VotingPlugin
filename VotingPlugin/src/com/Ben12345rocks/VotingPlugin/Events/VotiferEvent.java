@@ -8,6 +8,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -44,12 +45,12 @@ public class VotiferEvent implements Listener {
 			@Override
 			public void run() {
 				synchronized (configVoteSites) {
-					User user = UserManager.getInstance().getVotingPluginUser(playerName);
-					if (!user.hasLoggedOnBefore() && !config.allowUnJoined()) {
+					if (!PlayerUtils.getInstance().isValidUser(playerName) && !config.allowUnJoined()) {
 						plugin.getLogger().warning("Player " + playerName
 								+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 						return;
 					}
+					User user = UserManager.getInstance().getVotingPluginUser(playerName);
 
 					VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
 					if (voteSite == null) {
@@ -109,7 +110,8 @@ public class VotiferEvent implements Listener {
 					} else {
 						user.addOfflineVote(voteSite.getKey());
 						// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
-						plugin.debug("Offline vote set for " + playerName + "(" + user.getUUID() + ") on " + voteSite.getKey());
+						plugin.debug("Offline vote set for " + playerName + " (" + user.getUUID() + ") on "
+								+ voteSite.getKey());
 					}
 
 					plugin.setUpdate(true);

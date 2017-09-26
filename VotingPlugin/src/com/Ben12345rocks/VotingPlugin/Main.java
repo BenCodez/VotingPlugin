@@ -838,6 +838,7 @@ public class Main extends JavaPlugin {
 								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
+						
 						plugin.debug("Starting background task");
 						try {
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
@@ -846,6 +847,7 @@ public class Main extends JavaPlugin {
 								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 								users.add(user);
 							}
+							update = false;
 							plugin.debug("Finished loading player data");
 							TopVoterHandler.getInstance().updateTopVoters(users);
 							Commands.getInstance().updateVoteToday(users);
