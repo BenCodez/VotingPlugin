@@ -154,7 +154,7 @@ Format:
           # If there is an error finding out time until next vote
           Error: '&cCould not caculate time until next vote!'
           # For sites that have this, requires votedelaydaily to be set to true in the site
-          VoteDelayDaily: 'Tomorrow'
+          VoteDelayDaily: '%hours% Hours and %minutes% Minutes'
           
        # Format for /vote last
       Last:

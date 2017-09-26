@@ -383,7 +383,7 @@ public class Config extends YMLFile {
 	}
 
 	public String getFormatCommandsVoteNextInfoVoteDelayDaily() {
-		return getData().getString("Format.Commands.Vote.Next.Info.VoteDelayDaily", "Tomorrow");
+		return getData().getString("Format.Commands.Vote.Next.Info.VoteDelayDaily", "%hours% Hours and %minutes% Minutes");
 	}
 
 	/**
