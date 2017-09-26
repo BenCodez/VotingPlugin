@@ -8,6 +8,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -58,6 +59,18 @@ public class VoteShop {
 				}
 
 			});
+		}
+
+		if (Config.getInstance().getVoteShopBackButton()) {
+			inv.addButton(new BInventoryButton(PlayerGUIs.getInstance().getBackButton()) {
+
+				@Override
+				public void onClick(ClickEvent event) {
+					PlayerGUIs.getInstance().openVoteGUI(event.getPlayer(),
+							UserManager.getInstance().getVotingPluginUser(player));
+				}
+			});
+
 		}
 
 		inv.openInventory(player);
