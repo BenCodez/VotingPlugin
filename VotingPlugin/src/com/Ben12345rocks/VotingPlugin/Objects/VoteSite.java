@@ -1,8 +1,10 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -96,11 +98,13 @@ public class VoteSite {
 	/**
 	 * @return the item
 	 */
-	public ConfigurationSection getItem() {
+	public ItemBuilder getItem() {
 		if (item == null) {
 			plugin.getLogger().warning("Invalid item section in site: " + key);
+			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key);
+		} else {
+			return new ItemBuilder(item);
 		}
-		return item;
 	}
 
 	/**

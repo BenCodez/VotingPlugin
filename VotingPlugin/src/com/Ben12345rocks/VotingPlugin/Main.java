@@ -8,12 +8,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -76,16 +76,16 @@ public class Main extends JavaPlugin {
 	public static Main plugin;
 
 	/** The top voter monthly. */
-	public ConcurrentHashMap<User, Integer> topVoterAllTime;
+	public LinkedHashMap<User, Integer> topVoterAllTime;
 
 	/** The top voter monthly. */
-	public ConcurrentHashMap<User, Integer> topVoterMonthly;
+	public LinkedHashMap<User, Integer> topVoterMonthly;
 
 	/** The top voter weekly. */
-	public ConcurrentHashMap<User, Integer> topVoterWeekly;
+	public LinkedHashMap<User, Integer> topVoterWeekly;
 
 	/** The top voter daily. */
-	public ConcurrentHashMap<User, Integer> topVoterDaily;
+	public LinkedHashMap<User, Integer> topVoterDaily;
 
 	/** The updater. */
 	public Updater updater;
@@ -100,7 +100,7 @@ public class Main extends JavaPlugin {
 	private List<VoteSite> voteSites;
 
 	/** The vote today. */
-	public ConcurrentHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -109,7 +109,7 @@ public class Main extends JavaPlugin {
 	public Logger voteLog;
 
 	private boolean update = true;
-	
+
 	private boolean updateStarted = false;
 
 	/**
@@ -671,11 +671,11 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoterMonthly = new ConcurrentHashMap<User, Integer>();
-		topVoterWeekly = new ConcurrentHashMap<User, Integer>();
-		topVoterDaily = new ConcurrentHashMap<User, Integer>();
-		voteToday = new ConcurrentHashMap<User, HashMap<VoteSite, LocalDateTime>>();
-		topVoterAllTime = new ConcurrentHashMap<User, Integer>();
+		topVoterMonthly = new LinkedHashMap<User, Integer>();
+		topVoterWeekly = new LinkedHashMap<User, Integer>();
+		topVoterDaily = new LinkedHashMap<User, Integer>();
+		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
+		topVoterAllTime = new LinkedHashMap<User, Integer>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 

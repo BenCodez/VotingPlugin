@@ -4,12 +4,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -183,7 +184,7 @@ public class PlayerGUIs {
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(new ItemBuilder(site.getItem()).setName(site.getDisplayName())
+					new BInventoryButton(site.getItem().setName(site.getDisplayName())
 							.setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
 
 						@Override
@@ -213,7 +214,7 @@ public class PlayerGUIs {
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(new ItemBuilder(site.getItem()).setName(site.getDisplayName())
+					new BInventoryButton(site.getItem().setName(site.getDisplayName())
 							.setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
 
 						@Override
@@ -377,18 +378,19 @@ public class PlayerGUIs {
 							.addPlaceholder("position", "" + pos)
 							.addPlaceholder("player", entry.getKey().getPlayerName())
 							.addPlaceholder("votes", "" + entry.getValue())
-							.addLoreLine("&3UUID: " + entry.getKey().getPlayerName())) {
+							.addLoreLine("&3Name: " + entry.getKey().getPlayerName())) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					String name = "";
 					ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
 					for (String lore : item.getLore()) {
-						if (lore.startsWith("&3UUID: ")) {
-							name = item.getName().split(": ")[1];
+						if (lore.contains("Name:")) {
+							name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
+							plugin.debug(name);
 						}
 					}
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(name));
+					User user = UserManager.getInstance().getVotingPluginUser(name);
 					openVoteGUI(player, user);
 				}
 			});
@@ -400,12 +402,16 @@ public class PlayerGUIs {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				openVoteTop(player, cur.next());
+				if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
+					openVoteTop(player, cur.next());
+				} else {
+					openVoteTop(player, cur.prev());
+				}
 			}
 		});
 
 		if (Config.getInstance().getGUIVoteTopBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
+			inv.getPageButtons().add(new BInventoryButton(getBackButton().setSlot(1)) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -618,7 +624,7 @@ public class PlayerGUIs {
 			int count = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				try {
-					ItemBuilder builder = new ItemBuilder(voteSite.getItem());
+					ItemBuilder builder = voteSite.getItem();
 					final VoteSite site = voteSite;
 
 					inv.addButton(count, new BInventoryButton(builder) {

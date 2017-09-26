@@ -11,7 +11,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -249,7 +248,7 @@ public class TopVoterHandler implements Listener {
 	 *            the order, false for high to low
 	 * @return the hash map
 	 */
-	public ConcurrentHashMap<User, Integer> sortByValues(ConcurrentHashMap<User, Integer> topVoterAllTime, final boolean order) {
+	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime, final boolean order) {
 
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
 
@@ -271,10 +270,8 @@ public class TopVoterHandler implements Listener {
 		for (Entry<User, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
-
-		ConcurrentHashMap<User, Integer> map = new ConcurrentHashMap<User,Integer>();
-		map.putAll(sortedMap);
-		return map;
+		
+		return sortedMap;
 	}
 
 	public void storeDailyTopVoters() {

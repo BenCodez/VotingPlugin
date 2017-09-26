@@ -21,7 +21,7 @@ public enum TopVoter {
 				return value;
 			}
 		}
-		return null;
+		return AllTime;
 	}
 
 	public TopVoter next() {
@@ -48,5 +48,22 @@ public enum TopVoter {
 			}
 		}
 		return TopVoter.AllTime;
+	}
+
+	public TopVoter prev() {
+		switch (this) {
+		case AllTime:
+			return Daily;
+		case Daily:
+			return Weekly;
+		case Monthly:
+			return AllTime;
+		case Weekly:
+			return Monthly;
+		default:
+			return AllTime;
+
+		}
+
 	}
 }
