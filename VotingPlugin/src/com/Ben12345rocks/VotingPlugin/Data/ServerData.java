@@ -239,5 +239,6 @@ public class ServerData {
 
 	public void setServiceSites(ArrayList<String> list) {
 		getData().set("ServiceSites", list);
+		saveData();
 	}
 }
