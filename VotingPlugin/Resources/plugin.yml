@@ -156,6 +156,30 @@ commands:
   adminvoteClearCache:
     description: Command Alias
     aliases: avClearCache
+  adminvoteConvertFrom:
+    description: Command Alias
+    aliases: avConvertFrom
+  adminvoteRemovePoints:
+    description: Command Alias
+    aliases: avRemovePoints
+  adminvoteServiceSites:
+    description: Command Alias
+    aliases: avServiceSites
+  adminvoteSetVotePartyCount:
+    description: Command Alias
+    aliases: avSetVotePartyCount
+  adminvoteClearOfflineVotes:
+    description: Command Alias
+    aliases: avClearOfflineVotes
+  adminvoteGiveAll:
+    description: Command Alias
+    aliases: avGiveAll
+  adminvoteGiveAllOnline:
+    description: Command Alias
+    aliases: avGiveAllOnline
+  adminvoteForceTimeChanged:
+    description: Command Alias
+    aliases: avForceTimeChanged
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

@@ -108,12 +108,6 @@ Commands:
 # Set Message to '' (2 ') to disable message
 
 Format:
-  # Message when player tries to run command without required permissions
-  NoPerms: '&cYou do not have enough permission!'
-  
-  # Message when player types a command but does not input a number where needed
-  NotNumber: '&cError on &6%arg%&c, number expected!'
-  
   # CommandHandler help message
   HelpLine: '&3&l%Command% - &3%HelpMessage%'
 
@@ -160,7 +154,7 @@ Format:
           # If there is an error finding out time until next vote
           Error: '&cCould not caculate time until next vote!'
           # For sites that have this, requires votedelaydaily to be set to true in the site
-          VoteDelayDaily: 'Tomorrow'
+          VoteDelayDaily: '%hours% Hours and %minutes% Minutes'
           
        # Format for /vote last
       Last:
@@ -524,6 +518,7 @@ BackButton:
   Amount: 1
   Name: '&8Back to VoteGUI'
 
+VoteShopBackButton: true
 Shop:
   # Identifier
   # Used in placeholders for formats

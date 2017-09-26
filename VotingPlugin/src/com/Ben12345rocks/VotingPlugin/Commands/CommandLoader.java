@@ -38,6 +38,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -249,6 +250,27 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandAdminVote.getInstance().help(sender, 1);
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ServiceSites" },
+				"VotingPlugin.Commands.AdminVote.ServiceSites|" + adminPerm,
+				"See a list of all service sites the server got") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cEvery service site the server has gotten:");
+
+				for (String serviceSites : ServerData.getInstance().getServiceSites()) {
+					boolean hasSite = plugin.hasVoteSite(serviceSites);
+					if (hasSite) {
+						String siteName = plugin.getVoteSiteName(serviceSites);
+						sendMessage(sender, serviceSites + " : Current site = " + siteName);
+					} else {
+						sendMessage(sender, serviceSites + " : No site with this service site, did you do something wrong?");
+					}
+				}
 
 			}
 		});
@@ -999,7 +1021,12 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				Player player = (Player) sender;
-				PlayerGUIs.getInstance().openVoteGUI(player, UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					PlayerGUIs.getInstance().openVoteGUI(player,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
+				}
 
 			}
 		});

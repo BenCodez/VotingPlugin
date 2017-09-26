@@ -248,9 +248,9 @@ public class TopVoterHandler implements Listener {
 	 *            the order, false for high to low
 	 * @return the hash map
 	 */
-	public HashMap<User, Integer> sortByValues(HashMap<User, Integer> unsortMap, final boolean order) {
+	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime, final boolean order) {
 
-		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(unsortMap.entrySet());
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
 
 		// Sorting the list based on values
 		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
@@ -266,11 +266,11 @@ public class TopVoterHandler implements Listener {
 		});
 
 		// Maintaining insertion order with the help of LinkedList
-		HashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		LinkedHashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
 		for (Entry<User, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
-
+		
 		return sortedMap;
 	}
 

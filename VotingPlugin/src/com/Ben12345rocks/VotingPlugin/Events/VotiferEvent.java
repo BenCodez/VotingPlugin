@@ -8,9 +8,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
@@ -43,12 +45,12 @@ public class VotiferEvent implements Listener {
 			@Override
 			public void run() {
 				synchronized (configVoteSites) {
-					User user = UserManager.getInstance().getVotingPluginUser(playerName);
-					if (!user.hasLoggedOnBefore() && !config.allowUnJoined()) {
+					if (!PlayerUtils.getInstance().isValidUser(playerName) && !config.allowUnJoined()) {
 						plugin.getLogger().warning("Player " + playerName
 								+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 						return;
 					}
+					User user = UserManager.getInstance().getVotingPluginUser(playerName);
 
 					VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
 					if (voteSite == null) {
@@ -108,7 +110,8 @@ public class VotiferEvent implements Listener {
 					} else {
 						user.addOfflineVote(voteSite.getKey());
 						// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
-						plugin.debug("Offline vote set for " + playerName + " on " + voteSite.getKey());
+						plugin.debug("Offline vote set for " + playerName + " (" + user.getUUID() + ") on "
+								+ voteSite.getKey());
 					}
 
 					plugin.setUpdate(true);
@@ -140,6 +143,7 @@ public class VotiferEvent implements Listener {
 		Vote vote = event.getVote();
 		final String voteSite = vote.getServiceName();
 		final String voteUsername = vote.getUsername().trim();
+		ServerData.getInstance().addServiceSite(voteSite);
 
 		if (voteUsername.length() == 0) {
 			plugin.getLogger().warning("No name from vote on " + voteSite);
