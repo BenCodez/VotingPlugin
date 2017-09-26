@@ -183,15 +183,14 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getItem().setName(site.getDisplayName())
-							.setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
+					.setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
+				@Override
+				public void onClick(ClickEvent clickEvent) {
 
-						}
-					});
+				}
+			});
 		}
 
 		if (Config.getInstance().getGUIVoteLastBackButton()) {
@@ -213,15 +212,14 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(),
-					new BInventoryButton(site.getItem().setName(site.getDisplayName())
-							.setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
+			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
+					.setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
+				@Override
+				public void onClick(ClickEvent clickEvent) {
 
-						}
-					});
+				}
+			});
 		}
 
 		if (Config.getInstance().getGUIVoteNextBackButton()) {
@@ -377,19 +375,13 @@ public class PlayerGUIs {
 							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
 							.addPlaceholder("position", "" + pos)
 							.addPlaceholder("player", entry.getKey().getPlayerName())
-							.addPlaceholder("votes", "" + entry.getValue())
-							.addLoreLine("&3Name: " + entry.getKey().getPlayerName())) {
+							.addPlaceholder("votes", "" + entry.getValue())) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					String name = "";
 					ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
-					for (String lore : item.getLore()) {
-						if (lore.contains("Name:")) {
-							name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
-							plugin.debug(name);
-						}
-					}
+					String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
+
 					User user = UserManager.getInstance().getVotingPluginUser(name);
 					openVoteGUI(player, user);
 				}
@@ -660,6 +652,7 @@ public class PlayerGUIs {
 								}
 
 							}
+
 						});
 			}
 		}
