@@ -98,7 +98,7 @@ public class PlayerGUIs {
 				&& !player.hasPermission("VotingPlugin.Mod"))
 				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
 						&& !player.hasPermission("VotingPlugin.Player"))) {
-			player.sendMessage(AdvancedCoreHook.getInstance().getFormatNoPerms());
+			player.sendMessage(StringUtils.getInstance().colorize(AdvancedCoreHook.getInstance().getFormatNoPerms()));
 			return;
 		}
 		setSelectedPlayer(player, user);
