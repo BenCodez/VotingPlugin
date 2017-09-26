@@ -838,8 +838,9 @@ public class Main extends JavaPlugin {
 								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 							}
 						}
-						
+
 						plugin.debug("Starting background task");
+						long time = System.currentTimeMillis();
 						try {
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 							ArrayList<User> users = new ArrayList<User>();
@@ -848,7 +849,9 @@ public class Main extends JavaPlugin {
 								users.add(user);
 							}
 							update = false;
-							plugin.debug("Finished loading player data");
+							long time1 = ((System.currentTimeMillis() - time) / 1000);
+							plugin.debug(
+									"Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
 							TopVoterHandler.getInstance().updateTopVoters(users);
 							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
@@ -857,7 +860,8 @@ public class Main extends JavaPlugin {
 							for (Player player : Bukkit.getOnlinePlayers()) {
 								UserManager.getInstance().getVotingPluginUser(player).offVote();
 							}
-							plugin.debug("Background task finished");
+							time1 = ((System.currentTimeMillis() - time) / 1000);
+							plugin.debug("Background task finished in " + time1 + " seconds");
 						} catch (Exception ex) {
 							ex.printStackTrace();
 							plugin.getLogger().info("Looks like something went wrong.");
