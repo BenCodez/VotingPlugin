@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Data;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -223,5 +224,20 @@ public class ServerData {
 	 */
 	public void updateValues() {
 		setVersion();
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getServiceSites() {
+		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
+	}
+
+	public void addServiceSite(String site) {
+		ArrayList<String> l = getServiceSites();
+		l.add(site);
+		setServiceSites(l);
+	}
+
+	public void setServiceSites(ArrayList<String> list) {
+		getData().set("ServiceSites", list);
 	}
 }

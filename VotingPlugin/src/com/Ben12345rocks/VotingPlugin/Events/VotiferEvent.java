@@ -11,6 +11,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
@@ -140,6 +141,7 @@ public class VotiferEvent implements Listener {
 		Vote vote = event.getVote();
 		final String voteSite = vote.getServiceName();
 		final String voteUsername = vote.getUsername().trim();
+		ServerData.getInstance().addServiceSite(voteSite);
 
 		if (voteUsername.length() == 0) {
 			plugin.getLogger().warning("No name from vote on " + voteSite);

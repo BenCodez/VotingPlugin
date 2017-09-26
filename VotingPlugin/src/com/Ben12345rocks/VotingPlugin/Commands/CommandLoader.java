@@ -38,6 +38,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -249,6 +250,18 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				CommandAdminVote.getInstance().help(sender, 1);
+
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ServiceSites" },
+				"VotingPlugin.Commands.AdminVote.ServiceSites|" + adminPerm,
+				"See a list of all service sites the server got") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cEvery service site the server has gotten:");
+				sendMessage(sender, ServerData.getInstance().getServiceSites());
 
 			}
 		});
