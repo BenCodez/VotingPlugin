@@ -239,15 +239,6 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	/**
-	 * Sort by values.
-	 *
-	 * @param unsortMap
-	 *            the unsort map
-	 * @param order
-	 *            the order, false for high to low
-	 * @return the hash map
-	 */
 	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime, final boolean order) {
 
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
