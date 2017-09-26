@@ -13,6 +13,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -75,16 +76,16 @@ public class Main extends JavaPlugin {
 	public static Main plugin;
 
 	/** The top voter monthly. */
-	public HashMap<User, Integer> topVoterAllTime;
+	public ConcurrentHashMap<User, Integer> topVoterAllTime;
 
 	/** The top voter monthly. */
-	public HashMap<User, Integer> topVoterMonthly;
+	public ConcurrentHashMap<User, Integer> topVoterMonthly;
 
 	/** The top voter weekly. */
-	public HashMap<User, Integer> topVoterWeekly;
+	public ConcurrentHashMap<User, Integer> topVoterWeekly;
 
 	/** The top voter daily. */
-	public HashMap<User, Integer> topVoterDaily;
+	public ConcurrentHashMap<User, Integer> topVoterDaily;
 
 	/** The updater. */
 	public Updater updater;
@@ -99,7 +100,7 @@ public class Main extends JavaPlugin {
 	private List<VoteSite> voteSites;
 
 	/** The vote today. */
-	public HashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
+	public ConcurrentHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -670,11 +671,11 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoterMonthly = new HashMap<User, Integer>();
-		topVoterWeekly = new HashMap<User, Integer>();
-		topVoterDaily = new HashMap<User, Integer>();
-		voteToday = new HashMap<User, HashMap<VoteSite, LocalDateTime>>();
-		topVoterAllTime = new HashMap<User, Integer>();
+		topVoterMonthly = new ConcurrentHashMap<User, Integer>();
+		topVoterWeekly = new ConcurrentHashMap<User, Integer>();
+		topVoterDaily = new ConcurrentHashMap<User, Integer>();
+		voteToday = new ConcurrentHashMap<User, HashMap<VoteSite, LocalDateTime>>();
+		topVoterAllTime = new ConcurrentHashMap<User, Integer>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 

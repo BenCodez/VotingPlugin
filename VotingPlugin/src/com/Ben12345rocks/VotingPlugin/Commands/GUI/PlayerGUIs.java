@@ -9,6 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -310,6 +311,7 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteToday(Player player) {
+		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
 		for (User user : plugin.voteToday.keySet()) {
 
@@ -374,12 +376,19 @@ public class PlayerGUIs {
 							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
 							.addPlaceholder("position", "" + pos)
 							.addPlaceholder("player", entry.getKey().getPlayerName())
-							.addPlaceholder("votes", "" + entry.getValue())) {
+							.addPlaceholder("votes", "" + entry.getValue())
+							.addLoreLine("&3UUID: " + entry.getKey().getPlayerName())) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					User user = UserManager.getInstance()
-							.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
+					String name = "";
+					ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
+					for (String lore : item.getLore()) {
+						if (lore.startsWith("&3UUID: ")) {
+							name = item.getName().split(": ")[1];
+						}
+					}
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(name));
 					openVoteGUI(player, user);
 				}
 			});
@@ -465,6 +474,7 @@ public class PlayerGUIs {
 	 *            the player
 	 */
 	public void openVoteURL(Player player) {
+		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
 
 		User user = UserManager.getInstance().getVotingPluginUser(player);

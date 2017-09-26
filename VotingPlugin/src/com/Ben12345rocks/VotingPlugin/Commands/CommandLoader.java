@@ -1012,7 +1012,12 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				Player player = (Player) sender;
-				PlayerGUIs.getInstance().openVoteGUI(player, UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					PlayerGUIs.getInstance().openVoteGUI(player,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
+				}
 
 			}
 		});
