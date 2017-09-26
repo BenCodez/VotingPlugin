@@ -97,6 +97,9 @@ public class VoteSite {
 	 * @return the item
 	 */
 	public ConfigurationSection getItem() {
+		if (item == null) {
+			plugin.getLogger().warning("Invalid item section in site: " + key);
+		}
 		return item;
 	}
 
