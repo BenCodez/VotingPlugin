@@ -33,16 +33,16 @@ public class UserManager {
 	}
 
 	public User getVotingPluginUser(OfflinePlayer player) {
-		return getVotingPluginUser(new UUID(player.getUniqueId().toString()));
+		return getVotingPluginUser(player.getName());
 	}
 
 	public User getVotingPluginUser(Player player) {
-		return getVotingPluginUser(new UUID(player.getUniqueId().toString()));
+		return getVotingPluginUser(player.getName());
 	}
 
 	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(String playerName) {
-		return new User(playerName);
+		return new User(com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getProperName(playerName));
 	}
 
 	@SuppressWarnings("deprecation")
