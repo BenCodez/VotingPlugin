@@ -266,9 +266,9 @@ public class CommandLoader {
 					boolean hasSite = plugin.hasVoteSite(serviceSites);
 					if (hasSite) {
 						String siteName = plugin.getVoteSiteName(serviceSites);
-						sendMessage(sender, serviceSites + " : Current site: " + siteName);
+						sendMessage(sender, serviceSites + " : Current site = " + siteName);
 					} else {
-						sendMessage(sender, serviceSites + " : No site with this service site");
+						sendMessage(sender, serviceSites + " : No site with this service site, did you do something wrong?");
 					}
 				}
 
