@@ -261,7 +261,16 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cEvery service site the server has gotten:");
-				sendMessage(sender, ServerData.getInstance().getServiceSites());
+
+				for (String serviceSites : ServerData.getInstance().getServiceSites()) {
+					boolean hasSite = plugin.hasVoteSite(serviceSites);
+					if (hasSite) {
+						String siteName = plugin.getVoteSiteName(serviceSites);
+						sendMessage(sender, serviceSites + " : Current site: " + siteName);
+					} else {
+						sendMessage(sender, serviceSites + " : No site with this service site");
+					}
+				}
 
 			}
 		});
