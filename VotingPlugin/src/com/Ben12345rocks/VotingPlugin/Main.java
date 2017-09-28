@@ -850,8 +850,8 @@ public class Main extends JavaPlugin {
 							}
 							update = false;
 							long time1 = ((System.currentTimeMillis() - time) / 1000);
-							plugin.debug(
-									"Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
+							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
+									+ " users");
 							TopVoterHandler.getInstance().updateTopVoters(users);
 							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
@@ -899,6 +899,8 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 		AdvancedCoreHook.getInstance().setAlternateUUIDLookUp(Config.getInstance().getAlternateUUIDLookup());
 		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
+		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
+		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
 	}
 
 }

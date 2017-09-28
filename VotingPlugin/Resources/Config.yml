@@ -261,6 +261,18 @@ Format:
   # Shop messages when using the /vote shop
   ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
   ShopFailed: '&cYou do not have %Points% points to purhcase this!'
+  
+  # Text for page buttons in inventories
+  PrevPage: '&aPrevious Page'
+  NextPage: '&aNext Page'
+  
+  # Display text
+  # Used in /vote top (GUI)
+  TopVoter:
+    Daily: 'Daily'
+    Weekly: 'Weekly'
+    Monthly: 'Monthly'
+    AllTime: 'AllTime'
 
 # ------------------------------------------------
 # GUI Options

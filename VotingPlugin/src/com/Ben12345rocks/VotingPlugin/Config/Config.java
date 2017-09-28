@@ -727,6 +727,30 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
 	}
 
+	public String getFormatPrevPage() {
+		return getData().getString("Format.PrevPage", "&aPrevious Page");
+	}
+
+	public String getFormatNextPage() {
+		return getData().getString("Format.NextPage", "&aNext Page");
+	}
+
+	public String getFormatTopVoterDaily() {
+		return getData().getString("Format.TopVoter.Daily", "Daily");
+	}
+
+	public String getFormatTopVoterWeekly() {
+		return getData().getString("Format.TopVoter.Weekly", "Weekly");
+	}
+
+	public String getFormatTopVoterMonthly() {
+		return getData().getString("Format.TopVoter.Monthly", "Monthly");
+	}
+
+	public String getFormatTopVoterAllTime() {
+		return getData().getString("Format.TopVoter.AllTime", "AllTime");
+	}
+
 	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
 		return getData().getConfigurationSection("GUI.VoteTotal.MonthTotal.Item");
 	}
