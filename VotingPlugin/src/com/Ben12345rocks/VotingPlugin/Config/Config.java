@@ -1223,12 +1223,12 @@ public class Config extends YMLFile {
 		return getData().getInt("VotesRequired");
 	}
 
-	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
-		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
+	public boolean getVoteStreakRewardEnabled(String type, String s) {
+		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
 	}
 
-	public String getVoteStreakRewardsPath(String type, int votestreak) {
-		return "VoteStreak." + type + "." + votestreak + ".Rewards";
+	public String getVoteStreakRewardsPath(String type, String string) {
+		return "VoteStreak." + type + "." + string + ".Rewards";
 	}
 
 	public Set<String> getVoteStreakVotes(String type) {

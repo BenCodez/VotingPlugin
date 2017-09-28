@@ -32,7 +32,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderReque
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
@@ -431,14 +430,13 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Day")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Day", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Day", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Day", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Day", s))) {
+						return "True";
 					}
+
 				}
 				return "False";
 			}
@@ -449,15 +447,14 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Week")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Week", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Week", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Week", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Week", s))) {
+						return "True";
 					}
 				}
+
 				return "False";
 			}
 		});
@@ -467,15 +464,14 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Month")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Month", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Month", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Month", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Month", s))) {
+						return "True";
 					}
 				}
+
 				return "False";
 			}
 		});
@@ -809,6 +805,7 @@ public class Main extends JavaPlugin {
 					plugin.getLogger().severe("Failed to load VoteSites.yml");
 					e.printStackTrace();
 				}
+
 			}, 10);
 		}
 
