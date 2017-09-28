@@ -170,7 +170,7 @@ public class OtherVoteReward {
 
 		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
 		for (String streak : streaks) {
-			String s = streak.replaceAll("*", "");
+			String s = streak.replaceAll("\\*", "");
 			boolean multiple = false;
 			if (streak.contains("*")) {
 				// multiple
