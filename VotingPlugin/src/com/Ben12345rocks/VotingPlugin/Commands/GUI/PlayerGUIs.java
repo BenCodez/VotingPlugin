@@ -390,7 +390,7 @@ public class PlayerGUIs {
 		}
 		final TopVoter cur = top;
 		inv.getPageButtons().add(new BInventoryButton(
-				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", cur.toString())) {
+				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
