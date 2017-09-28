@@ -487,7 +487,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 					String st = args[2];
 
 					if (Config.getInstance().getVoteStreakRewardEnabled(type, st)) {
-						OtherVoteReward.getInstance().giveVoteStreakReward(this, false, type, "" + st);
+						OtherVoteReward.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
 					}
 
 				}
