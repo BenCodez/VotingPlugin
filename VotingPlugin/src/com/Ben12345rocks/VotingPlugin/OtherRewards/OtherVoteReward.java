@@ -198,7 +198,7 @@ public class OtherVoteReward {
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
-							if (curStreak % streakRequired == 0) {
+							if (curStreak != 0 && curStreak % streakRequired == 0) {
 								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "*", curStreak);
 								gotReward = true;
 								plugin.debug(
