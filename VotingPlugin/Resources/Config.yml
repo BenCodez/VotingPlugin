@@ -631,7 +631,7 @@ VoteStreak:
   Day:
     # Number of days in a row
     # Each day requires one vote
-    # Add a * to give a reward for every multiple (e.g. 2*)
+    # Add a - to give a reward for every multiple (e.g. 2-)
     '2':
       # Enabled or not
       Enabled: false

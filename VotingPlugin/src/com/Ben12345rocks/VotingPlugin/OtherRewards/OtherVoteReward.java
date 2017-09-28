@@ -170,9 +170,9 @@ public class OtherVoteReward {
 
 		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
 		for (String streak : streaks) {
-			String s = streak.replaceAll("\\*", "");
+			String s = streak.replaceAll("-", "");
 			boolean multiple = false;
-			if (streak.contains("*")) {
+			if (streak.contains("-")) {
 				// multiple
 				multiple = true;
 			}
@@ -199,7 +199,7 @@ public class OtherVoteReward {
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
-								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "*", curStreak);
+								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
