@@ -161,8 +161,7 @@ public class VotiferEvent implements Listener {
 			public void run() {
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
 
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName),
-						UserManager.getInstance().getVotingPluginUser(voteUsername));
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 				if (voteEvent.isCancelled()) {

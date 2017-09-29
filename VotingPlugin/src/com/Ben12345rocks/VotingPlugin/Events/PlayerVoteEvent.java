@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 // TODO: Auto-generated Javadoc
@@ -25,7 +24,7 @@ public class PlayerVoteEvent extends Event {
 	}
 
 	/** The player. */
-	private User player;
+	private String player;
 
 	/** The vote site. */
 	private VoteSite voteSite;
@@ -41,9 +40,9 @@ public class PlayerVoteEvent extends Event {
 	 * @param player
 	 *            the player
 	 */
-	public PlayerVoteEvent(VoteSite voteSite, User player) {
+	public PlayerVoteEvent(VoteSite voteSite, String voteUsername) {
 		super();
-		setPlayer(player);
+		setPlayer(voteUsername);
 		setVoteSite(voteSite);
 	}
 
@@ -62,7 +61,7 @@ public class PlayerVoteEvent extends Event {
 	 *
 	 * @return the player
 	 */
-	public User getPlayer() {
+	public String getPlayer() {
 		return player;
 	}
 
@@ -100,8 +99,8 @@ public class PlayerVoteEvent extends Event {
 	 * @param player
 	 *            the new player
 	 */
-	public void setPlayer(User player) {
-		this.player = player;
+	public void setPlayer(String voteUsername) {
+		this.player = voteUsername;
 	}
 
 	/**

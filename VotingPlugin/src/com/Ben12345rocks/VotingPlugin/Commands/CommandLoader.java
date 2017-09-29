@@ -268,7 +268,8 @@ public class CommandLoader {
 						String siteName = plugin.getVoteSiteName(serviceSites);
 						sendMessage(sender, serviceSites + " : Current site = " + siteName);
 					} else {
-						sendMessage(sender, serviceSites + " : No site with this service site, did you do something wrong?");
+						sendMessage(sender,
+								serviceSites + " : No site with this service site, did you do something wrong?");
 					}
 				}
 
@@ -471,8 +472,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				VotiferEvent.playerVote(args[1], args[2], false);
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
-						UserManager.getInstance().getVotingPluginUser(args[1]));
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1]);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 			}
 		});
