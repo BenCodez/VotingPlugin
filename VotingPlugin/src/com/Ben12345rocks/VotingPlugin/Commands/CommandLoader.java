@@ -322,8 +322,27 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().version(sender);
+				if (sender instanceof Player) {
+					Player player = (Player) sender;
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
+						@Override
+						public void run() {
+							player.performCommand("bukkit:version " + plugin.getName());
+						}
+					});
+
+				} else {
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
+									"bukkit:version " + plugin.getName());
+						}
+					});
+
+				}
 			}
 		});
 
