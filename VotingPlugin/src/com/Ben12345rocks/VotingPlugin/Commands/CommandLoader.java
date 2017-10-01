@@ -944,11 +944,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUILast()) {
-					CommandVote.getInstance().lastOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteLast((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUILast()) {
+						CommandVote.getInstance().lastOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteLast((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 
 			}
@@ -973,11 +977,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUINext()) {
-					CommandVote.getInstance().nextOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteNext((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUINext()) {
+						CommandVote.getInstance().nextOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteNext((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});
@@ -987,8 +995,12 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().pointsOther(sender, UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					CommandVote.getInstance().pointsOther(sender,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
+				}
 
 			}
 		});
@@ -1180,11 +1192,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUITotal()) {
-					CommandVote.getInstance().totalOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteTotal((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUITotal()) {
+						CommandVote.getInstance().totalOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteTotal((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 
 			}
@@ -1223,11 +1239,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIBest()) {
-					sender.sendMessage(Commands.getInstance().best(sender, args[1]));
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteBest((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUIBest()) {
+						sender.sendMessage(Commands.getInstance().best(sender, args[1]));
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteBest((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});
@@ -1251,11 +1271,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIStreak()) {
-					sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUIStreak()) {
+						sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteStreak((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});
