@@ -1219,7 +1219,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Best", "(player)" },
-				"VotingPlugin.Commands.Vote.Best.Other|" + playerPerm, "View someone's best voting") {
+				"VotingPlugin.Commands.Vote.Best.Other|" + modPerm, "View someone's best voting") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -1247,7 +1247,7 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Streak", "(player)" },
-				"VotingPlugin.Commands.Vote.Streak.Other|" + playerPerm, "View someone's voting streak") {
+				"VotingPlugin.Commands.Vote.Streak.Other|" + modPerm, "View someone's voting streak") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
