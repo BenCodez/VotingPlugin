@@ -616,12 +616,11 @@ public class Commands {
 				Duration dur = Duration.between(now, midnight);
 
 				int diffHours = (int) (dur.getSeconds() / (60 * 60));
-				long diffMinutes = dur.getSeconds() / 60 - diffHours*60;
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
 				String timeMsg = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
 				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-						Long.toString(diffMinutes));
+				timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 				info = timeMsg;
 
 			} else {
@@ -711,9 +710,9 @@ public class Commands {
 		boolean requirePerms = config.getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
-			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
+			if (sender.hasPermission(cmdHandle.getPerm())) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
-			} else {
+			} else if (!requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			}
 		}
