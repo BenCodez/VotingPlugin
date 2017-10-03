@@ -710,7 +710,7 @@ public class Commands {
 		boolean requirePerms = config.getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.voteCommand) {
-			if (sender.hasPermission(cmdHandle.getPerm())) {
+			if (cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			} else if (!requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));

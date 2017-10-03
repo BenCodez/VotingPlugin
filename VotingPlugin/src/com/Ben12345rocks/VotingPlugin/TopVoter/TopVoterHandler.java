@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -78,13 +79,14 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-		ArrayList<User> users = new ArrayList<User>();
-		for (String uuid : uuids) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			users.add(user);
-		}
-		updateTopVoters(users);
+		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+			
+			@Override
+			public void run() {
+				plugin.setUpdate(true);
+			}
+		},20*60*2);
+		
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

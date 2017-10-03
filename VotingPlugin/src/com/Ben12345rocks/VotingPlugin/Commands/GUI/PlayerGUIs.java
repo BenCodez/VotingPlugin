@@ -319,7 +319,7 @@ public class PlayerGUIs {
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
 				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
-						MiscUtils.getInstance().setSkullOwner(user.getPlayerName())) {
+						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
@@ -370,7 +370,7 @@ public class PlayerGUIs {
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
 			inv.addButton(new BInventoryButton(
-					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getPlayerName()))
+					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getOfflinePlayer()))
 							.setName(Config.getInstance().getGUIVoteTopItemName())
 							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
 							.addPlaceholder("position", "" + pos)
