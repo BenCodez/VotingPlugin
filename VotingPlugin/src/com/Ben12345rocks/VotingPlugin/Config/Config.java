@@ -1203,6 +1203,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteShopBackButton", true);
 	}
 
+	public boolean getGiveDefaultPermission() {
+		return getData().getBoolean("GiveDefaultPermission", true);
+	}
+
 	public String getVoteShopName() {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
 	}

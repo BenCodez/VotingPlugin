@@ -19,6 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -698,10 +699,9 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
-
 		loadTimer();
 
+		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 	}
 
 	/**
@@ -722,6 +722,12 @@ public class Main extends JavaPlugin {
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+
+		if (Config.getInstance().getGiveDefaultPermission()) {
+			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.TRUE);
+		} else {
+			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.OP);
+		}
 
 		plugin.debug("Loaded Commands");
 

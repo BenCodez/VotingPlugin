@@ -805,3 +805,6 @@ AutoKillInvs: true
 # Count fake votes
 # If true fake votes will give points and totals
 CountFakeVotes: true
+
+# Give VotingPlugin.Player by default
+GiveDefaultPermission: true
