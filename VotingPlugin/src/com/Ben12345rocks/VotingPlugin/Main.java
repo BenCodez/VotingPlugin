@@ -193,6 +193,10 @@ public class Main extends JavaPlugin {
 		return UserManager.getInstance();
 	}
 
+	public VoteParty getVoteParty() {
+		return VoteParty.getInstance();
+	}
+
 	/**
 	 * Gets the vote site.
 	 *
@@ -869,10 +873,6 @@ public class Main extends JavaPlugin {
 			});
 			updateStarted = false;
 		}
-	}
-
-	public VoteParty getVoteParty() {
-		return VoteParty.getInstance();
 	}
 
 	public void updateAdvancedCoreHook() {

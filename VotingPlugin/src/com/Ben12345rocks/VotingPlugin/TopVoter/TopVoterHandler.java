@@ -80,13 +80,13 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-			
+
 			@Override
 			public void run() {
 				plugin.setUpdate(true);
 			}
-		},20*60*2);
-		
+		}, 20 * 60 * 2);
+
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -241,7 +241,8 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime, final boolean order) {
+	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime,
+			final boolean order) {
 
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
 
@@ -263,7 +264,7 @@ public class TopVoterHandler implements Listener {
 		for (Entry<User, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
-		
+
 		return sortedMap;
 	}
 

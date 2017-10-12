@@ -48,6 +48,12 @@ public class ServerData {
 		ServerData.plugin = plugin;
 	}
 
+	public void addServiceSite(String site) {
+		ArrayList<String> l = getServiceSites();
+		l.add(site);
+		setServiceSites(l);
+	}
+
 	/**
 	 * Adds the sign.
 	 *
@@ -87,6 +93,11 @@ public class ServerData {
 					.getConfigurationSection("VotingPlugin");
 		}
 		return data;
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getServiceSites() {
+		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
 	}
 
 	/**
@@ -186,6 +197,11 @@ public class ServerData {
 		com.Ben12345rocks.AdvancedCore.Data.ServerData.getInstance().saveData();
 	}
 
+	public void setServiceSites(ArrayList<String> list) {
+		getData().set("ServiceSites", list);
+		saveData();
+	}
+
 	/**
 	 * Sets the sign.
 	 *
@@ -224,21 +240,5 @@ public class ServerData {
 	 */
 	public void updateValues() {
 		setVersion();
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getServiceSites() {
-		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
-	}
-
-	public void addServiceSite(String site) {
-		ArrayList<String> l = getServiceSites();
-		l.add(site);
-		setServiceSites(l);
-	}
-
-	public void setServiceSites(ArrayList<String> list) {
-		getData().set("ServiceSites", list);
-		saveData();
 	}
 }

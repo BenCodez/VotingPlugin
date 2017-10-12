@@ -50,6 +50,14 @@ public class PlayerGUIs {
 	private PlayerGUIs() {
 	}
 
+	public ItemBuilder getBackButton() {
+		ConfigurationSection sec = Config.getInstance().getBackButton();
+		if (sec != null) {
+			return new ItemBuilder(sec);
+		}
+		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
+	}
+
 	public User getSelectedPlayer(Player player) {
 		User str = (User) PlayerUtils.getInstance().getPlayerMeta(player, "SelectedPlayerGUIs");
 		return str;
@@ -658,13 +666,5 @@ public class PlayerGUIs {
 		}
 
 		inv.openInventory(player);
-	}
-
-	public ItemBuilder getBackButton() {
-		ConfigurationSection sec = Config.getInstance().getBackButton();
-		if (sec != null) {
-			return new ItemBuilder(sec);
-		}
-		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
 	}
 }
