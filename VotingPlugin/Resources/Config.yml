@@ -801,3 +801,7 @@ AlternateUUIDLookup: false
 
 # Shouldn't need to change this
 AutoKillInvs: true
+
+# Count fake votes
+# If true fake votes will give points and totals
+CountFakeVotes: true

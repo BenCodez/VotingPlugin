@@ -1227,6 +1227,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
 	}
 
+	public boolean getCountFakeVotes() {
+		return getData().getBoolean("CountFakeVotes",true);
+	}
+
 	public String getVoteStreakRewardsPath(String type, String string) {
 		return "VoteStreak." + type + "." + string + ".Rewards";
 	}

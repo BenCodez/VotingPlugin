@@ -91,10 +91,12 @@ public class VotiferEvent implements Listener {
 					OtherVoteReward.getInstance().checkFirstVote(user);
 
 					// add to total votes
-					user.addTotal();
-					user.addTotalDaily();
-					user.addTotalWeekly();
-					user.addPoints();
+					if (Config.getInstance().getCountFakeVotes() || realVote) {
+						user.addTotal();
+						user.addTotalDaily();
+						user.addTotalWeekly();
+						user.addPoints();
+					}
 
 					user.setReminded(false);
 
