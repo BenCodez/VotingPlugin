@@ -659,7 +659,7 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle));
+						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
 
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
@@ -676,7 +676,7 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle));
+						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));

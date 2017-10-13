@@ -808,4 +808,5 @@ AutoKillInvs: true
 CountFakeVotes: true
 
 # Give VotingPlugin.Player by default
+# Requires restart to take affect
 GiveDefaultPermission: true
