@@ -793,6 +793,7 @@ ClearCacheOnUpdate: false
 
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
+# Will also disable a few other warnings about vote sites
 DisableNoServiceSiteMessage: false
 
 # Used in special cases

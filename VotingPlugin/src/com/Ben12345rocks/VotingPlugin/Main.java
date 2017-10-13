@@ -702,6 +702,13 @@ public class Main extends JavaPlugin {
 		loadTimer();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
+
+		for (VoteSite site : getVoteSites()) {
+			if (!site.hasRewards() && !Config.getInstance().getDisableNoServiceSiteMessage()) {
+				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
+			}
+		}
+
 	}
 
 	/**
