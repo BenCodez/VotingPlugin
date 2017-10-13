@@ -894,7 +894,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
-		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		AdvancedCoreHook.getInstance().setStorageType(UserStorage.value(Config.getInstance().getDataStorage()));
 		loadMySQL();
 
 		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
