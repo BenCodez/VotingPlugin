@@ -170,12 +170,18 @@ public class OtherVoteReward {
 
 		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
 		for (String streak : streaks) {
-			if (StringUtils.getInstance().isInt(streak)) {
-				int streakRequired = Integer.parseInt(streak);
+			String s = streak.replaceAll("-", "");
+			boolean multiple = false;
+			if (streak.contains("-")) {
+				// multiple
+				multiple = true;
+			}
+			if (StringUtils.getInstance().isInt(s)) {
+				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
-					if (Config.getInstance().getVoteStreakRewardEnabled(type, streakRequired)
+					if (Config.getInstance().getVoteStreakRewardEnabled(type, streak)
 							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-									Config.getInstance().getVoteStreakRewardsPath(type, streakRequired))) {
+									Config.getInstance().getVoteStreakRewardsPath(type, "" + streak))) {
 						int curStreak = 0;
 						if (type.equalsIgnoreCase("day")) {
 							curStreak = user.getDayVoteStreak();
@@ -184,12 +190,20 @@ public class OtherVoteReward {
 						} else if (type.equalsIgnoreCase("month")) {
 							curStreak = user.getMonthVoteStreak();
 						}
-						if (curStreak == streakRequired) {
-							giveVoteStreakReward(user, user.isOnline(), type, streakRequired);
-							gotReward = true;
-						}
-						if (gotReward) {
-							plugin.debug(user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
+						if (!multiple) {
+							if (curStreak == streakRequired) {
+								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak);
+								gotReward = true;
+								plugin.debug(
+										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
+							}
+						} else {
+							if (curStreak != 0 && curStreak % streakRequired == 0) {
+								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak);
+								gotReward = true;
+								plugin.debug(
+										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
+							}
 						}
 					}
 				}
@@ -257,8 +271,8 @@ public class OtherVoteReward {
 				.setOnline(online).withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
-	public void giveVoteStreakReward(User user, boolean online, String type, int streak) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, streak))
-				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + streak).send(user);
+	public void giveVoteStreakReward(User user, boolean online, String type, String string, int votes) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, string))
+				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}
 }

@@ -485,14 +485,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				if (args.length > 2) {
 					String type = args[1];
 					String st = args[2];
-					if (StringUtils.getInstance().isInt(st)) {
-						int streakRequired = Integer.parseInt(st);
-						if (streakRequired != 0) {
-							if (Config.getInstance().getVoteStreakRewardEnabled(type, streakRequired)) {
-								OtherVoteReward.getInstance().giveVoteStreakReward(this, false, type, streakRequired);
-							}
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled(type, st)) {
+						OtherVoteReward.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
 					}
+
 				}
 			} else {
 				plugin.debug("Reward handle for " + str + " does not exist!");

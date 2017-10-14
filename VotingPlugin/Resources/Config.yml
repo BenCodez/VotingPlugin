@@ -261,6 +261,18 @@ Format:
   # Shop messages when using the /vote shop
   ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
   ShopFailed: '&cYou do not have %Points% points to purhcase this!'
+  
+  # Text for page buttons in inventories
+  PrevPage: '&aPrevious Page'
+  NextPage: '&aNext Page'
+  
+  # Display text
+  # Used in /vote top (GUI)
+  TopVoter:
+    Daily: 'Daily'
+    Weekly: 'Weekly'
+    Monthly: 'Monthly'
+    AllTime: 'AllTime'
 
 # ------------------------------------------------
 # GUI Options
@@ -468,7 +480,7 @@ GUI:
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
   VoteStreak:
-    Name: 'VoteBest: %player%'
+    Name: 'VoteStreak: %player%'
     BackButton: false
     CurrentDayStreak:
       Item:
@@ -619,6 +631,7 @@ VoteStreak:
   Day:
     # Number of days in a row
     # Each day requires one vote
+    # Add a - to give a reward for every multiple (e.g. 2-)
     '2':
       # Enabled or not
       Enabled: false
@@ -780,6 +793,7 @@ ClearCacheOnUpdate: false
 
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
+# Will also disable a few other warnings about vote sites
 DisableNoServiceSiteMessage: false
 
 # Used in special cases
@@ -788,3 +802,11 @@ AlternateUUIDLookup: false
 
 # Shouldn't need to change this
 AutoKillInvs: true
+
+# Count fake votes
+# If true fake votes will give points and totals
+CountFakeVotes: true
+
+# Give VotingPlugin.Player by default
+# Requires restart to take affect
+GiveDefaultPermission: true

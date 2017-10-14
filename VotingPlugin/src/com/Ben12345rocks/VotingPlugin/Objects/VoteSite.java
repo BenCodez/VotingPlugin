@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -101,7 +102,8 @@ public class VoteSite {
 	public ItemBuilder getItem() {
 		if (item == null) {
 			plugin.getLogger().warning("Invalid item section in site: " + key);
-			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key);
+			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key)
+					.setLore("&cInvalid item for site: " + key);
 		} else {
 			return new ItemBuilder(item);
 		}
@@ -166,6 +168,10 @@ public class VoteSite {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getEverySiteRewardPath()).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
+	}
+
+	public boolean hasRewards() {
+		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
 	}
 
 	/**

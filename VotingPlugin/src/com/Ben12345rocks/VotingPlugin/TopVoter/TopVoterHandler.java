@@ -78,13 +78,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-		ArrayList<User> users = new ArrayList<User>();
-		for (String uuid : uuids) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			users.add(user);
-		}
-		updateTopVoters(users);
+		plugin.setUpdate(true);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -239,7 +233,8 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime, final boolean order) {
+	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime,
+			final boolean order) {
 
 		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
 
@@ -261,7 +256,7 @@ public class TopVoterHandler implements Listener {
 		for (Entry<User, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
-		
+
 		return sortedMap;
 	}
 

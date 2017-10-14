@@ -268,7 +268,8 @@ public class CommandLoader {
 						String siteName = plugin.getVoteSiteName(serviceSites);
 						sendMessage(sender, serviceSites + " : Current site = " + siteName);
 					} else {
-						sendMessage(sender, serviceSites + " : No site with this service site, did you do something wrong?");
+						sendMessage(sender,
+								serviceSites + " : No site with this service site, did you do something wrong?");
 					}
 				}
 
@@ -321,8 +322,27 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				CommandAdminVote.getInstance().version(sender);
+				if (sender instanceof Player) {
+					Player player = (Player) sender;
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
+						@Override
+						public void run() {
+							player.performCommand("bukkit:version " + plugin.getName());
+						}
+					});
+
+				} else {
+					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
+									"bukkit:version " + plugin.getName());
+						}
+					});
+
+				}
 			}
 		});
 
@@ -471,8 +491,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				VotiferEvent.playerVote(args[1], args[2], false);
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]),
-						UserManager.getInstance().getVotingPluginUser(args[1]));
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1]);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 			}
 		});
@@ -640,7 +659,7 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle));
+						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
 
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
@@ -657,7 +676,7 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					try {
-						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle));
+						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
@@ -925,11 +944,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUILast()) {
-					CommandVote.getInstance().lastOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteLast((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUILast()) {
+						CommandVote.getInstance().lastOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteLast((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 
 			}
@@ -954,11 +977,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUINext()) {
-					CommandVote.getInstance().nextOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteNext((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUINext()) {
+						CommandVote.getInstance().nextOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteNext((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});
@@ -968,8 +995,12 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-
-				CommandVote.getInstance().pointsOther(sender, UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					CommandVote.getInstance().pointsOther(sender,
+							UserManager.getInstance().getVotingPluginUser(args[1]));
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
+				}
 
 			}
 		});
@@ -1161,11 +1192,15 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUITotal()) {
-					CommandVote.getInstance().totalOther(sender, args[1]);
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteTotal((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUITotal()) {
+						CommandVote.getInstance().totalOther(sender, args[1]);
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteTotal((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 
 			}
@@ -1200,15 +1235,19 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Best", "(player)" },
-				"VotingPlugin.Commands.Vote.Best.Other|" + playerPerm, "View someone's best voting") {
+				"VotingPlugin.Commands.Vote.Best.Other|" + modPerm, "View someone's best voting") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIBest()) {
-					sender.sendMessage(Commands.getInstance().best(sender, args[1]));
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteBest((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUIBest()) {
+						sender.sendMessage(Commands.getInstance().best(sender, args[1]));
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteBest((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});
@@ -1218,7 +1257,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIBest()) {
+				if (!Config.getInstance().getCommandsUseGUIStreak()) {
 					sender.sendMessage(Commands.getInstance().streak(sender, sender.getName()));
 				} else {
 					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
@@ -1228,15 +1267,19 @@ public class CommandLoader {
 		});
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Streak", "(player)" },
-				"VotingPlugin.Commands.Vote.Streak.Other|" + playerPerm, "View someone's voting streak") {
+				"VotingPlugin.Commands.Vote.Streak.Other|" + modPerm, "View someone's voting streak") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().getCommandsUseGUIStreak()) {
-					sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
+					if (!Config.getInstance().getCommandsUseGUIStreak()) {
+						sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
+					} else if (sender instanceof Player) {
+						PlayerGUIs.getInstance().openVoteStreak((Player) sender,
+								UserManager.getInstance().getVotingPluginUser(args[1]));
+					}
+				} else {
+					sendMessage(sender, "&cUser does not exist: " + args[1]);
 				}
 			}
 		});

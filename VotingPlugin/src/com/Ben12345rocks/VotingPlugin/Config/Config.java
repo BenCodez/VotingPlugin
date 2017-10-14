@@ -47,10 +47,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
-	public boolean getGUIVoteLastBackButton() {
-		return getData().getBoolean("GUI.VoteLast.BackButton");
-	}
-
 	/**
 	 * Gets the all sites reward.
 	 *
@@ -58,6 +54,10 @@ public class Config extends YMLFile {
 	 */
 	public String getAllSitesRewardPath() {
 		return "AllSites";
+	}
+
+	public boolean getAlternateUUIDLookup() {
+		return getData().getBoolean("AlternateUUIDLookup");
 	}
 
 	/**
@@ -83,6 +83,14 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AutoDownload");
 	}
 
+	public boolean getAutoKillInvs() {
+		return getData().getBoolean("AutoKillInvs", true);
+	}
+
+	public ConfigurationSection getBackButton() {
+		return getData().getConfigurationSection("BackButton");
+	}
+
 	/**
 	 * Gets the black list.
 	 *
@@ -104,6 +112,10 @@ public class Config extends YMLFile {
 
 	public boolean getCheckOnWorldChange() {
 		return getData().getBoolean("CheckOnWorldChange");
+	}
+
+	public boolean getClearCacheOnUpdate() {
+		return getData().getBoolean("ClearCacheOnUpdate");
 	}
 
 	public boolean getCommandsUseGUIBest() {
@@ -136,6 +148,10 @@ public class Config extends YMLFile {
 
 	public boolean getCommandsUseGUIVote() {
 		return getData().getBoolean("Commands.UseGUI.Vote", true);
+	}
+
+	public boolean getCountFakeVotes() {
+		return getData().getBoolean("CountFakeVotes", true);
 	}
 
 	/**
@@ -387,10 +403,6 @@ public class Config extends YMLFile {
 				"%hours% Hours and %minutes% Minutes");
 	}
 
-	public boolean getVoteShopBackButton() {
-		return getData().getBoolean("VoteShopBackButton", true);
-	}
-
 	/**
 	 * Gets the commands vote next layout.
 	 *
@@ -520,6 +532,10 @@ public class Config extends YMLFile {
 		return getData().getString("Format.HelpLine", "&3&l%Command% - &3%HelpMessage%");
 	}
 
+	public String getFormatNextPage() {
+		return getData().getString("Format.NextPage", "&aNext Page");
+	}
+
 	/**
 	 * Gets the format no perms.
 	 *
@@ -540,6 +556,10 @@ public class Config extends YMLFile {
 	 */
 	public int getFormatPageSize() {
 		return 10;
+	}
+
+	public String getFormatPrevPage() {
+		return getData().getString("Format.PrevPage", "&aPrevious Page");
 	}
 
 	public String getFormatShopFailedMsg() {
@@ -614,6 +634,18 @@ public class Config extends YMLFile {
 
 	}
 
+	public String getFormatTopVoterAllTime() {
+		return getData().getString("Format.TopVoter.AllTime", "AllTime");
+	}
+
+	public String getFormatTopVoterDaily() {
+		return getData().getString("Format.TopVoter.Daily", "Daily");
+	}
+
+	public String getFormatTopVoterMonthly() {
+		return getData().getString("Format.TopVoter.Monthly", "Monthly");
+	}
+
 	/**
 	 * Gets the top voter reward msg.
 	 *
@@ -623,6 +655,10 @@ public class Config extends YMLFile {
 		return getData().getString("Format.TopVoterAwardMsg",
 				"&aYou came in %place% in top voters of the month! Here is an award!");
 
+	}
+
+	public String getFormatTopVoterWeekly() {
+		return getData().getString("Format.TopVoter.Weekly", "Weekly");
 	}
 
 	/**
@@ -655,8 +691,16 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
 	}
 
+	public boolean getGUIVoteLastBackButton() {
+		return getData().getBoolean("GUI.VoteLast.BackButton");
+	}
+
 	public String getGUIVoteLastName() {
 		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
+	}
+
+	public boolean getGUIVoteNextBackButton() {
+		return getData().getBoolean("GUI.VoteNext.BackButton");
 	}
 
 	public String getGUIVoteNextName() {
@@ -665,6 +709,10 @@ public class Config extends YMLFile {
 
 	public String getGUIVoteRewardName() {
 		return getData().getString("GUI.VoteRewardName", "VoteReward");
+	}
+
+	public boolean getGUIVoteStreakBackButton() {
+		return getData().getBoolean("GUI.VoteStreak.BackButton");
 	}
 
 	public ConfigurationSection getGUIVoteStreakCurrentDayStreakItem() {
@@ -695,8 +743,16 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteStreak.Name", "VoteStreak");
 	}
 
+	public boolean getGUIVoteTodayBackButton() {
+		return getData().getBoolean("GUI.VoteToday.BackButton");
+	}
+
 	public String getGUIVoteTodayName() {
 		return getData().getString("GUI.VoteToday.Name", "VoteToday");
+	}
+
+	public boolean getGUIVoteTopBackButton() {
+		return getData().getBoolean("GUI.VoteToday.BackButton");
 	}
 
 	public String getGUIVoteTopItemLore() {
@@ -723,6 +779,10 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
 	}
 
+	public boolean getGUIVoteTotalBackButton() {
+		return getData().getBoolean("GUI.VoteTotal.BackButton");
+	}
+
 	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
 		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
 	}
@@ -737,6 +797,10 @@ public class Config extends YMLFile {
 
 	public ConfigurationSection getGUIVoteTotalWeekTotalItem() {
 		return getData().getConfigurationSection("GUI.VoteTotal.WeekTotal.Item");
+	}
+
+	public boolean getGUIVoteURLBackButton() {
+		return getData().getBoolean("GUI.VoteURL.BackButton");
 	}
 
 	public String getGUIVoteURLName() {
@@ -865,26 +929,6 @@ public class Config extends YMLFile {
 		return "MonthlyAwards." + pos + ".Rewards";
 	}
 
-	public boolean getAlternateUUIDLookup() {
-		return getData().getBoolean("AlternateUUIDLookup");
-	}
-
-	public int getMysqlMaxSize() {
-		return getData().getInt("MySQL.MaxSize", -1);
-	}
-
-	public ConfigurationSection getBackButton() {
-		return getData().getConfigurationSection("BackButton");
-	}
-
-	public boolean getAutoKillInvs() {
-		return getData().getBoolean("AutoKillInvs", true);
-	}
-
-	public boolean getVotePartyCountFakeVotes() {
-		return getData().getBoolean("VoteParty.CountFakeVotes", true);
-	}
-
 	/**
 	 * Gets the monthly awards enabled.
 	 *
@@ -892,10 +936,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean getMonthlyAwardsEnabled() {
 		return getData().getBoolean("EnableMonthlyAwards");
-	}
-
-	public boolean getClearCacheOnUpdate() {
-		return getData().getBoolean("ClearCacheOnUpdate");
 	}
 
 	/**
@@ -921,6 +961,10 @@ public class Config extends YMLFile {
 
 	public int getMySqlMaxConnections() {
 		return getData().getInt("MySQL.MaxConnections", 1);
+	}
+
+	public int getMysqlMaxSize() {
+		return getData().getInt("MySQL.MaxSize", -1);
 	}
 
 	public String getMySqlPassword() {
@@ -1066,6 +1110,10 @@ public class Config extends YMLFile {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
 
+	public boolean getVotePartyCountFakeVotes() {
+		return getData().getBoolean("VoteParty.CountFakeVotes", true);
+	}
+
 	/**
 	 * Gets the vote party enabled.
 	 *
@@ -1151,6 +1199,14 @@ public class Config extends YMLFile {
 		return "VoteReminding.Rewards";
 	}
 
+	public boolean getVoteShopBackButton() {
+		return getData().getBoolean("VoteShopBackButton", true);
+	}
+
+	public boolean getGiveDefaultPermission() {
+		return getData().getBoolean("GiveDefaultPermission", true);
+	}
+
 	public String getVoteShopName() {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
 	}
@@ -1199,12 +1255,12 @@ public class Config extends YMLFile {
 		return getData().getInt("VotesRequired");
 	}
 
-	public boolean getVoteStreakRewardEnabled(String type, int votestreak) {
-		return getData().getBoolean("VoteStreak." + type + "." + votestreak + ".Enabled");
+	public boolean getVoteStreakRewardEnabled(String type, String s) {
+		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
 	}
 
-	public String getVoteStreakRewardsPath(String type, int votestreak) {
-		return "VoteStreak." + type + "." + votestreak + ".Rewards";
+	public String getVoteStreakRewardsPath(String type, String string) {
+		return "VoteStreak." + type + "." + string + ".Rewards";
 	}
 
 	public Set<String> getVoteStreakVotes(String type) {
@@ -1411,30 +1467,6 @@ public class Config extends YMLFile {
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
-	}
-
-	public boolean getGUIVoteStreakBackButton() {
-		return getData().getBoolean("GUI.VoteStreak.BackButton");
-	}
-
-	public boolean getGUIVoteNextBackButton() {
-		return getData().getBoolean("GUI.VoteNext.BackButton");
-	}
-
-	public boolean getGUIVoteTodayBackButton() {
-		return getData().getBoolean("GUI.VoteToday.BackButton");
-	}
-
-	public boolean getGUIVoteTopBackButton() {
-		return getData().getBoolean("GUI.VoteToday.BackButton");
-	}
-
-	public boolean getGUIVoteTotalBackButton() {
-		return getData().getBoolean("GUI.VoteTotal.BackButton");
-	}
-
-	public boolean getGUIVoteURLBackButton() {
-		return getData().getBoolean("GUI.VoteURL.BackButton");
 	}
 
 }

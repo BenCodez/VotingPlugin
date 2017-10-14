@@ -19,6 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -32,7 +33,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderReque
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
@@ -192,6 +192,10 @@ public class Main extends JavaPlugin {
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
+	}
+
+	public VoteParty getVoteParty() {
+		return VoteParty.getInstance();
 	}
 
 	/**
@@ -431,14 +435,13 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Day")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Day", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Day", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Day", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Day", s))) {
+						return "True";
 					}
+
 				}
 				return "False";
 			}
@@ -449,15 +452,14 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Week")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Week", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Week", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Week", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Week", s))) {
+						return "True";
 					}
 				}
+
 				return "False";
 			}
 		});
@@ -467,15 +469,14 @@ public class Main extends JavaPlugin {
 			@Override
 			public String getValue() {
 				for (String s : Config.getInstance().getVoteStreakVotes("Month")) {
-					if (StringUtils.getInstance().isInt(s)) {
-						int streak = Integer.parseInt(s);
-						if (Config.getInstance().getVoteStreakRewardEnabled("Month", streak)
-								&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-										Config.getInstance().getVoteStreakRewardsPath("Month", streak))) {
-							return "True";
-						}
+
+					if (Config.getInstance().getVoteStreakRewardEnabled("Month", s)
+							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
+									Config.getInstance().getVoteStreakRewardsPath("Month", s))) {
+						return "True";
 					}
 				}
+
 				return "False";
 			}
 		});
@@ -698,9 +699,15 @@ public class Main extends JavaPlugin {
 			}
 		});
 
+		loadTimer();
+
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
-		loadTimer();
+		for (VoteSite site : getVoteSites()) {
+			if (!site.hasRewards() && !Config.getInstance().getDisableNoServiceSiteMessage()) {
+				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
+			}
+		}
 
 	}
 
@@ -722,6 +729,12 @@ public class Main extends JavaPlugin {
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+
+		if (Config.getInstance().getGiveDefaultPermission()) {
+			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.TRUE);
+		} else {
+			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.OP);
+		}
 
 		plugin.debug("Loaded Commands");
 
@@ -809,6 +822,7 @@ public class Main extends JavaPlugin {
 					plugin.getLogger().severe("Failed to load VoteSites.yml");
 					e.printStackTrace();
 				}
+
 			}, 10);
 		}
 
@@ -850,8 +864,8 @@ public class Main extends JavaPlugin {
 							}
 							update = false;
 							long time1 = ((System.currentTimeMillis() - time) / 1000);
-							plugin.debug(
-									"Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
+							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
+									+ " users");
 							TopVoterHandler.getInstance().updateTopVoters(users);
 							Commands.getInstance().updateVoteToday(users);
 							ServerData.getInstance().updateValues();
@@ -874,17 +888,13 @@ public class Main extends JavaPlugin {
 		}
 	}
 
-	public VoteParty getVoteParty() {
-		return VoteParty.getInstance();
-	}
-
 	public void updateAdvancedCoreHook() {
 		AdvancedCoreHook.getInstance().setMaxMysqlSize(Config.getInstance().getMysqlMaxSize());
 		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
 		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
-		AdvancedCoreHook.getInstance().setStorageType(UserStorage.valueOf(Config.getInstance().getDataStorage()));
+		AdvancedCoreHook.getInstance().setStorageType(UserStorage.value(Config.getInstance().getDataStorage()));
 		loadMySQL();
 
 		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
@@ -899,6 +909,8 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
 		AdvancedCoreHook.getInstance().setAlternateUUIDLookUp(Config.getInstance().getAlternateUUIDLookup());
 		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
+		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
+		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
 	}
 
 }

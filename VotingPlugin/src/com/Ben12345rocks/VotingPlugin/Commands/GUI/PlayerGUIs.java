@@ -50,6 +50,14 @@ public class PlayerGUIs {
 	private PlayerGUIs() {
 	}
 
+	public ItemBuilder getBackButton() {
+		ConfigurationSection sec = Config.getInstance().getBackButton();
+		if (sec != null) {
+			return new ItemBuilder(sec);
+		}
+		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
+	}
+
 	public User getSelectedPlayer(Player player) {
 		User str = (User) PlayerUtils.getInstance().getPlayerMeta(player, "SelectedPlayerGUIs");
 		return str;
@@ -319,7 +327,7 @@ public class PlayerGUIs {
 				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
 				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
-						MiscUtils.getInstance().setSkullOwner(user.getPlayerName())) {
+						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
@@ -353,16 +361,16 @@ public class PlayerGUIs {
 		Set<Entry<User, Integer>> users = null;
 		String topVoter = "";
 		if (top.equals(TopVoter.Monthly)) {
-			topVoter = "Monthly";
+			topVoter = Config.getInstance().getFormatTopVoterMonthly();
 			users = plugin.topVoterMonthly.entrySet();
 		} else if (top.equals(TopVoter.Weekly)) {
-			topVoter = "Weekly";
+			topVoter = Config.getInstance().getFormatTopVoterWeekly();
 			users = plugin.topVoterWeekly.entrySet();
 		} else if (top.equals(TopVoter.Daily)) {
-			topVoter = "Daily";
+			topVoter = Config.getInstance().getFormatTopVoterDaily();
 			users = plugin.topVoterDaily.entrySet();
 		} else {
-			topVoter = "AllTime";
+			topVoter = Config.getInstance().getFormatTopVoterAllTime();
 			users = plugin.topVoterAllTime.entrySet();
 		}
 		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
@@ -370,7 +378,7 @@ public class PlayerGUIs {
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
 			inv.addButton(new BInventoryButton(
-					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getPlayerName()))
+					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getOfflinePlayer()))
 							.setName(Config.getInstance().getGUIVoteTopItemName())
 							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
 							.addPlaceholder("position", "" + pos)
@@ -390,7 +398,7 @@ public class PlayerGUIs {
 		}
 		final TopVoter cur = top;
 		inv.getPageButtons().add(new BInventoryButton(
-				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", cur.toString())) {
+				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -658,13 +666,5 @@ public class PlayerGUIs {
 		}
 
 		inv.openInventory(player);
-	}
-
-	public ItemBuilder getBackButton() {
-		ConfigurationSection sec = Config.getInstance().getBackButton();
-		if (sec != null) {
-			return new ItemBuilder(sec);
-		}
-		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
 	}
 }

@@ -183,7 +183,6 @@ commands:
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
-    default: true
   VotingPlugin.Mod:
     description: Allows mod access player commands
   VotingPlugin.Admin:

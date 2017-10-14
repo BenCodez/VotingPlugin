@@ -23,14 +23,17 @@ public class CommandAliases implements CommandExecutor {
 	/** The cmd handle. */
 	private CommandHandler cmdHandle;
 
+	private boolean adminCommand;
+
 	/**
 	 * Instantiates a new command aliases.
 	 *
 	 * @param cmdHandle
 	 *            the cmd handle
 	 */
-	public CommandAliases(CommandHandler cmdHandle) {
+	public CommandAliases(CommandHandler cmdHandle, boolean adminCommand) {
 		this.cmdHandle = cmdHandle;
+		this.adminCommand = adminCommand;
 	}
 
 	/*
@@ -51,10 +54,14 @@ public class CommandAliases implements CommandExecutor {
 		plugin.debug("Attempting cmd...");
 		plugin.debug("Inputed args: " + ArrayUtils.getInstance().makeStringList(argsNew));
 
-		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
-		cmdHandlers.addAll(plugin.voteCommand);
-		cmdHandlers.addAll(plugin.adminVoteCommand);
-		for (CommandHandler cmdHandle : cmdHandlers) {
+		ArrayList<CommandHandler> handles = new ArrayList<CommandHandler>();
+		if (adminCommand) {
+			handles.addAll(plugin.adminVoteCommand);
+		} else {
+			handles.addAll(plugin.voteCommand);
+		}
+
+		for (CommandHandler cmdHandle : handles) {
 			if (cmdHandle.getArgs().length > args.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
 					if (cmd.getName().equalsIgnoreCase("vote" + arg)
@@ -81,7 +88,7 @@ public class CommandAliases implements CommandExecutor {
 				}
 			}
 		}
-
+		
 		/*
 		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0, arg);
 		 * if (cmdHandle.runCommand(sender, Utils.getInstance().convertArray(argsNew)))
@@ -89,7 +96,11 @@ public class CommandAliases implements CommandExecutor {
 		 */
 
 		// invalid command
-		sender.sendMessage(ChatColor.RED + "No valid arguments, see /vote help!");
+		if (adminCommand) {
+			sender.sendMessage(ChatColor.RED + "No valid arguments, see /adminvote help!");
+		} else {
+			sender.sendMessage(ChatColor.RED + "No valid arguments, see /vote help!");
+		}
 		return true;
 	}
 }
