@@ -25,12 +25,6 @@ public class CommandAliases implements CommandExecutor {
 
 	private boolean adminCommand;
 
-	/**
-	 * Instantiates a new command aliases.
-	 *
-	 * @param cmdHandle
-	 *            the cmd handle
-	 */
 	public CommandAliases(CommandHandler cmdHandle, boolean adminCommand) {
 		this.cmdHandle = cmdHandle;
 		this.adminCommand = adminCommand;

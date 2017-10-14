@@ -32,14 +32,6 @@ public class PlayerVoteEvent extends Event {
 	/** The cancelled. */
 	private boolean cancelled;
 
-	/**
-	 * Instantiates a new player vote event.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @param player
-	 *            the player
-	 */
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername) {
 		super();
 		setPlayer(voteUsername);
@@ -93,12 +85,6 @@ public class PlayerVoteEvent extends Event {
 		cancelled = bln;
 	}
 
-	/**
-	 * Sets the player.
-	 *
-	 * @param player
-	 *            the new player
-	 */
 	public void setPlayer(String voteUsername) {
 		this.player = voteUsername;
 	}
