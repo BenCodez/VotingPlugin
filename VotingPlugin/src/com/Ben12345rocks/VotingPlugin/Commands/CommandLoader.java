@@ -952,7 +952,8 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
 			}
@@ -985,7 +986,8 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}
 		});
@@ -999,7 +1001,8 @@ public class CommandLoader {
 					CommandVote.getInstance().pointsOther(sender,
 							UserManager.getInstance().getVotingPluginUser(args[1]));
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
 			}
@@ -1056,7 +1059,8 @@ public class CommandLoader {
 					PlayerGUIs.getInstance().openVoteGUI(player,
 							UserManager.getInstance().getVotingPluginUser(args[1]));
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
 			}
@@ -1200,7 +1204,8 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
 			}
@@ -1247,7 +1252,8 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}
 		});
@@ -1279,7 +1285,8 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, "&cUser does not exist: " + args[1]);
+					sendMessage(sender, StringUtils.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}
 		});

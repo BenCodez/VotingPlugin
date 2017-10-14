@@ -1211,6 +1211,10 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
 	}
 
+	public String getFormatUserNotExist() {
+		return getData().getString("Format.UserNotExist", "&cUser does not exist: %player%");
+	}
+
 	/**
 	 * Gets the vote site items.
 	 *

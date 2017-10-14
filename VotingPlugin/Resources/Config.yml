@@ -262,6 +262,9 @@ Format:
   ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
   ShopFailed: '&cYou do not have %Points% points to purhcase this!'
   
+  # User not exist message, from commands such as /vote next (player)
+  UserNotExist: '&cUser does not exist: %player%'
+  
   # Text for page buttons in inventories
   PrevPage: '&aPrevious Page'
   NextPage: '&aNext Page'
