@@ -5,12 +5,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -54,6 +56,8 @@ public class AliasesTabCompleter implements TabCompleter {
 		} else {
 			cmdHandlers.addAll(plugin.voteCommand);
 		}
+		ConcurrentHashMap<String, ArrayList<String>> tabCompletes = TabCompleteHandler.getInstance()
+				.getTabCompleteOptions();
 		for (CommandHandler cmdHandle : cmdHandlers) {
 			if (cmdHandle.getArgs().length >= argsIn.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
@@ -73,7 +77,7 @@ public class AliasesTabCompleter implements TabCompleter {
 
 						if (argsMatch) {
 
-							cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args, argsIn.length));
+							cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args, argsIn.length, tabCompletes));
 						}
 
 					}
