@@ -314,11 +314,11 @@ public class CommandLoader {
 		});
 
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Perms" },
-				"VotingPlugin.Commands.AdminVote.Perms|" + adminPerm, "List perms") {
+				"VotingPlugin.Commands.AdminVote.Perms|" + adminPerm, "List permissions") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(Commands.getInstance().listPerms());
+				Commands.getInstance().listPerms(sender);
 			}
 		});
 

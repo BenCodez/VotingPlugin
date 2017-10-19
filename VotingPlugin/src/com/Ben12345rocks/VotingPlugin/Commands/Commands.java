@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -192,19 +194,40 @@ public class Commands {
 	 *
 	 * @return the string[]
 	 */
-	public String[] listPerms() {
+	public String[] listPerms(CommandSender sender) {
+		LinkedHashMap<String, String> perms = new LinkedHashMap<String, String>();
 		ArrayList<String> msg = new ArrayList<String>();
+		msg.add("&cCommand : Permissions (seperated by &");
 
 		for (CommandHandler handle : plugin.voteCommand) {
-			msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
+			perms.put(handle.getHelpLineCommand("/vote"), handle.getPerm());
 		}
 
 		for (CommandHandler handle : plugin.adminVoteCommand) {
-			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+			perms.put(handle.getHelpLineCommand("/av"), handle.getPerm());
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
-			msg.add(perm.getName());
+			perms.put(perm.getName(), perm.getName());
+		}
+
+		if (sender instanceof Player) {
+			for (Entry<String, String> entry : perms.entrySet()) {
+				if (entry.getKey() != entry.getValue()) {
+					msg.add(entry.getKey() + " : " + entry.getValue() + " HasPerm: "
+							+ sender.hasPermission(entry.getValue()));
+				} else {
+					msg.add(entry.getValue() + " HasPerm: " + sender.hasPermission(entry.getValue()));
+				}
+			}
+		} else {
+			for (Entry<String, String> entry : perms.entrySet()) {
+				if (entry.getKey() != entry.getValue()) {
+					msg.add(entry.getKey() + " : " + entry.getValue());
+				} else {
+					msg.add(entry.getValue());
+				}
+			}
 		}
 
 		msg = ArrayUtils.getInstance().colorize(msg);
