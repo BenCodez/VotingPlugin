@@ -740,7 +740,7 @@ public class CommandLoader {
 						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
 
 						plugin.getCommand("vote" + arg)
-								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
+								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /vote" + arg);
 					}
@@ -757,7 +757,7 @@ public class CommandLoader {
 						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
-								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle));
+								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /adminvote" + arg + ": "
 								+ ex.getMessage());

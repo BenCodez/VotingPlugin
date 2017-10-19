@@ -48,8 +48,12 @@ public class AliasesTabCompleter implements TabCompleter {
 		Set<String> cmds = new HashSet<String>();
 
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
-		cmdHandlers.addAll(plugin.voteCommand);
-		cmdHandlers.addAll(plugin.adminVoteCommand);
+
+		if (adminCommand) {
+			cmdHandlers.addAll(plugin.adminVoteCommand);
+		} else {
+			cmdHandlers.addAll(plugin.voteCommand);
+		}
 		for (CommandHandler cmdHandle : cmdHandlers) {
 			if (cmdHandle.getArgs().length >= argsIn.length) {
 				for (String arg : cmdHandle.getArgs()[0].split("&")) {
@@ -95,9 +99,12 @@ public class AliasesTabCompleter implements TabCompleter {
 	 *            the cmd
 	 * @return the aliases tab completer
 	 */
-	public AliasesTabCompleter setCMDHandle(CommandHandler cmd) {
+	public AliasesTabCompleter setCMDHandle(CommandHandler cmd, boolean adminCommand) {
 		cmdHandle = cmd;
+		this.adminCommand = adminCommand;
 		return this;
 	}
+
+	private boolean adminCommand;
 
 }
