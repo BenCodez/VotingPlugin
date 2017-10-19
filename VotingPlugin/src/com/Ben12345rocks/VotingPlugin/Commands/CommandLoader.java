@@ -17,6 +17,8 @@ import org.bukkit.inventory.ItemStack;
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandle;
+import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
@@ -413,9 +415,13 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(ChatColor.GREEN + "PlayerName of player " + ChatColor.DARK_GREEN + args[1]
-						+ ChatColor.GREEN + " is: " + PlayerUtils.getInstance().getPlayerName(
-								UserManager.getInstance().getVotingPluginUser(new UUID(args[1])), args[1]));
+				try {
+					sender.sendMessage(ChatColor.GREEN + "PlayerName of player " + ChatColor.DARK_GREEN + args[1]
+							+ ChatColor.GREEN + " is: " + PlayerUtils.getInstance().getPlayerName(
+									UserManager.getInstance().getVotingPluginUser(new UUID(args[1])), args[1]));
+				} catch (IllegalArgumentException e) {
+					sendMessage(sender, "&cInvalid uuid");
+				}
 
 			}
 		});
@@ -944,14 +950,21 @@ public class CommandLoader {
 			sites.add(site.getKey());
 		}
 
-		for (int i = 0; i < plugin.voteCommand.size(); i++) {
-			plugin.voteCommand.get(i).addTabCompleteOption("(Sitename)", sites);
+		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(Sitename)", sites) {
 
-		}
+			@Override
+			public void updateReplacements() {
+			}
 
-		for (int i = 0; i < plugin.adminVoteCommand.size(); i++) {
-			plugin.adminVoteCommand.get(i).addTabCompleteOption("(Sitename)", sites);
-		}
+			@Override
+			public void reload() {
+				ArrayList<String> sites = new ArrayList<String>();
+				for (VoteSite site : plugin.getVoteSites()) {
+					sites.add(site.getKey());
+				}
+				setReplace(sites);
+			}
+		});
 	}
 
 	/**

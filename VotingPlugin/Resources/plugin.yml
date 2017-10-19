@@ -180,6 +180,9 @@ commands:
   adminvoteForceTimeChanged:
     description: Command Alias
     aliases: avForceTimeChanged
+  adminvoteplayername:
+    description: Command Alias
+    aliases: avplayername
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

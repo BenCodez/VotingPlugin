@@ -20,6 +20,7 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.PreDateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -79,6 +80,12 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
+	}
+	
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onPreDateChanged(PreDateChangedEvent event) {
+		plugin.setUpdate(true);
+		plugin.update();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
