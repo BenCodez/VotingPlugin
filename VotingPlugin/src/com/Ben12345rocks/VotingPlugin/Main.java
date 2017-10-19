@@ -708,7 +708,7 @@ public class Main extends JavaPlugin {
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
 			}
 		}
-
+	
 	}
 
 	/**

@@ -25,7 +25,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -743,19 +742,6 @@ public class Commands {
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
-	}
-
-	public void voteTop(CommandSender sender, int page) {
-		String str = Config.getInstance().getVoteTopDefault();
-		if (str.equalsIgnoreCase("monthly")) {
-			CommandVote.getInstance().topVoterMonthly(sender, page);
-		} else if (str.equalsIgnoreCase("weekly")) {
-			CommandVote.getInstance().topVoterWeekly(sender, page);
-		} else if (str.equalsIgnoreCase("daily")) {
-			CommandVote.getInstance().topVoterDaily(sender, page);
-		} else {
-
-		}
 	}
 
 	public String[] voteURLs(User user) {
