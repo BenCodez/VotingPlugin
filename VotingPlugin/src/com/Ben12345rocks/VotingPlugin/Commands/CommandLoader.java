@@ -1051,7 +1051,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().getCommandsUseGUILast()) {
+					if (!Config.getInstance().getCommandsUseGUILast() || !(sender instanceof Player)) {
 						String playerName = args[1];
 						if (sender instanceof Player) {
 
@@ -1062,7 +1062,7 @@ public class CommandLoader {
 							sender.sendMessage(ArrayUtils.getInstance().colorize(Commands.getInstance()
 									.voteCommandLast(UserManager.getInstance().getVotingPluginUser(playerName))));
 						}
-					} else if (sender instanceof Player) {
+					} else {
 						PlayerGUIs.getInstance().openVoteLast((Player) sender,
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
@@ -1099,7 +1099,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().getCommandsUseGUINext()) {
+					if (!Config.getInstance().getCommandsUseGUINext() || !(sender instanceof Player)) {
 						String playerName = args[1];
 						if (sender instanceof Player) {
 							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
@@ -1110,7 +1110,7 @@ public class CommandLoader {
 							sender.sendMessage(ArrayUtils.getInstance().colorize(Commands.getInstance()
 									.voteCommandNext(UserManager.getInstance().getVotingPluginUser(playerName))));
 						}
-					} else if (sender instanceof Player) {
+					} else {
 						PlayerGUIs.getInstance().openVoteNext((Player) sender,
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}

@@ -708,7 +708,55 @@ public class Main extends JavaPlugin {
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
 			}
 		}
-	
+
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
+		return topVoterAllTime;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
+		return topVoterMonthly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
+		return topVoterWeekly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterDaily() {
+		return topVoterDaily;
+	}
+
+	public Updater getUpdater() {
+		return updater;
+	}
+
+	public ArrayList<CommandHandler> getVoteCommand() {
+		return voteCommand;
+	}
+
+	public ArrayList<CommandHandler> getAdminVoteCommand() {
+		return adminVoteCommand;
+	}
+
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return voteToday;
+	}
+
+	public ArrayList<SignHandler> getSigns() {
+		return signs;
+	}
+
+	public Logger getVoteLog() {
+		return voteLog;
+	}
+
+	public boolean isUpdate() {
+		return update;
+	}
+
+	public boolean isUpdateStarted() {
+		return updateStarted;
 	}
 
 	/**
