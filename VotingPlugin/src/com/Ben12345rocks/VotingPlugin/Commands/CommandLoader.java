@@ -320,7 +320,17 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				Commands.getInstance().listPerms(sender);
+				sender.sendMessage(Commands.getInstance().listPerms(sender));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Perms", "(OnlinePlayer)" },
+				"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
+				"List permissions from the plugin the player has") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				Commands.getInstance().listPerms(sender, args[1]);
 			}
 		});
 

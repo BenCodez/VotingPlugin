@@ -197,7 +197,7 @@ public class Commands {
 	public String[] listPerms(CommandSender sender) {
 		LinkedHashMap<String, String> perms = new LinkedHashMap<String, String>();
 		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("&cCommand : Permissions (seperated by &");
+		msg.add("&cCommand : Permissions (seperated by |)");
 
 		for (CommandHandler handle : plugin.voteCommand) {
 			perms.put(handle.getHelpLineCommand("/vote"), handle.getPerm());
@@ -212,12 +212,18 @@ public class Commands {
 		}
 
 		if (sender instanceof Player) {
+
 			for (Entry<String, String> entry : perms.entrySet()) {
+				boolean hasPerm = false;
+				for (String str : entry.getValue().split("|")) {
+					if (sender.hasPermission(str)) {
+						hasPerm = true;
+					}
+				}
 				if (entry.getKey() != entry.getValue()) {
-					msg.add(entry.getKey() + " : " + entry.getValue() + " HasPerm: "
-							+ sender.hasPermission(entry.getValue()));
+					msg.add(entry.getKey() + " : " + entry.getValue() + " : " + hasPerm);
 				} else {
-					msg.add(entry.getValue() + " HasPerm: " + sender.hasPermission(entry.getValue()));
+					msg.add(entry.getValue() + " : " + hasPerm);
 				}
 			}
 		} else {
@@ -231,9 +237,49 @@ public class Commands {
 		}
 
 		msg = ArrayUtils.getInstance().colorize(msg);
-		Collections.sort(msg, String.CASE_INSENSITIVE_ORDER);
 
 		return ArrayUtils.getInstance().convert(msg);
+	}
+
+	public void listPerms(CommandSender sender, String player) {
+		Player p = Bukkit.getPlayer(player);
+		if (p != null) {
+			LinkedHashMap<String, String> perms = new LinkedHashMap<String, String>();
+			ArrayList<String> msg = new ArrayList<String>();
+			msg.add("&cCommand : Permissions (seperated by |)");
+
+			for (CommandHandler handle : plugin.voteCommand) {
+				perms.put(handle.getHelpLineCommand("/vote"), handle.getPerm());
+			}
+
+			for (CommandHandler handle : plugin.adminVoteCommand) {
+				perms.put(handle.getHelpLineCommand("/av"), handle.getPerm());
+			}
+
+			for (Permission perm : plugin.getDescription().getPermissions()) {
+				perms.put(perm.getName(), perm.getName());
+			}
+
+			for (Entry<String, String> entry : perms.entrySet()) {
+				boolean hasPerm = false;
+				for (String str : entry.getValue().split("|")) {
+					if (p.hasPermission(str)) {
+						hasPerm = true;
+					}
+				}
+				if (entry.getKey() != entry.getValue()) {
+					msg.add(entry.getKey() + " : " + entry.getValue() + " : " + hasPerm);
+				} else {
+					msg.add(entry.getValue() + " : " + hasPerm);
+				}
+			}
+
+			msg = ArrayUtils.getInstance().colorize(msg);
+			sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+		} else {
+			sender.sendMessage(StringUtils.getInstance().colorize("&cPlayer not online: " + player));
+		}
+
 	}
 
 	/**
@@ -799,4 +845,5 @@ public class Commands {
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);
 	}
+
 }
