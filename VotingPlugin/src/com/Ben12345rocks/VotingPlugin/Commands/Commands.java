@@ -10,9 +10,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -195,44 +193,43 @@ public class Commands {
 	 * @return the string[]
 	 */
 	public String[] listPerms(CommandSender sender) {
-		LinkedHashMap<String, String> perms = new LinkedHashMap<String, String>();
 		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("&cCommand : Permissions (seperated by |)");
+		msg.add("&c&lCommand : Permissions (seperated by |)");
 
 		for (CommandHandler handle : plugin.voteCommand) {
-			perms.put(handle.getHelpLineCommand("/vote"), handle.getPerm());
+			if (sender instanceof Player) {
+				if (handle.hasPerm(sender)) {
+					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+				}
+			} else {
+				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
+			}
+
 		}
 
 		for (CommandHandler handle : plugin.adminVoteCommand) {
-			perms.put(handle.getHelpLineCommand("/av"), handle.getPerm());
+			if (sender instanceof Player) {
+				if (handle.hasPerm(sender)) {
+					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+				}
+			} else {
+				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+			}
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
-			perms.put(perm.getName(), perm.getName());
-		}
-
-		if (sender instanceof Player) {
-
-			for (Entry<String, String> entry : perms.entrySet()) {
-				boolean hasPerm = false;
-				for (String str : entry.getValue().split("|")) {
-					if (sender.hasPermission(str)) {
-						hasPerm = true;
-					}
-				}
-				if (entry.getKey() != entry.getValue()) {
-					msg.add(entry.getKey() + " : " + entry.getValue() + " : " + hasPerm);
+			if (sender instanceof Player) {
+				if (sender.hasPermission(perm)) {
+					msg.add("&a" + perm.getName() + " : true");
 				} else {
-					msg.add(entry.getValue() + " : " + hasPerm);
+					msg.add("&c" + perm.getName() + " : false");
 				}
-			}
-		} else {
-			for (Entry<String, String> entry : perms.entrySet()) {
-				if (entry.getKey() != entry.getValue()) {
-					msg.add(entry.getKey() + " : " + entry.getValue());
-				} else {
-					msg.add(entry.getValue());
-				}
+			} else {
+				msg.add(perm.getName());
 			}
 		}
 
@@ -244,33 +241,31 @@ public class Commands {
 	public void listPerms(CommandSender sender, String player) {
 		Player p = Bukkit.getPlayer(player);
 		if (p != null) {
-			LinkedHashMap<String, String> perms = new LinkedHashMap<String, String>();
 			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&cCommand : Permissions (seperated by |)");
+			msg.add("&c&lCommand : Permissions (seperated by |)");
 
 			for (CommandHandler handle : plugin.voteCommand) {
-				perms.put(handle.getHelpLineCommand("/vote"), handle.getPerm());
+				if (handle.hasPerm(p)) {
+					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+				}
+
 			}
 
 			for (CommandHandler handle : plugin.adminVoteCommand) {
-				perms.put(handle.getHelpLineCommand("/av"), handle.getPerm());
+				if (handle.hasPerm(p)) {
+					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+				}
 			}
 
 			for (Permission perm : plugin.getDescription().getPermissions()) {
-				perms.put(perm.getName(), perm.getName());
-			}
-
-			for (Entry<String, String> entry : perms.entrySet()) {
-				boolean hasPerm = false;
-				for (String str : entry.getValue().split("|")) {
-					if (p.hasPermission(str)) {
-						hasPerm = true;
-					}
-				}
-				if (entry.getKey() != entry.getValue()) {
-					msg.add(entry.getKey() + " : " + entry.getValue() + " : " + hasPerm);
+				if (p.hasPermission(perm)) {
+					msg.add("&a" + perm.getName() + " : true");
 				} else {
-					msg.add(entry.getValue() + " : " + hasPerm);
+					msg.add("&c" + perm.getName() + " : false");
 				}
 			}
 
