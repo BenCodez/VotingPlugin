@@ -12,6 +12,7 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -97,16 +98,20 @@ public class VoteParty implements Listener {
 	 *            the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
-		ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
-		int votesRequired = Config.getInstance().getVotePartyVotesRequired();
-		int votes = getTotalVotes();
-		int neededVotes = votesRequired - votes;
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("votesrequired", "" + votesRequired);
-		placeholders.put("neededvotes", "" + neededVotes);
-		placeholders.put("votes", "" + votes);
-		msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
-		sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+		if (Config.getInstance().getVotePartyEnabled()) {
+			ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
+			int votesRequired = Config.getInstance().getVotePartyVotesRequired();
+			int votes = getTotalVotes();
+			int neededVotes = votesRequired - votes;
+			HashMap<String, String> placeholders = new HashMap<String, String>();
+			placeholders.put("votesrequired", "" + votesRequired);
+			placeholders.put("neededvotes", "" + neededVotes);
+			placeholders.put("votes", "" + votes);
+			msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
+			sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+		} else {
+			sender.sendMessage(StringUtils.getInstance().colorize("&cVoteParty not enabled"));
+		}
 	}
 
 	/**
