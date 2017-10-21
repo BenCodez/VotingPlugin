@@ -53,8 +53,8 @@ public class ServerData {
 		ArrayList<String> l = getServiceSites();
 		if (!getServiceSites().contains(site)) {
 			l.add(site);
-			setServiceSites(l);
 		}
+		setServiceSites(ArrayUtils.getInstance().removeDuplicates(l));
 	}
 
 	/**
@@ -201,7 +201,7 @@ public class ServerData {
 	}
 
 	public void setServiceSites(ArrayList<String> list) {
-		getData().set("ServiceSites", ArrayUtils.getInstance().removeDuplicates(list));
+		getData().set("ServiceSites", list);
 		saveData();
 	}
 
