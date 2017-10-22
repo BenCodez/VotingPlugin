@@ -116,7 +116,9 @@ public class VoteReminding {
 		if (Config.getInstance().getVoteRemindingEnabled()
 				&& (!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())) {
 			giveReward(user);
-			user.setReminded(true);
+			if (UserManager.getInstance().getAllUUIDs().contains(user.getUUID())) {
+				user.setReminded(true);
+			}
 			plugin.debug(user.getPlayerName() + " was reminded!");
 
 		}

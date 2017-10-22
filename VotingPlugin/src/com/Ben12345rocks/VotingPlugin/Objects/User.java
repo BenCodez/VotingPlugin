@@ -423,7 +423,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public void giveOfflineOtherRewards() {
-		for (String str : getOfflineOtherRewards()) {
+		ArrayList<String> offlineRewards = getOfflineOtherRewards();
+		for (String str : offlineRewards) {
 			if (str.equalsIgnoreCase("FirstVote")) {
 				OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
 			} else if (str.equalsIgnoreCase("AllSites")) {
@@ -496,7 +497,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 
 		}
-		setOfflineOtherRewards(new ArrayList<String>());
+		if (!offlineRewards.isEmpty()) {
+			setOfflineOtherRewards(new ArrayList<String>());
+		}
 	}
 
 	/**
@@ -557,7 +560,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public void offVote() {
 		Player player = getPlayer();
 		if (player != null) {
-			setTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
+			if (isTopVoterIgnore() != topVoterIngorePerm) {
+				setTopVoterIgnore(topVoterIngorePerm);
+			}
 			ArrayList<String> offlineVotes = getOfflineVotes();
 			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {

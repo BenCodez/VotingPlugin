@@ -699,6 +699,7 @@ public class Main extends JavaPlugin {
 			}
 		});
 
+		CommandLoader.getInstance().loadTabComplete();
 		loadTimer();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
@@ -818,7 +819,6 @@ public class Main extends JavaPlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
 		loadTimer();
 
@@ -947,6 +947,9 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
 		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
 		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
+		
+		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
+		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
 	}
 
 }

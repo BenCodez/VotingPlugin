@@ -238,11 +238,12 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public void listPerms(CommandSender sender, String player) {
+	public void listPerms(CommandSender sender, String player, int page) {
 		Player p = Bukkit.getPlayer(player);
 		if (p != null) {
+
 			ArrayList<String> msg = new ArrayList<String>();
-			msg.add("&c&lCommand : Permissions (seperated by |)");
+			ArrayList<String> text = new ArrayList<String>();
 
 			for (CommandHandler handle : plugin.voteCommand) {
 				if (handle.hasPerm(p)) {
@@ -270,7 +271,20 @@ public class Commands {
 			}
 
 			msg = ArrayUtils.getInstance().colorize(msg);
-			sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+
+			int pagesize = Config.getInstance().getFormatPageSize();
+
+			int maxPage = msg.size() / pagesize;
+			if ((msg.size() % pagesize) != 0) {
+				maxPage++;
+			}
+
+			text.add("&c&lCommand : Permissions (seperated by |) " + page + "/" + maxPage);
+
+			for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize) - 1); i++) {
+				text.add(msg.get(i));
+			}
+			sender.sendMessage(ArrayUtils.getInstance().convert(text));
 		} else {
 			sender.sendMessage(StringUtils.getInstance().colorize("&cPlayer not online: " + player));
 		}
