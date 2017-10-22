@@ -281,10 +281,10 @@ public class Commands {
 
 			text.add("&c&lCommand : Permissions (seperated by |) " + page + "/" + maxPage);
 
-			for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize) - 1); i++) {
+			for (int i = pagesize * page - pagesize; i < msg.size() && i < pagesize * page; i++) {
 				text.add(msg.get(i));
 			}
-			sender.sendMessage(ArrayUtils.getInstance().convert(text));
+			sender.sendMessage(ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(text)));
 		} else {
 			sender.sendMessage(StringUtils.getInstance().colorize("&cPlayer not online: " + player));
 		}
