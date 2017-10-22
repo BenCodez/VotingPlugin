@@ -187,11 +187,6 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	/**
-	 * List perms.
-	 *
-	 * @return the string[]
-	 */
 	public String[] listPerms(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&c&lCommand : Permissions (seperated by |)");
