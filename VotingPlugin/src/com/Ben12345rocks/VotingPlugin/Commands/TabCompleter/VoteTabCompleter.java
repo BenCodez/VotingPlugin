@@ -10,7 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
-import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 
@@ -33,29 +33,22 @@ public class VoteTabCompleter implements TabCompleter {
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
-		if (cmd.getName().equalsIgnoreCase("vote") || cmd.getName().equalsIgnoreCase("v")) {
+		ArrayList<String> tab = new ArrayList<String>();
 
-			ArrayList<String> tab = new ArrayList<String>();
+		Set<String> cmds = new HashSet<String>();
 
-			Set<String> cmds = new HashSet<String>();
+		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.voteCommand, sender, args,
+				args.length - 1));
 
-			for (CommandHandler cmdHandle : plugin.voteCommand) {
-				cmds.addAll(cmdHandle.getTabCompleteOptions(sender, args, args.length - 1));
+		for (String str : cmds) {
+			if (StringUtils.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
+				tab.add(str);
 			}
-
-			for (String str : cmds) {
-				if (StringUtils.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
-					tab.add(str);
-				}
-			}
-
-			Collections.sort(tab, String.CASE_INSENSITIVE_ORDER);
-
-			return tab;
-
 		}
-		return null;
 
+		Collections.sort(tab, String.CASE_INSENSITIVE_ORDER);
+
+		return tab;
 	}
 
 }

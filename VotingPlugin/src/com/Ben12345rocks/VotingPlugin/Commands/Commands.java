@@ -25,7 +25,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -193,25 +192,103 @@ public class Commands {
 	 *
 	 * @return the string[]
 	 */
-	public String[] listPerms() {
+	public String[] listPerms(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
+		msg.add("&c&lCommand : Permissions (seperated by |)");
 
 		for (CommandHandler handle : plugin.voteCommand) {
-			msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
+			if (sender instanceof Player) {
+				if (handle.hasPerm(sender)) {
+					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+				}
+			} else {
+				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
+			}
+
 		}
 
 		for (CommandHandler handle : plugin.adminVoteCommand) {
-			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+			if (sender instanceof Player) {
+				if (handle.hasPerm(sender)) {
+					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+				}
+			} else {
+				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+			}
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
-			msg.add(perm.getName());
+			if (sender instanceof Player) {
+				if (sender.hasPermission(perm)) {
+					msg.add("&a" + perm.getName() + " : true");
+				} else {
+					msg.add("&c" + perm.getName() + " : false");
+				}
+			} else {
+				msg.add(perm.getName());
+			}
 		}
 
 		msg = ArrayUtils.getInstance().colorize(msg);
-		Collections.sort(msg, String.CASE_INSENSITIVE_ORDER);
 
 		return ArrayUtils.getInstance().convert(msg);
+	}
+
+	public void listPerms(CommandSender sender, String player, int page) {
+		Player p = Bukkit.getPlayer(player);
+		if (p != null) {
+
+			ArrayList<String> msg = new ArrayList<String>();
+			ArrayList<String> text = new ArrayList<String>();
+
+			for (CommandHandler handle : plugin.voteCommand) {
+				if (handle.hasPerm(p)) {
+					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+				}
+
+			}
+
+			for (CommandHandler handle : plugin.adminVoteCommand) {
+				if (handle.hasPerm(p)) {
+					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+				} else {
+					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+				}
+			}
+
+			for (Permission perm : plugin.getDescription().getPermissions()) {
+				if (p.hasPermission(perm)) {
+					msg.add("&a" + perm.getName() + " : true");
+				} else {
+					msg.add("&c" + perm.getName() + " : false");
+				}
+			}
+
+			msg = ArrayUtils.getInstance().colorize(msg);
+
+			int pagesize = Config.getInstance().getFormatPageSize();
+
+			int maxPage = msg.size() / pagesize;
+			if ((msg.size() % pagesize) != 0) {
+				maxPage++;
+			}
+
+			text.add("&c&lCommand : Permissions (seperated by |) " + page + "/" + maxPage);
+
+			for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize) - 1); i++) {
+				text.add(msg.get(i));
+			}
+			sender.sendMessage(ArrayUtils.getInstance().convert(text));
+		} else {
+			sender.sendMessage(StringUtils.getInstance().colorize("&cPlayer not online: " + player));
+		}
+
 	}
 
 	/**
@@ -745,19 +822,6 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public void voteTop(CommandSender sender, int page) {
-		String str = Config.getInstance().getVoteTopDefault();
-		if (str.equalsIgnoreCase("monthly")) {
-			CommandVote.getInstance().topVoterMonthly(sender, page);
-		} else if (str.equalsIgnoreCase("weekly")) {
-			CommandVote.getInstance().topVoterWeekly(sender, page);
-		} else if (str.equalsIgnoreCase("daily")) {
-			CommandVote.getInstance().topVoterDaily(sender, page);
-		} else {
-
-		}
-	}
-
 	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
@@ -790,4 +854,5 @@ public class Commands {
 		sites = ArrayUtils.getInstance().colorize(sites);
 		return ArrayUtils.getInstance().convert(sites);
 	}
+
 }

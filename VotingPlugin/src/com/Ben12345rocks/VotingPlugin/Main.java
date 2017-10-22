@@ -711,6 +711,54 @@ public class Main extends JavaPlugin {
 
 	}
 
+	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
+		return topVoterAllTime;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
+		return topVoterMonthly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
+		return topVoterWeekly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterDaily() {
+		return topVoterDaily;
+	}
+
+	public Updater getUpdater() {
+		return updater;
+	}
+
+	public ArrayList<CommandHandler> getVoteCommand() {
+		return voteCommand;
+	}
+
+	public ArrayList<CommandHandler> getAdminVoteCommand() {
+		return adminVoteCommand;
+	}
+
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return voteToday;
+	}
+
+	public ArrayList<SignHandler> getSigns() {
+		return signs;
+	}
+
+	public Logger getVoteLog() {
+		return voteLog;
+	}
+
+	public boolean isUpdate() {
+		return update;
+	}
+
+	public boolean isUpdateStarted() {
+		return updateStarted;
+	}
+
 	/**
 	 * Register commands.
 	 */
@@ -770,20 +818,7 @@ public class Main extends JavaPlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		CommandLoader.getInstance().loadTabComplete();
 		AdvancedCoreHook.getInstance().reload();
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				for (CommandHandler cmd : voteCommand) {
-					cmd.reloadTabComplete();
-				}
-				for (CommandHandler cmd : adminVoteCommand) {
-					cmd.reloadTabComplete();
-				}
-			}
-		});
 		loadTimer();
 
 	}
@@ -911,6 +946,9 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
 		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
 		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
+		
+		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
+		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
 	}
 
 }

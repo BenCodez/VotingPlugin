@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
@@ -50,8 +51,10 @@ public class ServerData {
 
 	public void addServiceSite(String site) {
 		ArrayList<String> l = getServiceSites();
-		l.add(site);
-		setServiceSites(l);
+		if (!getServiceSites().contains(site)) {
+			l.add(site);
+		}
+		setServiceSites(ArrayUtils.getInstance().removeDuplicates(l));
 	}
 
 	/**

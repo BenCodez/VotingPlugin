@@ -813,3 +813,10 @@ CountFakeVotes: true
 # Give VotingPlugin.Player by default
 # Requires restart to take affect
 GiveDefaultPermission: true
+
+# Remove old player files
+# Happens on startup or /av purge
+PurgeOldData: false
+
+# Minimum number of days offline in order to purge
+PurgeMin: 90

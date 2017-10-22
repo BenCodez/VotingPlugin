@@ -1215,6 +1215,14 @@ public class Config extends YMLFile {
 		return getData().getString("Format.UserNotExist", "&cUser does not exist: %player%");
 	}
 
+	public boolean getPurgeOldData() {
+		return getData().getBoolean("PurgeOldData");
+	}
+
+	public int getPurgeMin() {
+		return getData().getInt("PurgeMin", 90);
+	}
+
 	/**
 	 * Gets the vote site items.
 	 *
