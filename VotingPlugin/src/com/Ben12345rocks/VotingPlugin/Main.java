@@ -699,7 +699,6 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		CommandLoader.getInstance().loadTabComplete();
 		loadTimer();
 
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
