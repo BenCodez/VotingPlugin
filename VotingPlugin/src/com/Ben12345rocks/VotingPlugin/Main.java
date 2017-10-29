@@ -19,6 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
+import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -778,10 +779,13 @@ public class Main extends JavaPlugin {
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
-		if (Config.getInstance().getGiveDefaultPermission()) {
-			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.TRUE);
-		} else {
-			Bukkit.getPluginManager().getPermission("VotingPlugin.Player").setDefault(PermissionDefault.OP);
+		Permission perm = Bukkit.getPluginManager().getPermission("VotingPlugin.Player");
+		if (perm != null) {
+			if (Config.getInstance().getGiveDefaultPermission()) {
+				perm.setDefault(PermissionDefault.TRUE);
+			} else {
+				perm.setDefault(PermissionDefault.OP);
+			}
 		}
 
 		plugin.debug("Loaded Commands");
@@ -946,7 +950,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
 		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
 		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
-		
+
 		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
 		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
 	}
