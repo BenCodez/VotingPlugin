@@ -384,6 +384,7 @@ GUI:
       Material: 'EMERALD_BLOCK'
       Data: 0
       Amount: 1
+    URLText: '%VoteUrl%'
   # Customize /vote reward
   # Show players what you get when you vote on each site
   VoteReward:

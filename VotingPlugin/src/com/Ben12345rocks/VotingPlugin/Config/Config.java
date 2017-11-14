@@ -806,6 +806,10 @@ public class Config extends YMLFile {
 	public String getGUIVoteURLName() {
 		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
 	}
+	
+	public String getGUIVoteURLURLText() {
+		return getData().getString("GUI.VoteURL.URLText", "%VoteUrl%");
+	}
 
 	public String getGUIVoteURLSiteName() {
 		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
