@@ -771,4 +771,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
+	public boolean shouldBeReminded() {
+		Player player = getPlayer();
+		if (player != null) {
+			if (player.hasPermission("VotingPlugin.NoRemind")) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 }

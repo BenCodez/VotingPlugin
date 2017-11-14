@@ -103,7 +103,7 @@ public class VoteReminding {
 	 *            the user
 	 */
 	public void runRemind(User user) {
-		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll()) {
+		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll() && user.shouldBeReminded()) {
 			user.setReminded(true);
 			giveReward(user);
 
@@ -114,7 +114,8 @@ public class VoteReminding {
 
 	public void runRemindLogin(User user) {
 		if (Config.getInstance().getVoteRemindingEnabled()
-				&& (!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())) {
+				&& (!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())
+				&& user.shouldBeReminded()) {
 			giveReward(user);
 			if (user.getData().hasData()) {
 				user.setReminded(true);
