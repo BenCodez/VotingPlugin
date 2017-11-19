@@ -39,7 +39,7 @@ public class VoteSite {
 	private String displayName;
 
 	/** The vote delay. */
-	private int voteDelay;
+	private double voteDelay;
 
 	/** The enabled. */
 	private boolean enabled;
@@ -139,7 +139,7 @@ public class VoteSite {
 	 *
 	 * @return the vote delay
 	 */
-	public int getVoteDelay() {
+	public double getVoteDelay() {
 		return voteDelay;
 	}
 
@@ -295,7 +295,7 @@ public class VoteSite {
 	 * @param voteDelay
 	 *            the new vote delay
 	 */
-	public void setVoteDelay(int voteDelay) {
+	public void setVoteDelay(double voteDelay) {
 		this.voteDelay = voteDelay;
 	}
 

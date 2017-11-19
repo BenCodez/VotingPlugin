@@ -273,10 +273,7 @@ public class Main extends JavaPlugin {
 				@Override
 				public void run() {
 					AdvancedCoreHook.getInstance()
-							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySqlHost(),
-									Config.getInstance().getMySqlPort(), Config.getInstance().getMySqlDatabase(),
-									Config.getInstance().getMySqlUsername(), Config.getInstance().getMySqlPassword(),
-									Config.getInstance().getMySqlMaxConnections()));
+							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySql()));
 				}
 			});
 
@@ -928,7 +925,6 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setMaxMysqlSize(Config.getInstance().getMysqlMaxSize());
 		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);

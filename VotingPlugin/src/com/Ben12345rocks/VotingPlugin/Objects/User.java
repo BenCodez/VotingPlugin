@@ -333,12 +333,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return the last vote times sorted
 	 */
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
-		HashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
+		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			times.put(voteSite, getTime(voteSite));
 		}
-		HashMap<VoteSite, Long> sorted = (HashMap<VoteSite, Long>) times.entrySet().stream()
+		LinkedHashMap<VoteSite, Long> sorted = (LinkedHashMap<VoteSite, Long>) times.entrySet().stream()
 				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 		return sorted;
@@ -769,6 +769,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (getBestWeekVoteStreak() < streak) {
 			setBestWeekVoteStreak(streak);
 		}
+	}
+
+	public boolean shouldBeReminded() {
+		Player player = getPlayer();
+		if (player != null) {
+			if (player.hasPermission("VotingPlugin.NoRemind")) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 }

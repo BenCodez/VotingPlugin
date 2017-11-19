@@ -153,6 +153,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getServer().getPluginManager().getPlugin("GAListener") != null) {
+					sender.sendMessage("Starting to convert");
 					Table<String, Integer, Long> totals = GAL.p.db.getTotals();
 					for (Cell<String, Integer, Long> entry : totals.cellSet()) {
 						String name = entry.getRowKey();

@@ -199,4 +199,7 @@ permissions:
     description: Allows access to create signs
   VotingPlugin.TopVoter.Ignore:
     description: Allows you to be exempt from top voter
+  VotingPlugin.NoRemind:
+    description: Ignore vote reminding
+    default: false
   

@@ -658,13 +658,13 @@ public class Commands {
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
 		if (!voteSite.isVoteDelayDaily()) {
-			int votedelay = voteSite.getVoteDelay();
+			double votedelay = voteSite.getVoteDelay();
 			if (votedelay == 0) {
 				String errorMsg = config.getFormatCommandsVoteNextInfoError();
 				info = errorMsg;
 			} else {
 
-				LocalDateTime nextvote = lastVote.plusHours(votedelay);
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay);
 
 				if (time == 0 || now.isAfter(nextvote)) {
 					info = config.getFormatCommandsVoteNextInfoCanVote();
@@ -679,7 +679,7 @@ public class Commands {
 					timeMsg = StringUtils.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
 							Long.toString(diffMinutes));
 					info = timeMsg;
-
+					
 				}
 			}
 		} else {
