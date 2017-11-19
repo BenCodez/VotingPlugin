@@ -806,7 +806,7 @@ public class Config extends YMLFile {
 	public String getGUIVoteURLName() {
 		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
 	}
-	
+
 	public String getGUIVoteURLURLText() {
 		return getData().getString("GUI.VoteURL.URLText", "%VoteUrl%");
 	}
@@ -955,36 +955,8 @@ public class Config extends YMLFile {
 		}
 	}
 
-	public String getMySqlDatabase() {
-		return getData().getString("MySQL.Database", "");
-	}
-
-	public String getMySqlHost() {
-		return getData().getString("MySQL.Host", "");
-	}
-
-	public int getMySqlMaxConnections() {
-		return getData().getInt("MySQL.MaxConnections", 1);
-	}
-
-	public int getMysqlMaxSize() {
-		return getData().getInt("MySQL.MaxSize", -1);
-	}
-
-	public String getMySqlPassword() {
-		return getData().getString("MySQL.Password", "");
-	}
-
-	public int getMySqlPort() {
-		return getData().getInt("MySQL.Port");
-	}
-
-	public boolean getMySqlPreloadTable() {
-		return getData().getBoolean("MySQL.PreLoadTable");
-	}
-
-	public String getMySqlUsername() {
-		return getData().getString("MySQL.Username", "");
+	public ConfigurationSection getMySql() {
+		return getData().getConfigurationSection("MySQL");
 	}
 
 	public int getPointsOnVote() {

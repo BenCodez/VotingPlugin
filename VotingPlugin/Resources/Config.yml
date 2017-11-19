@@ -23,6 +23,8 @@ MySQL:
   # -1 for no limit
   # Affecting this value may affect performance
   MaxSize: -1
+  # Table name prefix, for use with mutliple servers
+  Prefix: ''
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data files)
