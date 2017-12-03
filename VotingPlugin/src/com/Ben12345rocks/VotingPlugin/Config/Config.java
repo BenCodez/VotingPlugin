@@ -1121,6 +1121,11 @@ public class Config extends YMLFile {
 		return "VoteParty.Rewards";
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyCommands() {
+		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
+	}
+
 	/**
 	 * Gets the vote party votes required.
 	 *

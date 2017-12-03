@@ -615,6 +615,8 @@ VoteParty:
   UserVotesRequired: 0
   # Broadcast when vote party reached
   Broadcast: '&cReached the vote party amount!'
+  # List of commands to execute, these only execute once.
+  Commands: []
   # Reward files to give
   Rewards: []
   

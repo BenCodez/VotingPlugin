@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.VoteParty;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -172,6 +173,17 @@ public class VoteParty implements Listener {
 	 * Give rewards.
 	 */
 	public void giveRewards() {
+		for (final String cmd : Config.getInstance().getVotePartyCommands()) {
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
+				}
+
+			});
+		}
+
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
