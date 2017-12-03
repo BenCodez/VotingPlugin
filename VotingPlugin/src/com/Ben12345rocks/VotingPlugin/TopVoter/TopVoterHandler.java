@@ -81,7 +81,7 @@ public class TopVoterHandler implements Listener {
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
 	}
-	
+
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -285,10 +285,11 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeMonthlyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
+		LocalDateTime time = LocalDateTime.now().minusMonths(1);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
-				"TopVoter" + File.separator + "Monthly" + File.separator + year + "_" + month + ".yml"));
+				"TopVoter" + File.separator + "Monthly" + File.separator + month + "_" + year + ".yml"));
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
