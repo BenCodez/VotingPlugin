@@ -352,6 +352,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getData().getInt("MonthTotal");
 	}
 
+	public int getLastMonthTotal() {
+		return getData().getInt("LastMonthTotal");
+	}
+
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
 	}
@@ -624,6 +628,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public void resetMonthlyTotalVotes() {
+		setLastMonthTotal(getMonthTotal());
 		setMonthTotal(0);
 	}
 
@@ -711,6 +716,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
+	}
+
+	public void setLastMonthTotal(int total) {
+		getData().setInt("LastMonthTotal", total);
 	}
 
 	public void setMonthVoteStreak(int streak) {
