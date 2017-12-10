@@ -66,7 +66,6 @@ public class VotiferEvent implements Listener {
 				}
 
 				synchronized (object) {
-					plugin.getLogger().info("" + System.currentTimeMillis());
 
 					// vote party
 					VoteParty.getInstance().vote(user, realVote);
