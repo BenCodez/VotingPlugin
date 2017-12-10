@@ -49,4 +49,8 @@ public class UserManager {
 	public User getVotingPluginUser(UUID uuid) {
 		return new User(uuid);
 	}
+
+	public User getVotingPluginUser(java.util.UUID uuid) {
+		return getVotingPluginUser(new UUID(uuid.toString()));
+	}
 }
