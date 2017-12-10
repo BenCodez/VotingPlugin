@@ -636,6 +636,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		setWeeklyTotal(0);
 	}
 
+	public int getNumberOfAllSites() {
+		return getData().getInt("NumberOfAllSites");
+	}
+
+	public void setNumberOfAllSites(int value) {
+		getData().setInt("NumberOfAllSites", value);
+	}
+
 	/**
 	 * Send vote effects.
 	 *

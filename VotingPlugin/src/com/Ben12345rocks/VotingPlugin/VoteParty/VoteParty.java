@@ -17,6 +17,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -86,6 +87,12 @@ public class VoteParty implements Listener {
 	public void check() {
 		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
 			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
+			
+			VotePartyEvent event = new VotePartyEvent();
+			Bukkit.getPluginManager().callEvent(event);
+			if (event.isCancelled()) {
+				return;
+			}
 			giveRewards();
 			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
 		}
@@ -217,7 +224,9 @@ public class VoteParty implements Listener {
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}
+			user.setNumberOfAllSites(0);
 		}
+
 	}
 
 	/**
