@@ -169,7 +169,7 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	public boolean getVoteSiteGiveOffline(String site) {
-		return getData(site).getBoolean("GiveOffline");
+		return getData(site).getBoolean("ForceOffline", getData(site).getBoolean("GiveOffline"));
 	}
 
 	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {

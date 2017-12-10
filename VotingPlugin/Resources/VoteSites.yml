@@ -34,7 +34,7 @@ VoteSites:
     # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
     # Setting this to true will execute the reward offline, NOT WHEN THE PLAYER IS OFFLINE
     # This basiclly disables offline voting if set to true, don't misinterpret this option
-    GiveOffline: false
+    ForceOffline: false
     
     # VoteSite Material for GUI's
     # Removing this may result in an error, required on each site
