@@ -525,11 +525,11 @@ public class Main extends JavaPlugin {
 				return Config.getInstance().getDataStorage();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("CheckOnWorldChange") {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("DisableCheckOnWorldChange") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCheckOnWorldChange();
+				return "" + Config.getInstance().getDisableCheckOnWorldChange();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {
@@ -932,7 +932,8 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setStorageType(UserStorage.value(Config.getInstance().getDataStorage()));
 		loadMySQL();
 
-		AdvancedCoreHook.getInstance().setCheckOnWorldChange(Config.getInstance().getCheckOnWorldChange());
+		AdvancedCoreHook.getInstance()
+				.setDisableCheckOnWorldChange(Config.getInstance().getDisableCheckOnWorldChange());
 		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
 		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
 		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());

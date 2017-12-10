@@ -87,7 +87,7 @@ public class VoteParty implements Listener {
 	public void check() {
 		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
 			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
-			
+
 			VotePartyEvent event = new VotePartyEvent();
 			Bukkit.getPluginManager().callEvent(event);
 			if (event.isCancelled()) {
@@ -249,6 +249,16 @@ public class VoteParty implements Listener {
 	public void setVotedUsers(ArrayList<String> value) {
 		ServerData.getInstance().getData().set("VoteParty.Voted", value);
 		ServerData.getInstance().saveData();
+	}
+
+	public void vote(User user, boolean realVote) {
+		if (Config.getInstance().getVotePartyEnabled()) {
+			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
+				addTotal(user);
+				addVotePlayer(user);
+				check();
+			}
+		}
 	}
 
 }

@@ -756,9 +756,9 @@ DailyAwards:
 # Set to 0 to give no points
 PointsOnVote: 1
 
-# Wether or not to check on world change
-# Should only be used if you do per world rewards
-CheckOnWorldChange: false
+# Disable checking on world change
+# May improve performance
+DisableCheckOnWorldChange: false
 
 # Debug
 Debug: false

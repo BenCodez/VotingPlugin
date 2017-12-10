@@ -110,8 +110,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("BroadcastVote", true);
 	}
 
-	public boolean getCheckOnWorldChange() {
-		return getData().getBoolean("CheckOnWorldChange");
+	public boolean getDisableCheckOnWorldChange() {
+		return getData().getBoolean("DisableCheckOnWorldChange");
 	}
 
 	public boolean getClearCacheOnUpdate() {
