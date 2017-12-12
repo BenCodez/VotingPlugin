@@ -9,6 +9,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -208,8 +209,14 @@ public class VoteParty implements Listener {
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 		if (Config.getInstance().getVotePartyResetEachDay()) {
-			setTotalVotes(0);
-			setVotedUsers(new ArrayList<String>());
+			reset();
+		}
+	}
+
+	@EventHandler
+	public void onMonthChange(MonthChangeEvent event) {
+		if (Config.getInstance().getVotePartyResetMontly()) {
+			reset();
 		}
 	}
 
@@ -224,7 +231,6 @@ public class VoteParty implements Listener {
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}
-			user.setNumberOfAllSites(0);
 		}
 
 	}
