@@ -790,4 +790,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
+	public void clearOfflineRewards() {
+		setOfflineVotes(new ArrayList<String>());
+		setOfflineRewards(new ArrayList<String>());
+		setOfflineOtherRewards(new ArrayList<String>());
+	}
+
 }

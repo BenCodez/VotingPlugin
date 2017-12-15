@@ -466,6 +466,25 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ClearOfflineRewards" },
+				"VotingPlugin.Commands.AdminVote.ClearOfflineRewards|" + adminPerm, "Reset offline votes/rewards") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (sender instanceof Player) {
+					sender.sendMessage(
+							StringUtils.getInstance().colorize("&cThis command can not be done from ingame"));
+					return;
+				}
+
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					user.clearOfflineRewards();
+				}
+				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for everyone"));
+			}
+		});
+
 		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ConvertFromData", "(userstorage)" },
 				"VotingPlugin.Commands.AdminVote.ConvertFromData",
 				"Convert from selected user storage to current user storage") {

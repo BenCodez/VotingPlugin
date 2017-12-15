@@ -257,7 +257,7 @@ public class VoteParty implements Listener {
 		ServerData.getInstance().saveData();
 	}
 
-	public void vote(User user, boolean realVote) {
+	public synchronized void vote(User user, boolean realVote) {
 		if (Config.getInstance().getVotePartyEnabled()) {
 			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
 				addTotal(user);
