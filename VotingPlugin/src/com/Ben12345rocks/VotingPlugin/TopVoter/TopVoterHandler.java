@@ -113,13 +113,17 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getDailyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterDaily.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getDailyTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveDailyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getDailyTotal();
 			}
 		}
 		resetDailyTotals();
@@ -150,13 +154,18 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getMonthlyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterMonthly.keySet()) {
+
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getMonthTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveMonthlyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getMonthTotal();
 			}
 		}
 		resetMonthlyTotals();
@@ -196,13 +205,17 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterWeekly.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getWeeklyTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveWeeklyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getWeeklyTotal();
 			}
 		}
 		resetWeeklyTotals();
