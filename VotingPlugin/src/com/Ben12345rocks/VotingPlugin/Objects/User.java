@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -562,6 +563,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Off vote.
 	 */
 	public void offVote() {
+		AdvancedCoreHook.getInstance().extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
@@ -582,9 +584,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
-			if (!offlineVotes.isEmpty()) {
-				setOfflineVotes(new ArrayList<String>());
-			}
+
+			setOfflineVotes(new ArrayList<String>());
 
 			giveOfflineOtherRewards();
 		}
