@@ -43,74 +43,76 @@ public class VotiferEvent implements Listener {
 	}
 
 	public static void playerVote(final String playerName, final String voteSiteURL, final boolean realVote) {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-			@Override
-			public void run() {
-				User user = UserManager.getInstance().getVotingPluginUser(playerName);
 
-				VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
-				if (voteSite == null) {
-					if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
-						plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
-						plugin.getLogger().warning(
-								"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
+		if (!PlayerUtils.getInstance().isValidUser(playerName) && !config.allowUnJoined()) {
+			plugin.getLogger().warning("Player " + playerName
+					+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+			return;
+		}
 
-						ArrayList<String> services = new ArrayList<String>();
-						for (VoteSite site : plugin.getVoteSites()) {
-							services.add(site.getServiceSite());
-						}
-						plugin.getLogger()
-								.warning("Current service sites: " + ArrayUtils.getInstance().makeStringList(services));
-					}
-					return;
+		User user = UserManager.getInstance().getVotingPluginUser(playerName);
+
+		VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
+		if (voteSite == null) {
+			if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
+				plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
+				plugin.getLogger().warning(
+						"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
+
+				ArrayList<String> services = new ArrayList<String>();
+				for (VoteSite site : plugin.getVoteSites()) {
+					services.add(site.getServiceSite());
 				}
-
-				synchronized (object) {
-
-					// vote party
-					VoteParty.getInstance().vote(user, realVote);
-
-					// broadcast vote if enabled in config
-					if (config.getBroadCastVotesEnabled()) {
-						if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
-							voteSite.broadcastVote(user);
-						}
-					}
-					// update last vote time
-					user.setTime(voteSite);
-
-					OtherVoteReward.getInstance().checkFirstVote(user);
-
-					user.setReminded(false);
-
-					// check if player has voted on all sites in one day
-
-					if (user.isOnline() || voteSite.isGiveOffline()) {
-						user.playerVote(voteSite, true, false);
-						user.closeInv();
-					} else {
-						user.addOfflineVote(voteSite.getKey());
-						// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
-						plugin.debug("Offline vote set for " + playerName + " (" + user.getUUID() + ") on "
-								+ voteSite.getKey());
-					}
-
-					// add to total votes
-					if (Config.getInstance().getCountFakeVotes() || realVote) {
-						user.addTotal();
-						user.addTotalDaily();
-						user.addTotalWeekly();
-						user.addPoints();
-					}
-
-					OtherVoteReward.getInstance().checkAllSites(user);
-					OtherVoteReward.getInstance().checkCumualativeVotes(user);
-					OtherVoteReward.getInstance().checkMilestone(user);
-				}
-
-				plugin.setUpdate(true);
+				plugin.getLogger()
+						.warning("Current service sites: " + ArrayUtils.getInstance().makeStringList(services));
 			}
-		});
+			return;
+		}
+
+		synchronized (object) {
+
+			// vote party
+			VoteParty.getInstance().vote(user, realVote);
+
+			// broadcast vote if enabled in config
+			if (config.getBroadCastVotesEnabled()) {
+				if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
+					voteSite.broadcastVote(user);
+				}
+			}
+			// update last vote time
+			user.setTime(voteSite);
+
+			OtherVoteReward.getInstance().checkFirstVote(user);
+
+			user.setReminded(false);
+
+			// check if player has voted on all sites in one day
+
+			if (user.isOnline() || voteSite.isGiveOffline()) {
+				user.playerVote(voteSite, true, false);
+				user.closeInv();
+			} else {
+				user.addOfflineVote(voteSite.getKey());
+				// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
+				plugin.debug(
+						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
+			}
+
+			// add to total votes
+			if (Config.getInstance().getCountFakeVotes() || realVote) {
+				user.addTotal();
+				user.addTotalDaily();
+				user.addTotalWeekly();
+				user.addPoints();
+			}
+
+			OtherVoteReward.getInstance().checkAllSites(user);
+			OtherVoteReward.getInstance().checkCumualativeVotes(user);
+			OtherVoteReward.getInstance().checkMilestone(user);
+		}
+
+		plugin.setUpdate(true);
 
 	}
 
@@ -152,12 +154,6 @@ public class VotiferEvent implements Listener {
 
 			@Override
 			public void run() {
-				if (!PlayerUtils.getInstance().isValidUser(voteUsername) && !config.allowUnJoined()) {
-					plugin.getLogger().warning("Player " + voteUsername
-							+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
-					return;
-				}
-
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
 
 				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
