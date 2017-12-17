@@ -1112,6 +1112,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
 
+	public boolean getAddTotals() {
+		return getData().getBoolean("AddTotals", true);
+	}
+
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}

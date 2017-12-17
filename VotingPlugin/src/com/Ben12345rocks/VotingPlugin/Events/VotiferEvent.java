@@ -80,7 +80,7 @@ public class VotiferEvent implements Listener {
 					voteSite.broadcastVote(user);
 				}
 			}
-			
+
 			// update last vote time
 			user.setTime(voteSite);
 
@@ -104,9 +104,11 @@ public class VotiferEvent implements Listener {
 
 			// add to total votes
 			if (Config.getInstance().getCountFakeVotes() || realVote) {
-				user.addTotal();
-				user.addTotalDaily();
-				user.addTotalWeekly();
+				if (Config.getInstance().getAddTotals()) {
+					user.addTotal();
+					user.addTotalDaily();
+					user.addTotalWeekly();
+				}
 				user.addPoints();
 			}
 

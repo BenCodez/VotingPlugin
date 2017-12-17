@@ -758,6 +758,10 @@ DailyAwards:
 # Set to 0 to give no points
 PointsOnVote: 1
 
+# Set this to false to disable the plugin adding totals
+# Not really recommended
+AddTotals: true
+
 # Disable checking on world change
 # May improve performance
 DisableCheckOnWorldChange: false
