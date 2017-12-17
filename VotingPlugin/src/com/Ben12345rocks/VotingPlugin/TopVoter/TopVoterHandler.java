@@ -281,9 +281,10 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeDailyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
-		int day = LocalDateTime.now().getDayOfMonth();
+		LocalDateTime time = LocalDateTime.now().minusHours(5);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
+		int day = time.getDayOfMonth();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
 				"TopVoter" + File.separator + "Daily" + File.separator + year + "_" + month + "_" + day + ".yml"));
 		file.setup();
@@ -298,7 +299,7 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeMonthlyTopVoters() {
-		LocalDateTime time = LocalDateTime.now().minusMonths(1);
+		LocalDateTime time = LocalDateTime.now().minusHours(10);
 		String month = time.getMonth().toString();
 		int year = time.getYear();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
@@ -315,9 +316,10 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeWeeklyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
-		int week = LocalDateTime.now().getDayOfMonth();
+		LocalDateTime time = LocalDateTime.now().minusHours(10);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
+		int week = time.getDayOfYear();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
 				"TopVoter" + File.separator + "Weekly" + File.separator + year + "_" + month + "_" + week + ".yml"));
 		file.setup();

@@ -80,12 +80,15 @@ public class VotiferEvent implements Listener {
 					voteSite.broadcastVote(user);
 				}
 			}
+			
 			// update last vote time
 			user.setTime(voteSite);
 
 			OtherVoteReward.getInstance().checkFirstVote(user);
 
-			user.setReminded(false);
+			if (user.isReminded()) {
+				user.setReminded(false);
+			}
 
 			// check if player has voted on all sites in one day
 
