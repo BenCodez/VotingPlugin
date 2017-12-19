@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
@@ -352,6 +353,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getData().getInt("MonthTotal");
 	}
 
+	public int getLastMonthTotal() {
+		return getData().getInt("LastMonthTotal");
+	}
+
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
 	}
@@ -558,6 +563,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * Off vote.
 	 */
 	public void offVote() {
+		AdvancedCoreHook.getInstance().extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
@@ -578,9 +584,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
-			if (!offlineVotes.isEmpty()) {
-				setOfflineVotes(new ArrayList<String>());
-			}
+
+			setOfflineVotes(new ArrayList<String>());
 
 			giveOfflineOtherRewards();
 		}
@@ -597,7 +602,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 *            the broadcast
 	 */
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
-		if (Config.getInstance().getBroadCastVotesEnabled() && Config.getInstance().getFormatBroadcastWhenOnline()
+		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().getBroadCastVotesEnabled()
 				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}
@@ -624,6 +629,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	}
 
 	public void resetMonthlyTotalVotes() {
+		setLastMonthTotal(getMonthTotal());
 		setMonthTotal(0);
 	}
 
@@ -713,6 +719,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getData().setInt("MonthTotal", total);
 	}
 
+	public void setLastMonthTotal(int total) {
+		getData().setInt("LastMonthTotal", total);
+	}
+
 	public void setMonthVoteStreak(int streak) {
 		getData().setInt("MonthVoteStreak", streak);
 		if (getBestMonthVoteStreak() < streak) {
@@ -779,6 +789,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 		}
 		return true;
+	}
+
+	public void clearOfflineRewards() {
+		setOfflineVotes(new ArrayList<String>());
+		setOfflineRewards(new ArrayList<String>());
+		setOfflineOtherRewards(new ArrayList<String>());
 	}
 
 }

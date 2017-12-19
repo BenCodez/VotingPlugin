@@ -609,12 +609,16 @@ VoteParty:
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
+  # Reset at the end of the month
+  ResetMonthly: false
   # Count votes from /av vote?
   CountFakeVotes: true
   # Number of user votes that apply to vote party total the user needs to get rewards
   UserVotesRequired: 0
   # Broadcast when vote party reached
   Broadcast: '&cReached the vote party amount!'
+  # List of commands to execute, these only execute once.
+  Commands: []
   # Reward files to give
   Rewards: []
   
@@ -754,9 +758,13 @@ DailyAwards:
 # Set to 0 to give no points
 PointsOnVote: 1
 
-# Wether or not to check on world change
-# Should only be used if you do per world rewards
-CheckOnWorldChange: false
+# Set this to false to disable the plugin adding totals
+# Not really recommended
+AddTotals: true
+
+# Disable checking on world change
+# May improve performance
+DisableCheckOnWorldChange: false
 
 # Debug
 Debug: false

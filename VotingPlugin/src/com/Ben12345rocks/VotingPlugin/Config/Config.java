@@ -110,8 +110,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("BroadcastVote", true);
 	}
 
-	public boolean getCheckOnWorldChange() {
-		return getData().getBoolean("CheckOnWorldChange");
+	public boolean getDisableCheckOnWorldChange() {
+		return getData().getBoolean("DisableCheckOnWorldChange");
 	}
 
 	public boolean getClearCacheOnUpdate() {
@@ -1112,6 +1112,14 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
 
+	public boolean getAddTotals() {
+		return getData().getBoolean("AddTotals", true);
+	}
+
+	public boolean getVotePartyResetMontly() {
+		return getData().getBoolean("VoteParty.ResetMonthly");
+	}
+
 	/**
 	 * Gets the vote party rewards.
 	 *
@@ -1119,6 +1127,11 @@ public class Config extends YMLFile {
 	 */
 	public String getVotePartyRewardsPath() {
 		return "VoteParty.Rewards";
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyCommands() {
+		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
 	}
 
 	/**

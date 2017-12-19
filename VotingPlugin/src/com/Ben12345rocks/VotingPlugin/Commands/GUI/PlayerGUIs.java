@@ -535,10 +535,12 @@ public class PlayerGUIs {
 					if (player != null) {
 						player.closeInventory();
 						User user = UserManager.getInstance().getVotingPluginUser(player);
-						user.sendMessage(StringUtils.getInstance()
-								.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-										Config.getInstance().getGUIVoteURLURLText(), "voteurl", voteSite.getVoteURL()),
-										"sitename", voteSite.getDisplayName()));
+						user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+								StringUtils.getInstance()
+										.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+												Config.getInstance().getGUIVoteURLURLText(), "voteurl",
+												voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
+								"player", player.getName()));
 
 					}
 

@@ -2,12 +2,15 @@ package com.Ben12345rocks.VotingPlugin.OtherRewards;
 
 import java.util.Set;
 
+import org.bukkit.Bukkit;
+
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
@@ -66,7 +69,6 @@ public class OtherVoteReward {
 			giveAllSitesRewards(user, user.isOnline());
 		}
 		return checkAllVotes;
-
 	}
 
 	/**
@@ -224,6 +226,12 @@ public class OtherVoteReward {
 	 *            the online
 	 */
 	public void giveAllSitesRewards(User user, boolean online) {
+		PlayerVoteAllSitesEvent event = new PlayerVoteAllSitesEvent(user);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 				Config.getInstance().getAllSitesRewardPath(), online);
 	}
@@ -275,4 +283,6 @@ public class OtherVoteReward {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, string))
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}
+
+	
 }

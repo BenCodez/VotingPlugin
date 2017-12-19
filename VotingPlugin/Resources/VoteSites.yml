@@ -31,18 +31,26 @@ VoteSites:
     # Reset vote delay each day (for certain sites that do this)
     VoteDelayDaily: false
     
-    # If true, rewards can be executed offline (required ForceOffline to be true in the reward)
-    GiveOffline: false
+    # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
+    # Setting this to true will execute the reward offline, NOT WHEN THE PLAYER IS OFFLINE
+    # This basiclly disables offline voting if set to true, don't misinterpret this option
+    ForceOffline: false
     
     # VoteSite Material for GUI's
+    # Removing this may result in an error, required on each site
     Item:
       Material: 'DIAMOND'
       Amount: 1
 
-    # List of reward files to give to voter
+    # Rewards to give
+    # https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards
     Rewards:
-    - 'ExampleReward'
+      Commands:
+      - 'say hello'
+      Messages:
+        Player: 'You voted'
     
 # Reward for any site
 # Similar to AnySiteReward
+# This requires the site to be configured in order to get the reward.
 EverySiteReward: []
