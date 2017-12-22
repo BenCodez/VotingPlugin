@@ -61,7 +61,7 @@ public class PlaceHolders {
 			return Integer.toString(user.getMonthTotal());
 		} else if (identifier.equalsIgnoreCase("alltimetotal")) {
 			return Integer.toString(user.getAllTimeTotal());
-		} else if (identifier.equalsIgnoreCase("total")) {
+		} else if (identifier.equalsIgnoreCase("lastmonthtotal")) {
 			return Integer.toString(user.getLastMonthTotal());
 		}
 
