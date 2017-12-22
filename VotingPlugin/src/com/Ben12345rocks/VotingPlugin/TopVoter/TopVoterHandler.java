@@ -81,7 +81,7 @@ public class TopVoterHandler implements Listener {
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
 	}
-	
+
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -113,13 +113,17 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getDailyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterDaily.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getDailyTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveDailyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getDailyTotal();
 			}
 		}
 		resetDailyTotals();
@@ -150,13 +154,18 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getMonthlyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterMonthly.keySet()) {
+
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getMonthTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveMonthlyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getMonthTotal();
 			}
 		}
 		resetMonthlyTotals();
@@ -196,13 +205,17 @@ public class TopVoterHandler implements Listener {
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
 			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
 			int i = 0;
+			int lastTotal = -1;
 			for (User user : plugin.topVoterWeekly.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					i++;
+					if (user.getWeeklyTotal() != lastTotal) {
+						i++;
+					}
 					if (places.contains(Integer.toString(i))) {
 						user.giveWeeklyTopVoterAward(i);
 					}
 				}
+				lastTotal = user.getWeeklyTotal();
 			}
 		}
 		resetWeeklyTotals();
@@ -268,9 +281,10 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeDailyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
-		int day = LocalDateTime.now().getDayOfMonth();
+		LocalDateTime time = LocalDateTime.now().minusHours(5);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
+		int day = time.getDayOfMonth();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
 				"TopVoter" + File.separator + "Daily" + File.separator + year + "_" + month + "_" + day + ".yml"));
 		file.setup();
@@ -285,10 +299,11 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeMonthlyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
+		LocalDateTime time = LocalDateTime.now().minusHours(10);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
-				"TopVoter" + File.separator + "Monthly" + File.separator + year + "_" + month + ".yml"));
+				"TopVoter" + File.separator + "Monthly" + File.separator + month + "_" + year + ".yml"));
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
@@ -301,9 +316,10 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void storeWeeklyTopVoters() {
-		String month = LocalDateTime.now().getMonth().toString();
-		int year = LocalDateTime.now().getYear();
-		int week = LocalDateTime.now().getDayOfMonth();
+		LocalDateTime time = LocalDateTime.now().minusHours(10);
+		String month = time.getMonth().toString();
+		int year = time.getYear();
+		int week = time.getDayOfYear();
 		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
 				"TopVoter" + File.separator + "Weekly" + File.separator + year + "_" + month + "_" + week + ".yml"));
 		file.setup();

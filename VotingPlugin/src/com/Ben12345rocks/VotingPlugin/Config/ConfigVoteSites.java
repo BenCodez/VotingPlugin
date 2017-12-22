@@ -60,6 +60,8 @@ public class ConfigVoteSites extends YMLFile {
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, 24);
+			set(siteName, "Item.Material", "GRASS");
+			set(siteName, "Item.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
@@ -167,7 +169,7 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	public boolean getVoteSiteGiveOffline(String site) {
-		return getData(site).getBoolean("GiveOffline");
+		return getData(site).getBoolean("ForceOffline", getData(site).getBoolean("GiveOffline"));
 	}
 
 	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {

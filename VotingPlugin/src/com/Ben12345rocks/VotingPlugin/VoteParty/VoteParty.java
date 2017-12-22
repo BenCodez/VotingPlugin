@@ -3,11 +3,13 @@ package com.Ben12345rocks.VotingPlugin.VoteParty;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -16,6 +18,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -85,6 +88,12 @@ public class VoteParty implements Listener {
 	public void check() {
 		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
 			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
+
+			VotePartyEvent event = new VotePartyEvent();
+			Bukkit.getPluginManager().callEvent(event);
+			if (event.isCancelled()) {
+				return;
+			}
 			giveRewards();
 			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
 		}
@@ -172,6 +181,17 @@ public class VoteParty implements Listener {
 	 * Give rewards.
 	 */
 	public void giveRewards() {
+		for (final String cmd : Config.getInstance().getVotePartyCommands()) {
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
+				}
+
+			});
+		}
+
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -189,8 +209,14 @@ public class VoteParty implements Listener {
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 		if (Config.getInstance().getVotePartyResetEachDay()) {
-			setTotalVotes(0);
-			setVotedUsers(new ArrayList<String>());
+			reset();
+		}
+	}
+
+	@EventHandler
+	public void onMonthChange(MonthChangeEvent event) {
+		if (Config.getInstance().getVotePartyResetMontly()) {
+			reset();
 		}
 	}
 
@@ -206,6 +232,7 @@ public class VoteParty implements Listener {
 				user.setVotePartyVotes(0);
 			}
 		}
+
 	}
 
 	/**
@@ -228,6 +255,16 @@ public class VoteParty implements Listener {
 	public void setVotedUsers(ArrayList<String> value) {
 		ServerData.getInstance().getData().set("VoteParty.Voted", value);
 		ServerData.getInstance().saveData();
+	}
+
+	public synchronized void vote(User user, boolean realVote) {
+		if (Config.getInstance().getVotePartyEnabled()) {
+			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
+				addTotal(user);
+				addVotePlayer(user);
+				check();
+			}
+		}
 	}
 
 }
