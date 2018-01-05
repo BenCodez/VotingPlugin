@@ -944,6 +944,7 @@ public class Main extends JavaPlugin {
 
 		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
 		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
+		AdvancedCoreHook.getInstance().setCheckNameMojang(Config.getInstance().getCheckNameMojang());
 	}
 
 }

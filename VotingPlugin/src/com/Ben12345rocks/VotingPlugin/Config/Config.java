@@ -845,6 +845,10 @@ public class Config extends YMLFile {
 		return new HashSet<String>();
 	}
 
+	public boolean getCheckNameMojang() {
+		return getData().getBoolean("CheckNameMojang", true);
+	}
+
 	public ConfigurationSection getIdentifierSection(String identifier) {
 		return getData().getConfigurationSection("Shop." + identifier);
 	}
