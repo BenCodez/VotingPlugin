@@ -705,6 +705,10 @@ public class Main extends JavaPlugin {
 			if (!site.hasRewards() && !Config.getInstance().getDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
 			}
+			if (!ServerData.getInstance().getServiceSites().contains(site.getServiceSite())) {
+				plugin.getLogger()
+						.warning("No vote has been recieved from " + site.getServiceSite() + ", may be invalid");
+			}
 		}
 
 	}

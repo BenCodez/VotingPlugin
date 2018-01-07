@@ -720,7 +720,15 @@ public class CommandLoader {
 					sender.sendMessage(StringUtils.getInstance()
 							.colorize("&cServiceSite is invalid, votes may not work properly"));
 				} else {
-					sender.sendMessage(StringUtils.getInstance().colorize("&aServiceSite is properly setup"));
+					String service = ConfigVoteSites.getInstance().getServiceSite(siteName);
+					if (ServerData.getInstance().getServiceSites().contains(service)) {
+						sender.sendMessage(StringUtils.getInstance().colorize("&aServiceSite is properly setup"));
+					} else {
+						sender.sendMessage(StringUtils.getInstance()
+								.colorize("&cService may not be valid, haven't recieved a vote from " + service
+										+ ", see /av servicesites"));
+					}
+
 				}
 				if (!ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
 					sender.sendMessage(StringUtils.getInstance().colorize("&cVoteURL is invalid"));
