@@ -702,12 +702,13 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
 		for (VoteSite site : getVoteSites()) {
-			if (!site.hasRewards() && !Config.getInstance().getDisableNoServiceSiteMessage()) {
-				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
+			if (!site.hasRewards()) {
+				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
+						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
 			if (!ServerData.getInstance().getServiceSites().contains(site.getServiceSite())) {
-				plugin.getLogger()
-						.warning("No vote has been recieved from " + site.getServiceSite() + ", may be invalid");
+				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
+						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
 		}
 
