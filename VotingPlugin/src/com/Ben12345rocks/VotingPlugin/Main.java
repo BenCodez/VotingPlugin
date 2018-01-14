@@ -897,8 +897,10 @@ public class Main extends JavaPlugin {
 					ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 					ArrayList<User> users = new ArrayList<User>();
 					for (String uuid : uuids) {
-						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-						users.add(user);
+						if (uuid != null && !uuid.isEmpty()) {
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							users.add(user);
+						}
 					}
 					update = false;
 					long time1 = ((System.currentTimeMillis() - time) / 1000);
