@@ -4,7 +4,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -377,6 +376,7 @@ public class PlayerGUIs {
 				"topvoter", topVoter));
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
+
 			inv.addButton(new BInventoryButton(
 					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getOfflinePlayer()))
 							.setName(Config.getInstance().getGUIVoteTopItemName())
@@ -387,13 +387,14 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
-					String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
+					//ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
+					// String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
+					String name = (String) clickEvent.getButton().getData("player");
 
 					User user = UserManager.getInstance().getVotingPluginUser(name);
 					openVoteGUI(player, user);
 				}
-			});
+			}.addData("player", entry.getKey().getPlayerName()));
 			pos++;
 		}
 		final TopVoter cur = top;

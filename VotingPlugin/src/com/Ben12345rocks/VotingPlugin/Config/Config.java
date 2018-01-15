@@ -838,7 +838,15 @@ public class Config extends YMLFile {
 	}
 
 	public Set<String> getIdentifiers() {
-		return getData().getConfigurationSection("Shop").getKeys(false);
+		ConfigurationSection shop = getData().getConfigurationSection("Shop");
+		if (shop != null) {
+			return shop.getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
+	public boolean getCheckNameMojang() {
+		return getData().getBoolean("CheckNameMojang", true);
 	}
 
 	public ConfigurationSection getIdentifierSection(String identifier) {

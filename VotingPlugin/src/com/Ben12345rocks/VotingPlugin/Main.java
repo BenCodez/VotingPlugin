@@ -702,8 +702,13 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
 
 		for (VoteSite site : getVoteSites()) {
-			if (!site.hasRewards() && !Config.getInstance().getDisableNoServiceSiteMessage()) {
-				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey());
+			if (!site.hasRewards()) {
+				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
+						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
+			}
+			if (!ServerData.getInstance().getServiceSites().contains(site.getServiceSite())) {
+				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
+						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
 		}
 
@@ -892,8 +897,10 @@ public class Main extends JavaPlugin {
 					ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 					ArrayList<User> users = new ArrayList<User>();
 					for (String uuid : uuids) {
-						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-						users.add(user);
+						if (uuid != null && !uuid.isEmpty()) {
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							users.add(user);
+						}
 					}
 					update = false;
 					long time1 = ((System.currentTimeMillis() - time) / 1000);
@@ -944,6 +951,7 @@ public class Main extends JavaPlugin {
 
 		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
 		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
+		AdvancedCoreHook.getInstance().setCheckNameMojang(Config.getInstance().getCheckNameMojang());
 	}
 
 }

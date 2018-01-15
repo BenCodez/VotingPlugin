@@ -49,7 +49,7 @@ public class ServerData {
 		ServerData.plugin = plugin;
 	}
 
-	public void addServiceSite(String site) {
+	public synchronized void addServiceSite(String site) {
 		ArrayList<String> l = getServiceSites();
 		if (!getServiceSites().contains(site)) {
 			l.add(site);
