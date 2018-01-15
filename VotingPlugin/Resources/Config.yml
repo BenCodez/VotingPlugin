@@ -25,6 +25,7 @@ MySQL:
   MaxSize: -1
   # Table name prefix, for use with mutliple servers
   Prefix: ''
+  #UseSSL: true
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data files)
