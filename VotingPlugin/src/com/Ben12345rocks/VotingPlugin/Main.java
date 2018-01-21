@@ -142,12 +142,15 @@ public class Main extends JavaPlugin {
 					values.put(key, user.getData().getString(key));
 				}
 				data.put(user, values);
+				debug("[Convert] Added " + uuid);
 			} catch (Exception e) {
 				AdvancedCoreHook.getInstance().debug(e);
 				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
 						+ ", turn debug on to see full stack traces");
 			}
 		}
+
+		plugin.getLogger().info("Finished getting data from " + from.toString());
 
 		AdvancedCoreHook.getInstance().setStorageType(to);
 		loadMySQL();
@@ -164,6 +167,8 @@ public class Main extends JavaPlugin {
 			}
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
+
+		plugin.getLogger().info("Finished convertting");
 	}
 
 	public ArrayList<User> convertSet(Set<User> set) {
@@ -281,13 +286,20 @@ public class Main extends JavaPlugin {
 	}
 
 	private void loadTimer() {
-		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				update();
+				AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+
+					@Override
+					public void run() {
+						update();
+					}
+				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 			}
-		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
+		});
+
 	}
 
 	/**
