@@ -57,7 +57,7 @@ public class PlayerJoinEvent implements Listener {
 					// run remind
 					user.loginMessage();
 
-					if (UserManager.getInstance().getAllUUIDs().contains(player.getUniqueId().toString())) {
+					if (user.getData().hasData()) {
 						// give offline vote (if they voted
 						// offline)
 

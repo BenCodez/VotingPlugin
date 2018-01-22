@@ -711,7 +711,7 @@ public class Main extends JavaPlugin {
 
 		loadTimer();
 
-		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
+		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
 		for (VoteSite site : getVoteSites()) {
 			if (!site.hasRewards()) {
@@ -837,7 +837,7 @@ public class Main extends JavaPlugin {
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		AdvancedCoreHook.getInstance().reload();
-		loadTimer();
+		// loadTimer();
 
 	}
 
@@ -912,6 +912,8 @@ public class Main extends JavaPlugin {
 						if (uuid != null && !uuid.isEmpty()) {
 							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 							users.add(user);
+							AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
+							// java.lang.Thread.sleep(5000);
 						}
 					}
 					update = false;
