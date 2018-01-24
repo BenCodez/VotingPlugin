@@ -185,6 +185,7 @@ public class VotiferEvent implements Listener {
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 				if (voteEvent.isCancelled()) {
+					plugin.debug("Vote cancelled");
 					return;
 				}
 
