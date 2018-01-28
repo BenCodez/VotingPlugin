@@ -798,6 +798,11 @@ DelayBetweenUpdates: 3
 # Clear cache on update, setting to true reduces performance
 ClearCacheOnUpdate: false
 
+# Clears cache for the player who voted only
+# Only effects if using mysql
+# Would recommend for some bungee setups
+ClearCacheOnVote: false
+
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
 # Will also disable a few other warnings about vote sites

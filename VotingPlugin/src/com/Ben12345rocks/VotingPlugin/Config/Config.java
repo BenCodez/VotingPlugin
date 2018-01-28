@@ -1478,4 +1478,8 @@ public class Config extends YMLFile {
 		saveData();
 	}
 
+	public boolean getClearCacheOnVote() {
+		return getData().getBoolean("ClearCacheOnVote");
+	}
+
 }

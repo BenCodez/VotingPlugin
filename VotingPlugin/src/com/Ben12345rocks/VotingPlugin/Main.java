@@ -142,12 +142,15 @@ public class Main extends JavaPlugin {
 					values.put(key, user.getData().getString(key));
 				}
 				data.put(user, values);
+				debug("[Convert] Added " + uuid);
 			} catch (Exception e) {
 				AdvancedCoreHook.getInstance().debug(e);
 				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
 						+ ", turn debug on to see full stack traces");
 			}
 		}
+
+		plugin.getLogger().info("Finished getting data from " + from.toString());
 
 		AdvancedCoreHook.getInstance().setStorageType(to);
 		loadMySQL();
@@ -164,6 +167,8 @@ public class Main extends JavaPlugin {
 			}
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
+
+		plugin.getLogger().info("Finished convertting");
 	}
 
 	public ArrayList<User> convertSet(Set<User> set) {
@@ -281,13 +286,20 @@ public class Main extends JavaPlugin {
 	}
 
 	private void loadTimer() {
-		AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				update();
+				AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+
+					@Override
+					public void run() {
+						update();
+					}
+				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 			}
-		}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
+		});
+
 	}
 
 	/**
@@ -699,14 +711,22 @@ public class Main extends JavaPlugin {
 
 		loadTimer();
 
-		plugin.getLogger().info("Enabled VotingPlgin " + plugin.getDescription().getVersion());
+		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
+		ArrayList<String> services = ServerData.getInstance().getServiceSites();
 		for (VoteSite site : getVoteSites()) {
 			if (!site.hasRewards()) {
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
 						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
-			if (!ServerData.getInstance().getServiceSites().contains(site.getServiceSite())) {
+
+			boolean contains = false;
+			for (String service : services) {
+				if (service.equalsIgnoreCase(site.getServiceSite())) {
+					contains = true;
+				}
+			}
+			if (!contains) {
 				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
 						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
@@ -825,7 +845,7 @@ public class Main extends JavaPlugin {
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		AdvancedCoreHook.getInstance().reload();
-		loadTimer();
+		// loadTimer();
 
 	}
 
@@ -900,6 +920,8 @@ public class Main extends JavaPlugin {
 						if (uuid != null && !uuid.isEmpty()) {
 							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 							users.add(user);
+							// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
+							// java.lang.Thread.sleep(5000);
 						}
 					}
 					update = false;

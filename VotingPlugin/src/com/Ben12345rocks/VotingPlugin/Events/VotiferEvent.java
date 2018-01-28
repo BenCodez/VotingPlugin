@@ -7,6 +7,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -115,6 +117,12 @@ public class VotiferEvent implements Listener {
 			OtherVoteReward.getInstance().checkAllSites(user);
 			OtherVoteReward.getInstance().checkCumualativeVotes(user);
 			OtherVoteReward.getInstance().checkMilestone(user);
+
+			if (Config.getInstance().getClearCacheOnVote()) {
+				if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+					AdvancedCoreHook.getInstance().getMysql().removePlayer(user.getUUID());
+				}
+			}
 		}
 
 		plugin.setUpdate(true);
@@ -177,6 +185,7 @@ public class VotiferEvent implements Listener {
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 				if (voteEvent.isCancelled()) {
+					plugin.debug("Vote cancelled");
 					return;
 				}
 
