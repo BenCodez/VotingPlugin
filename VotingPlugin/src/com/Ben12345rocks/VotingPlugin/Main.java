@@ -920,7 +920,7 @@ public class Main extends JavaPlugin {
 						if (uuid != null && !uuid.isEmpty()) {
 							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 							users.add(user);
-							AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
+							// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
 							// java.lang.Thread.sleep(5000);
 						}
 					}
