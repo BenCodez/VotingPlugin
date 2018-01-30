@@ -286,7 +286,7 @@ public class Main extends JavaPlugin {
 	}
 
 	private void loadTimer() {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -298,7 +298,7 @@ public class Main extends JavaPlugin {
 					}
 				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 			}
-		});
+		}, 40L);
 
 	}
 
