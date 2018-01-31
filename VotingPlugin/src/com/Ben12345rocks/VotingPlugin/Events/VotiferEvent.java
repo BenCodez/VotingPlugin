@@ -66,7 +66,7 @@ public class VotiferEvent implements Listener {
 					services.add(site.getServiceSite());
 				}
 				plugin.getLogger()
-						.warning("Current service sites: " + ArrayUtils.getInstance().makeStringList(services));
+						.warning("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
 			}
 			return;
 		}
