@@ -534,7 +534,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return Config.getInstance().getDataStorage();
+				return Config.getInstance().getDataStorage().toUpperCase();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("DisableCheckOnWorldChange") {
