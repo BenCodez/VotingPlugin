@@ -688,6 +688,9 @@ TopVoterIgnorePermission: false
 # Valid Options: AllTime, Monthly, Weekly, Daily
 VoteTopDefault: Monthly
 
+# Whether or not to have ties on top voter rewards
+TopVoterAwardsTies: true
+
 # These are required to be enabled in order for top voter awards to work
 LoadTopVoter:
   AllTime: true

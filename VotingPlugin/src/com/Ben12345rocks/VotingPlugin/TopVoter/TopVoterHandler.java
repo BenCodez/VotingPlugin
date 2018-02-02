@@ -116,7 +116,11 @@ public class TopVoterHandler implements Listener {
 			int lastTotal = -1;
 			for (User user : plugin.topVoterDaily.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (user.getDailyTotal() != lastTotal) {
+					if (Config.getInstance().getTopVoterAwardsTies()) {
+						if (user.getDailyTotal() != lastTotal) {
+							i++;
+						}
+					} else {
 						i++;
 					}
 					if (places.contains(Integer.toString(i))) {
@@ -158,7 +162,11 @@ public class TopVoterHandler implements Listener {
 			for (User user : plugin.topVoterMonthly.keySet()) {
 
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (user.getMonthTotal() != lastTotal) {
+					if (Config.getInstance().getTopVoterAwardsTies()) {
+						if (user.getMonthTotal() != lastTotal) {
+							i++;
+						}
+					} else {
 						i++;
 					}
 					if (places.contains(Integer.toString(i))) {
@@ -208,7 +216,11 @@ public class TopVoterHandler implements Listener {
 			int lastTotal = -1;
 			for (User user : plugin.topVoterWeekly.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (user.getWeeklyTotal() != lastTotal) {
+					if (Config.getInstance().getTopVoterAwardsTies()) {
+						if (user.getWeeklyTotal() != lastTotal) {
+							i++;
+						}
+					} else {
 						i++;
 					}
 					if (places.contains(Integer.toString(i))) {
