@@ -387,7 +387,7 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					//ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
+					// ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
 					// String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
 					String name = (String) clickEvent.getButton().getData("player");
 
@@ -518,7 +518,6 @@ public class PlayerGUIs {
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
-
 			if (user.canVoteSite(voteSite)) {
 				builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
 			} else {

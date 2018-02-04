@@ -183,6 +183,21 @@ commands:
   adminvoteplayername:
     description: Command Alias
     aliases: avplayername
+  adminvoteResyncMilestones:
+    description: Command Alias
+    aliases: avResyncMilestones
+  adminvoteClearOfflineRewards:
+    description: Command Alias
+    aliases: avClearOfflineRewards
+  adminvoteUserRemove:
+    description: Command Alias
+    aliases: avUserRemove
+  adminvotePurge:
+    description: Command Alias
+    aliases: avPurge
+  adminvoteJavascript:
+    description: Command Alias
+    aliases: avJavascript
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

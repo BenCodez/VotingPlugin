@@ -1482,4 +1482,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("ClearCacheOnVote");
 	}
 
+	public boolean getTopVoterAwardsTies() {
+		return getData().getBoolean("TopVoterAwardsTies", true);
+	}
+
 }
