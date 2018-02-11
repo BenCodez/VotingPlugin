@@ -29,13 +29,11 @@ import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
-import com.Ben12345rocks.AdvancedCore.Thread.Thread;
 import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
-import com.Ben12345rocks.AdvancedCore.mysql.MySQL;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
@@ -131,7 +129,7 @@ public class Main extends JavaPlugin {
 		}
 		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
 		AdvancedCoreHook.getInstance().setStorageType(from);
-		loadMySQL();
+		AdvancedCoreHook.getInstance().reload();
 		HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			try {
@@ -153,7 +151,7 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info("Finished getting data from " + from.toString());
 
 		AdvancedCoreHook.getInstance().setStorageType(to);
-		loadMySQL();
+		AdvancedCoreHook.getInstance().reload();
 
 		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
@@ -167,6 +165,7 @@ public class Main extends JavaPlugin {
 			}
 		}
 		AdvancedCoreHook.getInstance().setStorageType(cur);
+		AdvancedCoreHook.getInstance().reload();
 
 		plugin.getLogger().info("Finished convertting");
 	}
@@ -269,20 +268,6 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return false;
-	}
-
-	private void loadMySQL() {
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-			Thread.getInstance().run(new Runnable() {
-
-				@Override
-				public void run() {
-					AdvancedCoreHook.getInstance()
-							.setMysql(new MySQL("VotingPlugin_Users", Config.getInstance().getMySql()));
-				}
-			});
-
-		}
 	}
 
 	private void loadTimer() {
@@ -844,6 +829,7 @@ public class Main extends JavaPlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
+		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 		AdvancedCoreHook.getInstance().reload();
 		// loadTimer();
 
@@ -948,32 +934,9 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().setAutoDownload(Config.getInstance().getAutoDownload());
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
-		AdvancedCoreHook.getInstance().setExtraDebug(Config.getInstance().getExtraDebug());
-		AdvancedCoreHook.getInstance().setStorageType(UserStorage.value(Config.getInstance().getDataStorage()));
-		loadMySQL();
-
-		AdvancedCoreHook.getInstance()
-				.setDisableCheckOnWorldChange(Config.getInstance().getDisableCheckOnWorldChange());
-		AdvancedCoreHook.getInstance().setDebug(Config.getInstance().getDebugEnabled());
-		AdvancedCoreHook.getInstance().setDebugIngame(Config.getInstance().getDebugInfoIngame());
-		AdvancedCoreHook.getInstance().setDefaultRequestMethod(Config.getInstance().getRequestAPIDefaultMethod());
-		AdvancedCoreHook.getInstance().setDisabledRequestMethods(Config.getInstance().getRequestAPIDisabledMethods());
-		AdvancedCoreHook.getInstance().setFormatNoPerms(Config.getInstance().getFormatNoPerms());
-		AdvancedCoreHook.getInstance().setFormatNotNumber(Config.getInstance().getFormatNotNumber());
-		AdvancedCoreHook.getInstance().setHelpLine(Config.getInstance().getFormatHelpLine());
-		AdvancedCoreHook.getInstance().setLogDebugToFile(Config.getInstance().getLogDebugToFile());
-		AdvancedCoreHook.getInstance().setSendScoreboards(Config.getInstance().getSendScoreboards());
-		AdvancedCoreHook.getInstance().setAlternateUUIDLookUp(Config.getInstance().getAlternateUUIDLookup());
-		AdvancedCoreHook.getInstance().setAutoKillInvs(Config.getInstance().getAutoKillInvs());
-		AdvancedCoreHook.getInstance().setPrevPageTxt(Config.getInstance().getFormatPrevPage());
-		AdvancedCoreHook.getInstance().setNextPageTxt(Config.getInstance().getFormatNextPage());
-
-		AdvancedCoreHook.getInstance().setPurgeOldData(Config.getInstance().getPurgeOldData());
-		AdvancedCoreHook.getInstance().setPurgeMinimumDays(Config.getInstance().getPurgeMin());
-		AdvancedCoreHook.getInstance().setCheckNameMojang(Config.getInstance().getCheckNameMojang());
+		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 	}
 
 }
