@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -146,8 +147,13 @@ public class PlayerGUIs {
 				}
 			}
 
+			HashMap<String, String> placeholders = new HashMap<String, String>();
+			placeholders.put("points", "" + user.getPoints());
+
 			lore = ArrayUtils.getInstance()
-					.convert(ArrayUtils.getInstance().replaceJavascript(user, ArrayUtils.getInstance().convert(lore)));
+					.convert(ArrayUtils.getInstance().replacePlaceHolder(
+							ArrayUtils.getInstance().replaceJavascript(user, ArrayUtils.getInstance().convert(lore)),
+							placeholders));
 
 			builder.setLore(lore);
 
