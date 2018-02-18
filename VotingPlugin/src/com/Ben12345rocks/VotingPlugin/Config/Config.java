@@ -1059,7 +1059,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVoteGUISlotLore(String slot) {
-		return (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Lore", new ArrayList<String>());
+		return (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
 	}
 
 	/**

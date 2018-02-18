@@ -120,7 +120,9 @@ public class PlayerGUIs {
 
 			String[] lore = new String[1];
 
-			if (builder.hasCustomLore()) {
+			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
+
+			if (lore.length == 0) {
 				if (slot.equalsIgnoreCase("url")) {
 					lore = Commands.getInstance().voteURLs(user);
 				} else if (slot.equalsIgnoreCase("next")) {
@@ -150,12 +152,8 @@ public class PlayerGUIs {
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("points", "" + user.getPoints());
 
-			lore = ArrayUtils.getInstance()
-					.convert(ArrayUtils.getInstance().replacePlaceHolder(
-							ArrayUtils.getInstance().replaceJavascript(user, ArrayUtils.getInstance().convert(lore)),
-							placeholders));
-
-			builder.setLore(lore);
+			builder.setPlaceholders(placeholders);
+			builder.setLore(ArrayUtils.getInstance().convert(lore));
 
 			inv.addButton(Config.getInstance().getVoteGUISlotSlot(slot), new BInventoryButton(builder) {
 
