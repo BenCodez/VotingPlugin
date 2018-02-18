@@ -119,8 +119,7 @@ public class PlayerGUIs {
 
 			String[] lore = new String[1];
 
-			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
-			if (lore.length == 0) {
+			if (builder.hasCustomLore()) {
 				if (slot.equalsIgnoreCase("url")) {
 					lore = Commands.getInstance().voteURLs(user);
 				} else if (slot.equalsIgnoreCase("next")) {
@@ -146,6 +145,9 @@ public class PlayerGUIs {
 					lore = new String[] { "Click to view help" };
 				}
 			}
+
+			lore = ArrayUtils.getInstance()
+					.convert(ArrayUtils.getInstance().replaceJavascript(user, ArrayUtils.getInstance().convert(lore)));
 
 			builder.setLore(lore);
 

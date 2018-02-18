@@ -230,10 +230,6 @@ Format:
       
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
-      
-  # Login message if player can vote on all sites
-  # Must be enabled in config.yml  
-  LoginMsg: '&cRemember to vote!'
   
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc
@@ -344,6 +340,8 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4Vote Shop'
+        Lore:
+        - '&aYou currently have %points% points'
       Slot: 6
       
   # GUI for /vote url

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
@@ -311,14 +312,31 @@ public class SignHandler {
 		}, delay);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void updateSkulls(Location loc1, Location loc2) {
-		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
-			if (block.getState() instanceof Skull) {
-				Skull skull = (Skull) block.getState();
-				skull.setOwner(playerName);
-				skull.update();
+		BlockState state = getLocation().getBlock().getState();
+		if (state instanceof Sign) {
+			org.bukkit.material.Sign s = (org.bukkit.material.Sign) state.getData();
+			Block b = location.getBlock().getRelative(s.getAttachedFace());
+			Block above = b.getRelative(BlockFace.UP);
+			if (checkSkull(above)) {
+				return;
 			}
+
 		}
+
+		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
+			checkSkull(block);
+		}
+	}
+
+	@SuppressWarnings("deprecation")
+	private boolean checkSkull(Block block) {
+		if (block.getState() instanceof Skull) {
+			Skull skull = (Skull) block.getState();
+			skull.setOwner(playerName);
+			skull.update();
+			return true;
+		}
+		return false;
 	}
 }

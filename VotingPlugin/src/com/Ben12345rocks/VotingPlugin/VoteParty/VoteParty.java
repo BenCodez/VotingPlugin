@@ -226,6 +226,7 @@ public class VoteParty implements Listener {
 
 	public void reset() {
 		setVotedUsers(new ArrayList<String>());
+		setTotalVotes(0);
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getVotePartyVotes() != 0) {
