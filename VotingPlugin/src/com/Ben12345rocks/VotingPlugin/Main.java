@@ -184,6 +184,34 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().debug(plugin, message);
 	}
 
+	public ArrayList<CommandHandler> getAdminVoteCommand() {
+		return adminVoteCommand;
+	}
+
+	public ArrayList<SignHandler> getSigns() {
+		return signs;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
+		return topVoterAllTime;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterDaily() {
+		return topVoterDaily;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
+		return topVoterMonthly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
+		return topVoterWeekly;
+	}
+
+	public Updater getUpdater() {
+		return updater;
+	}
+
 	/**
 	 * Gets the user.
 	 *
@@ -197,6 +225,14 @@ public class Main extends JavaPlugin {
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
+	}
+
+	public ArrayList<CommandHandler> getVoteCommand() {
+		return voteCommand;
+	}
+
+	public Logger getVoteLog() {
+		return voteLog;
 	}
 
 	public VoteParty getVoteParty() {
@@ -260,6 +296,10 @@ public class Main extends JavaPlugin {
 		return voteSites;
 	}
 
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return voteToday;
+	}
+
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : getVoteSites()) {
@@ -268,6 +308,14 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return false;
+	}
+
+	public boolean isUpdate() {
+		return update;
+	}
+
+	public boolean isUpdateStarted() {
+		return updateStarted;
 	}
 
 	private void loadTimer() {
@@ -720,54 +768,6 @@ public class Main extends JavaPlugin {
 			}
 		}
 
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
-		return topVoterAllTime;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
-		return topVoterMonthly;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
-		return topVoterWeekly;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterDaily() {
-		return topVoterDaily;
-	}
-
-	public Updater getUpdater() {
-		return updater;
-	}
-
-	public ArrayList<CommandHandler> getVoteCommand() {
-		return voteCommand;
-	}
-
-	public ArrayList<CommandHandler> getAdminVoteCommand() {
-		return adminVoteCommand;
-	}
-
-	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
-		return voteToday;
-	}
-
-	public ArrayList<SignHandler> getSigns() {
-		return signs;
-	}
-
-	public Logger getVoteLog() {
-		return voteLog;
-	}
-
-	public boolean isUpdate() {
-		return update;
-	}
-
-	public boolean isUpdateStarted() {
-		return updateStarted;
 	}
 
 	/**

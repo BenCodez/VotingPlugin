@@ -47,6 +47,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("AllowUnjoined");
 	}
 
+	public boolean getAddTotals() {
+		return getData().getBoolean("AddTotals", true);
+	}
+
 	/**
 	 * Gets the all sites reward.
 	 *
@@ -110,12 +114,16 @@ public class Config extends YMLFile {
 		return getData().getBoolean("BroadcastVote", true);
 	}
 
-	public boolean getDisableCheckOnWorldChange() {
-		return getData().getBoolean("DisableCheckOnWorldChange");
+	public boolean getCheckNameMojang() {
+		return getData().getBoolean("CheckNameMojang", true);
 	}
 
 	public boolean getClearCacheOnUpdate() {
 		return getData().getBoolean("ClearCacheOnUpdate");
+	}
+
+	public boolean getClearCacheOnVote() {
+		return getData().getBoolean("ClearCacheOnVote");
 	}
 
 	public boolean getCommandsUseGUIBest() {
@@ -266,6 +274,10 @@ public class Config extends YMLFile {
 
 	public int getDelayBetweenUpdates() {
 		return getData().getInt("DelayBetweenUpdates", 3);
+	}
+
+	public boolean getDisableCheckOnWorldChange() {
+		return getData().getBoolean("DisableCheckOnWorldChange");
 	}
 
 	public boolean getDisableNoServiceSiteMessage() {
@@ -661,6 +673,10 @@ public class Config extends YMLFile {
 		return getData().getString("Format.TopVoter.Weekly", "Weekly");
 	}
 
+	public String getFormatUserNotExist() {
+		return getData().getString("Format.UserNotExist", "&cUser does not exist: %player%");
+	}
+
 	/**
 	 * Gets the vote help.
 	 *
@@ -669,6 +685,10 @@ public class Config extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatVoteHelp() {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
+	}
+
+	public boolean getGiveDefaultPermission() {
+		return getData().getBoolean("GiveDefaultPermission", true);
 	}
 
 	public ConfigurationSection getGUIVoteBestDayBestItem() {
@@ -807,12 +827,12 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
 	}
 
-	public String getGUIVoteURLURLText() {
-		return getData().getString("GUI.VoteURL.URLText", "%VoteUrl%");
-	}
-
 	public String getGUIVoteURLSiteName() {
 		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
+	}
+
+	public String getGUIVoteURLURLText() {
+		return getData().getString("GUI.VoteURL.URLText", "%VoteUrl%");
 	}
 
 	public int getIdentifierCost(String identifier) {
@@ -843,10 +863,6 @@ public class Config extends YMLFile {
 			return shop.getKeys(false);
 		}
 		return new HashSet<String>();
-	}
-
-	public boolean getCheckNameMojang() {
-		return getData().getBoolean("CheckNameMojang", true);
 	}
 
 	public ConfigurationSection getIdentifierSection(String identifier) {
@@ -971,6 +987,14 @@ public class Config extends YMLFile {
 		return getData().getInt("PointsOnVote", 1);
 	}
 
+	public int getPurgeMin() {
+		return getData().getInt("PurgeMin", 90);
+	}
+
+	public boolean getPurgeOldData() {
+		return getData().getBoolean("PurgeOldData");
+	}
+
 	/**
 	 * Gets the request API default method.
 	 *
@@ -1028,6 +1052,10 @@ public class Config extends YMLFile {
 	 */
 	public boolean getStoreTopVotersWeekly() {
 		return getData().getBoolean("StoreTopVoters.Weekly");
+	}
+
+	public boolean getTopVoterAwardsTies() {
+		return getData().getBoolean("TopVoterAwardsTies", true);
 	}
 
 	public boolean getTopVoterIgnorePermission() {
@@ -1094,6 +1122,11 @@ public class Config extends YMLFile {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
 
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getVotePartyCommands() {
+		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
+	}
+
 	public boolean getVotePartyCountFakeVotes() {
 		return getData().getBoolean("VoteParty.CountFakeVotes", true);
 	}
@@ -1120,10 +1153,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
 
-	public boolean getAddTotals() {
-		return getData().getBoolean("AddTotals", true);
-	}
-
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
@@ -1135,11 +1164,6 @@ public class Config extends YMLFile {
 	 */
 	public String getVotePartyRewardsPath() {
 		return "VoteParty.Rewards";
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyCommands() {
-		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
 	}
 
 	/**
@@ -1200,24 +1224,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteShopBackButton", true);
 	}
 
-	public boolean getGiveDefaultPermission() {
-		return getData().getBoolean("GiveDefaultPermission", true);
-	}
-
 	public String getVoteShopName() {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
-	}
-
-	public String getFormatUserNotExist() {
-		return getData().getString("Format.UserNotExist", "&cUser does not exist: %player%");
-	}
-
-	public boolean getPurgeOldData() {
-		return getData().getBoolean("PurgeOldData");
-	}
-
-	public int getPurgeMin() {
-		return getData().getInt("PurgeMin", 90);
 	}
 
 	/**
@@ -1476,14 +1484,6 @@ public class Config extends YMLFile {
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
-	}
-
-	public boolean getClearCacheOnVote() {
-		return getData().getBoolean("ClearCacheOnVote");
-	}
-
-	public boolean getTopVoterAwardsTies() {
-		return getData().getBoolean("TopVoterAwardsTies", true);
 	}
 
 }

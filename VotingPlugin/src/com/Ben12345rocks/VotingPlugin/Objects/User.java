@@ -250,6 +250,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
+	public void clearOfflineRewards() {
+		setOfflineVotes(new ArrayList<String>());
+		setOfflineRewards(new ArrayList<String>());
+		setOfflineOtherRewards(new ArrayList<String>());
+	}
+
 	public void clearTotals() {
 		setAllTimeTotal(0);
 		resetDailyTotalVotes();
@@ -306,6 +312,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getData().getInt("HighestWeeklyTotal");
 	}
 
+	public int getLastMonthTotal() {
+		return getData().getInt("LastMonthTotal");
+	}
+
 	public HashMap<VoteSite, Long> getLastVotes() {
 		HashMap<VoteSite, Long> lastVotes = new HashMap<VoteSite, Long>();
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
@@ -351,10 +361,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public int getMonthTotal() {
 		return getData().getInt("MonthTotal");
-	}
-
-	public int getLastMonthTotal() {
-		return getData().getInt("LastMonthTotal");
 	}
 
 	public int getMonthVoteStreak() {
@@ -702,6 +708,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		getData().setInt("HighestWeeklyTotal", total);
 	}
 
+	public void setLastMonthTotal(int total) {
+		getData().setInt("LastMonthTotal", total);
+	}
+
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
 		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
@@ -717,10 +727,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
-	}
-
-	public void setLastMonthTotal(int total) {
-		getData().setInt("LastMonthTotal", total);
 	}
 
 	public void setMonthVoteStreak(int streak) {
@@ -789,12 +795,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 			}
 		}
 		return true;
-	}
-
-	public void clearOfflineRewards() {
-		setOfflineVotes(new ArrayList<String>());
-		setOfflineRewards(new ArrayList<String>());
-		setOfflineOtherRewards(new ArrayList<String>());
 	}
 
 }

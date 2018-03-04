@@ -28,6 +28,8 @@ public class AliasesTabCompleter implements TabCompleter {
 	/** The cmd handle. */
 	public CommandHandler cmdHandle;
 
+	private boolean adminCommand;
+
 	/*
 	 * (non-Javadoc)
 	 *
@@ -101,7 +103,5 @@ public class AliasesTabCompleter implements TabCompleter {
 		this.adminCommand = adminCommand;
 		return this;
 	}
-
-	private boolean adminCommand;
 
 }
