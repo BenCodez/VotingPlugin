@@ -698,9 +698,12 @@ public class Main extends JavaPlugin {
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
+		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
+				ConfigVoteSites.getInstance().getEverySiteRewardPath());
+
 		ArrayList<String> services = ServerData.getInstance().getServiceSites();
 		for (VoteSite site : getVoteSites()) {
-			if (!site.hasRewards()) {
+			if (!site.hasRewards() && !hasRewards) {
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
 						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
