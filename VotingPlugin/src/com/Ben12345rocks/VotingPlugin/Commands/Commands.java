@@ -835,6 +835,8 @@ public class Commands {
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%url%", voteURL);
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%SiteName%", voteSite.getDisplayName());
 				msg = StringUtils.getInstance().replaceIgnoreCase(msg, "%player%", user.getPlayerName());
+				msg = StringUtils.getInstance().replacePlaceHolder(msg, "Next",
+						"" + voteCommandNextInfo(user, voteSite));
 				sites.add(msg);
 			}
 		}
