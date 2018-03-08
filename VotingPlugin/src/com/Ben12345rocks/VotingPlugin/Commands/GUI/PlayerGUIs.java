@@ -645,7 +645,13 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								player.performCommand("vote reward " + site.getKey());
+								event.runSync(new Runnable() {
+
+									@Override
+									public void run() {
+										player.performCommand("vote reward " + site.getKey());
+									}
+								});
 
 							}
 
