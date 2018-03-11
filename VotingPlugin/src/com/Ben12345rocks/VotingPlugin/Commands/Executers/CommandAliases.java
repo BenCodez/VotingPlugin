@@ -82,7 +82,7 @@ public class CommandAliases implements CommandExecutor {
 				}
 			}
 		}
-		
+
 		/*
 		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0, arg);
 		 * if (cmdHandle.runCommand(sender, Utils.getInstance().convertArray(argsNew)))

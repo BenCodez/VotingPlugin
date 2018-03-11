@@ -236,7 +236,7 @@ public class CommandLoader {
 					user.setMilestoneCount(user.getAllTimeTotal());
 				}
 				sendMessage(sender, "&cFinished");
-				
+
 			}
 		});
 
@@ -1016,16 +1016,16 @@ public class CommandLoader {
 		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(Sitename)", sites) {
 
 			@Override
-			public void updateReplacements() {
-			}
-
-			@Override
 			public void reload() {
 				ArrayList<String> sites = new ArrayList<String>();
 				for (VoteSite site : plugin.getVoteSites()) {
 					sites.add(site.getKey());
 				}
 				setReplace(sites);
+			}
+
+			@Override
+			public void updateReplacements() {
 			}
 		});
 	}

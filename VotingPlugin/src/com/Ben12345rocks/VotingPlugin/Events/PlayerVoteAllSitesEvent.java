@@ -33,21 +33,6 @@ public class PlayerVoteAllSitesEvent extends Event {
 		setUser(user);
 	}
 
-	/**
-	 * @return the user
-	 */
-	public User getUser() {
-		return user;
-	}
-
-	/**
-	 * @param user
-	 *            the user to set
-	 */
-	public void setUser(User user) {
-		this.user = user;
-	}
-
 	/*
 	 * (non-Javadoc)
 	 *
@@ -56,6 +41,13 @@ public class PlayerVoteAllSitesEvent extends Event {
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;
+	}
+
+	/**
+	 * @return the user
+	 */
+	public User getUser() {
+		return user;
 	}
 
 	/**
@@ -75,6 +67,14 @@ public class PlayerVoteAllSitesEvent extends Event {
 	 */
 	public void setCancelled(boolean bln) {
 		cancelled = bln;
+	}
+
+	/**
+	 * @param user
+	 *            the user to set
+	 */
+	public void setUser(User user) {
+		this.user = user;
 	}
 
 }

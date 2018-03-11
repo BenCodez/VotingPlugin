@@ -73,6 +73,17 @@ public class SignHandler {
 		playerName = "";
 	}
 
+	@SuppressWarnings("deprecation")
+	private boolean checkSkull(Block block) {
+		if (block.getState() instanceof Skull) {
+			Skull skull = (Skull) block.getState();
+			skull.setOwner(playerName);
+			skull.update();
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Check skulls.
 	 */
@@ -327,16 +338,5 @@ public class SignHandler {
 		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
 			checkSkull(block);
 		}
-	}
-
-	@SuppressWarnings("deprecation")
-	private boolean checkSkull(Block block) {
-		if (block.getState() instanceof Skull) {
-			Skull skull = (Skull) block.getState();
-			skull.setOwner(playerName);
-			skull.update();
-			return true;
-		}
-		return false;
 	}
 }

@@ -184,6 +184,34 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().debug(plugin, message);
 	}
 
+	public ArrayList<CommandHandler> getAdminVoteCommand() {
+		return adminVoteCommand;
+	}
+
+	public ArrayList<SignHandler> getSigns() {
+		return signs;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
+		return topVoterAllTime;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterDaily() {
+		return topVoterDaily;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
+		return topVoterMonthly;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
+		return topVoterWeekly;
+	}
+
+	public Updater getUpdater() {
+		return updater;
+	}
+
 	/**
 	 * Gets the user.
 	 *
@@ -197,6 +225,14 @@ public class Main extends JavaPlugin {
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
+	}
+
+	public ArrayList<CommandHandler> getVoteCommand() {
+		return voteCommand;
+	}
+
+	public Logger getVoteLog() {
+		return voteLog;
 	}
 
 	public VoteParty getVoteParty() {
@@ -260,6 +296,10 @@ public class Main extends JavaPlugin {
 		return voteSites;
 	}
 
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return voteToday;
+	}
+
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : getVoteSites()) {
@@ -268,6 +308,14 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return false;
+	}
+
+	public boolean isUpdate() {
+		return update;
+	}
+
+	public boolean isUpdateStarted() {
+		return updateStarted;
 	}
 
 	private void loadTimer() {
@@ -698,9 +746,14 @@ public class Main extends JavaPlugin {
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
+		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
+				ConfigVoteSites.getInstance().getEverySiteRewardPath());
+
+		boolean noIssues = true;
 		ArrayList<String> services = ServerData.getInstance().getServiceSites();
 		for (VoteSite site : getVoteSites()) {
-			if (!site.hasRewards()) {
+			if (!site.hasRewards() && !hasRewards) {
+				noIssues = false;
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
 						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
@@ -712,59 +765,23 @@ public class Main extends JavaPlugin {
 				}
 			}
 			if (!contains) {
+				noIssues = false;
 				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
 						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
 		}
 
-	}
+		if (!noIssues) {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
-	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
-		return topVoterAllTime;
-	}
+				@Override
+				public void run() {
+					plugin.getLogger()
+							.warning("Detected an issue with voting sites, check the plugin startup log for more details");
+				}
+			}, 30l);
+		}
 
-	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
-		return topVoterMonthly;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
-		return topVoterWeekly;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterDaily() {
-		return topVoterDaily;
-	}
-
-	public Updater getUpdater() {
-		return updater;
-	}
-
-	public ArrayList<CommandHandler> getVoteCommand() {
-		return voteCommand;
-	}
-
-	public ArrayList<CommandHandler> getAdminVoteCommand() {
-		return adminVoteCommand;
-	}
-
-	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
-		return voteToday;
-	}
-
-	public ArrayList<SignHandler> getSigns() {
-		return signs;
-	}
-
-	public Logger getVoteLog() {
-		return voteLog;
-	}
-
-	public boolean isUpdate() {
-		return update;
-	}
-
-	public boolean isUpdateStarted() {
-		return updateStarted;
 	}
 
 	/**

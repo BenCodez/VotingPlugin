@@ -269,6 +269,8 @@ Format:
   PrevPage: '&aPrevious Page'
   NextPage: '&aNext Page'
   
+  InvFull: '&cInventory full, dropping items on ground'
+  
   # Display text
   # Used in /vote top (GUI)
   TopVoter:

@@ -82,12 +82,6 @@ public class TopVoterHandler implements Listener {
 		plugin.setUpdate(true);
 	}
 
-	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-	public void onPreDateChanged(PreDateChangedEvent event) {
-		plugin.setUpdate(true);
-		plugin.update();
-	}
-
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 
@@ -187,6 +181,12 @@ public class TopVoterHandler implements Listener {
 
 		}
 
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onPreDateChanged(PreDateChangedEvent event) {
+		plugin.setUpdate(true);
+		plugin.update();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

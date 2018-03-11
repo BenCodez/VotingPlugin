@@ -32,6 +32,10 @@ public class UserManager {
 		return com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getAllUUIDs();
 	}
 
+	public User getVotingPluginUser(java.util.UUID uuid) {
+		return getVotingPluginUser(new UUID(uuid.toString()));
+	}
+
 	public User getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
 	}
@@ -48,9 +52,5 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(UUID uuid) {
 		return new User(uuid);
-	}
-
-	public User getVotingPluginUser(java.util.UUID uuid) {
-		return getVotingPluginUser(new UUID(uuid.toString()));
 	}
 }

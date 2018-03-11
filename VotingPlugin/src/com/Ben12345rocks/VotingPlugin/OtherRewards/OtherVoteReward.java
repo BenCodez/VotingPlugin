@@ -284,5 +284,4 @@ public class OtherVoteReward {
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}
 
-	
 }

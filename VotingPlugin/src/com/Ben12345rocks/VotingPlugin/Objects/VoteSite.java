@@ -170,10 +170,6 @@ public class VoteSite {
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
 	}
 
-	public boolean hasRewards() {
-		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
-	}
-
 	/**
 	 * Give site reward.
 	 *
@@ -184,6 +180,10 @@ public class VoteSite {
 	 */
 	public void giveSiteReward(User user, boolean online) {
 		giveRewards(user, online);
+	}
+
+	public boolean hasRewards() {
+		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
 	}
 
 	/**
