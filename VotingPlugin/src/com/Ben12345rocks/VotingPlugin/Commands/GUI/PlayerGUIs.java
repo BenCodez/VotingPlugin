@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -645,14 +646,13 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								event.runSync(new Runnable() {
+								Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 									@Override
 									public void run() {
 										player.performCommand("vote reward " + site.getKey());
 									}
 								});
-
 							}
 
 						}
