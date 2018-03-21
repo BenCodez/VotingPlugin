@@ -46,7 +46,7 @@ public class VotiferEvent implements Listener {
 
 	public static void playerVote(final String playerName, final String voteSiteURL, final boolean realVote) {
 
-		if (!PlayerUtils.getInstance().isValidUser(playerName) && !config.allowUnJoined()) {
+		if (!config.allowUnJoined() && !PlayerUtils.getInstance().isValidUser(playerName)) {
 			plugin.getLogger().warning("Player " + playerName
 					+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 			return;
