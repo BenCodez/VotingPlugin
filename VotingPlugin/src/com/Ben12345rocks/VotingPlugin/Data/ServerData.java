@@ -103,6 +103,15 @@ public class ServerData {
 		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
 	}
 
+	public int getVotePartyExtraRequired() {
+		return getData().getInt("VotePartyExtraRequired", 0);
+	}
+
+	public void setVotePartyExtraRequired(int value) {
+		getData().set("VotePartyExtraRequired", value);
+		saveData();
+	}
+
 	/**
 	 * Gets the sign data.
 	 *

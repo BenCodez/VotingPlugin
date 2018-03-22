@@ -86,7 +86,7 @@ public class VoteParty implements Listener {
 	 * Check.
 	 */
 	public void check() {
-		if (getTotalVotes() >= Config.getInstance().getVotePartyVotesRequired()) {
+		if (getTotalVotes() >= getVotesRequired()) {
 			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
 
 			VotePartyEvent event = new VotePartyEvent();
@@ -96,6 +96,11 @@ public class VoteParty implements Listener {
 			}
 			giveRewards();
 			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
+
+			if (Config.getInstance().getVotePartyIncreaseVotesRquired() > 0) {
+				ServerData.getInstance().setVotePartyExtraRequired(ServerData.getInstance().getVotePartyExtraRequired()
+						+ Config.getInstance().getVotePartyIncreaseVotesRquired());
+			}
 		}
 
 	}
@@ -123,13 +128,17 @@ public class VoteParty implements Listener {
 		}
 	}
 
+	public int getVotesRequired() {
+		return Config.getInstance().getVotePartyVotesRequired() + ServerData.getInstance().getVotePartyExtraRequired();
+	}
+
 	/**
 	 * Gets the needed votes.
 	 *
 	 * @return the needed votes
 	 */
 	public int getNeededVotes() {
-		int votesRequired = Config.getInstance().getVotePartyVotesRequired();
+		int votesRequired = getVotesRequired();
 		int votes = getTotalVotes();
 		int neededVotes = votesRequired - votes;
 		return neededVotes;

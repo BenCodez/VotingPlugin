@@ -1066,6 +1066,10 @@ public class Config extends YMLFile {
 		return getData().getInt("VoteParty.UserVotesRequired");
 	}
 
+	public int getVotePartyIncreaseVotesRquired() {
+		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
+	}
+
 	/**
 	 * Gets the vote GUI slot command.
 	 *

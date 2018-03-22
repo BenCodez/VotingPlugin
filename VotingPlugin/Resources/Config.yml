@@ -597,6 +597,8 @@ VoteParty:
   Enabled: false
   # Number of votes required to give rewards
   VotesRequired: 20
+  # Increase the amount of votes required on each vote party reached
+  IncreaseVotesRquired: 10
   # If true, players who did not vote to reach the votes required will 
   # recieve the reward
   GiveAllPlayers: false
