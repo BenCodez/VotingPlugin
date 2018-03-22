@@ -7,7 +7,6 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -110,7 +109,7 @@ public class PlaceHolders {
 		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
 			return Integer.toString(VoteParty.getInstance().getTotalVotes());
 		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
-			return Integer.toString(Config.getInstance().getVotePartyVotesRequired());
+			return Integer.toString(VoteParty.getInstance().getVotesRequired());
 		}
 
 		// %VotingPlugin_canvote% - Whether or not a player can vote on all

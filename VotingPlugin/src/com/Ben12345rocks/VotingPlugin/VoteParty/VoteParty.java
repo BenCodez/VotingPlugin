@@ -87,7 +87,7 @@ public class VoteParty implements Listener {
 	 */
 	public void check() {
 		if (getTotalVotes() >= getVotesRequired()) {
-			setTotalVotes(getTotalVotes() - Config.getInstance().getVotePartyVotesRequired());
+			setTotalVotes(getTotalVotes() - getVotesRequired());
 
 			VotePartyEvent event = new VotePartyEvent();
 			Bukkit.getPluginManager().callEvent(event);
