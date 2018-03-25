@@ -712,6 +712,7 @@ EnableMonthlyAwards: true
 # Rewards to give
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...
+  # Using 1-10 will reward players in first to tenth place with the same reward
   1:
     Rewards:
       Messages:
