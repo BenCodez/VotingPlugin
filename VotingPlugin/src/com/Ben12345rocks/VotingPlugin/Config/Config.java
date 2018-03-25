@@ -223,8 +223,8 @@ public class Config extends YMLFile {
 	 *            the pos
 	 * @return the daily award rewards
 	 */
-	public String getDailyAwardRewardsPath(int pos) {
-		return "DailyAwards." + pos + ".Rewards";
+	public String getDailyAwardRewardsPath(String path) {
+		return "DailyAwards." + path + ".Rewards";
 	}
 
 	/**
@@ -953,8 +953,8 @@ public class Config extends YMLFile {
 	 *            the pos
 	 * @return the monthly award rewards
 	 */
-	public String getMonthlyAwardRewardsPath(int pos) {
-		return "MonthlyAwards." + pos + ".Rewards";
+	public String getMonthlyAwardRewardsPath(String path) {
+		return "MonthlyAwards." + path + ".Rewards";
 	}
 
 	/**
@@ -1368,8 +1368,8 @@ public class Config extends YMLFile {
 	 *            the pos
 	 * @return the weekly award rewards
 	 */
-	public String getWeeklyAwardRewardsPath(int pos) {
-		return "WeeklyAwards." + pos + ".Rewards";
+	public String getWeeklyAwardRewardsPath(String path) {
+		return "WeeklyAwards." + path + ".Rewards";
 	}
 
 	/**

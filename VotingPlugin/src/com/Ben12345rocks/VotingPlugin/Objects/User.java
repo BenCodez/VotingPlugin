@@ -417,8 +417,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public void giveDailyTopVoterAward(int place) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(place))
+	public void giveDailyTopVoterAward(int place, String path) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily").send(this);
 	}
 
@@ -428,8 +428,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public void giveMonthlyTopVoterAward(int place) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(place))
+	public void giveMonthlyTopVoterAward(int place, String path) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly").send(this);
 	}
 
@@ -462,36 +462,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 						}
 					}
 				}
-			} else if (str.contains("MonthlyTopVoter")) {
-				String st = str.substring("MontlyTopVoter".length());
-				if (StringUtils.getInstance().isInt(st)) {
-					int place = Integer.parseInt(st);
-					if (place > 0) {
-						if (Config.getInstance().getMonthlyAwardsEnabled()) {
-							giveMonthlyTopVoterAward(place);
-						}
-					}
-				}
-			} else if (str.contains("WeeklyTopVoter")) {
-				String st = str.substring("WeeklyTopVoter".length());
-				if (StringUtils.getInstance().isInt(st)) {
-					int place = Integer.parseInt(st);
-					if (place > 0) {
-						if (Config.getInstance().getWeeklyAwardsEnabled()) {
-							giveWeeklyTopVoterAward(place);
-						}
-					}
-				}
-			} else if (str.contains("DailyTopVoter")) {
-				String st = str.substring("DailyTopVoter".length());
-				if (StringUtils.getInstance().isInt(st)) {
-					int place = Integer.parseInt(st);
-					if (place > 0) {
-						if (Config.getInstance().getDailyAwardsEnabled()) {
-							giveDailyTopVoterAward(place);
-						}
-					}
-				}
 			} else if (str.contains("VoteStreak")) {
 				String[] args = str.split("_");
 				if (args.length > 2) {
@@ -519,8 +489,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @param place
 	 *            the place
 	 */
-	public void giveWeeklyTopVoterAward(int place) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(place))
+	public void giveWeeklyTopVoterAward(int place, String path) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly").send(this);
 	}
 

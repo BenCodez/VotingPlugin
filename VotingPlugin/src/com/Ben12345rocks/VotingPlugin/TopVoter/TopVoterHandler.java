@@ -105,7 +105,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getDailyAwardsEnabled()) {
-			Set<String> places = Config.getInstance().getDailyPossibleRewardPlaces();
+			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
 			for (User user : plugin.topVoterDaily.keySet()) {
@@ -117,8 +117,8 @@ public class TopVoterHandler implements Listener {
 					} else {
 						i++;
 					}
-					if (places.contains(Integer.toString(i))) {
-						user.giveDailyTopVoterAward(i);
+					if (places.containsKey(i)) {
+						user.giveDailyTopVoterAward(i, places.get(i));
 					}
 				}
 				lastTotal = user.getDailyTotal();
@@ -150,7 +150,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getMonthlyAwardsEnabled()) {
-			Set<String> places = Config.getInstance().getMonthlyPossibleRewardPlaces();
+			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
 			for (User user : plugin.topVoterMonthly.keySet()) {
@@ -163,8 +163,8 @@ public class TopVoterHandler implements Listener {
 					} else {
 						i++;
 					}
-					if (places.contains(Integer.toString(i))) {
-						user.giveMonthlyTopVoterAward(i);
+					if (places.containsKey(i)) {
+						user.giveMonthlyTopVoterAward(i, places.get(i));
 					}
 				}
 				lastTotal = user.getMonthTotal();
@@ -180,7 +180,26 @@ public class TopVoterHandler implements Listener {
 			}
 
 		}
+	}
 
+	private HashMap<Integer, String> handlePlaces(Set<String> places) {
+		HashMap<Integer, String> place = new HashMap<Integer, String>();
+		for (String p : places) {
+			String[] data = p.split("-");
+			try {
+				if (data.length > 1) {
+					for (int i = Integer.parseInt(data[0]); i < Integer.parseInt(data[1]); i++) {
+						place.put(i, p);
+					}
+				} else {
+					place.put(Integer.parseInt(data[0]), p);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		return place;
 	}
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -211,7 +230,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
-			Set<String> places = Config.getInstance().getWeeklyPossibleRewardPlaces();
+			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
 			for (User user : plugin.topVoterWeekly.keySet()) {
@@ -223,8 +242,8 @@ public class TopVoterHandler implements Listener {
 					} else {
 						i++;
 					}
-					if (places.contains(Integer.toString(i))) {
-						user.giveWeeklyTopVoterAward(i);
+					if (places.containsKey(i)) {
+						user.giveWeeklyTopVoterAward(i, places.get(i));
 					}
 				}
 				lastTotal = user.getWeeklyTotal();
