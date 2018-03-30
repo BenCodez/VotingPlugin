@@ -216,13 +216,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
 	}
 
-	/**
-	 * Gets the daily award rewards path
-	 *
-	 * @param pos
-	 *            the pos
-	 * @return the daily award rewards
-	 */
 	public String getDailyAwardRewardsPath(String path) {
 		return "DailyAwards." + path + ".Rewards";
 	}
@@ -946,13 +939,6 @@ public class Config extends YMLFile {
 		}
 	}
 
-	/**
-	 * Gets the monthly award rewards.
-	 *
-	 * @param pos
-	 *            the pos
-	 * @return the monthly award rewards
-	 */
 	public String getMonthlyAwardRewardsPath(String path) {
 		return "MonthlyAwards." + path + ".Rewards";
 	}
@@ -1360,14 +1346,7 @@ public class Config extends YMLFile {
 	public boolean getVoteURLViewAllUrlsButtonEnabled() {
 		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
-
-	/**
-	 * Gets the weekly award rewards.
-	 *
-	 * @param pos
-	 *            the pos
-	 * @return the weekly award rewards
-	 */
+	
 	public String getWeeklyAwardRewardsPath(String path) {
 		return "WeeklyAwards." + path + ".Rewards";
 	}

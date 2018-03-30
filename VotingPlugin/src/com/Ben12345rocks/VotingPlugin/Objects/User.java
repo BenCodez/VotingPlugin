@@ -411,23 +411,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return getData().getInt("WeekVoteStreak");
 	}
 
-	/**
-	 * Give daily top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
 	public void giveDailyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily").send(this);
 	}
 
-	/**
-	 * Give monthly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
 	public void giveMonthlyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly").send(this);
@@ -483,12 +471,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		}
 	}
 
-	/**
-	 * Give weekly top voter award.
-	 *
-	 * @param place
-	 *            the place
-	 */
 	public void giveWeeklyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(path))
 				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly").send(this);
