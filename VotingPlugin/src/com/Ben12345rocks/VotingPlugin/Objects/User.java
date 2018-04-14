@@ -204,7 +204,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 			return now.isAfter(nextvote);
 		} else {
-			if (now.getDayOfYear() != lastVote.getDayOfYear() && now.getYear() != lastVote.getYear()) {
+			if (now.getDayOfYear() != lastVote.getDayOfYear() || now.getYear() != lastVote.getYear()) {
 				return true;
 			}
 			return false;
