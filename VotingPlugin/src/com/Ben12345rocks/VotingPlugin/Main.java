@@ -129,7 +129,10 @@ public class Main extends JavaPlugin {
 		}
 		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
 		AdvancedCoreHook.getInstance().setStorageType(from);
-		AdvancedCoreHook.getInstance().reload();
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+				&& AdvancedCoreHook.getInstance().getMysql() != null) {
+			AdvancedCoreHook.getInstance().getMysql().clearCache();
+		}
 		HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			try {
@@ -148,10 +151,14 @@ public class Main extends JavaPlugin {
 			}
 		}
 
-		plugin.getLogger().info("Finished getting data from " + from.toString());
+		plugin.getLogger()
+				.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
 
 		AdvancedCoreHook.getInstance().setStorageType(to);
-		AdvancedCoreHook.getInstance().reload();
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+				&& AdvancedCoreHook.getInstance().getMysql() != null) {
+			AdvancedCoreHook.getInstance().getMysql().clearCache();
+		}
 
 		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
@@ -776,8 +783,8 @@ public class Main extends JavaPlugin {
 
 				@Override
 				public void run() {
-					plugin.getLogger()
-							.warning("Detected an issue with voting sites, check the plugin startup log for more details");
+					plugin.getLogger().warning(
+							"Detected an issue with voting sites, check the plugin startup log for more details");
 				}
 			}, 30l);
 		}
