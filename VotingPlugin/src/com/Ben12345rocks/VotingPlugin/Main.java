@@ -165,6 +165,12 @@ public class Main extends JavaPlugin {
 							+ ", turn debug on to see full stack traces");
 				}
 			}
+			
+			try {
+				wait(5000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 
 			uuids.removeAll(converted);
 
