@@ -133,33 +133,62 @@ public class Main extends JavaPlugin {
 				&& AdvancedCoreHook.getInstance().getMysql() != null) {
 			AdvancedCoreHook.getInstance().getMysql().clearCache();
 		}
-		HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			try {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+		ArrayList<String> uuids = new ArrayList<String>(UserManager.getInstance().getAllUUIDs());
 
-				HashMap<String, String> values = new HashMap<String, String>();
-				for (String key : user.getData().getKeys()) {
-					values.put(key, user.getData().getString(key));
-				}
-				data.put(user, values);
-				debug("[Convert] Added " + uuid);
-			} catch (Exception e) {
-				AdvancedCoreHook.getInstance().debug(e);
-				plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
-						+ ", turn debug on to see full stack traces");
+		while (uuids.size() > 0) {
+			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
+			AdvancedCoreHook.getInstance().setStorageType(from);
+			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+					&& AdvancedCoreHook.getInstance().getMysql() != null)
+
+			{
+				AdvancedCoreHook.getInstance().getMysql().clearCache();
 			}
+			ArrayList<String> converted = new ArrayList<String>();
+			int i = 0;
+			while (i < 500 && i < uuids.size()) {
+				String uuid = uuids.get(i);
+				try {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+
+					HashMap<String, String> values = new HashMap<String, String>();
+					for (String key : user.getData().getKeys()) {
+						values.put(key, user.getData().getString(key));
+					}
+					i++;
+					converted.add(uuid);
+					data.put(user, values);
+					debug("[Convert] Added " + uuid);
+				} catch (Exception e) {
+					AdvancedCoreHook.getInstance().debug(e);
+					plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
+							+ ", turn debug on to see full stack traces");
+				}
+			}
+
+			uuids.removeAll(converted);
+
+			plugin.getLogger()
+					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
+
+			AdvancedCoreHook.getInstance().setStorageType(to);
+			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+					&& AdvancedCoreHook.getInstance().getMysql() != null)
+
+			{
+				AdvancedCoreHook.getInstance().getMysql().clearCache();
+			}
+
+			writeConvertData(data);
 		}
 
-		plugin.getLogger()
-				.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
+		AdvancedCoreHook.getInstance().setStorageType(cur);
+		AdvancedCoreHook.getInstance().reload();
 
-		AdvancedCoreHook.getInstance().setStorageType(to);
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-				&& AdvancedCoreHook.getInstance().getMysql() != null) {
-			AdvancedCoreHook.getInstance().getMysql().clearCache();
-		}
+		plugin.getLogger().info("Finished convertting");
+	}
 
+	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
 		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
@@ -171,10 +200,6 @@ public class Main extends JavaPlugin {
 						+ e.getMessage() + ", turn debug on to see full stack traces");
 			}
 		}
-		AdvancedCoreHook.getInstance().setStorageType(cur);
-		AdvancedCoreHook.getInstance().reload();
-
-		plugin.getLogger().info("Finished convertting");
 	}
 
 	public ArrayList<User> convertSet(Set<User> set) {
