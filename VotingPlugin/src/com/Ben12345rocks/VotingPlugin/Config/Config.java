@@ -1346,7 +1346,7 @@ public class Config extends YMLFile {
 	public boolean getVoteURLViewAllUrlsButtonEnabled() {
 		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
 	}
-	
+
 	public String getWeeklyAwardRewardsPath(String path) {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
@@ -1420,6 +1420,10 @@ public class Config extends YMLFile {
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
 		saveData();
+	}
+
+	public int getConvertDelay() {
+		return getData().getInt("ConvertDelay", 10000);
 	}
 
 	/**

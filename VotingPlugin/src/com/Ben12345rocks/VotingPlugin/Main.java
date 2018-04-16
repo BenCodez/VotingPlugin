@@ -165,9 +165,9 @@ public class Main extends JavaPlugin {
 							+ ", turn debug on to see full stack traces");
 				}
 			}
-			
+
 			try {
-				wait(10000);
+				wait(Config.getInstance().getConvertDelay());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
