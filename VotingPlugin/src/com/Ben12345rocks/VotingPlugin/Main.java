@@ -167,8 +167,8 @@ public class Main extends JavaPlugin {
 			}
 			
 			try {
-				wait(5000);
-			} catch (InterruptedException e) {
+				wait(10000);
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 
