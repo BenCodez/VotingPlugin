@@ -129,7 +129,12 @@ public class VoteParty implements Listener {
 	}
 
 	public int getVotesRequired() {
-		return Config.getInstance().getVotePartyVotesRequired() + ServerData.getInstance().getVotePartyExtraRequired();
+		int required = Config.getInstance().getVotePartyVotesRequired();
+		int extra = ServerData.getInstance().getVotePartyExtraRequired();
+		if (extra > 0) {
+			return required + extra;
+		}
+		return required;
 	}
 
 	/**
