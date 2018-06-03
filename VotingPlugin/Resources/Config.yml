@@ -530,6 +530,7 @@ BackButton:
   Name: '&8Back to VoteGUI'
 
 VoteShopBackButton: true
+VoteShopEnabled: true
 Shop:
   # Identifier
   # Used in placeholders for formats

@@ -1426,6 +1426,10 @@ public class Config extends YMLFile {
 		return getData().getInt("ConvertDelay", 10000);
 	}
 
+	public boolean getVoteShopEnabled() {
+		return getData().getBoolean("VoteShopEnabled", true);
+	}
+
 	/**
 	 * Sets the debug info ingame.
 	 *

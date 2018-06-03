@@ -7,6 +7,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -30,6 +31,10 @@ public class VoteShop {
 	}
 
 	public void voteShop(Player player) {
+		if (!Config.getInstance().getVoteShopEnabled()) {
+			player.sendMessage(StringUtils.getInstance().colorize("&cVote shop disabled"));
+			return;
+		}
 		BInventory inv = new BInventory(Config.getInstance().getVoteShopName());
 
 		for (String identifier : Config.getInstance().getIdentifiers()) {
