@@ -730,6 +730,7 @@ public class Main extends JavaPlugin {
 
 		setupFiles();
 		loadVoteSites();
+		AdvancedCoreHook.getInstance().setJenkinsSite("ben12345rocks.com");
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {

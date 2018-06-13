@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
 import java.util.Map.Entry;
 
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
@@ -50,8 +51,18 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
-	public synchronized String getPlaceHolder(Player p, String identifier) {
+	public synchronized String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+
+		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
+		// vote party rewards
+		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
+			return Integer.toString(VoteParty.getInstance().getNeededVotes());
+		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
+			return Integer.toString(VoteParty.getInstance().getTotalVotes());
+		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
+			return Integer.toString(VoteParty.getInstance().getVotesRequired());
+		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
@@ -100,16 +111,6 @@ public class PlaceHolders {
 		// %VotingPlugin_points% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("points")) {
 			return Integer.toString(user.getPoints());
-		}
-
-		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
-		// vote party rewards
-		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
-			return Integer.toString(VoteParty.getInstance().getNeededVotes());
-		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
-			return Integer.toString(VoteParty.getInstance().getTotalVotes());
-		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
-			return Integer.toString(VoteParty.getInstance().getVotesRequired());
 		}
 
 		// %VotingPlugin_canvote% - Whether or not a player can vote on all
@@ -227,6 +228,11 @@ public class PlaceHolders {
 		}
 
 		return identifier;
+	}
+
+	public String getPlaceHolder(Player p, String identifier) {
+		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
 
 	public String playerLastVote(User user, String siteName) {
