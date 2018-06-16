@@ -547,6 +547,8 @@ Shop:
     - '&c&lCost: &c3 Voting Points'
     # Number of voting points this cost
     Cost: 3
+    # Permission required, leave blank for no permission
+    Permission: ''
     # Rewards to run if player buys succesfully
     Rewards:
       Items:

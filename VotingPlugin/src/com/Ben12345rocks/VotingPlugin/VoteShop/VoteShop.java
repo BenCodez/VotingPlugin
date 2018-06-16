@@ -39,31 +39,41 @@ public class VoteShop {
 
 		for (String identifier : Config.getInstance().getIdentifiers()) {
 
-			ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
+			String perm = Config.getInstance().getVoteShopPermission(identifier);
+			boolean hasPerm = false;
+			if (perm.isEmpty()) {
+				hasPerm = true;
+			} else {
+				hasPerm = player.hasPermission(perm);
+			}
 
-			inv.addButton(Config.getInstance().getIdentifierSlot(identifier), new BInventoryButton(builder) {
+			if (hasPerm) {
+				ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
-				@Override
-				public void onClick(ClickEvent event) {
-					Player player = event.getWhoClicked();
+				inv.addButton(Config.getInstance().getIdentifierSlot(identifier), new BInventoryButton(builder) {
 
-					User user = UserManager.getInstance().getVotingPluginUser(player);
-					int points = Config.getInstance().getIdentifierCost(identifier);
-					String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
-					if (identifier != null) {
-						if (user.removePoints(points)) {
-							RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-									Config.getInstance().getIdentifierRewardsPath(identifier));
-							user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
-									.replace("%Identifier%", identifier).replace("%Points%", "" + points));
-						} else {
-							user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
-									.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+					@Override
+					public void onClick(ClickEvent event) {
+						Player player = event.getWhoClicked();
+
+						User user = UserManager.getInstance().getVotingPluginUser(player);
+						int points = Config.getInstance().getIdentifierCost(identifier);
+						String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
+						if (identifier != null) {
+							if (user.removePoints(points)) {
+								RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+										Config.getInstance().getIdentifierRewardsPath(identifier));
+								user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
+										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+							} else {
+								user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
+										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+							}
 						}
 					}
-				}
 
-			});
+				});
+			}
 		}
 
 		if (Config.getInstance().getVoteShopBackButton()) {
