@@ -842,7 +842,7 @@ PurgeMin: 90
 
 # Whether or not to disable checking names on mojang, disable if you hit the rate limit
 # Shouldn't make a noticeable impact if set to false
-CheckNameMojang: true
+CheckNameMojang: false
 
 # Whether or not to create daily backups. (Only the most recent ones get saved)
 CreateBackups: true
