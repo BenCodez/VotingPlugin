@@ -783,6 +783,15 @@ public class Main extends JavaPlugin {
 
 		loadTimer();
 
+		// set columns
+		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "VARCHAR(10)");
+
+		}
+
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
 		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
