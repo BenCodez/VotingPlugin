@@ -194,20 +194,6 @@ public class Main extends JavaPlugin {
 		plugin.getLogger().info("Finished convertting");
 	}
 
-	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
-		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
-			try {
-				for (Entry<String, String> values : entry.getValue().entrySet()) {
-					entry.getKey().getData().setString(values.getKey(), values.getValue());
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				plugin.getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
-						+ e.getMessage() + ", turn debug on to see full stack traces");
-			}
-		}
-	}
-
 	public ArrayList<User> convertSet(Set<User> set) {
 		return new ArrayList<User>(set);
 	}
@@ -1002,6 +988,20 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
 		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
+	}
+
+	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
+		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
+			try {
+				for (Entry<String, String> values : entry.getValue().entrySet()) {
+					entry.getKey().getData().setString(values.getKey(), values.getValue());
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				plugin.getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
+						+ e.getMessage() + ", turn debug on to see full stack traces");
+			}
+		}
 	}
 
 }

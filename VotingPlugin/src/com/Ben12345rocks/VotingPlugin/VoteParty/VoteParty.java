@@ -128,15 +128,6 @@ public class VoteParty implements Listener {
 		}
 	}
 
-	public int getVotesRequired() {
-		int required = Config.getInstance().getVotePartyVotesRequired();
-		int extra = ServerData.getInstance().getVotePartyExtraRequired();
-		if (extra > 0) {
-			return required + extra;
-		}
-		return required;
-	}
-
 	/**
 	 * Gets the needed votes.
 	 *
@@ -170,6 +161,15 @@ public class VoteParty implements Listener {
 			return list;
 		}
 		return new ArrayList<String>();
+	}
+
+	public int getVotesRequired() {
+		int required = Config.getInstance().getVotePartyVotesRequired();
+		int extra = ServerData.getInstance().getVotePartyExtraRequired();
+		if (extra > 0) {
+			return required + extra;
+		}
+		return required;
 	}
 
 	/**

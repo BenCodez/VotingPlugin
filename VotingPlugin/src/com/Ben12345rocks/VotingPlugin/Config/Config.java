@@ -158,6 +158,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("Commands.UseGUI.Vote", true);
 	}
 
+	public int getConvertDelay() {
+		return getData().getInt("ConvertDelay", 10000);
+	}
+
 	public boolean getCountFakeVotes() {
 		return getData().getBoolean("CountFakeVotes", true);
 	}
@@ -1052,10 +1056,6 @@ public class Config extends YMLFile {
 		return getData().getInt("VoteParty.UserVotesRequired");
 	}
 
-	public int getVotePartyIncreaseVotesRquired() {
-		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
-	}
-
 	/**
 	 * Gets the vote GUI slot command.
 	 *
@@ -1139,6 +1139,10 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteParty.GiveAllPlayers");
 	}
 
+	public int getVotePartyIncreaseVotesRquired() {
+		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
+	}
+
 	public boolean getVotePartyResetEachDay() {
 		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
@@ -1214,12 +1218,16 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteShopBackButton", true);
 	}
 
-	public String getVoteShopPermission(String ident) {
-		return getData().getString("Shop." + ident + ".Permission", "");
+	public boolean getVoteShopEnabled() {
+		return getData().getBoolean("VoteShopEnabled", true);
 	}
 
 	public String getVoteShopName() {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
+	}
+
+	public String getVoteShopPermission(String ident) {
+		return getData().getString("Shop." + ident + ".Permission", "");
 	}
 
 	/**
@@ -1424,14 +1432,6 @@ public class Config extends YMLFile {
 	public void setDebugEnabled(boolean value) {
 		getData().set("Debug", value);
 		saveData();
-	}
-
-	public int getConvertDelay() {
-		return getData().getInt("ConvertDelay", 10000);
-	}
-
-	public boolean getVoteShopEnabled() {
-		return getData().getBoolean("VoteShopEnabled", true);
 	}
 
 	/**

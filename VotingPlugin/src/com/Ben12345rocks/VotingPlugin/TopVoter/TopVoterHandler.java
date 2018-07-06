@@ -77,6 +77,26 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
+	private HashMap<Integer, String> handlePlaces(Set<String> places) {
+		HashMap<Integer, String> place = new HashMap<Integer, String>();
+		for (String p : places) {
+			String[] data = p.split("-");
+			try {
+				if (data.length > 1) {
+					for (int i = Integer.parseInt(data[0]); i < Integer.parseInt(data[1]); i++) {
+						place.put(i, p);
+					}
+				} else {
+					place.put(Integer.parseInt(data[0]), p);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		return place;
+	}
+
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -180,26 +200,6 @@ public class TopVoterHandler implements Listener {
 			}
 
 		}
-	}
-
-	private HashMap<Integer, String> handlePlaces(Set<String> places) {
-		HashMap<Integer, String> place = new HashMap<Integer, String>();
-		for (String p : places) {
-			String[] data = p.split("-");
-			try {
-				if (data.length > 1) {
-					for (int i = Integer.parseInt(data[0]); i < Integer.parseInt(data[1]); i++) {
-						place.put(i, p);
-					}
-				} else {
-					place.put(Integer.parseInt(data[0]), p);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
-		return place;
 	}
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)

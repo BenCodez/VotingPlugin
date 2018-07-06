@@ -103,15 +103,6 @@ public class ServerData {
 		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
 	}
 
-	public int getVotePartyExtraRequired() {
-		return getData().getInt("VotePartyExtraRequired", 0);
-	}
-
-	public void setVotePartyExtraRequired(int value) {
-		getData().set("VotePartyExtraRequired", value);
-		saveData();
-	}
-
 	/**
 	 * Gets the sign data.
 	 *
@@ -158,6 +149,10 @@ public class ServerData {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
+	}
+
+	public int getVotePartyExtraRequired() {
+		return getData().getInt("VotePartyExtraRequired", 0);
 	}
 
 	/**
@@ -244,6 +239,11 @@ public class ServerData {
 	 */
 	public void setVersion() {
 		getData().set("Version", Bukkit.getVersion());
+		saveData();
+	}
+
+	public void setVotePartyExtraRequired(int value) {
+		getData().set("VotePartyExtraRequired", value);
 		saveData();
 	}
 
