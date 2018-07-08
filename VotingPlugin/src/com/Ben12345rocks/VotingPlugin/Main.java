@@ -169,7 +169,7 @@ public class Main extends JavaPlugin {
 			try {
 				wait(Config.getInstance().getConvertDelay());
 			} catch (Exception e) {
-				e.printStackTrace();
+				//e.printStackTrace();
 			}
 
 			uuids.removeAll(converted);
