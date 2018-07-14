@@ -51,19 +51,28 @@ public enum TopVoter {
 	}
 
 	public TopVoter prev() {
-		switch (this) {
-		case AllTime:
-			return Daily;
-		case Daily:
-			return Weekly;
-		case Monthly:
-			return AllTime;
-		case Weekly:
-			return Monthly;
-		default:
-			return AllTime;
-
+		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
+		if (Config.getInstance().getLoadTopVoterAllTime()) {
+			list.add(TopVoter.AllTime);
 		}
-
+		if (Config.getInstance().getLoadTopVoterMonthly()) {
+			list.add(TopVoter.Monthly);
+		}
+		if (Config.getInstance().getLoadTopVoterWeekly()) {
+			list.add(TopVoter.Weekly);
+		}
+		if (Config.getInstance().getLoadTopVoterDaily()) {
+			list.add(TopVoter.Daily);
+		}
+		for (int i = list.size(); i >= 0; i--) {
+			if (list.get(i).equals(this)) {
+				int prev = i - 1;
+				if (prev < 0) {
+					prev = list.size()-1;
+				}
+				return TopVoter.values()[prev];
+			}
+		}
+		return TopVoter.AllTime;
 	}
 }
