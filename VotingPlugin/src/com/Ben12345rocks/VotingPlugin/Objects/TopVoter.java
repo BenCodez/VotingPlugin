@@ -64,7 +64,7 @@ public enum TopVoter {
 		if (Config.getInstance().getLoadTopVoterDaily()) {
 			list.add(TopVoter.Daily);
 		}
-		for (int i = list.size(); i >= 0; i--) {
+		for (int i = list.size()-1; i >= 0; i--) {
 			if (list.get(i).equals(this)) {
 				int prev = i - 1;
 				if (prev < 0) {
