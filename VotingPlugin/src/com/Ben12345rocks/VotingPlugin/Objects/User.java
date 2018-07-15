@@ -176,12 +176,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
-	public boolean getToggleBroadcast() {
-		return getUserData().getBoolean("ToggleBroadcast");
+	public boolean getDisableBroadcast() {
+		return getUserData().getBoolean("DisableBroadcast");
 	}
 
-	public void setToggleBroadcast(boolean value) {
-		getUserData().setBoolean("ToggleBroadcast", value);
+	public void setDisableBroadcast(boolean value) {
+		getUserData().setBoolean("DisableBroadcast", value);
 	}
 
 	/**

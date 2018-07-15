@@ -773,6 +773,7 @@ public class Main extends JavaPlugin {
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "VARCHAR(10)");
 
 		}

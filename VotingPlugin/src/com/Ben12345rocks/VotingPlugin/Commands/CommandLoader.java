@@ -1153,9 +1153,9 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-				boolean value = !user.getToggleBroadcast();
-				user.setToggleBroadcast(value);
-				if (value) {
+				boolean value = !user.getDisableBroadcast();
+				user.setDisableBroadcast(value);
+				if (!value) {
 					sendMessage(sender, Config.getInstance().formatCommandsVoteToggleBroadcastEnabled);
 				} else {
 					sendMessage(sender, Config.getInstance().formatCommandsVoteToggleBroadcastDisabled);
