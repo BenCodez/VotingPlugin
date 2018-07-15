@@ -896,6 +896,7 @@ public class Main extends JavaPlugin {
 		try {
 			config = Config.getInstance();
 			config.setup();
+			config.loadValues();
 		} catch (Exception e) {
 			e.printStackTrace();
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {

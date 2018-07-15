@@ -1,7 +1,11 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import java.util.ArrayList;
+
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
@@ -11,8 +15,8 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class VoteSite.
  */
@@ -85,7 +89,14 @@ public class VoteSite {
 			String playerName = user.getPlayerName();
 			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
 			bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
-			MiscUtils.getInstance().broadcast(bc);
+			ArrayList<Player> players = new ArrayList<Player>();
+			for (Player p : Bukkit.getOnlinePlayers()) {
+				if (UserManager.getInstance().getVotingPluginUser(p).getToggleBroadcast()) {
+					players.add(p);
+				}
+			}
+
+			MiscUtils.getInstance().broadcast(bc, players);
 		}
 	}
 

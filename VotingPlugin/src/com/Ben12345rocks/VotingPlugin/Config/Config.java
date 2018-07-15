@@ -7,6 +7,9 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
@@ -31,12 +34,25 @@ public class Config extends YMLFile {
 		return instance;
 	}
 
+	public void loadValues() {
+		new AnnotationHandler().load(getData(), this);
+	}
+
 	/**
 	 * Instantiates a new config.
 	 */
 	public Config() {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts")
+	public String formatCommandsVoteToggleBroadcastEnabled;
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled", defaultValue = "&cYou will no longer see vote broadcasts")
+	public String formatCommandsVoteToggleBroadcastDisabled;
+
+	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL", defaultValue = false)
+	public boolean commandsVoteRewardFromVoteURL;
 
 	/**
 	 * Allow un joined.

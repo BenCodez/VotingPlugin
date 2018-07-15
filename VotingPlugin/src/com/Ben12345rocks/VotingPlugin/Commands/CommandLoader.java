@@ -1146,6 +1146,23 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.voteCommand.add(new CommandHandler(new String[] { "ToggleBroadcast" },
+				"VotingPlugin.Commands.Vote.ToggleBroadcast|" + playerPerm,
+				"Toggle whether or not you will recieve vote broadcasts", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+				boolean value = !user.getToggleBroadcast();
+				user.setToggleBroadcast(value);
+				if (value) {
+					sendMessage(sender, Config.getInstance().formatCommandsVoteToggleBroadcastEnabled);
+				} else {
+					sendMessage(sender, Config.getInstance().formatCommandsVoteToggleBroadcastDisabled);
+				}
+			}
+		});
+
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Next", "(player)" },
 				"VotingPlugin.Commands.Vote.Next.Other|" + modPerm, "See other players next votes") {
 

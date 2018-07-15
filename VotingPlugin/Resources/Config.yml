@@ -85,18 +85,6 @@ VoteReminding:
       FadeIn: 10
       ShowTime: 50
       FadeOut: 10
-  
-Commands:
-  # Wether or not the following commands will open GUIs rather than display text
-  UseGUI:
-    Today: true
-    TopVoter: true
-    Last: true
-    Next: true
-    Total: true
-    Vote: true
-    Best: true
-    Streak: true
     
 # ------------------------------------------------
 # Format
@@ -109,6 +97,21 @@ Commands:
 # %SiteName% = vote site name
 #
 # Set Message to '' (2 ') to disable message
+
+Commands:
+  # Wether or not the following commands will open GUIs rather than display text
+  UseGUI:
+    Today: true
+    TopVoter: true
+    Last: true
+    Next: true
+    Total: true
+    Vote: true
+    Best: true
+    Streak: true
+  # If true, you can right click a votesite from /vote (gui version) and open the vote reward gui for that site
+  # Can be used to display rewards for that site
+  VoteRewardFromVoteURL: false
 
 Format:
   # CommandHandler help message
@@ -230,6 +233,10 @@ Format:
       
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
+      
+      ToggleBroadcast:
+        Enabled: '&cYou will now see vote broadcasts'
+        Disabled: '&cYou will no longer see vote broadcasts'
   
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc

@@ -523,7 +523,7 @@ public class PlayerGUIs {
 			count++;
 		}
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
 			if (user.canVoteSite(voteSite)) {
 				builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
@@ -541,14 +541,18 @@ public class PlayerGUIs {
 					Player player = event.getWhoClicked();
 					if (player != null) {
 						player.closeInventory();
-						User user = UserManager.getInstance().getVotingPluginUser(player);
-						user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
-								StringUtils.getInstance()
-										.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-												Config.getInstance().getGUIVoteURLURLText(), "voteurl",
-												voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
-								"player", player.getName()));
 
+						if (Config.getInstance().commandsVoteRewardFromVoteURL
+								&& event.getClick().equals(ClickType.RIGHT)) {
+							voteReward(player, voteSite.getKey());
+						} else {
+							User user = UserManager.getInstance().getVotingPluginUser(player);
+							user.sendMessage(StringUtils.getInstance().replacePlaceHolder(StringUtils.getInstance()
+									.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+											Config.getInstance().getGUIVoteURLURLText(), "voteurl",
+											voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
+									"player", player.getName()));
+						}
 					}
 
 				}

@@ -176,6 +176,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
+	public boolean getToggleBroadcast() {
+		return getUserData().getBoolean("ToggleBroadcast");
+	}
+
+	public void setToggleBroadcast(boolean value) {
+		getUserData().setBoolean("ToggleBroadcast", value);
+	}
+
 	/**
 	 * Can vote site.
 	 *
