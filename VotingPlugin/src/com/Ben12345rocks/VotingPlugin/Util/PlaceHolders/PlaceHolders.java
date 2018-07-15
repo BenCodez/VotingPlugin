@@ -51,7 +51,7 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
-	public synchronized String getPlaceHolder(OfflinePlayer p, String identifier) {
+	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
 		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
