@@ -320,7 +320,7 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	public void sendTopVoterAllTimeScoreBoard(Player player, int page) {
+	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
@@ -346,8 +346,7 @@ public class Commands {
 
 				@Override
 				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
+					player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
 				}
 			}, 90);
 		}
@@ -361,7 +360,7 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	public void sendTopVoterDailyScoreBoard(Player player, int page) {
+	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.topVoterDaily.keySet());
@@ -387,8 +386,7 @@ public class Commands {
 
 				@Override
 				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
+					player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
 				}
 			}, 90);
 		}
@@ -402,7 +400,7 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	public void sendTopVoterMonthlyScoreBoard(Player player, int page) {
+	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
@@ -428,8 +426,7 @@ public class Commands {
 
 				@Override
 				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
+					player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
 				}
 			}, 90);
 		}
@@ -443,7 +440,7 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	public void sendTopVoterWeeklyScoreBoard(Player player, int page) {
+	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.topVoterWeekly.keySet());
@@ -469,8 +466,7 @@ public class Commands {
 
 				@Override
 				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
+					player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
 				}
 			}, 90);
 
@@ -485,7 +481,7 @@ public class Commands {
 	 * @param page
 	 *            the page
 	 */
-	public void sendVoteTodayScoreBoard(Player player, int page) {
+	public void sendVoteTodayScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 
@@ -508,8 +504,7 @@ public class Commands {
 
 				@Override
 				public void run() {
-					SimpleScoreboard clear = new SimpleScoreboard("Empty");
-					clear.send(player);
+					player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
 				}
 			}, 90);
 
