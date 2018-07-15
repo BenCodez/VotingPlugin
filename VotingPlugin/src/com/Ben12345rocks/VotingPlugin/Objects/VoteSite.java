@@ -91,7 +91,7 @@ public class VoteSite {
 			bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
-				if (UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
 					players.add(p);
 				}
 			}
