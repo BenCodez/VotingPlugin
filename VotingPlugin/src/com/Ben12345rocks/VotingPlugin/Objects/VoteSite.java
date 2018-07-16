@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -88,7 +89,11 @@ public class VoteSite {
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
-			bc = bc.replace("%player%", playerName).replace("%SiteName%", getDisplayName());
+			HashMap<String, String> placeholders = new HashMap<String, String>();
+			placeholders.put("player", playerName);
+			placeholders.put("nickname", user.getPlayer().getDisplayName());
+			placeholders.put("sitename", getDisplayName());
+			bc = StringUtils.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
