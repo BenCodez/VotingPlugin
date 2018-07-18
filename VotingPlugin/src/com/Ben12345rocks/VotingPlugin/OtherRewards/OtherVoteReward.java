@@ -11,7 +11,9 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+
+import ninja.egg82.patterns.ServiceLocator;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -27,9 +29,8 @@ public class OtherVoteReward {
 
 	/** The instance. */
 	static OtherVoteReward instance = new OtherVoteReward();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of OtherVoteReward.
@@ -47,23 +48,13 @@ public class OtherVoteReward {
 	}
 
 	/**
-	 * Instantiates a new other vote reward.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public OtherVoteReward(Main plugin) {
-		OtherVoteReward.plugin = plugin;
-	}
-
-	/**
 	 * Check all sites.
 	 *
 	 * @param user
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkAllSites(User user) {
+	public boolean checkAllSites(VoteUser user) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes) {
 			giveAllSitesRewards(user, user.isOnline());
@@ -78,7 +69,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkCumualativeVotes(User user) {
+	public boolean checkCumualativeVotes(VoteUser user) {
 		boolean gotCumulative = false;
 		Set<String> votes = Config.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
@@ -103,12 +94,12 @@ public class OtherVoteReward {
 						}
 
 						if (gotCumulative) {
-							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
+							main.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						}
 					}
 				}
 			} else {
-				plugin.debug("Invalid cumulative number: " + vote);
+				main.debug("Invalid cumulative number: " + vote);
 			}
 		}
 		return gotCumulative;
@@ -121,7 +112,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkFirstVote(User user) {
+	public boolean checkFirstVote(VoteUser user) {
 		if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
@@ -140,7 +131,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkMilestone(User user) {
+	public boolean checkMilestone(VoteUser user) {
 		boolean gotMilestone = false;
 		Set<String> votes = Config.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
@@ -155,19 +146,19 @@ public class OtherVoteReward {
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
-							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
+							main.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
 						}
 					}
 				}
 			} else {
-				plugin.debug("Invalid milestone number: " + vote);
+				main.debug("Invalid milestone number: " + vote);
 			}
 		}
 		return gotMilestone;
 	}
 
-	public boolean checkVoteStreak(User user, String type) {
+	public boolean checkVoteStreak(VoteUser user, String type) {
 		boolean gotReward = false;
 
 		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
@@ -196,14 +187,14 @@ public class OtherVoteReward {
 							if (curStreak == streakRequired) {
 								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak);
 								gotReward = true;
-								plugin.debug(
+								main.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
 								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak);
 								gotReward = true;
-								plugin.debug(
+								main.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
 							}
 						}
@@ -225,7 +216,7 @@ public class OtherVoteReward {
 	 * @param online
 	 *            the online
 	 */
-	public void giveAllSitesRewards(User user, boolean online) {
+	public void giveAllSitesRewards(VoteUser user, boolean online) {
 		PlayerVoteAllSitesEvent event = new PlayerVoteAllSitesEvent(user);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -246,7 +237,7 @@ public class OtherVoteReward {
 	 * @param cumulative
 	 *            the cumulative
 	 */
-	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
+	public void giveCumulativeVoteReward(VoteUser user, boolean online, int cumulative) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getCumulativeRewardsPath(cumulative))
 				.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
@@ -259,7 +250,7 @@ public class OtherVoteReward {
 	 * @param online
 	 *            the online
 	 */
-	public void giveFirstVoteRewards(User user, boolean online) {
+	public void giveFirstVoteRewards(VoteUser user, boolean online) {
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath(), online);
 	}
@@ -274,12 +265,12 @@ public class OtherVoteReward {
 	 * @param milestone
 	 *            the milestone
 	 */
-	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+	public void giveMilestoneVoteReward(VoteUser user, boolean online, int milestone) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMilestoneRewardsPath(milestone))
 				.setOnline(online).withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
-	public void giveVoteStreakReward(User user, boolean online, String type, String string, int votes) {
+	public void giveVoteStreakReward(VoteUser user, boolean online, String type, String string, int votes) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, string))
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}

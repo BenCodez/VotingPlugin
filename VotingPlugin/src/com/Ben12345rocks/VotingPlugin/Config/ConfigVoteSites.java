@@ -16,17 +16,17 @@ import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class ConfigVoteSites.
  */
 public class ConfigVoteSites extends YMLFile {
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The instance. */
 	static ConfigVoteSites instance = new ConfigVoteSites();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
 
 	/**
 	 * Gets the single instance of ConfigVoteSites.
@@ -41,7 +41,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Instantiates a new config vote sites.
 	 */
 	public ConfigVoteSites() {
-		super(new File(Main.plugin.getDataFolder(), "VoteSites.yml"));
+		super(new File(ServiceLocator.getService(Main.class).getDataFolder(), "VoteSites.yml"));
 	}
 
 	/**
@@ -54,7 +54,7 @@ public class ConfigVoteSites extends YMLFile {
 		if (Config.getInstance().getAutoCreateVoteSites()) {
 			String org = siteName;
 			siteName = siteName.replace(".", "_");
-			plugin.getLogger().warning("VoteSite " + siteName
+			main.getLogger().warning("VoteSite " + siteName
 					+ " does not exist, creating one, set AutoCreateVoteSites to false to prevent this");
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
@@ -64,7 +64,7 @@ public class ConfigVoteSites extends YMLFile {
 			set(siteName, "Item.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
-			plugin.loadVoteSites();
+			main.loadVoteSites();
 		}
 	}
 
@@ -154,13 +154,13 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote site file
 	 */
 	public File getVoteSiteFile(String siteName) {
-		File dFile = new File(plugin.getDataFolder() + File.separator + "VoteSites", siteName + ".yml");
+		File dFile = new File(main.getDataFolder() + File.separator + "VoteSites", siteName + ".yml");
 		FileConfiguration data = YamlConfiguration.loadConfiguration(dFile);
 		if (!dFile.exists()) {
 			try {
 				data.save(dFile);
 			} catch (IOException e) {
-				plugin.getLogger().severe(ChatColor.RED + "Could not create VoteSites/" + siteName + ".yml!");
+				main.getLogger().severe(ChatColor.RED + "Could not create VoteSites/" + siteName + ".yml!");
 
 			}
 		}
@@ -188,7 +188,7 @@ public class ConfigVoteSites extends YMLFile {
 			for (String site : voteSiteNames) {
 				if (getVoteSiteEnabled(site) && !site.equalsIgnoreCase("null")) {
 					if (!siteCheck(site)) {
-						plugin.getLogger().warning("Failed to load site " + site + ", see above");
+						main.getLogger().warning("Failed to load site " + site + ", see above");
 					} else {
 						voteSites.add(new VoteSite(site));
 					}
@@ -228,10 +228,10 @@ public class ConfigVoteSites extends YMLFile {
 		}
 
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
-			// plugin.getLogger().info(siteNames.get(i));
+			// main.getLogger().info(siteNames.get(i));
 			if (!getVoteSiteEnabled(siteNames.get(i)) || siteNames.get(i).equalsIgnoreCase("null")
 					|| !siteCheck(siteNames.get(i))) {
-				// plugin.getLogger().info("Removed: " + siteNames.get(i));
+				// main.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 
 			}
@@ -282,7 +282,7 @@ public class ConfigVoteSites extends YMLFile {
 
 	@Override
 	public void onFileCreation() {
-		plugin.saveResource("VoteSites.yml", true);
+		main.saveResource("VoteSites.yml", true);
 
 	}
 
@@ -297,7 +297,7 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public boolean renameVoteSite(String siteName, String newName) {
 		return getVoteSiteFile(siteName)
-				.renameTo(new File(plugin.getDataFolder() + File.separator + "VoteSites", newName + ".yml"));
+				.renameTo(new File(main.getDataFolder() + File.separator + "VoteSites", newName + ".yml"));
 	}
 
 	/**
@@ -423,11 +423,11 @@ public class ConfigVoteSites extends YMLFile {
 	public boolean siteCheck(String siteName) {
 		boolean pass = true;
 		if (!isServiceSiteGood(siteName)) {
-			plugin.getLogger().warning("Issue with ServiceSite in site " + siteName + ", votes may not work properly");
+			main.getLogger().warning("Issue with ServiceSite in site " + siteName + ", votes may not work properly");
 			pass = false;
 		}
 		if (!isVoteURLGood(siteName)) {
-			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
+			main.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
 	}

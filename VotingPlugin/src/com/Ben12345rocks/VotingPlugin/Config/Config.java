@@ -13,17 +13,17 @@ import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class Config.
  */
 public class Config extends YMLFile {
-
+	private Main main = ServiceLocator.getService(Main.class);
+	
 	/** The instance. */
 	static Config instance = new Config();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
 
 	/**
 	 * Gets the single instance of Config.
@@ -42,7 +42,7 @@ public class Config extends YMLFile {
 	 * Instantiates a new config.
 	 */
 	public Config() {
-		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
+		super(new File(ServiceLocator.getService(Main.class).getDataFolder(), "Config.yml"));
 	}
 
 	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts")
@@ -1403,7 +1403,7 @@ public class Config extends YMLFile {
 
 	@Override
 	public void onFileCreation() {
-		plugin.saveResource("Config.yml", true);
+		main.saveResource("Config.yml", true);
 	}
 
 	/**

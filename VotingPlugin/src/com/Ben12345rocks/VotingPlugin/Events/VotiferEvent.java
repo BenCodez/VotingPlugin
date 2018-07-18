@@ -15,13 +15,15 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
+
+import ninja.egg82.patterns.ServiceLocator;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -34,9 +36,8 @@ public class VotiferEvent implements Listener {
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	private static Object object = new Object();
 
@@ -45,27 +46,28 @@ public class VotiferEvent implements Listener {
 	}
 
 	public static void playerVote(final String playerName, final String voteSiteURL, final boolean realVote) {
+		Main main = ServiceLocator.getService(Main.class);
 
 		if (!config.allowUnJoined() && !PlayerUtils.getInstance().isValidUser(playerName)) {
-			plugin.getLogger().warning("Player " + playerName
+			main.getLogger().warning("Player " + playerName
 					+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 			return;
 		}
 
-		User user = UserManager.getInstance().getVotingPluginUser(playerName);
+		VoteUser user = UserManager.getInstance().getVotingPluginUser(playerName);
 
-		VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
+		VoteSite voteSite = main.getVoteSite(voteSiteURL);
 		if (voteSite == null) {
 			if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
-				plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
-				plugin.getLogger().warning(
+				main.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
+				main.getLogger().warning(
 						"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
 
 				ArrayList<String> services = new ArrayList<String>();
-				for (VoteSite site : plugin.getVoteSites()) {
+				for (VoteSite site : main.getVoteSites()) {
 					services.add(site.getServiceSite());
 				}
-				plugin.getLogger()
+				main.getLogger()
 						.warning("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
 			}
 			return;
@@ -99,8 +101,8 @@ public class VotiferEvent implements Listener {
 				user.closeInv();
 			} else {
 				user.addOfflineVote(voteSite.getKey());
-				// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
-				plugin.debug(
+				// main.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
+				main.debug(
 						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
 			}
 
@@ -125,7 +127,7 @@ public class VotiferEvent implements Listener {
 			}
 		}
 
-		plugin.setUpdate(true);
+		main.setUpdate(true);
 
 	}
 
@@ -135,8 +137,8 @@ public class VotiferEvent implements Listener {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public VotiferEvent(Main plugin) {
-		VotiferEvent.plugin = plugin;
+	public VotiferEvent() {
+		
 	}
 
 	/**
@@ -151,7 +153,7 @@ public class VotiferEvent implements Listener {
 		Vote vote = event.getVote();
 		final String voteSite = vote.getServiceName();
 		final String voteUsername = vote.getUsername().trim();
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(main, new Runnable() {
 
 			@Override
 			public void run() {
@@ -160,38 +162,38 @@ public class VotiferEvent implements Listener {
 		});
 
 		if (voteUsername.length() == 0) {
-			plugin.getLogger().warning("No name from vote on " + voteSite);
+			main.getLogger().warning("No name from vote on " + voteSite);
 			return;
 		}
 
-		plugin.getLogger().info("Recieved a vote from '" + voteSite + "' by player '" + voteUsername + "'!");
+		main.getLogger().info("Recieved a vote from '" + voteSite + "' by player '" + voteUsername + "'!");
 
-		plugin.debug("PlayerUsername: " + voteUsername);
-		plugin.debug("VoteSite: " + voteSite);
+		main.debug("PlayerUsername: " + voteUsername);
+		main.debug("VoteSite: " + voteSite);
 
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(main, new Runnable() {
 
 			@Override
 			public void run() {
-				String voteSiteName = plugin.getVoteSiteName(voteSite);
+				String voteSiteName = main.getVoteSiteName(voteSite);
 
 				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 				if (sites != null) {
 					if (!sites.contains(voteSiteName) && Config.getInstance().getAutoCreateVoteSites()) {
-						plugin.getLogger()
+						main.getLogger()
 								.warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 						ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 					}
 				} else if (Config.getInstance().getAutoCreateVoteSites()) {
-					plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
+					main.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				}
 
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername);
-				plugin.getServer().getPluginManager().callEvent(voteEvent);
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(main.getVoteSite(voteSiteName), voteUsername);
+				main.getServer().getPluginManager().callEvent(voteEvent);
 
 				if (voteEvent.isCancelled()) {
-					plugin.debug("Vote cancelled");
+					main.debug("Vote cancelled");
 					return;
 				}
 

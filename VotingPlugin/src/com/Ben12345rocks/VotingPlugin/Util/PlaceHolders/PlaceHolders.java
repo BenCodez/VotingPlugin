@@ -9,10 +9,12 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
+
+import ninja.egg82.patterns.ServiceLocator;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -23,8 +25,7 @@ public class PlaceHolders {
 	/** The instance. */
 	static PlaceHolders instance = new PlaceHolders();
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of PlaceHolders.
@@ -41,16 +42,6 @@ public class PlaceHolders {
 	private PlaceHolders() {
 	}
 
-	/**
-	 * Instantiates a new place holders.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public PlaceHolders(Main plugin) {
-		PlaceHolders.plugin = plugin;
-	}
-
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
@@ -64,7 +55,7 @@ public class PlaceHolders {
 			return Integer.toString(VoteParty.getInstance().getVotesRequired());
 		}
 
-		User user = UserManager.getInstance().getVotingPluginUser(p);
+		VoteUser user = UserManager.getInstance().getVotingPluginUser(p);
 
 		// %VotingPlugin_total% - Total votes of all vote sites
 		if (identifier.equalsIgnoreCase("total")) {
@@ -148,7 +139,7 @@ public class PlaceHolders {
 					int number = Integer.parseInt(args[2]);
 					int num = 1;
 					if (args[1].equalsIgnoreCase("all")) {
-						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterAllTime.entrySet()) {
 							if (num == number) {
 								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
 									return "" + entry.getValue().intValue();
@@ -159,7 +150,7 @@ public class PlaceHolders {
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
-						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterMonthly.entrySet()) {
 							if (num == number) {
 								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
 									return "" + entry.getValue().intValue();
@@ -170,7 +161,7 @@ public class PlaceHolders {
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
-						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterWeekly.entrySet()) {
 							if (num == number) {
 								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
 									return "" + entry.getValue().intValue();
@@ -181,7 +172,7 @@ public class PlaceHolders {
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
-						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterDaily.entrySet()) {
 							if (num == number) {
 								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
 									return "" + entry.getValue().intValue();
@@ -195,28 +186,28 @@ public class PlaceHolders {
 				} else if (args[2].equalsIgnoreCase("Position")) {
 					int num = 1;
 					if (args[1].equalsIgnoreCase("all")) {
-						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterAllTime.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 								return "" + num;
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("month")) {
-						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterMonthly.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 								return "" + num;
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("week")) {
-						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterWeekly.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 								return "" + num;
 							}
 							num++;
 						}
 					} else if (args[1].equalsIgnoreCase("daily")) {
-						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+						for (Entry<VoteUser, Integer> entry : main.topVoterDaily.entrySet()) {
 							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 								return "" + num;
 							}
@@ -235,21 +226,21 @@ public class PlaceHolders {
 		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
 
-	public String playerLastVote(User user, String siteName) {
+	public String playerLastVote(VoteUser user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
-		VoteSite voteSite = plugin.getVoteSite(siteName);
+		VoteSite voteSite = main.getVoteSite(siteName);
 		return Commands.getInstance().voteCommandLastDate(user, voteSite);
 	}
 
-	public String playerNextVote(User user, String siteName) {
+	public String playerNextVote(VoteUser user, String siteName) {
 		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
 			return "";
 		}
 
-		VoteSite voteSite = plugin.getVoteSite(siteName);
+		VoteSite voteSite = main.getVoteSite(siteName);
 		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 	}
 

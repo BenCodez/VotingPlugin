@@ -27,17 +27,19 @@ import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import net.md_5.bungee.api.chat.TextComponent;
+import ninja.egg82.patterns.ServiceLocator;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class Commands.
  */
 public class Commands {
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The config. */
 	static Config config = Config.getInstance();
@@ -47,9 +49,6 @@ public class Commands {
 
 	/** The instance. */
 	static Commands instance = new Commands();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
 
 	/**
 	 * Gets the single instance of Commands.
@@ -64,16 +63,7 @@ public class Commands {
 	 * Instantiates a new commands.
 	 */
 	private Commands() {
-	}
-
-	/**
-	 * Instantiates a new commands.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public Commands(Main plugin) {
-		Commands.plugin = plugin;
+		
 	}
 
 	/**
@@ -119,7 +109,7 @@ public class Commands {
 
 		boolean requirePerms = Config.getInstance().getFormatCommandsVoteHelpRequirePermission();
 
-		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+		for (CommandHandler cmdHandle : main.adminVoteCommand) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			} else {
@@ -141,7 +131,7 @@ public class Commands {
 		msg.add(config.getFormatCommandsVoteBestTitle());
 		msg.addAll(config.getFormatCommandsVoteBestLines());
 
-		User user = UserManager.getInstance().getVotingPluginUser(name);
+		VoteUser user = UserManager.getInstance().getVotingPluginUser(name);
 
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
@@ -191,7 +181,7 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&c&lCommand : Permissions (seperated by |)");
 
-		for (CommandHandler handle : plugin.voteCommand) {
+		for (CommandHandler handle : main.voteCommand) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
 					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
@@ -204,7 +194,7 @@ public class Commands {
 
 		}
 
-		for (CommandHandler handle : plugin.adminVoteCommand) {
+		for (CommandHandler handle : main.adminVoteCommand) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
 					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
@@ -216,7 +206,7 @@ public class Commands {
 			}
 		}
 
-		for (Permission perm : plugin.getDescription().getPermissions()) {
+		for (Permission perm : main.getDescription().getPermissions()) {
 			if (sender instanceof Player) {
 				if (sender.hasPermission(perm)) {
 					msg.add("&a" + perm.getName() + " : true");
@@ -240,7 +230,7 @@ public class Commands {
 			ArrayList<String> msg = new ArrayList<String>();
 			ArrayList<String> text = new ArrayList<String>();
 
-			for (CommandHandler handle : plugin.voteCommand) {
+			for (CommandHandler handle : main.voteCommand) {
 				if (handle.hasPerm(p)) {
 					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
 				} else {
@@ -249,7 +239,7 @@ public class Commands {
 
 			}
 
-			for (CommandHandler handle : plugin.adminVoteCommand) {
+			for (CommandHandler handle : main.adminVoteCommand) {
 				if (handle.hasPerm(p)) {
 					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
 				} else {
@@ -257,7 +247,7 @@ public class Commands {
 				}
 			}
 
-			for (Permission perm : plugin.getDescription().getPermissions()) {
+			for (Permission perm : main.getDescription().getPermissions()) {
 				if (p.hasPermission(perm)) {
 					msg.add("&a" + perm.getName() + " : true");
 				} else {
@@ -293,7 +283,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] playerInfo(User user) {
+	public String[] playerInfo(VoteUser user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		// title
@@ -323,7 +313,7 @@ public class Commands {
 	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+			ArrayList<VoteUser> users = main.convertSet(main.topVoterAllTime.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -337,12 +327,12 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterAllTime.get(users.get(i)));
+						main.topVoterAllTime.get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
 
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -363,7 +353,7 @@ public class Commands {
 	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterDaily.keySet());
+			ArrayList<VoteUser> users = main.convertSet(main.topVoterDaily.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -377,12 +367,12 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterDaily.get(users.get(i)));
+						main.topVoterDaily.get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
 
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -403,7 +393,7 @@ public class Commands {
 	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+			ArrayList<VoteUser> users = main.convertSet(main.topVoterMonthly.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -417,12 +407,12 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterMonthly.get(users.get(i)));
+						main.topVoterMonthly.get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
 
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -443,7 +433,7 @@ public class Commands {
 	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterWeekly.keySet());
+			ArrayList<VoteUser> users = main.convertSet(main.topVoterWeekly.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -457,12 +447,12 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterWeekly.get(users.get(i)));
+						main.topVoterWeekly.get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
 
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -500,7 +490,7 @@ public class Commands {
 			scoreboard.build();
 			scoreboard.send(player);
 
-			Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -516,7 +506,7 @@ public class Commands {
 		msg.add(config.getFormatCommandsVoteStreakTitle());
 		msg.addAll(config.getFormatCommandsVoteStreakLines());
 
-		User user = UserManager.getInstance().getVotingPluginUser(name);
+		VoteUser user = UserManager.getInstance().getVotingPluginUser(name);
 
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
@@ -534,12 +524,12 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
 	}
 
-	public void updateVoteToday(ArrayList<User> users) {
-		plugin.voteToday.clear();
+	public void updateVoteToday(ArrayList<VoteUser> users) {
+		main.voteToday.clear();
 
-		for (User user : users) {
+		for (VoteUser user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-			for (VoteSite voteSite : plugin.getVoteSites()) {
+			for (VoteSite voteSite : main.getVoteSites()) {
 				long time = user.getTime(voteSite);
 				if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
 						&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
@@ -550,11 +540,11 @@ public class Commands {
 				}
 			}
 			if (times.keySet().size() > 0) {
-				plugin.voteToday.put(user, times);
+				main.voteToday.put(user, times);
 			}
 
 		}
-		plugin.debug("Updated VoteToday");
+		main.debug("Updated VoteToday");
 	}
 
 	/**
@@ -564,7 +554,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandLast(User user) {
+	public String[] voteCommandLast(VoteUser user) {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -573,7 +563,7 @@ public class Commands {
 		msg.add(StringUtils.getInstance().replaceIgnoreCase(config.getFormatCommandsVoteLastTitle(), "%player%",
 				playerName));
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 			msg.add(voteCommandLastLine(user, voteSite));
 		}
 
@@ -590,7 +580,7 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
-	public String voteCommandLastDate(User user, VoteSite voteSite) {
+	public String voteCommandLastDate(VoteUser user, VoteSite voteSite) {
 		long time = user.getTime(voteSite);
 		if (time > 0) {
 			Date date = new Date(time);
@@ -600,7 +590,7 @@ public class Commands {
 		return "";
 	}
 
-	public String voteCommandLastLine(User user, VoteSite voteSite) {
+	public String voteCommandLastLine(VoteUser user, VoteSite voteSite) {
 		String timeString = voteCommandLastDate(user, voteSite);
 
 		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
@@ -614,7 +604,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandNext(User user) {
+	public String[] voteCommandNext(VoteUser user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		String playerName = user.getPlayerName();
@@ -622,7 +612,7 @@ public class Commands {
 		msg.add(StringUtils.getInstance().colorize(StringUtils.getInstance()
 				.replaceIgnoreCase(config.getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 
 			String msgLine = config.getFormatCommandsVoteNextLayout();
 
@@ -645,7 +635,7 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
-	public String voteCommandNextInfo(User user, VoteSite voteSite) {
+	public String voteCommandNextInfo(VoteUser user, VoteSite voteSite) {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
@@ -705,7 +695,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandTotal(User user) {
+	public String[] voteCommandTotal(VoteUser user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		int daily = user.getDailyTotal();
@@ -743,7 +733,7 @@ public class Commands {
 		int all = 0;
 
 		for (String uuid : uuids) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			daily += user.getDailyTotal();
 			weekly += user.getWeeklyTotal();
 			month += user.getMonthTotal();
@@ -776,7 +766,7 @@ public class Commands {
 
 		boolean requirePerms = config.getFormatCommandsVoteHelpRequirePermission();
 
-		for (CommandHandler cmdHandle : plugin.voteCommand) {
+		for (CommandHandler cmdHandle : main.voteCommand) {
 			if (cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			} else if (!requirePerms) {
@@ -800,11 +790,11 @@ public class Commands {
 	 */
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (User user : plugin.voteToday.keySet()) {
+		for (VoteUser user : main.voteToday.keySet()) {
 
-			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+			for (VoteSite voteSite : main.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
-				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
+				String timeString = main.voteToday.get(user).get(voteSite).format(formatter);
 				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
 			}
 		}
@@ -812,7 +802,7 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public String[] voteURLs(User user) {
+	public String[] voteURLs(VoteUser user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();
@@ -821,7 +811,7 @@ public class Commands {
 		}
 		if (config.getFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
-			for (VoteSite voteSite : plugin.getVoteSites()) {
+			for (VoteSite voteSite : main.getVoteSites()) {
 				counter++;
 				String voteURL = voteSite.getVoteURL();
 				String msg = config.getFormatCommandsVoteURLS();

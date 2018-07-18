@@ -18,6 +18,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 /**
  * The Class VoteSite.
  */
@@ -28,9 +30,8 @@ public class VoteSite {
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The vote URL. */
 	private String voteURL;
@@ -64,8 +65,8 @@ public class VoteSite {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public VoteSite(Main plugin) {
-		VoteSite.plugin = plugin;
+	public VoteSite() {
+		
 	}
 
 	/**
@@ -85,13 +86,13 @@ public class VoteSite {
 	 * @param user
 	 *            the user
 	 */
-	public void broadcastVote(User user) {
+	public void broadcastVote(VoteUser user) {
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("player", playerName);
-			placeholders.put("nickname", user.getPlayer().getDisplayName());
+			placeholders.put("nickname", (user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 			placeholders.put("sitename", getDisplayName());
 			bc = StringUtils.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
@@ -117,7 +118,7 @@ public class VoteSite {
 	 */
 	public ItemBuilder getItem() {
 		if (item == null) {
-			plugin.getLogger().warning("Invalid item section in site: " + key);
+			main.getLogger().warning("Invalid item section in site: " + key);
 			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key)
 					.setLore("&cInvalid item for site: " + key);
 		} else {
@@ -176,7 +177,7 @@ public class VoteSite {
 	 * @param online
 	 *            the online
 	 */
-	public void giveRewards(User user, boolean online) {
+	public void giveRewards(VoteUser user, boolean online) {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
@@ -194,7 +195,7 @@ public class VoteSite {
 	 * @param online
 	 *            the online
 	 */
-	public void giveSiteReward(User user, boolean online) {
+	public void giveSiteReward(VoteUser user, boolean online) {
 		giveRewards(user, online);
 	}
 

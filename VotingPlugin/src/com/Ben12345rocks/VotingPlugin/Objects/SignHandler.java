@@ -17,6 +17,8 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class SignHandler.
@@ -37,9 +39,8 @@ public class SignHandler {
 
 	/** The position. */
 	private int position;
-
-	/** The plugin. */
-	public Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The player name. */
 	private String playerName;
@@ -101,7 +102,7 @@ public class SignHandler {
 	 * Check valid sign.
 	 */
 	public void checkValidSign() {
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		Bukkit.getScheduler().runTask(main, new Runnable() {
 
 			@Override
 			public void run() {
@@ -246,30 +247,30 @@ public class SignHandler {
 			lines.add(line3);
 			lines.add(line4);
 
-			ArrayList<User> users = null;
+			ArrayList<VoteUser> users = null;
 			if (data.equalsIgnoreCase("all")) {
-				users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+				users = main.convertSet(main.topVoterAllTime.keySet());
 			} else if (data.equalsIgnoreCase("monthly")) {
-				users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+				users = main.convertSet(main.topVoterMonthly.keySet());
 			} else if (data.equalsIgnoreCase("weekly")) {
-				users = plugin.convertSet(plugin.topVoterWeekly.keySet());
+				users = main.convertSet(main.topVoterWeekly.keySet());
 			} else if (data.equalsIgnoreCase("daily")) {
-				users = plugin.convertSet(plugin.topVoterDaily.keySet());
+				users = main.convertSet(main.topVoterDaily.keySet());
 			}
 
 			if (users != null && users.size() >= position) {
-				User user = users.get(position - 1);
+				VoteUser user = users.get(position - 1);
 				playerName = user.getPlayerName();
 
 				votes = 0;
 				if (data.equalsIgnoreCase("all")) {
-					votes = plugin.topVoterAllTime.get(user);
+					votes = main.topVoterAllTime.get(user);
 				} else if (data.equalsIgnoreCase("monthly")) {
-					votes = plugin.topVoterMonthly.get(user);
+					votes = main.topVoterMonthly.get(user);
 				} else if (data.equalsIgnoreCase("weekly")) {
-					votes = plugin.topVoterWeekly.get(user);
+					votes = main.topVoterWeekly.get(user);
 				} else if (data.equalsIgnoreCase("daily")) {
-					votes = plugin.topVoterDaily.get(user);
+					votes = main.topVoterDaily.get(user);
 				}
 
 				for (int j = 0; j < lines.size(); j++) {
@@ -300,7 +301,7 @@ public class SignHandler {
 	 *            the delay
 	 */
 	public void updateSign(int delay) {
-		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskLater(main, new Runnable() {
 
 			@Override
 			public void run() {

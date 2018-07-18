@@ -19,8 +19,10 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+
+import ninja.egg82.patterns.ServiceLocator;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -31,8 +33,7 @@ public class VoteParty implements Listener {
 	/** The instance. */
 	static VoteParty instance = new VoteParty();
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of VoteParty.
@@ -49,17 +50,7 @@ public class VoteParty implements Listener {
 	private VoteParty() {
 	}
 
-	/**
-	 * Instantiates a new vote party.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public VoteParty(Main plugin) {
-		VoteParty.plugin = plugin;
-	}
-
-	public void addTotal(User user) {
+	public void addTotal(VoteUser user) {
 		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
 	}
@@ -70,7 +61,7 @@ public class VoteParty implements Listener {
 	 * @param user
 	 *            the user
 	 */
-	public void addVotePlayer(User user) {
+	public void addVotePlayer(VoteUser user) {
 		String uuid = user.getUUID();
 		ArrayList<String> voted = getVotedUsers();
 		if (voted == null) {
@@ -178,7 +169,7 @@ public class VoteParty implements Listener {
 	 * @param user
 	 *            the user
 	 */
-	public void giveReward(User user) {
+	public void giveReward(VoteUser user) {
 		/*
 		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) { if
 		 * (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
@@ -196,7 +187,7 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards() {
 		for (final String cmd : Config.getInstance().getVotePartyCommands()) {
-			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+			Bukkit.getScheduler().runTask(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -208,12 +199,12 @@ public class VoteParty implements Listener {
 
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		}
@@ -235,14 +226,14 @@ public class VoteParty implements Listener {
 	}
 
 	public void register() {
-		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+		main.getServer().getPluginManager().registerEvents(this, main);
 	}
 
 	public void reset() {
 		setVotedUsers(new ArrayList<String>());
 		setTotalVotes(0);
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}
@@ -272,7 +263,7 @@ public class VoteParty implements Listener {
 		ServerData.getInstance().saveData();
 	}
 
-	public synchronized void vote(User user, boolean realVote) {
+	public synchronized void vote(VoteUser user, boolean realVote) {
 		if (Config.getInstance().getVotePartyEnabled()) {
 			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
 				addTotal(user);

@@ -8,6 +8,8 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class Signs.
@@ -16,9 +18,8 @@ public class Signs {
 
 	/** The instance. */
 	static Signs instance = new Signs();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of Signs.
@@ -33,16 +34,6 @@ public class Signs {
 	 * Instantiates a new signs.
 	 */
 	private Signs() {
-	}
-
-	/**
-	 * Instantiates a new signs.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public Signs(Main plugin) {
-		Signs.plugin = plugin;
 	}
 
 	/**
@@ -66,10 +57,10 @@ public class Signs {
 	 * Load signs.
 	 */
 	public void loadSigns() {
-		plugin.signs = new ArrayList<SignHandler>();
+		main.signs = new ArrayList<SignHandler>();
 		for (String sign : ServerData.getInstance().getSigns()) {
-			// plugin.getLogger().info("Loading sign " + sign);
-			plugin.signs.add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
+			// main.getLogger().info("Loading sign " + sign);
+			main.signs.add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
 					ServerData.getInstance().getSignData(sign), ServerData.getInstance().getSignPosition(sign)));
 		}
 	}
@@ -78,7 +69,7 @@ public class Signs {
 	 * Store signs.
 	 */
 	public void storeSigns() {
-		for (SignHandler sign : plugin.signs) {
+		for (SignHandler sign : main.signs) {
 			sign.storeSign();
 		}
 	}
@@ -87,18 +78,18 @@ public class Signs {
 	 * Update signs.
 	 */
 	public void updateSigns() {
-		for (int i = plugin.signs.size() - 1; i >= 0; i--) {
-			if (!plugin.signs.get(i).isValid()) {
-				plugin.debug("Sign " + i + " invalid, removing from data.");
-				plugin.signs.get(i).removeSign();
-				plugin.signs.remove(i);
+		for (int i = main.signs.size() - 1; i >= 0; i--) {
+			if (!main.signs.get(i).isValid()) {
+				main.debug("Sign " + i + " invalid, removing from data.");
+				main.signs.get(i).removeSign();
+				main.signs.remove(i);
 			} else {
-				plugin.signs.get(i).updateLines();
-				plugin.signs.get(i).updateSign(i * 3);
+				main.signs.get(i).updateLines();
+				main.signs.get(i).updateSign(i * 3);
 			}
 		}
 
-		plugin.debug("Signs updated");
+		main.debug("Signs updated");
 	}
 
 }

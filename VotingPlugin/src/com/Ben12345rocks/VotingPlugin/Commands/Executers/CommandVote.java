@@ -8,17 +8,17 @@ import org.bukkit.command.CommandSender;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class CommandVote.
  */
 public class CommandVote implements CommandExecutor {
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The instance. */
 	private static CommandVote instance = new CommandVote();
-
-	/** The plugin. */
-	private static Main plugin;
 
 	/**
 	 * Gets the single instance of CommandVote.
@@ -32,17 +32,8 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Instantiates a new command vote.
 	 */
-	private CommandVote() {
-	}
-
-	/**
-	 * Instantiates a new command vote.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public CommandVote(Main plugin) {
-		CommandVote.plugin = plugin;
+	public CommandVote() {
+		
 	}
 
 	/*
@@ -55,7 +46,7 @@ public class CommandVote implements CommandExecutor {
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-		for (CommandHandler commandHandler : plugin.voteCommand) {
+		for (CommandHandler commandHandler : main.voteCommand) {
 			if (commandHandler.runCommand(sender, args)) {
 				return true;
 			}

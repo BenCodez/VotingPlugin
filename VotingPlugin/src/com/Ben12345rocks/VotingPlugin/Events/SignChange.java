@@ -12,14 +12,14 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class SignChange.
  */
 public class SignChange implements Listener {
-
-	/** The plugin. */
-	private static Main plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Instantiates a new sign change.
@@ -27,8 +27,8 @@ public class SignChange implements Listener {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public SignChange(Main plugin) {
-		SignChange.plugin = plugin;
+	public SignChange() {
+		
 	}
 
 	/**
@@ -52,7 +52,7 @@ public class SignChange implements Listener {
 					ServerData.getInstance().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
 					event.getPlayer().sendMessage(StringUtils.getInstance().colorize("&aAdded sign!"));
-					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+					Bukkit.getScheduler().runTaskAsynchronously(main, new Runnable() {
 
 						@Override
 						public void run() {

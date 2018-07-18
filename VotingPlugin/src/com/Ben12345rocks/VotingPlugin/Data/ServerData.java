@@ -12,17 +12,17 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class ServerData.
  */
 public class ServerData {
-
+	private Main main = ServiceLocator.getService(Main.class);
+	
 	/** The instance. */
 	static ServerData instance = new ServerData();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
 
 	/**
 	 * Gets the single instance of ServerData.
@@ -37,16 +37,6 @@ public class ServerData {
 	 * Instantiates a new server data.
 	 */
 	private ServerData() {
-	}
-
-	/**
-	 * Instantiates a new server data.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public ServerData(Main plugin) {
-		ServerData.plugin = plugin;
 	}
 
 	public synchronized void addServiceSite(String site) {
@@ -78,7 +68,7 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
-		plugin.signs.add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
+		main.signs.add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
 				getSignPosition("" + count)));
 	}
 
