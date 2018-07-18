@@ -5,7 +5,6 @@ description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
 softdepend: [AdvancedCore]
-api-version: 1.13
 commands:
   vote:
     description: Vote command
