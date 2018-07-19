@@ -11,7 +11,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 import ninja.egg82.patterns.ServiceLocator;
 
@@ -54,7 +54,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkAllSites(VoteUser user) {
+	public boolean checkAllSites(User user) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes) {
 			giveAllSitesRewards(user, user.isOnline());
@@ -69,7 +69,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkCumualativeVotes(VoteUser user) {
+	public boolean checkCumualativeVotes(User user) {
 		boolean gotCumulative = false;
 		Set<String> votes = Config.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
@@ -112,7 +112,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkFirstVote(VoteUser user) {
+	public boolean checkFirstVote(User user) {
 		if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
@@ -131,7 +131,7 @@ public class OtherVoteReward {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkMilestone(VoteUser user) {
+	public boolean checkMilestone(User user) {
 		boolean gotMilestone = false;
 		Set<String> votes = Config.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
@@ -158,7 +158,7 @@ public class OtherVoteReward {
 		return gotMilestone;
 	}
 
-	public boolean checkVoteStreak(VoteUser user, String type) {
+	public boolean checkVoteStreak(User user, String type) {
 		boolean gotReward = false;
 
 		Set<String> streaks = Config.getInstance().getVoteStreakVotes(type);
@@ -216,7 +216,7 @@ public class OtherVoteReward {
 	 * @param online
 	 *            the online
 	 */
-	public void giveAllSitesRewards(VoteUser user, boolean online) {
+	public void giveAllSitesRewards(User user, boolean online) {
 		PlayerVoteAllSitesEvent event = new PlayerVoteAllSitesEvent(user);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -237,7 +237,7 @@ public class OtherVoteReward {
 	 * @param cumulative
 	 *            the cumulative
 	 */
-	public void giveCumulativeVoteReward(VoteUser user, boolean online, int cumulative) {
+	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getCumulativeRewardsPath(cumulative))
 				.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
@@ -250,7 +250,7 @@ public class OtherVoteReward {
 	 * @param online
 	 *            the online
 	 */
-	public void giveFirstVoteRewards(VoteUser user, boolean online) {
+	public void giveFirstVoteRewards(User user, boolean online) {
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath(), online);
 	}
@@ -265,12 +265,12 @@ public class OtherVoteReward {
 	 * @param milestone
 	 *            the milestone
 	 */
-	public void giveMilestoneVoteReward(VoteUser user, boolean online, int milestone) {
+	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMilestoneRewardsPath(milestone))
 				.setOnline(online).withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
-	public void giveVoteStreakReward(VoteUser user, boolean online, String type, String string, int votes) {
+	public void giveVoteStreakReward(User user, boolean online, String type, String string, int votes) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, string))
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}

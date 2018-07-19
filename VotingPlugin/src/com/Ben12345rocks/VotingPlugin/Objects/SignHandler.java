@@ -247,7 +247,7 @@ public class SignHandler {
 			lines.add(line3);
 			lines.add(line4);
 
-			ArrayList<VoteUser> users = null;
+			ArrayList<User> users = null;
 			if (data.equalsIgnoreCase("all")) {
 				users = main.convertSet(main.topVoterAllTime.keySet());
 			} else if (data.equalsIgnoreCase("monthly")) {
@@ -259,7 +259,7 @@ public class SignHandler {
 			}
 
 			if (users != null && users.size() >= position) {
-				VoteUser user = users.get(position - 1);
+				User user = users.get(position - 1);
 				playerName = user.getPlayerName();
 
 				votes = 0;

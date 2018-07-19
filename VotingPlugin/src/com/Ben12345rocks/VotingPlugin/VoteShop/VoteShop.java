@@ -10,7 +10,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteShop {
@@ -49,7 +49,7 @@ public class VoteShop {
 					public void onClick(ClickEvent event) {
 						Player player = event.getWhoClicked();
 
-						VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+						User user = UserManager.getInstance().getVotingPluginUser(player);
 						int points = Config.getInstance().getIdentifierCost(identifier);
 						String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
 						if (identifier != null) {

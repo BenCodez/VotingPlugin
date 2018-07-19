@@ -6,7 +6,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class UserManager {
 	/** The instance. */
@@ -29,25 +29,25 @@ public class UserManager {
 		return com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getAllUUIDs();
 	}
 
-	public VoteUser getVotingPluginUser(java.util.UUID uuid) {
+	public User getVotingPluginUser(java.util.UUID uuid) {
 		return getVotingPluginUser(new UUID(uuid.toString()));
 	}
 
-	public VoteUser getVotingPluginUser(OfflinePlayer player) {
+	public User getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public VoteUser getVotingPluginUser(Player player) {
+	public User getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getName());
 	}
 
 	@SuppressWarnings("deprecation")
-	public VoteUser getVotingPluginUser(String playerName) {
-		return new VoteUser(com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getProperName(playerName));
+	public User getVotingPluginUser(String playerName) {
+		return new User(com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getProperName(playerName));
 	}
 
 	@SuppressWarnings("deprecation")
-	public VoteUser getVotingPluginUser(UUID uuid) {
-		return new VoteUser(uuid);
+	public User getVotingPluginUser(UUID uuid) {
+		return new User(uuid);
 	}
 }

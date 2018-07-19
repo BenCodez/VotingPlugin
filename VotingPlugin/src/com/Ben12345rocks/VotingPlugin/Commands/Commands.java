@@ -27,7 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Scoreboards.SimpleScoreboard;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -131,7 +131,7 @@ public class Commands {
 		msg.add(config.getFormatCommandsVoteBestTitle());
 		msg.addAll(config.getFormatCommandsVoteBestLines());
 
-		VoteUser user = UserManager.getInstance().getVotingPluginUser(name);
+		User user = UserManager.getInstance().getVotingPluginUser(name);
 
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
@@ -283,7 +283,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] playerInfo(VoteUser user) {
+	public String[] playerInfo(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		// title
@@ -313,7 +313,7 @@ public class Commands {
 	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<VoteUser> users = main.convertSet(main.topVoterAllTime.keySet());
+			ArrayList<User> users = main.convertSet(main.topVoterAllTime.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -353,7 +353,7 @@ public class Commands {
 	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<VoteUser> users = main.convertSet(main.topVoterDaily.keySet());
+			ArrayList<User> users = main.convertSet(main.topVoterDaily.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -393,7 +393,7 @@ public class Commands {
 	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<VoteUser> users = main.convertSet(main.topVoterMonthly.keySet());
+			ArrayList<User> users = main.convertSet(main.topVoterMonthly.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -433,7 +433,7 @@ public class Commands {
 	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<VoteUser> users = main.convertSet(main.topVoterWeekly.keySet());
+			ArrayList<User> users = main.convertSet(main.topVoterWeekly.keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -506,7 +506,7 @@ public class Commands {
 		msg.add(config.getFormatCommandsVoteStreakTitle());
 		msg.addAll(config.getFormatCommandsVoteStreakLines());
 
-		VoteUser user = UserManager.getInstance().getVotingPluginUser(name);
+		User user = UserManager.getInstance().getVotingPluginUser(name);
 
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
@@ -524,10 +524,10 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(ArrayUtils.getInstance().colorize(msg));
 	}
 
-	public void updateVoteToday(ArrayList<VoteUser> users) {
+	public void updateVoteToday(ArrayList<User> users) {
 		main.voteToday.clear();
 
-		for (VoteUser user : users) {
+		for (User user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 			for (VoteSite voteSite : main.getVoteSites()) {
 				long time = user.getTime(voteSite);
@@ -554,7 +554,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandLast(VoteUser user) {
+	public String[] voteCommandLast(User user) {
 
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -580,7 +580,7 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
-	public String voteCommandLastDate(VoteUser user, VoteSite voteSite) {
+	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		long time = user.getTime(voteSite);
 		if (time > 0) {
 			Date date = new Date(time);
@@ -590,7 +590,7 @@ public class Commands {
 		return "";
 	}
 
-	public String voteCommandLastLine(VoteUser user, VoteSite voteSite) {
+	public String voteCommandLastLine(User user, VoteSite voteSite) {
 		String timeString = voteCommandLastDate(user, voteSite);
 
 		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
@@ -604,7 +604,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandNext(VoteUser user) {
+	public String[] voteCommandNext(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		String playerName = user.getPlayerName();
@@ -635,7 +635,7 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
-	public String voteCommandNextInfo(VoteUser user, VoteSite voteSite) {
+	public String voteCommandNextInfo(User user, VoteSite voteSite) {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
@@ -695,7 +695,7 @@ public class Commands {
 	 *            the user
 	 * @return the string[]
 	 */
-	public String[] voteCommandTotal(VoteUser user) {
+	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		int daily = user.getDailyTotal();
@@ -733,7 +733,7 @@ public class Commands {
 		int all = 0;
 
 		for (String uuid : uuids) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			daily += user.getDailyTotal();
 			weekly += user.getWeeklyTotal();
 			month += user.getMonthTotal();
@@ -790,7 +790,7 @@ public class Commands {
 	 */
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (VoteUser user : main.voteToday.keySet()) {
+		for (User user : main.voteToday.keySet()) {
 
 			for (VoteSite voteSite : main.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
@@ -802,7 +802,7 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public String[] voteURLs(VoteUser user) {
+	public String[] voteURLs(User user) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();

@@ -7,7 +7,7 @@ import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import ninja.egg82.patterns.ServiceLocator;
@@ -44,7 +44,7 @@ public class VoteReminding {
 	 * @param user
 	 *            the user
 	 */
-	public void checkRemind(VoteUser user) {
+	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
 
 		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
@@ -66,7 +66,7 @@ public class VoteReminding {
 		}
 	}
 
-	private void giveReward(VoteUser user) {
+	private void giveReward(User user) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteRemindingRewardsPath())
 				.setGiveOffline(false).send(user);
 	}
@@ -80,7 +80,7 @@ public class VoteReminding {
 			@Override
 			public void run() {
 				for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-					VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+					User user = UserManager.getInstance().getVotingPluginUser(player);
 					checkRemind(user);
 				}
 			}
@@ -93,7 +93,7 @@ public class VoteReminding {
 	 * @param user
 	 *            the user
 	 */
-	public void runRemind(VoteUser user) {
+	public void runRemind(User user) {
 		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll() && user.shouldBeReminded()) {
 			user.setReminded(true);
 			giveReward(user);
@@ -103,7 +103,7 @@ public class VoteReminding {
 		}
 	}
 
-	public void runRemindLogin(VoteUser user) {
+	public void runRemindLogin(User user) {
 		if (Config.getInstance().getVoteRemindingEnabled()
 				&& (!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())
 				&& user.shouldBeReminded()) {

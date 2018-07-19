@@ -19,7 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import ninja.egg82.patterns.ServiceLocator;
@@ -50,7 +50,7 @@ public class VoteParty implements Listener {
 	private VoteParty() {
 	}
 
-	public void addTotal(VoteUser user) {
+	public void addTotal(User user) {
 		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
 	}
@@ -61,7 +61,7 @@ public class VoteParty implements Listener {
 	 * @param user
 	 *            the user
 	 */
-	public void addVotePlayer(VoteUser user) {
+	public void addVotePlayer(User user) {
 		String uuid = user.getUUID();
 		ArrayList<String> voted = getVotedUsers();
 		if (voted == null) {
@@ -169,7 +169,7 @@ public class VoteParty implements Listener {
 	 * @param user
 	 *            the user
 	 */
-	public void giveReward(VoteUser user) {
+	public void giveReward(User user) {
 		/*
 		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) { if
 		 * (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
@@ -199,12 +199,12 @@ public class VoteParty implements Listener {
 
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
-				VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		}
@@ -233,7 +233,7 @@ public class VoteParty implements Listener {
 		setVotedUsers(new ArrayList<String>());
 		setTotalVotes(0);
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}
@@ -263,7 +263,7 @@ public class VoteParty implements Listener {
 		ServerData.getInstance().saveData();
 	}
 
-	public synchronized void vote(VoteUser user, boolean realVote) {
+	public synchronized void vote(User user, boolean realVote) {
 		if (Config.getInstance().getVotePartyEnabled()) {
 			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
 				addTotal(user);

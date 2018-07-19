@@ -51,7 +51,7 @@ import com.Ben12345rocks.VotingPlugin.Events.SignChange;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Events.VotingPluginUpdateEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
@@ -74,16 +74,16 @@ public class Main extends JavaPlugin {
 	public static ConfigVoteSites configVoteSites;
 
 	/** The top voter monthly. */
-	public LinkedHashMap<VoteUser, Integer> topVoterAllTime;
+	public LinkedHashMap<User, Integer> topVoterAllTime;
 
 	/** The top voter monthly. */
-	public LinkedHashMap<VoteUser, Integer> topVoterMonthly;
+	public LinkedHashMap<User, Integer> topVoterMonthly;
 
 	/** The top voter weekly. */
-	public LinkedHashMap<VoteUser, Integer> topVoterWeekly;
+	public LinkedHashMap<User, Integer> topVoterWeekly;
 
 	/** The top voter daily. */
-	public LinkedHashMap<VoteUser, Integer> topVoterDaily;
+	public LinkedHashMap<User, Integer> topVoterDaily;
 
 	/** The updater. */
 	public Updater updater;
@@ -98,7 +98,7 @@ public class Main extends JavaPlugin {
 	private List<VoteSite> voteSites;
 
 	/** The vote today. */
-	public LinkedHashMap<VoteUser, HashMap<VoteSite, LocalDateTime>> voteToday;
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
 	public ArrayList<SignHandler> signs;
@@ -140,7 +140,7 @@ public class Main extends JavaPlugin {
 		ArrayList<String> uuids = new ArrayList<String>(UserManager.getInstance().getAllUUIDs());
 
 		while (uuids.size() > 0) {
-			HashMap<VoteUser, HashMap<String, String>> data = new HashMap<VoteUser, HashMap<String, String>>();
+			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 			AdvancedCoreHook.getInstance().setStorageType(from);
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
 					&& AdvancedCoreHook.getInstance().getMysql() != null)
@@ -153,7 +153,7 @@ public class Main extends JavaPlugin {
 			while (i < 500 && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
-					VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 
 					HashMap<String, String> values = new HashMap<String, String>();
 					for (String key : user.getData().getKeys()) {
@@ -197,8 +197,8 @@ public class Main extends JavaPlugin {
 		getLogger().info("Finished convertting");
 	}
 
-	public ArrayList<VoteUser> convertSet(Set<VoteUser> set) {
-		return new ArrayList<VoteUser>(set);
+	public ArrayList<User> convertSet(Set<User> set) {
+		return new ArrayList<User>(set);
 	}
 
 	/**
@@ -219,19 +219,19 @@ public class Main extends JavaPlugin {
 		return signs;
 	}
 
-	public LinkedHashMap<VoteUser, Integer> getTopVoterAllTime() {
+	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
 		return topVoterAllTime;
 	}
 
-	public LinkedHashMap<VoteUser, Integer> getTopVoterDaily() {
+	public LinkedHashMap<User, Integer> getTopVoterDaily() {
 		return topVoterDaily;
 	}
 
-	public LinkedHashMap<VoteUser, Integer> getTopVoterMonthly() {
+	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
 		return topVoterMonthly;
 	}
 
-	public LinkedHashMap<VoteUser, Integer> getTopVoterWeekly() {
+	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
 		return topVoterWeekly;
 	}
 
@@ -246,7 +246,7 @@ public class Main extends JavaPlugin {
 	 *            the uuid
 	 * @return the user
 	 */
-	public VoteUser getUser(UUID uuid) {
+	public User getUser(UUID uuid) {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
@@ -323,7 +323,7 @@ public class Main extends JavaPlugin {
 		return voteSites;
 	}
 
-	public LinkedHashMap<VoteUser, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
 		return voteToday;
 	}
 
@@ -740,11 +740,11 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoterMonthly = new LinkedHashMap<VoteUser, Integer>();
-		topVoterWeekly = new LinkedHashMap<VoteUser, Integer>();
-		topVoterDaily = new LinkedHashMap<VoteUser, Integer>();
-		voteToday = new LinkedHashMap<VoteUser, HashMap<VoteSite, LocalDateTime>>();
-		topVoterAllTime = new LinkedHashMap<VoteUser, Integer>();
+		topVoterMonthly = new LinkedHashMap<User, Integer>();
+		topVoterWeekly = new LinkedHashMap<User, Integer>();
+		topVoterDaily = new LinkedHashMap<User, Integer>();
+		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
+		topVoterAllTime = new LinkedHashMap<User, Integer>();
 
 		voteLog = new Logger(this, new File(getDataFolder() + File.separator + "Log", "votelog.txt"));
 
@@ -954,10 +954,10 @@ public class Main extends JavaPlugin {
 				long time = System.currentTimeMillis();
 				try {
 					ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-					ArrayList<VoteUser> users = new ArrayList<VoteUser>();
+					ArrayList<User> users = new ArrayList<User>();
 					for (String uuid : uuids) {
 						if (uuid != null && !uuid.isEmpty()) {
-							VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 							users.add(user);
 							// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
 							// java.lang.Thread.sleep(5000);
@@ -992,8 +992,8 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 	}
 
-	private void writeConvertData(HashMap<VoteUser, HashMap<String, String>> data) {
-		for (Entry<VoteUser, HashMap<String, String>> entry : data.entrySet()) {
+	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
+		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
 					entry.getKey().getData().setString(values.getKey(), values.getValue());

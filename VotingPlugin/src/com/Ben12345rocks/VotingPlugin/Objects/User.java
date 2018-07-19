@@ -17,7 +17,6 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Objects.User;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -33,7 +32,7 @@ import ninja.egg82.patterns.ServiceLocator;
 /**
  * The Class User.
  */
-public class VoteUser extends User {
+public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
@@ -43,7 +42,7 @@ public class VoteUser extends User {
 	 *            the player
 	 */
 	@Deprecated
-	public VoteUser(Player player) {
+	public User(Player player) {
 		super(ServiceLocator.getService(Main.class), player);
 	}
 
@@ -54,7 +53,7 @@ public class VoteUser extends User {
 	 *            the player name
 	 */
 	@Deprecated
-	public VoteUser(String playerName) {
+	public User(String playerName) {
 		super(ServiceLocator.getService(Main.class), playerName);
 	}
 
@@ -65,7 +64,7 @@ public class VoteUser extends User {
 	 *            the uuid
 	 */
 	@Deprecated
-	public VoteUser(UUID uuid) {
+	public User(UUID uuid) {
 		super(ServiceLocator.getService(Main.class), uuid);
 	}
 
@@ -78,7 +77,7 @@ public class VoteUser extends User {
 	 *            the load name
 	 */
 	@Deprecated
-	public VoteUser(UUID uuid, boolean loadName) {
+	public User(UUID uuid, boolean loadName) {
 		super(ServiceLocator.getService(Main.class), uuid, loadName);
 	}
 
@@ -227,7 +226,7 @@ public class VoteUser extends User {
 	 * @return true, if successful
 	 */
 	public boolean checkAllVotes() {
-		VoteUser user = this;
+		User user = this;
 
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();

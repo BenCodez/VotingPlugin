@@ -28,7 +28,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -67,7 +67,7 @@ public class TopVoterHandler implements Listener {
 
 	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VoteUser> users = main.convertSet(main.topVoterWeekly.keySet());
+		ArrayList<User> users = main.convertSet(main.topVoterWeekly.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = Config.getInstance().getFormatCommandVoteTopLine().replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
@@ -107,7 +107,7 @@ public class TopVoterHandler implements Listener {
 	public void onDayChange(DayChangeEvent event) {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getDailyTotal() == 0 && user.getDayVoteStreak() != 0) {
 				user.setDayVoteStreak(0);
 			} else {
@@ -129,7 +129,7 @@ public class TopVoterHandler implements Listener {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
-			for (VoteUser user : main.topVoterDaily.keySet()) {
+			for (User user : main.topVoterDaily.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
 						if (user.getDailyTotal() != lastTotal) {
@@ -152,7 +152,7 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getMonthTotal() == 0 && user.getMonthVoteStreak() != 0) {
 				user.setMonthVoteStreak(0);
 			} else {
@@ -174,7 +174,7 @@ public class TopVoterHandler implements Listener {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
-			for (VoteUser user : main.topVoterMonthly.keySet()) {
+			for (User user : main.topVoterMonthly.keySet()) {
 
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
@@ -195,7 +195,7 @@ public class TopVoterHandler implements Listener {
 
 		if (Config.getInstance().getResetMilestonesMonthly()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				user.setMilestoneCount(0);
 				user.setHasGottenMilestone(new HashMap<String, Boolean>());
 			}
@@ -212,7 +212,7 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getWeeklyTotal() == 0 && user.getWeekVoteStreak() != 0) {
 				user.setWeekVoteStreak(0);
 			} else {
@@ -234,7 +234,7 @@ public class TopVoterHandler implements Listener {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
-			for (VoteUser user : main.topVoterWeekly.keySet()) {
+			for (User user : main.topVoterWeekly.keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
 						if (user.getWeeklyTotal() != lastTotal) {
@@ -260,7 +260,7 @@ public class TopVoterHandler implements Listener {
 
 	public void resetDailyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getDailyTotal() != 0) {
 				user.resetDailyTotalVotes();
 			}
@@ -269,7 +269,7 @@ public class TopVoterHandler implements Listener {
 
 	public void resetMonthlyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getMonthTotal() != 0) {
 				user.resetMonthlyTotalVotes();
 			}
@@ -278,22 +278,22 @@ public class TopVoterHandler implements Listener {
 
 	public void resetWeeklyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VoteUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getWeeklyTotal() != 0) {
 				user.resetWeeklyTotalVotes();
 			}
 		}
 	}
 
-	public LinkedHashMap<VoteUser, Integer> sortByValues(LinkedHashMap<VoteUser, Integer> topVoterAllTime,
+	public LinkedHashMap<User, Integer> sortByValues(LinkedHashMap<User, Integer> topVoterAllTime,
 			final boolean order) {
 
-		List<Entry<VoteUser, Integer>> list = new LinkedList<Entry<VoteUser, Integer>>(topVoterAllTime.entrySet());
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(topVoterAllTime.entrySet());
 
 		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<VoteUser, Integer>>() {
+		Collections.sort(list, new Comparator<Entry<User, Integer>>() {
 			@Override
-			public int compare(Entry<VoteUser, Integer> o1, Entry<VoteUser, Integer> o2) {
+			public int compare(Entry<User, Integer> o1, Entry<User, Integer> o2) {
 				if (order) {
 					return o1.getValue().compareTo(o2.getValue());
 				} else {
@@ -304,8 +304,8 @@ public class TopVoterHandler implements Listener {
 		});
 
 		// Maintaining insertion order with the help of LinkedList
-		LinkedHashMap<VoteUser, Integer> sortedMap = new LinkedHashMap<VoteUser, Integer>();
-		for (Entry<VoteUser, Integer> entry : list) {
+		LinkedHashMap<User, Integer> sortedMap = new LinkedHashMap<User, Integer>();
+		for (Entry<User, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
 
@@ -322,7 +322,7 @@ public class TopVoterHandler implements Listener {
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterDaily.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterDaily.entrySet()) {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
@@ -339,7 +339,7 @@ public class TopVoterHandler implements Listener {
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterMonthly.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterMonthly.entrySet()) {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
@@ -357,7 +357,7 @@ public class TopVoterHandler implements Listener {
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterWeekly.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterWeekly.entrySet()) {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
@@ -377,7 +377,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterAllTime.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterAllTime.entrySet()) {
 			String line = Config.getInstance().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -417,7 +417,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterDaily.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterDaily.entrySet()) {
 			String line = Config.getInstance().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -457,7 +457,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterMonthly.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterMonthly.entrySet()) {
 			String line = Config.getInstance().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -492,9 +492,9 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersAllTime() {
 		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<VoteUser, Integer>> list = new LinkedList<Entry<VoteUser, Integer>>(main.topVoterAllTime.entrySet());
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(main.topVoterAllTime.entrySet());
 		int i = 0;
-		for (Entry<VoteUser, Integer> entry : list) {
+		for (Entry<User, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
 			try {
@@ -520,7 +520,7 @@ public class TopVoterHandler implements Listener {
 
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VoteUser> users = main.convertSet(main.topVoterDaily.keySet());
+		ArrayList<User> users = main.convertSet(main.topVoterDaily.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
@@ -544,9 +544,9 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersMonthly() {
 		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<VoteUser, Integer>> list = new LinkedList<Entry<VoteUser, Integer>>(main.topVoterMonthly.entrySet());
+		List<Entry<User, Integer>> list = new LinkedList<Entry<User, Integer>>(main.topVoterMonthly.entrySet());
 		int i = 0;
-		for (Entry<VoteUser, Integer> entry : list) {
+		for (Entry<User, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
 			try {
@@ -576,7 +576,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VoteUser, Integer> entry : main.topVoterWeekly.entrySet()) {
+		for (Entry<User, Integer> entry : main.topVoterWeekly.entrySet()) {
 			String line = Config.getInstance().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -604,10 +604,10 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public synchronized void updateTopVoters(ArrayList<VoteUser> users1) {
-		ArrayList<VoteUser> users = new ArrayList<VoteUser>();
+	public synchronized void updateTopVoters(ArrayList<User> users1) {
+		ArrayList<User> users = new ArrayList<User>();
 		ArrayList<String> blackList = getTopVoterBlackList();
-		for (VoteUser user : users1) {
+		for (User user : users1) {
 			if (!blackList.contains(user.getPlayerName())) {
 				if ((!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())
 						&& !user.isBanned()) {
@@ -617,7 +617,7 @@ public class TopVoterHandler implements Listener {
 		}
 		main.topVoterAllTime.clear();
 		if (Config.getInstance().getLoadTopVoterAllTime()) {
-			for (VoteUser user : users) {
+			for (User user : users) {
 				int total = user.getAllTimeTotal();
 				if (total > 0) {
 					main.topVoterAllTime.put(user, total);
@@ -629,7 +629,7 @@ public class TopVoterHandler implements Listener {
 
 		main.topVoterMonthly.clear();
 		if (Config.getInstance().getLoadTopVoterMonthly()) {
-			for (VoteUser user : users) {
+			for (User user : users) {
 				int total = user.getMonthTotal();
 				if (total > 0) {
 					main.topVoterMonthly.put(user, total);
@@ -641,7 +641,7 @@ public class TopVoterHandler implements Listener {
 
 		main.topVoterWeekly.clear();
 		if (Config.getInstance().getLoadTopVoterWeekly()) {
-			for (VoteUser user : users) {
+			for (User user : users) {
 				int total = user.getWeeklyTotal();
 				if (total > 0) {
 					main.topVoterWeekly.put(user, total);
@@ -654,7 +654,7 @@ public class TopVoterHandler implements Listener {
 
 		main.topVoterDaily.clear();
 		if (Config.getInstance().getLoadTopVoterDaily()) {
-			for (VoteUser user : users) {
+			for (User user : users) {
 				int total = user.getDailyTotal();
 				if (total > 0) {
 					main.topVoterDaily.put(user, total);

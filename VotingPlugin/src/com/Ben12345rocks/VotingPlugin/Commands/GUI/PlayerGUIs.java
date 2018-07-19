@@ -24,7 +24,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.TopVoter;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -60,12 +60,12 @@ public class PlayerGUIs {
 		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
 	}
 
-	public VoteUser getSelectedPlayer(Player player) {
-		VoteUser str = (VoteUser) PlayerUtils.getInstance().getPlayerMeta(player, "SelectedPlayerGUIs");
+	public User getSelectedPlayer(Player player) {
+		User str = (User) PlayerUtils.getInstance().getPlayerMeta(player, "SelectedPlayerGUIs");
 		return str;
 	}
 
-	public void openVoteBest(Player player, VoteUser user) {
+	public void openVoteBest(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteBestName(), "player", user.getPlayerName()));
@@ -100,7 +100,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteGUI(Player player, VoteUser user) {
+	public void openVoteGUI(Player player, User user) {
 		if (user == null) {
 			user = UserManager.getInstance().getVotingPluginUser(player);
 			setSelectedPlayer(player, user);
@@ -163,7 +163,7 @@ public class PlayerGUIs {
 				public void onClick(ClickEvent event) {
 					Player player = event.getWhoClicked();
 					String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
-					VoteUser user = getSelectedPlayer(player);
+					User user = getSelectedPlayer(player);
 					if (!cmd.equals("")) {
 						player.performCommand(cmd);
 					} else {
@@ -193,7 +193,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteLast(Player player, VoteUser user) {
+	public void openVoteLast(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
@@ -222,7 +222,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteNext(Player player, VoteUser user) {
+	public void openVoteNext(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
@@ -250,7 +250,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void openVoteStreak(Player player, VoteUser user) {
+	public void openVoteStreak(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteStreakName(), "player", user.getPlayerName()));
@@ -327,7 +327,7 @@ public class PlayerGUIs {
 	public void openVoteToday(Player player) {
 		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
-		for (VoteUser user : main.voteToday.keySet()) {
+		for (User user : main.voteToday.keySet()) {
 
 			for (VoteSite voteSite : main.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
@@ -338,7 +338,7 @@ public class PlayerGUIs {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VoteUser user = UserManager.getInstance()
+						User user = UserManager.getInstance()
 								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
 						openVoteGUI(player, user);
 
@@ -365,7 +365,7 @@ public class PlayerGUIs {
 			top = TopVoter.getDefault();
 		}
 		BInventory inv = null;
-		Set<Entry<VoteUser, Integer>> users = null;
+		Set<Entry<User, Integer>> users = null;
 		String topVoter = "";
 		if (top.equals(TopVoter.Monthly)) {
 			topVoter = Config.getInstance().getFormatTopVoterMonthly();
@@ -383,7 +383,7 @@ public class PlayerGUIs {
 		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
 				"topvoter", topVoter));
 		int pos = 1;
-		for (Entry<VoteUser, Integer> entry : users) {
+		for (Entry<User, Integer> entry : users) {
 
 			inv.addButton(new BInventoryButton(
 					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getOfflinePlayer()))
@@ -399,7 +399,7 @@ public class PlayerGUIs {
 					// String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
 					String name = (String) clickEvent.getButton().getData("player");
 
-					VoteUser user = UserManager.getInstance().getVotingPluginUser(name);
+					User user = UserManager.getInstance().getVotingPluginUser(name);
 					openVoteGUI(player, user);
 				}
 			}.addData("player", entry.getKey().getPlayerName()));
@@ -434,7 +434,7 @@ public class PlayerGUIs {
 
 	}
 
-	public void openVoteTotal(Player player, VoteUser user) {
+	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", user.getPlayerName()));
@@ -492,7 +492,7 @@ public class PlayerGUIs {
 		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
 
-		VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 
 		int count = 0;
 		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
@@ -513,7 +513,7 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					VoteUser user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
+					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
 					Player player = event.getWhoClicked();
 					player.closeInventory();
 					user.sendMessage(Commands.getInstance().voteURLs(user));
@@ -547,7 +547,7 @@ public class PlayerGUIs {
 								&& event.getClick().equals(ClickType.RIGHT)) {
 							voteReward(player, voteSite.getKey());
 						} else {
-							VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+							User user = UserManager.getInstance().getVotingPluginUser(player);
 							user.sendMessage(StringUtils.getInstance().replacePlaceHolder(StringUtils.getInstance()
 									.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
 											Config.getInstance().getGUIVoteURLURLText(), "voteurl",
@@ -576,7 +576,7 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteURL(Player player, String voteSite) {
-		VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 		VoteSite site = main.getVoteSite(voteSite);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteURLSiteName(), "site", site.getDisplayName()));
@@ -622,7 +622,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	public void setSelectedPlayer(Player player, VoteUser user) {
+	public void setSelectedPlayer(Player player, User user) {
 		PlayerUtils.getInstance().setPlayerMeta(player, "SelectedPlayerGUIs", user);
 	}
 

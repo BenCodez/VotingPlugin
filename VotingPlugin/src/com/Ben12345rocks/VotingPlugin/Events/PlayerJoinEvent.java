@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerLoginEvent;
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import ninja.egg82.patterns.ServiceLocator;
@@ -52,7 +52,7 @@ public class PlayerJoinEvent implements Listener {
 				Player player = event.getPlayer();
 
 				if (player != null) {
-					VoteUser user = UserManager.getInstance().getVotingPluginUser(player);
+					User user = UserManager.getInstance().getVotingPluginUser(player);
 
 					// run remind
 					user.loginMessage();

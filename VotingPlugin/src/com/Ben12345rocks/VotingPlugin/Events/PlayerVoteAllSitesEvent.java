@@ -3,7 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.Ben12345rocks.VotingPlugin.Objects.VoteUser;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -23,12 +23,12 @@ public class PlayerVoteAllSitesEvent extends Event {
 		return handlers;
 	}
 
-	private VoteUser user;
+	private User user;
 
 	/** The cancelled. */
 	private boolean cancelled;
 
-	public PlayerVoteAllSitesEvent(VoteUser user) {
+	public PlayerVoteAllSitesEvent(User user) {
 		super();
 		setUser(user);
 	}
@@ -46,7 +46,7 @@ public class PlayerVoteAllSitesEvent extends Event {
 	/**
 	 * @return the user
 	 */
-	public VoteUser getUser() {
+	public User getUser() {
 		return user;
 	}
 
@@ -73,7 +73,7 @@ public class PlayerVoteAllSitesEvent extends Event {
 	 * @param user
 	 *            the user to set
 	 */
-	public void setUser(VoteUser user) {
+	public void setUser(User user) {
 		this.user = user;
 	}
 

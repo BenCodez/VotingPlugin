@@ -86,7 +86,7 @@ public class VoteSite {
 	 * @param user
 	 *            the user
 	 */
-	public void broadcastVote(VoteUser user) {
+	public void broadcastVote(User user) {
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
@@ -177,7 +177,7 @@ public class VoteSite {
 	 * @param online
 	 *            the online
 	 */
-	public void giveRewards(VoteUser user, boolean online) {
+	public void giveRewards(User user, boolean online) {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
@@ -195,7 +195,7 @@ public class VoteSite {
 	 * @param online
 	 *            the online
 	 */
-	public void giveSiteReward(VoteUser user, boolean online) {
+	public void giveSiteReward(User user, boolean online) {
 		giveRewards(user, online);
 	}
 
