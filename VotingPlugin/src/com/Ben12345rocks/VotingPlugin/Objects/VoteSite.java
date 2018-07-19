@@ -92,7 +92,8 @@ public class VoteSite {
 			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("player", playerName);
-			placeholders.put("nickname", (user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
+			placeholders.put("nickname",
+					(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 			placeholders.put("sitename", getDisplayName());
 			bc = StringUtils.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
