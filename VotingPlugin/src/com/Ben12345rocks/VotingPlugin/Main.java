@@ -774,7 +774,25 @@ public class Main extends JavaPlugin {
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Reminded", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "VARCHAR(10)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("PlayerName", "VARCHAR(20)");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeeklyTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DayVoteStreak", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestDayVoteStreak", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeekVoteStreak", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestWeekVoteStreak", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("VotePartyVotes", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthVoteStreak", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Points", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestDailyTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MileStoneTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("AllTimeTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestMonthlyTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MilestoneCount", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestWeeklyTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT");
 
 		}
 
