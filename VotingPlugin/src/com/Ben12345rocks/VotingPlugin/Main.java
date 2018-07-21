@@ -776,23 +776,23 @@ public class Main extends JavaPlugin {
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("PlayerName", "VARCHAR(20)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeeklyTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DayVoteStreak", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestDayVoteStreak", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeekVoteStreak", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestWeekVoteStreak", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("VotePartyVotes", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthVoteStreak", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Points", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestDailyTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MileStoneTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("AllTimeTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestMonthlyTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MilestoneCount", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestWeeklyTotal", "INT");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Points", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MileStoneTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 
 		}
 
