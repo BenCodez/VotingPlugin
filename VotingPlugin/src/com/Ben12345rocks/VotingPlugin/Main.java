@@ -148,7 +148,7 @@ public class Main extends JavaPlugin {
 			
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
-			while (i < 100 && i < uuids.size()) {
+			while (i < 250 && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
