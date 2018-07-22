@@ -600,7 +600,7 @@ public class PlayerGUIs {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Material.WATCH).setName("&4Last Vote")
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.CLOCK).setName("&4Last Vote")
 				.addLoreLine(Commands.getInstance().voteCommandLastLine(user, site))) {
 
 			@Override

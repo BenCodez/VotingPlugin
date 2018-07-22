@@ -317,7 +317,7 @@ GUI:
       Slot: 1
     Last:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Data: 0
         Amount: 1
         Name: '&4Last'
@@ -443,25 +443,25 @@ GUI:
     BackButton: true
     DayTotal:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cDaily Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     WeekTotal:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cWeekly Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     MonthTotal:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cMonthly Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
     AllTimeTotal:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cAllTime Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
@@ -469,19 +469,19 @@ GUI:
     Name: 'VoteBest: %player%'
     DayBest:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cDaily Best'
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
     WeekBest:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cWeekly Best'
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
     MonthBest:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cMonthly Best'
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
@@ -490,37 +490,37 @@ GUI:
     BackButton: false
     CurrentDayStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cCurrent Daily Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
     CurrentWeekStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cCurrent Weekly Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
     CurrentMonthStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cCurrent Monthly Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
     HighestDayStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cHighest Daily Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
     HighestWeekStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cHighest Weekly Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
     HighestMonthStreak:
       Item:
-        Material: 'WATCH'
+        Material: 'CLOCK'
         Name: '&cHighest Monthly Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
