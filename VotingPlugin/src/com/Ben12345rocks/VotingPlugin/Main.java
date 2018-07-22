@@ -33,6 +33,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderReque
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
@@ -146,14 +147,17 @@ public class Main extends JavaPlugin {
 			}
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
-			while (i < 500 && i < uuids.size()) {
+			while (i < 250 && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 
 					HashMap<String, String> values = new HashMap<String, String>();
 					for (String key : user.getData().getKeys()) {
-						values.put(key, user.getData().getString(key));
+						String value = user.getData().getValue(key);
+						if (value != null && !value.isEmpty()) {
+							values.put(key, value);
+						}
 					}
 					i++;
 					converted.add(uuid);
@@ -1010,10 +1014,22 @@ public class Main extends JavaPlugin {
 	}
 
 	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
+		boolean checkInt = AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL);
 		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
-					entry.getKey().getData().setString(values.getKey(), values.getValue());
+					String value = values.getValue();
+					if (value != null) {
+						if (checkInt) {
+							if (StringUtils.getInstance().isInt(value)) {
+								entry.getKey().getData().setInt(values.getKey(), Integer.parseInt(value));
+							} else {
+								entry.getKey().getData().setString(values.getKey(), value);
+							}
+						} else {
+							entry.getKey().getData().setString(values.getKey(), value);
+						}
+					}
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
