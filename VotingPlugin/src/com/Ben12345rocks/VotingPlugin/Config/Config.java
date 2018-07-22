@@ -175,7 +175,7 @@ public class Config extends YMLFile {
 	}
 
 	public int getConvertDelay() {
-		return getData().getInt("ConvertDelay", 50000);
+		return getData().getInt("ConvertDelay", 30000);
 	}
 
 	public boolean getCountFakeVotes() {

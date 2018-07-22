@@ -139,15 +139,16 @@ public class Main extends JavaPlugin {
 		while (uuids.size() > 0) {
 			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 			AdvancedCoreHook.getInstance().setStorageType(from);
+			//AdvancedCoreHook.getInstance().setStorageType(to);
+			
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-					&& AdvancedCoreHook.getInstance().getMysql() != null)
-
-			{
+					&& AdvancedCoreHook.getInstance().getMysql() != null) {
 				AdvancedCoreHook.getInstance().getMysql().clearCache();
 			}
+			
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
-			while (i < 250 && i < uuids.size()) {
+			while (i < 100 && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -155,7 +156,7 @@ public class Main extends JavaPlugin {
 					HashMap<String, String> values = new HashMap<String, String>();
 					for (String key : user.getData().getKeys()) {
 						String value = user.getData().getValue(key);
-						if (value != null && !value.isEmpty()) {
+						if (value != null && !value.isEmpty() && !value.equalsIgnoreCase("null")) {
 							values.put(key, value);
 						}
 					}
@@ -182,9 +183,7 @@ public class Main extends JavaPlugin {
 
 			AdvancedCoreHook.getInstance().setStorageType(to);
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-					&& AdvancedCoreHook.getInstance().getMysql() != null)
-
-			{
+					&& AdvancedCoreHook.getInstance().getMysql() != null) {
 				AdvancedCoreHook.getInstance().getMysql().clearCache();
 			}
 
@@ -1019,7 +1018,7 @@ public class Main extends JavaPlugin {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
 					String value = values.getValue();
-					if (value != null) {
+					if (value != null && !value.equalsIgnoreCase("null")) {
 						if (checkInt) {
 							if (StringUtils.getInstance().isInt(value)) {
 								entry.getKey().getData().setInt(values.getKey(), Integer.parseInt(value));
