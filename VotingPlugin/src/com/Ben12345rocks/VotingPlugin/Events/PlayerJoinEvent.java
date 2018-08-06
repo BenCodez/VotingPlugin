@@ -12,14 +12,14 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class PlayerJoinEvent.
  */
 public class PlayerJoinEvent implements Listener {
-
-	/** The plugin. */
-	private static Main plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Instantiates a new player join event.
@@ -27,8 +27,8 @@ public class PlayerJoinEvent implements Listener {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public PlayerJoinEvent(Main plugin) {
-		PlayerJoinEvent.plugin = plugin;
+	public PlayerJoinEvent() {
+		
 	}
 
 	/**
@@ -39,7 +39,7 @@ public class PlayerJoinEvent implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(PlayerLoginEvent event) {
-		plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		main.getServer().getScheduler().runTaskLaterAsynchronously(main, new Runnable() {
 
 			@Override
 			public void run() {

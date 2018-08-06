@@ -22,6 +22,8 @@ import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class VoteParty.
@@ -31,8 +33,7 @@ public class VoteParty implements Listener {
 	/** The instance. */
 	static VoteParty instance = new VoteParty();
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of VoteParty.
@@ -47,16 +48,6 @@ public class VoteParty implements Listener {
 	 * Instantiates a new vote party.
 	 */
 	private VoteParty() {
-	}
-
-	/**
-	 * Instantiates a new vote party.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public VoteParty(Main plugin) {
-		VoteParty.plugin = plugin;
 	}
 
 	public void addTotal(User user) {
@@ -196,7 +187,7 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards() {
 		for (final String cmd : Config.getInstance().getVotePartyCommands()) {
-			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+			Bukkit.getScheduler().runTask(main, new Runnable() {
 
 				@Override
 				public void run() {
@@ -235,7 +226,7 @@ public class VoteParty implements Listener {
 	}
 
 	public void register() {
-		plugin.getServer().getPluginManager().registerEvents(this, plugin);
+		main.getServer().getPluginManager().registerEvents(this, main);
 	}
 
 	public void reset() {

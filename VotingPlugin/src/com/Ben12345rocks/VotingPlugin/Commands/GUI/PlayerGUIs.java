@@ -30,8 +30,12 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 public class PlayerGUIs {
 	static PlayerGUIs instance = new PlayerGUIs();
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of Commands.
@@ -41,9 +45,6 @@ public class PlayerGUIs {
 	public static PlayerGUIs getInstance() {
 		return instance;
 	}
-
-	/** The plugin. */
-	Main plugin = Main.plugin;
 
 	/**
 	 * Instantiates a new commands.
@@ -196,7 +197,7 @@ public class PlayerGUIs {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : main.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
 					.setLore(Commands.getInstance().voteCommandLastLine(user, site)).setAmountNone(1)) {
 
@@ -225,7 +226,7 @@ public class PlayerGUIs {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : main.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
 					.setLore(Commands.getInstance().voteCommandNextInfo(user, site)).setAmountNone(1)) {
 
@@ -326,11 +327,11 @@ public class PlayerGUIs {
 	public void openVoteToday(Player player) {
 		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
-		for (User user : plugin.voteToday.keySet()) {
+		for (User user : main.voteToday.keySet()) {
 
-			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+			for (VoteSite voteSite : main.voteToday.get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
-				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
+				String timeString = main.voteToday.get(user).get(voteSite).format(formatter);
 				String msg = "&6" + user.getPlayerName() + " : " + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
@@ -368,16 +369,16 @@ public class PlayerGUIs {
 		String topVoter = "";
 		if (top.equals(TopVoter.Monthly)) {
 			topVoter = Config.getInstance().getFormatTopVoterMonthly();
-			users = plugin.topVoterMonthly.entrySet();
+			users = main.topVoterMonthly.entrySet();
 		} else if (top.equals(TopVoter.Weekly)) {
 			topVoter = Config.getInstance().getFormatTopVoterWeekly();
-			users = plugin.topVoterWeekly.entrySet();
+			users = main.topVoterWeekly.entrySet();
 		} else if (top.equals(TopVoter.Daily)) {
 			topVoter = Config.getInstance().getFormatTopVoterDaily();
-			users = plugin.topVoterDaily.entrySet();
+			users = main.topVoterDaily.entrySet();
 		} else {
 			topVoter = Config.getInstance().getFormatTopVoterAllTime();
-			users = plugin.topVoterAllTime.entrySet();
+			users = main.topVoterAllTime.entrySet();
 		}
 		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
 				"topvoter", topVoter));
@@ -523,7 +524,7 @@ public class PlayerGUIs {
 			count++;
 		}
 
-		for (final VoteSite voteSite : plugin.getVoteSites()) {
+		for (final VoteSite voteSite : main.getVoteSites()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
 			if (user.canVoteSite(voteSite)) {
 				builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
@@ -576,7 +577,7 @@ public class PlayerGUIs {
 
 	public void openVoteURL(Player player, String voteSite) {
 		User user = UserManager.getInstance().getVotingPluginUser(player);
-		VoteSite site = plugin.getVoteSite(voteSite);
+		VoteSite site = main.getVoteSite(voteSite);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteURLSiteName(), "site", site.getDisplayName()));
 		inv.setMeta(player, "VoteSite", site);
@@ -636,9 +637,9 @@ public class PlayerGUIs {
 	public void voteReward(Player player, String siteName) {
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteRewardName());
 
-		if ((siteName == null) || (siteName == "")) {
+		if ((siteName == null) || (siteName.isEmpty())) {
 			int count = 0;
-			for (VoteSite voteSite : plugin.getVoteSites()) {
+			for (VoteSite voteSite : main.getVoteSites()) {
 				try {
 					ItemBuilder builder = voteSite.getItem();
 					final VoteSite site = voteSite;
@@ -650,7 +651,7 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							if (player != null) {
 								player.closeInventory();
-								Bukkit.getScheduler().runTask(plugin, new Runnable() {
+								Bukkit.getScheduler().runTask(main, new Runnable() {
 
 									@Override
 									public void run() {

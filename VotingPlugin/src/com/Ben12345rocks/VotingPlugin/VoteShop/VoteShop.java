@@ -8,7 +8,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
-import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -17,17 +16,11 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 public class VoteShop {
 	static VoteShop instance = new VoteShop();
 
-	static Main plugin = Main.plugin;
-
 	public static VoteShop getInstance() {
 		return instance;
 	}
 
 	private VoteShop() {
-	}
-
-	public VoteShop(Main plugin) {
-		VoteShop.plugin = plugin;
 	}
 
 	public void voteShop(Player player) {

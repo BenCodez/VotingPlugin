@@ -6,14 +6,11 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class UserManager {
 	/** The instance. */
 	static UserManager instance = new UserManager();
-	/** The plugin. */
-	static Main plugin = Main.plugin;
 
 	/**
 	 * Gets the single instance of UserManager.

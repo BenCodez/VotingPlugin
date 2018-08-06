@@ -13,6 +13,8 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class OtherVoteReward.
@@ -27,9 +29,8 @@ public class OtherVoteReward {
 
 	/** The instance. */
 	static OtherVoteReward instance = new OtherVoteReward();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of OtherVoteReward.
@@ -44,16 +45,6 @@ public class OtherVoteReward {
 	 * Instantiates a new other vote reward.
 	 */
 	private OtherVoteReward() {
-	}
-
-	/**
-	 * Instantiates a new other vote reward.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public OtherVoteReward(Main plugin) {
-		OtherVoteReward.plugin = plugin;
 	}
 
 	/**
@@ -103,12 +94,12 @@ public class OtherVoteReward {
 						}
 
 						if (gotCumulative) {
-							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
+							main.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						}
 					}
 				}
 			} else {
-				plugin.debug("Invalid cumulative number: " + vote);
+				main.debug("Invalid cumulative number: " + vote);
 			}
 		}
 		return gotCumulative;
@@ -155,13 +146,13 @@ public class OtherVoteReward {
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
-							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
+							main.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
 						}
 					}
 				}
 			} else {
-				plugin.debug("Invalid milestone number: " + vote);
+				main.debug("Invalid milestone number: " + vote);
 			}
 		}
 		return gotMilestone;
@@ -196,14 +187,14 @@ public class OtherVoteReward {
 							if (curStreak == streakRequired) {
 								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak);
 								gotReward = true;
-								plugin.debug(
+								main.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
 								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak);
 								gotReward = true;
-								plugin.debug(
+								main.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
 							}
 						}

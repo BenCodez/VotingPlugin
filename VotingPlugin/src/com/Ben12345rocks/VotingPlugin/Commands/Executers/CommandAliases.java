@@ -11,14 +11,14 @@ import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class CommandAliases.
  */
 public class CommandAliases implements CommandExecutor {
-
-	/** The plugin. */
-	private Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The cmd handle. */
 	private CommandHandler cmdHandle;
@@ -45,14 +45,14 @@ public class CommandAliases implements CommandExecutor {
 		for (String arg : args) {
 			argsNew.add(arg);
 		}
-		plugin.debug("Attempting cmd...");
-		plugin.debug("Inputed args: " + ArrayUtils.getInstance().makeStringList(argsNew));
+		main.debug("Attempting cmd...");
+		main.debug("Inputed args: " + ArrayUtils.getInstance().makeStringList(argsNew));
 
 		ArrayList<CommandHandler> handles = new ArrayList<CommandHandler>();
 		if (adminCommand) {
-			handles.addAll(plugin.adminVoteCommand);
+			handles.addAll(main.adminVoteCommand);
 		} else {
-			handles.addAll(plugin.voteCommand);
+			handles.addAll(main.voteCommand);
 		}
 
 		for (CommandHandler cmdHandle : handles) {
@@ -74,7 +74,7 @@ public class CommandAliases implements CommandExecutor {
 
 						if (argsMatch) {
 							if (cmdHandle.runCommand(sender, ArrayUtils.getInstance().convert(argsNew))) {
-								plugin.debug("cmd found, ran cmd");
+								main.debug("cmd found, ran cmd");
 								return true;
 							}
 						}
@@ -86,7 +86,7 @@ public class CommandAliases implements CommandExecutor {
 		/*
 		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0, arg);
 		 * if (cmdHandle.runCommand(sender, Utils.getInstance().convertArray(argsNew)))
-		 * { plugin.debug( "cmd found, ran cmd"); return true; } }
+		 * { main.debug( "cmd found, ran cmd"); return true; } }
 		 */
 
 		// invalid command

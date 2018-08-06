@@ -26,14 +26,14 @@ import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class User.
  */
 public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Instantiates a new user.
@@ -43,7 +43,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	@Deprecated
 	public User(Player player) {
-		super(plugin, player);
+		super(ServiceLocator.getService(Main.class), player);
 	}
 
 	/**
@@ -54,7 +54,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	@Deprecated
 	public User(String playerName) {
-		super(plugin, playerName);
+		super(ServiceLocator.getService(Main.class), playerName);
 	}
 
 	/**
@@ -65,7 +65,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	@Deprecated
 	public User(UUID uuid) {
-		super(plugin, uuid);
+		super(ServiceLocator.getService(Main.class), uuid);
 	}
 
 	/**
@@ -78,7 +78,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	@Deprecated
 	public User(UUID uuid, boolean loadName) {
-		super(plugin, uuid, loadName);
+		super(ServiceLocator.getService(Main.class), uuid, loadName);
 	}
 
 	public void addAllTimeTotal() {
@@ -167,7 +167,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 * @return true, if successful
 	 */
 	public boolean canVoteAll() {
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 			boolean canVote = canVoteSite(voteSite);
 			if (!canVote) {
 				return false;
@@ -231,7 +231,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 			long time = user.getTime(voteSite);
 			if (time != 0) {
 				months.add(MiscUtils.getInstance().getMonthFromMili(time));
@@ -329,15 +329,15 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0]);
+			if (data.length > 1 && main.hasVoteSite(data[0])) {
+				VoteSite site = main.getVoteSite(data[0]);
 				if (site != null) {
 					long time = 0;
 					try {
 						time = Long.parseLong(data[1]);
 					} catch (NumberFormatException e) {
 						time = 0;
-						plugin.debug("Not long: " + data[1]);
+						main.debug("Not long: " + data[1]);
 					}
 					lastVotes.put(site, time);
 				}
@@ -354,7 +354,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 			times.put(voteSite, getTime(voteSite));
 		}
 		LinkedHashMap<VoteSite, Long> sorted = (LinkedHashMap<VoteSite, Long>) times.entrySet().stream()
@@ -470,7 +470,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 				}
 			} else {
-				plugin.debug("Reward handle for " + str + " does not exist!");
+				main.debug("Reward handle for " + str + " does not exist!");
 			}
 
 		}
@@ -537,17 +537,17 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 				setTopVoterIgnore(topVoterIngorePerm);
 			}
 			ArrayList<String> offlineVotes = getOfflineVotes();
-			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
+			// main.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
 				sendVoteEffects(true);
 			}
 
 			for (int i = 0; i < offlineVotes.size(); i++) {
-				if (plugin.hasVoteSite(offlineVotes.get(i))) {
-					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
-					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+				if (main.hasVoteSite(offlineVotes.get(i))) {
+					main.debug("Giving offline site reward: " + offlineVotes.get(i));
+					playerVote(main.getVoteSite(offlineVotes.get(i)), false, true);
 				} else {
-					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
+					main.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
 

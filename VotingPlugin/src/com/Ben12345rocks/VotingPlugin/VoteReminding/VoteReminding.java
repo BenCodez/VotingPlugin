@@ -10,6 +10,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class VoteReminding.
@@ -19,8 +21,7 @@ public class VoteReminding {
 	/** The instance. */
 	static VoteReminding instance = new VoteReminding();
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of VoteReminding.
@@ -35,16 +36,6 @@ public class VoteReminding {
 	 * Instantiates a new vote reminding.
 	 */
 	private VoteReminding() {
-	}
-
-	/**
-	 * Instantiates a new vote reminding.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public VoteReminding(Main plugin) {
-		VoteReminding.plugin = plugin;
 	}
 
 	/**
@@ -84,7 +75,7 @@ public class VoteReminding {
 	 * Load remind checking.
 	 */
 	public void loadRemindChecking() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskTimerAsynchronously(main, new Runnable() {
 
 			@Override
 			public void run() {
@@ -107,7 +98,7 @@ public class VoteReminding {
 			user.setReminded(true);
 			giveReward(user);
 
-			plugin.debug(user.getPlayerName() + " was reminded!");
+			main.debug(user.getPlayerName() + " was reminded!");
 
 		}
 	}
@@ -120,7 +111,7 @@ public class VoteReminding {
 			if (user.getData().hasData()) {
 				user.setReminded(true);
 			}
-			plugin.debug(user.getPlayerName() + " was reminded!");
+			main.debug(user.getPlayerName() + " was reminded!");
 
 		}
 	}

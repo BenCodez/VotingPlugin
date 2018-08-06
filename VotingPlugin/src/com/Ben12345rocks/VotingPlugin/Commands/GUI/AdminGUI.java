@@ -24,8 +24,12 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 public class AdminGUI {
 	static AdminGUI instance = new AdminGUI();
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of Commands.
@@ -35,9 +39,6 @@ public class AdminGUI {
 	public static AdminGUI getInstance() {
 		return instance;
 	}
-
-	/** The plugin. */
-	Main plugin = Main.plugin;
 
 	/**
 	 * Instantiates a new commands.
@@ -70,7 +71,7 @@ public class AdminGUI {
 							public void onInput(Player player, String value) {
 								ConfigVoteSites.getInstance().generateVoteSite(value);
 								player.sendMessage("Generated site");
-								plugin.reload();
+								main.reload();
 							}
 						});
 					} else {
@@ -108,7 +109,7 @@ public class AdminGUI {
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : main.getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<String>();
 			lore.add("Priority: " + voteSite.getPriority());
 			lore.add("Name: " + voteSite.getDisplayName());
@@ -181,7 +182,7 @@ public class AdminGUI {
 						VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
 						ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), value.intValue());
 						player.sendMessage("Set Priority");
-						plugin.reload();
+						main.reload();
 
 					}
 				});
@@ -203,7 +204,7 @@ public class AdminGUI {
 							String siteName = voteSite.getKey();
 							ConfigVoteSites.getInstance().setServiceSite(siteName, value);
 							player.sendMessage("Set ServiceSite");
-							plugin.reload();
+							main.reload();
 						}
 					});
 				}
@@ -224,7 +225,7 @@ public class AdminGUI {
 							VoteSite voteSite = (VoteSite) event.getMeta("VoteSite");
 							ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), value);
 							player.sendMessage("Set name");
-							plugin.reload();
+							main.reload();
 						}
 					});
 				}
@@ -247,7 +248,7 @@ public class AdminGUI {
 							String siteName = voteSite.getKey();
 							ConfigVoteSites.getInstance().setVoteURL(siteName, value);
 							player.sendMessage("Set VoteURL");
-							plugin.reload();
+							main.reload();
 
 						}
 					});
@@ -270,7 +271,7 @@ public class AdminGUI {
 						String siteName = voteSite.getKey();
 						ConfigVoteSites.getInstance().setVoteDelay(siteName, value.intValue());
 						player.sendMessage("Set VoteDelay");
-						plugin.reload();
+						main.reload();
 
 					}
 				});
@@ -294,7 +295,7 @@ public class AdminGUI {
 										String siteName = voteSite.getKey();
 										ConfigVoteSites.getInstance().setEnabled(siteName, value);
 										player.sendMessage("Set Enabled");
-										plugin.reload();
+										main.reload();
 
 									}
 								});

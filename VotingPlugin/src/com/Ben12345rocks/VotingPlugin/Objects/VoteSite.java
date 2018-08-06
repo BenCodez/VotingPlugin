@@ -18,6 +18,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 /**
  * The Class VoteSite.
  */
@@ -28,9 +30,8 @@ public class VoteSite {
 
 	/** The config vote sites. */
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The vote URL. */
 	private String voteURL;
@@ -64,8 +65,8 @@ public class VoteSite {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public VoteSite(Main plugin) {
-		VoteSite.plugin = plugin;
+	public VoteSite() {
+		
 	}
 
 	/**
@@ -118,7 +119,7 @@ public class VoteSite {
 	 */
 	public ItemBuilder getItem() {
 		if (item == null) {
-			plugin.getLogger().warning("Invalid item section in site: " + key);
+			main.getLogger().warning("Invalid item section in site: " + key);
 			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key)
 					.setLore("&cInvalid item for site: " + key);
 		} else {

@@ -11,23 +11,23 @@ import org.bukkit.event.block.BlockBreakEvent;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class BlockBreak.
  */
 public class BlockBreak implements Listener {
-
-	/** The plugin. */
-	private static Main plugin;
-
+	private Main main = ServiceLocator.getService(Main.class);
+	
 	/**
 	 * Instantiates a new block break.
 	 *
 	 * @param plugin
 	 *            the plugin
 	 */
-	public BlockBreak(Main plugin) {
-		BlockBreak.plugin = plugin;
+	public BlockBreak() {
+		
 	}
 
 	/**
@@ -41,11 +41,11 @@ public class BlockBreak implements Listener {
 		if (event.getBlock().getState() instanceof Sign) {
 			Sign s = (Sign) event.getBlock().getState();
 			final Location loc = s.getLocation();
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskAsynchronously(main, new Runnable() {
 
 				@Override
 				public void run() {
-					for (SignHandler sign : plugin.signs) {
+					for (SignHandler sign : main.signs) {
 						if (sign.getLocation().equals(loc)) {
 							sign.removeSign();
 							sign.setValid(false);

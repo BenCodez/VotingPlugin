@@ -10,11 +10,14 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class CommandAdminVote.
  */
 public class CommandAdminVote implements CommandExecutor {
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The instance. */
 	private static CommandAdminVote instance = new CommandAdminVote();
@@ -31,26 +34,14 @@ public class CommandAdminVote implements CommandExecutor {
 	/** The config. */
 	Config config = Config.getInstance();
 
-	/** The plugin. */
-	private Main plugin = Main.plugin;
-
 	/** The vote sites. */
 	ConfigVoteSites voteSites = ConfigVoteSites.getInstance();
 
 	/**
 	 * Instantiates a new command admin vote.
 	 */
-	private CommandAdminVote() {
-	}
-
-	/**
-	 * Instantiates a new command admin vote.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public CommandAdminVote(Main plugin) {
-		this.plugin = plugin;
+	public CommandAdminVote() {
+		
 	}
 
 	/*
@@ -62,7 +53,7 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-		for (CommandHandler commandHandler : plugin.adminVoteCommand) {
+		for (CommandHandler commandHandler : main.adminVoteCommand) {
 			if (commandHandler.runCommand(sender, args)) {
 				return true;
 			}

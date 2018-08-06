@@ -14,13 +14,13 @@ import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 /**
  * The Class AdminVoteTabCompleter.
  */
 public class AdminVoteTabCompleter implements TabCompleter {
-
-	/** The plugin. */
-	Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/*
 	 * (non-Javadoc)
@@ -36,7 +36,7 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 		Set<String> cmds = new HashSet<String>();
 
-		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.adminVoteCommand, sender, args,
+		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(main.adminVoteCommand, sender, args,
 				args.length - 1));
 
 		for (String str : cmds) {

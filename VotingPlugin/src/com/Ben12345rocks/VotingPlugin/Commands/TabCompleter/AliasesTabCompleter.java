@@ -17,13 +17,13 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 /**
  * The Class AliasesTabCompleter.
  */
 public class AliasesTabCompleter implements TabCompleter {
-
-	/** The plugin. */
-	Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/** The cmd handle. */
 	public CommandHandler cmdHandle;
@@ -54,9 +54,9 @@ public class AliasesTabCompleter implements TabCompleter {
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
 
 		if (adminCommand) {
-			cmdHandlers.addAll(plugin.adminVoteCommand);
+			cmdHandlers.addAll(main.adminVoteCommand);
 		} else {
-			cmdHandlers.addAll(plugin.voteCommand);
+			cmdHandlers.addAll(main.voteCommand);
 		}
 		ConcurrentHashMap<String, ArrayList<String>> tabCompletes = TabCompleteHandler.getInstance()
 				.getTabCompleteOptions();

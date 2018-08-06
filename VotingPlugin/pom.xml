@@ -153,6 +153,10 @@
 				<updatePolicy>always</updatePolicy>
 			</snapshots>
 		</repository>
+		<repository>
+			<id>egg82-ninja</id>
+			<url>https://www.myget.org/F/egg82-java/maven/</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -167,6 +171,11 @@
 			<artifactId>spigot-api</artifactId>
 			<version>1.13-R0.1-SNAPSHOT</version>
 			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>ninja.egg82.lib</groupId>
+			<artifactId>service-lib</artifactId>
+			<version>1.0.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.vexsoftware</groupId>

@@ -8,6 +8,8 @@ import org.bukkit.Bukkit;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class CheckUpdate.
@@ -17,8 +19,7 @@ public class CheckUpdate {
 	/** The instance. */
 	static CheckUpdate instance = new CheckUpdate();
 
-	/** The plugin. */
-	static Main plugin = Main.plugin;
+	private Main main = ServiceLocator.getService(Main.class);
 
 	/**
 	 * Gets the single instance of CheckUpdate.
@@ -36,34 +37,24 @@ public class CheckUpdate {
 	}
 
 	/**
-	 * Instantiates a new check update.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
-	public CheckUpdate(Main plugin) {
-		CheckUpdate.plugin = plugin;
-	}
-
-	/**
 	 * Check update.
 	 */
 	public void checkUpdate() {
-		plugin.updater = new Updater(plugin, 15358, false);
-		final Updater.UpdateResult result = plugin.updater.getResult();
+		main.updater = new Updater(main, 15358, false);
+		final Updater.UpdateResult result = main.updater.getResult();
 		switch (result) {
 		case FAIL_SPIGOT: {
-			plugin.getLogger().info("Failed to check for update for " + plugin.getName() + "!");
+			main.getLogger().info("Failed to check for update for " + main.getName() + "!");
 			break;
 		}
 		case NO_UPDATE: {
-			plugin.getLogger().info(plugin.getName() + " is up to date! Version: " + plugin.updater.getVersion());
+			main.getLogger().info(main.getName() + " is up to date! Version: " + main.updater.getVersion());
 			break;
 		}
 		case UPDATE_AVAILABLE: {
-			plugin.getLogger()
-					.info(plugin.getName() + " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
+			main.getLogger()
+					.info(main.getName() + " has an update available! Your Version: "
+							+ main.getDescription().getVersion() + " New Version: " + main.updater.getVersion()
 							+ " Use /av download to get the latest update!");
 			break;
 		}
@@ -74,13 +65,13 @@ public class CheckUpdate {
 	}
 
 	public void checkUpdateBasic() {
-		plugin.updater = new Updater(plugin, 15358, false);
-		final Updater.UpdateResult result = plugin.updater.getResult();
+		main.updater = new Updater(main, 15358, false);
+		final Updater.UpdateResult result = main.updater.getResult();
 		switch (result) {
 		case UPDATE_AVAILABLE: {
-			plugin.getLogger()
-					.info(plugin.getName() + " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
+			main.getLogger()
+					.info(main.getName() + " has an update available! Your Version: "
+							+ main.getDescription().getVersion() + " New Version: " + main.updater.getVersion()
 							+ " Use /av download to get the latest update!");
 			break;
 		}
@@ -94,7 +85,7 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
-		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskLaterAsynchronously(main, new Runnable() {
 
 			@Override
 			public void run() {

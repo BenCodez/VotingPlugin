@@ -61,6 +61,8 @@ import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+import ninja.egg82.patterns.ServiceLocator;
+
 /**
  * The Class Main.
  */
@@ -71,9 +73,6 @@ public class Main extends JavaPlugin {
 
 	/** The config vote sites. */
 	public static ConfigVoteSites configVoteSites;
-
-	/** The plugin. */
-	public static Main plugin;
 
 	/** The top voter monthly. */
 	public LinkedHashMap<User, Integer> topVoterAllTime;
@@ -111,6 +110,11 @@ public class Main extends JavaPlugin {
 	private boolean update = true;
 
 	private boolean updateStarted = false;
+	
+	public Main() {
+		super();
+		ServiceLocator.provideService(this);
+	}
 
 	/**
 	 * Check votifier.
@@ -119,7 +123,7 @@ public class Main extends JavaPlugin {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			plugin.getLogger()
+			getLogger()
 					.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 		}
 	}
@@ -166,7 +170,7 @@ public class Main extends JavaPlugin {
 					debug("[Convert] Added " + uuid);
 				} catch (Exception e) {
 					AdvancedCoreHook.getInstance().debug(e);
-					plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
+					getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
 							+ ", turn debug on to see full stack traces");
 				}
 			}
@@ -178,7 +182,7 @@ public class Main extends JavaPlugin {
 
 			uuids.removeAll(converted);
 
-			plugin.getLogger()
+			getLogger()
 					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
 
 			AdvancedCoreHook.getInstance().setStorageType(to);
@@ -193,7 +197,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setStorageType(cur);
 		AdvancedCoreHook.getInstance().reload();
 
-		plugin.getLogger().info("Finished convertting");
+		getLogger().info("Finished convertting");
 	}
 
 	public ArrayList<User> convertSet(Set<User> set) {
@@ -207,7 +211,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		AdvancedCoreHook.getInstance().debug(plugin, message);
+		AdvancedCoreHook.getInstance().debug(this, message);
 	}
 
 	public ArrayList<CommandHandler> getAdminVoteCommand() {
@@ -345,7 +349,7 @@ public class Main extends JavaPlugin {
 	}
 
 	private void loadTimer() {
-		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTaskLaterAsynchronously(this, new Runnable() {
 
 			@Override
 			public void run() {
@@ -370,10 +374,10 @@ public class Main extends JavaPlugin {
 		voteSites.addAll(configVoteSites.getVoteSitesLoad());
 
 		if (voteSites.size() == 0) {
-			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
+			getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
 		}
 
-		plugin.debug("Loaded VoteSites");
+		debug("Loaded VoteSites");
 
 	}
 
@@ -401,9 +405,9 @@ public class Main extends JavaPlugin {
 		try {
 			MCStatsMetrics metrics = new MCStatsMetrics(this);
 			metrics.start();
-			plugin.debug("Loaded Metrics");
+			debug("Loaded Metrics");
 		} catch (IOException e) {
-			plugin.getLogger().info("Can't submit metrics stats");
+			getLogger().info("Can't submit metrics stats");
 		}
 
 		BStatsMetrics metrics = new BStatsMetrics(this);
@@ -553,7 +557,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + plugin.voteSites.size();
+				return "" + voteSites.size();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofrewards") {
@@ -703,8 +707,7 @@ public class Main extends JavaPlugin {
 				Signs.getInstance().storeSigns();
 			}
 		}, 0);
-		HandlerList.unregisterAll(plugin);
-		plugin = null;
+		HandlerList.unregisterAll(this);
 	}
 
 	/*
@@ -714,8 +717,6 @@ public class Main extends JavaPlugin {
 	 */
 	@Override
 	public void onEnable() {
-		plugin = this;
-
 		setupFiles();
 		loadVoteSites();
 		AdvancedCoreHook.getInstance().setJenkinsSite("ben12345rocks.com");
@@ -732,9 +733,9 @@ public class Main extends JavaPlugin {
 
 		VoteReminding.getInstance().loadRemindChecking();
 
-		plugin.signs = new ArrayList<SignHandler>();
+		signs = new ArrayList<SignHandler>();
 
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		Bukkit.getScheduler().runTask(this, new Runnable() {
 
 			@Override
 			public void run() {
@@ -748,7 +749,7 @@ public class Main extends JavaPlugin {
 		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
 		topVoterAllTime = new LinkedHashMap<User, Integer>();
 
-		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
+		voteLog = new Logger(this, new File(getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		AdminGUI.getInstance().loadHook();
 
@@ -799,7 +800,7 @@ public class Main extends JavaPlugin {
 
 		}
 
-		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
+		getLogger().info("Enabled VotingPlugin " + getDescription().getVersion());
 
 		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
 				ConfigVoteSites.getInstance().getEverySiteRewardPath());
@@ -809,7 +810,7 @@ public class Main extends JavaPlugin {
 		for (VoteSite site : getVoteSites()) {
 			if (!site.hasRewards() && !hasRewards) {
 				noIssues = false;
-				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
+				getLogger().warning("No rewards detected for the site: " + site.getKey()
 						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
 
@@ -821,17 +822,17 @@ public class Main extends JavaPlugin {
 			}
 			if (!contains) {
 				noIssues = false;
-				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
+				getLogger().warning("No vote has been recieved from " + site.getServiceSite()
 						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
 		}
 
 		if (!noIssues) {
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(this, new Runnable() {
 
 				@Override
 				public void run() {
-					plugin.getLogger().warning(
+					getLogger().warning(
 							"Detected an issue with voting sites, check the plugin startup log for more details");
 				}
 			}, 30l);
@@ -847,15 +848,15 @@ public class Main extends JavaPlugin {
 		CommandLoader.getInstance().loadAliases();
 
 		// /vote, /v
-		getCommand("vote").setExecutor(new CommandVote(this));
+		getCommand("vote").setExecutor(new CommandVote());
 		getCommand("vote").setTabCompleter(new VoteTabCompleter());
 		// getCommand("v").setExecutor(new CommandVote(this));
 		// getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
-		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
+		getCommand("adminvote").setExecutor(new CommandAdminVote());
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
-		getCommand("av").setExecutor(new CommandAdminVote(this));
+		getCommand("av").setExecutor(new CommandAdminVote());
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
 
 		Permission perm = Bukkit.getPluginManager().getPermission("VotingPlugin.Player");
@@ -867,7 +868,7 @@ public class Main extends JavaPlugin {
 			}
 		}
 
-		plugin.debug("Loaded Commands");
+		debug("Loaded Commands");
 
 	}
 
@@ -877,18 +878,18 @@ public class Main extends JavaPlugin {
 	private void registerEvents() {
 		PluginManager pm = getServer().getPluginManager();
 
-		pm.registerEvents(new PlayerJoinEvent(this), this);
-		pm.registerEvents(new VotiferEvent(this), this);
+		pm.registerEvents(new PlayerJoinEvent(), this);
+		pm.registerEvents(new VotiferEvent(), this);
 
-		pm.registerEvents(new SignChange(this), this);
+		pm.registerEvents(new SignChange(), this);
 
-		pm.registerEvents(new BlockBreak(this), this);
+		pm.registerEvents(new BlockBreak(), this);
 
-		pm.registerEvents(new PlayerInteract(this), this);
+		pm.registerEvents(new PlayerInteract(), this);
 
-		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
+		pm.registerEvents(new VotingPluginUpdateEvent(), this);
 
-		plugin.debug("Loaded Events");
+		debug("Loaded Events");
 
 	}
 
@@ -900,7 +901,7 @@ public class Main extends JavaPlugin {
 		config.reloadData();
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
-		plugin.loadVoteSites();
+		loadVoteSites();
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 		AdvancedCoreHook.getInstance().reload();
 		// loadTimer();
@@ -921,11 +922,11 @@ public class Main extends JavaPlugin {
 			config.loadValues();
 		} catch (Exception e) {
 			e.printStackTrace();
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(this, new Runnable() {
 
 				@Override
 				public void run() {
-					plugin.getLogger().severe("Failed to load Config.yml");
+					getLogger().severe("Failed to load Config.yml");
 					e.printStackTrace();
 				}
 			}, 10);
@@ -935,18 +936,18 @@ public class Main extends JavaPlugin {
 			configVoteSites.setup();
 		} catch (Exception e) {
 			e.printStackTrace();
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(this, new Runnable() {
 
 				@Override
 				public void run() {
-					plugin.getLogger().severe("Failed to load VoteSites.yml");
+					getLogger().severe("Failed to load VoteSites.yml");
 					e.printStackTrace();
 				}
 
 			}, 10);
 		}
 
-		plugin.debug("Loaded Files");
+		debug("Loaded Files");
 
 	}
 
@@ -954,14 +955,14 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update && plugin != null && !updateStarted) {
+		if (update && !updateStarted) {
 			updateStarted = true;
 			update = false;
 
-			synchronized (plugin) {
+			synchronized (this) {
 				if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
 					if (AdvancedCoreHook.getInstance().getMysql() == null) {
-						plugin.debug("MySQL not loaded yet");
+						debug("MySQL not loaded yet");
 						return;
 					} else if (Config.getInstance().getClearCacheOnUpdate()) {
 						AdvancedCoreHook.getInstance().getMysql().clearCache();
@@ -970,7 +971,7 @@ public class Main extends JavaPlugin {
 					}
 				}
 
-				plugin.debug("Starting background task");
+				debug("Starting background task");
 				long time = System.currentTimeMillis();
 				try {
 					ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
@@ -985,7 +986,7 @@ public class Main extends JavaPlugin {
 					}
 					update = false;
 					long time1 = ((System.currentTimeMillis() - time) / 1000);
-					plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
+					debug("Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
 					TopVoterHandler.getInstance().updateTopVoters(users);
 					Commands.getInstance().updateVoteToday(users);
 					ServerData.getInstance().updateValues();
@@ -995,10 +996,10 @@ public class Main extends JavaPlugin {
 						UserManager.getInstance().getVotingPluginUser(player).offVote();
 					}
 					time1 = ((System.currentTimeMillis() - time) / 1000);
-					plugin.debug("Background task finished in " + time1 + " seconds");
+					debug("Background task finished in " + time1 + " seconds");
 				} catch (Exception ex) {
 					ex.printStackTrace();
-					plugin.getLogger().info("Looks like something went wrong.");
+					getLogger().info("Looks like something went wrong.");
 				}
 			}
 
@@ -1032,7 +1033,7 @@ public class Main extends JavaPlugin {
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
-				plugin.getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
+				getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
 						+ e.getMessage() + ", turn debug on to see full stack traces");
 			}
 		}
