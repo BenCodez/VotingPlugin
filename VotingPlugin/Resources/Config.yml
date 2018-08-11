@@ -169,7 +169,10 @@ Format:
         Title: '&3&l%player% Last Vote Times:'
         # Lines for each vote site
         # %time% = time, using timeformat below
-        Line: '&3%SiteName%: &6%time%'
+        Line: '&3%SiteName%: &6%timeSince% ago'
+        # Spelling of TimeType can be changed under Format.Commands.TimeFormats
+        TimeFormat: '%amount% %TimeType%'
+        NeverVoted: 'Never voted'
         
       # Format for /vote total
       Total:
@@ -245,6 +248,16 @@ Format:
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   TimeFormat: 'EEE, d MMM yyyy HH:mm'
+  
+  TimeFomrats:
+    Day: 'Day'
+    Days: 'Days'
+    Hour: 'Hour'
+    Hours: 'Hours'
+    Minute: 'Minute'
+    Minutes: 'Minutes'
+    Second: 'Second'
+    Seconds: 'Seconds'
   
   # Format for signs
   # SiteName may be all, depending on sign

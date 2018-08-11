@@ -590,6 +590,7 @@ public class Commands {
 	 *            the vote site
 	 * @return the string
 	 */
+	@Deprecated
 	public String voteCommandLastDate(User user, VoteSite voteSite) {
 		long time = user.getTime(voteSite);
 		if (time > 0) {
@@ -602,9 +603,89 @@ public class Commands {
 
 	public String voteCommandLastLine(User user, VoteSite voteSite) {
 		String timeString = voteCommandLastDate(user, voteSite);
+		String timeSince = voteCommandLastDuration(user, voteSite);
 
-		return config.getFormatCommandsVoteLastLine().replace("%Month% %Day%, %Year% %Hour%:%Minute% %ampm%", "%time%")
-				.replace("%time%", timeString).replace("%SiteName%", voteSite.getDisplayName());
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringUtils.getInstance().replacePlaceHolder(Config.getInstance().formatCommandsVoteLastLine,
+				placeholders);
+	}
+
+	public String voteCommandLastDuration(User user, VoteSite voteSite) {
+		long time = user.getTime(voteSite);
+		if (time > 0) {
+			LocalDateTime now = LocalDateTime.now();
+			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+
+			Duration dur = Duration.between(lastVote, now);
+
+			long diffSecond = dur.getSeconds();
+			int diffDays = (int) (diffSecond / 60 / 60 / 24);
+			int diffHours = (int) (diffSecond / 60 / 60 - diffDays * 24);
+			int diffMinutes = (int) (diffSecond / 60 - diffHours * 60 - diffDays * 24 * 60);
+			int diffSeconds = (int) (diffSecond - diffMinutes * 60 - diffHours * 60 * 60 - diffDays * 24 * 60 * 60);
+
+			String info = "";
+			if (diffDays == 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsDay), "amount", "" + diffDays);
+				info += " ";
+			} else if (diffDays > 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsDays), "amount", "" + diffDays);
+				info += " ";
+			}
+
+			if (diffHours == 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsHour), "amount", "" + diffHours);
+				info += " ";
+			} else if (diffHours > 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsHours), "amount", "" + diffHours);
+				info += " ";
+			}
+
+			if (diffMinutes == 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsMinute), "amount", "" + diffMinutes);
+				info += " ";
+			} else if (diffMinutes > 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsMinutes), "amount", "" + diffMinutes);
+				info += " ";
+			}
+
+			if (diffSeconds == 1) {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsSecond), "amount", "" + diffSeconds);
+			} else {
+				info += StringUtils.getInstance()
+						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
+								Config.getInstance().formatTimeFormatsSeconds), "amount", "" + diffSeconds);
+			}
+
+			return info;
+		}
+		return Config.getInstance().formatCommandsVoteLastNeverVoted;
 	}
 
 	/**

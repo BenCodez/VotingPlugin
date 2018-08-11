@@ -54,6 +54,39 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL", defaultValue = false)
 	public boolean commandsVoteRewardFromVoteURL;
 
+	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
+	public String formatCommandsVoteLastTimeFormat;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
+	public String formatCommandsVoteLastLine;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
+	public String formatCommandsVoteLastNeverVoted;
+
+	@ConfigDataString(path = "Format.TimeFormats.Days", defaultValue = "Days")
+	public String formatTimeFormatsDays;
+
+	@ConfigDataString(path = "Format.TimeFormats.Day", defaultValue = "Day")
+	public String formatTimeFormatsDay;
+
+	@ConfigDataString(path = "Format.TimeFormats.Hours", defaultValue = "Hours")
+	public String formatTimeFormatsHours;
+
+	@ConfigDataString(path = "Format.TimeFormats.Hour", defaultValue = "Hour")
+	public String formatTimeFormatsHour;
+
+	@ConfigDataString(path = "Format.TimeFormats.Minutes", defaultValue = "Minutes")
+	public String formatTimeFormatsMinutes;
+
+	@ConfigDataString(path = "Format.TimeFormats.Minute", defaultValue = "Minute")
+	public String formatTimeFormatsMinute;
+
+	@ConfigDataString(path = "Format.TimeFormats.Seconds", defaultValue = "Seconds")
+	public String formatTimeFormatsSeconds;
+
+	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
+	public String formatTimeFormatsSecond;
+
 	/**
 	 * Allow un joined.
 	 *
@@ -374,15 +407,6 @@ public class Config extends YMLFile {
 	public String getFormatCommandsVoteHelpTitle() {
 		return getData().getString("Format.Commands.Vote.Help.Title", "Voting Player Help");
 
-	}
-
-	/**
-	 * Gets the commands vote last line.
-	 *
-	 * @return the commands vote last line
-	 */
-	public String getFormatCommandsVoteLastLine() {
-		return getData().getString("Format.Commands.Vote.Last.Line", "&3%SiteName%: &6%time%");
 	}
 
 	/**

@@ -241,7 +241,7 @@ public class PlaceHolders {
 		}
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
-		return Commands.getInstance().voteCommandLastDate(user, voteSite);
+		return Commands.getInstance().voteCommandLastDuration(user, voteSite);
 	}
 
 	public String playerNextVote(User user, String siteName) {
