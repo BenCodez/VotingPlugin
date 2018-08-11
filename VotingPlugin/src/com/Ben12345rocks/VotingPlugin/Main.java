@@ -898,6 +898,7 @@ public class Main extends JavaPlugin {
 	public void reload() {
 		setUpdate(true);
 		config.reloadData();
+		config.loadValues();
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
