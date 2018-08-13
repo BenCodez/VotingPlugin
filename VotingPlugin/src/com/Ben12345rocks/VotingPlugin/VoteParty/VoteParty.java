@@ -114,7 +114,7 @@ public class VoteParty implements Listener {
 	public void commandVoteParty(CommandSender sender) {
 		if (Config.getInstance().getVotePartyEnabled()) {
 			ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
-			int votesRequired = Config.getInstance().getVotePartyVotesRequired();
+			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
 			int neededVotes = votesRequired - votes;
 			HashMap<String, String> placeholders = new HashMap<String, String>();
