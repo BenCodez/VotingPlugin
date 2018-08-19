@@ -4,8 +4,9 @@ import java.util.Set;
 
 import org.bukkit.Bukkit;
 
-import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -233,7 +234,7 @@ public class OtherVoteReward {
 			return;
 		}
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-				Config.getInstance().getAllSitesRewardPath(), online);
+				Config.getInstance().getAllSitesRewardPath(), new RewardOptions().setOnline(online));
 	}
 
 	/**
@@ -261,7 +262,7 @@ public class OtherVoteReward {
 	 */
 	public void giveFirstVoteRewards(User user, boolean online) {
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-				Config.getInstance().getFirstVoteRewardsPath(), online);
+				Config.getInstance().getFirstVoteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
 	/**

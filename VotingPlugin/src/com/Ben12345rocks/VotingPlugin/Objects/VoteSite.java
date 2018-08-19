@@ -8,8 +8,8 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;

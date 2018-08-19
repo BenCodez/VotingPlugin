@@ -26,9 +26,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
@@ -139,13 +139,13 @@ public class Main extends JavaPlugin {
 		while (uuids.size() > 0) {
 			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 			AdvancedCoreHook.getInstance().setStorageType(from);
-			//AdvancedCoreHook.getInstance().setStorageType(to);
-			
+			// AdvancedCoreHook.getInstance().setStorageType(to);
+
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
 					&& AdvancedCoreHook.getInstance().getMysql() != null) {
 				AdvancedCoreHook.getInstance().getMysql().clearCache();
 			}
-			
+
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
 			while (i < 250 && i < uuids.size()) {

@@ -3,7 +3,7 @@ package com.Ben12345rocks.VotingPlugin.VoteReminding;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;

@@ -14,9 +14,10 @@ import java.util.stream.Collectors;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -176,14 +177,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		return true;
 	}
 
-	public boolean getDisableBroadcast() {
-		return getUserData().getBoolean("DisableBroadcast");
-	}
-
-	public void setDisableBroadcast(boolean value) {
-		getUserData().setBoolean("DisableBroadcast", value);
-	}
-
 	/**
 	 * Can vote site.
 	 *
@@ -293,6 +286,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 
 	public int getDayVoteStreak() {
 		return getData().getInt("DayVoteStreak");
+	}
+
+	public boolean getDisableBroadcast() {
+		return getUserData().getBoolean("DisableBroadcast");
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
@@ -611,7 +608,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 	 */
 	public void sendVoteEffects(boolean online) {
 		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getAnySiteRewardsPath(), online);
+				Config.getInstance().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
 	public void setAllTimeTotal(int allTimeTotal) {
@@ -639,6 +636,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
 		if (getBestDayVoteStreak() < streak) {
 			setBestDayVoteStreak(streak);
 		}
+	}
+
+	public void setDisableBroadcast(boolean value) {
+		getUserData().setBoolean("DisableBroadcast", value);
 	}
 
 	public void setHasGotteMilestone(int votesRequired, boolean b) {

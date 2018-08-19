@@ -10,8 +10,8 @@ import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Objects.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;

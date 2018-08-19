@@ -601,19 +601,6 @@ public class Commands {
 		return "";
 	}
 
-	public String voteCommandLastLine(User user, VoteSite voteSite) {
-		String timeString = voteCommandLastDate(user, voteSite);
-		String timeSince = voteCommandLastDuration(user, voteSite);
-
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayName());
-		placeholders.put("timesince", timeSince);
-
-		return StringUtils.getInstance().replacePlaceHolder(Config.getInstance().formatCommandsVoteLastLine,
-				placeholders);
-	}
-
 	public String voteCommandLastDuration(User user, VoteSite voteSite) {
 		long time = user.getTime(voteSite);
 		if (time > 0) {
@@ -686,6 +673,19 @@ public class Commands {
 			return info;
 		}
 		return Config.getInstance().formatCommandsVoteLastNeverVoted;
+	}
+
+	public String voteCommandLastLine(User user, VoteSite voteSite) {
+		String timeString = voteCommandLastDate(user, voteSite);
+		String timeSince = voteCommandLastDuration(user, voteSite);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringUtils.getInstance().replacePlaceHolder(Config.getInstance().formatCommandsVoteLastLine,
+				placeholders);
 	}
 
 	/**

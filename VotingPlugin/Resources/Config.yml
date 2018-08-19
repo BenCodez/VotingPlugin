@@ -637,9 +637,12 @@ VoteParty:
   # Broadcast when vote party reached
   Broadcast: '&cReached the vote party amount!'
   # List of commands to execute, these only execute once.
+  # %player% does not work here
   Commands: []
   # Reward files to give
-  Rewards: []
+  Rewards: 
+    Commands:
+    - say %player%
   
 # Reset milestons at end of the month
 ResetMilestonesMonthly: false

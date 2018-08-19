@@ -34,17 +34,6 @@ public class Config extends YMLFile {
 		return instance;
 	}
 
-	public void loadValues() {
-		new AnnotationHandler().load(getData(), this);
-	}
-
-	/**
-	 * Instantiates a new config.
-	 */
-	public Config() {
-		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
-	}
-
 	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts")
 	public String formatCommandsVoteToggleBroadcastEnabled;
 
@@ -86,6 +75,13 @@ public class Config extends YMLFile {
 
 	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
 	public String formatTimeFormatsSecond;
+
+	/**
+	 * Instantiates a new config.
+	 */
+	public Config() {
+		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
+	}
 
 	/**
 	 * Allow un joined.
@@ -1423,6 +1419,10 @@ public class Config extends YMLFile {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
+	}
+
+	public void loadValues() {
+		new AnnotationHandler().load(getData(), this);
 	}
 
 	@Override
