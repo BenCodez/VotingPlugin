@@ -721,9 +721,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setJenkinsSite("ben12345rocks.com");
 		updateAdvancedCoreHook();
 		AdvancedCoreHook.getInstance().loadHook(this);
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-			debug("UseBatchUpdates: " + AdvancedCoreHook.getInstance().getMysql().isUseBatchUpdates());
-		}
 		registerCommands();
 		registerEvents();
 		checkVotifier();
