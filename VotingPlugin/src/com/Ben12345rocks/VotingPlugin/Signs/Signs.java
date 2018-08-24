@@ -6,7 +6,6 @@ import org.bukkit.Location;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
 
 // TODO: Auto-generated Javadoc
 /**

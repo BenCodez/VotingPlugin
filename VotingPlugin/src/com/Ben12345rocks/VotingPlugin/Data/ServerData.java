@@ -10,7 +10,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
+import com.Ben12345rocks.VotingPlugin.Signs.SignHandler;
 
 // TODO: Auto-generated Javadoc
 /**

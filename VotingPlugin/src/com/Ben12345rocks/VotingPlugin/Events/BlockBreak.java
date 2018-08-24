@@ -9,7 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Objects.SignHandler;
+import com.Ben12345rocks.VotingPlugin.Signs.SignHandler;
 
 // TODO: Auto-generated Javadoc
 /**

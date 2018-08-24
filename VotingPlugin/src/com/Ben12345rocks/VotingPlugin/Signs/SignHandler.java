@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Objects;
+package com.Ben12345rocks.VotingPlugin.Signs;
 
 import java.util.ArrayList;
 
@@ -16,6 +16,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 // TODO: Auto-generated Javadoc
 /**

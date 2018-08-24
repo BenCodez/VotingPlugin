@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Objects;
+package com.Ben12345rocks.VotingPlugin.TopVoter;
 
 import java.util.ArrayList;
 
