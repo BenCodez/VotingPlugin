@@ -15,13 +15,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandle;
+import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
-import com.Ben12345rocks.AdvancedCore.Objects.CommandHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandle;
-import com.Ben12345rocks.AdvancedCore.Objects.TabCompleteHandler;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
-import com.Ben12345rocks.AdvancedCore.Objects.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Report.Report;
+import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
+import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;

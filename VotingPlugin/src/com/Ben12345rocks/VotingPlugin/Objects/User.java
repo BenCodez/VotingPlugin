@@ -14,10 +14,10 @@ import java.util.stream.Collectors;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
+import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -31,7 +31,7 @@ import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 /**
  * The Class User.
  */
-public class User extends com.Ben12345rocks.AdvancedCore.Objects.User {
+public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;

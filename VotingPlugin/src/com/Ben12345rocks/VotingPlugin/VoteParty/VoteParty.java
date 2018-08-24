@@ -1,3 +1,4 @@
+
 package com.Ben12345rocks.VotingPlugin.VoteParty;
 
 import java.util.ArrayList;
@@ -8,10 +9,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.MonthChangeEvent;
+import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;

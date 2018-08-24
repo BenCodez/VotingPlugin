@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 

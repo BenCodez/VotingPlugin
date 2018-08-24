@@ -17,12 +17,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.Listeners.DateChangedEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.DayChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.MonthChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.PreDateChangedEvent;
-import com.Ben12345rocks.AdvancedCore.Listeners.WeekChangeEvent;
-import com.Ben12345rocks.AdvancedCore.Objects.UUID;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DateChangedEvent;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DayChangeEvent;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.MonthChangeEvent;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.PreDateChangedEvent;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.WeekChangeEvent;
+import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
