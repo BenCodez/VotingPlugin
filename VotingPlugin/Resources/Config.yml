@@ -112,6 +112,9 @@ Commands:
   # If true, you can right click a votesite from /vote (gui version) and open the vote reward gui for that site
   # Can be used to display rewards for that site
   VoteRewardFromVoteURL: false
+  # disable /vote reward commands
+  # Effective after restart
+  DisableVoteRewardGUIs: false
 
 Format:
   # CommandHandler help message

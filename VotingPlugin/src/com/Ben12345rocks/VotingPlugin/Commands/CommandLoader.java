@@ -1078,25 +1078,27 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Reward" },
-				"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteReward GUI", false) {
+		if (!Config.getInstance().commandsDisableVoteRewardGUIs) {
+			plugin.voteCommand.add(new CommandHandler(new String[] { "Reward" },
+					"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteReward GUI", false) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				PlayerGUIs.getInstance().voteReward((Player) sender, "");
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					PlayerGUIs.getInstance().voteReward((Player) sender, "");
 
-			}
-		});
+				}
+			});
 
-		plugin.voteCommand.add(new CommandHandler(new String[] { "Reward", "(SiteName)" },
-				"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteURL GUI for VoteSIte", false) {
+			plugin.voteCommand.add(new CommandHandler(new String[] { "Reward", "(SiteName)" },
+					"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteURL GUI for VoteSIte", false) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				PlayerGUIs.getInstance().voteReward((Player) sender, args[1]);
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					PlayerGUIs.getInstance().voteReward((Player) sender, args[1]);
 
-			}
-		});
+				}
+			});
+		}
 
 		plugin.voteCommand.add(new CommandHandler(new String[] { "Last", "(player)" },
 				"VotingPlugin.Commands.Vote.Last.Other|" + modPerm, "See other players last votes") {

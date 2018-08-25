@@ -76,6 +76,9 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
 	public String formatTimeFormatsSecond;
 
+	@ConfigDataBoolean(path = "Commands.DisableVoteRewardGUIs", defaultValue = false)
+	public boolean commandsDisableVoteRewardGUIs;
+
 	/**
 	 * Instantiates a new config.
 	 */
