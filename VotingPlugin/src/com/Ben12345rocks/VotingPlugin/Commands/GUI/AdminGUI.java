@@ -82,7 +82,7 @@ public class AdminGUI {
 
 		lore = new ArrayList<String>();
 		buttons.add(new BInventoryButton("&cReload Plugin", ArrayUtils.getInstance().convert(lore),
-				new ItemStack(Material.STONE, 1, (short) 3)) {
+				new ItemStack(Material.STONE, 1)) {
 
 			@Override
 			public void onClick(ClickEvent event) {

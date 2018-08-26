@@ -179,7 +179,7 @@ public class VoteParty implements Listener {
 	 * @param user
 	 *            the user
 	 */
-	public void giveReward(User user) {
+	public void giveReward(User user, boolean online) {
 		/*
 		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) { if
 		 * (user.getVotePartyVotes() >= Config.getInstance().getUserVotesRequired()) {
@@ -188,7 +188,7 @@ public class VoteParty implements Listener {
 		 * user.addOfflineOtherReward("VoteParty"); }
 		 */
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVotePartyRewardsPath())
-				.setOnline(user.isOnline())
+				.setOnline(online)
 				.withPlaceHolder("VotesRequired", "" + Config.getInstance().getVotePartyVotesRequired()).send(user);
 	}
 
@@ -210,12 +210,12 @@ public class VoteParty implements Listener {
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				giveReward(user);
+				giveReward(user, true);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				giveReward(user);
+				giveReward(user, true);
 			}
 		}
 		reset();

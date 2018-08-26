@@ -434,7 +434,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			} else if (str.equalsIgnoreCase("AllSites")) {
 				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
 			} else if (str.equalsIgnoreCase("VoteParty")) {
-				VoteParty.getInstance().giveReward(this);
+				VoteParty.getInstance().giveReward(this, false);
 			} else if (str.contains("Cumulative")) {
 				String st = str.substring("Cumulative".length());
 				if (StringUtils.getInstance().isInt(st)) {
