@@ -94,6 +94,7 @@ public class VoteSite {
 			placeholders.put("nickname",
 					(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 			placeholders.put("sitename", getDisplayName());
+			placeholders.put("servicesite", getServiceSite());
 			bc = StringUtils.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
