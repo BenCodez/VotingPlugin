@@ -19,7 +19,6 @@ import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandle;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
-import com.Ben12345rocks.AdvancedCore.Report.Report;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -316,17 +315,6 @@ public class CommandLoader {
 					sender.sendMessage(ArrayUtils.getInstance().convert(
 							ArrayUtils.getInstance().comptoString(Commands.getInstance().adminHelp(sender, page - 1))));
 				}
-
-			}
-		});
-
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Report" },
-				"VotingPlugin.Commands.AdminVote.Report|" + adminPerm, "Create a zip file to send for debuging") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				Report.getInstance().create();
-				sender.sendMessage("Created Zip File!");
 
 			}
 		});
