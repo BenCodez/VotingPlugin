@@ -55,6 +55,8 @@ public class VotiferEvent implements Listener {
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
+		
+		// check valid service sites
 		if (voteSite == null) {
 			if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No voting site with the service site: '" + voteSiteURL + "'");
@@ -86,6 +88,7 @@ public class VotiferEvent implements Listener {
 			// update last vote time
 			user.setTime(voteSite);
 
+			// check first vote rewards
 			OtherVoteReward.getInstance().checkFirstVote(user);
 
 			if (user.isReminded()) {
@@ -99,7 +102,6 @@ public class VotiferEvent implements Listener {
 				user.closeInv();
 			} else {
 				user.addOfflineVote(voteSite.getKey());
-				// plugin.debug(ArrayUtils.getInstance().makeStringList(user.getOfflineVotes()));
 				plugin.debug(
 						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
 			}
@@ -114,6 +116,7 @@ public class VotiferEvent implements Listener {
 				user.addPoints();
 			}
 
+			// other rewards
 			OtherVoteReward.getInstance().checkAllSites(user);
 			OtherVoteReward.getInstance().checkCumualativeVotes(user);
 			OtherVoteReward.getInstance().checkMilestone(user);

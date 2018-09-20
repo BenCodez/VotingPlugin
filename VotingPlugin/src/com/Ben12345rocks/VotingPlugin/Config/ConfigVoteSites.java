@@ -432,4 +432,13 @@ public class ConfigVoteSites extends YMLFile {
 		return pass;
 	}
 
+	public void setForceOffline(String siteName, boolean value) {
+		set(siteName, "ForceOffline", value);
+
+	}
+
+	public void setVoteDelayDaily(String siteName, boolean value) {
+		set(siteName, "VoteDelayDaily", value);
+	}
+
 }

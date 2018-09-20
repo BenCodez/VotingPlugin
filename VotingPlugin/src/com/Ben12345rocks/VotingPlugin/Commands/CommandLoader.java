@@ -45,6 +45,7 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -772,6 +773,18 @@ public class CommandLoader {
 					user.setOfflineVotes(new ArrayList<String>());
 				}
 				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared"));
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Test", "(Player)", "(sitename)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting times") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VoteTester.getInstance().testVotes(Integer.parseInt(args[3]), args[1], args[2]);
+				if (isPlayer(sender)) {
+					sendMessage(sender, "&cSee console for details");
+				}
 			}
 		});
 

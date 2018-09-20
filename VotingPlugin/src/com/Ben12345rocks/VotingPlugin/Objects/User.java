@@ -569,7 +569,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}
-		voteSite.giveSiteReward(this, online);
+		voteSite.giveRewards(this, online);
 	}
 
 	/**
