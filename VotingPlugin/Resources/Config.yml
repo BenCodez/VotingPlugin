@@ -324,42 +324,36 @@ GUI:
         # You can set skulls of the player using the following
         # Remove the # to enable
         #Skull: '%Player%'
-      Slot: 0
     Next:
       Item:
         Material: 'COMPASS'
         Data: 0
         Amount: 1
         Name: '&4Next'
-      Slot: 1
     Last:
       Item:
         Material: 'CLOCK'
         Data: 0
         Amount: 1
         Name: '&4Last'
-      Slot: 2
     Total:
       Item:
         Material: 'CHEST'
         Data: 0
         Amount: 1
         Name: '&4Total'
-      Slot: 3
     Top:
       Item:
         Material: 'SIGN'
         Data: 0
         Amount: 1
         Name: '&4Top'
-      Slot: 4
     Today:
       Item:
         Material: 'BOOK'
         Data: 0
         Amount: 1
         Name: '&4Today'
-      Slot: 5
     Shop:
       Item:
         Material: 'DIAMOND'
@@ -368,7 +362,6 @@ GUI:
         Name: '&4Vote Shop'
         Lore:
         - '&aYou currently have %points% points'
-      Slot: 6
       
   # GUI for /vote url
   # And /vote if enabled in Config.yml
@@ -429,7 +422,6 @@ GUI:
           # Remove this line for no lore
           Lore:
           - '&4Line 1'
-          Slot: 0
   VoteLast:
     Name: 'VoteLast: %player%'
     BackButton: true

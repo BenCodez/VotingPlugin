@@ -156,7 +156,12 @@ public class PlayerGUIs {
 			builder.setPlaceholders(placeholders);
 			builder.setLore(ArrayUtils.getInstance().convert(lore));
 
-			inv.addButton(Config.getInstance().getVoteGUISlotSlot(slot), new BInventoryButton(builder) {
+			int slotN = Config.getInstance().getVoteGUISlotSlot(slot);
+			if (slotN == -1) {
+				slotN = inv.getNextSlot();
+			}
+
+			inv.addButton(slotN, new BInventoryButton(builder) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -637,13 +642,12 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteRewardName());
 
 		if ((siteName == null) || (siteName == "")) {
-			int count = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				try {
 					ItemBuilder builder = voteSite.getItem();
 					final VoteSite site = voteSite;
 
-					inv.addButton(count, new BInventoryButton(builder) {
+					inv.addButton(new BInventoryButton(builder) {
 
 						@Override
 						public void onClick(ClickEvent event) {
@@ -661,7 +665,6 @@ public class PlayerGUIs {
 
 						}
 					});
-					count++;
 				} catch (Exception ex) {
 
 				}

@@ -1144,7 +1144,7 @@ public class Config extends YMLFile {
 	 * @return the vote GUI slot slot
 	 */
 	public int getVoteGUISlotSlot(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Slot");
+		return getData().getInt("GUI.VoteGUI." + slot + ".Slot",-1);
 	}
 
 	public String getVotePartyBroadcast() {
