@@ -578,9 +578,7 @@ Shop:
       Items:
         Diamond:
           Material: 'DIAMOND'
-          Amount: 1
-    # Slot
-    Slot: 0          
+          Amount: 1     
      
 # ------------------------------------------------
 # Extra Rewards

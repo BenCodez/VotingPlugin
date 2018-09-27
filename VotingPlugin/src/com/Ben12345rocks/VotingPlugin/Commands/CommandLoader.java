@@ -281,13 +281,13 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ServiceSites" },
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "ServiceSites&Status" },
 				"VotingPlugin.Commands.AdminVote.ServiceSites|" + adminPerm,
 				"See a list of all service sites the server got") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cEvery service site the server has gotten:");
+				sendMessage(sender, "&cEvery service site the server has gotten from votifier:");
 
 				for (String serviceSites : ServerData.getInstance().getServiceSites()) {
 					boolean hasSite = plugin.hasVoteSite(serviceSites);

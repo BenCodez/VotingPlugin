@@ -51,7 +51,7 @@ public class VoteShop {
 			if (hasPerm) {
 				ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
-				inv.addButton(Config.getInstance().getIdentifierSlot(identifier), new BInventoryButton(builder) {
+				inv.addButton(new BInventoryButton(builder) {
 
 					@Override
 					public void onClick(ClickEvent event) {
