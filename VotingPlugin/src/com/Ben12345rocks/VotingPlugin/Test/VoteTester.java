@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteTester {
 
@@ -31,7 +32,7 @@ public class VoteTester {
 		}
 		long timePerVoteAvg = timeTotal / timesPerVote.size();
 		Main.plugin.getLogger().info(
-				"Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType());
+				"Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", " + UserManager.getInstance().getAllUUIDs().size() + " users");
 	}
 
 }

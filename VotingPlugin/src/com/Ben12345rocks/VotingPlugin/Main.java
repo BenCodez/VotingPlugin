@@ -58,6 +58,7 @@ import com.Ben12345rocks.VotingPlugin.Signs.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.Util.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -768,6 +769,8 @@ public class Main extends JavaPlugin {
 		});
 
 		loadTimer();
+
+		PlaceHolders.getInstance().load();
 
 		// set columns
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {

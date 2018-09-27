@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
+import java.util.ArrayList;
 import java.util.Map.Entry;
 
 import org.bukkit.OfflinePlayer;
@@ -11,6 +12,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
@@ -51,11 +53,291 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
+	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
+
+	/**
+	 * @return the placeholders
+	 */
+	public ArrayList<PlaceHolder> getPlaceholders() {
+		return placeholders;
+	}
+
+	public void load() {
+		placeholders.clear();
+		
+		placeholders.add(new PlaceHolder("total") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getMonthTotal());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("alltimetotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getAllTimeTotal());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("lastmonthtotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getLastMonthTotal());
+			}
+		});
+
+		for (final TopVoter top : TopVoter.values()) {
+			placeholders.add(new PlaceHolder("total_" + top.toString()) {
+
+				@Override
+				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+					return Integer.toString(user.getTotal(top));
+				}
+			});
+		}
+
+		placeholders.add(new PlaceHolder("BestDailyTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getHighestDailyTotal());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("BestWeeklyTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getHighestWeeklyTotal());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("BestMonthlyTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getHighestMonthlyTotal());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("DailyVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getDayVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("WeeklyVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getWeekVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("MonthVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getMonthVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("BestDailyVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getBestDayVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("BestWeeklyVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getBestWeekVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("BestMonthVoteStreak") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getBestMonthVoteStreak());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Points") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(user.getPoints());
+			}
+		});
+
+		placeholders.add(new PlaceHolder("CanVote") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Boolean.toString(user.canVoteAll());
+			}
+		});
+
+		for (final VoteSite voteSite : plugin.getVoteSites()) {
+			placeholders.add(new PlaceHolder("Next_" + voteSite.getKey()) {
+
+				@Override
+				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+					return Commands.getInstance().voteCommandNextInfo(user, voteSite);
+				}
+			});
+		}
+
+		for (final VoteSite voteSite : plugin.getVoteSites()) {
+			placeholders.add(new PlaceHolder("Last_" + voteSite.getKey()) {
+
+				@Override
+				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+					return Commands.getInstance().voteCommandLastDuration(user, voteSite);
+				}
+			});
+		}
+
+		placeholders.add(new PlaceHolder("Top_All_Position") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+						return "" + num;
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_All_") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				int number = Integer.parseInt(identifier.split("_")[3]);
+				for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+					if (num == number) {
+						return entry.getKey().getPlayerName();
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Month_Position") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+						return "" + num;
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Month_") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				int number = Integer.parseInt(identifier.split("_")[3]);
+				for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+					if (num == number) {
+						return entry.getKey().getPlayerName();
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Week_Position") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+						return "" + num;
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Week_") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				int number = Integer.parseInt(identifier.split("_")[3]);
+				for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+					if (num == number) {
+						return entry.getKey().getPlayerName();
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Daily_Position") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+						return "" + num;
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+		placeholders.add(new PlaceHolder("Top_Daily_") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int num = 1;
+				int number = Integer.parseInt(identifier.split("_")[3]);
+				for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+					if (num == number) {
+						return entry.getKey().getPlayerName();
+					}
+					num++;
+				}
+				return "";
+			}
+		});
+
+	}
+
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
-		// %VotingPlugin_VotePartyVotesNeeded - Number of votes needed until
-		// vote party rewards
+		// vote party placeholders
+		// non player based
 		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
 			return Integer.toString(VoteParty.getInstance().getNeededVotes());
 		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
@@ -66,164 +348,9 @@ public class PlaceHolders {
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
-		// %VotingPlugin_total% - Total votes of all vote sites
-		if (identifier.equalsIgnoreCase("total")) {
-			return Integer.toString(user.getMonthTotal());
-		} else if (identifier.equalsIgnoreCase("alltimetotal")) {
-			return Integer.toString(user.getAllTimeTotal());
-		} else if (identifier.equalsIgnoreCase("lastmonthtotal")) {
-			return Integer.toString(user.getLastMonthTotal());
-		}
-
-		String[] args = identifier.split("_");
-		if (args.length > 1 && args[0].equalsIgnoreCase("total")) {
-			if (args[1].equalsIgnoreCase("all")) {
-				return Integer.toString(user.getAllTimeTotal());
-			} else if (args[1].equalsIgnoreCase("month")) {
-				return Integer.toString(user.getMonthTotal());
-			} else if (args[1].equalsIgnoreCase("week")) {
-				return Integer.toString(user.getWeeklyTotal());
-			} else if (args[1].equalsIgnoreCase("daily")) {
-				return Integer.toString(user.getDailyTotal());
-			}
-		}
-
-		if (identifier.equalsIgnoreCase("BestDailyTotal")) {
-			return "" + user.getHighestDailyTotal();
-		} else if (identifier.equalsIgnoreCase("BestWeeklyTotal")) {
-			return "" + user.getHighestWeeklyTotal();
-		} else if (identifier.equalsIgnoreCase("BestMonthlyTotal")) {
-			return "" + user.getHighestMonthlyTotal();
-		} else if (identifier.equalsIgnoreCase("DailyVoteStreak")) {
-			return "" + user.getDayVoteStreak();
-		} else if (identifier.equalsIgnoreCase("WeeklyVoteStreak")) {
-			return "" + user.getWeekVoteStreak();
-		} else if (identifier.equalsIgnoreCase("MonthlyVoteStreak")) {
-			return "" + user.getMonthVoteStreak();
-		} else if (identifier.equalsIgnoreCase("BestDailyVoteStreak")) {
-			return "" + user.getBestDayVoteStreak();
-		} else if (identifier.equalsIgnoreCase("BestWeeklyVoteStreak")) {
-			return "" + user.getBestWeekVoteStreak();
-		} else if (identifier.equalsIgnoreCase("BestMonthlyVoteStreak")) {
-			return "" + user.getBestMonthVoteStreak();
-		}
-
-		// %VotingPlugin_points% - Total votes of all vote sites
-		if (identifier.equalsIgnoreCase("points")) {
-			return Integer.toString(user.getPoints());
-		}
-
-		// %VotingPlugin_canvote% - Whether or not a player can vote on all
-		// sites
-		if (identifier.equalsIgnoreCase("canvote")) {
-			return Boolean.toString(user.canVoteAll());
-		}
-
-		// %VotingPlugin_next_SITENAME% - Next time you can vote for voteSite
-		if (startsWithIgnoreCase(identifier, "next")) {
-			if (args.length > 1) {
-				String str = args[1];
-				for (int i = 2; i < args.length; i++) {
-					str += "_" + args[i];
-				}
-				return playerNextVote(user, str);
-			} else {
-				return "";
-			}
-		}
-
-		// %VotingPlugin_last_SITENAME% - Next time you can vote for voteSite
-		if (startsWithIgnoreCase(identifier, "last")) {
-			if (args.length > 1) {
-				String str = args[1];
-				for (int i = 2; i < args.length; i++) {
-					str += "_" + args[i];
-				}
-				return playerLastVote(user, str);
-			}
-		}
-		if (args.length > 2) {
-			if (args[0].equalsIgnoreCase("top")) {
-				if (StringUtils.getInstance().isInt(args[2])) {
-					int number = Integer.parseInt(args[2]);
-					int num = 1;
-					if (args[1].equalsIgnoreCase("all")) {
-						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
-							if (num == number) {
-								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
-									return "" + entry.getValue().intValue();
-								} else {
-									return entry.getKey().getPlayerName();
-								}
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("month")) {
-						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
-							if (num == number) {
-								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
-									return "" + entry.getValue().intValue();
-								} else {
-									return entry.getKey().getPlayerName();
-								}
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("week")) {
-						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
-							if (num == number) {
-								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
-									return "" + entry.getValue().intValue();
-								} else {
-									return entry.getKey().getPlayerName();
-								}
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("daily")) {
-						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
-							if (num == number) {
-								if (args.length > 3 && args[3].equalsIgnoreCase("votes")) {
-									return "" + entry.getValue().intValue();
-								} else {
-									return entry.getKey().getPlayerName();
-								}
-							}
-							num++;
-						}
-					}
-				} else if (args[2].equalsIgnoreCase("Position")) {
-					int num = 1;
-					if (args[1].equalsIgnoreCase("all")) {
-						for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
-							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return "" + num;
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("month")) {
-						for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
-							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return "" + num;
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("week")) {
-						for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
-							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return "" + num;
-							}
-							num++;
-						}
-					} else if (args[1].equalsIgnoreCase("daily")) {
-						for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
-							if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
-								return "" + num;
-							}
-							num++;
-						}
-					}
-				}
+		for (PlaceHolder placeholder : placeholders) {
+			if (StringUtils.getInstance().startsWithIgnoreCase(placeholder.getIdentifier(), identifier)) {
+				return placeholder.placeholderRequest(p, user, identifier);
 			}
 		}
 
@@ -242,15 +369,6 @@ public class PlaceHolders {
 
 		VoteSite voteSite = plugin.getVoteSite(siteName);
 		return Commands.getInstance().voteCommandLastDuration(user, voteSite);
-	}
-
-	public String playerNextVote(User user, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
-			return "";
-		}
-
-		VoteSite voteSite = plugin.getVoteSite(siteName);
-		return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 	}
 
 	public boolean startsWithIgnoreCase(String str1, String str2) {

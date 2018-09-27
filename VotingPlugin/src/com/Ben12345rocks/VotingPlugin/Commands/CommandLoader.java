@@ -48,6 +48,8 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolder;
+import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 import com.google.common.collect.ListMultimap;
@@ -785,6 +787,26 @@ public class CommandLoader {
 				if (isPlayer(sender)) {
 					sendMessage(sender, "&cSee console for details");
 				}
+			}
+		});
+
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Placeholders" },
+				"VotingPlugin.Commands.AdminVote.Placeholders|" + adminPerm,
+				"See possible placeholderapi placeholders") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				ArrayList<String> msg = new ArrayList<String>();
+				msg.add("&cPlaceholders:");
+				for (PlaceHolder placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+					String identifier = placeholder.getIdentifier();
+					if (identifier.endsWith("_")) {
+						identifier += "#";
+					}
+					msg.add("%VotingPlugin_" + identifier + "%");
+				}
+
+				sendMessage(sender, msg);
 			}
 		});
 

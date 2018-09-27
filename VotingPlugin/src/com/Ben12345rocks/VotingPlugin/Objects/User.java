@@ -24,6 +24,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
@@ -570,6 +571,20 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			voteSite.broadcastVote(this);
 		}
 		voteSite.giveRewards(this, online);
+	}
+
+	public int getTotal(TopVoter top) {
+		switch (top) {
+		case AllTime:
+			return getAllTimeTotal();
+		case Daily:
+			return getDailyTotal();
+		case Monthly:
+			return getMonthTotal();
+		case Weekly:
+			return getWeeklyTotal();
+		}
+		return 0;
 	}
 
 	/**
