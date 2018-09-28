@@ -17,6 +17,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -249,13 +250,13 @@ public class SignHandler {
 
 			ArrayList<User> users = null;
 			if (data.equalsIgnoreCase("all")) {
-				users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+				users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
 			} else if (data.equalsIgnoreCase("monthly")) {
-				users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Monthly).keySet());
 			} else if (data.equalsIgnoreCase("weekly")) {
-				users = plugin.convertSet(plugin.topVoterWeekly.keySet());
+				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 			} else if (data.equalsIgnoreCase("daily")) {
-				users = plugin.convertSet(plugin.topVoterDaily.keySet());
+				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 			}
 
 			if (users != null && users.size() >= position) {
@@ -264,13 +265,13 @@ public class SignHandler {
 
 				votes = 0;
 				if (data.equalsIgnoreCase("all")) {
-					votes = plugin.topVoterAllTime.get(user);
+					votes = plugin.getTopVoter(TopVoter.AllTime).get(user);
 				} else if (data.equalsIgnoreCase("monthly")) {
-					votes = plugin.topVoterMonthly.get(user);
+					votes = plugin.getTopVoter(TopVoter.Monthly).get(user);
 				} else if (data.equalsIgnoreCase("weekly")) {
-					votes = plugin.topVoterWeekly.get(user);
+					votes = plugin.getTopVoter(TopVoter.Weekly).get(user);
 				} else if (data.equalsIgnoreCase("daily")) {
-					votes = plugin.topVoterDaily.get(user);
+					votes = plugin.getTopVoter(TopVoter.Daily).get(user);
 				}
 
 				for (int j = 0; j < lines.size(); j++) {

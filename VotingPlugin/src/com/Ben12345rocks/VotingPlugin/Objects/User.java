@@ -265,6 +265,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		setWeeklyTotal(0);
 	}
 
+	@Deprecated
 	public int getAllTimeTotal() {
 		return getUserData().getInt("AllTimeTotal");
 	}
@@ -281,6 +282,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getData().getInt("BestWeekVoteStreak");
 	}
 
+	@Deprecated
 	public int getDailyTotal() {
 		return getUserData().getInt("DailyTotal");
 	}
@@ -365,6 +367,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getData().getInt("MilestoneCount", getAllTimeTotal());
 	}
 
+	@Deprecated
 	public int getMonthTotal() {
 		return getData().getInt("MonthTotal");
 	}
@@ -409,6 +412,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getUserData().getInt("VotePartyVotes");
 	}
 
+	@Deprecated
 	public int getWeeklyTotal() {
 		return getUserData().getInt("WeeklyTotal");
 	}
@@ -576,13 +580,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public int getTotal(TopVoter top) {
 		switch (top) {
 		case AllTime:
-			return getAllTimeTotal();
+			return getUserData().getInt("AllTimeTotal");
 		case Daily:
-			return getDailyTotal();
+			return getUserData().getInt("DailyTotal");
 		case Monthly:
-			return getMonthTotal();
+			return getData().getInt("MonthTotal");
 		case Weekly:
-			return getWeeklyTotal();
+			return getUserData().getInt("WeeklyTotal");
 		}
 		return 0;
 	}

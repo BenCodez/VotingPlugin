@@ -29,6 +29,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import net.md_5.bungee.api.chat.TextComponent;
@@ -323,7 +324,7 @@ public class Commands {
 	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterAllTime.keySet());
+			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -337,7 +338,7 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterAllTime.get(users.get(i)));
+						plugin.getTopVoter(TopVoter.AllTime).get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
@@ -363,7 +364,7 @@ public class Commands {
 	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterDaily.keySet());
+			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -377,7 +378,7 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterDaily.get(users.get(i)));
+						plugin.getTopVoter(TopVoter.Daily).get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
@@ -403,7 +404,7 @@ public class Commands {
 	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterMonthly.keySet());
+			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Monthly).keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -417,7 +418,7 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterMonthly.get(users.get(i)));
+						plugin.getTopVoter(TopVoter.Monthly).get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);
@@ -443,7 +444,7 @@ public class Commands {
 	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
 		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
-			ArrayList<User> users = plugin.convertSet(plugin.topVoterWeekly.keySet());
+			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 
 			int pageSize = (users.size() / pagesize);
 			if ((users.size() % pagesize) != 0) {
@@ -457,7 +458,7 @@ public class Commands {
 
 			for (int i = (page - 1) * pagesize; (i < users.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 				scoreboard.add("" + (i + 1) + ": " + users.get(i).getPlayerName(),
-						plugin.topVoterWeekly.get(users.get(i)));
+						plugin.getTopVoter(TopVoter.Weekly).get(users.get(i)));
 			}
 			scoreboard.build();
 			scoreboard.send(player);

@@ -214,7 +214,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 						return "" + num;
 					}
@@ -230,7 +230,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[3]);
-				for (Entry<User, Integer> entry : plugin.topVoterAllTime.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -245,7 +245,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 						return "" + num;
 					}
@@ -261,7 +261,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[3]);
-				for (Entry<User, Integer> entry : plugin.topVoterMonthly.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -276,7 +276,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 						return "" + num;
 					}
@@ -292,7 +292,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[3]);
-				for (Entry<User, Integer> entry : plugin.topVoterWeekly.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -307,7 +307,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
 						return "" + num;
 					}
@@ -323,7 +323,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[3]);
-				for (Entry<User, Integer> entry : plugin.topVoterDaily.entrySet()) {
+				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}

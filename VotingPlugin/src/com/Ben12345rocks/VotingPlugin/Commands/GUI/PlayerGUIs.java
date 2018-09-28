@@ -373,16 +373,16 @@ public class PlayerGUIs {
 		String topVoter = "";
 		if (top.equals(TopVoter.Monthly)) {
 			topVoter = Config.getInstance().getFormatTopVoterMonthly();
-			users = plugin.topVoterMonthly.entrySet();
+			users = plugin.getTopVoter(TopVoter.Monthly).entrySet();
 		} else if (top.equals(TopVoter.Weekly)) {
 			topVoter = Config.getInstance().getFormatTopVoterWeekly();
-			users = plugin.topVoterWeekly.entrySet();
+			users = plugin.getTopVoter(TopVoter.Weekly).entrySet();
 		} else if (top.equals(TopVoter.Daily)) {
 			topVoter = Config.getInstance().getFormatTopVoterDaily();
-			users = plugin.topVoterDaily.entrySet();
+			users = plugin.getTopVoter(TopVoter.Daily).entrySet();
 		} else {
 			topVoter = Config.getInstance().getFormatTopVoterAllTime();
-			users = plugin.topVoterAllTime.entrySet();
+			users = plugin.getTopVoter(TopVoter.AllTime).entrySet();
 		}
 		inv = new BInventory(StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getGUIVoteTopName(),
 				"topvoter", topVoter));

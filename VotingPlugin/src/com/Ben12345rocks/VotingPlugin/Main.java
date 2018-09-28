@@ -56,6 +56,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.SignHandler;
 import com.Ben12345rocks.VotingPlugin.Signs.Signs;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
@@ -78,16 +79,29 @@ public class Main extends JavaPlugin {
 	public static Main plugin;
 
 	/** The top voter monthly. */
-	public LinkedHashMap<User, Integer> topVoterAllTime;
+	// public LinkedHashMap<User, Integer> topVoterAllTime;
 
 	/** The top voter monthly. */
-	public LinkedHashMap<User, Integer> topVoterMonthly;
+	// public LinkedHashMap<User, Integer> topVoterMonthly;
 
 	/** The top voter weekly. */
-	public LinkedHashMap<User, Integer> topVoterWeekly;
+	// public LinkedHashMap<User, Integer> topVoterWeekly;
 
 	/** The top voter daily. */
-	public LinkedHashMap<User, Integer> topVoterDaily;
+	// public LinkedHashMap<User, Integer> topVoterDaily;
+
+	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
+
+	/**
+	 * @return the topVoter
+	 */
+	public LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> getTopVoter() {
+		return topVoter;
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
+		return topVoter.get(top);
+	}
 
 	/** The updater. */
 	public Updater updater;
@@ -220,21 +234,19 @@ public class Main extends JavaPlugin {
 		return signs;
 	}
 
-	public LinkedHashMap<User, Integer> getTopVoterAllTime() {
-		return topVoterAllTime;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterDaily() {
-		return topVoterDaily;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterMonthly() {
-		return topVoterMonthly;
-	}
-
-	public LinkedHashMap<User, Integer> getTopVoterWeekly() {
-		return topVoterWeekly;
-	}
+	/*
+	 * public LinkedHashMap<User, Integer> getTopVoterAllTime() { return
+	 * topVoterAllTime; }
+	 * 
+	 * public LinkedHashMap<User, Integer> getTopVoterDaily() { return
+	 * topVoterDaily; }
+	 * 
+	 * public LinkedHashMap<User, Integer> getTopVoterMonthly() { return
+	 * topVoterMonthly; }
+	 * 
+	 * public LinkedHashMap<User, Integer> getTopVoterWeekly() { return
+	 * topVoterWeekly; }
+	 */
 
 	public Updater getUpdater() {
 		return updater;
@@ -741,11 +753,11 @@ public class Main extends JavaPlugin {
 			}
 		});
 
-		topVoterMonthly = new LinkedHashMap<User, Integer>();
-		topVoterWeekly = new LinkedHashMap<User, Integer>();
-		topVoterDaily = new LinkedHashMap<User, Integer>();
+		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>>();
+		for (TopVoter top : TopVoter.values()) {
+			topVoter.put(top, new LinkedHashMap<User, Integer>());
+		}
 		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
-		topVoterAllTime = new LinkedHashMap<User, Integer>();
 
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
