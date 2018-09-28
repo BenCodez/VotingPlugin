@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Events;
+package com.Ben12345rocks.VotingPlugin.Listeners;
 
 import java.util.ArrayList;
 
@@ -15,6 +15,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;

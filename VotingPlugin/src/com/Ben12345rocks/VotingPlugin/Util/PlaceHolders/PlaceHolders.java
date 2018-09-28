@@ -9,7 +9,6 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -64,7 +63,8 @@ public class PlaceHolders {
 
 	public void load() {
 		placeholders.clear();
-		
+
+		// older placeholders, might be removed in the future
 		placeholders.add(new PlaceHolder("total") {
 
 			@Override
@@ -88,6 +88,8 @@ public class PlaceHolders {
 				return Integer.toString(user.getLastMonthTotal());
 			}
 		});
+
+		// end of older placeholders
 
 		for (final TopVoter top : TopVoter.values()) {
 			placeholders.add(new PlaceHolder("total_" + top.toString()) {
@@ -236,7 +238,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.useStartsWith());
 
 		placeholders.add(new PlaceHolder("Top_Month_Position") {
 
@@ -267,7 +269,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.useStartsWith());
 
 		placeholders.add(new PlaceHolder("Top_Week_Position") {
 
@@ -298,7 +300,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.useStartsWith());
 
 		placeholders.add(new PlaceHolder("Top_Daily_Position") {
 
@@ -329,7 +331,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.useStartsWith());
 
 	}
 
@@ -349,8 +351,14 @@ public class PlaceHolders {
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
 		for (PlaceHolder placeholder : placeholders) {
-			if (StringUtils.getInstance().startsWithIgnoreCase(placeholder.getIdentifier(), identifier)) {
-				return placeholder.placeholderRequest(p, user, identifier);
+			if (placeholder.isUseStartsWith()) {
+				if (StringUtils.getInstance().startsWithIgnoreCase(placeholder.getIdentifier(), identifier)) {
+					return placeholder.placeholderRequest(p, user, identifier);
+				}
+			} else {
+				if (placeholder.getIdentifier().equalsIgnoreCase(identifier)) {
+					return placeholder.placeholderRequest(p, user, identifier);
+				}
 			}
 		}
 
@@ -361,18 +369,4 @@ public class PlaceHolders {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
-
-	public String playerLastVote(User user, String siteName) {
-		if (!ConfigVoteSites.getInstance().getVoteSitesNames().contains(siteName)) {
-			return "";
-		}
-
-		VoteSite voteSite = plugin.getVoteSite(siteName);
-		return Commands.getInstance().voteCommandLastDuration(user, voteSite);
-	}
-
-	public boolean startsWithIgnoreCase(String str1, String str2) {
-		return str1.toLowerCase().startsWith(str2.toLowerCase());
-	}
-
 }

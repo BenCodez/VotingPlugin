@@ -23,7 +23,7 @@ import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequestBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class AdminGUI {

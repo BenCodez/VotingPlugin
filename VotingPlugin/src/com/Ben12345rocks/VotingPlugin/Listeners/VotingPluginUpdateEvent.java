@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Events;
+package com.Ben12345rocks.VotingPlugin.Listeners;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

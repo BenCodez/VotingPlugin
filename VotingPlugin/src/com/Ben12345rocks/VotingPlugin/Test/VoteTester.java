@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteTester {

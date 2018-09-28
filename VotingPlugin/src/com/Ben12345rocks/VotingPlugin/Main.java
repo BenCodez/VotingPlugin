@@ -46,12 +46,12 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
-import com.Ben12345rocks.VotingPlugin.Events.BlockBreak;
-import com.Ben12345rocks.VotingPlugin.Events.PlayerInteract;
-import com.Ben12345rocks.VotingPlugin.Events.PlayerJoinEvent;
-import com.Ben12345rocks.VotingPlugin.Events.SignChange;
-import com.Ben12345rocks.VotingPlugin.Events.VotiferEvent;
-import com.Ben12345rocks.VotingPlugin.Events.VotingPluginUpdateEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.BlockBreak;
+import com.Ben12345rocks.VotingPlugin.Listeners.PlayerInteract;
+import com.Ben12345rocks.VotingPlugin.Listeners.PlayerJoinEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.SignChange;
+import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.VotingPluginUpdateEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Signs.SignHandler;
@@ -909,6 +909,7 @@ public class Main extends JavaPlugin {
 		plugin.loadVoteSites();
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 		AdvancedCoreHook.getInstance().reload();
+		PlaceHolders.getInstance().load();
 		// loadTimer();
 
 	}
