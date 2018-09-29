@@ -46,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolder;
@@ -161,7 +162,7 @@ public class CommandLoader {
 						String name = entry.getRowKey();
 						int total = entry.getColumnKey();
 						User user = UserManager.getInstance().getVotingPluginUser(name);
-						user.setAllTimeTotal(user.getAllTimeTotal() + total);
+						user.setAllTimeTotal(user.getTotal(TopVoter.AllTime) + total);
 					}
 					sender.sendMessage("Totals added");
 
@@ -207,8 +208,9 @@ public class CommandLoader {
 						Voter voter = VoteRoulette.getVoterManager().getVoter(offPlayer.getUniqueId(),
 								offPlayer.getName());
 						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
-						user.setAllTimeTotal(user.getAllTimeTotal() + voter.getStatSheet().getLifetimeVotes());
-						user.setMonthTotal(user.getMonthTotal() + voter.getStatSheet().getCurrentMonthVotes());
+						user.setAllTimeTotal(user.getTotal(TopVoter.AllTime) + voter.getStatSheet().getLifetimeVotes());
+						user.setMonthTotal(
+								user.getTotal(TopVoter.Monthly) + voter.getStatSheet().getCurrentMonthVotes());
 					}
 				} else {
 					sender.sendMessage("VoteRoulette not loaded");
@@ -235,7 +237,7 @@ public class CommandLoader {
 				sendMessage(sender, "&cStarting...");
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					user.setMilestoneCount(user.getAllTimeTotal());
+					user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
 				}
 				sendMessage(sender, "&cFinished");
 
@@ -939,7 +941,7 @@ public class CommandLoader {
 												"Player");
 										User user = UserManager.getInstance().getVotingPluginUser(playerName);
 										new ValueRequest().requestNumber(clickEvent.getPlayer(),
-												"" + user.getMonthTotal(), new Number[] { 0, 10, 50, 100 },
+												"" + user.getTotal(TopVoter.Monthly), new Number[] { 0, 10, 50, 100 },
 												new NumberListener() {
 
 													@Override

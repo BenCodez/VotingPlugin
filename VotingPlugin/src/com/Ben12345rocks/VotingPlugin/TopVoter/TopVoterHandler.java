@@ -107,15 +107,15 @@ public class TopVoterHandler implements Listener {
 
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getDailyTotal() == 0 && user.getDayVoteStreak() != 0) {
+			if (user.getTotal(TopVoter.Daily) == 0 && user.getDayVoteStreak() != 0) {
 				user.setDayVoteStreak(0);
 			} else {
 				user.addDayVoteStreak();
 			}
 			OtherVoteReward.getInstance().checkVoteStreak(user, "Day");
 
-			if (user.getHighestDailyTotal() < user.getDailyTotal()) {
-				user.setHighestDailyTotal(user.getDailyTotal());
+			if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
+				user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
 			}
 		}
 
@@ -131,7 +131,7 @@ public class TopVoterHandler implements Listener {
 			for (User user : plugin.getTopVoter(TopVoter.Daily).keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getDailyTotal() != lastTotal) {
+						if (user.getTotal(TopVoter.Daily) != lastTotal) {
 							i++;
 						}
 					} else {
@@ -141,7 +141,7 @@ public class TopVoterHandler implements Listener {
 						user.giveDailyTopVoterAward(i, places.get(i));
 					}
 				}
-				lastTotal = user.getDailyTotal();
+				lastTotal = user.getTotal(TopVoter.Daily);
 			}
 		}
 		resetDailyTotals();
@@ -152,15 +152,15 @@ public class TopVoterHandler implements Listener {
 	public void onMonthChange(MonthChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getMonthTotal() == 0 && user.getMonthVoteStreak() != 0) {
+			if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 				user.setMonthVoteStreak(0);
 			} else {
 				user.addMonthVoteStreak();
 				OtherVoteReward.getInstance().checkVoteStreak(user, "Month");
 			}
 
-			if (user.getHighestMonthlyTotal() < user.getMonthTotal()) {
-				user.setHighestMonthlyTotal(user.getMonthTotal());
+			if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
+				user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
 			}
 		}
 
@@ -177,7 +177,7 @@ public class TopVoterHandler implements Listener {
 
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getMonthTotal() != lastTotal) {
+						if (user.getTotal(TopVoter.Monthly) != lastTotal) {
 							i++;
 						}
 					} else {
@@ -187,7 +187,7 @@ public class TopVoterHandler implements Listener {
 						user.giveMonthlyTopVoterAward(i, places.get(i));
 					}
 				}
-				lastTotal = user.getMonthTotal();
+				lastTotal = user.getTotal(TopVoter.Monthly);
 			}
 		}
 		resetMonthlyTotals();
@@ -212,15 +212,15 @@ public class TopVoterHandler implements Listener {
 	public void onWeekChange(WeekChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getWeeklyTotal() == 0 && user.getWeekVoteStreak() != 0) {
+			if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 				user.setWeekVoteStreak(0);
 			} else {
 				user.addWeekVoteStreak();
 				OtherVoteReward.getInstance().checkVoteStreak(user, "Week");
 			}
 
-			if (user.getHighestWeeklyTotal() < user.getWeeklyTotal()) {
-				user.setHighestWeeklyTotal(user.getWeeklyTotal());
+			if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
+				user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
 			}
 		}
 
@@ -236,7 +236,7 @@ public class TopVoterHandler implements Listener {
 			for (User user : plugin.getTopVoter(TopVoter.Weekly).keySet()) {
 				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getWeeklyTotal() != lastTotal) {
+						if (user.getTotal(TopVoter.Weekly) != lastTotal) {
 							i++;
 						}
 					} else {
@@ -246,7 +246,7 @@ public class TopVoterHandler implements Listener {
 						user.giveWeeklyTopVoterAward(i, places.get(i));
 					}
 				}
-				lastTotal = user.getWeeklyTotal();
+				lastTotal = user.getTotal(TopVoter.Weekly);
 			}
 		}
 		resetWeeklyTotals();
@@ -260,7 +260,7 @@ public class TopVoterHandler implements Listener {
 	public void resetDailyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getDailyTotal() != 0) {
+			if (user.getTotal(TopVoter.Daily) != 0) {
 				user.resetDailyTotalVotes();
 			}
 		}
@@ -269,7 +269,7 @@ public class TopVoterHandler implements Listener {
 	public void resetMonthlyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getMonthTotal() != 0) {
+			if (user.getTotal(TopVoter.Monthly) != 0) {
 				user.resetMonthlyTotalVotes();
 			}
 		}
@@ -278,7 +278,7 @@ public class TopVoterHandler implements Listener {
 	public void resetWeeklyTotals() {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getWeeklyTotal() != 0) {
+			if (user.getTotal(TopVoter.Weekly) != 0) {
 				user.resetWeeklyTotalVotes();
 			}
 		}
@@ -621,7 +621,7 @@ public class TopVoterHandler implements Listener {
 		plugin.getTopVoter(TopVoter.AllTime).clear();
 		if (Config.getInstance().getLoadTopVoterAllTime()) {
 			for (User user : users) {
-				int total = user.getAllTimeTotal();
+				int total = user.getTotal(TopVoter.AllTime);
 				if (total > 0) {
 					plugin.getTopVoter(TopVoter.AllTime).put(user, total);
 				}
@@ -633,7 +633,7 @@ public class TopVoterHandler implements Listener {
 		plugin.getTopVoter(TopVoter.Monthly).clear();
 		if (Config.getInstance().getLoadTopVoterMonthly()) {
 			for (User user : users) {
-				int total = user.getMonthTotal();
+				int total = user.getTotal(TopVoter.Monthly);
 				if (total > 0) {
 					plugin.getTopVoter(TopVoter.Monthly).put(user, total);
 				}
@@ -645,7 +645,7 @@ public class TopVoterHandler implements Listener {
 		plugin.getTopVoter(TopVoter.Weekly).clear();
 		if (Config.getInstance().getLoadTopVoterWeekly()) {
 			for (User user : users) {
-				int total = user.getWeeklyTotal();
+				int total = user.getTotal(TopVoter.Weekly);
 				if (total > 0) {
 					plugin.getTopVoter(TopVoter.Weekly).put(user, total);
 				}
@@ -658,7 +658,7 @@ public class TopVoterHandler implements Listener {
 		plugin.getTopVoter(TopVoter.Daily).clear();
 		if (Config.getInstance().getLoadTopVoterDaily()) {
 			for (User user : users) {
-				int total = user.getDailyTotal();
+				int total = user.getTotal(TopVoter.Daily);
 				if (total > 0) {
 					plugin.getTopVoter(TopVoter.Daily).put(user, total);
 				}

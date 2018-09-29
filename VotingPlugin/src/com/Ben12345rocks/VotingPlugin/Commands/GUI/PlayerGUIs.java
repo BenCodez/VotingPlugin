@@ -443,7 +443,7 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", user.getPlayerName()));
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalDayTotalItem())
-				.addPlaceholder("Total", "" + user.getDailyTotal())) {
+				.addPlaceholder("Total", "" + user.getTotal(TopVoter.Daily))) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -451,7 +451,7 @@ public class PlayerGUIs {
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalWeekTotalItem())
-				.addPlaceholder("Total", "" + user.getWeeklyTotal())) {
+				.addPlaceholder("Total", "" + user.getTotal(TopVoter.Weekly))) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -459,7 +459,7 @@ public class PlayerGUIs {
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalMonthTotalItem())
-				.addPlaceholder("Total", "" + user.getMonthTotal())) {
+				.addPlaceholder("Total", "" + user.getTotal(TopVoter.Monthly))) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -467,7 +467,7 @@ public class PlayerGUIs {
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalAllTimeTotalItem())
-				.addPlaceholder("Total", "" + user.getAllTimeTotal())) {
+				.addPlaceholder("Total", "" + user.getTotal(TopVoter.AllTime))) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {

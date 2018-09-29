@@ -13,6 +13,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -91,11 +92,11 @@ public class OtherVoteReward {
 									Config.getInstance().getCumulativeRewardsPath(votesRequired))) {
 						int total = 0;
 						if (Config.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
-							total = user.getDailyTotal();
+							total = user.getTotal(TopVoter.Daily);
 						} else if (Config.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
-							total = user.getWeeklyTotal();
+							total = user.getTotal(TopVoter.Weekly);
 						} else {
-							total = user.getAllTimeTotal();
+							total = user.getTotal(TopVoter.AllTime);
 						}
 
 						if ((total % votesRequired) == 0 && total != 0) {

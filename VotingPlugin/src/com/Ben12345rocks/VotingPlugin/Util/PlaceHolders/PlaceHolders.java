@@ -69,7 +69,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
-				return Integer.toString(user.getMonthTotal());
+				return Integer.toString(user.getTotal(TopVoter.Monthly));
 			}
 		});
 
@@ -77,7 +77,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
-				return Integer.toString(user.getAllTimeTotal());
+				return Integer.toString(user.getTotal(TopVoter.AllTime));
 			}
 		});
 

@@ -790,10 +790,10 @@ public class Commands {
 	public String[] voteCommandTotal(User user) {
 		ArrayList<String> msg = new ArrayList<String>();
 
-		int daily = user.getDailyTotal();
-		int weekly = user.getWeeklyTotal();
-		int month = user.getMonthTotal();
-		int all = user.getAllTimeTotal();
+		int daily = user.getTotal(TopVoter.Daily);
+		int weekly = user.getTotal(TopVoter.Weekly);
+		int month = user.getTotal(TopVoter.Monthly);
+		int all = user.getTotal(TopVoter.AllTime);
 
 		for (String s : config.getFormatCommandsVoteTotal()) {
 			String str = StringUtils.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
@@ -826,10 +826,10 @@ public class Commands {
 
 		for (String uuid : uuids) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			daily += user.getDailyTotal();
-			weekly += user.getWeeklyTotal();
-			month += user.getMonthTotal();
-			all += user.getAllTimeTotal();
+			daily += user.getTotal(TopVoter.Daily);
+			weekly += user.getTotal(TopVoter.Weekly);
+			month += user.getTotal(TopVoter.Monthly);
+			all += user.getTotal(TopVoter.AllTime);
 		}
 
 		for (String s : config.getFormatCommandsVoteTotalAll()) {
@@ -919,10 +919,10 @@ public class Commands {
 		}
 		if (user != null) {
 			HashMap<String, String> phs = new HashMap<String, String>();
-			phs.put("DailyTotal", "" + user.getDailyTotal());
-			phs.put("WeekTotal", "" + user.getWeeklyTotal());
-			phs.put("MonthTotal", "" + user.getMonthTotal());
-			phs.put("Total", "" + user.getAllTimeTotal());
+			phs.put("DailyTotal", "" + user.getTotal(TopVoter.Daily));
+			phs.put("WeekTotal", "" + user.getTotal(TopVoter.Weekly));
+			phs.put("MonthTotal", "" + user.getTotal(TopVoter.Monthly));
+			phs.put("Total", "" + user.getTotal(TopVoter.AllTime));
 
 			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
