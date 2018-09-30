@@ -229,7 +229,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				int number = Integer.parseInt(identifier.split("_")[3]);
+				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
@@ -260,7 +260,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				int number = Integer.parseInt(identifier.split("_")[3]);
+				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
@@ -291,7 +291,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				int number = Integer.parseInt(identifier.split("_")[3]);
+				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
@@ -352,7 +352,7 @@ public class PlaceHolders {
 
 		for (PlaceHolder placeholder : placeholders) {
 			if (placeholder.isUseStartsWith()) {
-				if (StringUtils.getInstance().startsWithIgnoreCase(placeholder.getIdentifier(), identifier)) {
+				if (StringUtils.getInstance().startsWithIgnoreCase(identifier, placeholder.getIdentifier())) {
 					return placeholder.placeholderRequest(p, user, identifier);
 				}
 			} else {

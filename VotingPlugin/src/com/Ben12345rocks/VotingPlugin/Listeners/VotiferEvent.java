@@ -47,16 +47,18 @@ public class VotiferEvent implements Listener {
 
 	public static void playerVote(final String playerName, final String voteSiteURL, final boolean realVote) {
 
-		if (!config.allowUnJoined() && !PlayerUtils.getInstance().isValidUser(playerName)) {
-			plugin.getLogger().warning("Player " + playerName
-					+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
-			return;
+		if (!PlayerUtils.getInstance().isValidUser(playerName)) {
+			if (!config.allowUnJoined()) {
+				plugin.getLogger().warning("Player " + playerName
+						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+				return;
+			} 
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 
 		VoteSite voteSite = plugin.getVoteSite(voteSiteURL);
-		
+
 		// check valid service sites
 		if (voteSite == null) {
 			if (!Config.getInstance().getDisableNoServiceSiteMessage()) {

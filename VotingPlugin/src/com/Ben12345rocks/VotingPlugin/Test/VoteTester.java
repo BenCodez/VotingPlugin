@@ -31,8 +31,11 @@ public class VoteTester {
 			timeTotal += t.longValue();
 		}
 		long timePerVoteAvg = timeTotal / timesPerVote.size();
-		Main.plugin.getLogger().info(
-				"Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", " + UserManager.getInstance().getAllUUIDs().size() + " users");
+		Main.plugin.getLogger()
+				.info("Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg
+						+ " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
+						+ UserManager.getInstance().getAllUUIDs().size() + " users. "
+						+ Main.plugin.getVoteSites().size() + " votesites");
 	}
 
 }
