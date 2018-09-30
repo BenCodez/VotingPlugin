@@ -6,9 +6,11 @@ com.Ben12345rocks.VotingPlugin.Commands.TabCompleter
 com.Ben12345rocks.VotingPlugin.Config
 com.Ben12345rocks.VotingPlugin.Data
 com.Ben12345rocks.VotingPlugin.Events
+com.Ben12345rocks.VotingPlugin.Listeners
 com.Ben12345rocks.VotingPlugin.Objects
 com.Ben12345rocks.VotingPlugin.OtherRewards
 com.Ben12345rocks.VotingPlugin.Signs
+com.Ben12345rocks.VotingPlugin.Test
 com.Ben12345rocks.VotingPlugin.TopVoter
 com.Ben12345rocks.VotingPlugin.UserManager
 com.Ben12345rocks.VotingPlugin.Util.PlaceHolders
