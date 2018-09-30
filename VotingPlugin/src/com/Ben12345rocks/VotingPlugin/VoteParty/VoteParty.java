@@ -173,12 +173,6 @@ public class VoteParty implements Listener {
 		return required;
 	}
 
-	/**
-	 * Give reward.
-	 *
-	 * @param user
-	 *            the user
-	 */
 	public void giveReward(User user, boolean online) {
 		/*
 		 * if (PlayerUtils.getInstance().isPlayerOnline(user.getPlayerName())) { if
