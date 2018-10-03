@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.Util.Updater;
+package com.Ben12345rocks.VotingPlugin.Updater;
 
 import java.util.Timer;
 import java.util.TimerTask;
