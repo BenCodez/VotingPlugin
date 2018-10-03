@@ -812,6 +812,28 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.adminVoteCommand.add(new CommandHandler(new String[] { "Placeholders", "(player)" },
+				"VotingPlugin.Commands.AdminVote.Placeholders.Players|" + adminPerm,
+				"See possible placeholderapi placeholders with player values") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				ArrayList<String> msg = new ArrayList<String>();
+				msg.add("&cPlaceholders:");
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				for (PlaceHolder placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+					String identifier = placeholder.getIdentifier();
+					if (identifier.endsWith("_")) {
+						identifier += "1";
+					}
+					msg.add("%VotingPlugin_" + identifier + "% = "
+							+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
+				}
+
+				sendMessage(sender, msg);
+			}
+		});
+
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {

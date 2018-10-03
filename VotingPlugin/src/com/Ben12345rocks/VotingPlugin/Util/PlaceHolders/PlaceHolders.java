@@ -53,6 +53,14 @@ public class PlaceHolders {
 	}
 
 	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
+	private ArrayList<PlaceHolder> nonPlayerPlaceholders = new ArrayList<PlaceHolder>();
+
+	/**
+	 * @return the nonPlayerPlaceholders
+	 */
+	public ArrayList<PlaceHolder> getNonPlayerPlaceholders() {
+		return nonPlayerPlaceholders;
+	}
 
 	/**
 	 * @return the placeholders
@@ -63,6 +71,7 @@ public class PlaceHolders {
 
 	public void load() {
 		placeholders.clear();
+		nonPlayerPlaceholders.clear();
 
 		// older placeholders, might be removed in the future
 		placeholders.add(new PlaceHolder("total") {
@@ -333,32 +342,45 @@ public class PlaceHolders {
 			}
 		}.useStartsWith());
 
+		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesCurrent") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(VoteParty.getInstance().getTotalVotes());
+			}
+		});
+
+		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesNeeded") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(VoteParty.getInstance().getNeededVotes());
+			}
+		});
+
+		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesRequired") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return Integer.toString(VoteParty.getInstance().getVotesRequired());
+			}
+		});
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
-		// vote party placeholders
-		// non player based
-		if (identifier.equalsIgnoreCase("VotePartyVotesNeeded")) {
-			return Integer.toString(VoteParty.getInstance().getNeededVotes());
-		} else if (identifier.equalsIgnoreCase("VotePartyVotesCurrent")) {
-			return Integer.toString(VoteParty.getInstance().getTotalVotes());
-		} else if (identifier.equalsIgnoreCase("VotePartyVotesRequired")) {
-			return Integer.toString(VoteParty.getInstance().getVotesRequired());
+		for (PlaceHolder placeholder : nonPlayerPlaceholders) {
+			if (placeholder.matches(identifier)) {
+				return placeholder.placeholderRequest(p, null, identifier);
+			}
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
 		for (PlaceHolder placeholder : placeholders) {
-			if (placeholder.isUseStartsWith()) {
-				if (StringUtils.getInstance().startsWithIgnoreCase(identifier, placeholder.getIdentifier())) {
-					return placeholder.placeholderRequest(p, user, identifier);
-				}
-			} else {
-				if (placeholder.getIdentifier().equalsIgnoreCase(identifier)) {
-					return placeholder.placeholderRequest(p, user, identifier);
-				}
+			if (placeholder.matches(identifier)) {
+				return placeholder.placeholderRequest(p, user, identifier);
 			}
 		}
 
