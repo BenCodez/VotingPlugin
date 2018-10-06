@@ -342,6 +342,11 @@ public class PlaceHolders {
 			}
 		}.useStartsWith());
 
+		
+		
+		
+		// non players
+		
 		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesCurrent") {
 
 			@Override
