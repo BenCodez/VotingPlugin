@@ -162,7 +162,7 @@ public class CommandLoader {
 						String name = entry.getRowKey();
 						int total = entry.getColumnKey();
 						User user = UserManager.getInstance().getVotingPluginUser(name);
-						user.setAllTimeTotal(user.getTotal(TopVoter.AllTime) + total);
+						user.setTotal(TopVoter.AllTime, user.getTotal(TopVoter.AllTime) + total);
 					}
 					sender.sendMessage("Totals added");
 
@@ -208,8 +208,9 @@ public class CommandLoader {
 						Voter voter = VoteRoulette.getVoterManager().getVoter(offPlayer.getUniqueId(),
 								offPlayer.getName());
 						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
-						user.setAllTimeTotal(user.getTotal(TopVoter.AllTime) + voter.getStatSheet().getLifetimeVotes());
-						user.setMonthTotal(
+						user.setTotal(TopVoter.AllTime,
+								user.getTotal(TopVoter.AllTime) + voter.getStatSheet().getLifetimeVotes());
+						user.setTotal(TopVoter.Monthly,
 								user.getTotal(TopVoter.Monthly) + voter.getStatSheet().getCurrentMonthVotes());
 					}
 				} else {
@@ -519,7 +520,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setMonthTotal(Integer.parseInt(args[3]));
+				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Monthly,
+						Integer.parseInt(args[3]));
 				sender.sendMessage(
 						StringUtils.getInstance().colorize("&cSet month total for '" + args[2] + "' to " + args[3]));
 			}
@@ -530,7 +532,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setAllTimeTotal(Integer.parseInt(args[3]));
+				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.AllTime,
+						Integer.parseInt(args[3]));
 				sender.sendMessage(
 						StringUtils.getInstance().colorize("&cSet alltime total for '" + args[2] + "' to " + args[3]));
 			}
@@ -541,7 +544,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setWeeklyTotal(Integer.parseInt(args[3]));
+				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Weekly,
+						Integer.parseInt(args[3]));
 				sender.sendMessage(
 						StringUtils.getInstance().colorize("&cSet week total for '" + args[2] + "' to " + args[3]));
 			}
@@ -552,7 +556,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setDailyTotal(Integer.parseInt(args[3]));
+				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Daily,
+						Integer.parseInt(args[3]));
 				sender.sendMessage(
 						StringUtils.getInstance().colorize("&cSet day total for '" + args[2] + "' to " + args[3]));
 			}
@@ -972,7 +977,7 @@ public class CommandLoader {
 																.getMeta(clickEvent.getPlayer(), "Player");
 														User user = UserManager.getInstance()
 																.getVotingPluginUser(playerName);
-														user.setMonthTotal(value.intValue());
+														user.setTotal(TopVoter.Monthly, value.intValue());
 														player.sendMessage(
 																StringUtils.getInstance().colorize("&cTotal set"));
 													}

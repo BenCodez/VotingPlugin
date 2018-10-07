@@ -12,6 +12,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -1144,7 +1145,7 @@ public class Config extends YMLFile {
 	 * @return the vote GUI slot slot
 	 */
 	public int getVoteGUISlotSlot(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Slot",-1);
+		return getData().getInt("GUI.VoteGUI." + slot + ".Slot", -1);
 	}
 
 	public String getVotePartyBroadcast() {
@@ -1522,6 +1523,21 @@ public class Config extends YMLFile {
 	public void setVoteRemindingRewards(ArrayList<String> value) {
 		getData().set("VoteReminding.Rewards", value);
 		saveData();
+	}
+
+	public boolean getLoadTopVoter(TopVoter top) {
+		switch (top) {
+		case AllTime:
+			return getLoadTopVoterAllTime();
+		case Daily:
+			return getLoadTopVoterDaily();
+		case Monthly:
+			return getLoadTopVoterMonthly();
+		case Weekly:
+			return getLoadTopVoterWeekly();
+		default:
+			return false;
+		}
 	}
 
 }

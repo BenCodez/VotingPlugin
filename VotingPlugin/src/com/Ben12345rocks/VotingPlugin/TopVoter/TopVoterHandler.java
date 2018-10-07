@@ -104,7 +104,6 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
-
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 			if (user.getTotal(TopVoter.Daily) == 0 && user.getDayVoteStreak() != 0) {
@@ -121,7 +120,7 @@ public class TopVoterHandler implements Listener {
 
 		if (Config.getInstance().getStoreTopVotersDaily()) {
 			plugin.debug("Storing TopVoters Daily");
-			storeDailyTopVoters();
+			storeTopVoters(TopVoter.Daily);
 		}
 
 		if (Config.getInstance().getDailyAwardsEnabled()) {
@@ -144,7 +143,7 @@ public class TopVoterHandler implements Listener {
 				lastTotal = user.getTotal(TopVoter.Daily);
 			}
 		}
-		resetDailyTotals();
+		resetTotals(TopVoter.Daily);
 
 	}
 
@@ -166,7 +165,7 @@ public class TopVoterHandler implements Listener {
 
 		if (Config.getInstance().getStoreTopVotersMonthly()) {
 			plugin.debug("Storing TopVoters Monthly");
-			storeMonthlyTopVoters();
+			storeTopVoters(TopVoter.Monthly);
 		}
 
 		if (Config.getInstance().getMonthlyAwardsEnabled()) {
@@ -190,7 +189,7 @@ public class TopVoterHandler implements Listener {
 				lastTotal = user.getTotal(TopVoter.Monthly);
 			}
 		}
-		resetMonthlyTotals();
+		resetTotals(TopVoter.Monthly);
 
 		if (Config.getInstance().getResetMilestonesMonthly()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
@@ -226,7 +225,7 @@ public class TopVoterHandler implements Listener {
 
 		if (Config.getInstance().getStoreTopVotersWeekly()) {
 			plugin.debug("Storing TopVoters Weekly");
-			storeWeeklyTopVoters();
+			storeTopVoters(TopVoter.Weekly);
 		}
 
 		if (Config.getInstance().getWeeklyAwardsEnabled()) {
@@ -249,7 +248,7 @@ public class TopVoterHandler implements Listener {
 				lastTotal = user.getTotal(TopVoter.Weekly);
 			}
 		}
-		resetWeeklyTotals();
+		resetTotals(TopVoter.Weekly);
 
 	}
 
@@ -257,29 +256,11 @@ public class TopVoterHandler implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	public void resetDailyTotals() {
+	public void resetTotals(TopVoter topVoter) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Daily) != 0) {
-				user.resetDailyTotalVotes();
-			}
-		}
-	}
-
-	public void resetMonthlyTotals() {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Monthly) != 0) {
-				user.resetMonthlyTotalVotes();
-			}
-		}
-	}
-
-	public void resetWeeklyTotals() {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Weekly) != 0) {
-				user.resetWeeklyTotalVotes();
+			if (user.getTotal(topVoter) != 0) {
+				user.resetTotals(topVoter);
 			}
 		}
 	}
@@ -311,56 +292,30 @@ public class TopVoterHandler implements Listener {
 		return sortedMap;
 	}
 
-	public void storeDailyTopVoters() {
-		LocalDateTime time = LocalDateTime.now().minusHours(5);
-		String month = time.getMonth().toString();
-		int year = time.getYear();
-		int day = time.getDayOfMonth();
-		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
-				"TopVoter" + File.separator + "Daily" + File.separator + year + "_" + month + "_" + day + ".yml"));
-		file.setup();
-		ArrayList<String> topVoters = new ArrayList<String>();
-		int count = 1;
-		for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
-			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
-			count++;
-		}
-		file.getData().set("Day", topVoters);
-		file.saveData();
-	}
-
-	public void storeMonthlyTopVoters() {
-		LocalDateTime time = LocalDateTime.now().minusHours(10);
-		String month = time.getMonth().toString();
-		int year = time.getYear();
-		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
-				"TopVoter" + File.separator + "Monthly" + File.separator + month + "_" + year + ".yml"));
-		file.setup();
-		ArrayList<String> topVoters = new ArrayList<String>();
-		int count = 1;
-		for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
-			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
-			count++;
-		}
-		file.getData().set("Month", topVoters);
-		file.saveData();
-	}
-
-	public void storeWeeklyTopVoters() {
-		LocalDateTime time = LocalDateTime.now().minusHours(10);
+	public void storeTopVoters(TopVoter top) {
+		LocalDateTime time = LocalDateTime.now().minusDays(1);
 		String month = time.getMonth().toString();
 		int year = time.getYear();
 		int week = time.getDayOfYear();
-		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(),
-				"TopVoter" + File.separator + "Weekly" + File.separator + year + "_" + month + "_" + week + ".yml"));
+		int day = time.getDayOfMonth();
+		String fileName = "TopVoter" + File.separator + top.toString() + File.separator + year + "_" + month;
+
+		if (top.equals(TopVoter.Daily)) {
+			fileName += "_" + day;
+		} else if (top.equals(TopVoter.Weekly)) {
+			fileName += "_" + week;
+		}
+		fileName += ".yml";
+
+		YMLFileHandler file = new YMLFileHandler(new File(plugin.getDataFolder(), fileName));
 		file.setup();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+		for (Entry<User, Integer> entry : plugin.getTopVoter(top).entrySet()) {
 			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 			count++;
 		}
-		file.getData().set("Week", topVoters);
+		file.getData().set(top.toString(), topVoters);
 		file.saveData();
 	}
 
@@ -617,54 +572,18 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 
-		plugin.getTopVoter(TopVoter.AllTime).clear();
-		plugin.getTopVoter(TopVoter.AllTime).clear();
-		if (Config.getInstance().getLoadTopVoterAllTime()) {
-			for (User user : users) {
-				int total = user.getTotal(TopVoter.AllTime);
-				if (total > 0) {
-					plugin.getTopVoter(TopVoter.AllTime).put(user, total);
+		for (TopVoter top : TopVoter.values()) {
+			plugin.getTopVoter(top).clear();
+			if (Config.getInstance().getLoadTopVoter(top)) {
+				for (User user : users) {
+					int total = user.getTotal(top);
+					if (total > 0) {
+						plugin.getTopVoter(top).put(user, total);
+					}
 				}
+				plugin.getTopVoter().put(top, sortByValues(plugin.getTopVoter(top), false));
+				plugin.debug(top.toString() + " TopVoter loaded");
 			}
-			plugin.getTopVoter().put(TopVoter.AllTime, sortByValues(plugin.getTopVoter(TopVoter.AllTime), false));
-			plugin.debug("All Time TopVoter loaded");
-		}
-
-		plugin.getTopVoter(TopVoter.Monthly).clear();
-		if (Config.getInstance().getLoadTopVoterMonthly()) {
-			for (User user : users) {
-				int total = user.getTotal(TopVoter.Monthly);
-				if (total > 0) {
-					plugin.getTopVoter(TopVoter.Monthly).put(user, total);
-				}
-			}
-			plugin.getTopVoter().put(TopVoter.Monthly, sortByValues(plugin.getTopVoter(TopVoter.Monthly), false));
-			plugin.debug("Monthly TopVoter loaded");
-		}
-
-		plugin.getTopVoter(TopVoter.Weekly).clear();
-		if (Config.getInstance().getLoadTopVoterWeekly()) {
-			for (User user : users) {
-				int total = user.getTotal(TopVoter.Weekly);
-				if (total > 0) {
-					plugin.getTopVoter(TopVoter.Weekly).put(user, total);
-				}
-			}
-
-			plugin.getTopVoter().put(TopVoter.Weekly, sortByValues(plugin.getTopVoter(TopVoter.Weekly), false));
-			plugin.debug("Weekly TopVoter loaded");
-		}
-
-		plugin.getTopVoter(TopVoter.Daily).clear();
-		if (Config.getInstance().getLoadTopVoterDaily()) {
-			for (User user : users) {
-				int total = user.getTotal(TopVoter.Daily);
-				if (total > 0) {
-					plugin.getTopVoter(TopVoter.Daily).put(user, total);
-				}
-			}
-			plugin.getTopVoter().put(TopVoter.Daily, sortByValues(plugin.getTopVoter(TopVoter.Daily), false));
-			plugin.debug("Daily TopVoter loaded");
 		}
 
 		plugin.debug("Updated TopVoter");

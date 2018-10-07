@@ -259,10 +259,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void clearTotals() {
-		setAllTimeTotal(0);
-		resetDailyTotalVotes();
-		resetMonthlyTotalVotes();
-		setWeeklyTotal(0);
+		for (TopVoter top : TopVoter.values()) {
+			resetTotals(top);
+		}
 	}
 
 	@Deprecated
@@ -591,6 +590,33 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return 0;
 	}
 
+	public void setTotal(TopVoter top, int value) {
+		switch (top) {
+		case AllTime:
+			getUserData().setInt("AllTimeTotal", value);
+			break;
+		case Daily:
+			getUserData().setInt("DailyTotal", value);
+			break;
+		case Monthly:
+			getData().setInt("MonthTotal", value);
+			break;
+		case Weekly:
+			getUserData().setInt("WeeklyTotal", value);
+			break;
+		default:
+			break;
+
+		}
+	}
+
+	public void resetTotals(TopVoter topVoter) {
+		if (topVoter.equals(TopVoter.Monthly)) {
+			setLastMonthTotal(getTotal(TopVoter.Monthly));
+		}
+		setTotal(topVoter, 0);
+	}
+
 	/**
 	 * Removes the points.
 	 *
@@ -606,19 +632,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return false;
 	}
 
-	public void resetDailyTotalVotes() {
-		setDailyTotal(0);
-	}
-
-	public void resetMonthlyTotalVotes() {
-		setLastMonthTotal(getMonthTotal());
-		setMonthTotal(0);
-	}
-
-	public void resetWeeklyTotalVotes() {
-		setWeeklyTotal(0);
-	}
-
 	/**
 	 * Send vote effects.
 	 *
@@ -630,6 +643,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				Config.getInstance().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
+	@Deprecated
 	public void setAllTimeTotal(int allTimeTotal) {
 		getUserData().setInt("AllTimeTotal", allTimeTotal);
 	}
@@ -646,6 +660,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		getData().setInt("BestWeekVoteStreak", streak);
 	}
 
+	@Deprecated
 	public void setDailyTotal(int total) {
 		getUserData().setInt("DailyTotal", total);
 	}
@@ -705,6 +720,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		getData().setInt("MilestoneCount", value);
 	}
 
+	@Deprecated
 	public void setMonthTotal(int total) {
 		getData().setInt("MonthTotal", total);
 	}
@@ -756,6 +772,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		getUserData().setInt("VotePartyVotes", value);
 	}
 
+	@Deprecated
 	public void setWeeklyTotal(int total) {
 		getUserData().setInt("WeeklyTotal", total);
 	}

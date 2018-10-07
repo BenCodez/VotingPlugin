@@ -636,6 +636,10 @@ VoteParty:
   Rewards: 
     Commands:
     - say %player%
+    Items:
+      DIAMOND:
+        Material: 'DIAMOND'
+        Amount: 1
   
 # Reset milestons at end of the month
 ResetMilestonesMonthly: false
@@ -656,7 +660,7 @@ VoteStreak:
   Day:
     # Number of days in a row
     # Each day requires one vote
-    # Add a - to give a reward for every multiple (e.g. 2-)
+    # Add a - to give a reward for every multiple (e.g. 2- = 2,4,6,8, and so on)
     '2':
       # Enabled or not
       Enabled: false
@@ -687,10 +691,11 @@ VoteStreak:
           
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
-# IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES
+# IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES (3 offline votes = 1 AnySiteReward)
 # Any reward files listed here are ran on vote of any site
 # It is recommended to add rewards to each site instead of here
 # Using forceoffline won't work here
+# Use EverySiteReward in VoteSites.yml for a global reward for each site
 AnySiteRewards: []
 
 
