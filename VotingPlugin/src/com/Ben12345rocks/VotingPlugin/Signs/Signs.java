@@ -86,6 +86,7 @@ public class Signs {
 	 * Update signs.
 	 */
 	public void updateSigns() {
+		int time = 0;
 		for (int i = plugin.signs.size() - 1; i >= 0; i--) {
 			if (!plugin.signs.get(i).isValid()) {
 				plugin.debug("Sign " + i + " invalid, removing from data.");
@@ -93,7 +94,8 @@ public class Signs {
 				plugin.signs.remove(i);
 			} else {
 				plugin.signs.get(i).updateLines();
-				plugin.signs.get(i).updateSign(i * 3);
+				plugin.signs.get(i).updateSign(time);
+				time += 5;
 			}
 		}
 
