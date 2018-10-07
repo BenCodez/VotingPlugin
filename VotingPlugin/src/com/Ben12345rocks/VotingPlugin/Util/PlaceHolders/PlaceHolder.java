@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.PlaceHolders;
+package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
 import org.bukkit.OfflinePlayer;
 
