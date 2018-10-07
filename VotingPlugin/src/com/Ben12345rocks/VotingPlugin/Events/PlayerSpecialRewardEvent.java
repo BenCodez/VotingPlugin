@@ -9,7 +9,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.User;
 /**
  * The Class PlayerVoteEvent.
  */
-public class PlayerVoteAllSitesEvent extends Event {
+public class PlayerSpecialRewardEvent extends Event {
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
@@ -24,12 +24,29 @@ public class PlayerVoteAllSitesEvent extends Event {
 	}
 
 	private User user;
+	private SpecialRewardType type;
+
+	/**
+	 * @return the type
+	 */
+	public SpecialRewardType getType() {
+		return type;
+	}
+
+	/**
+	 * @param type
+	 *            the type to set
+	 */
+	public void setType(SpecialRewardType type) {
+		this.type = type;
+	}
 
 	/** The cancelled. */
 	private boolean cancelled;
 
-	public PlayerVoteAllSitesEvent(User user) {
+	public PlayerSpecialRewardEvent(User user, SpecialRewardType type) {
 		super();
+		setType(type);
 		setUser(user);
 	}
 

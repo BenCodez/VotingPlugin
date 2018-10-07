@@ -18,7 +18,7 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
-import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.vexsoftware.votifier.model.Vote;
@@ -92,7 +92,7 @@ public class VotiferEvent implements Listener {
 			user.setTime(voteSite);
 
 			// check first vote rewards
-			OtherVoteReward.getInstance().checkFirstVote(user);
+			SpecialRewards.getInstance().checkFirstVote(user);
 
 			if (user.isReminded()) {
 				user.setReminded(false);
@@ -120,9 +120,9 @@ public class VotiferEvent implements Listener {
 			}
 
 			// other rewards
-			OtherVoteReward.getInstance().checkAllSites(user);
-			OtherVoteReward.getInstance().checkCumualativeVotes(user);
-			OtherVoteReward.getInstance().checkMilestone(user);
+			SpecialRewards.getInstance().checkAllSites(user);
+			SpecialRewards.getInstance().checkCumualativeVotes(user);
+			SpecialRewards.getInstance().checkMilestone(user);
 
 			if (Config.getInstance().getClearCacheOnVote()) {
 				if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {

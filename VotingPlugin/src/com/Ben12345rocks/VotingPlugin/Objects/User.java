@@ -23,7 +23,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -435,9 +435,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		ArrayList<String> offlineRewards = getOfflineOtherRewards();
 		for (String str : offlineRewards) {
 			if (str.equalsIgnoreCase("FirstVote")) {
-				OtherVoteReward.getInstance().giveFirstVoteRewards(this, false);
+				SpecialRewards.getInstance().giveFirstVoteRewards(this, false);
 			} else if (str.equalsIgnoreCase("AllSites")) {
-				OtherVoteReward.getInstance().giveAllSitesRewards(this, false);
+				SpecialRewards.getInstance().giveAllSitesRewards(this, false);
 			} else if (str.equalsIgnoreCase("VoteParty")) {
 				VoteParty.getInstance().giveReward(this, false);
 			} else if (str.contains("Cumulative")) {
@@ -446,7 +446,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired != 0) {
 						if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-							OtherVoteReward.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
+							SpecialRewards.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
 						}
 					}
 				}
@@ -456,7 +456,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired > 0) {
 						if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-							OtherVoteReward.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
+							SpecialRewards.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
 						}
 					}
 				}
@@ -467,7 +467,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					String st = args[2];
 
 					if (Config.getInstance().getVoteStreakRewardEnabled(type, st)) {
-						OtherVoteReward.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
+						SpecialRewards.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
 					}
 
 				}

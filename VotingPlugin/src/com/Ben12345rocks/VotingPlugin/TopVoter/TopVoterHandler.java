@@ -29,7 +29,7 @@ import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
-import com.Ben12345rocks.VotingPlugin.OtherRewards.OtherVoteReward;
+import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class TopVoterHandler implements Listener {
@@ -112,7 +112,7 @@ public class TopVoterHandler implements Listener {
 			} else {
 				user.addDayVoteStreak();
 			}
-			OtherVoteReward.getInstance().checkVoteStreak(user, "Day");
+			SpecialRewards.getInstance().checkVoteStreak(user, "Day");
 
 			if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
 				user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
@@ -156,7 +156,7 @@ public class TopVoterHandler implements Listener {
 				user.setMonthVoteStreak(0);
 			} else {
 				user.addMonthVoteStreak();
-				OtherVoteReward.getInstance().checkVoteStreak(user, "Month");
+				SpecialRewards.getInstance().checkVoteStreak(user, "Month");
 			}
 
 			if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
@@ -216,7 +216,7 @@ public class TopVoterHandler implements Listener {
 				user.setWeekVoteStreak(0);
 			} else {
 				user.addWeekVoteStreak();
-				OtherVoteReward.getInstance().checkVoteStreak(user, "Week");
+				SpecialRewards.getInstance().checkVoteStreak(user, "Week");
 			}
 
 			if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {

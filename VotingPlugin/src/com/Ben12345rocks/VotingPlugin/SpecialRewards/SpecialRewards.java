@@ -1,4 +1,4 @@
-package com.Ben12345rocks.VotingPlugin.OtherRewards;
+package com.Ben12345rocks.VotingPlugin.SpecialRewards;
 
 import java.util.Set;
 
@@ -11,7 +11,8 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteAllSitesEvent;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerSpecialRewardEvent;
+import com.Ben12345rocks.VotingPlugin.Events.SpecialRewardType;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
@@ -19,7 +20,7 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 /**
  * The Class OtherVoteReward.
  */
-public class OtherVoteReward {
+public class SpecialRewards {
 
 	/** The config. */
 	static Config config = Config.getInstance();
@@ -28,7 +29,7 @@ public class OtherVoteReward {
 	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
 
 	/** The instance. */
-	static OtherVoteReward instance = new OtherVoteReward();
+	static SpecialRewards instance = new SpecialRewards();
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;
@@ -38,14 +39,14 @@ public class OtherVoteReward {
 	 *
 	 * @return single instance of OtherVoteReward
 	 */
-	public static OtherVoteReward getInstance() {
+	public static SpecialRewards getInstance() {
 		return instance;
 	}
 
 	/**
 	 * Instantiates a new other vote reward.
 	 */
-	private OtherVoteReward() {
+	private SpecialRewards() {
 	}
 
 	/**
@@ -54,8 +55,8 @@ public class OtherVoteReward {
 	 * @param plugin
 	 *            the plugin
 	 */
-	public OtherVoteReward(Main plugin) {
-		OtherVoteReward.plugin = plugin;
+	public SpecialRewards(Main plugin) {
+		SpecialRewards.plugin = plugin;
 	}
 
 	/**
@@ -228,7 +229,7 @@ public class OtherVoteReward {
 	 *            the online
 	 */
 	public void giveAllSitesRewards(User user, boolean online) {
-		PlayerVoteAllSitesEvent event = new PlayerVoteAllSitesEvent(user);
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -249,6 +250,14 @@ public class OtherVoteReward {
 	 *            the cumulative
 	 */
 	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
+				SpecialRewardType.CUMMULATIVE.setAmount(cumulative));
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
+
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getCumulativeRewardsPath(cumulative))
 				.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
@@ -262,6 +271,12 @@ public class OtherVoteReward {
 	 *            the online
 	 */
 	public void giveFirstVoteRewards(User user, boolean online) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 				Config.getInstance().getFirstVoteRewardsPath(), new RewardOptions().setOnline(online));
 	}
@@ -277,11 +292,25 @@ public class OtherVoteReward {
 	 *            the milestone
 	 */
 	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
+				SpecialRewardType.MILESTONE.setAmount(milestone));
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMilestoneRewardsPath(milestone))
 				.setOnline(online).withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
 	public void giveVoteStreakReward(User user, boolean online, String type, String string, int votes) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
+				SpecialRewardType.VOTESTREAK.setType(type).setAmount(votes));
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteStreakRewardsPath(type, string))
 				.setOnline(online).withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}
