@@ -604,7 +604,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				AdvancedCoreHook.getInstance().setDebug(true);
+				AdvancedCoreHook.getInstance().getOptions().setDebug(true);
 			}
 		});
 

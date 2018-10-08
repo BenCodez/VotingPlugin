@@ -145,7 +145,7 @@ public class Main extends JavaPlugin {
 			throw new RuntimeException("Invalid Storage Method");
 		}
 		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
-		AdvancedCoreHook.getInstance().setStorageType(from);
+		AdvancedCoreHook.getInstance().getOptions().setStorageType(from);
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
 				&& AdvancedCoreHook.getInstance().getMysql() != null) {
 			AdvancedCoreHook.getInstance().getMysql().clearCache();
@@ -154,7 +154,7 @@ public class Main extends JavaPlugin {
 
 		while (uuids.size() > 0) {
 			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
-			AdvancedCoreHook.getInstance().setStorageType(from);
+			AdvancedCoreHook.getInstance().getOptions().setStorageType(from);
 			// AdvancedCoreHook.getInstance().setStorageType(to);
 
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
@@ -197,7 +197,7 @@ public class Main extends JavaPlugin {
 			plugin.getLogger()
 					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
 
-			AdvancedCoreHook.getInstance().setStorageType(to);
+			AdvancedCoreHook.getInstance().getOptions().setStorageType(to);
 			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
 					&& AdvancedCoreHook.getInstance().getMysql() != null) {
 				AdvancedCoreHook.getInstance().getMysql().clearCache();
@@ -206,7 +206,7 @@ public class Main extends JavaPlugin {
 			writeConvertData(data);
 		}
 
-		AdvancedCoreHook.getInstance().setStorageType(cur);
+		AdvancedCoreHook.getInstance().getOptions().setStorageType(cur);
 		AdvancedCoreHook.getInstance().reload();
 
 		plugin.getLogger().info("Finished convertting");

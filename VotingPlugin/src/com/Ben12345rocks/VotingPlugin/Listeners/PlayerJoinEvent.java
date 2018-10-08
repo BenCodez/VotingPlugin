@@ -58,8 +58,7 @@ public class PlayerJoinEvent implements Listener {
 					user.loginMessage();
 
 					if (user.getData().hasData()) {
-						// give offline vote (if they voted
-						// offline)
+						// give offline vote (if they voted offline)
 
 						user.offVote();
 

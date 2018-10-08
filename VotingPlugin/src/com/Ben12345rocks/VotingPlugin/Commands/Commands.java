@@ -322,7 +322,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
 
@@ -362,7 +362,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 
@@ -402,7 +402,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Monthly).keySet());
 
@@ -442,7 +442,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 
@@ -483,7 +483,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendVoteTodayScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().isSendScoreboards()) {
+		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 
 			String[] voteToday = voteToday();

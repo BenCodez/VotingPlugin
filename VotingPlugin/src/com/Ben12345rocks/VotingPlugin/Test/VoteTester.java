@@ -20,7 +20,7 @@ public class VoteTester {
 		ArrayList<Long> timesPerVote = new ArrayList<Long>();
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
-			VotiferEvent.playerVote(name, site);
+			VotiferEvent.playerVote(name, site, false); // run fake votes
 			long start2 = System.currentTimeMillis();
 			timesPerVote.add(start2 - start1);
 		}
