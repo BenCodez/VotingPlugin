@@ -32,10 +32,12 @@ public class PlayerVoteEvent extends Event {
 	/** The cancelled. */
 	private boolean cancelled;
 
-	public PlayerVoteEvent(VoteSite voteSite, String voteUsername) {
-		super();
+	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
+		super(true);
 		setPlayer(voteUsername);
 		setVoteSite(voteSite);
+		setRealVote(realVote);
+		setServiceSite(serviceSite);
 	}
 
 	/*
@@ -97,6 +99,32 @@ public class PlayerVoteEvent extends Event {
 	 */
 	public void setVoteSite(VoteSite voteSite) {
 		this.voteSite = voteSite;
+	}
+
+	private boolean realVote = true;
+
+	public void setRealVote(boolean b) {
+		realVote = b;
+	}
+
+	/**
+	 * @return the realVote
+	 */
+	public boolean isRealVote() {
+		return realVote;
+	}
+
+	private String serviceSite = "";
+
+	public void setServiceSite(String value) {
+		serviceSite = value;
+	}
+
+	/**
+	 * @return the serviceSite
+	 */
+	public String getServiceSite() {
+		return serviceSite;
 	}
 
 }

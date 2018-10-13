@@ -23,7 +23,7 @@ import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequestBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
-import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 public class AdminGUI {
@@ -163,7 +163,8 @@ public class AdminGUI {
 						Object ob = PlayerUtils.getInstance().getPlayerMeta(player, "VoteSite");
 						if (ob != null) {
 							VoteSite site = (VoteSite) ob;
-							VotiferEvent.playerVote(value, site.getServiceSite(), false);
+							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
 					}
 				}, ArrayUtils.getInstance().convert(playerNames)).usingMethod(InputMethod.INVENTORY)
@@ -252,15 +253,15 @@ public class AdminGUI {
 				plugin.reload();
 			}
 		});
-		
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteDelayDaily", voteSite.isVoteDelayDaily(),
-				EditGUIValueType.BOOLEAN) {
+
+		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteDelayDaily",
+				voteSite.isVoteDelayDaily(), EditGUIValueType.BOOLEAN) {
 
 			@Override
 			public void setValue(Player player, Object value) {
 				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName,(boolean) value);
+				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName, (boolean) value);
 				plugin.reload();
 			}
 		});

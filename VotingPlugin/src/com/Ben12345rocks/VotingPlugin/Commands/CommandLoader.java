@@ -42,7 +42,6 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
-import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
@@ -579,9 +578,10 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				VotiferEvent.playerVote(args[1], args[2], false);
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1]);
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1], args[2], false);
+				sendMessage(sender, "Triggering vote...");
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+
 			}
 		});
 
@@ -922,9 +922,11 @@ public class CommandLoader {
 
 													@Override
 													public void onInput(Player player, String value) {
-														VotiferEvent.playerVote(
-																UserGUI.getInstance().getCurrentPlayer(player), value,
-																false);
+														PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+																plugin.getVoteSite(value),
+																UserGUI.getInstance().getCurrentPlayer(player),
+																plugin.getVoteSiteServiceSite(value), false);
+														plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 														player.sendMessage("Forced vote for "
 																+ UserGUI.getInstance().getCurrentPlayer(player)

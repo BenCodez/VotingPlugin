@@ -49,6 +49,7 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Listeners.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerJoinEvent;
+import com.Ben12345rocks.VotingPlugin.Listeners.PlayerVoteListener;
 import com.Ben12345rocks.VotingPlugin.Listeners.SignChange;
 import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
 import com.Ben12345rocks.VotingPlugin.Listeners.VotingPluginUpdateEvent;
@@ -329,6 +330,28 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return url;
+
+	}
+
+	public String getVoteSiteServiceSite(String name) {
+		ArrayList<String> sites = ConfigVoteSites.getInstance().getVoteSitesNames();
+		if (name == null) {
+			return null;
+		}
+		if (sites != null) {
+			for (String siteName : sites) {
+				String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
+				if (URL != null) {
+					if (URL.equalsIgnoreCase(name)) {
+						return URL;
+					}
+					if (name.equalsIgnoreCase(siteName)) {
+						return URL;
+					}
+				}
+			}
+		}
+		return name;
 
 	}
 
@@ -896,6 +919,7 @@ public class Main extends JavaPlugin {
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new VotiferEvent(this), this);
+		pm.registerEvents(new PlayerVoteListener(this), this);
 
 		pm.registerEvents(new SignChange(this), this);
 

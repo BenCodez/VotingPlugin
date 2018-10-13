@@ -4,12 +4,13 @@ import java.util.ArrayList;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Listeners.VotiferEvent;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteTester {
 
 	private static VoteTester instance = new VoteTester();
+	private Main plugin = Main.plugin;
 
 	public static VoteTester getInstance() {
 		return instance;
@@ -20,7 +21,9 @@ public class VoteTester {
 		ArrayList<Long> timesPerVote = new ArrayList<Long>();
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
-			VotiferEvent.playerVote(name, site, false); // run fake votes
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site), name,
+					plugin.getVoteSiteServiceSite(site), false);
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			long start2 = System.currentTimeMillis();
 			timesPerVote.add(start2 - start1);
 		}
