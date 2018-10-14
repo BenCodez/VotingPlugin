@@ -579,7 +579,13 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1], args[2], false);
-				sendMessage(sender, "Triggering vote...");
+				sendMessage(sender, "&cTriggering vote...");
+				if (voteEvent.getVoteSite() != null) {
+					if (!ConfigVoteSites.getInstance().isServiceSiteGood(voteEvent.getVoteSite().getKey())) {
+						sendMessage(sender, "&cPossible issue with service site, has the server gotten the vote from "
+								+ voteEvent.getServiceSite() + "?");
+					}
+				}
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			}
