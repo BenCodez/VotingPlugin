@@ -51,7 +51,6 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
-import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Table;
 import com.google.common.collect.Table.Cell;
@@ -1115,7 +1114,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				VoteShop.getInstance().voteShop((Player) sender);
+				PlayerGUIs.getInstance().openVoteShop((Player) sender);
 			}
 		});
 

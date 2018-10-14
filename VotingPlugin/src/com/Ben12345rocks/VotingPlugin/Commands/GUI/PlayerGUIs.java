@@ -12,6 +12,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -28,7 +30,6 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
-import com.Ben12345rocks.VotingPlugin.VoteShop.VoteShop;
 
 public class PlayerGUIs {
 	static PlayerGUIs instance = new PlayerGUIs();
@@ -62,6 +63,67 @@ public class PlayerGUIs {
 	public User getSelectedPlayer(Player player) {
 		User str = (User) PlayerUtils.getInstance().getPlayerMeta(player, "SelectedPlayerGUIs");
 		return str;
+	}
+
+	public void openVoteShop(Player player) {
+		if (!Config.getInstance().getVoteShopEnabled()) {
+			player.sendMessage(StringUtils.getInstance().colorize("&cVote shop disabled"));
+			return;
+		}
+		BInventory inv = new BInventory(Config.getInstance().getVoteShopName());
+
+		for (String identifier : Config.getInstance().getIdentifiers()) {
+
+			String perm = Config.getInstance().getVoteShopPermission(identifier);
+			boolean hasPerm = false;
+			if (perm.isEmpty()) {
+				hasPerm = true;
+			} else {
+				hasPerm = player.hasPermission(perm);
+			}
+
+			if (hasPerm) {
+				ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
+
+				inv.addButton(new BInventoryButton(builder) {
+
+					@Override
+					public void onClick(ClickEvent event) {
+						Player player = event.getWhoClicked();
+
+						User user = UserManager.getInstance().getVotingPluginUser(player);
+						int points = Config.getInstance().getIdentifierCost(identifier);
+						String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
+						if (identifier != null) {
+							if (user.removePoints(points)) {
+								RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+										Config.getInstance().getIdentifierRewardsPath(identifier), new RewardOptions());
+								user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
+										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+							} else {
+								user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
+										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+							}
+						}
+					}
+
+				});
+			}
+		}
+
+		if (Config.getInstance().getVoteShopBackButton()) {
+			inv.addButton(new BInventoryButton(PlayerGUIs.getInstance().getBackButton()) {
+
+				@Override
+				public void onClick(ClickEvent event) {
+					PlayerGUIs.getInstance().openVoteGUI(event.getPlayer(),
+							UserManager.getInstance().getVotingPluginUser(player));
+				}
+			});
+
+		}
+
+		inv.openInventory(player);
 	}
 
 	public void openVoteBest(Player player, User user) {
@@ -109,7 +171,8 @@ public class PlayerGUIs {
 				&& !player.hasPermission("VotingPlugin.Mod"))
 				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
 						&& !player.hasPermission("VotingPlugin.Player"))) {
-			player.sendMessage(StringUtils.getInstance().colorize(AdvancedCoreHook.getInstance().getOptions().getFormatNoPerms()));
+			player.sendMessage(
+					StringUtils.getInstance().colorize(AdvancedCoreHook.getInstance().getOptions().getFormatNoPerms()));
 			return;
 		}
 		setSelectedPlayer(player, user);
@@ -186,7 +249,7 @@ public class PlayerGUIs {
 						} else if (slot.equalsIgnoreCase("help")) {
 							player.performCommand("vote help");
 						} else if (slot.equalsIgnoreCase("shop")) {
-							VoteShop.getInstance().voteShop(player);
+							openVoteShop(player);
 						}
 					}
 

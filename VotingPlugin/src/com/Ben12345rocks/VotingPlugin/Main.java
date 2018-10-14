@@ -79,18 +79,6 @@ public class Main extends JavaPlugin {
 	/** The plugin. */
 	public static Main plugin;
 
-	/** The top voter monthly. */
-	// public LinkedHashMap<User, Integer> topVoterAllTime;
-
-	/** The top voter monthly. */
-	// public LinkedHashMap<User, Integer> topVoterMonthly;
-
-	/** The top voter weekly. */
-	// public LinkedHashMap<User, Integer> topVoterWeekly;
-
-	/** The top voter daily. */
-	// public LinkedHashMap<User, Integer> topVoterDaily;
-
 	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
 
 	/**
