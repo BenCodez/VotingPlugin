@@ -581,7 +581,7 @@ public class CommandLoader {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1], args[2], false);
 				sendMessage(sender, "&cTriggering vote...");
 				if (voteEvent.getVoteSite() != null) {
-					if (!ConfigVoteSites.getInstance().isServiceSiteGood(voteEvent.getVoteSite().getKey())) {
+					if (!voteEvent.getVoteSite().isVaidServiceSite()) {
 						sendMessage(sender, "&cPossible issue with service site, has the server gotten the vote from "
 								+ voteEvent.getServiceSite() + "?");
 					}

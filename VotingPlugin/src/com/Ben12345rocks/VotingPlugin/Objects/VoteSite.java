@@ -11,11 +11,13 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 /**
@@ -190,6 +192,10 @@ public class VoteSite {
 
 	public boolean hasRewards() {
 		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
+	}
+	
+	public boolean isVaidServiceSite() {
+		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(), getServiceSite());
 	}
 
 	/**

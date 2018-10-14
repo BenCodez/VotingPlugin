@@ -58,6 +58,9 @@ commands:
   votestreak:
     description: A command
     aliases: vstreak
+  votetogglebroadcast:
+    description: A command
+    aliases: vtogglebroadcast
   votepoints:
     description: A command
     aliases: vpoints
@@ -199,6 +202,18 @@ commands:
   adminvoteJavascript:
     description: Command Alias
     aliases: avJavascript
+  adminvoteStatus:
+    description: Command Alias
+    aliases: avStatus
+  adminvoteTest:
+    description: Command Alias
+    aliases: avTest
+  adminvotePlaceholders:
+    description: Command Alias
+    aliases: avPlaceholders
+  adminvoteDownloadJenkins:
+    description: Command Alias
+    aliases: avDownloadJenkins
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

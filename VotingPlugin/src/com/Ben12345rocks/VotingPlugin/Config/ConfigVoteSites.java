@@ -14,7 +14,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
 // TODO: Auto-generated Javadoc
@@ -261,8 +260,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true, if is service site good
 	 */
 	public boolean isServiceSiteGood(String siteName) {
-		if (getServiceSite(siteName) == null || getServiceSite(siteName).equals("")
-				|| !ServerData.getInstance().getServiceSites().contains(getServiceSite(siteName))) {
+		if (getServiceSite(siteName) == null || getServiceSite(siteName).equals("")) {
 			return false;
 		}
 		return true;
