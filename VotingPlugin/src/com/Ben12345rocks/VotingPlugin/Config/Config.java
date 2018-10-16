@@ -164,7 +164,7 @@ public class Config extends YMLFile {
 	}
 
 	public boolean getCheckNameMojang() {
-		return getData().getBoolean("CheckNameMojang", true);
+		return getData().getBoolean("CheckNameMojang", false);
 	}
 
 	public boolean getClearCacheOnUpdate() {

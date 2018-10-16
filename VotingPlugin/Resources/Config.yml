@@ -28,7 +28,7 @@ MySQL:
   #UseSSL: true
 
 # Let players who never joined before vote
-# Recommend: False (Will prevent creating random user data files)
+# Recommend: False (Will prevent creating random user data)
 AllowUnjoined: false
 
 # If true, plugin will send scoreboards on some commands
@@ -36,11 +36,13 @@ SendScoreboards: true
 
 # If true, plugin will automaticly generate votesites
 # Disable this if you experience issues with sites being created randomly
+# Most cases this will work all the time
 AutoCreateVoteSites: true
 
 # Automaticly download the latest version
 # Will require a restart to actually update
-# Note that updates take 30-40 minutes to load before they can be downloaded
+# Note: It takes 30-40 minutes before being able to download the latest build
+# You can also use /av download
 AutoDownload: false
 
 # ------------------------------------------------
@@ -85,6 +87,9 @@ VoteReminding:
       FadeIn: 10
       ShowTime: 50
       FadeOut: 10
+    ActionBar:
+      Message: '&cRemember to vote'
+      Delay: 30
     
 # ------------------------------------------------
 # Format
@@ -632,7 +637,7 @@ VoteParty:
   # List of commands to execute, these only execute once.
   # %player% does not work here
   Commands: []
-  # Reward files to give
+  # Rewards to give
   Rewards: 
     Commands:
     - say %player%
@@ -709,7 +714,7 @@ BlackList:
 
 # If true players with the permission 'VotingPlugin.TopVoter.Ignore' will act 
 # as if there name was added on the the blacklist above
-# This also applies for ops
+# This also applies for players with op
 TopVoterIgnorePermission: false
 
 # /vote top default data displayed
@@ -787,10 +792,6 @@ PointsOnVote: 1
 # Not really recommended
 AddTotals: true
 
-# Disable checking on world change
-# May improve performance
-DisableCheckOnWorldChange: false
-
 # Debug
 Debug: false
 
@@ -840,13 +841,6 @@ ClearCacheOnVote: false
 # Will also disable a few other warnings about vote sites
 DisableNoServiceSiteMessage: false
 
-# Used in special cases
-# Much slower, but may work better
-AlternateUUIDLookup: false
-
-# Shouldn't need to change this
-AutoKillInvs: true
-
 # Count fake votes
 # If true fake votes will give points and totals
 CountFakeVotes: true
@@ -862,9 +856,24 @@ PurgeOldData: false
 # Minimum number of days offline in order to purge
 PurgeMin: 90
 
-# Whether or not to disable checking names on mojang, disable if you hit the rate limit
-# Shouldn't make a noticeable impact if set to false
-CheckNameMojang: false
-
 # Whether or not to create daily backups. (Only the most recent ones get saved)
 CreateBackups: true
+
+# ###############################################################
+# Deprecated options, don't recommend using any of these
+
+# Whether or not to disable checking names on mojang, disable if you hit the rate limit
+# Shouldn't make a noticeable impact if set to false
+#CheckNameMojang: false
+
+# Shouldn't need to change this
+#AutoKillInvs: true
+
+# Used in special cases
+# Much slower, but may work better
+# Not recommended in newer versions
+#AlternateUUIDLookup: false
+
+# Disable checking on world change
+# May improve performance
+#DisableCheckOnWorldChange: false

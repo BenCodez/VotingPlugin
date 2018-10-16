@@ -756,13 +756,7 @@ public class Main extends JavaPlugin {
 
 		plugin.signs = new ArrayList<SignHandler>();
 
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				Signs.getInstance().loadSigns();
-			}
-		});
+		Signs.getInstance().loadSigns();
 
 		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>>();
 		for (TopVoter top : TopVoter.values()) {
