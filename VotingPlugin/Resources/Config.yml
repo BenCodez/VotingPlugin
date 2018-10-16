@@ -570,6 +570,8 @@ Shop:
     Cost: 3
     # Permission required, leave blank for no permission
     Permission: ''
+    # Limit how many times you can buy this
+    #Limit: 3
     # Rewards to run if player buys succesfully
     Rewards:
       Items:

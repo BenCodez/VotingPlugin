@@ -876,17 +876,8 @@ public class Config extends YMLFile {
 		return getData().getInt("Shop." + identifier + ".Cost");
 	}
 
-	public String getIdentifierFromSlot(int slot) {
-		for (String identifier : getIdentifiers()) {
-			if (getIdentifierSlot(identifier) == slot) {
-				return identifier;
-			}
-		}
-		return null;
-	}
-
-	public int getIdentifierItemAmount(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Item.Amount");
+	public int getIdentifierLimit(String identifier) {
+		return getData().getInt("Shop." + identifier + ".Limit", -1);
 	}
 
 	public String getIdentifierRewardsPath(String identifier) {
@@ -904,10 +895,6 @@ public class Config extends YMLFile {
 
 	public ConfigurationSection getIdentifierSection(String identifier) {
 		return getData().getConfigurationSection("Shop." + identifier);
-	}
-
-	public int getIdentifierSlot(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Slot");
 	}
 
 	public boolean getLoadTopVoterAllTime() {

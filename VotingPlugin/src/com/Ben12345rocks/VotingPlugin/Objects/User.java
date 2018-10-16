@@ -371,6 +371,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getData().getInt("MonthTotal");
 	}
 
+	public int getVoteShopIdentifierLimit(String identifier) {
+		return getData().getInt("VoteShopLimit" + identifier);
+	}
+
+	public void setVoteShopIdentifierLimit(String identifier, int value) {
+		getData().setInt("VoteShopLimit" + identifier, value);
+	}
+
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
 	}

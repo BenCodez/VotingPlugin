@@ -72,7 +72,7 @@ public class PlayerGUIs {
 		}
 		BInventory inv = new BInventory(Config.getInstance().getVoteShopName());
 
-		for (String identifier : Config.getInstance().getIdentifiers()) {
+		for (final String identifier : Config.getInstance().getIdentifiers()) {
 
 			String perm = Config.getInstance().getVoteShopPermission(identifier);
 			boolean hasPerm = false;
@@ -82,7 +82,17 @@ public class PlayerGUIs {
 				hasPerm = player.hasPermission(perm);
 			}
 
-			if (hasPerm) {
+			int limit = Config.getInstance().getIdentifierLimit(identifier);
+
+			boolean limitPass = true;
+			if (limit > 0) {
+				User user = UserManager.getInstance().getVotingPluginUser(player);
+				if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
+					limitPass = false;
+				}
+			}
+
+			if (hasPerm && limitPass) {
 				ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
 				inv.addButton(new BInventoryButton(builder) {
@@ -92,14 +102,19 @@ public class PlayerGUIs {
 						Player player = event.getWhoClicked();
 
 						User user = UserManager.getInstance().getVotingPluginUser(player);
+						String identifier = (String) getData("identifier");
+						int limit = (int) getData("Limit");
 						int points = Config.getInstance().getIdentifierCost(identifier);
-						String identifier = Config.getInstance().getIdentifierFromSlot(event.getSlot());
 						if (identifier != null) {
 							if (user.removePoints(points)) {
 								RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
 										Config.getInstance().getIdentifierRewardsPath(identifier), new RewardOptions());
 								user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
 										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+								if (limit > 0) {
+									user.setVoteShopIdentifierLimit(identifier,
+											user.getVoteShopIdentifierLimit(identifier));
+								}
 							} else {
 								user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
 										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
@@ -107,7 +122,7 @@ public class PlayerGUIs {
 						}
 					}
 
-				});
+				}.addData("identifier", identifier).addData("Limit", limit));
 			}
 		}
 
