@@ -113,7 +113,7 @@ public class PlayerGUIs {
 										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
 								if (limit > 0) {
 									user.setVoteShopIdentifierLimit(identifier,
-											user.getVoteShopIdentifierLimit(identifier));
+											user.getVoteShopIdentifierLimit(identifier)+1);
 								}
 							} else {
 								user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
