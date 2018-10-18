@@ -106,18 +106,25 @@ public class PlayerGUIs {
 						int limit = (int) getData("Limit");
 						int points = Config.getInstance().getIdentifierCost(identifier);
 						if (identifier != null) {
+							HashMap<String, String> placeholders = new HashMap<String, String>();
+							placeholders.put("identifier", identifier);
+							placeholders.put("points", "" + points);
+							placeholders.put("limit", "" + limit);
 							if (user.removePoints(points)) {
+
 								RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-										Config.getInstance().getIdentifierRewardsPath(identifier), new RewardOptions());
-								user.sendMessage(Config.getInstance().getFormatShopPurchaseMsg()
-										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+										Config.getInstance().getIdentifierRewardsPath(identifier),
+										new RewardOptions().setPlaceholders(placeholders));
+
+								user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+										Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
 								if (limit > 0) {
 									user.setVoteShopIdentifierLimit(identifier,
-											user.getVoteShopIdentifierLimit(identifier)+1);
+											user.getVoteShopIdentifierLimit(identifier) + 1);
 								}
 							} else {
-								user.sendMessage(Config.getInstance().getFormatShopFailedMsg()
-										.replace("%Identifier%", identifier).replace("%Points%", "" + points));
+								user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+										Config.getInstance().getFormatShopFailedMsg(), placeholders));
 							}
 						}
 					}
