@@ -836,6 +836,22 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
 	}
 
+	public ConfigurationSection getGUIVoteTotalItem(TopVoter top) {
+		switch (top) {
+		case AllTime:
+			return getGUIVoteTotalAllTimeTotalItem();
+		case Daily:
+			return getGUIVoteTotalDayTotalItem();
+		case Monthly:
+			return getGUIVoteTotalMonthTotalItem();
+		case Weekly:
+			return getGUIVoteTotalWeekTotalItem();
+		default:
+			return getGUIVoteTotalAllTimeTotalItem();
+
+		}
+	}
+
 	public boolean getGUIVoteTotalBackButton() {
 		return getData().getBoolean("GUI.VoteTotal.BackButton");
 	}

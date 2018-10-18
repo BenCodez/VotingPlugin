@@ -54,41 +54,34 @@ public class AdminGUI {
 	 */
 	public ArrayList<BInventoryButton> adminGUIButtons() {
 		ArrayList<BInventoryButton> buttons = new ArrayList<BInventoryButton>();
-		ArrayList<String> lore = new ArrayList<String>();
-		lore.add("&cOnly enabled sites are listed in this section");
-		lore.add("&cMiddle Click to create");
-		buttons.add(new BInventoryButton("&cVoteSites", ArrayUtils.getInstance().convert(lore),
+		buttons.add(new BInventoryButton("&cVoteSites",
+				new String[] { "&cOnly enabled sites are listed in this section", "&cMiddle Click to create" },
 				new ItemStack(Material.STONE)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (event.getWhoClicked() instanceof Player) {
-					Player player = event.getWhoClicked();
-					if (event.getClick().equals(ClickType.MIDDLE)) {
+				Player player = event.getPlayer();
+				if (event.getClick().equals(ClickType.MIDDLE)) {
+					new ValueRequest().requestString(player, new StringListener() {
 
-						new ValueRequest().requestString(player, new StringListener() {
-
-							@Override
-							public void onInput(Player player, String value) {
-								ConfigVoteSites.getInstance().generateVoteSite(value);
-								player.sendMessage("Generated site");
-								plugin.reload();
-							}
-						});
-					} else {
-						openAdminGUIVoteSites(player);
-					}
+						@Override
+						public void onInput(Player player, String value) {
+							ConfigVoteSites.getInstance().generateVoteSite(value);
+							player.sendMessage("Generated site");
+							plugin.reload();
+						}
+					});
+				} else {
+					openAdminGUIVoteSites(player);
 				}
 			}
 		});
 
-		lore = new ArrayList<String>();
-		buttons.add(new BInventoryButton("&cReload Plugin", ArrayUtils.getInstance().convert(lore),
-				new ItemStack(Material.STONE, 1)) {
+		buttons.add(new BInventoryButton("&cReload Plugin", new String[] {}, new ItemStack(Material.STONE, 1)) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				event.getPlayer().performCommand("av reload");
+				plugin.reload();
 			}
 
 		});
@@ -117,8 +110,6 @@ public class AdminGUI {
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
-			// lore.add("Rewards: " +
-			// ArrayUtils.getInstance().makeStringList(voteSite.getRewards()));
 
 			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {
