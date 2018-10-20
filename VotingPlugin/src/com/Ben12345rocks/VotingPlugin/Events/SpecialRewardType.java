@@ -13,10 +13,6 @@ public enum SpecialRewardType {
 		return type;
 	}
 
-	/**
-	 * @param type
-	 *            the type to set
-	 */
 	public SpecialRewardType setType(String type) {
 		this.type = type;
 		return this;
