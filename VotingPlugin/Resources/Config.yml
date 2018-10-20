@@ -858,7 +858,7 @@ PurgeOldData: false
 # Minimum number of days offline in order to purge
 PurgeMin: 90
 
-# Whether or not to create daily backups. (Only the most recent ones get saved)
+# Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
 
 # ###############################################################
