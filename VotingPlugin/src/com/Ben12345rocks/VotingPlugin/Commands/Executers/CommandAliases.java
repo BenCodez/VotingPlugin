@@ -50,9 +50,9 @@ public class CommandAliases implements CommandExecutor {
 
 		ArrayList<CommandHandler> handles = new ArrayList<CommandHandler>();
 		if (adminCommand) {
-			handles.addAll(plugin.adminVoteCommand);
+			handles.addAll(plugin.getAdminVoteCommand());
 		} else {
-			handles.addAll(plugin.voteCommand);
+			handles.addAll(plugin.getVoteCommand());
 		}
 
 		for (CommandHandler cmdHandle : handles) {

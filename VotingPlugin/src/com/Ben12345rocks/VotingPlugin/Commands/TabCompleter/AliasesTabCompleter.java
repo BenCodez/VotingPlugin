@@ -32,7 +32,6 @@ public class AliasesTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -54,9 +53,9 @@ public class AliasesTabCompleter implements TabCompleter {
 		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
 
 		if (adminCommand) {
-			cmdHandlers.addAll(plugin.adminVoteCommand);
+			cmdHandlers.addAll(plugin.getAdminVoteCommand());
 		} else {
-			cmdHandlers.addAll(plugin.voteCommand);
+			cmdHandlers.addAll(plugin.getVoteCommand());
 		}
 		ConcurrentHashMap<String, ArrayList<String>> tabCompletes = TabCompleteHandler.getInstance()
 				.getTabCompleteOptions();

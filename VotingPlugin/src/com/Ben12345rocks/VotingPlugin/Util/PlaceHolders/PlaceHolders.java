@@ -15,6 +15,8 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
+import lombok.Getter;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class PlaceHolders.
@@ -52,22 +54,10 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
+	@Getter
 	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
+	@Getter
 	private ArrayList<PlaceHolder> nonPlayerPlaceholders = new ArrayList<PlaceHolder>();
-
-	/**
-	 * @return the nonPlayerPlaceholders
-	 */
-	public ArrayList<PlaceHolder> getNonPlayerPlaceholders() {
-		return nonPlayerPlaceholders;
-	}
-
-	/**
-	 * @return the placeholders
-	 */
-	public ArrayList<PlaceHolder> getPlaceholders() {
-		return placeholders;
-	}
 
 	public void load() {
 		placeholders.clear();
@@ -342,11 +332,8 @@ public class PlaceHolders {
 			}
 		}.useStartsWith());
 
-		
-		
-		
 		// non players
-		
+
 		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesCurrent") {
 
 			@Override

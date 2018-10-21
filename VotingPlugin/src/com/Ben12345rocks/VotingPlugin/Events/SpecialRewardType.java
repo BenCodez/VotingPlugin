@@ -1,17 +1,16 @@
 package com.Ben12345rocks.VotingPlugin.Events;
 
+import lombok.Getter;
+
 public enum SpecialRewardType {
 	ALLSITE, CUMMULATIVE, MILESTONE, VOTESTREAK, FIRSTVOTE;
 
-	private int amount = -1;
-	private String type = "";
+	@Getter
 
-	/**
-	 * @return the type
-	 */
-	public String getType() {
-		return type;
-	}
+	private int amount = -1;
+	@Getter
+
+	private String type = "";
 
 	public SpecialRewardType setType(String type) {
 		this.type = type;
@@ -21,13 +20,6 @@ public enum SpecialRewardType {
 	public SpecialRewardType setAmount(int num) {
 		amount = num;
 		return this;
-	}
-
-	/**
-	 * @return the amount
-	 */
-	public int getAmount() {
-		return amount;
 	}
 
 }

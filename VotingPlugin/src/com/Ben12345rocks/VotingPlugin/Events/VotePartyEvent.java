@@ -3,6 +3,9 @@ package com.Ben12345rocks.VotingPlugin.Events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
+import lombok.Getter;
+import lombok.Setter;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class PlayerVoteEvent.
@@ -21,7 +24,8 @@ public class VotePartyEvent extends Event {
 		return handlers;
 	}
 
-	/** The cancelled. */
+	@Getter
+	@Setter
 	private boolean cancelled;
 
 	public VotePartyEvent() {
@@ -30,31 +34,11 @@ public class VotePartyEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;
-	}
-
-	/**
-	 * Checks if is cancelled.
-	 *
-	 * @return true, if is cancelled
-	 */
-	public boolean isCancelled() {
-		return cancelled;
-	}
-
-	/**
-	 * Sets the cancelled.
-	 *
-	 * @param bln
-	 *            the new cancelled
-	 */
-	public void setCancelled(boolean bln) {
-		cancelled = bln;
 	}
 
 }

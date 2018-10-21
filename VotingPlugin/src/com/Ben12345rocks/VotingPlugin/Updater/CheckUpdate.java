@@ -49,44 +49,45 @@ public class CheckUpdate {
 	 * Check update.
 	 */
 	public void checkUpdate() {
-		plugin.updater = new Updater(plugin, 15358, false);
-		final Updater.UpdateResult result = plugin.updater.getResult();
+		plugin.setUpdater(new Updater(plugin, 15358, false));
+		final Updater.UpdateResult result = plugin.getUpdater().getResult();
 		switch (result) {
-		case FAIL_SPIGOT: {
-			plugin.getLogger().info("Failed to check for update for " + plugin.getName() + "!");
-			break;
-		}
-		case NO_UPDATE: {
-			plugin.getLogger().info(plugin.getName() + " is up to date! Version: " + plugin.updater.getVersion());
-			break;
-		}
-		case UPDATE_AVAILABLE: {
-			plugin.getLogger()
-					.info(plugin.getName() + " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
-							+ " Use /av download to get the latest update!");
-			break;
-		}
-		default: {
-			break;
-		}
+			case FAIL_SPIGOT: {
+				plugin.getLogger().info("Failed to check for update for " + plugin.getName() + "!");
+				break;
+			}
+			case NO_UPDATE: {
+				plugin.getLogger()
+						.info(plugin.getName() + " is up to date! Version: " + plugin.getUpdater().getVersion());
+				break;
+			}
+			case UPDATE_AVAILABLE: {
+				plugin.getLogger()
+						.info(plugin.getName() + " has an update available! Your Version: "
+								+ plugin.getDescription().getVersion() + " New Version: "
+								+ plugin.getUpdater().getVersion() + " Use /av download to get the latest update!");
+				break;
+			}
+			default: {
+				break;
+			}
 		}
 	}
 
 	public void checkUpdateBasic() {
-		plugin.updater = new Updater(plugin, 15358, false);
-		final Updater.UpdateResult result = plugin.updater.getResult();
+		plugin.setUpdater(new Updater(plugin, 15358, false));
+		final Updater.UpdateResult result = plugin.getUpdater().getResult();
 		switch (result) {
-		case UPDATE_AVAILABLE: {
-			plugin.getLogger()
-					.info(plugin.getName() + " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion() + " New Version: " + plugin.updater.getVersion()
-							+ " Use /av download to get the latest update!");
-			break;
-		}
-		default: {
-			break;
-		}
+			case UPDATE_AVAILABLE: {
+				plugin.getLogger()
+						.info(plugin.getName() + " has an update available! Your Version: "
+								+ plugin.getDescription().getVersion() + " New Version: "
+								+ plugin.getUpdater().getVersion() + " Use /av download to get the latest update!");
+				break;
+			}
+			default: {
+				break;
+			}
 		}
 	}
 

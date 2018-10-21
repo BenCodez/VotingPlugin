@@ -78,7 +78,7 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
-		plugin.signs.add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
+		plugin.getSigns().add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
 				getSignPosition("" + count)));
 	}
 

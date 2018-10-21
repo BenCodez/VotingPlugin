@@ -19,19 +19,25 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
+import lombok.Getter;
+import lombok.Setter;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class SignHandler.
  */
 public class SignHandler {
 
-	/** The sign. */
+	@Getter
+	@Setter
 	private String sign;
 
-	/** The location. */
+	@Getter
+	@Setter
 	private Location location;
 
-	/** The data. */
+	@Getter
+	@Setter
 	private String data;
 
 	/** The lines. */
@@ -49,8 +55,9 @@ public class SignHandler {
 	/** The votes. */
 	private int votes;
 
-	/** The is valid. */
-	private boolean isValid;
+	@Getter
+	@Setter
+	private boolean valid;
 
 	/**
 	 * Instantiates a new sign handler.
@@ -118,24 +125,6 @@ public class SignHandler {
 	}
 
 	/**
-	 * Gets the data.
-	 *
-	 * @return the data
-	 */
-	public String getData() {
-		return data;
-	}
-
-	/**
-	 * Gets the location.
-	 *
-	 * @return the location
-	 */
-	public Location getLocation() {
-		return location;
-	}
-
-	/**
 	 * Gets the right click message.
 	 *
 	 * @return the right click message
@@ -150,15 +139,6 @@ public class SignHandler {
 	}
 
 	/**
-	 * Gets the sign.
-	 *
-	 * @return the sign
-	 */
-	public String getSign() {
-		return sign;
-	}
-
-	/**
 	 * Checks if is location same.
 	 *
 	 * @param loc
@@ -170,59 +150,10 @@ public class SignHandler {
 	}
 
 	/**
-	 * Checks if is valid.
-	 *
-	 * @return true, if is valid
-	 */
-	public boolean isValid() {
-		return isValid;
-	}
-
-	/**
 	 * Removes the sign.
 	 */
 	public void removeSign() {
 		ServerData.getInstance().removeSign(sign);
-	}
-
-	/**
-	 * Sets the data.
-	 *
-	 * @param data
-	 *            the new data
-	 */
-	public void setData(String data) {
-		this.data = data;
-	}
-
-	/**
-	 * Sets the location.
-	 *
-	 * @param location
-	 *            the new location
-	 */
-	public void setLocation(Location location) {
-		this.location = location;
-	}
-
-	/**
-	 * Sets the sign.
-	 *
-	 * @param sign
-	 *            the new sign
-	 */
-	public void setSign(String sign) {
-		this.sign = sign;
-	}
-
-	/**
-	 * Sets the valid.
-	 *
-	 * @param isValid
-	 *            the new valid
-	 */
-	public void setValid(boolean isValid) {
-		this.isValid = isValid;
 	}
 
 	/**

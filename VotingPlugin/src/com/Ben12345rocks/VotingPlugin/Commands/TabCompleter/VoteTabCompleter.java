@@ -25,7 +25,6 @@ public class VoteTabCompleter implements TabCompleter {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -37,7 +36,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 		Set<String> cmds = new HashSet<String>();
 
-		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.voteCommand, sender, args,
+		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getVoteCommand(), sender, args,
 				args.length - 1));
 
 		for (String str : cmds) {

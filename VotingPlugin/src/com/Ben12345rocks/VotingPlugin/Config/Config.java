@@ -14,6 +14,8 @@ import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 
+import lombok.Getter;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class Config.
@@ -35,50 +37,70 @@ public class Config extends YMLFile {
 		return instance;
 	}
 
-	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts")
-	public String formatCommandsVoteToggleBroadcastEnabled;
+	@ConfigDataString(
+			path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts"
+	)
+	@Getter
+	private String formatCommandsVoteToggleBroadcastEnabled;
 
-	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled", defaultValue = "&cYou will no longer see vote broadcasts")
-	public String formatCommandsVoteToggleBroadcastDisabled;
+	@ConfigDataString(
+			path = "Format.Commands.Vote.ToggleBroadcasts.Disabled",
+			defaultValue = "&cYou will no longer see vote broadcasts"
+	)
+	@Getter
+	private String formatCommandsVoteToggleBroadcastDisabled;
 
 	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL", defaultValue = false)
-	public boolean commandsVoteRewardFromVoteURL;
+	@Getter
+	private boolean commandsVoteRewardFromVoteURL;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
-	public String formatCommandsVoteLastTimeFormat;
+	@Getter
+	private String formatCommandsVoteLastTimeFormat;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
-	public String formatCommandsVoteLastLine;
+	@Getter
+	private String formatCommandsVoteLastLine;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
-	public String formatCommandsVoteLastNeverVoted;
+	@Getter
+	private String formatCommandsVoteLastNeverVoted;
 
 	@ConfigDataString(path = "Format.TimeFormats.Days", defaultValue = "Days")
-	public String formatTimeFormatsDays;
+	@Getter
+	private String formatTimeFormatsDays;
 
 	@ConfigDataString(path = "Format.TimeFormats.Day", defaultValue = "Day")
-	public String formatTimeFormatsDay;
+	@Getter
+	private String formatTimeFormatsDay;
 
 	@ConfigDataString(path = "Format.TimeFormats.Hours", defaultValue = "Hours")
-	public String formatTimeFormatsHours;
+	@Getter
+	private String formatTimeFormatsHours;
 
 	@ConfigDataString(path = "Format.TimeFormats.Hour", defaultValue = "Hour")
-	public String formatTimeFormatsHour;
+	@Getter
+	private String formatTimeFormatsHour;
 
 	@ConfigDataString(path = "Format.TimeFormats.Minutes", defaultValue = "Minutes")
-	public String formatTimeFormatsMinutes;
+	@Getter
+	private String formatTimeFormatsMinutes;
 
 	@ConfigDataString(path = "Format.TimeFormats.Minute", defaultValue = "Minute")
-	public String formatTimeFormatsMinute;
+	@Getter
+	private String formatTimeFormatsMinute;
 
 	@ConfigDataString(path = "Format.TimeFormats.Seconds", defaultValue = "Seconds")
-	public String formatTimeFormatsSeconds;
+	@Getter
+	private String formatTimeFormatsSeconds;
 
 	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
-	public String formatTimeFormatsSecond;
+	@Getter
+	private String formatTimeFormatsSecond;
 
 	@ConfigDataBoolean(path = "Commands.DisableVoteRewardGUIs", defaultValue = false)
-	public boolean commandsDisableVoteRewardGUIs;
+	@Getter
+	private boolean commandsDisableVoteRewardGUIs;
 
 	/**
 	 * Instantiates a new config.
@@ -838,16 +860,16 @@ public class Config extends YMLFile {
 
 	public ConfigurationSection getGUIVoteTotalItem(TopVoter top) {
 		switch (top) {
-		case AllTime:
-			return getGUIVoteTotalAllTimeTotalItem();
-		case Daily:
-			return getGUIVoteTotalDayTotalItem();
-		case Monthly:
-			return getGUIVoteTotalMonthTotalItem();
-		case Weekly:
-			return getGUIVoteTotalWeekTotalItem();
-		default:
-			return getGUIVoteTotalAllTimeTotalItem();
+			case AllTime:
+				return getGUIVoteTotalAllTimeTotalItem();
+			case Daily:
+				return getGUIVoteTotalDayTotalItem();
+			case Monthly:
+				return getGUIVoteTotalMonthTotalItem();
+			case Weekly:
+				return getGUIVoteTotalWeekTotalItem();
+			default:
+				return getGUIVoteTotalAllTimeTotalItem();
 
 		}
 	}
@@ -1530,16 +1552,16 @@ public class Config extends YMLFile {
 
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {
-		case AllTime:
-			return getLoadTopVoterAllTime();
-		case Daily:
-			return getLoadTopVoterDaily();
-		case Monthly:
-			return getLoadTopVoterMonthly();
-		case Weekly:
-			return getLoadTopVoterWeekly();
-		default:
-			return false;
+			case AllTime:
+				return getLoadTopVoterAllTime();
+			case Daily:
+				return getLoadTopVoterDaily();
+			case Monthly:
+				return getLoadTopVoterMonthly();
+			case Weekly:
+				return getLoadTopVoterWeekly();
+			default:
+				return false;
 		}
 	}
 

@@ -44,7 +44,7 @@ public class PlayerInteract implements Listener {
 			// plugin.debug("Checking for sign click");
 			if (event.getClickedBlock().getState() instanceof Sign) {
 				// plugin.debug(player.getName() + " right clicked a sign");
-				for (SignHandler sign : plugin.signs) {
+				for (SignHandler sign : plugin.getSigns()) {
 					if (sign.isLocationSame(event.getClickedBlock().getLocation())) {
 						// plugin.debug(player.getName() +
 						// " right clicked a top voter sign, sending message");

@@ -47,7 +47,6 @@ public class CommandVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
 	 * CommandSender , org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])
@@ -55,7 +54,7 @@ public class CommandVote implements CommandExecutor {
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-		for (CommandHandler commandHandler : plugin.voteCommand) {
+		for (CommandHandler commandHandler : plugin.getVoteCommand()) {
 			if (commandHandler.runCommand(sender, args)) {
 				return true;
 			}

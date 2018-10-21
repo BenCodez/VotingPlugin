@@ -411,11 +411,11 @@ public class PlayerGUIs {
 	public void openVoteToday(Player player) {
 		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
-		for (User user : plugin.voteToday.keySet()) {
+		for (User user : plugin.getVoteToday().keySet()) {
 
-			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
-				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
+				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
 				String msg = "&6" + voteSite.getDisplayName() + " : " + timeString;
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
@@ -600,7 +600,7 @@ public class PlayerGUIs {
 					if (player != null) {
 						player.closeInventory();
 
-						if (Config.getInstance().commandsVoteRewardFromVoteURL
+						if (Config.getInstance().isCommandsVoteRewardFromVoteURL()
 								&& event.getClick().equals(ClickType.RIGHT)) {
 							voteReward(player, voteSite.getKey());
 						} else {

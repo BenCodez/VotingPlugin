@@ -65,10 +65,10 @@ public class Signs {
 	 * Load signs.
 	 */
 	public void loadSigns() {
-		plugin.signs = new ArrayList<SignHandler>();
+		plugin.setSigns(new ArrayList<SignHandler>());
 		for (String sign : ServerData.getInstance().getSigns()) {
 			// plugin.getLogger().info("Loading sign " + sign);
-			plugin.signs.add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
+			plugin.getSigns().add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
 					ServerData.getInstance().getSignData(sign), ServerData.getInstance().getSignPosition(sign)));
 		}
 	}
@@ -77,7 +77,7 @@ public class Signs {
 	 * Store signs.
 	 */
 	public void storeSigns() {
-		for (SignHandler sign : plugin.signs) {
+		for (SignHandler sign : plugin.getSigns()) {
 			sign.storeSign();
 		}
 	}
@@ -87,14 +87,14 @@ public class Signs {
 	 */
 	public void updateSigns() {
 		int time = 0;
-		for (int i = plugin.signs.size() - 1; i >= 0; i--) {
-			if (!plugin.signs.get(i).isValid()) {
+		for (int i = plugin.getSigns().size() - 1; i >= 0; i--) {
+			if (!plugin.getSigns().get(i).isValid()) {
 				plugin.debug("Sign " + i + " invalid, removing from data.");
-				plugin.signs.get(i).removeSign();
-				plugin.signs.remove(i);
+				plugin.getSigns().get(i).removeSign();
+				plugin.getSigns().remove(i);
 			} else {
-				plugin.signs.get(i).updateLines();
-				plugin.signs.get(i).updateSign(time);
+				plugin.getSigns().get(i).updateLines();
+				plugin.getSigns().get(i).updateSign(time);
 				time += 5;
 			}
 		}

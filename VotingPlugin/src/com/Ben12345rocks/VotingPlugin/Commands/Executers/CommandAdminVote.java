@@ -62,7 +62,7 @@ public class CommandAdminVote implements CommandExecutor {
 	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-		for (CommandHandler commandHandler : plugin.adminVoteCommand) {
+		for (CommandHandler commandHandler : plugin.getAdminVoteCommand()) {
 			if (commandHandler.runCommand(sender, args)) {
 				return true;
 			}

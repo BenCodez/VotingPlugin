@@ -20,6 +20,9 @@ import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The Class VoteSite.
  */
@@ -35,29 +38,48 @@ public class VoteSite {
 	static Main plugin = Main.plugin;
 
 	/** The vote URL. */
+	@Getter
+	@Setter
 	private String voteURL;
 
 	/** The service site. */
+	@Getter
+	@Setter
 	private String serviceSite;
 
 	/** The site name. */
+	@Getter
+	@Setter
 	private String key;
 
+	@Getter
+	@Setter
 	private String displayName;
 
 	/** The vote delay. */
+	@Getter
+	@Setter
 	private double voteDelay;
 
 	/** The enabled. */
+	@Getter
+	@Setter
 	private boolean enabled;
 
+	@Getter
+	@Setter
 	private boolean voteDelayDaily;
 
 	/** The priority. */
+	@Getter
+	@Setter
 	private int priority;
 
+	@Setter
 	private ConfigurationSection item;
 
+	@Getter
+	@Setter
 	private boolean giveOffline;
 
 	/**
@@ -110,13 +132,6 @@ public class VoteSite {
 	}
 
 	/**
-	 * @return the displayName
-	 */
-	public String getDisplayName() {
-		return displayName;
-	}
-
-	/**
 	 * @return the item
 	 */
 	public ItemBuilder getItem() {
@@ -127,49 +142,6 @@ public class VoteSite {
 		} else {
 			return new ItemBuilder(item);
 		}
-	}
-
-	/**
-	 * @return the key
-	 */
-	public String getKey() {
-		return key;
-	}
-
-	/**
-	 * Gets the priority.
-	 *
-	 * @return the priority
-	 */
-	public int getPriority() {
-		return priority;
-	}
-
-	/**
-	 * Gets the service site.
-	 *
-	 * @return the service site
-	 */
-	public String getServiceSite() {
-		return serviceSite;
-	}
-
-	/**
-	 * Gets the vote delay.
-	 *
-	 * @return the vote delay
-	 */
-	public double getVoteDelay() {
-		return voteDelay;
-	}
-
-	/**
-	 * Gets the vote URL.
-	 *
-	 * @return the vote URL
-	 */
-	public String getVoteURL() {
-		return voteURL;
 	}
 
 	/**
@@ -193,9 +165,10 @@ public class VoteSite {
 	public boolean hasRewards() {
 		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
 	}
-	
+
 	public boolean isVaidServiceSite() {
-		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(), getServiceSite());
+		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(),
+				getServiceSite());
 	}
 
 	/**
@@ -214,119 +187,6 @@ public class VoteSite {
 		item = configVoteSites.getItem(key);
 		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
 		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
-	}
-
-	/**
-	 * Checks if is enabled.
-	 *
-	 * @return true, if is enabled
-	 */
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	/**
-	 * @return the giveOffline
-	 */
-	public boolean isGiveOffline() {
-		return giveOffline;
-	}
-
-	/**
-	 * @return the voteDelayDaily
-	 */
-	public boolean isVoteDelayDaily() {
-		return voteDelayDaily;
-	}
-
-	/**
-	 * @param displayName
-	 *            the displayName to set
-	 */
-	public void setDisplayName(String displayName) {
-		this.displayName = displayName;
-	}
-
-	/**
-	 * Sets the enabled.
-	 *
-	 * @param enabled
-	 *            the new enabled
-	 */
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	/**
-	 * @param giveOffline
-	 *            the giveOffline to set
-	 */
-	public void setGiveOffline(boolean giveOffline) {
-		this.giveOffline = giveOffline;
-	}
-
-	/**
-	 * @param item
-	 *            the item to set
-	 */
-	public void setItem(ConfigurationSection item) {
-		this.item = item;
-	}
-
-	/**
-	 * @param key
-	 *            the key to set
-	 */
-	public void setKey(String key) {
-		this.key = key;
-	}
-
-	/**
-	 * Sets the priority.
-	 *
-	 * @param priority
-	 *            the new priority
-	 */
-	public void setPriority(int priority) {
-		this.priority = priority;
-	}
-
-	/**
-	 * Sets the service site.
-	 *
-	 * @param serviceSite
-	 *            the new service site
-	 */
-	public void setServiceSite(String serviceSite) {
-		this.serviceSite = serviceSite;
-	}
-
-	/**
-	 * Sets the vote delay.
-	 *
-	 * @param voteDelay
-	 *            the new vote delay
-	 */
-	public void setVoteDelay(double voteDelay) {
-		this.voteDelay = voteDelay;
-	}
-
-	/**
-	 * @param voteDelayDaily
-	 *            the voteDelayDaily to set
-	 */
-	public void setVoteDelayDaily(boolean voteDelayDaily) {
-		this.voteDelayDaily = voteDelayDaily;
-	}
-
-	/**
-	 * Sets the vote URL.
-	 *
-	 * @param voteURL
-	 *            the new vote URL
-	 */
-	public void setVoteURL(String voteURL) {
-		this.voteURL = voteURL;
 	}
 
 }

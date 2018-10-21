@@ -5,6 +5,9 @@ import org.bukkit.event.HandlerList;
 
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
+import lombok.Getter;
+import lombok.Setter;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class PlayerVoteEvent.
@@ -24,12 +27,18 @@ public class PlayerVoteEvent extends Event {
 	}
 
 	/** The player. */
+	@Getter
+	@Setter
 	private String player;
 
 	/** The vote site. */
+	@Getter
+	@Setter
 	private VoteSite voteSite;
 
 	/** The cancelled. */
+	@Getter
+	@Setter
 	private boolean cancelled;
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
@@ -42,7 +51,6 @@ public class PlayerVoteEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override
@@ -50,81 +58,12 @@ public class PlayerVoteEvent extends Event {
 		return handlers;
 	}
 
-	/**
-	 * Gets the player.
-	 *
-	 * @return the player
-	 */
-	public String getPlayer() {
-		return player;
-	}
-
-	/**
-	 * Gets the vote site.
-	 *
-	 * @return the vote site
-	 */
-	public VoteSite getVoteSite() {
-		return voteSite;
-	}
-
-	/**
-	 * Checks if is cancelled.
-	 *
-	 * @return true, if is cancelled
-	 */
-	public boolean isCancelled() {
-		return cancelled;
-	}
-
-	/**
-	 * Sets the cancelled.
-	 *
-	 * @param bln
-	 *            the new cancelled
-	 */
-	public void setCancelled(boolean bln) {
-		cancelled = bln;
-	}
-
-	public void setPlayer(String voteUsername) {
-		this.player = voteUsername;
-	}
-
-	/**
-	 * Sets the vote site.
-	 *
-	 * @param voteSite
-	 *            the new vote site
-	 */
-	public void setVoteSite(VoteSite voteSite) {
-		this.voteSite = voteSite;
-	}
-
+	@Getter
+	@Setter
 	private boolean realVote = true;
 
-	public void setRealVote(boolean b) {
-		realVote = b;
-	}
-
-	/**
-	 * @return the realVote
-	 */
-	public boolean isRealVote() {
-		return realVote;
-	}
-
+	@Getter
+	@Setter
 	private String serviceSite = "";
-
-	public void setServiceSite(String value) {
-		serviceSite = value;
-	}
-
-	/**
-	 * @return the serviceSite
-	 */
-	public String getServiceSite() {
-		return serviceSite;
-	}
 
 }

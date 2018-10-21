@@ -45,7 +45,7 @@ public class BlockBreak implements Listener {
 
 				@Override
 				public void run() {
-					for (SignHandler sign : plugin.signs) {
+					for (SignHandler sign : plugin.getSigns()) {
 						if (sign.getLocation().equals(loc)) {
 							sign.removeSign();
 							sign.setValid(false);

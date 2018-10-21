@@ -120,7 +120,7 @@ public class Commands {
 
 		boolean requirePerms = Config.getInstance().getFormatCommandsVoteHelpRequirePermission();
 
-		for (CommandHandler cmdHandle : plugin.adminVoteCommand) {
+		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
 			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			} else {
@@ -192,7 +192,7 @@ public class Commands {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&c&lCommand : Permissions (seperated by |)");
 
-		for (CommandHandler handle : plugin.voteCommand) {
+		for (CommandHandler handle : plugin.getVoteCommand()) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
 					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
@@ -205,7 +205,7 @@ public class Commands {
 
 		}
 
-		for (CommandHandler handle : plugin.adminVoteCommand) {
+		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
 					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
@@ -241,7 +241,7 @@ public class Commands {
 			ArrayList<String> msg = new ArrayList<String>();
 			ArrayList<String> text = new ArrayList<String>();
 
-			for (CommandHandler handle : plugin.voteCommand) {
+			for (CommandHandler handle : plugin.getVoteCommand()) {
 				if (handle.hasPerm(p)) {
 					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
 				} else {
@@ -250,7 +250,7 @@ public class Commands {
 
 			}
 
-			for (CommandHandler handle : plugin.adminVoteCommand) {
+			for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 				if (handle.hasPerm(p)) {
 					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
 				} else {
@@ -536,7 +536,7 @@ public class Commands {
 	}
 
 	public void updateVoteToday(ArrayList<User> users) {
-		plugin.voteToday.clear();
+		plugin.getVoteToday().clear();
 
 		for (User user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
@@ -551,7 +551,7 @@ public class Commands {
 				}
 			}
 			if (times.keySet().size() > 0) {
-				plugin.voteToday.put(user, times);
+				plugin.getVoteToday().put(user, times);
 			}
 
 		}
@@ -620,60 +620,58 @@ public class Commands {
 			if (diffDays == 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsDay), "amount", "" + diffDays);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsDay()), "amount", "" + diffDays);
 				info += " ";
 			} else if (diffDays > 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsDays), "amount", "" + diffDays);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsDays()), "amount", "" + diffDays);
 				info += " ";
 			}
 
 			if (diffHours == 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsHour), "amount", "" + diffHours);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsHour()), "amount", "" + diffHours);
 				info += " ";
 			} else if (diffHours > 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsHours), "amount", "" + diffHours);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsHours()), "amount", "" + diffHours);
 				info += " ";
 			}
 
 			if (diffMinutes == 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsMinute), "amount", "" + diffMinutes);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsMinute()), "amount", "" + diffMinutes);
 				info += " ";
 			} else if (diffMinutes > 1) {
-				info += StringUtils.getInstance()
-						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsMinutes), "amount", "" + diffMinutes);
+				info += StringUtils.getInstance().replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						Config.getInstance().getFormatTimeFormatsMinutes()), "amount", "" + diffMinutes);
 				info += " ";
 			}
 
 			if (diffSeconds == 1) {
 				info += StringUtils.getInstance()
 						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsSecond), "amount", "" + diffSeconds);
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
 			} else {
-				info += StringUtils.getInstance()
-						.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
-								Config.getInstance().formatCommandsVoteLastTimeFormat, "TimeType",
-								Config.getInstance().formatTimeFormatsSeconds), "amount", "" + diffSeconds);
+				info += StringUtils.getInstance().replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						Config.getInstance().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
 			}
 
 			return info;
 		}
-		return Config.getInstance().formatCommandsVoteLastNeverVoted;
+		return Config.getInstance().getFormatCommandsVoteLastNeverVoted();
 	}
 
 	public String voteCommandLastLine(User user, VoteSite voteSite) {
@@ -685,7 +683,7 @@ public class Commands {
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
-		return StringUtils.getInstance().replacePlaceHolder(Config.getInstance().formatCommandsVoteLastLine,
+		return StringUtils.getInstance().replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLine(),
 				placeholders);
 	}
 
@@ -858,7 +856,7 @@ public class Commands {
 
 		boolean requirePerms = config.getFormatCommandsVoteHelpRequirePermission();
 
-		for (CommandHandler cmdHandle : plugin.voteCommand) {
+		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			} else if (!requirePerms) {
@@ -882,11 +880,11 @@ public class Commands {
 	 */
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (User user : plugin.voteToday.keySet()) {
+		for (User user : plugin.getVoteToday().keySet()) {
 
-			for (VoteSite voteSite : plugin.voteToday.get(user).keySet()) {
+			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
-				String timeString = plugin.voteToday.get(user).get(voteSite).format(formatter);
+				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
 				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
 			}
 		}

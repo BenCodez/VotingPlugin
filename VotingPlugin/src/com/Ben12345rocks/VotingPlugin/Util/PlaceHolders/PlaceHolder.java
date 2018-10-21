@@ -5,16 +5,13 @@ import org.bukkit.OfflinePlayer;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
-public abstract class PlaceHolder {
-	private String identifier;
-	private boolean useStartsWith = false;
+import lombok.Getter;
 
-	/**
-	 * @return the identifier
-	 */
-	public String getIdentifier() {
-		return identifier;
-	}
+public abstract class PlaceHolder {
+	@Getter
+	private String identifier;
+	@Getter
+	private boolean useStartsWith = false;
 
 	public PlaceHolder(String identifier) {
 		this.identifier = identifier;
@@ -41,13 +38,6 @@ public abstract class PlaceHolder {
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * @return the useStartsWith
-	 */
-	public boolean isUseStartsWith() {
-		return useStartsWith;
 	}
 
 	public abstract String placeholderRequest(OfflinePlayer p, User user, String identifier);

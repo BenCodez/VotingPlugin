@@ -65,6 +65,9 @@ import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The Class Main.
  */
@@ -79,42 +82,50 @@ public class Main extends JavaPlugin {
 	/** The plugin. */
 	public static Main plugin;
 
+	@Getter
 	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
-
-	/**
-	 * @return the topVoter
-	 */
-	public LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> getTopVoter() {
-		return topVoter;
-	}
 
 	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
 		return topVoter.get(top);
 	}
 
 	/** The updater. */
-	public Updater updater;
+	@Getter
+	@Setter
+	private Updater updater;
 
 	/** The vote command. */
-	public ArrayList<CommandHandler> voteCommand;
+	@Getter
+	@Setter
+	private ArrayList<CommandHandler> voteCommand;
 
 	/** The admin vote command. */
-	public ArrayList<CommandHandler> adminVoteCommand;
+	@Getter
+	@Setter
+	private ArrayList<CommandHandler> adminVoteCommand;
 
 	/** The vote sites. */
+	@Getter
 	private List<VoteSite> voteSites;
 
 	/** The vote today. */
-	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
+	@Getter
+	private LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	/** The signs. */
-	public ArrayList<SignHandler> signs;
+	@Getter
+	@Setter
+	private ArrayList<SignHandler> signs;
 
 	/** The vote log. */
-	public Logger voteLog;
+	@Getter
+	private Logger voteLog;
 
+	@Getter
+	@Setter
 	private boolean update = true;
 
+	@Getter
 	private boolean updateStarted = false;
 
 	/**
@@ -215,32 +226,6 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().debug(plugin, message);
 	}
 
-	public ArrayList<CommandHandler> getAdminVoteCommand() {
-		return adminVoteCommand;
-	}
-
-	public ArrayList<SignHandler> getSigns() {
-		return signs;
-	}
-
-	/*
-	 * public LinkedHashMap<User, Integer> getTopVoterAllTime() { return
-	 * topVoterAllTime; }
-	 * 
-	 * public LinkedHashMap<User, Integer> getTopVoterDaily() { return
-	 * topVoterDaily; }
-	 * 
-	 * public LinkedHashMap<User, Integer> getTopVoterMonthly() { return
-	 * topVoterMonthly; }
-	 * 
-	 * public LinkedHashMap<User, Integer> getTopVoterWeekly() { return
-	 * topVoterWeekly; }
-	 */
-
-	public Updater getUpdater() {
-		return updater;
-	}
-
 	/**
 	 * Gets the user.
 	 *
@@ -254,14 +239,6 @@ public class Main extends JavaPlugin {
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
-	}
-
-	public ArrayList<CommandHandler> getVoteCommand() {
-		return voteCommand;
-	}
-
-	public Logger getVoteLog() {
-		return voteLog;
 	}
 
 	public VoteParty getVoteParty() {
@@ -343,14 +320,6 @@ public class Main extends JavaPlugin {
 
 	}
 
-	public List<VoteSite> getVoteSites() {
-		return voteSites;
-	}
-
-	public LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
-		return voteToday;
-	}
-
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : getVoteSites()) {
@@ -359,14 +328,6 @@ public class Main extends JavaPlugin {
 			}
 		}
 		return false;
-	}
-
-	public boolean isUpdate() {
-		return update;
-	}
-
-	public boolean isUpdateStarted() {
-		return updateStarted;
 	}
 
 	private void loadTimer() {
@@ -716,7 +677,6 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -734,7 +694,6 @@ public class Main extends JavaPlugin {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -757,7 +716,7 @@ public class Main extends JavaPlugin {
 		plugin.signs = new ArrayList<SignHandler>();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-			
+
 			@Override
 			public void run() {
 				Signs.getInstance().loadSigns();
@@ -936,10 +895,6 @@ public class Main extends JavaPlugin {
 		PlaceHolders.getInstance().load();
 		// loadTimer();
 
-	}
-
-	public void setUpdate(boolean update) {
-		this.update = update;
 	}
 
 	/**
