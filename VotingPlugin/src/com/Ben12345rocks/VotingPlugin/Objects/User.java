@@ -538,6 +538,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * Off vote.
 	 */
 	public void offVote() {
+		if (!AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
+			AdvancedCoreHook.getInstance().debug("Processing rewards is disabled");
+			return;
+		}
 		AdvancedCoreHook.getInstance().extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {

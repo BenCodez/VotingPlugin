@@ -861,6 +861,9 @@ PurgeMin: 90
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
 
+# Disable this on a hub server for example
+ProcessRewards: true
+
 # ###############################################################
 # Deprecated options, don't recommend using any of these
 
