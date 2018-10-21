@@ -109,7 +109,7 @@ public class PlayerVoteListener implements Listener {
 
 			// check if player has voted on all sites in one day
 
-			if (user.isOnline() || voteSite.isGiveOffline()) {
+			if ((user.isOnline() || voteSite.isGiveOffline()) && AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
 				user.playerVote(voteSite, true, false);
 				user.closeInv();
 			} else {
