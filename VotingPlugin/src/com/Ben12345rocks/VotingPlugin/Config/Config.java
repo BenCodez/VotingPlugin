@@ -102,6 +102,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean commandsDisableVoteRewardGUIs;
 
+	@ConfigDataBoolean(path = "AlwaysUpdate", defaultValue = false)
+	@Getter
+	private boolean alwaysUpdate = false;;
+
 	/**
 	 * Instantiates a new config.
 	 */

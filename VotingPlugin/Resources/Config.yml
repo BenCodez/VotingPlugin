@@ -833,6 +833,9 @@ DelayBetweenUpdates: 3
 # Clear cache on update, setting to true reduces performance
 ClearCacheOnUpdate: false
 
+# Only update the background when needed when set to false
+AlwaysUpdate: false
+
 # Clears cache for the player who voted only
 # Only effects if using mysql
 # Would recommend for some bungee setups

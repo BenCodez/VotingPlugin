@@ -940,55 +940,58 @@ public class Main extends JavaPlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update && plugin != null && !updateStarted) {
-			updateStarted = true;
-			update = false;
+		if (update || Config.getInstance().isAlwaysUpdate()) {
+			if (!updateStarted && plugin != null) {
+				updateStarted = true;
+				update = false;
 
-			synchronized (plugin) {
-				if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-					if (AdvancedCoreHook.getInstance().getMysql() == null) {
-						plugin.debug("MySQL not loaded yet");
-						return;
-					} else if (Config.getInstance().getClearCacheOnUpdate()) {
-						AdvancedCoreHook.getInstance().getMysql().clearCache();
-					} else {
-						AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
-					}
-				}
-
-				plugin.debug("Starting background task");
-				long time = System.currentTimeMillis();
-				try {
-					ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-					ArrayList<User> users = new ArrayList<User>();
-					for (String uuid : uuids) {
-						if (uuid != null && !uuid.isEmpty()) {
-							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-							users.add(user);
-							// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
-							// java.lang.Thread.sleep(5000);
+				synchronized (plugin) {
+					if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
+						if (AdvancedCoreHook.getInstance().getMysql() == null) {
+							plugin.debug("MySQL not loaded yet");
+							return;
+						} else if (Config.getInstance().getClearCacheOnUpdate()) {
+							AdvancedCoreHook.getInstance().getMysql().clearCache();
+						} else {
+							AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
 						}
 					}
-					update = false;
-					long time1 = ((System.currentTimeMillis() - time) / 1000);
-					plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
-					TopVoterHandler.getInstance().updateTopVoters(users);
-					Commands.getInstance().updateVoteToday(users);
-					ServerData.getInstance().updateValues();
-					Signs.getInstance().updateSigns();
 
-					for (Player player : Bukkit.getOnlinePlayers()) {
-						UserManager.getInstance().getVotingPluginUser(player).offVote();
+					plugin.debug("Starting background task");
+					long time = System.currentTimeMillis();
+					try {
+						ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+						ArrayList<User> users = new ArrayList<User>();
+						for (String uuid : uuids) {
+							if (uuid != null && !uuid.isEmpty()) {
+								User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								users.add(user);
+								// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
+								// java.lang.Thread.sleep(5000);
+							}
+						}
+						update = false;
+						long time1 = ((System.currentTimeMillis() - time) / 1000);
+						plugin.debug(
+								"Finished loading player data in " + time1 + " seconds, " + users.size() + " users");
+						TopVoterHandler.getInstance().updateTopVoters(users);
+						Commands.getInstance().updateVoteToday(users);
+						ServerData.getInstance().updateValues();
+						Signs.getInstance().updateSigns();
+
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							UserManager.getInstance().getVotingPluginUser(player).offVote();
+						}
+						time1 = ((System.currentTimeMillis() - time) / 1000);
+						plugin.debug("Background task finished in " + time1 + " seconds");
+					} catch (Exception ex) {
+						ex.printStackTrace();
+						plugin.getLogger().info("Looks like something went wrong.");
 					}
-					time1 = ((System.currentTimeMillis() - time) / 1000);
-					plugin.debug("Background task finished in " + time1 + " seconds");
-				} catch (Exception ex) {
-					ex.printStackTrace();
-					plugin.getLogger().info("Looks like something went wrong.");
 				}
-			}
 
-			updateStarted = false;
+				updateStarted = false;
+			}
 		}
 	}
 
