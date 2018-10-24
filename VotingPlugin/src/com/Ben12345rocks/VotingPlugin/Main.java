@@ -89,35 +89,28 @@ public class Main extends JavaPlugin {
 		return topVoter.get(top);
 	}
 
-	/** The updater. */
 	@Getter
 	@Setter
 	private Updater updater;
 
-	/** The vote command. */
 	@Getter
 	@Setter
 	private ArrayList<CommandHandler> voteCommand;
 
-	/** The admin vote command. */
 	@Getter
 	@Setter
 	private ArrayList<CommandHandler> adminVoteCommand;
 
-	/** The vote sites. */
 	@Getter
 	private List<VoteSite> voteSites;
 
-	/** The vote today. */
 	@Getter
 	private LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
 
-	/** The signs. */
 	@Getter
 	@Setter
 	private ArrayList<SignHandler> signs;
 
-	/** The vote log. */
 	@Getter
 	private Logger voteLog;
 

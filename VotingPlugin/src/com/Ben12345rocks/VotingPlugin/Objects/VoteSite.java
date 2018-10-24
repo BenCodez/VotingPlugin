@@ -37,17 +37,14 @@ public class VoteSite {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	/** The vote URL. */
 	@Getter
 	@Setter
 	private String voteURL;
 
-	/** The service site. */
 	@Getter
 	@Setter
 	private String serviceSite;
 
-	/** The site name. */
 	@Getter
 	@Setter
 	private String key;
@@ -56,12 +53,10 @@ public class VoteSite {
 	@Setter
 	private String displayName;
 
-	/** The vote delay. */
 	@Getter
 	@Setter
 	private double voteDelay;
 
-	/** The enabled. */
 	@Getter
 	@Setter
 	private boolean enabled;
@@ -70,7 +65,6 @@ public class VoteSite {
 	@Setter
 	private boolean voteDelayDaily;
 
-	/** The priority. */
 	@Getter
 	@Setter
 	private int priority;

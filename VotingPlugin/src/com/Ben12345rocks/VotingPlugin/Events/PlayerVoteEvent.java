@@ -26,17 +26,14 @@ public class PlayerVoteEvent extends Event {
 		return handlers;
 	}
 
-	/** The player. */
 	@Getter
 	@Setter
 	private String player;
 
-	/** The vote site. */
 	@Getter
 	@Setter
 	private VoteSite voteSite;
 
-	/** The cancelled. */
 	@Getter
 	@Setter
 	private boolean cancelled;
