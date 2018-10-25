@@ -7,7 +7,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
-import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -84,6 +83,10 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
+		
+		if (Config.getInstance().getClearCacheOnVote()) {
+			user.clearCache();
+		}
 
 		synchronized (object) {
 
@@ -109,7 +112,8 @@ public class PlayerVoteListener implements Listener {
 
 			// check if player has voted on all sites in one day
 
-			if ((user.isOnline() || voteSite.isGiveOffline()) && AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
+			if ((user.isOnline() || voteSite.isGiveOffline())
+					&& AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
 				user.playerVote(voteSite, true, false);
 				user.closeInv();
 			} else {
@@ -132,12 +136,6 @@ public class PlayerVoteListener implements Listener {
 			SpecialRewards.getInstance().checkAllSites(user);
 			SpecialRewards.getInstance().checkCumualativeVotes(user);
 			SpecialRewards.getInstance().checkMilestone(user);
-
-			if (Config.getInstance().getClearCacheOnVote()) {
-				if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-					AdvancedCoreHook.getInstance().getMysql().removePlayer(user.getUUID());
-				}
-			}
 		}
 
 		plugin.setUpdate(true);

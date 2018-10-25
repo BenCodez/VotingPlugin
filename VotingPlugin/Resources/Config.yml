@@ -812,6 +812,9 @@ RequestAPI:
 # Not recommended though
 LogVotesToFile: false
 
+# Only update the background when needed when set to false
+AlwaysUpdate: false
+
 # Delay between background updates like signs and more
 # Default: 3 Minutes
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
@@ -863,11 +866,8 @@ ProcessRewards: true
 # Clearing cache forces the plugin to pull from database
 # ---------------------------------------------------------
 
-# Clear cache on update, setting to true reduces performance
+# Clear cache on update, setting to true reduces update speed
 ClearCacheOnUpdate: false
-
-# Only update the background when needed when set to false
-AlwaysUpdate: false
 
 # Clear mysql on player join always
 ClearCacheOnJoin: false
