@@ -69,6 +69,7 @@ public class PlayerGUIs {
 			player.sendMessage(StringUtils.getInstance().colorize("&cVote shop disabled"));
 			return;
 		}
+
 		BInventory inv = new BInventory(Config.getInstance().getVoteShopName());
 
 		for (final String identifier : Config.getInstance().getIdentifiers()) {
@@ -101,29 +102,41 @@ public class PlayerGUIs {
 						Player player = event.getWhoClicked();
 
 						User user = UserManager.getInstance().getVotingPluginUser(player);
+						user.clearCache();
 						String identifier = (String) getData("identifier");
 						int limit = (int) getData("Limit");
 						int points = Config.getInstance().getIdentifierCost(identifier);
 						if (identifier != null) {
-							HashMap<String, String> placeholders = new HashMap<String, String>();
-							placeholders.put("identifier", identifier);
-							placeholders.put("points", "" + points);
-							placeholders.put("limit", "" + limit);
-							if (user.removePoints(points)) {
-
-								RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-										Config.getInstance().getIdentifierRewardsPath(identifier),
-										new RewardOptions().setPlaceholders(placeholders));
-
-								user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
-										Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
-								if (limit > 0) {
-									user.setVoteShopIdentifierLimit(identifier,
-											user.getVoteShopIdentifierLimit(identifier) + 1);
+							
+							// limit fail-safe, should never be needed, except in rare cases
+							boolean limitPass = true;
+							if (limit > 0) {
+								if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
+									limitPass = false;
 								}
-							} else {
-								user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
-										Config.getInstance().getFormatShopFailedMsg(), placeholders));
+							}
+
+							if (limitPass) {
+								HashMap<String, String> placeholders = new HashMap<String, String>();
+								placeholders.put("identifier", identifier);
+								placeholders.put("points", "" + points);
+								placeholders.put("limit", "" + limit);
+								if (user.removePoints(points)) {
+
+									RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+											Config.getInstance().getIdentifierRewardsPath(identifier),
+											new RewardOptions().setPlaceholders(placeholders));
+
+									user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+											Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
+									if (limit > 0) {
+										user.setVoteShopIdentifierLimit(identifier,
+												user.getVoteShopIdentifierLimit(identifier) + 1);
+									}
+								} else {
+									user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+											Config.getInstance().getFormatShopFailedMsg(), placeholders));
+								}
 							}
 						}
 					}
