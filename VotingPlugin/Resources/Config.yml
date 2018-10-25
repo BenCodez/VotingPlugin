@@ -10,6 +10,7 @@
 DataStorage: SQLITE
 
 # Information for mysql
+# See the end of the config for cache options
 MySQL:
   Host: ''
   # Default port is 3306
@@ -30,20 +31,6 @@ MySQL:
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data)
 AllowUnjoined: false
-
-# If true, plugin will send scoreboards on some commands
-SendScoreboards: true
-
-# If true, plugin will automaticly generate votesites
-# Disable this if you experience issues with sites being created randomly
-# Most cases this will work all the time
-AutoCreateVoteSites: true
-
-# Automaticly download the latest version
-# Will require a restart to actually update
-# Note: It takes 30-40 minutes before being able to download the latest build
-# You can also use /av download
-AutoDownload: false
 
 # ------------------------------------------------
 # VoteReminding
@@ -783,7 +770,7 @@ DailyAwards:
     
 # ------------------------------------------------
 # Advanced
-# Most of these values can be left untouched
+# Most of these values can be left untouched for most setups
 # ------------------------------------------------
 
 # Number of points to give on vote
@@ -830,20 +817,6 @@ LogVotesToFile: false
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
 DelayBetweenUpdates: 3
 
-# Clear cache on update, setting to true reduces performance
-ClearCacheOnUpdate: false
-
-# Only update the background when needed when set to false
-AlwaysUpdate: false
-
-# Clear mysql on player join always
-ClearCacheOnJoin: false
-
-# Clears cache for the player who voted only
-# Only effects if using mysql
-# Would recommend for some bungee setups
-ClearCacheOnVote: false
-
 # Set to true to disable no service site message on voting
 # You should never have to touch this if everything is setup properly
 # Will also disable a few other warnings about vote sites
@@ -867,8 +840,42 @@ PurgeMin: 90
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
 
+# If true, plugin will send scoreboards on some commands
+SendScoreboards: true
+
+# If true, plugin will automaticly generate votesites
+# Disable this if you experience issues with sites being created randomly
+# Most cases this will work all the time
+AutoCreateVoteSites: true
+
+# Automaticly download the latest version
+# Will require a restart to actually update
+# Note: It takes 30-40 minutes before being able to download the latest build
+# You can also use /av download
+AutoDownload: false
+
 # Disable this on a hub server for example
+# Still processes rewards for offline rewards (just won't give any)
 ProcessRewards: true
+
+# ---------------------------------------------------------
+# Mysql cache options
+# Clearing cache forces the plugin to pull from database
+# ---------------------------------------------------------
+
+# Clear cache on update, setting to true reduces performance
+ClearCacheOnUpdate: false
+
+# Only update the background when needed when set to false
+AlwaysUpdate: false
+
+# Clear mysql on player join always
+ClearCacheOnJoin: false
+
+# Clears cache for the player who voted only
+# Only effects if using mysql
+# Would recommend for some bungee setups
+ClearCacheOnVote: false
 
 # ###############################################################
 # Deprecated options, don't recommend using any of these
