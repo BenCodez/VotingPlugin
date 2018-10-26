@@ -104,7 +104,11 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "AlwaysUpdate", defaultValue = false)
 	@Getter
-	private boolean alwaysUpdate = false;;
+	private boolean alwaysUpdate = false;
+	
+	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly", defaultValue = false)
+	@Getter
+	private boolean updateWithPlayersOnlineOnly;
 
 	/**
 	 * Instantiates a new config.

@@ -815,6 +815,9 @@ LogVotesToFile: false
 # Only update the background when needed when set to false
 AlwaysUpdate: false
 
+# Update in the background only if players are online
+UpdateWithPlayersOnlineOnly: false
+
 # Delay between background updates like signs and more
 # Default: 3 Minutes
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
