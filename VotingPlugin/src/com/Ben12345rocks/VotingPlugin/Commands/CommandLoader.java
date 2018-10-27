@@ -24,14 +24,12 @@ import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
-import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
-import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.NumberListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
@@ -954,55 +952,6 @@ public class CommandLoader {
 									}
 								});
 
-						UserGUI.getInstance().addPluginButton(plugin, new BInventoryButton("Set Vote Points",
-								new String[] {}, new ItemStack(Material.STONE)) {
-
-							@Override
-							public void onClick(ClickEvent clickEvent) {
-								Player player = clickEvent.getPlayer();
-								User user = UserManager.getInstance()
-										.getVotingPluginUser(UserGUI.getInstance().getCurrentPlayer(player));
-								new ValueRequest().requestNumber(player, "" + user.getPoints(),
-										new Number[] { 0, 5, 100 }, true, new NumberListener() {
-
-											@Override
-											public void onInput(Player player, Number value) {
-												User user = UserManager.getInstance().getVotingPluginUser(
-														UserGUI.getInstance().getCurrentPlayer(player));
-												user.setPoints(value.intValue());
-												player.sendMessage("Points set to " + value.intValue() + " for "
-														+ user.getPlayerName());
-
-											}
-										});
-
-							}
-						});
-						UserGUI.getInstance().addPluginButton(plugin,
-								new BInventoryButton(new ItemBuilder(Material.BOOK).setName("Set Month Total")) {
-
-									@Override
-									public void onClick(ClickEvent clickEvent) {
-										String playerName = (String) clickEvent.getMeta(clickEvent.getPlayer(),
-												"Player");
-										User user = UserManager.getInstance().getVotingPluginUser(playerName);
-										new ValueRequest().requestNumber(clickEvent.getPlayer(),
-												"" + user.getTotal(TopVoter.Monthly), new Number[] { 0, 10, 50, 100 },
-												new NumberListener() {
-
-													@Override
-													public void onInput(Player player, Number value) {
-														String playerName = (String) clickEvent
-																.getMeta(clickEvent.getPlayer(), "Player");
-														User user = UserManager.getInstance()
-																.getVotingPluginUser(playerName);
-														user.setTotal(TopVoter.Monthly, value.intValue());
-														player.sendMessage(
-																StringUtils.getInstance().colorize("&cTotal set"));
-													}
-												});
-									}
-								});
 						UserGUI.getInstance().addPluginButton(plugin,
 								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
 

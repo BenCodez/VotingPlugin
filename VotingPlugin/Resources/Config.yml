@@ -635,7 +635,7 @@ VoteParty:
         Material: 'DIAMOND'
         Amount: 1
   
-# Reset milestons at end of the month
+# Reset milestones at end of the month
 ResetMilestonesMonthly: false
   
 MileStones:
