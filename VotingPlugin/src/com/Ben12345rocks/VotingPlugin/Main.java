@@ -814,7 +814,7 @@ public class Main extends JavaPlugin {
 		}
 
 		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
-			plugin.getLogger().warning("Detected running " + NMSManager.getInstance().getVersion()
+			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
 					+ ", this version is not supported on this build");
 		}
 	}

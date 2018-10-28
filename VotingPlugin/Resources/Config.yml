@@ -698,6 +698,7 @@ AnySiteRewards: []
 # ------------------------------------------------
 
 # Top voter blacklist
+# Hide these names from top voter lists
 BlackList:
 - 'Notch'
 

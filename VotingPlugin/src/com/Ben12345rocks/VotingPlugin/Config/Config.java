@@ -562,15 +562,9 @@ public class Config extends YMLFile {
 	public String getFormatNotNumber() {
 		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
-
-	/**
-	 * Gets the page size.
-	 *
-	 * @return the page size
-	 */
-	public int getFormatPageSize() {
-		return 10;
-	}
+	
+	@Getter
+	private int formatPageSize = 10;
 
 	public String getFormatPrevPage() {
 		return getData().getString("Format.PrevPage", "&aPrevious Page");

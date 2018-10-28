@@ -509,7 +509,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * @return true if user got the first vote reward
 	 */
 	public boolean hasGottenFirstVote() {
-		return getAllTimeTotal() != 0;
+		return getTotal(TopVoter.AllTime) != 0;
 	}
 
 	/**
@@ -528,11 +528,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public boolean isReminded() {
-		return Boolean.valueOf(getUserData().getString("Reminded"));
+		return getUserData().getBoolean("Reminded");
 	}
 
 	public boolean isTopVoterIgnore() {
-		return Boolean.valueOf(getUserData().getString("TopVoterIgnore"));
+		return getUserData().getBoolean("TopVoterIgnore");
 	}
 
 	/**

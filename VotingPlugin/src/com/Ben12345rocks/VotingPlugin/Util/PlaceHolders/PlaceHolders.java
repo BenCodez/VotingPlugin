@@ -222,9 +222,6 @@ public class PlaceHolders {
 					return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 				}
 			});
-		}
-
-		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			placeholders.add(new PlaceHolder("Last_" + voteSite.getKey()) {
 
 				@Override
