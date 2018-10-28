@@ -553,7 +553,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getSendScoreboards();
+				return "" + AdvancedCoreHook.getInstance().getOptions().isSendScoreboards();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
@@ -572,14 +572,14 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return Config.getInstance().getDataStorage().toUpperCase();
+				return AdvancedCoreHook.getInstance().getOptions().getStorageType().toString();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("DisableCheckOnWorldChange") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getDisableCheckOnWorldChange();
+				return "" + AdvancedCoreHook.getInstance().getOptions().isDisableCheckOnWorldChange();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {

@@ -105,10 +105,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AlwaysUpdate", defaultValue = false)
 	@Getter
 	private boolean alwaysUpdate = false;
-	
+
 	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly", defaultValue = false)
 	@Getter
-	private boolean updateWithPlayersOnlineOnly;
+	private boolean updateWithPlayersOnlineOnly = false;
 
 	/**
 	 * Instantiates a new config.
@@ -117,41 +117,23 @@ public class Config extends YMLFile {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
 
-	/**
-	 * Allow un joined.
-	 *
-	 * @return true, if successful
-	 */
-	public boolean allowUnJoined() {
-		return getData().getBoolean("AllowUnjoined");
-	}
+	@ConfigDataBoolean(path = "AllowUnjoined", defaultValue = false)
+	@Getter
+	private boolean allowUnjoined = false;
 
-	public boolean getAddTotals() {
-		return getData().getBoolean("AddTotals", true);
-	}
+	@ConfigDataBoolean(path = "AddTotals", defaultValue = true)
+	@Getter
+	private boolean addTotals = true;
 
-	/**
-	 * Gets the all sites reward.
-	 *
-	 * @return the all sites reward
-	 */
-	public String getAllSitesRewardPath() {
-		return "AllSites";
-	}
+	@Getter
+	private String allSitesRewardPath = "AllSites";
 
-	public boolean getAlternateUUIDLookup() {
-		return getData().getBoolean("AlternateUUIDLookup");
-	}
+	@ConfigDataBoolean(path = "AlternateUUIDLookup", defaultValue = false)
+	@Getter
+	private boolean alternateUUIDLookup = false;
 
-	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	public String getAnySiteRewardsPath() {
-		return "AnySiteRewards";
-
-	}
+	@Getter
+	private String anySiteRewardsPath = "AnySiteRewards";
 
 	/**
 	 * Gets the auto create vote sites.
@@ -160,14 +142,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean getAutoCreateVoteSites() {
 		return getData().getBoolean("AutoCreateVoteSites");
-	}
-
-	public boolean getAutoDownload() {
-		return getData().getBoolean("AutoDownload");
-	}
-
-	public boolean getAutoKillInvs() {
-		return getData().getBoolean("AutoKillInvs", true);
 	}
 
 	public ConfigurationSection getBackButton() {
@@ -191,10 +165,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean getBroadCastVotesEnabled() {
 		return getData().getBoolean("BroadcastVote", true);
-	}
-
-	public boolean getCheckNameMojang() {
-		return getData().getBoolean("CheckNameMojang", false);
 	}
 
 	public boolean getClearCacheOnUpdate() {
@@ -326,42 +296,12 @@ public class Config extends YMLFile {
 		}
 	}
 
-	public String getDataStorage() {
-		return getData().getString("DataStorage", "FLAT");
-	}
-
-	/**
-	 * Gets the debug enabled.
-	 *
-	 * @return the debug enabled
-	 */
-	public boolean getDebugEnabled() {
-		return getData().getBoolean("Debug");
-	}
-
-	/**
-	 * Gets the debug info ingame.
-	 *
-	 * @return the debug info ingame
-	 */
-	public boolean getDebugInfoIngame() {
-		return getData().getBoolean("DebugInfoIngame");
-	}
-
 	public int getDelayBetweenUpdates() {
 		return getData().getInt("DelayBetweenUpdates", 3);
 	}
 
-	public boolean getDisableCheckOnWorldChange() {
-		return getData().getBoolean("DisableCheckOnWorldChange");
-	}
-
 	public boolean getDisableNoServiceSiteMessage() {
 		return getData().getBoolean("DisableNoServiceSiteMessage");
-	}
-
-	public boolean getExtraDebug() {
-		return getData().getBoolean("ExtraDebug");
 	}
 
 	/**
@@ -1082,15 +1022,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the send scoreboards.
-	 *
-	 * @return the send scoreboards
-	 */
-	public boolean getSendScoreboards() {
-		return getData().getBoolean("SendScoreboards");
-	}
-
-	/**
 	 * Gets the store top voters daily.
 	 *
 	 * @return the store top voters daily
@@ -1465,97 +1396,6 @@ public class Config extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("Config.yml", true);
-	}
-
-	/**
-	 * Sets the allow un joined.
-	 *
-	 * @param value
-	 *            the new allow un joined
-	 */
-	public void setAllowUnJoined(boolean value) {
-		getData().set("AllowUnjoined", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the rewards.
-	 *
-	 * @param rewards
-	 *            the new rewards
-	 */
-	public void setAnySiteRewards(ArrayList<String> rewards) {
-		getData().set("AnySiteRewards", rewards);
-		saveData();
-	}
-
-	/**
-	 * Sets the broadcast vote enabled.
-	 *
-	 * @param value
-	 *            the new broadcast vote enabled
-	 */
-	public void setBroadcastVoteEnabled(boolean value) {
-		getData().set("BroadcastVote", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the debug enabled.
-	 *
-	 * @param value
-	 *            the new debug enabled
-	 */
-	public void setDebugEnabled(boolean value) {
-		getData().set("Debug", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the debug info ingame.
-	 *
-	 * @param value
-	 *            the new debug info ingame
-	 */
-	public void setDebugInfoIngame(boolean value) {
-		getData().set("DebugInfoIngame", value);
-		saveData();
-	}
-
-	/**
-	 * Sets the top voter awards enabled.
-	 *
-	 * @param value
-	 *            the new top voter awards enabled
-	 */
-	public void setTopVoterAwardsEnabled(boolean value) {
-		getData().set("TopVoterAwards", value);
-		saveData();
-	}
-
-	public void setVoteRemindingEnabled(boolean value) {
-		getData().set("VoteReminding.Enabled", value);
-		saveData();
-	}
-
-	public void setVoteRemindingRemindDelay(int value) {
-		getData().set("VoteReminding.RemindDelay", value);
-		saveData();
-	}
-
-	public void setVoteRemindingRemindOnLogin(boolean value) {
-		getData().set("VoteReminding.RemindOnLogin", value);
-		saveData();
-	}
-
-	public void setVoteRemindingRemindOnlyOnce(boolean value) {
-		getData().set("VoteReminding.RemindOnlyOnce", value);
-		saveData();
-	}
-
-	public void setVoteRemindingRewards(ArrayList<String> value) {
-		getData().set("VoteReminding.Rewards", value);
-		saveData();
 	}
 
 	public boolean getLoadTopVoter(TopVoter top) {

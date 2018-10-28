@@ -56,7 +56,7 @@ public class PlayerVoteListener implements Listener {
 	public void onplayerVote(PlayerVoteEvent event) {
 		String playerName = event.getPlayer();
 		if (!PlayerUtils.getInstance().isValidUser(playerName)) {
-			if (!config.allowUnJoined()) {
+			if (!config.isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 				return;
@@ -124,7 +124,7 @@ public class PlayerVoteListener implements Listener {
 
 			// add to total votes
 			if (Config.getInstance().getCountFakeVotes() || event.isRealVote()) {
-				if (Config.getInstance().getAddTotals()) {
+				if (Config.getInstance().isAddTotals()) {
 					user.addTotal();
 					user.addTotalDaily();
 					user.addTotalWeekly();
