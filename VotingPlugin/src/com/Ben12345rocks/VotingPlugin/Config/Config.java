@@ -111,13 +111,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean updateWithPlayersOnlineOnly = false;
 
-	/**
-	 * Instantiates a new config.
-	 */
-	public Config() {
-		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
-	}
-
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;
@@ -139,20 +132,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
-
-	public ConfigurationSection getBackButton() {
-		return getData().getConfigurationSection("BackButton");
-	}
-
-	/**
-	 * Gets the black list.
-	 *
-	 * @return the black list
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getBlackList() {
-		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
-	}
 
 	@ConfigDataBoolean(path = "Format.BroadcastVote")
 	@Getter
@@ -205,6 +184,57 @@ public class Config extends YMLFile {
 	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
 	@Getter
 	private int convertDelay;
+
+	@ConfigDataBoolean(path = "EnableDailyRewards")
+	@Getter
+	private boolean enableDailyRewards = false;
+
+	@ConfigDataInt(path = "DelayBetweenUpdates")
+	@Getter
+	private int delayBetweenUpdates = 3;
+
+	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
+	@Getter
+	private boolean disableNoServiceSiteMessage = false;
+
+	@Getter
+	private String firstVoteRewardsPath = "FirstVote";
+
+	@ConfigDataBoolean(path = "LogVotesToFile")
+	@Getter
+	private boolean logVotesToFile = false;
+
+	@ConfigDataBoolean(path = "EnableMonthlyAwards")
+	@Getter
+	private boolean enableMonthlyAwards = false;
+
+	@Getter
+	private String votePartyRewardsPath = "VoteParty.Rewards";
+
+	@ConfigDataBoolean(path = "EnableWeeklyAwards")
+	@Getter
+	private boolean enableWeeklyAwards = false;
+
+	/**
+	 * Instantiates a new config.
+	 */
+	public Config() {
+		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
+	}
+
+	public ConfigurationSection getBackButton() {
+		return getData().getConfigurationSection("BackButton");
+	}
+
+	/**
+	 * Gets the black list.
+	 *
+	 * @return the black list
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getBlackList() {
+		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
+	}
 
 	/**
 	 * Gets the cumulative reward enabled.
@@ -264,10 +294,6 @@ public class Config extends YMLFile {
 		return "DailyAwards." + path + ".Rewards";
 	}
 
-	@ConfigDataBoolean(path = "EnableDailyRewards")
-	@Getter
-	private boolean enableDailyRewards = false;
-
 	/**
 	 * Gets the daily possible reward places.
 	 *
@@ -281,17 +307,6 @@ public class Config extends YMLFile {
 
 		}
 	}
-
-	@ConfigDataInt(path = "DelayBetweenUpdates")
-	@Getter
-	private int delayBetweenUpdates = 3;
-
-	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
-	@Getter
-	private boolean disableNoServiceSiteMessage = false;
-
-	@Getter
-	private String firstVoteRewardsPath = "FirstVote";
 
 	/**
 	 * Gets the broad cast msg.
@@ -786,6 +801,14 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
 	}
 
+	public boolean getGUIVoteTotalBackButton() {
+		return getData().getBoolean("GUI.VoteTotal.BackButton");
+	}
+
+	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
+		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
+	}
+
 	public ConfigurationSection getGUIVoteTotalItem(TopVoter top) {
 		switch (top) {
 			case AllTime:
@@ -800,14 +823,6 @@ public class Config extends YMLFile {
 				return getGUIVoteTotalAllTimeTotalItem();
 
 		}
-	}
-
-	public boolean getGUIVoteTotalBackButton() {
-		return getData().getBoolean("GUI.VoteTotal.BackButton");
-	}
-
-	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
 	}
 
 	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
@@ -863,6 +878,21 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("Shop." + identifier);
 	}
 
+	public boolean getLoadTopVoter(TopVoter top) {
+		switch (top) {
+			case AllTime:
+				return getLoadTopVoterAllTime();
+			case Daily:
+				return getLoadTopVoterDaily();
+			case Monthly:
+				return getLoadTopVoterMonthly();
+			case Weekly:
+				return getLoadTopVoterWeekly();
+			default:
+				return false;
+		}
+	}
+
 	public boolean getLoadTopVoterAllTime() {
 		return getData().getBoolean("LoadTopVoter.AllTime", true);
 	}
@@ -878,10 +908,6 @@ public class Config extends YMLFile {
 	public boolean getLoadTopVoterWeekly() {
 		return getData().getBoolean("LoadTopVoter.Weekly");
 	}
-
-	@ConfigDataBoolean(path = "LogVotesToFile")
-	@Getter
-	private boolean logVotesToFile = false;
 
 	/**
 	 * Gets the milestone reward enabled.
@@ -925,10 +951,6 @@ public class Config extends YMLFile {
 	public String getMonthlyAwardRewardsPath(String path) {
 		return "MonthlyAwards." + path + ".Rewards";
 	}
-
-	@ConfigDataBoolean(path = "EnableMonthlyAwards")
-	@Getter
-	private boolean enableMonthlyAwards = false;
 
 	/**
 	 * Gets the monthly possible reward places.
@@ -1111,9 +1133,6 @@ public class Config extends YMLFile {
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
-
-	@Getter
-	private String votePartyRewardsPath = "VoteParty.Rewards";
 
 	/**
 	 * Gets the vote party votes required.
@@ -1318,10 +1337,6 @@ public class Config extends YMLFile {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
 
-	@ConfigDataBoolean(path = "EnableWeeklyAwards")
-	@Getter
-	private boolean enableWeeklyAwards = false;
-
 	/**
 	 * Gets the weekly possible reward places.
 	 *
@@ -1342,21 +1357,6 @@ public class Config extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("Config.yml", true);
-	}
-
-	public boolean getLoadTopVoter(TopVoter top) {
-		switch (top) {
-			case AllTime:
-				return getLoadTopVoterAllTime();
-			case Daily:
-				return getLoadTopVoterDaily();
-			case Monthly:
-				return getLoadTopVoterMonthly();
-			case Weekly:
-				return getLoadTopVoterWeekly();
-			default:
-				return false;
-		}
 	}
 
 }

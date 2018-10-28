@@ -12,13 +12,13 @@ public enum SpecialRewardType {
 
 	private String type = "";
 
-	public SpecialRewardType setType(String type) {
-		this.type = type;
+	public SpecialRewardType setAmount(int num) {
+		amount = num;
 		return this;
 	}
 
-	public SpecialRewardType setAmount(int num) {
-		amount = num;
+	public SpecialRewardType setType(String type) {
+		this.type = type;
 		return this;
 	}
 

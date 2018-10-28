@@ -24,6 +24,18 @@ public enum TopVoter {
 		return AllTime;
 	}
 
+	public String getName() {
+		if (this.equals(TopVoter.Monthly)) {
+			return Config.getInstance().getFormatTopVoterMonthly();
+		} else if (this.equals(TopVoter.Weekly)) {
+			return Config.getInstance().getFormatTopVoterWeekly();
+		} else if (this.equals(TopVoter.Daily)) {
+			return Config.getInstance().getFormatTopVoterDaily();
+		} else {
+			return Config.getInstance().getFormatTopVoterAllTime();
+		}
+	}
+
 	public TopVoter next() {
 		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
 		if (Config.getInstance().getLoadTopVoterAllTime()) {
@@ -74,17 +86,5 @@ public enum TopVoter {
 			}
 		}
 		return TopVoter.AllTime;
-	}
-
-	public String getName() {
-		if (this.equals(TopVoter.Monthly)) {
-			return Config.getInstance().getFormatTopVoterMonthly();
-		} else if (this.equals(TopVoter.Weekly)) {
-			return Config.getInstance().getFormatTopVoterWeekly();
-		} else if (this.equals(TopVoter.Daily)) {
-			return Config.getInstance().getFormatTopVoterDaily();
-		} else {
-			return Config.getInstance().getFormatTopVoterAllTime();
-		}
 	}
 }

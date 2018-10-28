@@ -38,6 +38,12 @@ public class PlaceHolders {
 		return instance;
 	}
 
+	@Getter
+	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
+
+	@Getter
+	private ArrayList<PlaceHolder> nonPlayerPlaceholders = new ArrayList<PlaceHolder>();
+
 	/**
 	 * Instantiates a new place holders.
 	 */
@@ -54,10 +60,30 @@ public class PlaceHolders {
 		PlaceHolders.plugin = plugin;
 	}
 
-	@Getter
-	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
-	@Getter
-	private ArrayList<PlaceHolder> nonPlayerPlaceholders = new ArrayList<PlaceHolder>();
+	public String getPlaceHolder(OfflinePlayer p, String identifier) {
+		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+
+		for (PlaceHolder placeholder : nonPlayerPlaceholders) {
+			if (placeholder.matches(identifier)) {
+				return placeholder.placeholderRequest(p, null, identifier);
+			}
+		}
+
+		User user = UserManager.getInstance().getVotingPluginUser(p);
+
+		for (PlaceHolder placeholder : placeholders) {
+			if (placeholder.matches(identifier)) {
+				return placeholder.placeholderRequest(p, user, identifier);
+			}
+		}
+
+		return identifier;
+	}
+
+	public String getPlaceHolder(Player p, String identifier) {
+		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+		return getPlaceHolder((OfflinePlayer) p, identifier);
+	}
 
 	public void load() {
 		placeholders.clear();
@@ -357,30 +383,5 @@ public class PlaceHolders {
 				return Integer.toString(VoteParty.getInstance().getVotesRequired());
 			}
 		});
-	}
-
-	public String getPlaceHolder(OfflinePlayer p, String identifier) {
-		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
-
-		for (PlaceHolder placeholder : nonPlayerPlaceholders) {
-			if (placeholder.matches(identifier)) {
-				return placeholder.placeholderRequest(p, null, identifier);
-			}
-		}
-
-		User user = UserManager.getInstance().getVotingPluginUser(p);
-
-		for (PlaceHolder placeholder : placeholders) {
-			if (placeholder.matches(identifier)) {
-				return placeholder.placeholderRequest(p, user, identifier);
-			}
-		}
-
-		return identifier;
-	}
-
-	public String getPlaceHolder(Player p, String identifier) {
-		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
-		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
 }

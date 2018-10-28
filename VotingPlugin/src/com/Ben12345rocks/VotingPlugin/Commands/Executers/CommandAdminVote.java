@@ -55,7 +55,6 @@ public class CommandAdminVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
-	 *
 	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
 	 * CommandSender , org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])

@@ -10,11 +10,12 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 public class VoteTester {
 
 	private static VoteTester instance = new VoteTester();
-	private Main plugin = Main.plugin;
 
 	public static VoteTester getInstance() {
 		return instance;
 	}
+
+	private Main plugin = Main.plugin;
 
 	public void testVotes(int amount, String name, String site) {
 		long time1 = System.currentTimeMillis();

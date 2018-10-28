@@ -22,11 +22,6 @@ public abstract class PlaceHolder {
 		this.useStartsWith = useStartsWith;
 	}
 
-	public PlaceHolder useStartsWith() {
-		useStartsWith = true;
-		return this;
-	}
-
 	public boolean matches(String identifier) {
 		if (isUseStartsWith()) {
 			if (StringUtils.getInstance().startsWithIgnoreCase(identifier, getIdentifier())) {
@@ -41,5 +36,10 @@ public abstract class PlaceHolder {
 	}
 
 	public abstract String placeholderRequest(OfflinePlayer p, User user, String identifier);
+
+	public PlaceHolder useStartsWith() {
+		useStartsWith = true;
+		return this;
+	}
 
 }

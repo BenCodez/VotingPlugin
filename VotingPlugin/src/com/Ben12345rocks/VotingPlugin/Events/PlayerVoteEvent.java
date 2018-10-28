@@ -38,6 +38,14 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean cancelled;
 
+	@Getter
+	@Setter
+	private boolean realVote = true;
+
+	@Getter
+	@Setter
+	private String serviceSite = "";
+
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
 		setPlayer(voteUsername);
@@ -54,13 +62,5 @@ public class PlayerVoteEvent extends Event {
 	public HandlerList getHandlers() {
 		return handlers;
 	}
-
-	@Getter
-	@Setter
-	private boolean realVote = true;
-
-	@Getter
-	@Setter
-	private String serviceSite = "";
 
 }

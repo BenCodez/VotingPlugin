@@ -83,7 +83,7 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
-		
+
 		if (Config.getInstance().isClearCacheOnVote()) {
 			user.clearCache();
 		}

@@ -160,11 +160,6 @@ public class VoteSite {
 		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
 	}
 
-	public boolean isVaidServiceSite() {
-		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(),
-				getServiceSite());
-	}
-
 	/**
 	 * Inits the.
 	 */
@@ -181,6 +176,11 @@ public class VoteSite {
 		item = configVoteSites.getItem(key);
 		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
 		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
+	}
+
+	public boolean isVaidServiceSite() {
+		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(),
+				getServiceSite());
 	}
 
 }

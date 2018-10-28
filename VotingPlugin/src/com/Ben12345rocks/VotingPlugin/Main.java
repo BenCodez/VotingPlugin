@@ -85,10 +85,6 @@ public class Main extends JavaPlugin {
 	@Getter
 	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
 
-	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
-		return topVoter.get(top);
-	}
-
 	@Getter
 	@Setter
 	private Updater updater;
@@ -217,6 +213,10 @@ public class Main extends JavaPlugin {
 	 */
 	public void debug(String message) {
 		AdvancedCoreHook.getInstance().debug(plugin, message);
+	}
+
+	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
+		return topVoter.get(top);
 	}
 
 	/**

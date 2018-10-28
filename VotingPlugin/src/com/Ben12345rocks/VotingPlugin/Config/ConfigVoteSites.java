@@ -353,6 +353,11 @@ public class ConfigVoteSites extends YMLFile {
 		set(siteName, "Enabled", disabled);
 	}
 
+	public void setForceOffline(String siteName, boolean value) {
+		set(siteName, "ForceOffline", value);
+
+	}
+
 	/**
 	 * Sets the priority.
 	 *
@@ -401,6 +406,10 @@ public class ConfigVoteSites extends YMLFile {
 		set(siteName, "VoteDelay", voteDelay);
 	}
 
+	public void setVoteDelayDaily(String siteName, boolean value) {
+		set(siteName, "VoteDelayDaily", value);
+	}
+
 	/**
 	 * Sets the vote URL.
 	 *
@@ -430,15 +439,6 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
-	}
-
-	public void setForceOffline(String siteName, boolean value) {
-		set(siteName, "ForceOffline", value);
-
-	}
-
-	public void setVoteDelayDaily(String siteName, boolean value) {
-		set(siteName, "VoteDelayDaily", value);
 	}
 
 }

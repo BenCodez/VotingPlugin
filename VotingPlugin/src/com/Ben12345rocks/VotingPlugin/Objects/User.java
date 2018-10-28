@@ -371,14 +371,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getData().getInt("MonthTotal");
 	}
 
-	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier);
-	}
-
-	public void setVoteShopIdentifierLimit(String identifier, int value) {
-		getData().setInt("VoteShopLimit" + identifier, value);
-	}
-
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
 	}
@@ -415,8 +407,26 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return 0;
 	}
 
+	public int getTotal(TopVoter top) {
+		switch (top) {
+			case AllTime:
+				return getUserData().getInt("AllTimeTotal");
+			case Daily:
+				return getUserData().getInt("DailyTotal");
+			case Monthly:
+				return getData().getInt("MonthTotal");
+			case Weekly:
+				return getUserData().getInt("WeeklyTotal");
+		}
+		return 0;
+	}
+
 	public int getVotePartyVotes() {
 		return getUserData().getInt("VotePartyVotes");
+	}
+
+	public int getVoteShopIdentifierLimit(String identifier) {
+		return getData().getInt("VoteShopLimit" + identifier);
 	}
 
 	@Deprecated
@@ -588,47 +598,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		voteSite.giveRewards(this, online);
 	}
 
-	public int getTotal(TopVoter top) {
-		switch (top) {
-		case AllTime:
-			return getUserData().getInt("AllTimeTotal");
-		case Daily:
-			return getUserData().getInt("DailyTotal");
-		case Monthly:
-			return getData().getInt("MonthTotal");
-		case Weekly:
-			return getUserData().getInt("WeeklyTotal");
-		}
-		return 0;
-	}
-
-	public void setTotal(TopVoter top, int value) {
-		switch (top) {
-		case AllTime:
-			getUserData().setInt("AllTimeTotal", value);
-			break;
-		case Daily:
-			getUserData().setInt("DailyTotal", value);
-			break;
-		case Monthly:
-			getData().setInt("MonthTotal", value);
-			break;
-		case Weekly:
-			getUserData().setInt("WeeklyTotal", value);
-			break;
-		default:
-			break;
-
-		}
-	}
-
-	public void resetTotals(TopVoter topVoter) {
-		if (topVoter.equals(TopVoter.Monthly)) {
-			setLastMonthTotal(getTotal(TopVoter.Monthly));
-		}
-		setTotal(topVoter, 0);
-	}
-
 	/**
 	 * Removes the points.
 	 *
@@ -642,6 +611,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			return true;
 		}
 		return false;
+	}
+
+	public void resetTotals(TopVoter topVoter) {
+		if (topVoter.equals(TopVoter.Monthly)) {
+			setLastMonthTotal(getTotal(TopVoter.Monthly));
+		}
+		setTotal(topVoter, 0);
 	}
 
 	/**
@@ -780,8 +756,32 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		getUserData().setString("TopVoterIgnore", "" + topVoterIgnore);
 	}
 
+	public void setTotal(TopVoter top, int value) {
+		switch (top) {
+			case AllTime:
+				getUserData().setInt("AllTimeTotal", value);
+				break;
+			case Daily:
+				getUserData().setInt("DailyTotal", value);
+				break;
+			case Monthly:
+				getData().setInt("MonthTotal", value);
+				break;
+			case Weekly:
+				getUserData().setInt("WeeklyTotal", value);
+				break;
+			default:
+				break;
+
+		}
+	}
+
 	public void setVotePartyVotes(int value) {
 		getUserData().setInt("VotePartyVotes", value);
+	}
+
+	public void setVoteShopIdentifierLimit(String identifier, int value) {
+		getData().setInt("VoteShopLimit" + identifier, value);
 	}
 
 	@Deprecated
