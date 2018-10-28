@@ -123,7 +123,7 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Daily);
 		}
 
-		if (Config.getInstance().getDailyAwardsEnabled()) {
+		if (Config.getInstance().isEnableDailyRewards()) {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
@@ -168,7 +168,7 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Monthly);
 		}
 
-		if (Config.getInstance().getMonthlyAwardsEnabled()) {
+		if (Config.getInstance().isEnableMonthlyAwards()) {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;
@@ -228,7 +228,7 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Weekly);
 		}
 
-		if (Config.getInstance().getWeeklyAwardsEnabled()) {
+		if (Config.getInstance().isEnableWeeklyAwards()) {
 			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
 			int i = 0;
 			int lastTotal = -1;

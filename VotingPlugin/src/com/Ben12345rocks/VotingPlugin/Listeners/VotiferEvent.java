@@ -78,12 +78,12 @@ public class VotiferEvent implements Listener {
 
 				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 				if (sites != null) {
-					if (!sites.contains(voteSiteName) && Config.getInstance().getAutoCreateVoteSites()) {
+					if (!sites.contains(voteSiteName) && Config.getInstance().isAutoCreateVoteSites()) {
 						plugin.getLogger()
 								.warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 						ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 					}
-				} else if (Config.getInstance().getAutoCreateVoteSites()) {
+				} else if (Config.getInstance().isAutoCreateVoteSites()) {
 					plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
 					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
 				}

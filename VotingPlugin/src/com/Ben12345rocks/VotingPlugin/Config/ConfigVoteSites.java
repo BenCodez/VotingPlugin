@@ -51,7 +51,7 @@ public class ConfigVoteSites extends YMLFile {
 	 *            the site name
 	 */
 	public void generateVoteSite(String siteName) {
-		if (Config.getInstance().getAutoCreateVoteSites()) {
+		if (Config.getInstance().isAutoCreateVoteSites()) {
 			String org = siteName;
 			siteName = siteName.replace(".", "_");
 			plugin.getLogger().warning("VoteSite " + siteName

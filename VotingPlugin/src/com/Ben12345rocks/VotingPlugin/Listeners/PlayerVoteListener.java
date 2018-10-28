@@ -67,7 +67,7 @@ public class PlayerVoteListener implements Listener {
 
 		// check valid service sites
 		if (voteSite == null) {
-			if (!Config.getInstance().getDisableNoServiceSiteMessage()) {
+			if (!Config.getInstance().isDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No voting site with the service site: '" + event.getServiceSite() + "'");
 				plugin.getLogger().warning(
 						"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
@@ -84,7 +84,7 @@ public class PlayerVoteListener implements Listener {
 
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		
-		if (Config.getInstance().getClearCacheOnVote()) {
+		if (Config.getInstance().isClearCacheOnVote()) {
 			user.clearCache();
 		}
 
@@ -94,7 +94,7 @@ public class PlayerVoteListener implements Listener {
 			VoteParty.getInstance().vote(user, event.isRealVote());
 
 			// broadcast vote if enabled in config
-			if (config.getBroadCastVotesEnabled()) {
+			if (config.isBroadcastVotesEnabled()) {
 				if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
 					voteSite.broadcastVote(user);
 				}
@@ -123,7 +123,7 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// add to total votes
-			if (Config.getInstance().getCountFakeVotes() || event.isRealVote()) {
+			if (Config.getInstance().isCountFakeVotes() || event.isRealVote()) {
 				if (Config.getInstance().isAddTotals()) {
 					user.addTotal();
 					user.addTotalDaily();

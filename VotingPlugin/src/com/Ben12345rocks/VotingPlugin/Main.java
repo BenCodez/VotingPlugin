@@ -252,7 +252,7 @@ public class Main extends JavaPlugin {
 				return voteSite;
 			}
 		}
-		if (Config.getInstance().getAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
+		if (Config.getInstance().isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
 			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(siteName.replace(".", "_"));
 		}
@@ -367,7 +367,7 @@ public class Main extends JavaPlugin {
 	 *            the vote site
 	 */
 	public void logVote(Date date, String playerName, String voteSite) {
-		if (Config.getInstance().getLogVotesToFile()) {
+		if (Config.getInstance().isLogVotesToFile()) {
 			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm").format(date);
 			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
 		}
@@ -546,7 +546,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getAutoCreateVoteSites();
+				return "" + Config.getInstance().isAutoCreateVoteSites();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("sendscoreboards") {
@@ -593,56 +593,56 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUIToday();
+				return "" + Config.getInstance().isCommandsUseGUIToday();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_TopVoter") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUITopVoter();
+				return "" + Config.getInstance().isCommandsUseGUITopVoter();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Last") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUILast();
+				return "" + Config.getInstance().isCommandsUseGUILast();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Next") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUINext();
+				return "" + Config.getInstance().isCommandsUseGUINext();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Total") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUITotal();
+				return "" + Config.getInstance().isCommandsUseGUITotal();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Vote") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUIVote();
+				return "" + Config.getInstance().isCommandsUseGUIVote();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Best") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUIBest();
+				return "" + Config.getInstance().isCommandsUseGUIBest();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Streak") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getCommandsUseGUIStreak();
+				return "" + Config.getInstance().isCommandsUseGUIStreak();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
@@ -944,7 +944,7 @@ public class Main extends JavaPlugin {
 							if (AdvancedCoreHook.getInstance().getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
-							} else if (Config.getInstance().getClearCacheOnUpdate()) {
+							} else if (Config.getInstance().isClearCacheOnUpdate()) {
 								AdvancedCoreHook.getInstance().getMysql().clearCache();
 							} else {
 								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();

@@ -581,7 +581,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 *            the broadcast
 	 */
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
-		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().getBroadCastVotesEnabled()
+		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().isBroadcastVotesEnabled()
 				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}

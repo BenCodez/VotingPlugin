@@ -9,6 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -50,9 +51,9 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteToggleBroadcastDisabled;
 
-	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL", defaultValue = false)
+	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL")
 	@Getter
-	private boolean commandsVoteRewardFromVoteURL;
+	private boolean commandsVoteRewardFromVoteURL = false;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
 	@Getter
@@ -98,15 +99,15 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatTimeFormatsSecond;
 
-	@ConfigDataBoolean(path = "Commands.DisableVoteRewardGUIs", defaultValue = false)
+	@ConfigDataBoolean(path = "Commands.DisableVoteRewardGUIs")
 	@Getter
 	private boolean commandsDisableVoteRewardGUIs;
 
-	@ConfigDataBoolean(path = "AlwaysUpdate", defaultValue = false)
+	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
 	private boolean alwaysUpdate = false;
 
-	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly", defaultValue = false)
+	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly")
 	@Getter
 	private boolean updateWithPlayersOnlineOnly = false;
 
@@ -117,32 +118,27 @@ public class Config extends YMLFile {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
 	}
 
-	@ConfigDataBoolean(path = "AllowUnjoined", defaultValue = false)
+	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;
 
-	@ConfigDataBoolean(path = "AddTotals", defaultValue = true)
+	@ConfigDataBoolean(path = "AddTotals")
 	@Getter
 	private boolean addTotals = true;
 
 	@Getter
 	private String allSitesRewardPath = "AllSites";
 
-	@ConfigDataBoolean(path = "AlternateUUIDLookup", defaultValue = false)
+	@ConfigDataBoolean(path = "AlternateUUIDLookup")
 	@Getter
 	private boolean alternateUUIDLookup = false;
 
 	@Getter
 	private String anySiteRewardsPath = "AnySiteRewards";
 
-	/**
-	 * Gets the auto create vote sites.
-	 *
-	 * @return the auto create vote sites
-	 */
-	public boolean getAutoCreateVoteSites() {
-		return getData().getBoolean("AutoCreateVoteSites");
-	}
+	@ConfigDataBoolean(path = "AutoCreateVoteSites")
+	@Getter
+	private boolean autoCreateVoteSites = true;
 
 	public ConfigurationSection getBackButton() {
 		return getData().getConfigurationSection("BackButton");
@@ -158,62 +154,57 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
 	}
 
-	/**
-	 * Gets the broad cast votes enabled.
-	 *
-	 * @return the broad cast votes enabled
-	 */
-	public boolean getBroadCastVotesEnabled() {
-		return getData().getBoolean("BroadcastVote", true);
-	}
+	@ConfigDataBoolean(path = "Format.BroadcastVote")
+	@Getter
+	private boolean broadcastVotesEnabled = true;
 
-	public boolean getClearCacheOnUpdate() {
-		return getData().getBoolean("ClearCacheOnUpdate");
-	}
+	@ConfigDataBoolean(path = "clearCacheOnUpdate")
+	@Getter
+	private boolean clearCacheOnUpdate = false;
 
-	public boolean getClearCacheOnVote() {
-		return getData().getBoolean("ClearCacheOnVote");
-	}
+	@ConfigDataBoolean(path = "ClearCacheOnVote")
+	@Getter
+	private boolean clearCacheOnVote = false;
 
-	public boolean getCommandsUseGUIBest() {
-		return getData().getBoolean("Commands.UseGUI.Best");
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Best")
+	@Getter
+	private boolean commandsUseGUIBest = true;
 
-	public boolean getCommandsUseGUILast() {
-		return getData().getBoolean("Commands.UseGUI.Last", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Last")
+	@Getter
+	private boolean commandsUseGUILast = true;
 
-	public boolean getCommandsUseGUINext() {
-		return getData().getBoolean("Commands.UseGUI.Next", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Next")
+	@Getter
+	private boolean commandsUseGUINext = true;
 
-	public boolean getCommandsUseGUIStreak() {
-		return getData().getBoolean("Commands.UseGUI.Streak");
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Streak")
+	@Getter
+	private boolean commandsUseGUIStreak = true;
 
-	public boolean getCommandsUseGUIToday() {
-		return getData().getBoolean("Commands.UseGUI.Today", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Today")
+	@Getter
+	private boolean commandsUseGUIToday = true;
 
-	public boolean getCommandsUseGUITopVoter() {
-		return getData().getBoolean("Commands.UseGUI.TopVoter", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.TopVoter")
+	@Getter
+	private boolean commandsUseGUITopVoter = true;
 
-	public boolean getCommandsUseGUITotal() {
-		return getData().getBoolean("Commands.UseGUI.Total", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Total")
+	@Getter
+	private boolean commandsUseGUITotal = true;
 
-	public boolean getCommandsUseGUIVote() {
-		return getData().getBoolean("Commands.UseGUI.Vote", true);
-	}
+	@ConfigDataBoolean(path = "Commands.UseGUI.Vote")
+	@Getter
+	private boolean commandsUseGUIVote = true;
 
-	public int getConvertDelay() {
-		return getData().getInt("ConvertDelay", 30000);
-	}
+	@ConfigDataBoolean(path = "CountFakeVotes")
+	@Getter
+	private boolean countFakeVotes = true;
 
-	public boolean getCountFakeVotes() {
-		return getData().getBoolean("CountFakeVotes", true);
-	}
+	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
+	@Getter
+	private int convertDelay;
 
 	/**
 	 * Gets the cumulative reward enabled.
@@ -273,14 +264,9 @@ public class Config extends YMLFile {
 		return "DailyAwards." + path + ".Rewards";
 	}
 
-	/**
-	 * Gets the daily awards enabled.
-	 *
-	 * @return the daily awards enabled
-	 */
-	public boolean getDailyAwardsEnabled() {
-		return getData().getBoolean("EnableDailyAwards");
-	}
+	@ConfigDataBoolean(path = "EnableDailyRewards")
+	@Getter
+	private boolean enableDailyRewards = false;
 
 	/**
 	 * Gets the daily possible reward places.
@@ -296,22 +282,16 @@ public class Config extends YMLFile {
 		}
 	}
 
-	public int getDelayBetweenUpdates() {
-		return getData().getInt("DelayBetweenUpdates", 3);
-	}
+	@ConfigDataInt(path = "DelayBetweenUpdates")
+	@Getter
+	private int delayBetweenUpdates = 3;
 
-	public boolean getDisableNoServiceSiteMessage() {
-		return getData().getBoolean("DisableNoServiceSiteMessage");
-	}
+	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
+	@Getter
+	private boolean disableNoServiceSiteMessage = false;
 
-	/**
-	 * Gets the first vote rewards.
-	 *
-	 * @return the first vote rewards
-	 */
-	public String getFirstVoteRewardsPath() {
-		return "FirstVote";
-	}
+	@Getter
+	private String firstVoteRewardsPath = "FirstVote";
 
 	/**
 	 * Gets the broad cast msg.
@@ -899,23 +879,9 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LoadTopVoter.Weekly");
 	}
 
-	/**
-	 * Gets the log debug to file.
-	 *
-	 * @return the log debug to file
-	 */
-	public boolean getLogDebugToFile() {
-		return getData().getBoolean("LogDebugToFile", true);
-	}
-
-	/**
-	 * Gets the log votes to file.
-	 *
-	 * @return the log votes to file
-	 */
-	public boolean getLogVotesToFile() {
-		return getData().getBoolean("LogVotesToFile");
-	}
+	@ConfigDataBoolean(path = "LogVotesToFile")
+	@Getter
+	private boolean logVotesToFile = false;
 
 	/**
 	 * Gets the milestone reward enabled.
@@ -960,14 +926,9 @@ public class Config extends YMLFile {
 		return "MonthlyAwards." + path + ".Rewards";
 	}
 
-	/**
-	 * Gets the monthly awards enabled.
-	 *
-	 * @return the monthly awards enabled
-	 */
-	public boolean getMonthlyAwardsEnabled() {
-		return getData().getBoolean("EnableMonthlyAwards");
-	}
+	@ConfigDataBoolean(path = "EnableMonthlyAwards")
+	@Getter
+	private boolean enableMonthlyAwards = false;
 
 	/**
 	 * Gets the monthly possible reward places.
@@ -980,10 +941,6 @@ public class Config extends YMLFile {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
-	}
-
-	public ConfigurationSection getMySql() {
-		return getData().getConfigurationSection("MySQL");
 	}
 
 	public int getPointsOnVote() {
@@ -1155,14 +1112,8 @@ public class Config extends YMLFile {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
 
-	/**
-	 * Gets the vote party rewards.
-	 *
-	 * @return the vote party rewards
-	 */
-	public String getVotePartyRewardsPath() {
-		return "VoteParty.Rewards";
-	}
+	@Getter
+	private String votePartyRewardsPath = "VoteParty.Rewards";
 
 	/**
 	 * Gets the vote party votes required.
@@ -1367,14 +1318,9 @@ public class Config extends YMLFile {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
 
-	/**
-	 * Gets the weekly awards enabled.
-	 *
-	 * @return the weekly awards enabled
-	 */
-	public boolean getWeeklyAwardsEnabled() {
-		return getData().getBoolean("EnableWeeklyAwards");
-	}
+	@ConfigDataBoolean(path = "EnableWeeklyAwards")
+	@Getter
+	private boolean enableWeeklyAwards = false;
 
 	/**
 	 * Gets the weekly possible reward places.
