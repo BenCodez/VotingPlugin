@@ -76,6 +76,10 @@ public class VoteSite {
 	@Setter
 	private boolean giveOffline;
 
+	@Getter
+	@Setter
+	private boolean waitUntilVoteDelay;
+
 	/**
 	 * Instantiates a new vote site.
 	 *
@@ -176,6 +180,7 @@ public class VoteSite {
 		item = configVoteSites.getItem(key);
 		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
 		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
+		waitUntilVoteDelay = configVoteSites.getWaitUntilVoteDelay(key);
 	}
 
 	public boolean isVaidServiceSite() {

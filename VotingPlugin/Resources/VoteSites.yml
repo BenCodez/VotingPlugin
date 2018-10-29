@@ -28,6 +28,9 @@ VoteSites:
     # Most sites are 24 hours
     VoteDelay: 24
     
+    # Require waiting until votedelay time has pasted in order to accept vote
+    WaitUntilVoteDelay: false
+    
     # Reset vote delay each day (for certain sites that do this)
     VoteDelayDaily: false
     
