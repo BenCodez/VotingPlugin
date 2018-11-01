@@ -813,7 +813,7 @@ RequestAPI:
 # Not recommended though
 LogVotesToFile: false
 
-# Only update the background when needed when set to false
+# Only update in the background when needed when set to false
 AlwaysUpdate: false
 
 # Update in the background only if players are online

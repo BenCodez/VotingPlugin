@@ -100,6 +100,7 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
+		plugin.update();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -110,8 +111,8 @@ public class TopVoterHandler implements Listener {
 				user.setDayVoteStreak(0);
 			} else {
 				user.addDayVoteStreak();
+				SpecialRewards.getInstance().checkVoteStreak(user, "Day");
 			}
-			SpecialRewards.getInstance().checkVoteStreak(user, "Day");
 
 			if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
 				user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
