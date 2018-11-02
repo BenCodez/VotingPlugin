@@ -233,4 +233,6 @@ permissions:
   VotingPlugin.NoRemind:
     description: Ignore vote reminding
     default: false
+  VotingPlugin.Sign.Create:
+    description: Permission to create sign
   

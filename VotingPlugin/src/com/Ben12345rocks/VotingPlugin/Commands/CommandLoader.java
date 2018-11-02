@@ -635,6 +635,18 @@ public class CommandLoader {
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
+		
+		plugin.getAdminVoteCommand()
+		.add(new CommandHandler(new String[] { "SetMilestonecount", "(player)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetMilestonecount|" + adminPerm, "Set milestonecount") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				user.setMilestoneCount(Integer.parseInt(args[2]));
+				sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+			}
+		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
