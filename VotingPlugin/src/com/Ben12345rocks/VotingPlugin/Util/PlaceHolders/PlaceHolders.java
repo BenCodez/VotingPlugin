@@ -133,18 +133,20 @@ public class PlaceHolders {
 			}
 		});
 
-		for (final String indetifier : Config.getInstance().getIdentifiers()) {
-			placeholders.add(new PlaceHolder("VoteShopLimit_" + indetifier) {
+		for (final String identifier : Config.getInstance().getIdentifiers()) {
+			if (Config.getInstance().getIdentifierLimit(identifier) > 0) {
+				placeholders.add(new PlaceHolder("VoteShopLimit_" + identifier) {
 
-				@Override
-				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
-					return "" + user.getVoteShopIdentifierLimit(identifier);
-				}
-			});
+					@Override
+					public String placeholderRequest(OfflinePlayer p, User user, String ident) {
+						return "" + user.getVoteShopIdentifierLimit(identifier);
+					}
+				});
+			}
 		}
 
 		for (final TopVoter top : TopVoter.values()) {
-			placeholders.add(new PlaceHolder("total_" + top.toString()) {
+			placeholders.add(new PlaceHolder("Total_" + top.toString()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
