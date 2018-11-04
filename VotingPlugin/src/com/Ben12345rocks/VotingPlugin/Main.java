@@ -780,11 +780,11 @@ public class Main extends JavaPlugin {
 		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
 				ConfigVoteSites.getInstance().getEverySiteRewardPath());
 
-		boolean noIssues = true;
+		boolean issues = true;
 		ArrayList<String> services = ServerData.getInstance().getServiceSites();
 		for (VoteSite site : getVoteSites()) {
 			if (!site.hasRewards() && !hasRewards) {
-				noIssues = false;
+				issues = false;
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
 						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
@@ -796,13 +796,13 @@ public class Main extends JavaPlugin {
 				}
 			}
 			if (!contains) {
-				noIssues = false;
+				issues = false;
 				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
 						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
 			}
 		}
 
-		if (!noIssues) {
+		if (!issues) {
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override

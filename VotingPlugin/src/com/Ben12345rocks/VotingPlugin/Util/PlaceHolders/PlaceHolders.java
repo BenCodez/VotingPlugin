@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -115,6 +116,32 @@ public class PlaceHolders {
 		});
 
 		// end of older placeholders
+
+		placeholders.add(new PlaceHolder("DisableBroadcast") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return "" + user.getDisableBroadcast();
+			}
+		});
+
+		placeholders.add(new PlaceHolder("MilestoneCount") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return "" + user.getMilestoneCount();
+			}
+		});
+
+		for (final String indetifier : Config.getInstance().getIdentifiers()) {
+			placeholders.add(new PlaceHolder("VoteShopLimit_" + indetifier) {
+
+				@Override
+				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+					return "" + user.getVoteShopIdentifierLimit(identifier);
+				}
+			});
+		}
 
 		for (final TopVoter top : TopVoter.values()) {
 			placeholders.add(new PlaceHolder("total_" + top.toString()) {
