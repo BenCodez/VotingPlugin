@@ -371,7 +371,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				int num = 1;
-				int number = Integer.parseInt(identifier.split("_")[3]);
+				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<User, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
