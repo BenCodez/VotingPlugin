@@ -42,6 +42,7 @@ import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
@@ -635,6 +636,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[2]));
+						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
@@ -647,6 +649,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[2]));
+						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
