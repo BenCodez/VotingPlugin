@@ -289,19 +289,22 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						sendMessage(sender, "&cEvery service site the server has gotten from votifier:");
-
-						for (String serviceSites : ServerData.getInstance().getServiceSites()) {
-							boolean hasSite = plugin.hasVoteSite(serviceSites);
-							if (hasSite) {
-								String siteName = plugin.getVoteSiteName(serviceSites);
-								sendMessage(sender, serviceSites + " : Current site = " + siteName);
-							} else {
-								sendMessage(sender, serviceSites
-										+ " : No site with this service site, did you do something wrong?");
+						ArrayList<String> serviceSites = ServerData.getInstance().getServiceSites();
+						if (!serviceSites.isEmpty()) {
+							sendMessage(sender, "&cEvery service site the server has gotten from votifier:");
+							for (String serviceSite : serviceSites) {
+								boolean hasSite = plugin.hasVoteSite(serviceSite);
+								if (hasSite) {
+									String siteName = plugin.getVoteSiteName(serviceSite);
+									sendMessage(sender, serviceSite + " : Current site = " + siteName);
+								} else {
+									sendMessage(sender, serviceSite
+											+ " : No site with this service site, did you do something wrong?");
+								}
 							}
+						} else {
+							sendMessage(sender, "&cNo votes have been received. Please check your votifier settings.");
 						}
-
 					}
 				});
 
@@ -635,18 +638,18 @@ public class CommandLoader {
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
-		
-		plugin.getAdminVoteCommand()
-		.add(new CommandHandler(new String[] { "SetMilestonecount", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetMilestonecount|" + adminPerm, "Set milestonecount") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				user.setMilestoneCount(Integer.parseInt(args[2]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
-			}
-		});
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "SetMilestonecount", "(player)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetMilestonecount|" + adminPerm, "Set milestonecount") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.setMilestoneCount(Integer.parseInt(args[2]));
+						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
