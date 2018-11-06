@@ -629,8 +629,8 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "AddMilestonecount", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.AddMilestonecount|" + adminPerm, "Add milestonecount") {
+				.add(new CommandHandler(new String[] { "AddMilestoneCount", "(player)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.AddMilestoneCount|" + adminPerm, "Add milestonecount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
@@ -642,8 +642,8 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "SetMilestonecount", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetMilestonecount|" + adminPerm, "Set milestonecount") {
+				.add(new CommandHandler(new String[] { "SetMilestoneCount", "(player)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetMilestoneCount|" + adminPerm, "Set milestonecount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
