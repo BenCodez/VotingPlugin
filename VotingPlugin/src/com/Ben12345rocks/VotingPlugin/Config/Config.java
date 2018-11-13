@@ -215,6 +215,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean enableWeeklyAwards = false;
 
+	@ConfigDataBoolean(path = "VoteParty.GiveOffline")
+	@Getter
+	private boolean votePartyGiveOffline = true;
+
 	/**
 	 * Instantiates a new config.
 	 */
@@ -562,7 +566,7 @@ public class Config extends YMLFile {
 	public String getFormatNotNumber() {
 		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
-	
+
 	@Getter
 	private int formatPageSize = 10;
 

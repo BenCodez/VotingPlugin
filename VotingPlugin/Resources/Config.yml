@@ -613,6 +613,8 @@ VoteParty:
   # If true, players who did not vote to reach the votes required will 
   # recieve the reward
   GiveAllPlayers: false
+  # Whether or not to give offline players
+  GiveOffline: true
   # If true, the vote count will reset each day
   ResetEachDay: false
   # Reset at the end of the month
