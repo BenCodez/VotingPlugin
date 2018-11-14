@@ -982,6 +982,12 @@ public class CommandLoader {
 
 			}
 		}
+		for (String cmd : plugin.getDescription().getCommands().keySet()) {
+			String perm = plugin.getCommand(cmd).getPermission();
+			if (perm == null) {
+				plugin.debug("/" + cmd + " does not have a permission set");
+			}
+		}
 	}
 
 	/**

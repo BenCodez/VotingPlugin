@@ -74,8 +74,6 @@ commands:
   adminvote?:
     description: Open adminvote help
     aliases: av?
-  adminvoteconvert:
-    description: A command
   adminvotereport:
     description: Command Alias
     aliases: avreport
@@ -97,24 +95,15 @@ commands:
   adminvoterewards:
     description: Command Alias
     aliases: avrewards
-  adminvotereward:
-    description: Command Alias
-    aliases: avreward
   adminvoteuuid:
     description: Command Alias
     aliases: avuuid
-  adminvotereset:
-    description: Command Alias
-    aliases: avreset
   adminvotevotesite:
     description: Command Alias
     aliases: avvotesite
   adminvoteconfig:
     description: Command Alias
     aliases: avconfig
-  adminvoteserverdata:
-    description: Command Alias
-    aliases: avserverdata
   adminvotesettotal:
     description: Command Alias
     aliases: avsettotal
@@ -124,9 +113,6 @@ commands:
   adminvotevote:
     description: Command Alias
     aliases: [avvote, fakevote]
-  adminvoteTriggerPlayerVoteEvent:
-    description: Command Alias
-    aliases: avTriggerPlayerVoteEvent
   adminvotesetpoints:
     description: Command Alias
     aliases: avsetpoints
