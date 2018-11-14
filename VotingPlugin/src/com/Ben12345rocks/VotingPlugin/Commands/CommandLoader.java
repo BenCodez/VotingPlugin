@@ -911,7 +911,7 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "ForceVoteParty" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteParty|" + adminPerm,
-						"Force a voteparty reward, does not effect count towards voteparty") {
+						"Force a voteparty reward, resets vote count") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
