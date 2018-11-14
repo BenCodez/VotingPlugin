@@ -909,6 +909,17 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "ForceVoteParty" },
+						"VotingPlugin.Commands.AdminVote.ForceVoteParty|" + adminPerm,
+						"Force a voteparty reward, does not effect count towards voteparty") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteParty.getInstance().giveRewards();
+					}
+				});
+
+		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders", "(player)" },
 						"VotingPlugin.Commands.AdminVote.Placeholders.Players|" + adminPerm,
 						"See possible placeholderapi placeholders with player values") {
