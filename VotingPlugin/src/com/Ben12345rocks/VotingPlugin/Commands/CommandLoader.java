@@ -972,7 +972,7 @@ public class CommandLoader {
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
-						plugin.getCommand("vote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
+						plugin.getCommand("adminvote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /adminvote" + arg + ": "
 								+ ex.getMessage());
