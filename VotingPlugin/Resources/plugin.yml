@@ -27,9 +27,6 @@ commands:
   votetop:
     description: See top voters
     aliases: vtop
-  voteinfo:
-    description: See player info
-    aliases: vinfo
   votetoday:
     description: See who voted today
     aliases: vtoday
@@ -63,8 +60,6 @@ commands:
   votepoints:
     description: A command
     aliases: vpoints
-  votegivereward:
-    description: A command
   votechoices:
     description: A command
     alaises: vchoices
