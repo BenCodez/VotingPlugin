@@ -215,10 +215,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean enableWeeklyAwards = false;
 
-	@ConfigDataBoolean(path = "VoteParty.GiveOffline")
-	@Getter
-	private boolean votePartyGiveOffline = true;
-
 	/**
 	 * Instantiates a new config.
 	 */

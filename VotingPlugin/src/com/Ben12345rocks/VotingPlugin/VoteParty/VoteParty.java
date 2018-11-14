@@ -208,21 +208,12 @@ public class VoteParty implements Listener {
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				if (Config.getInstance().isVotePartyGiveOffline()) {
-					giveReward(user);
-				} else {
-					giveReward(user, true);
-				}
+				giveReward(user);
 			}
 		} else {
 			for (String uuid : getVotedUsers()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				if (Config.getInstance().isVotePartyGiveOffline()) {
-					giveReward(user);
-				} else {
-					giveReward(user, true);
-				}
-
+				giveReward(user);
 			}
 		}
 		reset();
