@@ -97,7 +97,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getTotal(TopVoter.Monthly));
 			}
-		});
+		}.withDescription("Month total"));
 
 		placeholders.add(new PlaceHolder("alltimetotal") {
 
@@ -105,7 +105,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getTotal(TopVoter.AllTime));
 			}
-		});
+		}.withDescription("Alltime total"));
 
 		placeholders.add(new PlaceHolder("lastmonthtotal") {
 
@@ -113,7 +113,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getLastMonthTotal());
 			}
-		});
+		}.withDescription("Last month total"));
 
 		// end of older placeholders
 
@@ -123,7 +123,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return "" + user.getDisableBroadcast();
 			}
-		});
+		}.withDescription("Returns true/false if user has broadcast disabled"));
 
 		placeholders.add(new PlaceHolder("MilestoneCount") {
 
@@ -131,7 +131,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return "" + user.getMilestoneCount();
 			}
-		});
+		}.withDescription("User milestonecount"));
 
 		for (final String identifier : Config.getInstance().getIdentifiers()) {
 			if (Config.getInstance().getIdentifierLimit(identifier) > 0) {
@@ -141,7 +141,7 @@ public class PlaceHolders {
 					public String placeholderRequest(OfflinePlayer p, User user, String ident) {
 						return "" + user.getVoteShopIdentifierLimit(identifier);
 					}
-				});
+				}.withDescription("User voteshop limit for " + identifier));
 			}
 		}
 
@@ -152,7 +152,7 @@ public class PlaceHolders {
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return Integer.toString(user.getTotal(top));
 				}
-			});
+			}.withDescription("User total for " + top.getName()));
 		}
 
 		placeholders.add(new PlaceHolder("BestDailyTotal") {
@@ -161,7 +161,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getHighestDailyTotal());
 			}
-		});
+		}.withDescription("Best daily total"));
 
 		placeholders.add(new PlaceHolder("BestWeeklyTotal") {
 
@@ -169,7 +169,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getHighestWeeklyTotal());
 			}
-		});
+		}.withDescription("Best weekly total"));
 
 		placeholders.add(new PlaceHolder("BestMonthlyTotal") {
 
@@ -177,7 +177,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getHighestMonthlyTotal());
 			}
-		});
+		}.withDescription("Best monthly total"));
 
 		placeholders.add(new PlaceHolder("DailyVoteStreak") {
 
@@ -185,7 +185,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getDayVoteStreak());
 			}
-		});
+		}.withDescription("Current daily votestreak"));
 
 		placeholders.add(new PlaceHolder("WeeklyVoteStreak") {
 
@@ -193,7 +193,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getWeekVoteStreak());
 			}
-		});
+		}.withDescription("Current weekly votestreak"));
 
 		placeholders.add(new PlaceHolder("MonthVoteStreak") {
 
@@ -201,7 +201,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getMonthVoteStreak());
 			}
-		});
+		}.withDescription("Current month votestreak"));
 
 		placeholders.add(new PlaceHolder("BestDailyVoteStreak") {
 
@@ -209,7 +209,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getBestDayVoteStreak());
 			}
-		});
+		}.withDescription("Best daily votestreak"));
 
 		placeholders.add(new PlaceHolder("BestWeeklyVoteStreak") {
 
@@ -217,7 +217,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getBestWeekVoteStreak());
 			}
-		});
+		}.withDescription("Best weekly votestreak"));
 
 		placeholders.add(new PlaceHolder("BestMonthVoteStreak") {
 
@@ -225,7 +225,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getBestMonthVoteStreak());
 			}
-		});
+		}.withDescription("Best month votestreak"));
 
 		placeholders.add(new PlaceHolder("Points") {
 
@@ -233,7 +233,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getPoints());
 			}
-		});
+		}.withDescription("User points"));
 
 		placeholders.add(new PlaceHolder("CanVote") {
 
@@ -241,7 +241,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Boolean.toString(user.canVoteAll());
 			}
-		});
+		}.withDescription("Return true/false if player can vote on all sites"));
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			placeholders.add(new PlaceHolder("Next_" + voteSite.getKey()) {
@@ -250,14 +250,14 @@ public class PlaceHolders {
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 				}
-			});
+			}.withDescription("How long until user can vote on " + voteSite.getKey()));
 			placeholders.add(new PlaceHolder("Last_" + voteSite.getKey()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return Commands.getInstance().voteCommandLastDuration(user, voteSite);
 				}
-			});
+			}.withDescription("How long ago user voted on " + voteSite.getKey()));
 		}
 
 		placeholders.add(new PlaceHolder("Top_All_Position") {
@@ -273,7 +273,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.withDescription("Get user top voter position"));
 
 		placeholders.add(new PlaceHolder("Top_All_") {
 
@@ -289,7 +289,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith());
+		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_Month_Position") {
 
@@ -304,7 +304,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.withDescription("Get user top voter position"));
 
 		placeholders.add(new PlaceHolder("Top_Month_") {
 
@@ -320,7 +320,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith());
+		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_Week_Position") {
 
@@ -335,7 +335,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.withDescription("Get user top voter position"));
 
 		placeholders.add(new PlaceHolder("Top_Week_") {
 
@@ -351,7 +351,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith());
+		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_Daily_Position") {
 
@@ -366,7 +366,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		});
+		}.withDescription("Get user top voter position"));
 
 		placeholders.add(new PlaceHolder("Top_Daily_") {
 
@@ -382,7 +382,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith());
+		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
 		// non players
 
@@ -392,7 +392,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(VoteParty.getInstance().getTotalVotes());
 			}
-		});
+		}.withDescription("Current amount of voteparty votes"));
 
 		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesNeeded") {
 
@@ -400,7 +400,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(VoteParty.getInstance().getNeededVotes());
 			}
-		});
+		}.withDescription("Voteparty votes needed"));
 
 		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesRequired") {
 
@@ -408,6 +408,6 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(VoteParty.getInstance().getVotesRequired());
 			}
-		});
+		}.withDescription("Amount of votes needed for voteparty"));
 	}
 }

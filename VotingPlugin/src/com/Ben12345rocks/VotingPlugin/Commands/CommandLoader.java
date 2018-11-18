@@ -901,7 +901,11 @@ public class CommandLoader {
 							if (identifier.endsWith("_")) {
 								identifier += "#";
 							}
-							msg.add("%VotingPlugin_" + identifier + "%");
+							if (placeholder.hasDescription()) {
+								msg.add("%VotingPlugin_" + identifier + "% - " + placeholder.getDescription());
+							} else {
+								msg.add("%VotingPlugin_" + identifier + "%");
+							}
 						}
 
 						sendMessage(sender, msg);

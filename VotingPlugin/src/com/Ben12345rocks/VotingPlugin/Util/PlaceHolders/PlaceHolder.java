@@ -49,4 +49,8 @@ public abstract class PlaceHolder {
 		return this;
 	}
 
+	public boolean hasDescription() {
+		return description != null;
+	}
+
 }
