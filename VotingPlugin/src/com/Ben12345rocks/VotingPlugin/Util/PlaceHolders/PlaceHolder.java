@@ -12,6 +12,8 @@ public abstract class PlaceHolder {
 	private String identifier;
 	@Getter
 	private boolean useStartsWith = false;
+	@Getter
+	private String description;
 
 	public PlaceHolder(String identifier) {
 		this.identifier = identifier;
@@ -39,6 +41,11 @@ public abstract class PlaceHolder {
 
 	public PlaceHolder useStartsWith() {
 		useStartsWith = true;
+		return this;
+	}
+
+	public PlaceHolder withDescription(String desc) {
+		description = desc;
 		return this;
 	}
 
