@@ -63,9 +63,14 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteLastLine;
 
+	
 	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
 	@Getter
 	private String formatCommandsVoteLastNeverVoted;
+	
+	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted", defaultValue = "%times% ago")
+	@Getter
+	private String formatCommandsVoteLastLastVoted;
 
 	@ConfigDataString(path = "Format.TimeFormats.Days", defaultValue = "Days")
 	@Getter

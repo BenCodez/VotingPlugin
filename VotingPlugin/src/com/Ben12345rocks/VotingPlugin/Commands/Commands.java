@@ -669,6 +669,9 @@ public class Commands {
 						Config.getInstance().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
 			}
 
+			info = StringUtils.getInstance()
+					.replaceIgnoreCase(Config.getInstance().getFormatCommandsVoteLastLastVoted(), "times", info);
+
 			return info;
 		}
 		return Config.getInstance().getFormatCommandsVoteLastNeverVoted();

@@ -165,9 +165,10 @@ Format:
         # Lines for each vote site
         # %time% = time, using timeformat below
         # %timesince% = time since vote
-        Line: '&3%SiteName%: &6%timeSince% ago'
+        Line: '&3%SiteName%: &6%timeSince%'
         # Spelling of TimeType can be changed under Format.Commands.TimeFormats
         TimeFormat: '%amount% %TimeType%'
+        TimedVoted: '%times% ago'
         NeverVoted: 'Never voted'
         
       # Format for /vote total
