@@ -648,7 +648,7 @@ MileStones:
     Rewards: 
       Messages:
         Player: '&aYou got %milestone% milestone votes!'
-    
+   
 VoteStreak:
   # Valid options: Day, Week, Month
   Day:
