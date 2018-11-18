@@ -245,7 +245,7 @@ Format:
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   TimeFormat: 'EEE, d MMM yyyy HH:mm'
   
-  TimeFomrats:
+  TimeFormats:
     Day: 'Day'
     Days: 'Days'
     Hour: 'Hour'
