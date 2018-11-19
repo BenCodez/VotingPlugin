@@ -670,7 +670,7 @@ public class Commands {
 			}
 
 			info = StringUtils.getInstance()
-					.replaceIgnoreCase(Config.getInstance().getFormatCommandsVoteLastLastVoted(), "times", info);
+					.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLastVoted(), "times", info);
 
 			return info;
 		}
