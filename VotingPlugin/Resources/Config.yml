@@ -168,7 +168,7 @@ Format:
         Line: '&3%SiteName%: &6%timeSince%'
         # Spelling of TimeType can be changed under Format.Commands.TimeFormats
         TimeFormat: '%amount% %TimeType%'
-        TimedVoted: '%times% ago'
+        LastVoted: '%times% ago'
         NeverVoted: 'Never voted'
         
       # Format for /vote total
