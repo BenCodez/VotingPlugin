@@ -967,6 +967,16 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "" }, "VotingPlugin.Commands.AdminVote|" + adminPerm,
+						"Base command") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cInvalid command, see /adminvote help");
+					}
+				});
+
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
