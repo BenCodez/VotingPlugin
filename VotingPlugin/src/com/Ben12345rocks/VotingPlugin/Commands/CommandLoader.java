@@ -954,6 +954,15 @@ public class CommandLoader {
 									+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
 						}
 
+						for (PlaceHolder placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+							String identifier = placeholder.getIdentifier();
+							if (identifier.endsWith("_")) {
+								identifier += "1";
+							}
+							msg.add("%VotingPlugin_" + identifier + "% = "
+									+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
+						}
+
 						sendMessage(sender, msg);
 					}
 				});
