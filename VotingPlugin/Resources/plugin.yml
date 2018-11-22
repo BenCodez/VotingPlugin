@@ -126,15 +126,11 @@ commands:
   adminvoteusers:
     description: Command Alias
     aliases: avusers
-  adminvoteClearTotal:
-    description: Command Alias
-    aliases: avClearTotal
   adminvoteConvertFromData:
     description: Command Alias
     aliases: avConvertFromData
   adminvoteClearTotal:
     description: Command Alias
-    aliases: avClearTotal
   adminvoteBackgroundUpdate:
     description: Command Alias
     aliases: avBackgroundUpdate

@@ -47,6 +47,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Listeners.BlockBreak;
+import com.Ben12345rocks.VotingPlugin.Listeners.PlayerCommandSendListener;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerInteract;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerJoinEvent;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerVoteListener;
@@ -868,6 +869,8 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerInteract(this), this);
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
+
+		pm.registerEvents(new PlayerCommandSendListener(this), this);
 
 		plugin.debug("Loaded Events");
 
