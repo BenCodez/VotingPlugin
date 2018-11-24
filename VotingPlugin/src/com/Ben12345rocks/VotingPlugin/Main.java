@@ -121,7 +121,7 @@ public class Main extends JavaPlugin {
 	/**
 	 * Check votifier.
 	 */
-	public void checkVotifier() {
+	private void checkVotifier() {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
@@ -702,9 +702,7 @@ public class Main extends JavaPlugin {
 		registerCommands();
 		registerEvents();
 		checkVotifier();
-
 		CheckUpdate.getInstance().startUp();
-
 		VoteReminding.getInstance().loadRemindChecking();
 
 		plugin.signs = new ArrayList<SignHandler>();
@@ -722,11 +720,11 @@ public class Main extends JavaPlugin {
 			topVoter.put(top, new LinkedHashMap<User, Integer>());
 		}
 		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
-
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		AdminGUI.getInstance().loadHook();
 
+		// vote party
 		if (Config.getInstance().getVotePartyEnabled()) {
 			VoteParty.getInstance().check();
 		}
@@ -816,7 +814,7 @@ public class Main extends JavaPlugin {
 
 		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
 			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
-					+ ", this version is not supported on this build");
+					+ ", this version is not supported on this build. Support is limited");
 		}
 	}
 
@@ -861,15 +859,10 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new VotiferEvent(this), this);
 		pm.registerEvents(new PlayerVoteListener(this), this);
-
 		pm.registerEvents(new SignChange(this), this);
-
 		pm.registerEvents(new BlockBreak(this), this);
-
 		pm.registerEvents(new PlayerInteract(this), this);
-
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
-
 		pm.registerEvents(new PlayerCommandSendListener(this), this);
 
 		plugin.debug("Loaded Events");
@@ -889,14 +882,9 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 		AdvancedCoreHook.getInstance().reload();
 		PlaceHolders.getInstance().load();
-		// loadTimer();
-
 	}
 
-	/**
-	 * Setup files.
-	 */
-	public void setupFiles() {
+	private void setupFiles() {
 		try {
 			config = Config.getInstance();
 			config.setup();
