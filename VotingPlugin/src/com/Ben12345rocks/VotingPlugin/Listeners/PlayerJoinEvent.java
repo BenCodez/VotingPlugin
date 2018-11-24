@@ -43,7 +43,6 @@ public class PlayerJoinEvent implements Listener {
 
 			@Override
 			public void run() {
-
 				if (event.getPlayer() == null
 						|| (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
 								&& AdvancedCoreHook.getInstance().getMysql() == null)) {
@@ -59,13 +58,9 @@ public class PlayerJoinEvent implements Listener {
 
 					if (user.getData().hasData()) {
 						// give offline vote (if they voted offline)
-
 						user.offVote();
-
 					}
-
 				}
-
 			}
 		}, 20L);
 

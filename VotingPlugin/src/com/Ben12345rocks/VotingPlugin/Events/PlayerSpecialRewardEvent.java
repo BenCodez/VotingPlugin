@@ -39,7 +39,7 @@ public class PlayerSpecialRewardEvent extends Event {
 	private boolean cancelled;
 
 	public PlayerSpecialRewardEvent(User user, SpecialRewardType type) {
-		super();
+		super(true);
 		setType(type);
 		setUser(user);
 	}

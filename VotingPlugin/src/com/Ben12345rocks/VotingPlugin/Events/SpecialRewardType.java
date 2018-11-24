@@ -6,10 +6,9 @@ public enum SpecialRewardType {
 	ALLSITE, CUMMULATIVE, MILESTONE, VOTESTREAK, FIRSTVOTE;
 
 	@Getter
-
 	private int amount = -1;
-	@Getter
 
+	@Getter
 	private String type = "";
 
 	public SpecialRewardType setAmount(int num) {

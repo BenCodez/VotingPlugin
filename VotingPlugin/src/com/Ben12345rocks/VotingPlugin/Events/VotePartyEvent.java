@@ -29,7 +29,7 @@ public class VotePartyEvent extends Event {
 	private boolean cancelled;
 
 	public VotePartyEvent() {
-		super();
+		super(true);
 	}
 
 	/*
