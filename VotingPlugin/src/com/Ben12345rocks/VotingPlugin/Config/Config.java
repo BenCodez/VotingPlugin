@@ -1034,7 +1034,7 @@ public class Config extends YMLFile {
 		return getData().getBoolean("TopVoterIgnorePermission");
 	}
 
-	public int getUserVotesRequired() {
+	public int getVotePartyUserVotesRequired() {
 		return getData().getInt("VoteParty.UserVotesRequired");
 	}
 
