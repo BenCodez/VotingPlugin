@@ -967,15 +967,14 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "" }, "VotingPlugin.Commands.AdminVote|" + adminPerm,
-						"Base command") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "" },
+				"VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						sendMessage(sender, "&cInvalid command, see /adminvote help");
-					}
-				});
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cInvalid command, see /adminvote help");
+			}
+		});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
@@ -1359,21 +1358,15 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Points", },
-				"VotingPlugin.Commands.Vote.Points|" + playerPerm, "View your points") {
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Points" },
+				"VotingPlugin.Commands.Vote.Points|" + playerPerm, "View your points", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					String msg = Config.getInstance().getFormatCommandVotePoints()
-							.replace("%Player%", user.getPlayerName()).replace("%Points%", "" + user.getPoints());
-					user.sendMessage(msg);
-				} else {
-					sender.sendMessage("Must be a player to use this!");
-				}
-
+				User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+				String msg = Config.getInstance().getFormatCommandVotePoints().replace("%Player%", user.getPlayerName())
+						.replace("%Points%", "" + user.getPoints());
+				user.sendMessage(msg);
 			}
 		});
 

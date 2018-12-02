@@ -95,8 +95,8 @@ public class VoteParty implements Listener {
 			if (event.isCancelled()) {
 				return;
 			}
-			giveRewards();
 			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
+			giveRewards();
 
 			if (Config.getInstance().getVotePartyIncreaseVotesRquired() > 0) {
 				ServerData.getInstance().setVotePartyExtraRequired(ServerData.getInstance().getVotePartyExtraRequired()
