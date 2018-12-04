@@ -63,11 +63,10 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteLastLine;
 
-	
 	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
 	@Getter
 	private String formatCommandsVoteLastNeverVoted;
-	
+
 	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted", defaultValue = "%times% ago")
 	@Getter
 	private String formatCommandsVoteLastLastVoted;
@@ -185,6 +184,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;
+
+	@ConfigDataBoolean(path = "GUI.VoteRewardBackButton")
+	@Getter
+	private boolean voteRewardBackButton = false;
 
 	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
 	@Getter

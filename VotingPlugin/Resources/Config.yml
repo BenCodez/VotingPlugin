@@ -390,6 +390,8 @@ GUI:
       Data: 0
       Amount: 1
     URLText: '%VoteUrl%'
+    
+  VoteRewardBackButton: false
   # Customize /vote reward
   # Show players what you get when you vote on each site
   VoteReward:

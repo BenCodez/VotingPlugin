@@ -740,6 +740,16 @@ public class PlayerGUIs {
 						});
 			}
 		}
+		
+		if (Config.getInstance().isVoteRewardBackButton()) {
+			inv.addButton(new BInventoryButton(getBackButton()) {
+
+				@Override
+				public void onClick(ClickEvent event) {
+					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
+				}
+			});
+		}
 
 		inv.openInventory(player);
 	}
