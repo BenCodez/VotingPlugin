@@ -1842,23 +1842,24 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getVoteCommand().add(new CommandHandler(new String[] {}, "", "See voting URLs") {
+		plugin.getVoteCommand().add(
+				new CommandHandler(new String[] {}, "VotingPlugin.Commands.Vote|" + playerPerm, "See voting URLs") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUIVote() || !(sender instanceof Player)) {
-					if (isPlayer(sender)) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(Commands.getInstance().voteURLs(user));
-					} else {
-						sender.sendMessage(Commands.getInstance().voteURLs(null));
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						if (!Config.getInstance().isCommandsUseGUIVote() || !(sender instanceof Player)) {
+							if (isPlayer(sender)) {
+								User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+								user.sendMessage(Commands.getInstance().voteURLs(user));
+							} else {
+								sender.sendMessage(Commands.getInstance().voteURLs(null));
+							}
+						} else {
+							PlayerGUIs.getInstance().openVoteURL((Player) sender);
+						}
+
 					}
-				} else {
-					PlayerGUIs.getInstance().openVoteURL((Player) sender);
-				}
-
-			}
-		});
+				});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicCommands("VotingPlugin");

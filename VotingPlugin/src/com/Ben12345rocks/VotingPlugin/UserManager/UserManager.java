@@ -44,6 +44,10 @@ public class UserManager {
 		return getVotingPluginUser(player.getName());
 	}
 
+	public User getVotingPluginUser(com.Ben12345rocks.AdvancedCore.UserManager.User user) {
+		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
+	}
+
 	@SuppressWarnings("deprecation")
 	public User getVotingPluginUser(String playerName) {
 		return new User(com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getProperName(playerName));

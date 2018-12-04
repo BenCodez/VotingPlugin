@@ -28,6 +28,7 @@ import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectInt;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
@@ -771,8 +772,15 @@ public class Main extends JavaPlugin {
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
-
 		}
+
+		RewardHandler.getInstance().getInjectedRewards().add(new RewardInjectInt("Points", 0) {
+
+			@Override
+			public void onRewardRequest(com.Ben12345rocks.AdvancedCore.UserManager.User user, int num) {
+				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
+			}
+		});
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
