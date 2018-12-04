@@ -777,7 +777,8 @@ public class Main extends JavaPlugin {
 		RewardHandler.getInstance().getInjectedRewards().add(new RewardInjectInt("Points", 0) {
 
 			@Override
-			public void onRewardRequest(com.Ben12345rocks.AdvancedCore.UserManager.User user, int num) {
+			public void onRewardRequest(com.Ben12345rocks.AdvancedCore.UserManager.User user, int num,
+					HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 			}
 		});
