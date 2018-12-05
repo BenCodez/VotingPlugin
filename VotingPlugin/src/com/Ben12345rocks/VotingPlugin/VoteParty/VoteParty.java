@@ -204,11 +204,13 @@ public class VoteParty implements Listener {
 		}
 
 		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
+			plugin.debug("Giving all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
 			}
 		} else {
+			plugin.debug(ArrayUtils.getInstance().makeStringList(getVotedUsers()));
 			for (String uuid : getVotedUsers()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 				giveReward(user);
