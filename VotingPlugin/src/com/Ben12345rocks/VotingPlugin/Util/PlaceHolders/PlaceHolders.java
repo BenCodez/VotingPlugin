@@ -264,7 +264,7 @@ public class PlaceHolders {
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return "" + user.canVoteSite(voteSite);
 				}
-			}.withDescription("How long ago user voted on " + voteSite.getKey()));
+			}.withDescription("Whether or not player can vote on " + voteSite.getKey()));
 		}
 
 		placeholders.add(new PlaceHolder("Top_All_Position") {
