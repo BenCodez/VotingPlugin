@@ -59,6 +59,9 @@ import com.swifteh.GAL.GAL;
 import com.swifteh.GAL.GALVote;
 import com.swifteh.GAL.VoteType;
 
+import io.minimum.minecraft.superbvote.SuperbVote;
+import io.minimum.minecraft.superbvote.util.PlayerVotes;
+
 // TODO: Auto-generated Javadoc
 /**
  * The Class CommandLoader.
@@ -212,6 +215,30 @@ public class CommandLoader {
 					}
 				} else {
 					sender.sendMessage("VoteRoulette not loaded");
+				}
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "SuperbVote" },
+				"VotingPlugin.Commands.AdminVote.ConvertFrom.SuperbVote|" + adminPerm, "Convert from SuperbVote") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (Bukkit.getServer().getPluginManager().getPlugin("SuperbVote") != null) {
+					sender.sendMessage("Starting to convert");
+
+					for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+						PlayerVotes votes = SuperbVote.getPlugin().getVoteStorage().getVotes(p.getUniqueId());
+						if (votes != null) {
+							User user = UserManager.getInstance().getVotingPluginUser(p);
+							if (votes.getVotes() > 0) {
+								user.setTotal(TopVoter.AllTime, votes.getVotes());
+							}
+						}
+					}
+
+				} else {
+					sender.sendMessage("SuperbVote not loaded");
 				}
 			}
 		});

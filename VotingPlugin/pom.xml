@@ -271,5 +271,12 @@
 			<version>1.18.2</version>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>io.mimimum.minecraft</groupId>
+			<artifactId>SuperbVote</artifactId>
+			<version>0.5.3</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/Jars/SuperbVote-0.5.3.jar</systemPath>
+		</dependency>
 	</dependencies>
 </project>
