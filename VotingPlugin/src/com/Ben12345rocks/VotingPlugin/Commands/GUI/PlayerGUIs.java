@@ -584,8 +584,6 @@ public class PlayerGUIs {
 				@Override
 				public void onClick(ClickEvent event) {
 					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
-					Player player = event.getWhoClicked();
-					player.closeInventory();
 					user.sendMessage(Commands.getInstance().voteURLs(user));
 
 				}
@@ -609,10 +607,8 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					Player player = event.getWhoClicked();
+					Player player = event.getPlayer();
 					if (player != null) {
-						player.closeInventory();
-
 						if (Config.getInstance().isCommandsVoteRewardFromVoteURL()
 								&& event.getClick().equals(ClickType.RIGHT)) {
 							voteReward(player, voteSite.getKey());
@@ -740,7 +736,7 @@ public class PlayerGUIs {
 						});
 			}
 		}
-		
+
 		if (Config.getInstance().isVoteRewardBackButton()) {
 			inv.addButton(new BInventoryButton(getBackButton()) {
 
