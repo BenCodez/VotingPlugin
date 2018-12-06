@@ -258,6 +258,13 @@ public class PlaceHolders {
 					return Commands.getInstance().voteCommandLastDuration(user, voteSite);
 				}
 			}.withDescription("How long ago user voted on " + voteSite.getKey()));
+			placeholders.add(new PlaceHolder("CanVote_" + voteSite.getKey()) {
+
+				@Override
+				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+					return "" + user.canVoteSite(voteSite);
+				}
+			}.withDescription("How long ago user voted on " + voteSite.getKey()));
 		}
 
 		placeholders.add(new PlaceHolder("Top_All_Position") {
