@@ -864,6 +864,9 @@ AutoCreateVoteSites: true
 # You can also use /av download
 AutoDownload: false
 
+# Whether or not to disable update checks
+DisableUpdateChecking: false
+
 # Disable this on a hub server for example
 # Still processes rewards for offline rewards (just won't give any)
 ProcessRewards: true

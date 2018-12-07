@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -49,6 +50,9 @@ public class CheckUpdate {
 	 * Check update.
 	 */
 	public void checkUpdate() {
+		if (Config.getInstance().isDisableUpdateChecking()) {
+			return;
+		}
 		plugin.setUpdater(new Updater(plugin, 15358, false));
 		final Updater.UpdateResult result = plugin.getUpdater().getResult();
 		switch (result) {
@@ -75,6 +79,9 @@ public class CheckUpdate {
 	}
 
 	public void checkUpdateBasic() {
+		if (Config.getInstance().isDisableUpdateChecking()) {
+			return;
+		}
 		plugin.setUpdater(new Updater(plugin, 15358, false));
 		final Updater.UpdateResult result = plugin.getUpdater().getResult();
 		switch (result) {
@@ -95,6 +102,9 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
+		if (Config.getInstance().isDisableUpdateChecking()) {
+			return;
+		}
 		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override

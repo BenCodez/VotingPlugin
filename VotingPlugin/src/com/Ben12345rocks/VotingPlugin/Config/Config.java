@@ -197,6 +197,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean enableDailyRewards = false;
 
+	@ConfigDataBoolean(path = "DisableUpdateChecking")
+	@Getter
+	private boolean disableUpdateChecking = false;
+
 	@ConfigDataInt(path = "DelayBetweenUpdates")
 	@Getter
 	private int delayBetweenUpdates = 3;
