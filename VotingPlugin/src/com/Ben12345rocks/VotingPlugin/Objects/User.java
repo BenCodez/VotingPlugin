@@ -356,9 +356,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			times.put(voteSite, getTime(voteSite));
 		}
-		LinkedHashMap<VoteSite, Long> sorted = (LinkedHashMap<VoteSite, Long>) times.entrySet().stream()
-				.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		LinkedHashMap<VoteSite, Long> sorted = new LinkedHashMap<>(
+				times.entrySet().stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+						.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 		return sorted;
 	}
 
