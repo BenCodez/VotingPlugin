@@ -343,7 +343,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user at postion in top voter"));
+		}.useStartsWith().withDescription("Get user at position in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_MonthVotes_") {
 
