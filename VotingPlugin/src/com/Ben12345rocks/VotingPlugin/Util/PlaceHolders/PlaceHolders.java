@@ -296,7 +296,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user votes at postion in top voter"));
+		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_All_") {
 
@@ -359,7 +359,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user votes at postion in top voter"));
+		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_Week_Position") {
 
@@ -406,7 +406,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user votes at postion in top voter"));
+		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
 		placeholders.add(new PlaceHolder("Top_Daily_Position") {
 
@@ -453,7 +453,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user votes at postion in top voter"));
+		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
 		// non players
 
