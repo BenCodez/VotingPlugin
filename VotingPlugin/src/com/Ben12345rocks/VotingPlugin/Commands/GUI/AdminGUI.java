@@ -209,17 +209,16 @@ public class AdminGUI {
 			}
 		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteDelay", voteSite.getVoteDelay(),
-				EditGUIValueType.NUMBER) {
+		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelay", voteSite.getVoteDelay()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, Number num) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteDelay(siteName, (int) value);
+				ConfigVoteSites.getInstance().setVoteDelay(siteName, num.intValue());
 				plugin.reload();
 			}
-		});
+		}));
 
 		inv.addButton(new EditGUIButton(new EditGUIValueBoolean("Enabled", voteSite.isEnabled()) {
 
