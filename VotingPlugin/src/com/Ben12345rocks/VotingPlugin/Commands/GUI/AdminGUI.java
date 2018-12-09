@@ -11,6 +11,9 @@ import org.bukkit.inventory.ItemStack;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUI;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIButton;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIValueType;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueNumber;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueString;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
@@ -135,6 +138,7 @@ public class AdminGUI {
 	 * @param voteSite
 	 *            the vote site
 	 */
+	@SuppressWarnings("deprecation")
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		EditGUI inv = new EditGUI("VoteSite: " + voteSite.getDisplayName());
 		inv.setMeta(player, "VoteSite", voteSite);
@@ -163,51 +167,47 @@ public class AdminGUI {
 			}
 		});
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "Priority", voteSite.getPriority(),
-				EditGUIValueType.NUMBER) {
+		inv.addButton(new EditGUIButton(new EditGUIValueNumber("Priority", voteSite.getPriority()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
-				ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), (int) value);
+			public void setValue(Player player, Number num) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
+				ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), num.intValue());
 				plugin.reload();
 			}
-		});
+		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "ServiceSite", voteSite.getServiceSite(),
-				EditGUIValueType.STRING) {
+		inv.addButton(new EditGUIButton(new EditGUIValueString("ServiceSite", voteSite.getServiceSite()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, String value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
 				ConfigVoteSites.getInstance().setServiceSite(siteName, (String) value);
 				plugin.reload();
 			}
-		});
+		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "Name", voteSite.getDisplayName(),
-				EditGUIValueType.STRING) {
+		inv.addButton(new EditGUIButton(new EditGUIValueString("Name", voteSite.getDisplayName()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, String value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), (String) value);
 				plugin.reload();
 			}
-		});
+		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteURL", voteSite.getVoteURL(),
-				EditGUIValueType.STRING) {
+		inv.addButton(new EditGUIButton(new EditGUIValueString("VoteURL", voteSite.getVoteURL()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, String value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
 				ConfigVoteSites.getInstance().setVoteURL(siteName, (String) value);
 				plugin.reload();
 			}
-		});
+		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteDelay", voteSite.getVoteDelay(),
 				EditGUIValueType.NUMBER) {
@@ -221,41 +221,38 @@ public class AdminGUI {
 			}
 		});
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "Enabled", voteSite.isEnabled(),
-				EditGUIValueType.BOOLEAN) {
+		inv.addButton(new EditGUIButton(new EditGUIValueBoolean("Enabled", voteSite.isEnabled()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, boolean value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setEnabled(siteName, (boolean) value);
+				ConfigVoteSites.getInstance().setEnabled(siteName, value);
 				plugin.reload();
 			}
-		});
+		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "ForceOffline", voteSite.isGiveOffline(),
-				EditGUIValueType.BOOLEAN) {
+		inv.addButton(new EditGUIButton(new EditGUIValueBoolean("ForceOffline", voteSite.isGiveOffline()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, boolean value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
 				ConfigVoteSites.getInstance().setForceOffline(siteName, (boolean) value);
 				plugin.reload();
 			}
-		});
+		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.DIAMOND), "VoteDelayDaily",
-				voteSite.isVoteDelayDaily(), EditGUIValueType.BOOLEAN) {
+		inv.addButton(new EditGUIButton(new EditGUIValueBoolean("VoteDelayDaily", voteSite.isVoteDelayDaily()) {
 
 			@Override
-			public void setValue(Player player, Object value) {
-				VoteSite voteSite = (VoteSite) getMeta(player, "VoteSite");
+			public void setValue(Player player, boolean value) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
 				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName, (boolean) value);
 				plugin.reload();
 			}
-		});
+		}));
 
 		inv.openInventory(player);
 	}

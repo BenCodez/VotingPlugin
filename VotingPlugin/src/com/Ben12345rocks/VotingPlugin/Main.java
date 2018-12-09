@@ -16,6 +16,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -27,10 +28,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
+import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectInt;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIButton;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueNumber;
+import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
@@ -777,11 +782,18 @@ public class Main extends JavaPlugin {
 		RewardHandler.getInstance().getInjectedRewards().add(new RewardInjectInt("Points", 0) {
 
 			@Override
-			public void onRewardRequest(com.Ben12345rocks.AdvancedCore.UserManager.User user, int num,
+			public void onRewardRequest(Reward reward, com.Ben12345rocks.AdvancedCore.UserManager.User user, int num,
 					HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 			}
-		});
+		}.addEditButton(new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
+
+			@Override
+			public void setValue(Player player, Number value) {
+				Reward reward = (Reward) getInv().getData("Reward");
+				reward.getConfig().set("Points", value.intValue());
+			}
+		})));
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
