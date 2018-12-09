@@ -10,14 +10,12 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUI;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIButton;
-import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIValueType;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueBoolean;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueNumber;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueString;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
-import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.InputMethod;
@@ -138,7 +136,6 @@ public class AdminGUI {
 	 * @param voteSite
 	 *            the vote site
 	 */
-	@SuppressWarnings("deprecation")
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		EditGUI inv = new EditGUI("VoteSite: " + voteSite.getDisplayName());
 		inv.setMeta(player, "VoteSite", voteSite);
