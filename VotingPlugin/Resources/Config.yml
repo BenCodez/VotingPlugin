@@ -871,6 +871,9 @@ DisableUpdateChecking: false
 # Still processes rewards for offline rewards (just won't give any)
 ProcessRewards: true
 
+# Disable checking permissions on tab complete
+DisableAdvancedTab: false
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database

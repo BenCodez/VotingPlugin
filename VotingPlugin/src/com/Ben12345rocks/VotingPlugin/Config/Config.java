@@ -208,6 +208,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
+	
+	@ConfigDataBoolean(path = "DisableAdvancedTab")
+	@Getter
+	private boolean disableAdvancedTab = false;
 
 	@Getter
 	private String firstVoteRewardsPath = "FirstVote";

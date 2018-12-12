@@ -9,6 +9,7 @@ import org.bukkit.event.player.PlayerCommandSendEvent;
 
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -25,6 +26,9 @@ public class PlayerCommandSendListener implements Listener {
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onTab(PlayerCommandSendEvent event) {
+		if (Config.getInstance().isDisableAdvancedTab()) {
+			return;
+		}
 		ArrayList<String> removeCmds = new ArrayList<String>();
 		ArrayList<String> whiteListed = new ArrayList<String>();
 		for (String cmd : event.getCommands()) {
