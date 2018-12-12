@@ -32,6 +32,10 @@ public class UserManager {
 		return com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().getAllUUIDs();
 	}
 
+	public User getVotingPluginUser(com.Ben12345rocks.AdvancedCore.UserManager.User user) {
+		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
+	}
+
 	public User getVotingPluginUser(java.util.UUID uuid) {
 		return getVotingPluginUser(new UUID(uuid.toString()));
 	}
@@ -42,10 +46,6 @@ public class UserManager {
 
 	public User getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getName());
-	}
-
-	public User getVotingPluginUser(com.Ben12345rocks.AdvancedCore.UserManager.User user) {
-		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
 	}
 
 	@SuppressWarnings("deprecation")

@@ -144,6 +144,69 @@ public class CommandLoader {
 		return playerPerm;
 	}
 
+	public boolean hasPermission(Player player, String cmd) {
+		if (cmd.startsWith("votingplugin:")) {
+			cmd = cmd.substring("votingplugin:".length());
+		}
+		boolean adminCommand = false;
+
+		if (cmd.startsWith("vote")) {
+			cmd = cmd.substring("vote".length());
+		} else if (cmd.startsWith("v")) {
+			cmd = cmd.substring(1);
+		} else if (cmd.startsWith("av")) {
+			adminCommand = true;
+			cmd = cmd.substring("av".length());
+		} else if (cmd.startsWith("adminvote")) {
+			adminCommand = true;
+			cmd = cmd.substring("adminvote".length());
+		}
+		// plugin.debug(cmd);
+		if (!adminCommand) {
+			for (CommandHandler handle : plugin.getVoteCommand()) {
+				if (handle.isCommand(cmd)) {
+					// plugin.debug("is handle " + ArrayUtils.getInstance()
+					// .makeStringList(ArrayUtils.getInstance().convert(handle.getArgs())));
+					if (handle.hasPerm(player)) {
+						// plugin.debug("has perm");
+						return true;
+					} else {
+						// plugin.debug("no perm " + cmd);
+					}
+				}
+			}
+		} else {
+			for (CommandHandler handle : plugin.getAdminVoteCommand()) {
+				if (handle.isCommand(cmd)) {
+					// plugin.debug("is handle " + ArrayUtils.getInstance()
+					// .makeStringList(ArrayUtils.getInstance().convert(handle.getArgs())));
+					if (handle.hasPerm(player)) {
+						// plugin.debug("has perm");
+						return true;
+					} else {
+						// plugin.debug("no perm " + cmd);
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	public boolean isVotingPluginCommand(Player player, String cmd) {
+		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
+			return true;
+		}
+		for (String str : plugin.getDescription().getCommands().keySet()) {
+
+			for (String str1 : plugin.getCommand(str).getAliases()) {
+				if (str1.equalsIgnoreCase(cmd)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Load admin vote command.
 	 */
@@ -1904,68 +1967,5 @@ public class CommandLoader {
 	 */
 	public void setCommands(HashMap<String, CommandHandler> commands) {
 		this.commands = commands;
-	}
-
-	public boolean isVotingPluginCommand(Player player, String cmd) {
-		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
-			return true;
-		}
-		for (String str : plugin.getDescription().getCommands().keySet()) {
-
-			for (String str1 : plugin.getCommand(str).getAliases()) {
-				if (str1.equalsIgnoreCase(cmd)) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	public boolean hasPermission(Player player, String cmd) {
-		if (cmd.startsWith("votingplugin:")) {
-			cmd = cmd.substring("votingplugin:".length());
-		}
-		boolean adminCommand = false;
-
-		if (cmd.startsWith("vote")) {
-			cmd = cmd.substring("vote".length());
-		} else if (cmd.startsWith("v")) {
-			cmd = cmd.substring(1);
-		} else if (cmd.startsWith("av")) {
-			adminCommand = true;
-			cmd = cmd.substring("av".length());
-		} else if (cmd.startsWith("adminvote")) {
-			adminCommand = true;
-			cmd = cmd.substring("adminvote".length());
-		}
-		// plugin.debug(cmd);
-		if (!adminCommand) {
-			for (CommandHandler handle : plugin.getVoteCommand()) {
-				if (handle.isCommand(cmd)) {
-					// plugin.debug("is handle " + ArrayUtils.getInstance()
-					// .makeStringList(ArrayUtils.getInstance().convert(handle.getArgs())));
-					if (handle.hasPerm(player)) {
-						// plugin.debug("has perm");
-						return true;
-					} else {
-						// plugin.debug("no perm " + cmd);
-					}
-				}
-			}
-		} else {
-			for (CommandHandler handle : plugin.getAdminVoteCommand()) {
-				if (handle.isCommand(cmd)) {
-					// plugin.debug("is handle " + ArrayUtils.getInstance()
-					// .makeStringList(ArrayUtils.getInstance().convert(handle.getArgs())));
-					if (handle.hasPerm(player)) {
-						// plugin.debug("has perm");
-						return true;
-					} else {
-						// plugin.debug("no perm " + cmd);
-					}
-				}
-			}
-		}
-		return false;
 	}
 }

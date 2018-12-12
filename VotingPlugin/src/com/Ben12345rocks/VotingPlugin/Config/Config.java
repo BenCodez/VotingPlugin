@@ -208,7 +208,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
-	
+
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;
@@ -230,6 +230,9 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
 	private boolean enableWeeklyAwards = false;
+
+	@Getter
+	private int formatPageSize = 10;
 
 	/**
 	 * Instantiates a new config.
@@ -578,9 +581,6 @@ public class Config extends YMLFile {
 	public String getFormatNotNumber() {
 		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
 	}
-
-	@Getter
-	private int formatPageSize = 10;
 
 	public String getFormatPrevPage() {
 		return getData().getString("Format.PrevPage", "&aPrevious Page");
@@ -1045,10 +1045,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("TopVoterIgnorePermission");
 	}
 
-	public int getVotePartyUserVotesRequired() {
-		return getData().getInt("VoteParty.UserVotesRequired");
-	}
-
 	/**
 	 * Gets the vote GUI slot command.
 	 *
@@ -1142,6 +1138,10 @@ public class Config extends YMLFile {
 
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
+	}
+
+	public int getVotePartyUserVotesRequired() {
+		return getData().getInt("VoteParty.UserVotesRequired");
 	}
 
 	/**

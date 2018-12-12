@@ -24,6 +24,10 @@ public abstract class PlaceHolder {
 		this.useStartsWith = useStartsWith;
 	}
 
+	public boolean hasDescription() {
+		return description != null;
+	}
+
 	public boolean matches(String identifier) {
 		if (isUseStartsWith()) {
 			if (StringUtils.getInstance().startsWithIgnoreCase(identifier, getIdentifier())) {
@@ -47,10 +51,6 @@ public abstract class PlaceHolder {
 	public PlaceHolder withDescription(String desc) {
 		description = desc;
 		return this;
-	}
-
-	public boolean hasDescription() {
-		return description != null;
 	}
 
 }

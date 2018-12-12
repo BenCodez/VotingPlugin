@@ -88,7 +88,7 @@ public class PlayerVoteListener implements Listener {
 		if (Config.getInstance().isClearCacheOnVote()) {
 			user.clearCache();
 		}
-		
+
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
 			plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
 			return;

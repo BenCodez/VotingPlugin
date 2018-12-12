@@ -180,7 +180,7 @@ public class AdminGUI {
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setServiceSite(siteName, (String) value);
+				ConfigVoteSites.getInstance().setServiceSite(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -190,7 +190,7 @@ public class AdminGUI {
 			@Override
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
-				ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), (String) value);
+				ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), value);
 				plugin.reload();
 			}
 		}));
@@ -201,7 +201,7 @@ public class AdminGUI {
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteURL(siteName, (String) value);
+				ConfigVoteSites.getInstance().setVoteURL(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -234,7 +234,7 @@ public class AdminGUI {
 			public void setValue(Player player, boolean value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setForceOffline(siteName, (boolean) value);
+				ConfigVoteSites.getInstance().setForceOffline(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -245,7 +245,7 @@ public class AdminGUI {
 			public void setValue(Player player, boolean value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName, (boolean) value);
+				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName, value);
 				plugin.reload();
 			}
 		}));

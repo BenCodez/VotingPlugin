@@ -173,12 +173,6 @@ public class VoteParty implements Listener {
 		return required;
 	}
 
-	public void giveReward(User user, boolean online) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVotePartyRewardsPath())
-				.setOnline(online)
-				.withPlaceHolder("VotesRequired", "" + Config.getInstance().getVotePartyVotesRequired()).send(user);
-	}
-
 	public void giveReward(User user) {
 		if (Config.getInstance().getVotePartyUserVotesRequired() > 0) {
 			if (user.getVotePartyVotes() < Config.getInstance().getVotePartyUserVotesRequired()) {
@@ -186,6 +180,12 @@ public class VoteParty implements Listener {
 			}
 		}
 		giveReward(user, user.isOnline());
+	}
+
+	public void giveReward(User user, boolean online) {
+		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVotePartyRewardsPath())
+				.setOnline(online)
+				.withPlaceHolder("VotesRequired", "" + Config.getInstance().getVotePartyVotesRequired()).send(user);
 	}
 
 	/**

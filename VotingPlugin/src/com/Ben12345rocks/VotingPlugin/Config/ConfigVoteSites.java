@@ -124,10 +124,6 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
-	public boolean getWaitUntilVoteDelay(String siteName) {
-		return getData(siteName).getBoolean("WaitUntilVoteDelay", false);
-	}
-
 	/**
 	 * Gets the vote delay.
 	 *
@@ -254,6 +250,10 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getVoteURL(String siteName) {
 		return getData(siteName).getString("VoteURL");
+	}
+
+	public boolean getWaitUntilVoteDelay(String siteName) {
+		return getData(siteName).getBoolean("WaitUntilVoteDelay", false);
 	}
 
 	/**
