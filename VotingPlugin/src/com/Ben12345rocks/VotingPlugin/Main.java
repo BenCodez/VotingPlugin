@@ -794,6 +794,7 @@ public class Main extends JavaPlugin {
 				reward.getConfig().set("Points", value.intValue());
 			}
 		})));
+		
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
