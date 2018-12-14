@@ -1082,6 +1082,9 @@ public class CommandLoader {
 	 */
 	public void loadAliases() {
 		commands = new HashMap<String, CommandHandler>();
+		if (!Config.getInstance().isLoadCommandAliases()) {
+			return;
+		}
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (cmdHandle.getArgs().length > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");

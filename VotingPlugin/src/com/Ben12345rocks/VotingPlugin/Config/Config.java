@@ -248,6 +248,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean voteStreakRequirementUsePercentage = false;
 
+	@ConfigDataBoolean(path = "LoadCommandAliases")
+	@Getter
+	private boolean loadCommandAliases = false;
+
 	@Getter
 	private int formatPageSize = 10;
 

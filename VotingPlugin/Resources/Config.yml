@@ -882,6 +882,10 @@ ProcessRewards: true
 # Disable checking permissions on tab complete
 DisableAdvancedTab: false
 
+# Load command aliases, such as /avgui
+# Requires restart to take effect
+LoadCommandAliases: true
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database
