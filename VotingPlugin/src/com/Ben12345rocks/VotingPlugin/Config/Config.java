@@ -9,6 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataDouble;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
@@ -230,6 +231,22 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
 	private boolean enableWeeklyAwards = false;
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Day")
+	@Getter
+	private double voteStreakRequirementDay = 50;
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
+	@Getter
+	private double voteStreakRequirementWeek = 50;
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Month")
+	@Getter
+	private double voteStreakRequirementMonth = 50;
+
+	@ConfigDataBoolean(path = "VoteStreak.Requirement.UsePercentage")
+	@Getter
+	private boolean voteStreakRequirementUsePercentage = false;
 
 	@Getter
 	private int formatPageSize = 10;

@@ -111,6 +111,20 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		setOfflineVotes(offlineVotes);
 	}
 
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
+		int total = getTotal(top);
+		switch (top) {
+			case Daily:
+				return total / plugin.getVoteSites().size() * 100 > percentage;
+			case Monthly:
+				return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
+			case Weekly:
+				return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
+			default:
+				return false;
+		}
+	}
+
 	/**
 	 * Adds the points.
 	 */

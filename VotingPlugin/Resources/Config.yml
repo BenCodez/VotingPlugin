@@ -685,6 +685,14 @@ VoteStreak:
       Rewards:
         Messages:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Requirement:
+    # Require certain percentage of votes
+    UsePercentage: false
+    # Percentage requirements of votes
+    # 50 = %50
+    Day: 50
+    Week: 50
+    Month: 50
           
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS

@@ -110,8 +110,11 @@ public class TopVoterHandler implements Listener {
 			if (user.getTotal(TopVoter.Daily) == 0 && user.getDayVoteStreak() != 0) {
 				user.setDayVoteStreak(0);
 			} else {
-				user.addDayVoteStreak();
-				SpecialRewards.getInstance().checkVoteStreak(user, "Day");
+				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user
+						.hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
+					user.addDayVoteStreak();
+					SpecialRewards.getInstance().checkVoteStreak(user, "Day");
+				}
 			}
 
 			if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
@@ -155,8 +158,12 @@ public class TopVoterHandler implements Listener {
 			if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 				user.setMonthVoteStreak(0);
 			} else {
-				user.addMonthVoteStreak();
-				SpecialRewards.getInstance().checkVoteStreak(user, "Month");
+				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
+						TopVoter.Monthly, Config.getInstance().getVoteStreakRequirementMonth(),
+						LocalDateTime.now().minusDays(1))) {
+					user.addMonthVoteStreak();
+					SpecialRewards.getInstance().checkVoteStreak(user, "Month");
+				}
 			}
 
 			if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
@@ -215,8 +222,11 @@ public class TopVoterHandler implements Listener {
 			if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 				user.setWeekVoteStreak(0);
 			} else {
-				user.addWeekVoteStreak();
-				SpecialRewards.getInstance().checkVoteStreak(user, "Week");
+				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
+						TopVoter.Weekly, Config.getInstance().getVoteStreakRequirementWeek(), null)) {
+					user.addWeekVoteStreak();
+					SpecialRewards.getInstance().checkVoteStreak(user, "Week");
+				}
 			}
 
 			if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
