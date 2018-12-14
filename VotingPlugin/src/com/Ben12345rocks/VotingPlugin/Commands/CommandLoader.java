@@ -2,8 +2,10 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -79,6 +81,8 @@ public class CommandLoader {
 
 	/** The plugin. */
 	static Main plugin = Main.plugin;
+
+	private Set<String> pluginCommands = new HashSet<String>();
 
 	/**
 	 * Gets the single instance of CommandLoader.
@@ -196,12 +200,9 @@ public class CommandLoader {
 		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
 			return true;
 		}
-		for (String str : plugin.getDescription().getCommands().keySet()) {
-
-			for (String str1 : plugin.getCommand(str).getAliases()) {
-				if (str1.equalsIgnoreCase(cmd)) {
-					return true;
-				}
+		for (String str : pluginCommands) {
+			if (str.equalsIgnoreCase(cmd)) {
+				return true;
 			}
 		}
 		return false;
@@ -1079,6 +1080,13 @@ public class CommandLoader {
 	 * Load aliases.
 	 */
 	public void loadAliases() {
+		pluginCommands.clear();
+		for (String str : plugin.getDescription().getCommands().keySet()) {
+			pluginCommands.add(str);
+			for (String alias : plugin.getCommand(str).getAliases()) {
+				pluginCommands.add(alias);
+			}
+		}
 		commands = new HashMap<String, CommandHandler>();
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (cmdHandle.getArgs().length > 0) {
