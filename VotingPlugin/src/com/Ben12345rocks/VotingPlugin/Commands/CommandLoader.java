@@ -2,10 +2,8 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -82,8 +80,6 @@ public class CommandLoader {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	private Set<String> pluginCommands = new HashSet<String>();
-
 	/**
 	 * Gets the single instance of CommandLoader.
 	 *
@@ -152,6 +148,11 @@ public class CommandLoader {
 		if (cmd.startsWith("votingplugin:")) {
 			cmd = cmd.substring("votingplugin:".length());
 		}
+
+		if (commands.containsKey(cmd)) {
+			return commands.get(cmd).hasPerm(player);
+		}
+
 		boolean adminCommand = false;
 
 		if (cmd.startsWith("vote")) {
@@ -200,7 +201,7 @@ public class CommandLoader {
 		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
 			return true;
 		}
-		for (String str : pluginCommands) {
+		for (String str : commands.keySet()) {
 			if (str.equalsIgnoreCase(cmd)) {
 				return true;
 			}
@@ -1080,23 +1081,20 @@ public class CommandLoader {
 	 * Load aliases.
 	 */
 	public void loadAliases() {
-		pluginCommands.clear();
-		for (String str : plugin.getDescription().getCommands().keySet()) {
-			pluginCommands.add(str);
-			for (String alias : plugin.getCommand(str).getAliases()) {
-				pluginCommands.add(alias);
-			}
-		}
 		commands = new HashMap<String, CommandHandler>();
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (cmdHandle.getArgs().length > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
+					commands.put("vote" + arg, cmdHandle);
 					try {
 						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
 
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
+						for (String str : plugin.getCommand("vote" + arg).getAliases()) {
+							commands.put(str, cmdHandle);
+						}
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /vote" + arg);
 					}
@@ -1109,11 +1107,15 @@ public class CommandLoader {
 			if (cmdHandle.getArgs().length > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
+					commands.put("adminvote" + arg, cmdHandle);
 					try {
 						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
+						for (String str : plugin.getCommand("adminvote" + arg).getAliases()) {
+							commands.put(str, cmdHandle);
+						}
 					} catch (Exception ex) {
 						plugin.debug("Failed to load command and tab completer for /adminvote" + arg + ": "
 								+ ex.getMessage());
