@@ -1052,7 +1052,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				SpecialRewards.getInstance().giveAllSitesRewards(user, user.isOnline());
 			}
 		});
@@ -1062,7 +1062,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				SpecialRewards.getInstance().giveFirstVoteRewards(user, user.isOnline());
 			}
 		});

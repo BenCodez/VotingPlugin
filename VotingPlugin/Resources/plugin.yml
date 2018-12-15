@@ -191,6 +191,39 @@ commands:
   adminvoteDownloadJenkins:
     description: Command Alias
     aliases: avDownloadJenkins
+  adminvoteAddTotal:
+    description: Command Alias
+    aliases: avTotal
+  adminvoteAddMilestoneCount:
+    description: Command Alias
+    aliases: avAddMilestoneCount
+  adminvoteSetMilestoneCount:
+    description: Command Alias
+    aliases: avSetMilestoneCount
+  adminvoteForceVoteParty:
+    description: Command Alias
+    aliases: avForceVoteParty
+  adminvoteForceMilestone:
+    description: Command Alias
+    aliases: avForceMilestone
+  adminvoteForceCummulative:
+    description: Command Alias
+    aliases: avForceCummulative
+  adminvoteForceAllSites:
+    description: Command Alias
+    aliases: avForceAllSites
+  adminvoteForceFirstVote:
+    description: Command Alias
+    aliases: avForceFirstVote
+  adminvoteForceVoteStreak:
+    description: Command Alias
+    aliases: avForceVoteStreak
+  adminvoteUserEditValue:
+    description: Command Alias
+    aliases: avUserEditValue
+  adminvoteSetRequestMethod:
+    description: Command Alias
+    aliases: avSetRequestMethod
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
