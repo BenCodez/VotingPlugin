@@ -250,7 +250,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "LoadCommandAliases")
 	@Getter
-	private boolean loadCommandAliases = false;
+	private boolean loadCommandAliases = true;
 
 	@Getter
 	private int formatPageSize = 10;

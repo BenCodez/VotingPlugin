@@ -124,6 +124,10 @@ public class Main extends JavaPlugin {
 	@Getter
 	private boolean updateStarted = false;
 
+	public AdvancedCoreHook getAdvancedCoreHook() {
+		return AdvancedCoreHook.getInstance();
+	}
+
 	/**
 	 * Check votifier.
 	 */
