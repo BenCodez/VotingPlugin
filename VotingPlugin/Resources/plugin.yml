@@ -193,7 +193,7 @@ commands:
     aliases: avDownloadJenkins
   adminvoteAddTotal:
     description: Command Alias
-    aliases: avTotal
+    aliases: avAddTotal
   adminvoteAddMilestoneCount:
     description: Command Alias
     aliases: avAddMilestoneCount
