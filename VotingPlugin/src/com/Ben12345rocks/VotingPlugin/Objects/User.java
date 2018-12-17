@@ -141,7 +141,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public long getDayVoteStreakLastUpdate() {
-		return Long.parseLong(getData().getString("DayVoteStreakLastUpdate"));
+		String str = getData().getString("DayVoteStreakLastUpdate");
+		if (str.isEmpty()) {
+			return 0;
+		}
+		return Long.parseLong(str);
 	}
 
 	public void setDayVoteStreakLastUpdate(long time) {
