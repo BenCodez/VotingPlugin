@@ -125,6 +125,29 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 	}
 
+	public void checkDayVoteStreak() {
+		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
+			if (!Config.getInstance().isVoteStreakRequirementUsePercentage()
+					|| hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
+				addDayVoteStreak();
+				SpecialRewards.getInstance().checkVoteStreak(this, "Day");
+				setDayVoteStreakLastUpdate(System.currentTimeMillis());
+			}
+		}
+	}
+
+	public boolean voteStreakUpdatedToday(LocalDateTime time) {
+		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
+	}
+
+	public long getDayVoteStreakLastUpdate() {
+		return Long.parseLong(getData().getString("DayVoteStreakLastUpdate"));
+	}
+
+	public void setDayVoteStreakLastUpdate(long time) {
+		getData().setString("DayVoteStreakLastUpdate", "" + time);
+	}
+
 	/**
 	 * Adds the points.
 	 */

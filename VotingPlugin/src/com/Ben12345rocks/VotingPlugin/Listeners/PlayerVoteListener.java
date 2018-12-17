@@ -138,6 +138,8 @@ public class PlayerVoteListener implements Listener {
 				user.addPoints();
 			}
 
+			user.checkDayVoteStreak();
+
 			// other rewards
 			SpecialRewards.getInstance().checkAllSites(user);
 			SpecialRewards.getInstance().checkCumualativeVotes(user);

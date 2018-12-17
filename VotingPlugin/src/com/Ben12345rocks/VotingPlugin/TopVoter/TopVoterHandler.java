@@ -107,13 +107,9 @@ public class TopVoterHandler implements Listener {
 	public void onDayChange(DayChangeEvent event) {
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Daily) == 0 && user.getDayVoteStreak() != 0) {
-				user.setDayVoteStreak(0);
-			} else {
-				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user
-						.hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
-					user.addDayVoteStreak();
-					SpecialRewards.getInstance().checkVoteStreak(user, "Day");
+			if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
+				if (user.getDayVoteStreak() != 0) {
+					user.setDayVoteStreak(0);
 				}
 			}
 
