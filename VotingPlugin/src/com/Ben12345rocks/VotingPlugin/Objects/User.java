@@ -458,6 +458,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				return getData().getInt("MonthTotal");
 			case Weekly:
 				return getUserData().getInt("WeeklyTotal");
+			default:
+				break;
 		}
 		return 0;
 	}

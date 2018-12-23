@@ -264,7 +264,6 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "VoteRoulette" },
 				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from VoteRoulette") {
 
-			@SuppressWarnings("static-access")
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
