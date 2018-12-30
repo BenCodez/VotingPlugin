@@ -307,16 +307,18 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "SetPoints", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetPoints", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				user.setPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cSet " + args[1] + " points to " + args[2]));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.setPoints(Integer.parseInt(args[3]));
+						sender.sendMessage(
+								StringUtils.getInstance().colorize("&cSet " + args[1] + " points to " + args[3]));
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones" },
 				"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm, "Resync Milestones") {
@@ -333,29 +335,31 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "AddPoints", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "AddPoints", "(number)" },
+						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				user.addPoints(Integer.parseInt(args[2]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[2] + " points"
-						+ ", " + args[1] + " now has " + user.getPoints() + " points"));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.addPoints(Integer.parseInt(args[3]));
+						sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[3]
+								+ " points" + ", " + args[1] + " now has " + user.getPoints() + " points"));
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "RemovePoints", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "RemovePoints", "(number)" },
+						"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				user.removePoints(Integer.parseInt(args[2]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cRemoved " + args[2] + " points from " + args[1]
-						+ ", " + args[1] + " now has " + user.getPoints() + " points"));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.removePoints(Integer.parseInt(args[3]));
+						sender.sendMessage(StringUtils.getInstance().colorize("&cRemoved " + args[3] + " points from "
+								+ args[1] + ", " + args[1] + " now has " + user.getPoints() + " points"));
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Help&?" },
 				"VotingPlugin.Commands.AdminVote.Help|" + adminPerm, "See this page") {
@@ -610,58 +614,37 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "SetTotal", "Month", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetTotal.Month|" + adminPerm, "Set month totals for player") {
+		for (final TopVoter top : TopVoter.values()) {
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(new String[] { "User", "(player)", "SetTotal", top.toString(), "(number)" },
+							"VotingPlugin.Commands.AdminVote.SetTotal." + top.toString() + "|" + adminPerm,
+							"Set " + top.toString() + " totals for player") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Monthly,
-								Integer.parseInt(args[3]));
-						sender.sendMessage(StringUtils.getInstance()
-								.colorize("&cSet month total for '" + args[2] + "' to " + args[3]));
-					}
-				});
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							UserManager.getInstance().getVotingPluginUser(args[1]).setTotal(top,
+									Integer.parseInt(args[4]));
+							sender.sendMessage(StringUtils.getInstance().colorize(
+									"&cSet " + top.toString() + " total for '" + args[1] + "' to " + args[4]));
+						}
+					});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "SetTotal", "AllTime", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetTotal.AllTime|" + adminPerm,
-						"Set alltime totals for player") {
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(new String[] { "User", "(player)", "AddTotal", top.toString(), "(number)" },
+							"VotingPlugin.Commands.AdminVote.AddTotal." + top.toString() + "|" + adminPerm,
+							"Add " + top.toString() + " totals for player") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.AllTime,
-								Integer.parseInt(args[3]));
-						sender.sendMessage(StringUtils.getInstance()
-								.colorize("&cSet alltime total for '" + args[2] + "' to " + args[3]));
-					}
-				});
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							user.setTotal(top, user.getTotal(top) + Integer.parseInt(args[4]));
+							sender.sendMessage(StringUtils.getInstance()
+									.colorize("&cAdded " + top.toString() + " total for " + args[1]));
+						}
+					});
+		}
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "SetTotal", "Week", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetTotal.Week|" + adminPerm, "Set week totals for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Weekly,
-						Integer.parseInt(args[3]));
-				sender.sendMessage(
-						StringUtils.getInstance().colorize("&cSet week total for '" + args[2] + "' to " + args[3]));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "SetTotal", "Day", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetTotal.Day|" + adminPerm, "Set day totals for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				UserManager.getInstance().getVotingPluginUser(args[2]).setTotal(TopVoter.Daily,
-						Integer.parseInt(args[3]));
-				sender.sendMessage(
-						StringUtils.getInstance().colorize("&cSet day total for '" + args[2] + "' to " + args[3]));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ClearTotal", "(player)" },
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ClearTotal" },
 				"VotingPlugin.Commands.AdminVote.ClearTotal|" + adminPerm, "Clear Totals for player") {
 
 			@Override
@@ -673,73 +656,26 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "AddTotal", "Month", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.AddTotal.Month|" + adminPerm, "Add month totals for player") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-						user.setTotal(TopVoter.Monthly, user.getTotal(TopVoter.Monthly) + Integer.parseInt(args[3]));
-						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded month total for " + args[2]));
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "AddTotal", "AllTime", "(player)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.AddTotal.AllTime|" + adminPerm,
-						"Add alltime totals for player") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-						user.setTotal(TopVoter.AllTime, user.getTotal(TopVoter.AllTime) + Integer.parseInt(args[3]));
-						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded alltime total for " + args[2]));
-					}
-				});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "AddTotal", "Week", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.AddTotal.Week|" + adminPerm, "Add week totals for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-				user.setTotal(TopVoter.Weekly, user.getTotal(TopVoter.Weekly) + Integer.parseInt(args[3]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cAdded week total for " + args[2]));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "AddTotal", "Day", "(player)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.AddTotal.Day|" + adminPerm, "Add day totals for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-				user.setTotal(TopVoter.Daily, user.getTotal(TopVoter.Daily) + Integer.parseInt(args[3]));
-				sender.sendMessage(StringUtils.getInstance().colorize("&cAdded day total for " + args[2]));
-			}
-		});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "AddMilestoneCount", "(player)", "(number)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "AddMilestoneCount", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddMilestoneCount|" + adminPerm, "Add milestonecount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[2]));
+						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
 						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "SetMilestoneCount", "(player)", "(number)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetMilestoneCount", "(number)" },
 						"VotingPlugin.Commands.AdminVote.SetMilestoneCount|" + adminPerm, "Set milestonecount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.setMilestoneCount(Integer.parseInt(args[2]));
+						user.setMilestoneCount(Integer.parseInt(args[3]));
 						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}

@@ -793,6 +793,13 @@ PointsOnVote: 1
 # Not really recommended
 AddTotals: true
 
+# Click sound when using gui
+# Set to none for no sound
+ClickSound: 
+  Sound: 'UI_BUTTON_CLICK'
+  Volume: 1.0
+  Pitch: 1.0
+
 # Debug
 Debug: false
 
