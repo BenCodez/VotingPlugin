@@ -108,18 +108,9 @@ commands:
   adminvotevote:
     description: Command Alias
     aliases: [avvote, fakevote]
-  adminvotesetpoints:
-    description: Command Alias
-    aliases: avsetpoints
-  adminvoteaddpoints:
-    description: Command Alias
-    aliases: avaddpoints
   adminvotegui:
     description: Command Alias
     aliases: avgui
-  votesetrequestmethod:
-    description: Command Alias
-    aliases: [vsetrequestmethod, setrequesetmethod]
   adminvotegivereward:
     description: Command Alias
     aliases: avgivereward
@@ -140,9 +131,6 @@ commands:
   adminvoteConvertFrom:
     description: Command Alias
     aliases: avConvertFrom
-  adminvoteRemovePoints:
-    description: Command Alias
-    aliases: avRemovePoints
   adminvoteServiceSites:
     description: Command Alias
     aliases: avServiceSites
@@ -191,33 +179,9 @@ commands:
   adminvoteDownloadJenkins:
     description: Command Alias
     aliases: avDownloadJenkins
-  adminvoteAddTotal:
-    description: Command Alias
-    aliases: avAddTotal
-  adminvoteAddMilestoneCount:
-    description: Command Alias
-    aliases: avAddMilestoneCount
-  adminvoteSetMilestoneCount:
-    description: Command Alias
-    aliases: avSetMilestoneCount
   adminvoteForceVoteParty:
     description: Command Alias
     aliases: avForceVoteParty
-  adminvoteForceMilestone:
-    description: Command Alias
-    aliases: avForceMilestone
-  adminvoteForceCummulative:
-    description: Command Alias
-    aliases: avForceCummulative
-  adminvoteForceAllSites:
-    description: Command Alias
-    aliases: avForceAllSites
-  adminvoteForceFirstVote:
-    description: Command Alias
-    aliases: avForceFirstVote
-  adminvoteForceVoteStreak:
-    description: Command Alias
-    aliases: avForceVoteStreak
   adminvoteUserEditValue:
     description: Command Alias
     aliases: avUserEditValue
