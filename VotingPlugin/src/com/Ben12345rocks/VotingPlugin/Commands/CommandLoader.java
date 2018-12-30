@@ -677,7 +677,8 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[3]));
 						SpecialRewards.getInstance().checkMilestone(user);
-						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+						sender.sendMessage(StringUtils.getInstance()
+								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
 					}
 				});
 
@@ -698,6 +699,27 @@ public class CommandLoader {
 
 			}
 		});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "(Sitename)" },
+						"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[3]), args[1], args[3],
+								false);
+						sendMessage(sender, "&cTriggering vote...");
+						if (voteEvent.getVoteSite() != null) {
+							if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+								sendMessage(sender,
+										"&cPossible issue with service site, has the server gotten the vote from "
+												+ voteEvent.getServiceSite() + "?");
+							}
+						}
+						plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "Create" },
 				"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Create VoteSite") {
@@ -962,27 +984,29 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ForceMilestone", "(Number)", "(Player)" },
-				"VotingPlugin.Commands.AdminVote.ForceMilestone|" + adminPerm, "Force a milestone") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceMilestone", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.ForceMilestone|" + adminPerm, "Force a milestone") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-				SpecialRewards.getInstance().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[1]));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						SpecialRewards.getInstance().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[3]));
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ForceCummulative", "(Number)", "(Player)" },
-				"VotingPlugin.Commands.AdminVote.ForceCummulative|" + adminPerm, "Force a cummulative reward") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceCummulative", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.ForceCummulative|" + adminPerm, "Force a cummulative reward") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[2]);
-				SpecialRewards.getInstance().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[1]));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						SpecialRewards.getInstance().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]));
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ForceAllSites", "(Player)" },
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ForceAllSites" },
 				"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a allsites reward") {
 
 			@Override
@@ -992,7 +1016,7 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ForceFirstVote", "(Player)" },
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ForceFirstVote" },
 				"VotingPlugin.Commands.AdminVote.ForceFirstVote|" + adminPerm, "Force a firstvote reward") {
 
 			@Override
@@ -1003,14 +1027,14 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "ForceVoteStreak", "(Text)", "(Number)", "(Player)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", "(Text)", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm, "Force a votestreak reward") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						User user = UserManager.getInstance().getVotingPluginUser(args[3]);
-						SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[1], args[2],
-								parseInt(args[2]));
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[3], args[4],
+								parseInt(args[4]));
 					}
 				});
 
