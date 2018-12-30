@@ -682,6 +682,19 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetData", "(DataKeys)", "(text)" },
+						"VotingPlugin.Commands.AdminVote.SetData|" + adminPerm, "Set data") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.getData().setString(args[3], args[4]);
+						sender.sendMessage(StringUtils.getInstance()
+								.colorize("&cSet " + args[3] + " for " + args[1] + " to " + args[4]));
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
