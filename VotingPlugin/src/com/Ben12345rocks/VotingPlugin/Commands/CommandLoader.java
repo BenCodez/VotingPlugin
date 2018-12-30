@@ -683,7 +683,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "SetData", "(DataKeys)", "(text)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetData", "(Text)", "(text)" },
 						"VotingPlugin.Commands.AdminVote.SetData|" + adminPerm, "Set data") {
 
 					@Override
