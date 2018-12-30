@@ -224,6 +224,9 @@ commands:
   adminvoteSetRequestMethod:
     description: Command Alias
     aliases: avSetRequestMethod
+  adminvoteUser:
+    description: Command Alias
+    aliases: avUser
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands

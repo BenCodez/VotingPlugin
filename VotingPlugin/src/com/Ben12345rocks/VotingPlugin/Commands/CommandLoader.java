@@ -713,6 +713,18 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ViewData" },
+				"VotingPlugin.Commands.AdminVote.ViewData|" + adminPerm, "View playerdata") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				for (String key : user.getData().getKeys()) {
+					user.sendMessage("&c&l" + key + " &c" + user.getData().getString(key));
+				}
+			}
+		});
+
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "(Sitename)" },
 						"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
@@ -1083,14 +1095,14 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "" },
-				"VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
+		plugin.getAdminVoteCommand().add(
+				new CommandHandler(new String[] {}, "VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cInvalid command, see /adminvote help");
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cInvalid command, see /adminvote help");
+					}
+				});
 
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
