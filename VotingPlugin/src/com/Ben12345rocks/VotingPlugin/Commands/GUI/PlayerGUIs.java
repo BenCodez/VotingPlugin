@@ -457,6 +457,7 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
+	@SuppressWarnings("deprecation")
 	public void openVoteTop(Player player, TopVoter top) {
 		if (top == null) {
 			top = TopVoter.getDefault();
@@ -472,13 +473,15 @@ public class PlayerGUIs {
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
 
-			inv.addButton(new BInventoryButton(
-					new ItemBuilder(MiscUtils.getInstance().setSkullOwner(entry.getKey().getOfflinePlayer()))
-							.setName(Config.getInstance().getGUIVoteTopItemName())
-							.addLoreLine(Config.getInstance().getGUIVoteTopItemLore())
-							.addPlaceholder("position", "" + pos)
-							.addPlaceholder("player", entry.getKey().getPlayerName())
-							.addPlaceholder("votes", "" + entry.getValue())) {
+			ItemBuilder skull = entry.getKey().getPlayerHead();
+			if (skull == null) {
+				skull = new ItemBuilder(Material.PLAYER_HEAD, 1).setSkullOwner(entry.getKey().getPlayerName());
+			}
+
+			inv.addButton(new BInventoryButton(skull.setName(Config.getInstance().getGUIVoteTopItemName())
+					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
+					.addPlaceholder("player", entry.getKey().getPlayerName())
+					.addPlaceholder("votes", "" + entry.getValue())) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
