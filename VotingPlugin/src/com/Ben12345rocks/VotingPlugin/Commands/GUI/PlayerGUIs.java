@@ -475,6 +475,7 @@ public class PlayerGUIs {
 
 			ItemBuilder skull = entry.getKey().getPlayerHead();
 			if (skull == null) {
+				plugin.debug("Skull not loaded");
 				skull = new ItemBuilder(Material.PLAYER_HEAD, 1).setSkullOwner(entry.getKey().getPlayerName());
 			}
 
@@ -485,14 +486,10 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					// ItemBuilder item = new ItemBuilder(clickEvent.getClickedItem());
-					// String name = ChatColor.stripColor(item.getName()).split(":")[1].trim();
-					String name = (String) clickEvent.getButton().getData("player");
-
-					User user = UserManager.getInstance().getVotingPluginUser(name);
+					User user = (User) getData("User");
 					openVoteGUI(player, user);
 				}
-			}.addData("player", entry.getKey().getPlayerName()));
+			}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
 			pos++;
 		}
 
