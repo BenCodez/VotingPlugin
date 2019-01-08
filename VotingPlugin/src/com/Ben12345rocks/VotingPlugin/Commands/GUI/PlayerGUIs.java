@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -161,30 +162,36 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					Player player = event.getWhoClicked();
-					String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
-					User user = getSelectedPlayer(player);
-					if (!cmd.equals("")) {
-						player.performCommand(cmd);
-					} else {
-						if (slot.equalsIgnoreCase("url")) {
-							openVoteURL(player);
-						} else if (slot.equalsIgnoreCase("next")) {
-							openVoteNext(player, user);
-						} else if (slot.equalsIgnoreCase("last")) {
-							openVoteLast(player, user);
-						} else if (slot.equalsIgnoreCase("total")) {
-							openVoteTotal(player, user);
-						} else if (slot.equalsIgnoreCase("top")) {
-							openVoteTop(player, null);
-						} else if (slot.equalsIgnoreCase("today")) {
-							openVoteToday(player);
-						} else if (slot.equalsIgnoreCase("help")) {
-							player.performCommand("vote help");
-						} else if (slot.equalsIgnoreCase("shop")) {
-							openVoteShop(player);
+					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Player player = event.getWhoClicked();
+							String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
+							User user = getSelectedPlayer(player);
+							if (!cmd.equals("")) {
+								player.performCommand(cmd);
+							} else {
+								if (slot.equalsIgnoreCase("url")) {
+									openVoteURL(player);
+								} else if (slot.equalsIgnoreCase("next")) {
+									openVoteNext(player, user);
+								} else if (slot.equalsIgnoreCase("last")) {
+									openVoteLast(player, user);
+								} else if (slot.equalsIgnoreCase("total")) {
+									openVoteTotal(player, user);
+								} else if (slot.equalsIgnoreCase("top")) {
+									openVoteTop(player, null);
+								} else if (slot.equalsIgnoreCase("today")) {
+									openVoteToday(player);
+								} else if (slot.equalsIgnoreCase("help")) {
+									player.performCommand("vote help");
+								} else if (slot.equalsIgnoreCase("shop")) {
+									openVoteShop(player);
+								}
+							}
 						}
-					}
+					});
 
 				}
 			});
