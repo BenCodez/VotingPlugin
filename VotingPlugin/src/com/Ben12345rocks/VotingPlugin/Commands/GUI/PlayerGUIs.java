@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -464,7 +465,6 @@ public class PlayerGUIs {
 		inv.openInventory(player);
 	}
 
-	@SuppressWarnings("deprecation")
 	public void openVoteTop(Player player, TopVoter top) {
 		if (top == null) {
 			top = TopVoter.getDefault();
@@ -480,11 +480,9 @@ public class PlayerGUIs {
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
 
-			ItemBuilder skull = entry.getKey().getPlayerHead();
-			if (skull == null) {
-				plugin.debug("Skull not loaded");
-				skull = new ItemBuilder(Material.PLAYER_HEAD, 1).setSkullOwner(entry.getKey().getPlayerName());
-			}
+			ItemBuilder skull = new ItemBuilder(entry.getKey().getPlayerHead());
+
+			skull.setLore(new ArrayList<String>());
 
 			inv.addButton(new BInventoryButton(skull.setName(Config.getInstance().getGUIVoteTopItemName())
 					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
