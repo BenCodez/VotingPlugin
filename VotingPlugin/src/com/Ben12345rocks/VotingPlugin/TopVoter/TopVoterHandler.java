@@ -574,7 +574,6 @@ public class TopVoterHandler implements Listener {
 			if (!blackList.contains(user.getPlayerName())) {
 				if ((!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())
 						&& !user.isBanned()) {
-					user.preloadSkull();
 					users.add(user);
 				}
 			}
