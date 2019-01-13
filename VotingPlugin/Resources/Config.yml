@@ -442,6 +442,11 @@ GUI:
     # Number of topvoters to display on page +9
     # 9 Slots on the botton are used for page buttons
     Size: 27
+    # If true, /vote top will show player heads
+    UseSkull: true
+    # Item for player in GUI if use skull is false
+    PlayerItem:
+      Material: 'PAPER'
   VoteTotal:
     Name: 'VoteTotal: %player%'
     BackButton: true

@@ -479,12 +479,17 @@ public class PlayerGUIs {
 
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
+			ItemBuilder playerItem;
 
-			ItemBuilder skull = new ItemBuilder(entry.getKey().getPlayerHead());
+			if (Config.getInstance().isGuiVoteTopUseSkull()) {
+				playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
+			} else {
+				playerItem = new ItemBuilder(Material.valueOf(Config.getInstance().getGuiVoteTopPlayerItemMaterial()));
+			}
 
-			skull.setLore(new ArrayList<String>());
+			playerItem.setLore(new ArrayList<String>());
 
-			inv.addButton(new BInventoryButton(skull.setName(Config.getInstance().getGUIVoteTopItemName())
+			inv.addButton(new BInventoryButton(playerItem.setName(Config.getInstance().getGUIVoteTopItemName())
 					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
 					.addPlaceholder("player", entry.getKey().getPlayerName())
 					.addPlaceholder("votes", "" + entry.getValue())) {

@@ -252,6 +252,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean loadCommandAliases = true;
 
+	@ConfigDataBoolean(path = "GUI.VoteTop.UseSkull")
+	@Getter
+	private boolean guiVoteTopUseSkull = true;
+
+	@ConfigDataString(path = "GUI.VoteTop.PlayerItem.Material")
+	@Getter
+	private String guiVoteTopPlayerItemMaterial = "PAPER";
+
 	@Getter
 	private int formatPageSize = 10;
 
