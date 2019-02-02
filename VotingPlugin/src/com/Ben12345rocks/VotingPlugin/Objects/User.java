@@ -483,12 +483,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public void giveDailyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily").send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily").setOnline(isOnline())
+				.send(this);
 	}
 
 	public void giveMonthlyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly").send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly").setOnline(isOnline())
+				.send(this);
 	}
 
 	public void giveOfflineOtherRewards() {
@@ -543,7 +545,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public void giveWeeklyTopVoterAward(int place, String path) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly").send(this);
+				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly").setOnline(isOnline())
+				.send(this);
 	}
 
 	/**
