@@ -278,5 +278,12 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/SuperbVote-0.5.3.jar</systemPath>
 		</dependency>
+		<dependency>
+			<groupId>be.maximvdw</groupId>
+			<artifactId>MVdWPlaceholderAPI</artifactId>
+			<version>LATEST</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
+		</dependency>
 	</dependencies>
 </project>

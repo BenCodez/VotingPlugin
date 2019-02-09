@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -16,6 +17,9 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 
+import be.maximvdw.placeholderapi.PlaceholderAPI;
+import be.maximvdw.placeholderapi.PlaceholderReplaceEvent;
+import be.maximvdw.placeholderapi.PlaceholderReplacer;
 import lombok.Getter;
 
 // TODO: Auto-generated Javadoc
@@ -480,5 +484,43 @@ public class PlaceHolders {
 				return Integer.toString(VoteParty.getInstance().getVotesRequired());
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
+	}
+
+	public void loadMVdWPlaceholders() {
+		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
+			// The plugin is enabled
+			for (final PlaceHolder place : getPlaceholders()) {
+				String str = place.getIdentifier();
+				if (!str.endsWith("_")) {
+					PlaceholderAPI.registerPlaceholder(Main.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {
+
+						@Override
+						public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
+							return place.placeholderRequest(event.getOfflinePlayer(),
+									UserManager.getInstance().getVotingPluginUser(event.getOfflinePlayer()),
+									event.getPlaceholder().substring("VotingPlugin_".length()));
+						}
+
+					});
+				}
+
+			}
+
+			for (final PlaceHolder place : getNonPlayerPlaceholders()) {
+				String str = place.getIdentifier();
+				if (!str.endsWith("_")) {
+					PlaceholderAPI.registerPlaceholder(Main.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {
+
+						@Override
+						public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
+							return place.placeholderRequest(event.getOfflinePlayer(), null,
+									event.getPlaceholder().substring("VotingPlugin_".length()));
+						}
+
+					});
+				}
+
+			}
+		}
 	}
 }

@@ -755,6 +755,7 @@ public class Main extends JavaPlugin {
 		loadTimer();
 
 		PlaceHolders.getInstance().load();
+		PlaceHolders.getInstance().loadMVdWPlaceholders();
 
 		// set columns
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
