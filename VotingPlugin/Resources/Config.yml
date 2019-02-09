@@ -898,6 +898,10 @@ DisableAdvancedTab: false
 # Requires restart to take effect
 LoadCommandAliases: true
 
+# Wait until user is logged in with AuthMe
+# Requires AuthMe
+WaitUntilLoggedIn: true
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database

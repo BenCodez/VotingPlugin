@@ -4,9 +4,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Listeners.AdvancedCoreLoginEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -19,6 +19,7 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 public class PlayerJoinEvent implements Listener {
 
 	/** The plugin. */
+	@SuppressWarnings("unused")
 	private static Main plugin;
 
 	/**
@@ -38,31 +39,22 @@ public class PlayerJoinEvent implements Listener {
 	 *            the event
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-	public void onPlayerLogin(PlayerLoginEvent event) {
-		plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
+		if (event.getPlayer() == null || (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
+				&& AdvancedCoreHook.getInstance().getMysql() == null)) {
+			return;
+		}
+		Player player = event.getPlayer();
 
-			@Override
-			public void run() {
-				if (event.getPlayer() == null
-						|| (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-								&& AdvancedCoreHook.getInstance().getMysql() == null)) {
-					return;
-				}
-				Player player = event.getPlayer();
+		User user = UserManager.getInstance().getVotingPluginUser(player);
 
-				if (player != null) {
-					User user = UserManager.getInstance().getVotingPluginUser(player);
+		// run remind
+		user.loginMessage();
 
-					// run remind
-					user.loginMessage();
-
-					if (user.getData().hasData()) {
-						// give offline vote (if they voted offline)
-						user.offVote();
-					}
-				}
-			}
-		}, 20L);
+		if (user.getData().hasData()) {
+			// give offline vote (if they voted offline)
+			user.offVote();
+		}
 
 	}
 }
