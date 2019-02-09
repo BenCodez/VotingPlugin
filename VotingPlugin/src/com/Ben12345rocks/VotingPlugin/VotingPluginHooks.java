@@ -7,7 +7,7 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 public class VotingPluginHooks {
 	private static VotingPluginHooks instance = new VotingPluginHooks();
 
-	public VotingPluginHooks getInstance() {
+	public static VotingPluginHooks getInstance() {
 		return instance;
 	}
 
