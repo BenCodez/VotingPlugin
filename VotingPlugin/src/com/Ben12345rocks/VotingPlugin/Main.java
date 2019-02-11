@@ -68,6 +68,7 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.MVdWPlaceholders;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -755,8 +756,8 @@ public class Main extends JavaPlugin {
 		loadTimer();
 
 		PlaceHolders.getInstance().load();
-		
-		PlaceHolders.getInstance().loadMVdWPlaceholders();
+
+		MVdWPlaceholders.getInstance().loadMVdWPlaceholders();
 
 		// set columns
 		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
