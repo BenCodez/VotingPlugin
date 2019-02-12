@@ -567,7 +567,7 @@ Shop:
     Permission: ''
     # Limit how many times you can buy this
     #Limit: 3
-    # Rewards to run if player buys succesfully
+    # Rewards to run if player buys successfully
     Rewards:
       Items:
         Diamond:
