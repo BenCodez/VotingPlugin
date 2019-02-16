@@ -887,6 +887,9 @@ AutoDownload: false
 # Whether or not to disable update checks
 DisableUpdateChecking: false
 
+# Allow transfer of vote points
+AllowVotePointTransfers: false
+
 # Disable this on a hub server for example
 # Still processes rewards for offline rewards (just won't give any)
 ProcessRewards: true

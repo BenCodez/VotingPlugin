@@ -260,6 +260,10 @@ public class Config extends YMLFile {
 	@Getter
 	private String guiVoteTopPlayerItemMaterial = "PAPER";
 
+	@ConfigDataBoolean(path = "AllowVotePointTransfers")
+	@Getter
+	private boolean allowVotePointTransfers = false;
+
 	@Getter
 	private int formatPageSize = 10;
 

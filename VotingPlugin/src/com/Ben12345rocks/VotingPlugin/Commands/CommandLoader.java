@@ -1981,6 +1981,34 @@ public class CommandLoader {
 			}
 		});
 
+		if (Config.getInstance().isAllowVotePointTransfers()) {
+			plugin.getVoteCommand()
+					.add(new CommandHandler(new String[] { "GivePoints", "(player)", "(number)" },
+							"VotingPlugin.Commands.Vote.GivePoints|" + playerPerm,
+							"Give someone points from your points", false) {
+
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							if (Config.getInstance().isAllowVotePointTransfers()) {
+								User cPlayer = UserManager.getInstance().getVotingPluginUser((Player) sender);
+
+								User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+								int pointsToGive = Integer.parseInt(args[2]);
+								if (cPlayer.getPoints() > pointsToGive) {
+									user.addPoints(pointsToGive);
+									cPlayer.removePoints(pointsToGive);
+									sendMessage(sender,
+											"&c" + pointsToGive + " points given to " + user.getPlayerName());
+									user.sendMessage("&cYou received " + pointsToGive + " points from "
+											+ cPlayer.getPlayerName());
+								} else {
+									sendMessage(sender, "&cNot enough points");
+								}
+							}
+						}
+					});
+		}
+
 		plugin.getVoteCommand().add(
 				new CommandHandler(new String[] {}, "VotingPlugin.Commands.Vote|" + playerPerm, "See voting URLs") {
 
