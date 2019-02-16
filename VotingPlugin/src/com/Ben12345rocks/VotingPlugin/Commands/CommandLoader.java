@@ -1994,7 +1994,7 @@ public class CommandLoader {
 
 								User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 								int pointsToGive = Integer.parseInt(args[2]);
-								if (cPlayer.getPoints() > pointsToGive) {
+								if (cPlayer.getPoints() >= pointsToGive) {
 									user.addPoints(pointsToGive);
 									cPlayer.removePoints(pointsToGive);
 									sendMessage(sender,
