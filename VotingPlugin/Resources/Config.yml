@@ -42,12 +42,12 @@ AllowUnjoined: false
 VoteReminding:
   # Enable vote reminding
   # This will remind player when he can vote on all sites
-  # Requires VoteDelay's to be setup properly
+  # Requires VoteDelays to be setup properly
   # Use /vote next to see when you can be reminded
   # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
   Enabled: true
 
-  # Wether or t to remind only once when the player can vote
+  # Whether or not to remind only once when the player can vote
   # Does not apply to login reminds.
   RemindOnlyOnce: true
 
@@ -91,7 +91,7 @@ VoteReminding:
 # Set Message to '' (2 ') to disable message
 
 Commands:
-  # Wether or not the following commands will open GUIs rather than display text
+  # Whether or not the following commands will open GUIs rather than display text
   UseGUI:
     Today: true
     TopVoter: true
@@ -831,7 +831,7 @@ RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
   
-# Wether or not to log every vote to a file
+# Whether or not to log every vote to a file
 # Use this if you wanna track player votes
 # Not recommended though
 LogVotesToFile: false
