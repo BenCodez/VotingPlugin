@@ -705,6 +705,14 @@ public class Main extends JavaPlugin {
 	public void onEnable() {
 		plugin = this;
 
+		// disable plugin for older versions below 1.12
+		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11")) {
+			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
+					+ ", this version is not supported on this build. Disabling");
+			Bukkit.getPluginManager().disablePlugin(plugin);
+			return;
+		}
+
 		setupFiles();
 		loadVoteSites();
 		AdvancedCoreHook.getInstance().setJenkinsSite("ben12345rocks.com");
@@ -842,7 +850,7 @@ public class Main extends JavaPlugin {
 			}, 30l);
 		}
 
-		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
+		if (NMSManager.getInstance().isVersion("1.12")) {
 			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
 					+ ", this version is not supported on this build. Support is limited");
 		}
