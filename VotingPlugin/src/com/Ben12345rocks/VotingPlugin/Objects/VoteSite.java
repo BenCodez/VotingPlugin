@@ -126,6 +126,8 @@ public class VoteSite {
 			}
 
 			MiscUtils.getInstance().broadcast(bc, players);
+		} else {
+			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
 		}
 	}
 
