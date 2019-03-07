@@ -888,7 +888,13 @@ public class Commands {
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("player", user.getPlayerName());
+				placeholders.put("votesite", voteSite.getKey());
+				placeholders.put("time", timeString);
+				msg.add(StringUtils.getInstance()
+						.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteTodayLine(), placeholders));
+			//	msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
 			}
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);

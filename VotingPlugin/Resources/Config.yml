@@ -224,6 +224,9 @@ Format:
         - '&3Highest Week Streak: &3&l%BestWeeklyStreak%'
         - '&3Highest Month Streak: &3&l%BestMonthlyStreak%'
         
+      Today:
+        Line: '&6%player% : %VoteSite% : %Time%'
+        
       # PlaceHolders:
       # %VotesRequired% = VotesRequired
       # %NeededVotes% = Number of votes needed to reach VotesRequired

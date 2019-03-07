@@ -267,6 +267,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int formatPageSize = 10;
 
+	@ConfigDataString(path = "Format.Commands.Vote.Today.Line")
+	@Getter
+	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
+
 	/**
 	 * Instantiates a new config.
 	 */
