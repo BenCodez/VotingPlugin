@@ -285,9 +285,16 @@ Format:
   # User not exist message, from commands such as /vote next (player)
   UserNotExist: '&cUser does not exist: %player%'
   
-  # Text for page buttons in inventories
-  PrevPage: '&aPrevious Page'
-  NextPage: '&aNext Page'
+  # Prev/Next page tems in GUIs
+  PrevItem:
+    Material: 'BLACK_STAINED_GLASS_PANE'
+    Amount: 1
+    Name: '&aPrevious Page'
+    
+  NextItem:
+    Material: 'BLACK_STAINED_GLASS_PANE'
+    Amount: 1
+    Name: '&aNext Page'
   
   InvFull: '&cInventory full, dropping items on ground'
   
