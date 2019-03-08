@@ -706,7 +706,7 @@ public class Main extends JavaPlugin {
 		plugin = this;
 
 		// disable plugin for older versions below 1.12
-		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11")) {
+		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
 			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
 					+ ", this version is not supported on this build. Disabling");
 			Bukkit.getPluginManager().disablePlugin(plugin);
@@ -848,11 +848,6 @@ public class Main extends JavaPlugin {
 							"Detected an issue with voting sites, check the plugin startup log for more details");
 				}
 			}, 30l);
-		}
-
-		if (NMSManager.getInstance().isVersion("1.12")) {
-			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
-					+ ", this version is not supported on this build. Support is limited");
 		}
 	}
 

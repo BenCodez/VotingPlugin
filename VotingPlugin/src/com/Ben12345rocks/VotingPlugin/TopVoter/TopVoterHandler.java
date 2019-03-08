@@ -25,7 +25,6 @@ import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.WeekChangeEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Skull.SkullHandler;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -576,7 +575,6 @@ public class TopVoterHandler implements Listener {
 				if ((!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())
 						&& !user.isBanned()) {
 					users.add(user);
-					SkullHandler.getInstance().loadSkull(user.getPlayerName());
 				}
 			}
 		}
