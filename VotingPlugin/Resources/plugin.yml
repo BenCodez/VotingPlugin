@@ -64,6 +64,9 @@ commands:
   votechoices:
     description: A command
     alaises: vchoices
+  votegivepoints:
+    description: A command
+    alaises: vgivepoints
   adminvotehelp:
     description: Open adminvote help
     aliases: avhelp
