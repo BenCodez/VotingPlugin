@@ -915,6 +915,10 @@ LoadCommandAliases: true
 # Requires AuthMe
 WaitUntilLoggedIn: true
 
+# Preload skulls to improve performance
+# If false, skulls will be cached as they are used
+PreloadSkulls: true
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database
