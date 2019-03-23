@@ -480,5 +480,53 @@ public class PlaceHolders {
 				return Integer.toString(VoteParty.getInstance().getVotesRequired());
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
+
+		nonPlayerPlaceholders.add(new PlaceHolder("GlobalMonthTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int total = 0;
+				for (int num : Main.plugin.getTopVoter(TopVoter.Monthly).values()) {
+					total += num;
+				}
+				return Integer.toString(total);
+			}
+		}.withDescription("Global month total"));
+
+		nonPlayerPlaceholders.add(new PlaceHolder("GlobalAllTimeTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int total = 0;
+				for (int num : Main.plugin.getTopVoter(TopVoter.AllTime).values()) {
+					total += num;
+				}
+				return Integer.toString(total);
+			}
+		}.withDescription("Global alltime total"));
+
+		nonPlayerPlaceholders.add(new PlaceHolder("GlobalWeeklyTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int total = 0;
+				for (int num : Main.plugin.getTopVoter(TopVoter.Weekly).values()) {
+					total += num;
+				}
+				return Integer.toString(total);
+			}
+		}.withDescription("Global weekly total"));
+
+		nonPlayerPlaceholders.add(new PlaceHolder("GlobalDailyTotal") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				int total = 0;
+				for (int num : Main.plugin.getTopVoter(TopVoter.Daily).values()) {
+					total += num;
+				}
+				return Integer.toString(total);
+			}
+		}.withDescription("Global daily total"));
 	}
 }
