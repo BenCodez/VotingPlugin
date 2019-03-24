@@ -80,6 +80,8 @@ public class CommandLoader {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
+	private Object pointLock = new Object();
+	
 	/**
 	 * Gets the single instance of CommandLoader.
 	 *
@@ -342,7 +344,9 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.addPoints(Integer.parseInt(args[3]));
+						synchronized (pointLock) {
+							user.addPoints(Integer.parseInt(args[3]));
+						}
 						sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[3]
 								+ " points" + ", " + args[1] + " now has " + user.getPoints() + " points"));
 					}

@@ -177,7 +177,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		if (event.isCancelled()) {
 			return;
 		}
-
 		setPoints(getPoints() + event.getPoints());
 	}
 
