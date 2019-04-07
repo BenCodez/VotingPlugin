@@ -170,10 +170,16 @@ public class PlayerGUIs {
 							Player player = event.getWhoClicked();
 							String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
 							User user = getSelectedPlayer(player);
-							if (!cmd.equals("")) {
-								player.performCommand(cmd);
-							} else if (cmd.equalsIgnoreCase("none")) {
+							if (cmd.equalsIgnoreCase("none")) {
 								return;
+							} else if (!cmd.equals("")) {
+								Bukkit.getScheduler().runTask(plugin, new Runnable() {
+									
+									@Override
+									public void run() {
+										player.performCommand(cmd);
+									}
+								});
 							} else {
 								if (slot.equalsIgnoreCase("url")) {
 									openVoteURL(player);
