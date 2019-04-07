@@ -172,6 +172,8 @@ public class PlayerGUIs {
 							User user = getSelectedPlayer(player);
 							if (!cmd.equals("")) {
 								player.performCommand(cmd);
+							} else if (cmd.equalsIgnoreCase("none")) {
+								return;
 							} else {
 								if (slot.equalsIgnoreCase("url")) {
 									openVoteURL(player);
