@@ -81,7 +81,7 @@ public class CommandLoader {
 	static Main plugin = Main.plugin;
 
 	private Object pointLock = new Object();
-	
+
 	/**
 	 * Gets the single instance of CommandLoader.
 	 *
@@ -1335,14 +1335,16 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop" },
-				"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
+		if (Config.getInstance().getVoteShopEnabled()) {
+			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop" },
+					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				PlayerGUIs.getInstance().openVoteShop((Player) sender);
-			}
-		});
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					PlayerGUIs.getInstance().openVoteShop((Player) sender);
+				}
+			});
+		}
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "URL" },
 				"VotingPlugin.Commands.Vote.URL|" + playerPerm, "Open VoteURL GUI", false) {
