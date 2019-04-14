@@ -16,7 +16,8 @@ VoteSites:
           
     # The serviceName from the vote, has to be correct to work correctly
     # Gotten from voting on the site (will be in console/log)
-    # Usually is the main part of the url(e.g. PlanetMinecraft.com)
+    # Usually is the main part of the url(e.g. PlanetMinecraft.com), but not always
+    # See console when you vote (it will notify you if the plugin didn't find a votingsite matching the service site
     ServiceSite: 'PlanetMinecraft.com'
 
     # vote url for /vote
@@ -29,9 +30,11 @@ VoteSites:
     VoteDelay: 24
     
     # Require waiting until votedelay time has pasted in order to accept vote
+    # Recommend: false
     WaitUntilVoteDelay: false
     
     # Reset vote delay each day (for certain sites that do this)
+    # Recommend: false
     VoteDelayDaily: false
     
     # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
@@ -48,8 +51,10 @@ VoteSites:
     # Rewards to give
     # https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards
     Rewards:
+      # Execute console commands
       Commands:
       - 'say hello'
+      # Send player a message
       Messages:
         Player: 'You voted'
     
