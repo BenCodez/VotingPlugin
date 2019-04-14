@@ -917,7 +917,7 @@ WaitUntilLoggedIn: true
 
 # Preload skulls to improve performance
 # If false, skulls will be cached as they are used
-PreloadSkulls: true
+PreloadSkulls: false
 
 # ---------------------------------------------------------
 # Mysql cache options
