@@ -51,6 +51,7 @@ public class VotiferEvent implements Listener {
 
 		Vote vote = event.getVote();
 		final String voteSite = vote.getServiceName();
+		final String voteSiteIP = vote.getAddress();
 		final String voteUsername = vote.getUsername().trim();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -65,16 +66,18 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		plugin.getLogger().info("Recieved a vote from '" + voteSite + "' by player '" + voteUsername + "'!");
+		plugin.getLogger()
+				.info("Recieved a vote from '" + voteSite + "(" + voteSiteIP + ")' by player '" + voteUsername + "'!");
 
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
+		plugin.debug("VoteSiteIP: " + voteSiteIP);
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				String voteSiteName = plugin.getVoteSiteName(voteSite);
+				String voteSiteName = plugin.getVoteSiteName(voteSite, voteSiteIP);
 
 				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
 				if (sites != null) {

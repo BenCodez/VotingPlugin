@@ -279,27 +279,33 @@ public class Main extends JavaPlugin {
 	 *            the url
 	 * @return the vote site name
 	 */
-	public String getVoteSiteName(String url) {
+	public String getVoteSiteName(String... urls) {
 		ArrayList<String> sites = ConfigVoteSites.getInstance().getVoteSitesNames();
-		if (url == null) {
-			return null;
-		}
-		if (sites != null) {
-			for (String siteName : sites) {
-				String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
-				if (URL != null) {
-					if (URL.equalsIgnoreCase(url)) {
+		for (String url : urls) {
+			if (url == null) {
+				return null;
+			}
+			if (sites != null) {
+				for (String siteName : sites) {
+					String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
+					if (URL != null) {
+						if (URL.equalsIgnoreCase(url)) {
+							return siteName;
+						}
+					}
+				}
+				for (String siteName : sites) {
+					if (siteName.equalsIgnoreCase(url)) {
 						return siteName;
 					}
 				}
 			}
-			for (String siteName : sites) {
-				if (siteName.equalsIgnoreCase(url)) {
-					return siteName;
-				}
-			}
+			return url;
 		}
-		return url;
+		for (String url : urls) {
+			return url;
+		}
+		return "";
 
 	}
 
