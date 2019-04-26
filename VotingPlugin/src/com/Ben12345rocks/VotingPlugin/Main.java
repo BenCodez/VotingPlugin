@@ -729,7 +729,6 @@ public class Main extends JavaPlugin {
 		checkVotifier();
 		CheckUpdate.getInstance().startUp();
 		VoteReminding.getInstance().loadRemindChecking();
-
 		plugin.signs = new ArrayList<SignHandler>();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
