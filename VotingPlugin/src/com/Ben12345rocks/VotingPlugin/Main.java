@@ -850,7 +850,7 @@ public class Main extends JavaPlugin {
 				@Override
 				public void run() {
 					plugin.getLogger().warning(
-							"Detected an issue with voting sites, check the plugin startup log for more details");
+							"Detected an issue with voting sites, check the server startup log for more details");
 				}
 			}, 30l);
 		}

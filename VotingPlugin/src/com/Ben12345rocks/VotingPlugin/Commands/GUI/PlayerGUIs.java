@@ -174,7 +174,7 @@ public class PlayerGUIs {
 								return;
 							} else if (!cmd.equals("")) {
 								Bukkit.getScheduler().runTask(plugin, new Runnable() {
-									
+
 									@Override
 									public void run() {
 										player.performCommand(cmd);
