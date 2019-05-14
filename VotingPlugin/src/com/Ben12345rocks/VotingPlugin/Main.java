@@ -350,7 +350,11 @@ public class Main extends JavaPlugin {
 
 					@Override
 					public void run() {
-						update();
+						if (plugin != null) {
+							update();
+						} else {
+							cancel();
+						}
 					}
 				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 			}
@@ -808,7 +812,7 @@ public class Main extends JavaPlugin {
 					HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 			}
-		}.addEditButton(new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
+		}.synchronize().addEditButton(new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
 
 			@Override
 			public void setValue(Player player, Number value) {
@@ -1008,8 +1012,8 @@ public class Main extends JavaPlugin {
 							time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
 						} catch (Exception ex) {
-							ex.printStackTrace();
 							plugin.getLogger().info("Looks like something went wrong.");
+							ex.printStackTrace();
 						}
 					}
 
