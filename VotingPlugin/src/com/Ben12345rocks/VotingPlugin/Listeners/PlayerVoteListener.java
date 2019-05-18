@@ -108,6 +108,7 @@ public class PlayerVoteListener implements Listener {
 
 			// update last vote time
 			user.setTime(voteSite);
+			user.setLastVoteCoolDownCheck(false, voteSite);
 
 			// check first vote rewards
 			SpecialRewards.getInstance().checkFirstVote(user);

@@ -25,6 +25,7 @@ import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerReceivePointsEvent;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -333,6 +334,25 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	@Deprecated
 	public int getDailyTotal() {
 		return getUserData().getInt("DailyTotal");
+	}
+
+	public void setLastVoteCoolDownCheck(boolean lastDelay, VoteSite site) {
+		getUserData().setBoolean(site.getKey() + "_LCDC", lastDelay);
+	}
+
+	public boolean getLastCoolDownCheck(VoteSite site) {
+		return getUserData().getBoolean(site.getKey() + "_LCDC");
+	}
+
+	public void checkCoolDownEvents() {
+		for (VoteSite site : plugin.getVoteSites()) {
+			if (canVoteSite(site) != getLastCoolDownCheck(site)) {
+				plugin.debug("Player vote cooldown ended");
+				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(this, site);
+				plugin.getServer().getPluginManager().callEvent(event);
+				setLastVoteCoolDownCheck(true, site);
+			}
+		}
 	}
 
 	public int getDayVoteStreak() {

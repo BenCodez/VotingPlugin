@@ -51,6 +51,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabComplete
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.CoolDown.CoolDownCheck;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Listeners.BlockBreak;
 import com.Ben12345rocks.VotingPlugin.Listeners.PlayerCommandSendListener;
@@ -357,6 +358,19 @@ public class Main extends JavaPlugin {
 						}
 					}
 				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
+
+				AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+
+					@Override
+					public void run() {
+						if (plugin != null) {
+							CoolDownCheck.getInstance().checkAll();
+						} else {
+							cancel();
+						}
+					}
+				}, 1000, 1000 * 60 * 5);
+
 			}
 		}, 40L);
 
@@ -812,14 +826,15 @@ public class Main extends JavaPlugin {
 					HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 			}
-		}.synchronize().addEditButton(new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
+		}.synchronize().addEditButton(
+				new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
 
-			@Override
-			public void setValue(Player player, Number value) {
-				Reward reward = (Reward) getInv().getData("Reward");
-				reward.getConfig().set("Points", value.intValue());
-			}
-		})));
+					@Override
+					public void setValue(Player player, Number value) {
+						Reward reward = (Reward) getInv().getData("Reward");
+						reward.getConfig().set("Points", value.intValue());
+					}
+				})));
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
@@ -906,6 +921,7 @@ public class Main extends JavaPlugin {
 		pm.registerEvents(new PlayerInteract(this), this);
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 		pm.registerEvents(new PlayerCommandSendListener(this), this);
+		pm.registerEvents(new CoolDownCheck(this), this);
 
 		plugin.debug("Loaded Events");
 
