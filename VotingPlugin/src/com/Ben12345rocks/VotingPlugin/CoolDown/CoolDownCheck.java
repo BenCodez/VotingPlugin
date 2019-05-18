@@ -61,7 +61,9 @@ public class CoolDownCheck implements Listener {
 			public void run() {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					User user = new User(new UUID(uuid));
-					user.checkCoolDownEvents();
+					if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+						user.checkCoolDownEvents();
+					}
 				}
 			}
 		});
