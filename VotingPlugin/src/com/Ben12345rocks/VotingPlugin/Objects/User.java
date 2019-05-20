@@ -347,7 +347,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public void checkCoolDownEvents() {
 		for (VoteSite site : plugin.getVoteSites()) {
 			if (canVoteSite(site) != getLastCoolDownCheck(site)) {
-				plugin.debug("Player vote cooldown ended");
+				plugin.debug(getPlayerName() + " vote cooldown ended: " + site.getKey());
 				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(this, site);
 				plugin.getServer().getPluginManager().callEvent(event);
 				setLastVoteCoolDownCheck(true, site);
