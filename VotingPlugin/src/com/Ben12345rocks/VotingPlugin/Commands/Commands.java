@@ -734,7 +734,8 @@ public class Commands {
 
 		long time = user.getTime(voteSite);
 		LocalDateTime now = TimeChecker.getInstance().getTime();
-		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(AdvancedCoreHook.getInstance().getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
