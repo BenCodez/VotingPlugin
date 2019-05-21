@@ -9,6 +9,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
+import org.bukkit.block.data.Directional;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -259,8 +260,8 @@ public class SignHandler {
 	public void updateSkulls(Location loc1, Location loc2) {
 		BlockState state = getLocation().getBlock().getState();
 		if (state instanceof Sign) {
-			org.bukkit.material.Sign s = (org.bukkit.material.Sign) state.getData();
-			Block b = location.getBlock().getRelative(s.getAttachedFace());
+			Directional s = (Directional) state.getBlockData();
+			Block b = location.getBlock().getRelative(s.getFacing());
 			Block above = b.getRelative(BlockFace.UP);
 			if (checkSkull(above)) {
 				return;

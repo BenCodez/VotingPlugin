@@ -369,7 +369,7 @@ public class Main extends JavaPlugin {
 							cancel();
 						}
 					}
-				}, 1000, 1000 * 60 * 5);
+				}, 1000 * 60 * 10, 1000 * 60 * 5);
 
 			}
 		}, 40L);
