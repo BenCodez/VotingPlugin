@@ -259,7 +259,7 @@ public class SignHandler {
 
 	public void updateSkulls(Location loc1, Location loc2) {
 		BlockState state = getLocation().getBlock().getState();
-		if (state instanceof Sign) {
+		if (state instanceof Sign && state.getBlockData() instanceof Directional) {
 			Directional s = (Directional) state.getBlockData();
 			Block b = location.getBlock().getRelative(s.getFacing());
 			Block above = b.getRelative(BlockFace.UP);
