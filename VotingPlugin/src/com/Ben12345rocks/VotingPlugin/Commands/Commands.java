@@ -19,6 +19,7 @@ import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
@@ -732,7 +733,7 @@ public class Commands {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = TimeChecker.getInstance().getTime();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
 
 		if (!voteSite.isVoteDelayDaily()) {
@@ -894,7 +895,8 @@ public class Commands {
 				placeholders.put("time", timeString);
 				msg.add(StringUtils.getInstance()
 						.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteTodayLine(), placeholders));
-			//	msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " + timeString);
+				// msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " +
+				// timeString);
 			}
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);
