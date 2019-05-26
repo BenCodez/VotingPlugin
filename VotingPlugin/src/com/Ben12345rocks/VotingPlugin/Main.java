@@ -776,6 +776,7 @@ public class Main extends JavaPlugin {
 
 		metrics();
 
+		// javascript api
 		AdvancedCoreHook.getInstance().getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
 
 			@Override
@@ -783,11 +784,14 @@ public class Main extends JavaPlugin {
 				return getUserManager().getVotingPluginUser(player);
 			}
 		});
+		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPluginHooks", VotingPluginHooks.getInstance());
 
 		loadTimer();
 
+		// placeholderapi loading
 		PlaceHolders.getInstance().load();
 
+		// MVDW placeholders, may be removed in the future
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			MVdWPlaceholders.getInstance().loadMVdWPlaceholders();
 		}
@@ -898,6 +902,7 @@ public class Main extends JavaPlugin {
 		if (perm != null) {
 			if (Config.getInstance().getGiveDefaultPermission()) {
 				perm.setDefault(PermissionDefault.TRUE);
+				getLogger().info("Giving VotingPlugin.Player permission by default, can be disabled in the config");
 			} else {
 				perm.setDefault(PermissionDefault.OP);
 			}
