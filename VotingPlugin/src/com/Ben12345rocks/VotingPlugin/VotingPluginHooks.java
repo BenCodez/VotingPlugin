@@ -16,7 +16,7 @@ public class VotingPluginHooks {
 	}
 
 	public void addCustomReward(RewardInject inject) {
-		RewardHandler.getInstance().getInjectedRewards().add(inject);
+		RewardHandler.getInstance().addInjectedReward(inject);
 	}
 
 	public UserManager getUserManager() {

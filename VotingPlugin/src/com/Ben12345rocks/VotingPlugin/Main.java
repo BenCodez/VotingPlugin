@@ -823,7 +823,7 @@ public class Main extends JavaPlugin {
 			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 		}
 
-		RewardHandler.getInstance().getInjectedRewards().add(new RewardInjectInt("Points", 0) {
+		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 
 			@Override
 			public Integer onRewardRequest(Reward reward, com.Ben12345rocks.AdvancedCore.UserManager.User user, int num,
