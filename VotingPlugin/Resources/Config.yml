@@ -708,6 +708,9 @@ VoteStreak:
     Day: 50
     Week: 50
     Month: 50
+    
+# Reward given when vote cooldown ended
+VoteCoolDownEndedReward: []
           
   
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
