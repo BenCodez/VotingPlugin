@@ -946,6 +946,7 @@ public class Main extends JavaPlugin {
 		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
 		AdvancedCoreHook.getInstance().reload();
 		PlaceHolders.getInstance().load();
+		CoolDownCheck.getInstance().checkAll();
 	}
 
 	private void setupFiles() {
