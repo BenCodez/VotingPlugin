@@ -40,8 +40,8 @@ public class PlayerSpecialRewardEvent extends Event {
 
 	public PlayerSpecialRewardEvent(User user, SpecialRewardType type) {
 		super(true);
-		setType(type);
-		setUser(user);
+		this.type = type;
+		this.user = user;
 	}
 
 	/*

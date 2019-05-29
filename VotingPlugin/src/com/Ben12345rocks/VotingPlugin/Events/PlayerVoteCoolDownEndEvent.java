@@ -41,8 +41,8 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 
 	public PlayerVoteCoolDownEndEvent(User user, VoteSite site) {
 		super(true);
-		setPlayer(user);
-		setVoteSite(voteSite);
+		player = user;
+		voteSite = site;
 	}
 
 	/*

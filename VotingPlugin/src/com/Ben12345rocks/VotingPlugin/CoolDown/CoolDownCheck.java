@@ -60,7 +60,8 @@ public class CoolDownCheck implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
 		RewardHandler.getInstance().giveReward(event.getPlayer(), Config.getInstance().getData(),
-				"VoteCoolDownEndedReward", new RewardOptions());
+				"VoteCoolDownEndedReward",
+				new RewardOptions().addPlaceholder("Votesite", event.getVoteSite().getDisplayName()));
 	}
 
 	public void checkAll() {

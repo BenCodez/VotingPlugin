@@ -48,10 +48,10 @@ public class PlayerVoteEvent extends Event {
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
-		setPlayer(voteUsername);
-		setVoteSite(voteSite);
-		setRealVote(realVote);
-		setServiceSite(serviceSite);
+		this.player = voteUsername;
+		this.voteSite = voteSite;
+		this.realVote = realVote;
+		this.serviceSite = serviceSite;
 	}
 
 	/*

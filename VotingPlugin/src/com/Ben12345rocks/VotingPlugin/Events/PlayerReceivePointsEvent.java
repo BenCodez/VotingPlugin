@@ -44,8 +44,8 @@ public class PlayerReceivePointsEvent extends Event {
 
 	public PlayerReceivePointsEvent(User user, int points) {
 		super(true);
-		setPlayer(user);
-		setPoints(points);
+		this.player = user;
+		this.points = points;
 	}
 
 	/*
