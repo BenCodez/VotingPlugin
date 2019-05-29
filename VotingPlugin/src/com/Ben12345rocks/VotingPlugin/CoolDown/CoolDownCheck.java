@@ -5,7 +5,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserManager;
@@ -58,8 +59,8 @@ public class CoolDownCheck implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		new RewardBuilder(Config.getInstance().getData(), "VoteCoolDownEndedReward")
-				.withPlaceHolder("votesite", event.getVoteSite().getDisplayName()).send(event.getPlayer());
+		RewardHandler.getInstance().giveReward(event.getPlayer(), Config.getInstance().getData(),
+				"VoteCoolDownEndedReward", new RewardOptions());
 	}
 
 	public void checkAll() {
