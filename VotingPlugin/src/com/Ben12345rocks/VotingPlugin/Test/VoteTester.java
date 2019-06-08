@@ -3,10 +3,12 @@ package com.Ben12345rocks.VotingPlugin.Test;
 import java.util.ArrayList;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteTester {
@@ -44,13 +46,18 @@ public class VoteTester {
 						+ Main.plugin.getVoteSites().size() + " votesites");
 	}
 
-	public void testRewards(int amount, String name, String reward) {
+	public void testRewards(int amount, String name, String rewardName) {
 		long time1 = System.currentTimeMillis();
 		ArrayList<Long> timesPerReward = new ArrayList<Long>();
+		User user = UserManager.getInstance().getVotingPluginUser(name);
+		Reward reward = RewardHandler.getInstance().getReward(rewardName);
+		int rewardsGiven = 0;
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
-			RewardHandler.getInstance().giveReward(UserManager.getInstance().getVotingPluginUser(name), reward,
-					new RewardOptions());
+			if (reward.canGiveReward(user, new RewardOptions())) {
+				rewardsGiven++;
+				RewardHandler.getInstance().giveReward(user, reward, new RewardOptions().setIgnoreRequirements(true));
+			}
 			long start2 = System.currentTimeMillis();
 			timesPerReward.add(start2 - start1);
 		}
@@ -61,11 +68,9 @@ public class VoteTester {
 			timeTotal += t.longValue();
 		}
 		long timePerRewardAvg = timeTotal / timesPerReward.size();
-		Main.plugin.getLogger()
-				.info("Time to process rewards (" + amount + "): " + time + " ms, average per reward "
-						+ timePerRewardAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
-						+ UserManager.getInstance().getAllUUIDs().size() + " users. "
-						+ Main.plugin.getVoteSites().size() + " votesites");
+		Main.plugin.getLogger().info("Time to process rewards (" + amount + "): " + time + " ms, average per reward "
+				+ timePerRewardAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
+				+ UserManager.getInstance().getAllUUIDs().size() + " users. " + rewardsGiven + " rewards given");
 	}
 
 }

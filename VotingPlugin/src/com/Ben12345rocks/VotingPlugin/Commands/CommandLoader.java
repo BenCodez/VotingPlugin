@@ -967,7 +967,7 @@ public class CommandLoader {
 		
 		plugin.getAdminVoteCommand()
 		.add(new CommandHandler(new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting times") {
+				"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward times") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
