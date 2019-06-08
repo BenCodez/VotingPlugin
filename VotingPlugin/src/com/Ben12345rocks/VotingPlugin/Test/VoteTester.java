@@ -3,6 +3,8 @@ package com.Ben12345rocks.VotingPlugin.Test;
 import java.util.ArrayList;
 
 import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -38,6 +40,30 @@ public class VoteTester {
 		Main.plugin.getLogger()
 				.info("Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg
 						+ " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
+						+ UserManager.getInstance().getAllUUIDs().size() + " users. "
+						+ Main.plugin.getVoteSites().size() + " votesites");
+	}
+
+	public void testRewards(int amount, String name, String reward) {
+		long time1 = System.currentTimeMillis();
+		ArrayList<Long> timesPerReward = new ArrayList<Long>();
+		for (int i = 0; i < amount; i++) {
+			long start1 = System.currentTimeMillis();
+			RewardHandler.getInstance().giveReward(UserManager.getInstance().getVotingPluginUser(name), reward,
+					new RewardOptions());
+			long start2 = System.currentTimeMillis();
+			timesPerReward.add(start2 - start1);
+		}
+		long time2 = System.currentTimeMillis();
+		long time = time2 - time1;
+		long timeTotal = 0;
+		for (Long t : timesPerReward) {
+			timeTotal += t.longValue();
+		}
+		long timePerRewardAvg = timeTotal / timesPerReward.size();
+		Main.plugin.getLogger()
+				.info("Time to process rewards (" + amount + "): " + time + " ms, average per reward "
+						+ timePerRewardAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
 						+ UserManager.getInstance().getAllUUIDs().size() + " users. "
 						+ Main.plugin.getVoteSites().size() + " votesites");
 	}

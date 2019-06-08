@@ -964,6 +964,19 @@ public class CommandLoader {
 						}
 					}
 				});
+		
+		plugin.getAdminVoteCommand()
+		.add(new CommandHandler(new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
+				"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting times") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VoteTester.getInstance().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
+				if (isPlayer(sender)) {
+					sendMessage(sender, "&cSee console for details");
+				}
+			}
+		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders" },
