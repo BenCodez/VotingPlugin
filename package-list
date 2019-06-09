@@ -4,6 +4,7 @@ com.Ben12345rocks.VotingPlugin.Commands.Executers
 com.Ben12345rocks.VotingPlugin.Commands.GUI
 com.Ben12345rocks.VotingPlugin.Commands.TabCompleter
 com.Ben12345rocks.VotingPlugin.Config
+com.Ben12345rocks.VotingPlugin.CoolDown
 com.Ben12345rocks.VotingPlugin.Data
 com.Ben12345rocks.VotingPlugin.Events
 com.Ben12345rocks.VotingPlugin.Listeners
