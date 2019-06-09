@@ -101,7 +101,7 @@ public class Commands {
 		msg.add(StringUtils.getInstance().stringToComp("&3&l() = Needed"));
 		msg.add(StringUtils.getInstance().stringToComp("&3&lAliases: adminvote, av"));
 
-		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize) - 1); i++) {
+		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)); i++) {
 			msg.add(text.get(i));
 		}
 
