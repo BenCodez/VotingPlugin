@@ -2,7 +2,9 @@ package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
 import org.bukkit.Bukkit;
 
+import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 import be.maximvdw.placeholderapi.PlaceholderAPI;
@@ -49,7 +51,7 @@ public class MVdWPlaceholders {
 	public void loadMVdWPlaceholders() {
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			// The plugin is enabled
-			for (final PlaceHolder place : PlaceHolders.getInstance().getPlaceholders()) {
+			for (final PlaceHolder<User> place : PlaceHolders.getInstance().getPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(Main.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {
@@ -66,7 +68,7 @@ public class MVdWPlaceholders {
 
 			}
 
-			for (final PlaceHolder place : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+			for (final PlaceHolder<User> place : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(Main.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {

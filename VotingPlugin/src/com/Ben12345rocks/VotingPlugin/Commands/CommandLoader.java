@@ -27,6 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
@@ -47,7 +48,6 @@ import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
-import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.google.common.collect.ListMultimap;
@@ -987,7 +987,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						ArrayList<String> msg = new ArrayList<String>();
 						msg.add("&cPlaceholders:");
-						for (PlaceHolder placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 							String identifier = placeholder.getIdentifier();
 							if (identifier.endsWith("_")) {
 								identifier += "#";
@@ -999,7 +999,7 @@ public class CommandLoader {
 							}
 						}
 
-						for (PlaceHolder placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 							String identifier = placeholder.getIdentifier();
 							if (identifier.endsWith("_")) {
 								identifier += "#";
@@ -1090,7 +1090,7 @@ public class CommandLoader {
 						ArrayList<String> msg = new ArrayList<String>();
 						msg.add("&cPlaceholders:");
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						for (PlaceHolder placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 							String identifier = placeholder.getIdentifier();
 							if (identifier.endsWith("_")) {
 								identifier += "1";
@@ -1099,7 +1099,7 @@ public class CommandLoader {
 									+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
 						}
 
-						for (PlaceHolder placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 							String identifier = placeholder.getIdentifier();
 							if (identifier.endsWith("_")) {
 								identifier += "1";

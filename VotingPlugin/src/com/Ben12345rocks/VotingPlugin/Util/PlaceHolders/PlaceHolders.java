@@ -7,6 +7,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -40,10 +41,10 @@ public class PlaceHolders {
 	}
 
 	@Getter
-	private ArrayList<PlaceHolder> placeholders = new ArrayList<PlaceHolder>();
+	private ArrayList<PlaceHolder<User>> placeholders = new ArrayList<PlaceHolder<User>>();
 
 	@Getter
-	private ArrayList<PlaceHolder> nonPlayerPlaceholders = new ArrayList<PlaceHolder>();
+	private ArrayList<PlaceHolder<User>> nonPlayerPlaceholders = new ArrayList<PlaceHolder<User>>();
 
 	/**
 	 * Instantiates a new place holders.
@@ -64,7 +65,7 @@ public class PlaceHolders {
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
 
-		for (PlaceHolder placeholder : nonPlayerPlaceholders) {
+		for (PlaceHolder<User> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
 				return placeholder.placeholderRequest(p, null, identifier);
 			}
@@ -72,7 +73,7 @@ public class PlaceHolders {
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
 
-		for (PlaceHolder placeholder : placeholders) {
+		for (PlaceHolder<User> placeholder : placeholders) {
 			if (placeholder.matches(identifier)) {
 				return placeholder.placeholderRequest(p, user, identifier);
 			}
@@ -91,7 +92,7 @@ public class PlaceHolders {
 		nonPlayerPlaceholders.clear();
 
 		// older placeholders, might be removed in the future
-		placeholders.add(new PlaceHolder("total") {
+		placeholders.add(new PlaceHolder<User>("total") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -99,7 +100,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Month total"));
 
-		placeholders.add(new PlaceHolder("alltimetotal") {
+		placeholders.add(new PlaceHolder<User>("alltimetotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -107,7 +108,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Alltime total"));
 
-		placeholders.add(new PlaceHolder("lastmonthtotal") {
+		placeholders.add(new PlaceHolder<User>("lastmonthtotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -117,7 +118,7 @@ public class PlaceHolders {
 
 		// end of older placeholders
 
-		placeholders.add(new PlaceHolder("DisableBroadcast") {
+		placeholders.add(new PlaceHolder<User>("DisableBroadcast") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -125,7 +126,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Returns true/false if user has broadcast disabled"));
 
-		placeholders.add(new PlaceHolder("MilestoneCount") {
+		placeholders.add(new PlaceHolder<User>("MilestoneCount") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -135,7 +136,7 @@ public class PlaceHolders {
 
 		for (final String identifier : Config.getInstance().getIdentifiers()) {
 			if (Config.getInstance().getIdentifierLimit(identifier) > 0) {
-				placeholders.add(new PlaceHolder("VoteShopLimit_" + identifier) {
+				placeholders.add(new PlaceHolder<User>("VoteShopLimit_" + identifier) {
 
 					@Override
 					public String placeholderRequest(OfflinePlayer p, User user, String ident) {
@@ -146,7 +147,7 @@ public class PlaceHolders {
 		}
 
 		for (final TopVoter top : TopVoter.values()) {
-			placeholders.add(new PlaceHolder("Total_" + top.toString()) {
+			placeholders.add(new PlaceHolder<User>("Total_" + top.toString()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -155,7 +156,7 @@ public class PlaceHolders {
 			}.withDescription("User total for " + top.getName()));
 		}
 
-		placeholders.add(new PlaceHolder("BestDailyTotal") {
+		placeholders.add(new PlaceHolder<User>("BestDailyTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -163,7 +164,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best daily total"));
 
-		placeholders.add(new PlaceHolder("BestWeeklyTotal") {
+		placeholders.add(new PlaceHolder<User>("BestWeeklyTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -171,7 +172,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best weekly total"));
 
-		placeholders.add(new PlaceHolder("BestMonthlyTotal") {
+		placeholders.add(new PlaceHolder<User>("BestMonthlyTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -179,7 +180,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best monthly total"));
 
-		placeholders.add(new PlaceHolder("DailyVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("DailyVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -187,7 +188,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current daily votestreak"));
 
-		placeholders.add(new PlaceHolder("WeeklyVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("WeeklyVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -195,7 +196,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current weekly votestreak"));
 
-		placeholders.add(new PlaceHolder("MonthVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("MonthVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -203,7 +204,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current month votestreak"));
 
-		placeholders.add(new PlaceHolder("BestDailyVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("BestDailyVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -211,7 +212,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best daily votestreak"));
 
-		placeholders.add(new PlaceHolder("BestWeeklyVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("BestWeeklyVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -219,7 +220,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best weekly votestreak"));
 
-		placeholders.add(new PlaceHolder("BestMonthVoteStreak") {
+		placeholders.add(new PlaceHolder<User>("BestMonthVoteStreak") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -227,7 +228,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Best month votestreak"));
 
-		placeholders.add(new PlaceHolder("Points") {
+		placeholders.add(new PlaceHolder<User>("Points") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -235,7 +236,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("User points"));
 
-		placeholders.add(new PlaceHolder("CanVote") {
+		placeholders.add(new PlaceHolder<User>("CanVote") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -244,21 +245,21 @@ public class PlaceHolders {
 		}.withDescription("Return true/false if player can vote on all sites"));
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			placeholders.add(new PlaceHolder("Next_" + voteSite.getKey()) {
+			placeholders.add(new PlaceHolder<User>("Next_" + voteSite.getKey()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return Commands.getInstance().voteCommandNextInfo(user, voteSite);
 				}
 			}.withDescription("How long until user can vote on " + voteSite.getKey()));
-			placeholders.add(new PlaceHolder("Last_" + voteSite.getKey()) {
+			placeholders.add(new PlaceHolder<User>("Last_" + voteSite.getKey()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 					return Commands.getInstance().voteCommandLastDuration(user, voteSite);
 				}
 			}.withDescription("How long ago user voted on " + voteSite.getKey()));
-			placeholders.add(new PlaceHolder("CanVote_" + voteSite.getKey()) {
+			placeholders.add(new PlaceHolder<User>("CanVote_" + voteSite.getKey()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -267,7 +268,7 @@ public class PlaceHolders {
 			}.withDescription("Whether or not player can vote on " + voteSite.getKey()));
 		}
 
-		placeholders.add(new PlaceHolder("Top_All_Position") {
+		placeholders.add(new PlaceHolder<User>("Top_All_Position") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -282,7 +283,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder("Top_AllVotes_") {
+		placeholders.add(new PlaceHolder<User>("Top_AllVotes_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -298,7 +299,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_All_") {
+		placeholders.add(new PlaceHolder<User>("Top_All_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -314,7 +315,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_Month_Position") {
+		placeholders.add(new PlaceHolder<User>("Top_Month_Position") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -329,7 +330,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder("Top_Month_") {
+		placeholders.add(new PlaceHolder<User>("Top_Month_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -345,7 +346,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at position in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_MonthVotes_") {
+		placeholders.add(new PlaceHolder<User>("Top_MonthVotes_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -361,7 +362,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_Week_Position") {
+		placeholders.add(new PlaceHolder<User>("Top_Week_Position") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -376,7 +377,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder("Top_Week_") {
+		placeholders.add(new PlaceHolder<User>("Top_Week_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -392,7 +393,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_WeekVotes_") {
+		placeholders.add(new PlaceHolder<User>("Top_WeekVotes_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -408,7 +409,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_Daily_Position") {
+		placeholders.add(new PlaceHolder<User>("Top_Daily_Position") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -423,7 +424,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder("Top_Daily_") {
+		placeholders.add(new PlaceHolder<User>("Top_Daily_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -439,7 +440,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
-		placeholders.add(new PlaceHolder("Top_DailyVotes_") {
+		placeholders.add(new PlaceHolder<User>("Top_DailyVotes_") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -457,7 +458,7 @@ public class PlaceHolders {
 
 		// non players
 
-		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesCurrent") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("VotePartyVotesCurrent") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -465,7 +466,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current amount of voteparty votes"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesNeeded") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("VotePartyVotesNeeded") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -473,7 +474,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Voteparty votes needed"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("VotePartyVotesRequired") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("VotePartyVotesRequired") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -481,7 +482,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("GlobalMonthTotal") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("GlobalMonthTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -493,7 +494,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global month total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("GlobalAllTimeTotal") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("GlobalAllTimeTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -505,7 +506,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global alltime total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("GlobalWeeklyTotal") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("GlobalWeeklyTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
@@ -517,7 +518,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global weekly total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder("GlobalDailyTotal") {
+		nonPlayerPlaceholders.add(new PlaceHolder<User>("GlobalDailyTotal") {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
