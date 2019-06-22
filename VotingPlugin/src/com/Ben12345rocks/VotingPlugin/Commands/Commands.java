@@ -17,7 +17,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
@@ -323,7 +322,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterAllTimeScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
+		if (Main.plugin.getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
 
@@ -363,7 +362,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterDailyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
+		if (Main.plugin.getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 
@@ -403,7 +402,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterMonthlyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
+		if (Main.plugin.getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Monthly).keySet());
 
@@ -443,7 +442,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendTopVoterWeeklyScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
+		if (Main.plugin.getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 			ArrayList<User> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 
@@ -484,7 +483,7 @@ public class Commands {
 	 *            the page
 	 */
 	public void sendVoteTodayScoreBoard(final Player player, int page) {
-		if (AdvancedCoreHook.getInstance().getOptions().isSendScoreboards()) {
+		if (Main.plugin.getOptions().isSendScoreboards()) {
 			int pagesize = Config.getInstance().getFormatPageSize();
 
 			String[] voteToday = voteToday();
@@ -735,7 +734,7 @@ public class Commands {
 		long time = user.getTime(voteSite);
 		LocalDateTime now = TimeChecker.getInstance().getTime();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(AdvancedCoreHook.getInstance().getOptions().getTimeHourOffSet());
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();

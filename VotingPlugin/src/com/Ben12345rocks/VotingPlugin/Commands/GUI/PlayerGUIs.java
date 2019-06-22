@@ -12,7 +12,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -111,8 +110,7 @@ public class PlayerGUIs {
 				&& !player.hasPermission("VotingPlugin.Mod"))
 				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
 						&& !player.hasPermission("VotingPlugin.Player"))) {
-			player.sendMessage(
-					StringUtils.getInstance().colorize(AdvancedCoreHook.getInstance().getOptions().getFormatNoPerms()));
+			player.sendMessage(StringUtils.getInstance().colorize(Main.plugin.getOptions().getFormatNoPerms()));
 			return;
 		}
 		setSelectedPlayer(player, user);

@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Test;
 
 import java.util.ArrayList;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
@@ -41,7 +40,7 @@ public class VoteTester {
 		long timePerVoteAvg = timeTotal / timesPerVote.size();
 		Main.plugin.getLogger()
 				.info("Time to process votes (" + amount + "): " + time + " ms, average per vote " + timePerVoteAvg
-						+ " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
+						+ " ms. " + Main.plugin.getStorageType() + ", "
 						+ UserManager.getInstance().getAllUUIDs().size() + " users. "
 						+ Main.plugin.getVoteSites().size() + " votesites");
 	}
@@ -69,7 +68,7 @@ public class VoteTester {
 		}
 		long timePerRewardAvg = timeTotal / timesPerReward.size();
 		Main.plugin.getLogger().info("Time to process rewards (" + amount + "): " + time + " ms, average per reward "
-				+ timePerRewardAvg + " ms. " + AdvancedCoreHook.getInstance().getStorageType() + ", "
+				+ timePerRewardAvg + " ms. " + Main.plugin.getStorageType() + ", "
 				+ UserManager.getInstance().getAllUUIDs().size() + " users. " + rewardsGiven + " rewards given");
 	}
 

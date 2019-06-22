@@ -6,7 +6,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -120,7 +119,7 @@ public class PlayerVoteListener implements Listener {
 			// check if player has voted on all sites in one day
 
 			if ((user.isOnline() || voteSite.isGiveOffline())
-					&& AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
+					&& Main.plugin.getOptions().isProcessRewards()) {
 				user.playerVote(voteSite, true, false);
 				user.closeInv();
 			} else {

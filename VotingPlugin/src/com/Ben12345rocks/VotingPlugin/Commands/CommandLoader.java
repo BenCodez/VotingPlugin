@@ -14,7 +14,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandle;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
@@ -610,7 +609,7 @@ public class CommandLoader {
 						try {
 							sender.sendMessage("Starting to convert");
 							UserStorage prevStorage = UserStorage.valueOf(args[1].toUpperCase());
-							plugin.convertDataStorage(prevStorage, AdvancedCoreHook.getInstance().getStorageType());
+							plugin.convertDataStorage(prevStorage, Main.plugin.getStorageType());
 							sender.sendMessage("Finished converting!");
 						} catch (Exception ex) {
 							ex.printStackTrace();
@@ -770,7 +769,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						AdvancedCoreHook.getInstance().getOptions().setDebug(true);
+						Main.plugin.getOptions().setDebug(true);
 					}
 				});
 

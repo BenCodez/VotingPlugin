@@ -11,7 +11,6 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Directional;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -251,7 +250,7 @@ public class SignHandler {
 					}
 
 				} catch (Exception ex) {
-					AdvancedCoreHook.getInstance().debug(ex);
+					Main.plugin.debug(ex);
 				}
 			}
 		}, delay);

@@ -16,7 +16,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.MonthChangeEvent;
@@ -462,7 +461,7 @@ public class TopVoterHandler implements Listener {
 			try {
 				line = line.replace("%player%", entry.getKey().getPlayerName());
 			} catch (Exception ex) {
-				AdvancedCoreHook.getInstance().debug(ex);
+				Main.plugin.debug(ex);
 			}
 			line = line.replace("%votes%", "" + entry.getValue());
 
@@ -489,7 +488,7 @@ public class TopVoterHandler implements Listener {
 			try {
 				line = line.replace("%player%", users.get(i).getPlayerName());
 			} catch (Exception ex) {
-				AdvancedCoreHook.getInstance().debug(ex);
+				Main.plugin.debug(ex);
 			}
 			line = line.replace("%votes%", "" + plugin.getTopVoter(TopVoter.Monthly).get(users.get(i)));
 			msg.add(line);
@@ -515,7 +514,7 @@ public class TopVoterHandler implements Listener {
 			try {
 				line = line.replace("%player%", entry.getKey().getPlayerName());
 			} catch (Exception ex) {
-				AdvancedCoreHook.getInstance().debug(ex);
+				Main.plugin.debug(ex);
 			}
 			line = line.replace("%votes%", "" + entry.getValue());
 

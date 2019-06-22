@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
@@ -245,7 +244,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 		LocalDateTime now = TimeChecker.getInstance().getTime();
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(AdvancedCoreHook.getInstance().getOptions().getTimeHourOffSet());
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
@@ -660,11 +659,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * Off vote.
 	 */
 	public void offVote() {
-		if (!AdvancedCoreHook.getInstance().getOptions().isProcessRewards()) {
-			AdvancedCoreHook.getInstance().debug("Processing rewards is disabled");
+		if (!Main.plugin.getOptions().isProcessRewards()) {
+			Main.plugin.debug("Processing rewards is disabled");
 			return;
 		}
-		AdvancedCoreHook.getInstance().extraDebug("Checking offline vote site votes");
+		Main.plugin.extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");

@@ -23,9 +23,8 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import com.Ben12345rocks.AdvancedCore.AdvancedCoreHook;
+import com.Ben12345rocks.AdvancedCore.AdvancedCorePlugin;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
@@ -80,7 +79,7 @@ import lombok.Setter;
 /**
  * The Class Main.
  */
-public class Main extends JavaPlugin {
+public class Main extends AdvancedCorePlugin {
 
 	/** The config. */
 	public static Config config;
@@ -126,10 +125,6 @@ public class Main extends JavaPlugin {
 	@Getter
 	private boolean updateStarted = false;
 
-	public AdvancedCoreHook getAdvancedCoreHook() {
-		return AdvancedCoreHook.getInstance();
-	}
-
 	/**
 	 * Check votifier.
 	 */
@@ -146,22 +141,20 @@ public class Main extends JavaPlugin {
 		if (from == null || to == null) {
 			throw new RuntimeException("Invalid Storage Method");
 		}
-		UserStorage cur = AdvancedCoreHook.getInstance().getStorageType();
-		AdvancedCoreHook.getInstance().getOptions().setStorageType(from);
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-				&& AdvancedCoreHook.getInstance().getMysql() != null) {
-			AdvancedCoreHook.getInstance().getMysql().clearCache();
+		UserStorage cur = getStorageType();
+		getOptions().setStorageType(from);
+		if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
+			getMysql().clearCache();
 		}
 		ArrayList<String> uuids = new ArrayList<String>(UserManager.getInstance().getAllUUIDs());
 
 		while (uuids.size() > 0) {
 			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
-			AdvancedCoreHook.getInstance().getOptions().setStorageType(from);
-			// AdvancedCoreHook.getInstance().setStorageType(to);
+			getOptions().setStorageType(from);
+			// setStorageType(to);
 
-			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-					&& AdvancedCoreHook.getInstance().getMysql() != null) {
-				AdvancedCoreHook.getInstance().getMysql().clearCache();
+			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
+				getMysql().clearCache();
 			}
 
 			ArrayList<String> converted = new ArrayList<String>();
@@ -183,7 +176,7 @@ public class Main extends JavaPlugin {
 					data.put(user, values);
 					debug("[Convert] Added " + uuid);
 				} catch (Exception e) {
-					AdvancedCoreHook.getInstance().debug(e);
+					debug(e);
 					plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
 							+ ", turn debug on to see full stack traces");
 				}
@@ -199,17 +192,16 @@ public class Main extends JavaPlugin {
 			plugin.getLogger()
 					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
 
-			AdvancedCoreHook.getInstance().getOptions().setStorageType(to);
-			if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)
-					&& AdvancedCoreHook.getInstance().getMysql() != null) {
-				AdvancedCoreHook.getInstance().getMysql().clearCache();
+			getOptions().setStorageType(to);
+			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
+				getMysql().clearCache();
 			}
 
 			writeConvertData(data);
 		}
 
-		AdvancedCoreHook.getInstance().getOptions().setStorageType(cur);
-		AdvancedCoreHook.getInstance().reload();
+		getOptions().setStorageType(cur);
+		reload();
 
 		plugin.getLogger().info("Finished convertting");
 	}
@@ -225,7 +217,7 @@ public class Main extends JavaPlugin {
 	 *            the message
 	 */
 	public void debug(String message) {
-		AdvancedCoreHook.getInstance().debug(plugin, message);
+		debug(plugin, message);
 	}
 
 	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
@@ -243,7 +235,7 @@ public class Main extends JavaPlugin {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
-	public UserManager getUserManager() {
+	public UserManager getVotingPluginUserManager() {
 		return UserManager.getInstance();
 	}
 
@@ -347,7 +339,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public void run() {
-				AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+				getTimer().schedule(new TimerTask() {
 
 					@Override
 					public void run() {
@@ -359,7 +351,7 @@ public class Main extends JavaPlugin {
 					}
 				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
 
-				AdvancedCoreHook.getInstance().getTimer().schedule(new TimerTask() {
+				getTimer().schedule(new TimerTask() {
 
 					@Override
 					public void run() {
@@ -589,7 +581,7 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return "" + AdvancedCoreHook.getInstance().getOptions().isSendScoreboards();
+				return "" + getOptions().isSendScoreboards();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
@@ -608,14 +600,14 @@ public class Main extends JavaPlugin {
 
 			@Override
 			public String getValue() {
-				return AdvancedCoreHook.getInstance().getOptions().getStorageType().toString();
+				return getOptions().getStorageType().toString();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("DisableCheckOnWorldChange") {
 
 			@Override
 			public String getValue() {
-				return "" + AdvancedCoreHook.getInstance().getOptions().isDisableCheckOnWorldChange();
+				return "" + getOptions().isDisableCheckOnWorldChange();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled") {
@@ -709,7 +701,7 @@ public class Main extends JavaPlugin {
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
-	public void onDisable() {
+	public void onUnLoad() {
 		new Timer().schedule(new TimerTask() {
 
 			@Override
@@ -721,27 +713,8 @@ public class Main extends JavaPlugin {
 		plugin = null;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
-	 */
 	@Override
-	public void onEnable() {
-		plugin = this;
-
-		// disable plugin for older versions below 1.12
-		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
-			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
-					+ ", this version is not supported on this build. Disabling");
-			Bukkit.getPluginManager().disablePlugin(plugin);
-			return;
-		}
-
-		setupFiles();
-		loadVoteSites();
-		AdvancedCoreHook.getInstance().setJenkinsSite("ben12345rocks.com");
-		updateAdvancedCoreHook();
-		AdvancedCoreHook.getInstance().loadHook(this);
+	public void onPostLoad() {
 		registerCommands();
 		registerEvents();
 		checkVotifier();
@@ -777,14 +750,14 @@ public class Main extends JavaPlugin {
 		metrics();
 
 		// javascript api
-		AdvancedCoreHook.getInstance().getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
+		getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
 
 			@Override
 			public Object getObject(OfflinePlayer player) {
-				return getUserManager().getVotingPluginUser(player);
+				return getVotingPluginUserManager().getVotingPluginUser(player);
 			}
 		});
-		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPluginHooks", VotingPluginHooks.getInstance());
+		getJavascriptEngine().put("VotingPluginHooks", VotingPluginHooks.getInstance());
 
 		loadTimer();
 
@@ -797,30 +770,30 @@ public class Main extends JavaPlugin {
 		}
 
 		// set columns
-		if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Reminded", "VARCHAR(5)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("Points", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MileStoneTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
-			AdvancedCoreHook.getInstance().getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		if (getStorageType().equals(UserStorage.MYSQL)) {
+			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
+			getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+			getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
+			getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
+			getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
+			getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("Points", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MileStoneTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 		}
 
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
@@ -878,6 +851,29 @@ public class Main extends JavaPlugin {
 				}
 			}, 30l);
 		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
+	 */
+	@Override
+	public void onLoad() {
+		plugin = this;
+
+		// disable plugin for older versions below 1.12
+		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
+			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
+					+ ", this version is not supported on this build. Disabling");
+			Bukkit.getPluginManager().disablePlugin(plugin);
+			return;
+		}
+
+		setupFiles();
+		loadVoteSites();
+		setJenkinsSite("ben12345rocks.com");
+		updateAdvancedCoreHook();
+
 	}
 
 	/**
@@ -943,8 +939,8 @@ public class Main extends JavaPlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
-		AdvancedCoreHook.getInstance().reload();
+		setConfigData(Config.getInstance().getData());
+		reload();
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
 	}
@@ -996,14 +992,14 @@ public class Main extends JavaPlugin {
 					update = false;
 
 					synchronized (plugin) {
-						if (AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL)) {
-							if (AdvancedCoreHook.getInstance().getMysql() == null) {
+						if (getStorageType().equals(UserStorage.MYSQL)) {
+							if (getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
 							} else if (Config.getInstance().isClearCacheOnUpdate()) {
-								AdvancedCoreHook.getInstance().getMysql().clearCache();
+								getMysql().clearCache();
 							} else {
-								AdvancedCoreHook.getInstance().getMysql().clearCacheBasic();
+								getMysql().clearCacheBasic();
 							}
 						}
 
@@ -1016,7 +1012,7 @@ public class Main extends JavaPlugin {
 								if (uuid != null && !uuid.isEmpty()) {
 									User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 									users.add(user);
-									// AdvancedCoreHook.getInstance().extraDebug("Loading " + uuid);
+									// extraDebug("Loading " + uuid);
 									// java.lang.Thread.sleep(5000);
 								}
 							}
@@ -1047,13 +1043,13 @@ public class Main extends JavaPlugin {
 	}
 
 	public void updateAdvancedCoreHook() {
-		AdvancedCoreHook.getInstance().getJavascriptEngine().put("VotingPlugin", this);
-		AdvancedCoreHook.getInstance().allowDownloadingFromSpigot(15358);
-		AdvancedCoreHook.getInstance().setConfigData(Config.getInstance().getData());
+		getJavascriptEngine().put("VotingPlugin", this);
+		allowDownloadingFromSpigot(15358);
+		setConfigData(Config.getInstance().getData());
 	}
 
 	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
-		boolean checkInt = AdvancedCoreHook.getInstance().getStorageType().equals(UserStorage.MYSQL);
+		boolean checkInt = getStorageType().equals(UserStorage.MYSQL);
 		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
