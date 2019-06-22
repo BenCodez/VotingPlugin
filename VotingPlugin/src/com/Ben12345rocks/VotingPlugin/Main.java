@@ -210,16 +210,6 @@ public class Main extends AdvancedCorePlugin {
 		return new ArrayList<User>(set);
 	}
 
-	/**
-	 * Debug.
-	 *
-	 * @param message
-	 *            the message
-	 */
-	public void debug(String message) {
-		debug(plugin, message);
-	}
-
 	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
 		return topVoter.get(top);
 	}
@@ -940,7 +930,7 @@ public class Main extends AdvancedCorePlugin {
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		setConfigData(Config.getInstance().getData());
-		reload();
+		super.reload();
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
 	}
