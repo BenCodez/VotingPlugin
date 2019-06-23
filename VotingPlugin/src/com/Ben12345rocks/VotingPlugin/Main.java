@@ -922,6 +922,7 @@ public class Main extends AdvancedCorePlugin {
 	/**
 	 * Reload.
 	 */
+	@Override
 	public void reload() {
 		setUpdate(true);
 		config.reloadData();
@@ -930,7 +931,7 @@ public class Main extends AdvancedCorePlugin {
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		setConfigData(Config.getInstance().getData());
-		super.reload();
+		reloadAdvancedCore();
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
 	}
