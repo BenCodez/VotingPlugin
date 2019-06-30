@@ -1,5 +1,7 @@
 VoteSites:
-  # VoteSite name
+  # VoteSite key
+  # Used for saving data for votesites
+  # Use a short name if you can
   ExampleVoteSite:
     # Enable voteSite
     # If false, votesite will not be loaded by plugin

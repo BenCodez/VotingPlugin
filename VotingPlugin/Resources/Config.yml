@@ -832,7 +832,8 @@ DebugInGame: false
 
 # Will log debug messages to VotingPlugin/Log/log.txt
 # Requires Debug to be on
-LogDebugToFile: false
+# Only needed for extra cases
+#LogDebugToFile: false
 
 # Options for request api
 # Current methods

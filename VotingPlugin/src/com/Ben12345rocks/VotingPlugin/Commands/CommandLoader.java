@@ -685,19 +685,6 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "SetData", "(text)", "(text)" },
-						"VotingPlugin.Commands.AdminVote.SetData|" + adminPerm, "Set data") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.getData().setString(args[3], args[4]);
-						sender.sendMessage(StringUtils.getInstance()
-								.colorize("&cSet " + args[3] + " for " + args[1] + " to " + args[4]));
-					}
-				});
-
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
@@ -713,18 +700,6 @@ public class CommandLoader {
 				}
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ViewData" },
-				"VotingPlugin.Commands.AdminVote.ViewData|" + adminPerm, "View playerdata") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				for (String key : user.getData().getKeys()) {
-					user.sendMessage("&c&l" + key + " &c" + user.getData().getString(key));
-				}
 			}
 		});
 
@@ -963,19 +938,19 @@ public class CommandLoader {
 						}
 					}
 				});
-		
-		plugin.getAdminVoteCommand()
-		.add(new CommandHandler(new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
-				"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward times") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VoteTester.getInstance().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
-				if (isPlayer(sender)) {
-					sendMessage(sender, "&cSee console for details");
-				}
-			}
-		});
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward times") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteTester.getInstance().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
+						if (isPlayer(sender)) {
+							sendMessage(sender, "&cSee console for details");
+						}
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders" },
