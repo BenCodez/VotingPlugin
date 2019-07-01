@@ -817,6 +817,9 @@ ClickSound:
   Sound: 'UI_BUTTON_CLICK'
   Volume: 1.0
   Pitch: 1.0
+  
+# Limit monthly votes to number of days of a month
+LimitMonthlyVotes: false
 
 # Debug
 Debug: false

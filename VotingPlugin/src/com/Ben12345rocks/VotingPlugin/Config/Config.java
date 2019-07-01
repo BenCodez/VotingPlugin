@@ -264,6 +264,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean allowVotePointTransfers = false;
 
+	@ConfigDataBoolean(path = "LimitMonthlyVotes")
+	@Getter
+	private boolean limitMonthlyVotes = false;
+
 	@Getter
 	private int formatPageSize = 10;
 

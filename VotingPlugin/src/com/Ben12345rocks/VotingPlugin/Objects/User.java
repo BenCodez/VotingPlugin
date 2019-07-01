@@ -744,7 +744,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	@Deprecated
 	public void setAllTimeTotal(int allTimeTotal) {
-		getUserData().setInt("AllTimeTotal", allTimeTotal);
+		setTotal(TopVoter.AllTime, allTimeTotal);
 	}
 
 	public void setBestDayVoteStreak(int streak) {
@@ -761,7 +761,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	@Deprecated
 	public void setDailyTotal(int total) {
-		getUserData().setInt("DailyTotal", total);
+		setTotal(TopVoter.Daily, total);
 	}
 
 	public void setDayVoteStreak(int streak) {
@@ -821,7 +821,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	@Deprecated
 	public void setMonthTotal(int total) {
-		getData().setInt("MonthTotal", total);
+		setTotal(TopVoter.Monthly, total);
 	}
 
 	public void setMonthVoteStreak(int streak) {
@@ -876,6 +876,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				getUserData().setInt("DailyTotal", value);
 				break;
 			case Monthly:
+				if (Config.getInstance().isLimitMonthlyVotes()) {
+					int days = TimeChecker.getInstance().getTime().getMonth().maxLength();
+					if (value > days) {
+						value = days;
+					}
+				}
 				getData().setInt("MonthTotal", value);
 				break;
 			case Weekly:
@@ -897,7 +903,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	@Deprecated
 	public void setWeeklyTotal(int total) {
-		getUserData().setInt("WeeklyTotal", total);
+		setTotal(TopVoter.Weekly, total);
 	}
 
 	public void setWeekVoteStreak(int streak) {
