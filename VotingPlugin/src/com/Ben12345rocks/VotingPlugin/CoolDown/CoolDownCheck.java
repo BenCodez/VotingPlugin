@@ -9,11 +9,11 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
-import com.Ben12345rocks.AdvancedCore.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -67,13 +67,14 @@ public class CoolDownCheck implements Listener {
 	public void checkAll() {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = new User(new UUID(uuid));
-					if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
-						user.checkCoolDownEvents();
+					if (Main.plugin != null) {
+						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+						if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+							user.checkCoolDownEvents();
+						}
 					}
 				}
 			}
