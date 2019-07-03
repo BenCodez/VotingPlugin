@@ -59,6 +59,21 @@ VoteSites:
       # Send player a message
       Messages:
         Player: 'You voted'
+  # Site 2 example
+  Site2:
+    Enabled: false
+    Name: 'Site2'
+    ServiceSite: 'PlanetMinecraft.com'
+    VoteURL: 'link to vote URL here, used in /vote'
+    VoteDelay: 24
+    Item:
+      Material: 'DIAMOND'
+      Amount: 1
+    Rewards:
+      Commands:
+      - 'say hello'
+      Messages:
+        Player: 'You voted'
     
 # Reward for any site
 # Similar to AnySiteReward

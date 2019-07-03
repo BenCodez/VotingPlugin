@@ -4,7 +4,7 @@
 # https://github.com/Ben12345rocks/VotingPlugin/wiki
 
 # Valid Options:
-# - SQLITE
+# - SQLITE 
 # - FLAT
 # - MYSQL
 DataStorage: SQLITE
@@ -644,7 +644,7 @@ VoteParty:
   # List of commands to execute, these only execute once.
   # %player% does not work here
   Commands: []
-  # Rewards to give
+  # Rewards to give per player
   Rewards: 
     Commands:
     - say %player%
@@ -659,7 +659,7 @@ ResetMilestonesMonthly: false
 MileStones:
   # Number of votes required
   # Allows multiple milestones
-  # Number be be around ' (E.g. '1')
+  # Number be around ' (E.g. '1')
   # Can have multiple listed here
   '20':
     Enabled: false
