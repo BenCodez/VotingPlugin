@@ -18,6 +18,7 @@ import java.util.TimerTask;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.permissions.Permission;
@@ -29,7 +30,9 @@ import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInject;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectInt;
+import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectValidator;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIButton;
@@ -804,7 +807,15 @@ public class Main extends AdvancedCorePlugin {
 						Reward reward = (Reward) getInv().getData("Reward");
 						reward.getConfig().set("Points", value.intValue());
 					}
-				})));
+				})).validator(new RewardInjectValidator() {
+
+					@Override
+					public void onValidate(Reward reward, RewardInject inject, ConfigurationSection data) {
+						if (data.getInt(inject.getPath(), -1) == 0) {
+							warning(reward, inject, "Points can not be 0");
+						}
+					}
+				}));
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
