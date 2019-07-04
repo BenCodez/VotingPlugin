@@ -143,10 +143,11 @@ public class Main extends AdvancedCorePlugin {
 
 	private boolean checkVotifierLoaded() {
 		try {
+			Class.forName("com.vexsoftware.votifier.Votifier");
 			if (Votifier.getInstance().getVoteReceiver() == null) {
 				return false;
 			}
-		} catch (Exception e) {
+		} catch (ClassNotFoundException e) {
 			debug("Using NuVotiifer?");
 		}
 		return true;
