@@ -75,6 +75,7 @@ import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.MVdWPlaceholders;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
+import com.vexsoftware.votifier.Votifier;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -138,6 +139,17 @@ public class Main extends AdvancedCorePlugin {
 			plugin.getLogger()
 					.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 		}
+	}
+
+	private boolean checkVotifierLoaded() {
+		try {
+			if (Votifier.getInstance().getVoteReceiver() == null) {
+				return false;
+			}
+		} catch (Exception e) {
+			debug("Using NuVotiifer?");
+		}
+		return true;
 	}
 
 	public void convertDataStorage(UserStorage from, UserStorage to) {
@@ -854,6 +866,16 @@ public class Main extends AdvancedCorePlugin {
 				}
 			}, 30l);
 		}
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				if (!checkVotifierLoaded()) {
+					plugin.getLogger().warning("Detected votifier not loaded properly, check startup for details");
+				}
+			}
+		});
+
 	}
 
 	/*
