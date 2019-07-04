@@ -39,8 +39,8 @@ public class PlayerJoinEvent implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
-		if (event.getPlayer() == null || (Main.plugin.getStorageType().equals(UserStorage.MYSQL)
-				&& Main.plugin.getMysql() == null)) {
+		if (event.getPlayer() == null
+				|| (Main.plugin.getStorageType().equals(UserStorage.MYSQL) && Main.plugin.getMysql() == null)) {
 			return;
 		}
 		Player player = event.getPlayer();

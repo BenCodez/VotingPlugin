@@ -52,18 +52,6 @@ public class CoolDownCheck implements Listener {
 		CoolDownCheck.plugin = plugin;
 	}
 
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void onDayChangeEnd(DateChangedEvent event) {
-		checkAll();
-	}
-
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		RewardHandler.getInstance().giveReward(event.getPlayer(), Config.getInstance().getData(),
-				"VoteCoolDownEndedReward",
-				new RewardOptions().addPlaceholder("Votesite", event.getVoteSite().getDisplayName()));
-	}
-
 	public void checkAll() {
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -80,5 +68,17 @@ public class CoolDownCheck implements Listener {
 			}
 		});
 
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
+		RewardHandler.getInstance().giveReward(event.getPlayer(), Config.getInstance().getData(),
+				"VoteCoolDownEndedReward",
+				new RewardOptions().addPlaceholder("Votesite", event.getVoteSite().getDisplayName()));
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onDayChangeEnd(DateChangedEvent event) {
+		checkAll();
 	}
 }

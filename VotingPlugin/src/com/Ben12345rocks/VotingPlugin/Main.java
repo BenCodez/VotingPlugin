@@ -243,10 +243,6 @@ public class Main extends AdvancedCorePlugin {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
-	public UserManager getVotingPluginUserManager() {
-		return UserManager.getInstance();
-	}
-
 	public VoteParty getVoteParty() {
 		return VoteParty.getInstance();
 	}
@@ -330,6 +326,10 @@ public class Main extends AdvancedCorePlugin {
 		}
 		return name;
 
+	}
+
+	public UserManager getVotingPluginUserManager() {
+		return UserManager.getInstance();
 	}
 
 	public boolean hasVoteSite(String site) {
@@ -704,23 +704,6 @@ public class Main extends AdvancedCorePlugin {
 		});
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
-	 */
-	@Override
-	public void onUnLoad() {
-		new Timer().schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-				Signs.getInstance().storeSigns();
-			}
-		}, 0);
-		HandlerList.unregisterAll(plugin);
-		plugin = null;
-	}
-
 	@Override
 	public void onPostLoad() {
 		registerCommands();
@@ -900,6 +883,23 @@ public class Main extends AdvancedCorePlugin {
 		setJenkinsSite("ben12345rocks.com");
 		updateAdvancedCoreHook();
 
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
+	 */
+	@Override
+	public void onUnLoad() {
+		new Timer().schedule(new TimerTask() {
+
+			@Override
+			public void run() {
+				Signs.getInstance().storeSigns();
+			}
+		}, 0);
+		HandlerList.unregisterAll(plugin);
+		plugin = null;
 	}
 
 	/**

@@ -12,16 +12,16 @@ public class VotingPluginHooks {
 		return instance;
 	}
 
-	public Main getMainClass() {
-		return Main.plugin;
+	public void addCustomRequirement(RequirementInject inject) {
+		RewardHandler.getInstance().addInjectedRequirements(inject);
 	}
 
 	public void addCustomReward(RewardInject inject) {
 		RewardHandler.getInstance().addInjectedReward(inject);
 	}
 
-	public void addCustomRequirement(RequirementInject inject) {
-		RewardHandler.getInstance().addInjectedRequirements(inject);
+	public Main getMainClass() {
+		return Main.plugin;
 	}
 
 	public UserManager getUserManager() {

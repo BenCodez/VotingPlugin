@@ -114,47 +114,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		setOfflineVotes(offlineVotes);
 	}
 
-	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
-		int total = getTotal(top);
-		switch (top) {
-			case Daily:
-				return total / plugin.getVoteSites().size() * 100 > percentage;
-			case Monthly:
-				return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
-			case Weekly:
-				return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
-			default:
-				return false;
-		}
-	}
-
-	public void checkDayVoteStreak() {
-		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
-			if (!Config.getInstance().isVoteStreakRequirementUsePercentage()
-					|| hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
-				addDayVoteStreak();
-				SpecialRewards.getInstance().checkVoteStreak(this, "Day");
-				setDayVoteStreakLastUpdate(System.currentTimeMillis());
-			}
-		}
-	}
-
-	public boolean voteStreakUpdatedToday(LocalDateTime time) {
-		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
-	}
-
-	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate");
-		if (str.isEmpty()) {
-			return 0;
-		}
-		return Long.parseLong(str);
-	}
-
-	public void setDayVoteStreakLastUpdate(long time) {
-		getData().setString("DayVoteStreakLastUpdate", "" + time);
-	}
-
 	/**
 	 * Adds the points.
 	 */
@@ -303,6 +262,28 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return true;
 	}
 
+	public void checkCoolDownEvents() {
+		for (VoteSite site : plugin.getVoteSites()) {
+			if (canVoteSite(site) != getLastCoolDownCheck(site)) {
+				plugin.debug(getPlayerName() + " vote cooldown ended: " + site.getKey());
+				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(this, site);
+				plugin.getServer().getPluginManager().callEvent(event);
+				setLastVoteCoolDownCheck(true, site);
+			}
+		}
+	}
+
+	public void checkDayVoteStreak() {
+		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
+			if (!Config.getInstance().isVoteStreakRequirementUsePercentage()
+					|| hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
+				addDayVoteStreak();
+				SpecialRewards.getInstance().checkVoteStreak(this, "Day");
+				setDayVoteStreakLastUpdate(System.currentTimeMillis());
+			}
+		}
+	}
+
 	public void clearOfflineRewards() {
 		setOfflineVotes(new ArrayList<String>());
 		setOfflineRewards(new ArrayList<String>());
@@ -337,63 +318,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return getUserData().getInt("DailyTotal");
 	}
 
-	public void setLastVoteCoolDownCheck(boolean lastDelay, VoteSite voteSite) {
-		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
-		array.put(voteSite, Boolean.valueOf(lastDelay));
-		setLastCoolDownCheckArray(array);
-	}
-
-	public void setLastCoolDownCheckArray(HashMap<VoteSite, Boolean> lastVotesCheck) {
-		ArrayList<String> data = new ArrayList<String>();
-		for (Entry<VoteSite, Boolean> entry : lastVotesCheck.entrySet()) {
-			String str = entry.getKey().getKey() + "//" + entry.getValue().booleanValue();
-			data.add(str);
-		}
-		getUserData().setStringList("LastVoteCoolDownCheck", data);
-	}
-
-	public HashMap<VoteSite, Boolean> getLastCoolDownCheckArray() {
-		HashMap<VoteSite, Boolean> lastVotesCheck = new HashMap<VoteSite, Boolean>();
-		ArrayList<String> LastVotesCheckList = getUserData().getStringList("LastVoteCoolDownCheck");
-		for (String str : LastVotesCheckList) {
-			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0]);
-				if (site != null) {
-					Boolean value = Boolean.FALSE;
-					try {
-						value = Boolean.valueOf(data[1]);
-					} catch (NumberFormatException e) {
-						plugin.debug("Not value: " + data[1]);
-					}
-					lastVotesCheck.put(site, value);
-				}
-			}
-		}
-		return lastVotesCheck;
-	}
-
-	public boolean getLastCoolDownCheck(VoteSite site) {
-		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
-		if (array.containsKey(site)) {
-			return array.get(site).booleanValue();
-		}
-		return true;
-	}
-
-	public void checkCoolDownEvents() {
-		for (VoteSite site : plugin.getVoteSites()) {
-			if (canVoteSite(site) != getLastCoolDownCheck(site)) {
-				plugin.debug(getPlayerName() + " vote cooldown ended: " + site.getKey());
-				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(this, site);
-				plugin.getServer().getPluginManager().callEvent(event);
-				setLastVoteCoolDownCheck(true, site);
-			}
-		}
-	}
-
 	public int getDayVoteStreak() {
 		return getData().getInt("DayVoteStreak");
+	}
+
+	public long getDayVoteStreakLastUpdate() {
+		String str = getData().getString("DayVoteStreakLastUpdate");
+		if (str.isEmpty()) {
+			return 0;
+		}
+		return Long.parseLong(str);
 	}
 
 	public boolean getDisableBroadcast() {
@@ -423,6 +357,35 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public int getHighestWeeklyTotal() {
 		return getData().getInt("HighestWeeklyTotal");
+	}
+
+	public boolean getLastCoolDownCheck(VoteSite site) {
+		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
+		if (array.containsKey(site)) {
+			return array.get(site).booleanValue();
+		}
+		return true;
+	}
+
+	public HashMap<VoteSite, Boolean> getLastCoolDownCheckArray() {
+		HashMap<VoteSite, Boolean> lastVotesCheck = new HashMap<VoteSite, Boolean>();
+		ArrayList<String> LastVotesCheckList = getUserData().getStringList("LastVoteCoolDownCheck");
+		for (String str : LastVotesCheckList) {
+			String[] data = str.split("//");
+			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
+				VoteSite site = plugin.getVoteSite(data[0]);
+				if (site != null) {
+					Boolean value = Boolean.FALSE;
+					try {
+						value = Boolean.valueOf(data[1]);
+					} catch (NumberFormatException e) {
+						plugin.debug("Not value: " + data[1]);
+					}
+					lastVotesCheck.put(site, value);
+				}
+			}
+		}
+		return lastVotesCheck;
 	}
 
 	public int getLastMonthTotal() {
@@ -638,6 +601,20 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return false;
 	}
 
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
+		int total = getTotal(top);
+		switch (top) {
+			case Daily:
+				return total / plugin.getVoteSites().size() * 100 > percentage;
+			case Monthly:
+				return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
+			case Weekly:
+				return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
+			default:
+				return false;
+		}
+	}
+
 	public boolean isReminded() {
 		return getUserData().getBoolean("Reminded");
 	}
@@ -771,6 +748,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 	}
 
+	public void setDayVoteStreakLastUpdate(long time) {
+		getData().setString("DayVoteStreakLastUpdate", "" + time);
+	}
+
 	public void setDisableBroadcast(boolean value) {
 		getUserData().setBoolean("DisableBroadcast", value);
 	}
@@ -802,8 +783,23 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		getData().setInt("HighestWeeklyTotal", total);
 	}
 
+	public void setLastCoolDownCheckArray(HashMap<VoteSite, Boolean> lastVotesCheck) {
+		ArrayList<String> data = new ArrayList<String>();
+		for (Entry<VoteSite, Boolean> entry : lastVotesCheck.entrySet()) {
+			String str = entry.getKey().getKey() + "//" + entry.getValue().booleanValue();
+			data.add(str);
+		}
+		getUserData().setStringList("LastVoteCoolDownCheck", data);
+	}
+
 	public void setLastMonthTotal(int total) {
 		getData().setInt("LastMonthTotal", total);
+	}
+
+	public void setLastVoteCoolDownCheck(boolean lastDelay, VoteSite voteSite) {
+		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
+		array.put(voteSite, Boolean.valueOf(lastDelay));
+		setLastCoolDownCheckArray(array);
 	}
 
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
@@ -921,6 +917,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			}
 		}
 		return true;
+	}
+
+	public boolean voteStreakUpdatedToday(LocalDateTime time) {
+		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
 	}
 
 }

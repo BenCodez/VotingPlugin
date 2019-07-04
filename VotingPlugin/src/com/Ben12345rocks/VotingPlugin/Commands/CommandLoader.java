@@ -79,8 +79,6 @@ public class CommandLoader {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	private Object pointLock = new Object();
-
 	/**
 	 * Gets the single instance of CommandLoader.
 	 *
@@ -89,6 +87,8 @@ public class CommandLoader {
 	public static CommandLoader getInstance() {
 		return instance;
 	}
+
+	private Object pointLock = new Object();
 
 	/** The commands. */
 	private HashMap<String, CommandHandler> commands;
