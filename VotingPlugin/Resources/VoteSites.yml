@@ -72,6 +72,28 @@ VoteSites:
     Rewards:
       Commands:
       - 'say hello'
+      # Advanced example
+      # 50% chance for reward1, if reward1 not given then 20% chance to get reward2, if reward2 not given then fallback
+      AdvancedPriority:
+        # Similar to priority, but no need to have to use reward files
+        # Add requirements under each reward
+        # Will go in order from list here and try to run each of the following rewards...
+        # This name can be anything, but they need to be different
+        Reward1:
+          Chance: 50
+          # Any other requirement here
+          # If any requirement fails, the next will be attempted
+          Messages:
+            Player: 'You got first reward'
+        Reward2:
+          Chance: 20
+          Messages:
+            Player: 'You got second reward'
+        # Fallback, 100% chance
+        Fallback:
+          Messages:
+            Player: 'You got unlucky'
+
       Messages:
         Player: 'You voted'
     

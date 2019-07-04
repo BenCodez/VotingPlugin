@@ -151,6 +151,7 @@ public class Main extends AdvancedCorePlugin {
 		while (uuids.size() > 0) {
 			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
 			getOptions().setStorageType(from);
+			loadUserAPI(getOptions().getStorageType());
 			// setStorageType(to);
 
 			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
@@ -193,6 +194,7 @@ public class Main extends AdvancedCorePlugin {
 					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
 
 			getOptions().setStorageType(to);
+			loadUserAPI(getOptions().getStorageType());
 			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
 				getMysql().clearCache();
 			}
@@ -930,10 +932,17 @@ public class Main extends AdvancedCorePlugin {
 		configVoteSites.reloadData();
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		setConfigData(Config.getInstance().getData());
 		reloadAdvancedCore();
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				update();
+			}
+		});
+
 	}
 
 	private void setupFiles() {

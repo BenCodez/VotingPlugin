@@ -879,7 +879,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				if (Config.getInstance().isLimitMonthlyVotes()) {
 					int days = TimeChecker.getInstance().getTime().getMonth().maxLength();
 					if (value > days) {
-						value = days;
+						value = days * plugin.getVoteSites().size();
 					}
 				}
 				getData().setInt("MonthTotal", value);

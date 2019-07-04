@@ -818,7 +818,7 @@ ClickSound:
   Volume: 1.0
   Pitch: 1.0
   
-# Limit monthly votes to number of days of a month
+# Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false
 
 # Debug
