@@ -268,6 +268,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean limitMonthlyVotes = false;
 
+	@ConfigDataBoolean(path = "AlwaysCloseInventory")
+	@Getter
+	private boolean alwaysCloseInventory = false;
+
 	@Getter
 	private int formatPageSize = 10;
 

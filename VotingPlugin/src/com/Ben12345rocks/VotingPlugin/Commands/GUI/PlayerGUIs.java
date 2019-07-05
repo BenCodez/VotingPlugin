@@ -52,12 +52,28 @@ public class PlayerGUIs {
 	private PlayerGUIs() {
 	}
 
-	public ItemBuilder getBackButton() {
+	public BInventoryButton getBackButton() {
 		ConfigurationSection sec = Config.getInstance().getBackButton();
+		ItemBuilder item;
 		if (sec != null) {
-			return new ItemBuilder(sec);
+			item = new ItemBuilder(sec);
+		} else {
+			item = new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
 		}
-		return new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
+
+		BInventoryButton b = new BInventoryButton(item) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				openVoteGUI(event.getWhoClicked(), getSelectedPlayer(event.getWhoClicked()));
+			}
+		};
+
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			b.dontClose();
+		}
+
+		return b;
 	}
 
 	public User getSelectedPlayer(Player player) {
@@ -116,6 +132,9 @@ public class PlayerGUIs {
 		setSelectedPlayer(player, user);
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteGUIName(), "player", user.getPlayerName()));
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
 
 		for (String slot : Config.getInstance().getVoteGUISlots()) {
 			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteGUISlotSection(slot));
@@ -223,14 +242,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteLastBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-
-			});
+			inv.addButton(getBackButton());
 		}
 
 		inv.openInventory(player);
@@ -252,14 +264,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteNextBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-
-			});
+			inv.addButton(getBackButton());
 		}
 		inv.openInventory(player);
 	}
@@ -346,16 +351,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getVoteShopBackButton()) {
-			inv.addButton(new BInventoryButton(PlayerGUIs.getInstance().getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					PlayerGUIs.getInstance().openVoteGUI(event.getPlayer(),
-							UserManager.getInstance().getVotingPluginUser(player));
-				}
-
-			});
-
+			inv.addButton(getBackButton());
 		}
 
 		inv.openInventory(player);
@@ -423,13 +419,7 @@ public class PlayerGUIs {
 				});
 
 		if (Config.getInstance().getGUIVoteStreakBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-			});
+			inv.addButton(getBackButton());
 		}
 
 		inv.openInventory(player);
@@ -438,6 +428,9 @@ public class PlayerGUIs {
 	public void openVoteToday(Player player) {
 		setSelectedPlayer(player, null);
 		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
 		for (User user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
@@ -452,21 +445,13 @@ public class PlayerGUIs {
 						User user = UserManager.getInstance()
 								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
 						openVoteGUI(player, user);
-
 					}
 				});
 			}
 		}
 
 		if (Config.getInstance().getGUIVoteTodayBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-
-			});
+			inv.addButton(getBackButton());
 		}
 		inv.openInventory(player);
 	}
@@ -482,6 +467,9 @@ public class PlayerGUIs {
 
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", topVoter));
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
 
 		int pos = 1;
 		for (Entry<User, Integer> entry : users) {
@@ -524,13 +512,7 @@ public class PlayerGUIs {
 		});
 
 		if (Config.getInstance().getGUIVoteTopBackButton()) {
-			inv.getPageButtons().add(new BInventoryButton(getBackButton().setSlot(1)) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-			});
+			inv.getPageButtons().add(getBackButton().setSlot(1));
 		}
 
 		inv.setPages(true);
@@ -556,14 +538,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteTotalBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-
-			});
+			inv.addButton(getBackButton());
 		}
 		inv.openInventory(player);
 	}
@@ -644,13 +619,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().getGUIVoteURLBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-			});
+			inv.addButton(getBackButton());
 		}
 
 		inv.openInventory(player);
@@ -663,6 +632,9 @@ public class PlayerGUIs {
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteURLSiteName(), "site", site.getDisplayName()));
 		inv.setMeta(player, "VoteSite", site);
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
 
 		inv.addButton(
 				new BInventoryButton(new ItemBuilder(Material.BOW).setName("&4URL").addLoreLine("Click to see URL")) {
@@ -693,13 +665,7 @@ public class PlayerGUIs {
 		});
 
 		if (Config.getInstance().getGUIVoteURLBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-			});
+			inv.addButton(getBackButton());
 		}
 		inv.openInventory(player);
 	}
@@ -754,13 +720,7 @@ public class PlayerGUIs {
 		}
 
 		if (Config.getInstance().isVoteRewardBackButton()) {
-			inv.addButton(new BInventoryButton(getBackButton()) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					openVoteGUI(event.getPlayer(), getSelectedPlayer(event.getPlayer()));
-				}
-			});
+			inv.addButton(getBackButton());
 		}
 
 		inv.openInventory(player);

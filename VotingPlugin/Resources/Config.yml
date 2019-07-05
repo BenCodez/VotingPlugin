@@ -807,6 +807,8 @@ DailyAwards:
 # Set to 0 to give no points
 PointsOnVote: 1
 
+AlwaysCloseInventory: false
+
 # Set this to false to disable the plugin adding totals
 # Not really recommended
 AddTotals: true
