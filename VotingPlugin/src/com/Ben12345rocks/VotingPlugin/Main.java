@@ -30,6 +30,7 @@ import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardPlaceholderHandle;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInject;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectInt;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectValidator;
@@ -787,6 +788,7 @@ public class Main extends AdvancedCorePlugin {
 			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 		}
 
+		// Add rewards
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 
 			@Override
@@ -812,6 +814,16 @@ public class Main extends AdvancedCorePlugin {
 						}
 					}
 				}));
+
+		for (final TopVoter top : TopVoter.values())
+			RewardHandler.getInstance().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
+
+				@Override
+				public String getValue(Reward reward, com.Ben12345rocks.AdvancedCore.UserManager.User user) {
+					User vUser = UserManager.getInstance().getVotingPluginUser(user);
+					return "" + vUser.getTotal(top);
+				}
+			});
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
