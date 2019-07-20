@@ -464,7 +464,7 @@ public class CommandLoader {
 				plugin.reload();
 				sender.sendMessage(
 						ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
-				if (plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
+				if (!Config.getInstance().isDisableUpdateChecking() && plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
 					sendMessage(sender, "&bPlugin has update available!");
 				}
 			}
