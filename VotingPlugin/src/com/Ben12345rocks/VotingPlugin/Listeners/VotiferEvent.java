@@ -7,11 +7,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -67,7 +69,7 @@ public class VotiferEvent implements Listener {
 		}
 
 		plugin.getLogger()
-				.info("Recieved a vote from '" + voteSite + "(" + IP + ")' by player '" + voteUsername + "'!");
+				.info("Recieved a vote from service site '" + voteSite + "' by player '" + voteUsername + "'!");
 
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
@@ -80,15 +82,27 @@ public class VotiferEvent implements Listener {
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
 
 				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
+				boolean createSite = false;
 				if (sites != null) {
-					if (!sites.contains(voteSiteName) && Config.getInstance().isAutoCreateVoteSites()) {
-						plugin.getLogger()
-								.warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
-						ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+					if (!sites.contains(voteSiteName)) {
+						createSite = true;
 					}
-				} else if (Config.getInstance().isAutoCreateVoteSites()) {
-					plugin.getLogger().warning("VoteSite " + voteSiteName + " doe not exist, generaterating one...");
+				} else {
+					createSite = true;
+				}
+
+				if (Config.getInstance().isAutoCreateVoteSites() && createSite) {
+					plugin.getLogger().warning("VoteSite with service site '" + voteSiteName
+							+ "' does not exist, attempting to generaterate...");
 					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+
+					ArrayList<String> services = new ArrayList<String>();
+					for (VoteSite site : plugin.getVoteSites()) {
+						services.add(site.getServiceSite());
+					}
+					plugin.getLogger()
+							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
+
 				}
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername,
