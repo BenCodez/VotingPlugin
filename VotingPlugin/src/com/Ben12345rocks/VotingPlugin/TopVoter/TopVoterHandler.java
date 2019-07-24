@@ -118,7 +118,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getStoreTopVotersDaily()) {
-			plugin.debug("Storing TopVoters Daily");
+			plugin.getLogger().info("Saving TopVoters Daily");
 			storeTopVoters(TopVoter.Daily);
 		}
 
@@ -167,7 +167,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getStoreTopVotersMonthly()) {
-			plugin.debug("Storing TopVoters Monthly");
+			plugin.getLogger().info("Saving TopVoters Monthly");
 			storeTopVoters(TopVoter.Monthly);
 		}
 
@@ -230,7 +230,7 @@ public class TopVoterHandler implements Listener {
 		}
 
 		if (Config.getInstance().getStoreTopVotersWeekly()) {
-			plugin.debug("Storing TopVoters Weekly");
+			plugin.getLogger().info("Saving TopVoters Weekly");
 			storeTopVoters(TopVoter.Weekly);
 		}
 
