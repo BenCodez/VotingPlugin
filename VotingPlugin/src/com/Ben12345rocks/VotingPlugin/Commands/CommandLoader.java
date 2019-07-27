@@ -462,9 +462,15 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				sender.sendMessage(ChatColor.RED + "Reloading " + plugin.getName() + "...");
 				plugin.reload();
-				sender.sendMessage(
-						ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
-				if (!Config.getInstance().isDisableUpdateChecking() && plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
+				if (plugin.isYmlError()) {
+					sender.sendMessage(ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion()
+							+ " reloaded, but detected yml error, please check your configs for errors");
+				} else {
+					sender.sendMessage(ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion()
+							+ " reloaded!");
+				}
+				if (!Config.getInstance().isDisableUpdateChecking()
+						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
 					sendMessage(sender, "&bPlugin has update available!");
 				}
 			}

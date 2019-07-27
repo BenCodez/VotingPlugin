@@ -988,15 +988,19 @@ public class Main extends AdvancedCorePlugin {
 				update();
 			}
 		});
-
 	}
 
+	@Getter
+	private boolean ymlError = false;
+
 	private void setupFiles() {
+		boolean configYMLError = false;
 		try {
 			config = Config.getInstance();
 			config.setup();
 			config.loadValues();
 		} catch (Exception e) {
+			configYMLError = true;
 			e.printStackTrace();
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
@@ -1007,10 +1011,12 @@ public class Main extends AdvancedCorePlugin {
 				}
 			}, 10);
 		}
+		boolean siteYMLError = false;
 		try {
 			configVoteSites = ConfigVoteSites.getInstance();
 			configVoteSites.setup();
 		} catch (Exception e) {
+			siteYMLError = true;
 			e.printStackTrace();
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
@@ -1021,6 +1027,12 @@ public class Main extends AdvancedCorePlugin {
 				}
 
 			}, 10);
+
+			if (siteYMLError || configYMLError) {
+				ymlError = true;
+			} else if (!siteYMLError && !configYMLError) {
+				ymlError = false;
+			}
 		}
 
 		plugin.debug("Loaded Files");

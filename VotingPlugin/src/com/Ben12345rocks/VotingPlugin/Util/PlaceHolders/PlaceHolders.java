@@ -79,7 +79,7 @@ public class PlaceHolders {
 			}
 		}
 
-		return identifier;
+		return "Not a valid placeholder";
 	}
 
 	public String getPlaceHolder(Player p, String identifier) {
