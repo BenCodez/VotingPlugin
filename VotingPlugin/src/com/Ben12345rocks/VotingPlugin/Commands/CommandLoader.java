@@ -469,6 +469,10 @@ public class CommandLoader {
 					sender.sendMessage(ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion()
 							+ " reloaded!");
 				}
+				if (ServerData.getInstance().getServiceSites().size() == 0) {
+					sender.sendMessage(ChatColor.RED
+							+ "Detected that server hasn't received any votes from votifier, please check votifier");
+				}
 				if (!Config.getInstance().isDisableUpdateChecking()
 						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
 					sendMessage(sender, "&bPlugin has update available!");

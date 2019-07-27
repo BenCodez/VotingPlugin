@@ -967,15 +967,48 @@ public class Main extends AdvancedCorePlugin {
 
 	}
 
+	private void checkYMLError() {
+		if (config.isFailedToRead() || configVoteSites.isFailedToRead()) {
+			ymlError = true;
+		} else if (!config.isFailedToRead() && !configVoteSites.isFailedToRead()) {
+			ymlError = false;
+		}
+
+		if (config.isFailedToRead()) {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load Config.yml");
+				}
+			}, 10);
+		}
+
+		if (configVoteSites.isFailedToRead()) {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load VoteSites.yml");
+				}
+
+			}, 10);
+		}
+	}
+
 	/**
 	 * Reload.
 	 */
 	@Override
 	public void reload() {
 		setUpdate(true);
+
 		config.reloadData();
 		config.loadValues();
+
 		configVoteSites.reloadData();
+		checkYMLError();
+
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		reloadAdvancedCore();
@@ -994,46 +1027,14 @@ public class Main extends AdvancedCorePlugin {
 	private boolean ymlError = false;
 
 	private void setupFiles() {
-		boolean configYMLError = false;
-		try {
-			config = Config.getInstance();
-			config.setup();
-			config.loadValues();
-		} catch (Exception e) {
-			configYMLError = true;
-			e.printStackTrace();
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		config = Config.getInstance();
+		config.setup();
+		config.loadValues();
 
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load Config.yml");
-					e.printStackTrace();
-				}
-			}, 10);
-		}
-		boolean siteYMLError = false;
-		try {
-			configVoteSites = ConfigVoteSites.getInstance();
-			configVoteSites.setup();
-		} catch (Exception e) {
-			siteYMLError = true;
-			e.printStackTrace();
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		configVoteSites = ConfigVoteSites.getInstance();
+		configVoteSites.setup();
 
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load VoteSites.yml");
-					e.printStackTrace();
-				}
-
-			}, 10);
-
-			if (siteYMLError || configYMLError) {
-				ymlError = true;
-			} else if (!siteYMLError && !configYMLError) {
-				ymlError = false;
-			}
-		}
+		checkYMLError();
 
 		plugin.debug("Loaded Files");
 
