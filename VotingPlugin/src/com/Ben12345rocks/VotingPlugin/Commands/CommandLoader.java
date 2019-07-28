@@ -460,22 +460,24 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(ChatColor.RED + "Reloading " + plugin.getName() + "...");
+				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
 				plugin.reload();
 				if (plugin.isYmlError()) {
-					sender.sendMessage(ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion()
-							+ " reloaded, but detected yml error, please check your configs for errors");
+					sendMessage(sender,
+							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
+					sendMessage(sender, "&3Detected yml error, please check server log for details");
 				} else {
-					sender.sendMessage(ChatColor.RED + plugin.getName() + " v" + plugin.getDescription().getVersion()
-							+ " reloaded!");
+					sendMessage(sender,
+							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 				}
 				if (ServerData.getInstance().getServiceSites().size() == 0) {
-					sender.sendMessage(ChatColor.RED
-							+ "Detected that server hasn't received any votes from votifier, please check votifier");
+					sendMessage(sender, "&c"
+							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
 				}
 				if (!Config.getInstance().isDisableUpdateChecking()
 						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
-					sendMessage(sender, "&bPlugin has update available!");
+					sendMessage(sender,
+							"&3Plugin has update available! https://www.spigotmc.org/resources/votingplugin.15358/");
 				}
 			}
 		});
