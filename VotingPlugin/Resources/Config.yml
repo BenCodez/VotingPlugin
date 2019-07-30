@@ -944,6 +944,9 @@ ClearCacheOnJoin: false
 # Would recommend for some bungee setups
 ClearCacheOnVote: false
 
+# Disable using vault for permission checks
+DisableVaultPermissions: false
+
 # ###############################################################
 # Deprecated options, don't recommend using any of these
 
