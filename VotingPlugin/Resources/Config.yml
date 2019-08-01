@@ -557,6 +557,10 @@ BackButton:
 
 VoteShopBackButton: true
 VoteShopEnabled: true
+# Hide items in vote shop which user can not buy
+VoteShopHideLimitedReached: true
+# Requires above to be false
+VoteShopLimitReached: '&aYou reached your limit'
 Shop:
   # Identifier
   # Used in placeholders for formats
@@ -577,6 +581,8 @@ Shop:
     Permission: ''
     # Limit how many times you can buy this
     #Limit: 3
+    # If true, item is not buyable
+    #NotBuyable: false
     # Rewards to run if player buys successfully
     Rewards:
       Items:

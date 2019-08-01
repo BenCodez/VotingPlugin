@@ -272,6 +272,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alwaysCloseInventory = false;
 
+	@ConfigDataBoolean(path = "VoteShopHideLimitedReached")
+	@Getter
+	private boolean voteShopHideLimitedReached = true;
+	
+	@ConfigDataString(path = "VoteShopLimitReached")
+	@Getter
+	private String voteShopLimitReached = "&aYou reached your limit";
+
 	@Getter
 	private int formatPageSize = 10;
 
@@ -1292,6 +1300,10 @@ public class Config extends YMLFile {
 	public int getVoteSiteItemsSlot(String site, String item) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
+	}
+
+	public boolean getVoteShopNotBuyable(String shop) {
+		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
 	}
 
 	/**
