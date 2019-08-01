@@ -297,7 +297,7 @@ public class PlayerGUIs {
 				}
 			}
 
-			if (Config.getInstance().getVoteShopNotBuyable(identifier)) {
+			if (!Config.getInstance().getVoteShopNotBuyable(identifier)) {
 				if (hasPerm && (limitPass || !Config.getInstance().isVoteShopHideLimitedReached())) {
 					ItemBuilder builder = new ItemBuilder(Config.getInstance().getIdentifierSection(identifier));
 
