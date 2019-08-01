@@ -180,9 +180,6 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					if (Config.getInstance().getVoteGUISlotCommand(slot).equalsIgnoreCase("none")) {
-						player.closeInventory();
-					}
 					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 						@Override
@@ -217,9 +214,7 @@ public class PlayerGUIs {
 									player.performCommand("vote help");
 								} else if (slot.equalsIgnoreCase("shop")) {
 									openVoteShop(player);
-								} else {
-									player.closeInventory();
-								}
+								} 
 							}
 						}
 					});
