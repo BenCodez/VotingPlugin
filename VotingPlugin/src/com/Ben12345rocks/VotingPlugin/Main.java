@@ -902,7 +902,7 @@ public class Main extends AdvancedCorePlugin {
 
 		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
 			plugin.getLogger().severe("Detected running " + Bukkit.getVersion()
-					+ ", this version is not supported on this build. Disabling...");
+					+ ", this version is not supported on this build, read the plugin page. Disabling...");
 			if (!Config.getInstance().isOverrideVersionDisable()) {
 				Bukkit.getPluginManager().disablePlugin(this);
 				return;

@@ -46,6 +46,9 @@ public class PlayerJoinEvent implements Listener {
 		Player player = event.getPlayer();
 
 		User user = UserManager.getInstance().getVotingPluginUser(player);
+		if (player.isOp() && plugin.isYmlError()) {
+			user.sendMessage("&cVotingPlugin: Detected yml error, please chceck console for details");
+		}
 
 		// run remind
 		user.loginMessage();
