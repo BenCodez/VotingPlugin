@@ -715,6 +715,12 @@ public class CommandLoader {
 				}
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
+				if (plugin.isYmlError()) {
+					sendMessage(sender,
+							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
+					sendMessage(sender, "&3Detected yml error, please check server log for details");
+				}
+
 			}
 		});
 
@@ -1564,6 +1570,19 @@ public class CommandLoader {
 
 			}
 		});
+
+		if (Config.getInstance().isLastMonthGUI()) {
+			plugin.getVoteCommand()
+					.add(new CommandHandler(new String[] { "LastMonthTop" },
+							"VotingPlugin.Commands.Vote.LastMonthTop|" + playerPerm,
+							"Open list of Top Voters from last month") {
+
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							PlayerGUIs.getInstance().openVoteTopLastMonth((Player) sender);
+						}
+					});
+		}
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top" },
 				"VotingPlugin.Commands.Vote.Top|" + playerPerm, "Open list of Top Voters") {

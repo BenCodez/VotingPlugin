@@ -214,6 +214,8 @@ public class PlayerGUIs {
 									player.performCommand("vote help");
 								} else if (slot.equalsIgnoreCase("shop")) {
 									openVoteShop(player);
+								} else if (slot.equalsIgnoreCase("lastmonth")) {
+									openVoteTopLastMonth(player);
 								}
 							}
 						}
@@ -470,6 +472,53 @@ public class PlayerGUIs {
 			inv.addButton(getBackButton());
 		}
 		inv.openInventory(player);
+	}
+
+	public void openVoteTopLastMonth(Player player) {
+		Set<Entry<User, Integer>> users = null;
+
+		users = plugin.getLastMonthTopVoter().entrySet();
+
+		BInventory inv = new BInventory(StringUtils.getInstance()
+				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", "Last Month"));
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
+
+		int pos = 1;
+		for (Entry<User, Integer> entry : users) {
+			ItemBuilder playerItem;
+
+			if (Config.getInstance().isGuiVoteTopUseSkull()) {
+				playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
+			} else {
+				playerItem = new ItemBuilder(Material.valueOf(Config.getInstance().getGuiVoteTopPlayerItemMaterial()));
+			}
+
+			playerItem.setLore(new ArrayList<String>());
+
+			inv.addButton(new BInventoryButton(playerItem.setName(Config.getInstance().getGUIVoteTopItemName())
+					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
+					.addPlaceholder("player", entry.getKey().getPlayerName())
+					.addPlaceholder("votes", "" + entry.getValue())) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					User user = (User) getData("User");
+					openVoteGUI(player, user);
+				}
+			}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
+			pos++;
+		}
+
+		if (Config.getInstance().getGUIVoteTopBackButton()) {
+			inv.getPageButtons().add(getBackButton().setSlot(1));
+		}
+
+		inv.setPages(true);
+		inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
+		inv.openInventory(player);
+
 	}
 
 	public void openVoteTop(Player player, TopVoter top) {

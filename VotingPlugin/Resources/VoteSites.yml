@@ -89,7 +89,7 @@ VoteSites:
           Chance: 20
           Messages:
             Player: 'You got second reward'
-        # Fallback, 100% chance
+        # Fallback, 100% chance, after other rewards fail chances
         Fallback:
           Messages:
             Player: 'You got unlucky'

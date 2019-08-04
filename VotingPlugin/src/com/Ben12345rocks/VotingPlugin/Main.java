@@ -99,6 +99,9 @@ public class Main extends AdvancedCorePlugin {
 	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
 
 	@Getter
+	private LinkedHashMap<User, Integer> lastMonthTopVoter;
+
+	@Getter
 	@Setter
 	private Updater updater;
 
@@ -602,6 +605,10 @@ public class Main extends AdvancedCorePlugin {
 				num = num * 100;
 				int num2 = (total + 100) / 100;
 				num2 = num2 * 100;
+				if (total < 1000) {
+					num = 0;
+					num2 = 1000;
+				}
 				return "" + num + "-" + num2;
 			}
 		});
@@ -722,6 +729,15 @@ public class Main extends AdvancedCorePlugin {
 			}
 		});
 
+		lastMonthTopVoter = new LinkedHashMap<User, Integer>();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				TopVoterHandler.getInstance().loadLastMonth();
+				debug("Loaded last month top voters");
+			}
+		});
 		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.put(top, new LinkedHashMap<User, Integer>());
@@ -883,15 +899,22 @@ public class Main extends AdvancedCorePlugin {
 		plugin = this;
 
 		// disable plugin for older versions below 1.12
+
 		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11", "1.12")) {
-			plugin.getLogger().severe("Detected running " + NMSManager.getInstance().getVersion()
-					+ ", this version is not supported on this build. Disabling");
-			Bukkit.getPluginManager().disablePlugin(plugin);
-			return;
+			plugin.getLogger().severe("Detected running " + Bukkit.getVersion()
+					+ ", this version is not supported on this build. Disabling...");
+			if (!Config.getInstance().isOverrideVersionDisable()) {
+				Bukkit.getPluginManager().disablePlugin(this);
+				return;
+			} else {
+				plugin.getLogger().warning("Overriding version disable, beware of using this! This may cause issues!");
+			}
 		}
 
 		setupFiles();
+
 		loadVoteSites();
+
 		setJenkinsSite("ben12345rocks.com");
 		updateAdvancedCoreHook();
 

@@ -702,9 +702,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void resetTotals(TopVoter topVoter) {
-		if (topVoter.equals(TopVoter.Monthly)) {
-			setLastMonthTotal(getTotal(TopVoter.Monthly));
-		}
 		setTotal(topVoter, 0);
 	}
 

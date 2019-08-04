@@ -275,7 +275,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "VoteShopHideLimitedReached")
 	@Getter
 	private boolean voteShopHideLimitedReached = true;
-	
+
 	@ConfigDataString(path = "VoteShopLimitReached")
 	@Getter
 	private String voteShopLimitReached = "&aYou reached your limit";
@@ -1266,6 +1266,14 @@ public class Config extends YMLFile {
 	public String getVoteShopPermission(String ident) {
 		return getData().getString("Shop." + ident + ".Permission", "");
 	}
+
+	@ConfigDataBoolean(path = "OverrideVersionDisable")
+	@Getter
+	private boolean overrideVersionDisable = false;
+
+	@ConfigDataBoolean(path = "LastMonthGUI")
+	@Getter
+	private boolean lastMonthGUI = false;
 
 	/**
 	 * Gets the vote site items.

@@ -310,6 +310,10 @@ Format:
 # GUI Options
 # ------------------------------------------------
   
+# Enable command for last month gui
+# Requires restart to take effect
+LastMonthGUI: false
+  
 # Configure GUI's here
 # Note: Slots start at 0 instead of 1, max slot is 53 (don't go over) (E.g: last slot in first row of inventory is 8)
 # Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
