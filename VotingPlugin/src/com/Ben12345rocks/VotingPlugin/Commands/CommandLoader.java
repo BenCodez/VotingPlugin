@@ -463,13 +463,10 @@ public class CommandLoader {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
 				plugin.reload();
 				if (plugin.isYmlError()) {
-					sendMessage(sender,
-							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
-				} else {
-					sendMessage(sender,
-							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 				}
+				sendMessage(sender,
+						"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 				if (ServerData.getInstance().getServiceSites().size() == 0) {
 					sendMessage(sender, "&c"
 							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
