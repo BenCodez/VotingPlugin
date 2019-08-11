@@ -522,6 +522,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void giveOfflineOtherRewards() {
+		// old reward api, will be removed in the future
 		ArrayList<String> offlineRewards = getOfflineOtherRewards();
 		for (String str : offlineRewards) {
 			if (str.equalsIgnoreCase("FirstVote")) {
@@ -651,6 +652,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
 				sendVoteEffects(true);
+				setOfflineVotes(new ArrayList<String>());
 			}
 
 			for (int i = 0; i < offlineVotes.size(); i++) {
@@ -661,8 +663,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
-
-			setOfflineVotes(new ArrayList<String>());
 
 			giveOfflineOtherRewards();
 		}
