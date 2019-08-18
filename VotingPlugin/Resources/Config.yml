@@ -847,11 +847,11 @@ DebugInGame: false
 
 # Will log debug messages to VotingPlugin/Log/log.txt
 # Requires Debug to be on
-# Only needed for extra cases
+# Only needed for extreme cases
 #LogDebugToFile: false
 
 # Options for request api
-# Current methods
+# Current methods:
 # ANVIL
 # BOOK
 # CHAT
