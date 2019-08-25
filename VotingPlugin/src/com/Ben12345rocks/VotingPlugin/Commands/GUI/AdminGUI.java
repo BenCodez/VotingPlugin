@@ -11,6 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUI;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.EditGUIButton;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueList;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueNumber;
 import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueString;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -249,6 +250,20 @@ public class AdminGUI {
 				plugin.reload();
 			}
 		}));
+
+		if (voteSite.getSiteData().isList("Rewards")) {
+
+			inv.addButton(
+					new EditGUIButton(new EditGUIValueList("Rewards", voteSite.getSiteData().getStringList("Rewards")) {
+
+						@Override
+						public void setValue(Player p, ArrayList<String> rewards) {
+							VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
+							ConfigVoteSites.getInstance().set(voteSite.getKey(), "Rewards", rewards);
+							plugin.reload();
+						}
+					}));
+		}
 
 		inv.openInventory(player);
 	}

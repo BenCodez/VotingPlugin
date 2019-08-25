@@ -190,4 +190,8 @@ public class VoteSite {
 				getServiceSite());
 	}
 
+	public ConfigurationSection getSiteData() {
+		return configVoteSites.getData(key);
+	}
+
 }
