@@ -56,8 +56,16 @@ public class PlayerVoteListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		String playerName = event.getPlayer();
-		if (!PlayerUtils.getInstance().isValidUser(playerName) && !Bukkit.getOfflinePlayer(playerName).hasPlayedBefore()) {
-			if (!config.isAllowUnjoined()) {
+		if (!PlayerUtils.getInstance().isValidUser(playerName)) {
+			boolean valid = false;
+			if (Config.getInstance().isAllowUnJoinedCheckServer()) {
+				if (Bukkit.getOfflinePlayer(playerName).hasPlayedBefore()) {
+					valid = true;
+				}
+			} else {
+				valid = true;
+			}
+			if (!config.isAllowUnjoined() && valid) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 				return;

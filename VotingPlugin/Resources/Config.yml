@@ -32,6 +32,10 @@ MySQL:
 # Recommend: False (Will prevent creating random user data)
 AllowUnjoined: false
 
+# Use server lookup for when allowunjoined is set to false
+# Recommend leaving enabled unless you face issues
+AllowUnJoinedCheckServer: true
+
 # ------------------------------------------------
 # VoteReminding
 # ------------------------------------------------

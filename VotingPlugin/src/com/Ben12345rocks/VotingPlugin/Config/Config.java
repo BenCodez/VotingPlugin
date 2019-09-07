@@ -1275,6 +1275,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean lastMonthGUI = false;
 
+	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
+	@Getter
+	private boolean allowUnJoinedCheckServer = true;
+
 	/**
 	 * Gets the vote site items.
 	 *
