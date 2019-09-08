@@ -2,7 +2,6 @@ package com.Ben12345rocks.VotingPlugin.Listeners;
 
 import java.util.ArrayList;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -52,18 +51,11 @@ public class PlayerVoteListener implements Listener {
 	 * @param event
 	 *            the event
 	 */
-	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		String playerName = event.getPlayer();
-		if (!PlayerUtils.getInstance().isValidUser(playerName)) {
-			boolean invalid = true;
-			if (Config.getInstance().isAllowUnJoinedCheckServer()) {
-				if (Bukkit.getOfflinePlayer(playerName).hasPlayedBefore()) {
-					invalid = false;
-				}
-			}
-			if (!config.isAllowUnjoined() && invalid) {
+		if (!PlayerUtils.getInstance().isValidUser(playerName, Config.getInstance().isAllowUnJoinedCheckServer())) {
+			if (!config.isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 				return;
