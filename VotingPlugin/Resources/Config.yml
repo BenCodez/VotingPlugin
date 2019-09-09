@@ -241,7 +241,7 @@ Format:
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
       
-      ToggleBroadcast:
+      ToggleBroadcasts:
         Enabled: '&cYou will now see vote broadcasts'
         Disabled: '&cYou will no longer see vote broadcasts'
   
