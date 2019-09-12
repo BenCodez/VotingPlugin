@@ -942,6 +942,10 @@ WaitUntilLoggedIn: true
 # If false, skulls will be cached as they are used
 PreloadSkulls: false
 
+# Setting to false disables saving skulls in a cache to improve speeds
+# Will reduce ram usage if disabled
+LoadSkulls: true
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database
