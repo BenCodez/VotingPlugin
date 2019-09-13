@@ -2049,6 +2049,20 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "List&All" },
+				"VotingPlugin.Commands.Vote.List|" + playerPerm, "See voting URLs") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (isPlayer(sender)) {
+					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+					user.sendMessage(Commands.getInstance().voteURLs(user));
+				} else {
+					sender.sendMessage(Commands.getInstance().voteURLs(null));
+				}
+			}
+		});
+
 		ArrayList<CommandHandler> avCommands = com.Ben12345rocks.AdvancedCore.Commands.CommandLoader.getInstance()
 				.getBasicCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
