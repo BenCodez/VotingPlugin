@@ -102,7 +102,6 @@ public class VotiferEvent implements Listener {
 					}
 					plugin.getLogger()
 							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
-
 				}
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername,
