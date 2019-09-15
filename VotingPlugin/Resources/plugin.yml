@@ -61,6 +61,12 @@ commands:
   votepoints:
     description: A command
     aliases: vpoints
+  votelist:
+    description: A command
+    aliases: vlist
+  voteall:
+    description: A command
+    aliases: vall
   votechoices:
     description: A command
     alaises: vchoices
@@ -85,6 +91,9 @@ commands:
   adminvotereload:
     description: Command Alias
     aliases: avreload
+  adminvotetestreward:
+    description: Command Alias
+    aliases: avtestreward
   adminvoteversion:
     description: Command Alias
     aliases: avversion
