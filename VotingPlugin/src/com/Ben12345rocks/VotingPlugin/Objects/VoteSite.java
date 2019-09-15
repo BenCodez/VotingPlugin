@@ -144,6 +144,10 @@ public class VoteSite {
 		}
 	}
 
+	public ConfigurationSection getSiteData() {
+		return configVoteSites.getData(key);
+	}
+
 	/**
 	 * Give rewards.
 	 *
@@ -188,10 +192,6 @@ public class VoteSite {
 	public boolean isVaidServiceSite() {
 		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(),
 				getServiceSite());
-	}
-
-	public ConfigurationSection getSiteData() {
-		return configVoteSites.getData(key);
 	}
 
 }

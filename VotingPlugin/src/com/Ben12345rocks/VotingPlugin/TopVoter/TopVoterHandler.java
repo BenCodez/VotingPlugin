@@ -96,6 +96,26 @@ public class TopVoterHandler implements Listener {
 		return place;
 	}
 
+	public void loadLastMonth() {
+		if (Config.getInstance().isLastMonthGUI()) {
+			plugin.getLastMonthTopVoter().clear();
+
+			LinkedHashMap<User, Integer> totals = new LinkedHashMap<User, Integer>();
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				int total = user.getLastMonthTotal();
+				if (total > 0) {
+					totals.put(user, total);
+				}
+			}
+
+			plugin.getLastMonthTopVoter().putAll(sortByValues(totals, false));
+
+			plugin.debug("Loaded last month top voters");
+		}
+
+	}
+
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -568,26 +588,6 @@ public class TopVoterHandler implements Listener {
 
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
-	}
-
-	public void loadLastMonth() {
-		if (Config.getInstance().isLastMonthGUI()) {
-			plugin.getLastMonthTopVoter().clear();
-
-			LinkedHashMap<User, Integer> totals = new LinkedHashMap<User, Integer>();
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				int total = user.getLastMonthTotal();
-				if (total > 0) {
-					totals.put(user, total);
-				}
-			}
-
-			plugin.getLastMonthTopVoter().putAll(sortByValues(totals, false));
-
-			plugin.debug("Loaded last month top voters");
-		}
-
 	}
 
 	public synchronized void updateTopVoters(ArrayList<User> users1) {

@@ -133,6 +133,9 @@ public class Main extends AdvancedCorePlugin {
 	@Getter
 	private boolean updateStarted = false;
 
+	@Getter
+	private boolean ymlError = false;
+
 	/**
 	 * Check votifier.
 	 */
@@ -155,6 +158,35 @@ public class Main extends AdvancedCorePlugin {
 			debug("Using NuVotiifer?");
 		}
 		return true;
+	}
+
+	private void checkYMLError() {
+		if (config.isFailedToRead() || configVoteSites.isFailedToRead()) {
+			ymlError = true;
+		} else if (!config.isFailedToRead() && !configVoteSites.isFailedToRead()) {
+			ymlError = false;
+		}
+
+		if (config.isFailedToRead()) {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load Config.yml");
+				}
+			}, 10);
+		}
+
+		if (configVoteSites.isFailedToRead()) {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getLogger().severe("Failed to load VoteSites.yml");
+				}
+
+			}, 10);
+		}
 	}
 
 	public void convertDataStorage(UserStorage from, UserStorage to) {
@@ -831,7 +863,7 @@ public class Main extends AdvancedCorePlugin {
 					}
 				}));
 
-		for (final TopVoter top : TopVoter.values())
+		for (final TopVoter top : TopVoter.values()) {
 			RewardHandler.getInstance().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
 
 				@Override
@@ -840,6 +872,7 @@ public class Main extends AdvancedCorePlugin {
 					return "" + vUser.getTotal(top);
 				}
 			});
+		}
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 
@@ -990,35 +1023,6 @@ public class Main extends AdvancedCorePlugin {
 
 	}
 
-	private void checkYMLError() {
-		if (config.isFailedToRead() || configVoteSites.isFailedToRead()) {
-			ymlError = true;
-		} else if (!config.isFailedToRead() && !configVoteSites.isFailedToRead()) {
-			ymlError = false;
-		}
-
-		if (config.isFailedToRead()) {
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load Config.yml");
-				}
-			}, 10);
-		}
-
-		if (configVoteSites.isFailedToRead()) {
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load VoteSites.yml");
-				}
-
-			}, 10);
-		}
-	}
-
 	/**
 	 * Reload.
 	 */
@@ -1045,9 +1049,6 @@ public class Main extends AdvancedCorePlugin {
 			}
 		});
 	}
-
-	@Getter
-	private boolean ymlError = false;
 
 	private void setupFiles() {
 		config = Config.getInstance();

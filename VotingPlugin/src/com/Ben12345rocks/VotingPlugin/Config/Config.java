@@ -287,6 +287,18 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
 
+	@ConfigDataBoolean(path = "OverrideVersionDisable")
+	@Getter
+	private boolean overrideVersionDisable = false;
+
+	@ConfigDataBoolean(path = "LastMonthGUI")
+	@Getter
+	private boolean lastMonthGUI = false;
+
+	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
+	@Getter
+	private boolean allowUnJoinedCheckServer = true;
+
 	/**
 	 * Instantiates a new config.
 	 */
@@ -1263,21 +1275,13 @@ public class Config extends YMLFile {
 		return getData().getString("GUI.VoteShopName", "VoteShop");
 	}
 
+	public boolean getVoteShopNotBuyable(String shop) {
+		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
+	}
+
 	public String getVoteShopPermission(String ident) {
 		return getData().getString("Shop." + ident + ".Permission", "");
 	}
-
-	@ConfigDataBoolean(path = "OverrideVersionDisable")
-	@Getter
-	private boolean overrideVersionDisable = false;
-
-	@ConfigDataBoolean(path = "LastMonthGUI")
-	@Getter
-	private boolean lastMonthGUI = false;
-
-	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
-	@Getter
-	private boolean allowUnJoinedCheckServer = true;
 
 	/**
 	 * Gets the vote site items.
@@ -1312,10 +1316,6 @@ public class Config extends YMLFile {
 	public int getVoteSiteItemsSlot(String site, String item) {
 		String siteName = site.replace(".", "-");
 		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
-	}
-
-	public boolean getVoteShopNotBuyable(String shop) {
-		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
 	}
 
 	/**
