@@ -821,8 +821,6 @@ DailyAwards:
 # Set to 0 to give no points
 PointsOnVote: 1
 
-AlwaysCloseInventory: false
-
 # Set this to false to disable the plugin adding totals
 # Not really recommended
 AddTotals: true
@@ -837,12 +835,15 @@ ClickSound:
 # Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false
 
+######################
 # Debug
-Debug: false
+######################
 
-# Extra Debug
-# Only needed in extreme cases
-ExtraDebug: false
+# Debug levels:
+# NONE
+# INFO
+# EXTRA
+DebugLevel: NONE
 
 # Debug info ingame
 # Players with permission "VotingPlugin.Debug"
@@ -850,19 +851,8 @@ ExtraDebug: false
 DebugInGame: false
 
 # Will log debug messages to VotingPlugin/Log/log.txt
-# Requires Debug to be on
 # Only needed for extreme cases
 #LogDebugToFile: false
-
-# Options for request api
-# Current methods:
-# ANVIL
-# BOOK
-# CHAT
-# This is mainly used for admin gui's to type in values
-RequestAPI:
-  DefaultMethod: 'Anvil'
-  DisabledMethods: []
   
 # Whether or not to log every vote to a file
 # Use this if you wanna track player votes
@@ -920,7 +910,7 @@ AutoDownload: false
 # Whether or not to disable update checks
 DisableUpdateChecking: false
 
-# Allow transfer of vote points
+# Allow transfer of vote points between players
 AllowVotePointTransfers: false
 
 # Disable this on a hub server for example
@@ -946,6 +936,10 @@ PreloadSkulls: false
 # Will reduce ram usage if disabled
 LoadSkulls: true
 
+# Use vault for permission checks
+# May not work on some plugins
+UseVaultPermissions: false
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database
@@ -962,12 +956,20 @@ ClearCacheOnJoin: false
 # Would recommend for some bungee setups
 ClearCacheOnVote: false
 
-# Use vault for permission checks
-# May not work on some plugins
-UseVaultPermissions: false
-
 # ###############################################################
 # Deprecated options, don't recommend using any of these
+
+AlwaysCloseInventory: false
+
+# Options for request api
+# Current methods:
+# ANVIL
+# BOOK
+# CHAT
+# This is mainly used for admin gui's to type in values
+RequestAPI:
+  DefaultMethod: 'Anvil'
+  DisabledMethods: []
 
 # Whether or not to disable checking names on mojang, disable if you hit the rate limit
 # Shouldn't make a noticeable impact if set to false
@@ -975,11 +977,6 @@ UseVaultPermissions: false
 
 # Shouldn't need to change this
 #AutoKillInvs: true
-
-# Used in special cases
-# Much slower, but may work better
-# Not recommended in newer versions
-#AlternateUUIDLookup: false
 
 # Disable checking on world change
 # May improve performance

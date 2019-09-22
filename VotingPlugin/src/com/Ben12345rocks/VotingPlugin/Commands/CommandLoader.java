@@ -14,6 +14,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.DebugLevel;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandle;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
@@ -756,13 +757,24 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "Config", "SetDebug", "(boolean)" },
+				.add(new CommandHandler(new String[] { "Config", "TempDebug" },
 						"VotingPlugin.Commands.AdminVote.Config.Edit|" + adminPerm,
-						"Set Debug on or off, effective until reload/restart") {
+						"Enable debug, effective until reload/restart") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						Main.plugin.getOptions().setDebug(true);
+						Main.plugin.getOptions().setDebug(DebugLevel.INFO);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "Config", "TempExtraDebug" },
+						"VotingPlugin.Commands.AdminVote.Config.Edit|" + adminPerm,
+						"Enable extra debug, effective until reload/restart") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						Main.plugin.getOptions().setDebug(DebugLevel.EXTRA);
 					}
 				});
 
