@@ -78,8 +78,8 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
-		plugin.getSigns().add(new SignHandler("" + count, getSignLocation("" + count), getSignData("" + count),
-				getSignPosition("" + count)));
+		plugin.getSigns().add(new SignHandler("" + count, getSignLocation("" + count), getSignSkullLocation("" + count),
+				getSignData("" + count), getSignPosition("" + count)));
 	}
 
 	/**
@@ -125,6 +125,22 @@ public class ServerData {
 		return new Location(Bukkit.getWorld(getData().getString("Signs." + sign + ".World")),
 				getData().getDouble("Signs." + sign + ".X"), getData().getDouble("Signs." + sign + ".Y"),
 				getData().getDouble("Signs." + sign + ".Z"));
+	}
+
+	/**
+	 * Gets the sign location.
+	 *
+	 * @param sign
+	 *            the sign
+	 * @return the sign location
+	 */
+	public Location getSignSkullLocation(String sign) {
+		if (getData().getString("Signs." + sign + ".Skull.World", "").isEmpty()) {
+			return null;
+		}
+		return new Location(Bukkit.getWorld(getData().getString("Signs." + sign + ".Skull.World")),
+				getData().getDouble("Signs." + sign + ".Skull.X"), getData().getDouble("Signs." + sign + ".Skull.Y"),
+				getData().getDouble("Signs." + sign + ".Skull.Z"));
 	}
 
 	/**
@@ -194,6 +210,10 @@ public class ServerData {
 		getData().set("Signs." + sign + ".Data", null);
 		getData().set("Signs." + sign + ".Position", null);
 		getData().set("Signs." + sign, null);
+		getData().set("Signs." + sign + ".Skull.World", null);
+		getData().set("Signs." + sign + ".Skull.X", null);
+		getData().set("Signs." + sign + ".Skull.Y", null);
+		getData().set("Signs." + sign + ".Skull.Z", null);
 		saveData();
 	}
 
@@ -221,17 +241,30 @@ public class ServerData {
 	 * @param position
 	 *            the position
 	 */
-	public void setSign(String count, Location location, String data, int position) {
+	public void setSign(String count, Location location, Location skullLocation, String data, int position) {
 
 		getData().set("Signs." + count + ".World", location.getWorld().getName());
-		int x = (int) location.getX();
-		int z = (int) location.getZ();
-		getData().set("Signs." + count + ".X", x);
-		getData().set("Signs." + count + ".Y", location.getY());
-		getData().set("Signs." + count + ".Z", z);
+		getData().set("Signs." + count + ".X", (int) location.getX());
+		getData().set("Signs." + count + ".Y", (int) location.getY());
+		getData().set("Signs." + count + ".Z", (int) location.getZ());
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
+		if (skullLocation != null) {
+			getData().set("Signs." + count + ".Skull.World", skullLocation.getWorld().getName());
+			getData().set("Signs." + count + ".Skull.X", (int) skullLocation.getX());
+			getData().set("Signs." + count + ".Skull.Y", (int) skullLocation.getY());
+			getData().set("Signs." + count + ".Skull.Z", (int) skullLocation.getZ());
+		}
 		saveData();
+	}
+
+	public void setSkullLocation(String count, Location skullLocation) {
+		if (skullLocation != null) {
+			getData().set("Signs." + count + ".Skull.World", skullLocation.getWorld().getName());
+			getData().set("Signs." + count + ".Skull.X", (int) skullLocation.getX());
+			getData().set("Signs." + count + ".Skull.Y", (int) skullLocation.getY());
+			getData().set("Signs." + count + ".Skull.Z", (int) skullLocation.getZ());
+		}
 	}
 
 	/**

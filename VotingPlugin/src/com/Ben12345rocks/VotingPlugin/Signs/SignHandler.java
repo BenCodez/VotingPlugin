@@ -38,6 +38,10 @@ public class SignHandler {
 
 	@Getter
 	@Setter
+	private Location skullLocation;
+
+	@Getter
+	@Setter
 	private String data;
 
 	/** The lines. */
@@ -71,9 +75,10 @@ public class SignHandler {
 	 * @param position
 	 *            the position
 	 */
-	public SignHandler(String sign, Location location, String data, int position) {
+	public SignHandler(String sign, Location location, Location skullLocation, String data, int position) {
 		setSign(sign);
 		setLocation(location);
+		setSkullLocation(skullLocation);
 		setData(data);
 		this.position = position;
 		setValid(true);
@@ -93,6 +98,10 @@ public class SignHandler {
 		return false;
 	}
 
+	public boolean isSkullSet() {
+		return skullLocation != null;
+	}
+
 	/**
 	 * Check skulls.
 	 */
@@ -100,6 +109,11 @@ public class SignHandler {
 		if (playerName.equalsIgnoreCase("No Player") || playerName.equals("")) {
 			return;
 		}
+		if (skullLocation != null) {
+			checkSkull(skullLocation.getBlock());
+			return;
+		}
+
 		Location loc = location;
 		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1, loc.getBlockY() - 1, loc.getBlockZ() - 1);
 		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1, loc.getBlockY() + 1, loc.getBlockZ() + 1);
@@ -160,7 +174,7 @@ public class SignHandler {
 	 * Store sign.
 	 */
 	public void storeSign() {
-		ServerData.getInstance().setSign(sign, location, data, position);
+		ServerData.getInstance().setSign(sign, location, skullLocation, data, position);
 	}
 
 	/**

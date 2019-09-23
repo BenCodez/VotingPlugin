@@ -69,7 +69,8 @@ public class Signs {
 		for (String sign : ServerData.getInstance().getSigns()) {
 			// plugin.getLogger().info("Loading sign " + sign);
 			plugin.getSigns().add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
-					ServerData.getInstance().getSignData(sign), ServerData.getInstance().getSignPosition(sign)));
+					ServerData.getInstance().getSignSkullLocation(sign), ServerData.getInstance().getSignData(sign),
+					ServerData.getInstance().getSignPosition(sign)));
 		}
 	}
 
