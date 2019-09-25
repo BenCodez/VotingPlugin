@@ -3,6 +3,7 @@ package com.Ben12345rocks.VotingPlugin.Commands.GUI;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -481,7 +482,9 @@ public class PlayerGUIs {
 		Set<Entry<User, Integer>> users = null;
 
 		String topVoter = top.getName();
-		users = plugin.getTopVoter(top).entrySet();
+		@SuppressWarnings("unchecked")
+		LinkedHashMap<User, Integer> topVotes = (LinkedHashMap<User, Integer>) plugin.getTopVoter(top).clone();
+		users = topVotes.entrySet();
 
 		BInventory inv = new BInventory(StringUtils.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", topVoter));
@@ -641,7 +644,6 @@ public class PlayerGUIs {
 				public void onClick(ClickEvent event) {
 					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
 					user.sendMessage(Commands.getInstance().voteURLs(user));
-
 				}
 			});
 
