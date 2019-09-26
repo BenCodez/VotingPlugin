@@ -137,6 +137,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
+	
+	@ConfigDataBoolean(path = "GUI.VoteURL.AllUrlsButton.RequireAllSitesVoted")
+	@Getter
+	private boolean guiVoteURLAllUrlsButtonrequireAllSitesVoted = true;
 
 	@ConfigDataBoolean(path = "Format.BroadcastVote")
 	@Getter

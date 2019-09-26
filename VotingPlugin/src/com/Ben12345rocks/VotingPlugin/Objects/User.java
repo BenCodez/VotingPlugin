@@ -186,6 +186,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 		return true;
 	}
+	
+	public boolean canVoteAny() {
+		for (VoteSite voteSite : plugin.getVoteSites()) {
+			boolean canVote = canVoteSite(voteSite);
+			if (canVote) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Can vote site.

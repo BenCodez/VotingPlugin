@@ -627,8 +627,14 @@ public class PlayerGUIs {
 		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = new ItemBuilder(
 					Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
-			if (user.canVoteAll()) {
-				builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+			if (Config.getInstance().isGuiVoteURLAllUrlsButtonrequireAllSitesVoted()) {
+				if (user.canVoteAny()) {
+					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+				}
+			} else {
+				if (user.canVoteAll()) {
+					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+				}
 			}
 
 			if (!builderAll.hasCustomDisplayName()) {
