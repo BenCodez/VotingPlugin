@@ -385,6 +385,7 @@ GUI:
     NextVote: '&cCan Vote In: %Info%'
     ViewAllUrlsButtonEnabled: true
     AllUrlsButton:
+      RequireAllSitesVoted: true
       AlreadyVotedItem:
         Material: 'REDSTONE_BLOCK'
         Data: 0 
