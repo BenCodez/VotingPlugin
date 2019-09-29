@@ -6,7 +6,7 @@ import java.util.Map.Entry;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
@@ -63,7 +63,7 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
-		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+		identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 
 		for (PlaceHolder<User> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
@@ -83,7 +83,7 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(Player p, String identifier) {
-		identifier = StringUtils.getInstance().replaceJavascript(p, identifier);
+		identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
 

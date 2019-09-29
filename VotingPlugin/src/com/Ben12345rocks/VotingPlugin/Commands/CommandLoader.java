@@ -24,9 +24,9 @@ import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
@@ -318,7 +318,7 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setPoints(Integer.parseInt(args[3]));
 						sender.sendMessage(
-								StringUtils.getInstance().colorize("&cSet " + args[1] + " points to " + args[3]));
+								StringParser.getInstance().colorize("&cSet " + args[1] + " points to " + args[3]));
 					}
 				});
 
@@ -347,7 +347,7 @@ public class CommandLoader {
 						synchronized (pointLock) {
 							user.addPoints(Integer.parseInt(args[3]));
 						}
-						sender.sendMessage(StringUtils.getInstance().colorize("&cGave " + args[1] + " " + args[3]
+						sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
 								+ " points" + ", " + args[1] + " now has " + user.getPoints() + " points"));
 					}
 				});
@@ -360,7 +360,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.removePoints(Integer.parseInt(args[3]));
-						sender.sendMessage(StringUtils.getInstance().colorize("&cRemoved " + args[3] + " points from "
+						sender.sendMessage(StringParser.getInstance().colorize("&cRemoved " + args[3] + " points from "
 								+ args[1] + ", " + args[1] + " now has " + user.getPoints() + " points"));
 					}
 				});
@@ -577,7 +577,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					sender.sendMessage(
-							StringUtils.getInstance().colorize("&cThis command can not be done from ingame"));
+							StringParser.getInstance().colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 
@@ -585,7 +585,7 @@ public class CommandLoader {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 					user.clearTotals();
 				}
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for everyone"));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
 
@@ -596,7 +596,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					sender.sendMessage(
-							StringUtils.getInstance().colorize("&cThis command can not be done from ingame"));
+							StringParser.getInstance().colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 
@@ -604,7 +604,7 @@ public class CommandLoader {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 					user.clearOfflineRewards();
 				}
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for everyone"));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
 
@@ -616,7 +616,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						if (sender instanceof Player) {
-							sender.sendMessage(StringUtils.getInstance().colorize("&cThis can not be done ingame"));
+							sender.sendMessage(StringParser.getInstance().colorize("&cThis can not be done ingame"));
 							return;
 						}
 						try {
@@ -640,7 +640,7 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							UserManager.getInstance().getVotingPluginUser(args[1]).setTotal(top,
 									Integer.parseInt(args[4]));
-							sender.sendMessage(StringUtils.getInstance().colorize(
+							sender.sendMessage(StringParser.getInstance().colorize(
 									"&cSet " + top.toString() + " total for '" + args[1] + "' to " + args[4]));
 						}
 					});
@@ -654,7 +654,7 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 							user.setTotal(top, user.getTotal(top) + Integer.parseInt(args[4]));
-							sender.sendMessage(StringUtils.getInstance()
+							sender.sendMessage(StringParser.getInstance()
 									.colorize("&cAdded " + top.toString() + " total for " + args[1]));
 						}
 					});
@@ -667,7 +667,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				user.clearTotals();
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared totals for '" + args[1] + "'"));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for '" + args[1] + "'"));
 			}
 		});
 
@@ -680,7 +680,8 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
 						SpecialRewards.getInstance().checkMilestone(user);
-						sender.sendMessage(StringUtils.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
 
@@ -693,7 +694,7 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[3]));
 						SpecialRewards.getInstance().checkMilestone(user);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
 					}
 				});
@@ -748,10 +749,10 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCreating VoteSite..." + args[1]));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCreating VoteSite..." + args[1]));
 
 				ConfigVoteSites.getInstance().generateVoteSite(args[1]);
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCreated VoteSite: &c&l" + args[1]));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCreated VoteSite: &c&l" + args[1]));
 
 			}
 		});
@@ -787,7 +788,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(args[1]);
 						String serviceSite = args[3];
 						ConfigVoteSites.getInstance().setServiceSite(voteSite, serviceSite);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l" + voteSite));
 					}
 				});
@@ -801,7 +802,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(args[1]);
 						String url = args[3];
 						ConfigVoteSites.getInstance().setVoteURL(voteSite, url);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 					}
 				});
@@ -815,7 +816,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(args[1]);
 						int value = Integer.parseInt(args[3]);
 						ConfigVoteSites.getInstance().setPriority(voteSite, value);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 
 					}
@@ -830,7 +831,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(args[1]);
 						int delay = Integer.parseInt(args[3]);
 						ConfigVoteSites.getInstance().setVoteDelay(voteSite, delay);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
 
 					}
@@ -846,22 +847,22 @@ public class CommandLoader {
 
 					@Override
 					public void run() {
-						sender.sendMessage(StringUtils.getInstance().colorize("&cChecking for update..."));
+						sender.sendMessage(StringParser.getInstance().colorize("&cChecking for update..."));
 						plugin.setUpdater(new Updater(plugin, 15358, false));
 						final Updater.UpdateResult result = plugin.getUpdater().getResult();
 						switch (result) {
 							case FAIL_SPIGOT: {
-								sender.sendMessage(StringUtils.getInstance()
+								sender.sendMessage(StringParser.getInstance()
 										.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
 								break;
 							}
 							case NO_UPDATE: {
-								sender.sendMessage(StringUtils.getInstance().colorize("&c&l" + plugin.getName()
+								sender.sendMessage(StringParser.getInstance().colorize("&c&l" + plugin.getName()
 										+ " &cis up to date! Version: &c&l" + plugin.getUpdater().getVersion()));
 								break;
 							}
 							case UPDATE_AVAILABLE: {
-								sender.sendMessage(StringUtils.getInstance()
+								sender.sendMessage(StringParser.getInstance()
 										.colorize("&c&l" + plugin.getName()
 												+ " &chas an update available! Your Version: &c&l"
 												+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
@@ -888,7 +889,7 @@ public class CommandLoader {
 						boolean value = Boolean.parseBoolean(args[3]);
 
 						ConfigVoteSites.getInstance().setEnabled(voteSite, value);
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet votesite " + voteSite + " enabled to " + value));
 
 					}
@@ -901,23 +902,23 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				String siteName = args[1];
 				if (!ConfigVoteSites.getInstance().isServiceSiteGood(siteName)) {
-					sender.sendMessage(StringUtils.getInstance()
+					sender.sendMessage(StringParser.getInstance()
 							.colorize("&cServiceSite is invalid, votes may not work properly"));
 				} else {
 					String service = ConfigVoteSites.getInstance().getServiceSite(siteName);
 					if (ServerData.getInstance().getServiceSites().contains(service)) {
-						sender.sendMessage(StringUtils.getInstance().colorize("&aServiceSite is properly setup"));
+						sender.sendMessage(StringParser.getInstance().colorize("&aServiceSite is properly setup"));
 					} else {
-						sender.sendMessage(StringUtils.getInstance()
+						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cService may not be valid, haven't recieved a vote from " + service
 										+ ", see /av servicesites"));
 					}
 
 				}
 				if (!ConfigVoteSites.getInstance().isVoteURLGood(siteName)) {
-					sender.sendMessage(StringUtils.getInstance().colorize("&cVoteURL is invalid"));
+					sender.sendMessage(StringParser.getInstance().colorize("&cVoteURL is invalid"));
 				} else {
-					sender.sendMessage(StringUtils.getInstance().colorize("&aVoteURL is properly setup"));
+					sender.sendMessage(StringParser.getInstance().colorize("&aVoteURL is properly setup"));
 				}
 			}
 		});
@@ -929,7 +930,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.setUpdate(true);
 				plugin.update();
-				sender.sendMessage(StringUtils.getInstance().colorize("&cUpdating..."));
+				sender.sendMessage(StringParser.getInstance().colorize("&cUpdating..."));
 			}
 		});
 
@@ -952,7 +953,7 @@ public class CommandLoader {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 					user.setOfflineVotes(new ArrayList<String>());
 				}
-				sender.sendMessage(StringUtils.getInstance().colorize("&cCleared"));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCleared"));
 			}
 		});
 
@@ -1244,7 +1245,7 @@ public class CommandLoader {
 										String playerName = (String) event.getMeta(player, "Player");
 										BInventory inv = new BInventory("MileStones: " + playerName);
 										for (String mileStoneName : Config.getInstance().getMilestoneVotes()) {
-											if (StringUtils.getInstance().isInt(mileStoneName)) {
+											if (StringParser.getInstance().isInt(mileStoneName)) {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
@@ -1256,7 +1257,7 @@ public class CommandLoader {
 
 															@Override
 															public void onClick(ClickEvent clickEvent) {
-																if (StringUtils.getInstance()
+																if (StringParser.getInstance()
 																		.isInt(clickEvent.getClickedItem().getItemMeta()
 																				.getDisplayName())) {
 																	Player player = clickEvent.getPlayer();
@@ -1426,7 +1427,7 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
@@ -1492,7 +1493,7 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}
@@ -1510,10 +1511,10 @@ public class CommandLoader {
 					if (sender instanceof Player) {
 						UserManager.getInstance().getVotingPluginUser((Player) sender).sendMessage(msg);
 					} else {
-						sender.sendMessage(StringUtils.getInstance().colorize(msg));
+						sender.sendMessage(StringParser.getInstance().colorize(msg));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
@@ -1573,7 +1574,7 @@ public class CommandLoader {
 					PlayerGUIs.getInstance().openVoteGUI(player,
 							UserManager.getInstance().getVotingPluginUser(args[1]));
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
@@ -1924,7 +1925,7 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 
@@ -1978,7 +1979,7 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}
@@ -2011,7 +2012,7 @@ public class CommandLoader {
 								UserManager.getInstance().getVotingPluginUser(args[1]));
 					}
 				} else {
-					sendMessage(sender, StringUtils.getInstance()
+					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
 				}
 			}

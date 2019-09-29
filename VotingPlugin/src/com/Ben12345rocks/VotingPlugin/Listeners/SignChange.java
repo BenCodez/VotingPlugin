@@ -5,8 +5,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.SignChangeEvent;
 
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -51,7 +51,7 @@ public class SignChange implements Listener {
 				try {
 					ServerData.getInstance().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
-					event.getPlayer().sendMessage(StringUtils.getInstance().colorize("&aAdded sign!"));
+					event.getPlayer().sendMessage(StringParser.getInstance().colorize("&aAdded sign!"));
 					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 						@Override
@@ -60,12 +60,12 @@ public class SignChange implements Listener {
 						}
 					});
 				} catch (Exception ex) {
-					event.getPlayer().sendMessage(StringUtils.getInstance().colorize("&cError on sign creation!"));
+					event.getPlayer().sendMessage(StringParser.getInstance().colorize("&cError on sign creation!"));
 					ex.printStackTrace();
 				}
 			} else {
 				event.getPlayer()
-						.sendMessage(StringUtils.getInstance().colorize(Config.getInstance().getFormatNoPerms()));
+						.sendMessage(StringParser.getInstance().colorize(Config.getInstance().getFormatNoPerms()));
 			}
 		}
 

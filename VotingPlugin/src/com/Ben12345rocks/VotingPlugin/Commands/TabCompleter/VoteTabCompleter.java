@@ -11,7 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.VotingPlugin.Main;
 
 // TODO: Auto-generated Javadoc
@@ -40,7 +40,7 @@ public class VoteTabCompleter implements TabCompleter {
 				args.length - 1));
 
 		for (String str : cmds) {
-			if (StringUtils.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
+			if (StringParser.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
 				tab.add(str);
 			}
 		}

@@ -19,10 +19,10 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -84,7 +84,7 @@ public class PlayerGUIs {
 
 	public void openVoteBest(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteBestName(), "player", user.getPlayerName()));
 
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
@@ -127,11 +127,11 @@ public class PlayerGUIs {
 				&& !player.hasPermission("VotingPlugin.Mod"))
 				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
 						&& !player.hasPermission("VotingPlugin.Player"))) {
-			player.sendMessage(StringUtils.getInstance().colorize(Main.plugin.getOptions().getFormatNoPerms()));
+			player.sendMessage(StringParser.getInstance().colorize(Main.plugin.getOptions().getFormatNoPerms()));
 			return;
 		}
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteGUIName(), "player", user.getPlayerName()));
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
@@ -231,7 +231,7 @@ public class PlayerGUIs {
 
 	public void openVoteLast(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteLastName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
@@ -253,7 +253,7 @@ public class PlayerGUIs {
 
 	public void openVoteNext(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteNextName(), "player", user.getPlayerName()));
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new BInventoryButton(site.getItem().setName(site.getDisplayName())
@@ -274,7 +274,7 @@ public class PlayerGUIs {
 
 	public void openVoteShop(Player player) {
 		if (!Config.getInstance().getVoteShopEnabled()) {
-			player.sendMessage(StringUtils.getInstance().colorize("&cVote shop disabled"));
+			player.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
 			return;
 		}
 
@@ -336,14 +336,14 @@ public class PlayerGUIs {
 												Config.getInstance().getIdentifierRewardsPath(identifier),
 												new RewardOptions().setPlaceholders(placeholders));
 
-										user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+										user.sendMessage(StringParser.getInstance().replacePlaceHolder(
 												Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
 										if (limit > 0) {
 											user.setVoteShopIdentifierLimit(identifier,
 													user.getVoteShopIdentifierLimit(identifier) + 1);
 										}
 									} else {
-										user.sendMessage(StringUtils.getInstance().replacePlaceHolder(
+										user.sendMessage(StringParser.getInstance().replacePlaceHolder(
 												Config.getInstance().getFormatShopFailedMsg(), placeholders));
 									}
 								} else {
@@ -378,7 +378,7 @@ public class PlayerGUIs {
 
 	public void openVoteStreak(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteStreakName(), "player", user.getPlayerName()));
 
 		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentDayStreakItem())
@@ -486,7 +486,7 @@ public class PlayerGUIs {
 		LinkedHashMap<User, Integer> topVotes = (LinkedHashMap<User, Integer>) plugin.getTopVoter(top).clone();
 		users = topVotes.entrySet();
 
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", topVoter));
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
@@ -547,7 +547,7 @@ public class PlayerGUIs {
 
 		users = plugin.getLastMonthTopVoter().entrySet();
 
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", "Last Month"));
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
@@ -591,7 +591,7 @@ public class PlayerGUIs {
 
 	public void openVoteTotal(Player player, User user) {
 		setSelectedPlayer(player, user);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteTotalName(), "player", user.getPlayerName()));
 
 		for (TopVoter top : TopVoter.values()) {
@@ -678,8 +678,8 @@ public class PlayerGUIs {
 							voteReward(player, voteSite.getKey());
 						} else {
 							User user = UserManager.getInstance().getVotingPluginUser(player);
-							user.sendMessage(StringUtils.getInstance().replacePlaceHolder(StringUtils.getInstance()
-									.replacePlaceHolder(StringUtils.getInstance().replacePlaceHolder(
+							user.sendMessage(StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
+									.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
 											Config.getInstance().getGUIVoteURLURLText(), "voteurl",
 											voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
 									"player", player.getName()));
@@ -702,7 +702,7 @@ public class PlayerGUIs {
 	public void openVoteURL(Player player, String voteSite) {
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 		VoteSite site = plugin.getVoteSite(voteSite);
-		BInventory inv = new BInventory(StringUtils.getInstance()
+		BInventory inv = new BInventory(StringParser.getInstance()
 				.replacePlaceHolder(Config.getInstance().getGUIVoteURLSiteName(), "site", site.getDisplayName()));
 		inv.setMeta(player, "VoteSite", site);
 		if (!Config.getInstance().isAlwaysCloseInventory()) {

@@ -19,8 +19,8 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -553,7 +553,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				VoteParty.getInstance().giveReward(this, false);
 			} else if (str.contains("Cumulative")) {
 				String st = str.substring("Cumulative".length());
-				if (StringUtils.getInstance().isInt(st)) {
+				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired != 0) {
 						if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
@@ -563,7 +563,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				}
 			} else if (str.contains("MileStone")) {
 				String st = str.substring("MileStone".length());
-				if (StringUtils.getInstance().isInt(st)) {
+				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired > 0) {
 						if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {

@@ -13,9 +13,9 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DayChangeEvent;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -125,7 +125,7 @@ public class VoteParty implements Listener {
 			msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
 			sender.sendMessage(ArrayUtils.getInstance().convert(msg));
 		} else {
-			sender.sendMessage(StringUtils.getInstance().colorize("&cVoteParty not enabled"));
+			sender.sendMessage(StringParser.getInstance().colorize("&cVoteParty not enabled"));
 		}
 	}
 

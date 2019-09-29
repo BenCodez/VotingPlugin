@@ -22,8 +22,8 @@ import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.MonthChangeEvent;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.PreDateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.WeekChangeEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -379,7 +379,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", "All Time");
-		msg.add(StringUtils.getInstance().colorize(title));
+		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -419,7 +419,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", "Daily");
-		msg.add(StringUtils.getInstance().colorize(title));
+		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -459,7 +459,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", "Monthly");
-		msg.add(StringUtils.getInstance().colorize(title));
+		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -580,7 +580,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", "Weekly");
-		msg.add(StringUtils.getInstance().colorize(title));
+		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));

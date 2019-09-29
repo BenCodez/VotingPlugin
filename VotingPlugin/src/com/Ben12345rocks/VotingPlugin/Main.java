@@ -42,9 +42,9 @@ import com.Ben12345rocks.AdvancedCore.Util.EditGUI.ValueTypes.EditGUIValueNumber
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Javascript.JavascriptPlaceholderRequest;
 import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
@@ -871,7 +871,7 @@ public class Main extends AdvancedCorePlugin {
 					ConfigurationSection section, HashMap<String, String> placeholders) {
 				if (section.getBoolean("Enabled")) {
 					user.sendBossBar(
-							StringUtils.getInstance().replacePlaceHolder(section.getString("Message", ""),
+							StringParser.getInstance().replacePlaceHolder(section.getString("Message", ""),
 									placeholders),
 							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
 							(double) UserManager.getInstance().getVotingPluginUser(user).getSitesVotedOn()
@@ -1158,7 +1158,7 @@ public class Main extends AdvancedCorePlugin {
 					String value = values.getValue();
 					if (value != null && !value.equalsIgnoreCase("null")) {
 						if (checkInt) {
-							if (StringUtils.getInstance().isInt(value)) {
+							if (StringParser.getInstance().isInt(value)) {
 								entry.getKey().getData().setInt(values.getKey(), Integer.parseInt(value));
 							} else {
 								entry.getKey().getData().setString(values.getKey(), value);

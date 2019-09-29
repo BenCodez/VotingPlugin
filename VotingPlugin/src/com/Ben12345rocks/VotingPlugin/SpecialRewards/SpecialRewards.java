@@ -7,7 +7,7 @@ import org.bukkit.Bukkit;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -85,7 +85,7 @@ public class SpecialRewards {
 		boolean gotCumulative = false;
 		Set<String> votes = Config.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
-			if (StringUtils.getInstance().isInt(vote)) {
+			if (StringParser.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)
@@ -147,7 +147,7 @@ public class SpecialRewards {
 		boolean gotMilestone = false;
 		Set<String> votes = Config.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
-			if (StringUtils.getInstance().isInt(vote)) {
+			if (StringParser.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)
@@ -181,7 +181,7 @@ public class SpecialRewards {
 				// multiple
 				multiple = true;
 			}
-			if (StringUtils.getInstance().isInt(s)) {
+			if (StringParser.getInstance().isInt(s)) {
 				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
 					if (Config.getInstance().getVoteStreakRewardEnabled(type, streak)

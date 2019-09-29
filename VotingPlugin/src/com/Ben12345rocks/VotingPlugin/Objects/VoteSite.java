@@ -11,9 +11,9 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.StringUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -110,14 +110,14 @@ public class VoteSite {
 	public void broadcastVote(User user) {
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
-			String bc = StringUtils.getInstance().colorize(config.getFormatBroadCastMsg());
+			String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("player", playerName);
 			placeholders.put("nickname",
 					(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 			placeholders.put("sitename", getDisplayName());
 			placeholders.put("servicesite", getServiceSite());
-			bc = StringUtils.getInstance().replacePlaceHolder(bc, placeholders);
+			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
