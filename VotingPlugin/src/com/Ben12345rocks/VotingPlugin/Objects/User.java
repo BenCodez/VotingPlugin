@@ -186,7 +186,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 		return true;
 	}
-	
+
 	public boolean canVoteAny() {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			boolean canVote = canVoteSite(voteSite);
@@ -195,6 +195,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			}
 		}
 		return false;
+	}
+
+	public int getSitesVotedOn() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSites()) {
+			if (!canVoteSite(site)) {
+				amount++;
+			}
+		}
+		return amount;
 	}
 
 	/**

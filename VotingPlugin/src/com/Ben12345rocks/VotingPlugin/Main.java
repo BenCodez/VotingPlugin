@@ -32,6 +32,7 @@ import com.Ben12345rocks.AdvancedCore.Rewards.Reward;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardPlaceholderHandle;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInject;
+import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectConfigurationSection;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectInt;
 import com.Ben12345rocks.AdvancedCore.Rewards.Injected.RewardInjectValidator;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
@@ -862,6 +863,24 @@ public class Main extends AdvancedCorePlugin {
 						}
 					}
 				}));
+
+		RewardHandler.getInstance().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
+
+			@Override
+			public String onRewardRequested(Reward arg0, com.Ben12345rocks.AdvancedCore.UserManager.User user,
+					ConfigurationSection section, HashMap<String, String> placeholders) {
+				if (section.getBoolean("Enabled")) {
+					user.sendBossBar(
+							StringUtils.getInstance().replacePlaceHolder(section.getString("Message", ""),
+									placeholders),
+							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
+							(double) UserManager.getInstance().getVotingPluginUser(user).getSitesVotedOn()
+									/ plugin.getVoteSites().size(),
+							section.getInt("Delay", 30));
+				}
+				return null;
+			}
+		});
 
 		for (final TopVoter top : TopVoter.values()) {
 			RewardHandler.getInstance().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
