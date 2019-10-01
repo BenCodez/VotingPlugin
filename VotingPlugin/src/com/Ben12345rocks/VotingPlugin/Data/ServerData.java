@@ -229,18 +229,6 @@ public class ServerData {
 		saveData();
 	}
 
-	/**
-	 * Sets the sign.
-	 *
-	 * @param count
-	 *            the count
-	 * @param location
-	 *            the location
-	 * @param data
-	 *            the data
-	 * @param position
-	 *            the position
-	 */
 	public void setSign(String count, Location location, Location skullLocation, String data, int position) {
 
 		getData().set("Signs." + count + ".World", location.getWorld().getName());

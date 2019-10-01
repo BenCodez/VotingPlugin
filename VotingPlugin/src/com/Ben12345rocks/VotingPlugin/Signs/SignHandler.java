@@ -63,18 +63,6 @@ public class SignHandler {
 	@Setter
 	private boolean valid;
 
-	/**
-	 * Instantiates a new sign handler.
-	 *
-	 * @param sign
-	 *            the sign
-	 * @param location
-	 *            the location
-	 * @param data
-	 *            the data
-	 * @param position
-	 *            the position
-	 */
 	public SignHandler(String sign, Location location, Location skullLocation, String data, int position) {
 		setSign(sign);
 		setLocation(location);
