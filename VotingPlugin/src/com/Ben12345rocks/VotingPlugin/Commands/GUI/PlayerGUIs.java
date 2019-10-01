@@ -476,70 +476,74 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteTop(Player player, TopVoter top) {
-		if (top == null) {
-			top = TopVoter.getDefault();
-		}
-		Set<Entry<User, Integer>> users = null;
+		try {
+			if (top == null) {
+				top = TopVoter.getDefault();
+			}
+			Set<Entry<User, Integer>> users = null;
 
-		String topVoter = top.getName();
-		@SuppressWarnings("unchecked")
-		LinkedHashMap<User, Integer> topVotes = (LinkedHashMap<User, Integer>) plugin.getTopVoter(top).clone();
-		users = topVotes.entrySet();
+			String topVoter = top.getName();
+			@SuppressWarnings("unchecked")
+			LinkedHashMap<User, Integer> topVotes = (LinkedHashMap<User, Integer>) plugin.getTopVoter(top).clone();
+			users = topVotes.entrySet();
 
-		BInventory inv = new BInventory(StringParser.getInstance()
-				.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", topVoter));
-		if (!Config.getInstance().isAlwaysCloseInventory()) {
-			inv.dontClose();
-		}
-
-		int pos = 1;
-		for (Entry<User, Integer> entry : users) {
-			ItemBuilder playerItem;
-
-			if (Config.getInstance().isGuiVoteTopUseSkull()) {
-				playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
-			} else {
-				playerItem = new ItemBuilder(Material.valueOf(Config.getInstance().getGuiVoteTopPlayerItemMaterial()));
+			BInventory inv = new BInventory(StringParser.getInstance()
+					.replacePlaceHolder(Config.getInstance().getGUIVoteTopName(), "topvoter", topVoter));
+			if (!Config.getInstance().isAlwaysCloseInventory()) {
+				inv.dontClose();
 			}
 
-			playerItem.setLore(new ArrayList<String>());
+			int pos = 1;
+			for (Entry<User, Integer> entry : users) {
+				ItemBuilder playerItem;
 
-			inv.addButton(new BInventoryButton(playerItem.setName(Config.getInstance().getGUIVoteTopItemName())
-					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
-					.addPlaceholder("player", entry.getKey().getPlayerName())
-					.addPlaceholder("votes", "" + entry.getValue())) {
+				if (Config.getInstance().isGuiVoteTopUseSkull()) {
+					playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
+				} else {
+					playerItem = new ItemBuilder(
+							Material.valueOf(Config.getInstance().getGuiVoteTopPlayerItemMaterial()));
+				}
+
+				playerItem.setLore(new ArrayList<String>());
+
+				inv.addButton(new BInventoryButton(playerItem.setName(Config.getInstance().getGUIVoteTopItemName())
+						.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
+						.addPlaceholder("player", entry.getKey().getPlayerName())
+						.addPlaceholder("votes", "" + entry.getValue())) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						User user = (User) getData("User");
+						openVoteGUI(player, user);
+					}
+				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
+				pos++;
+			}
+
+			final TopVoter cur = top;
+			inv.getPageButtons().add(new BInventoryButton(
+					new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					User user = (User) getData("User");
-					openVoteGUI(player, user);
+					if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
+						openVoteTop(player, cur.next());
+					} else {
+						openVoteTop(player, cur.prev());
+					}
 				}
-			}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
-			pos++;
-		}
+			});
 
-		final TopVoter cur = top;
-		inv.getPageButtons().add(new BInventoryButton(
-				new ItemBuilder(Config.getInstance().getGUIVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
-					openVoteTop(player, cur.next());
-				} else {
-					openVoteTop(player, cur.prev());
-				}
+			if (Config.getInstance().getGUIVoteTopBackButton()) {
+				inv.getPageButtons().add(getBackButton().setSlot(1));
 			}
-		});
 
-		if (Config.getInstance().getGUIVoteTopBackButton()) {
-			inv.getPageButtons().add(getBackButton().setSlot(1));
+			inv.setPages(true);
+			inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
+			inv.openInventory(player);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-
-		inv.setPages(true);
-		inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
-		inv.openInventory(player);
-
 	}
 
 	public void openVoteTopLastMonth(Player player) {
