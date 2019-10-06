@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +60,7 @@ import com.mythicacraft.voteroulette.Voter;
 import com.swifteh.GAL.GAL;
 import com.swifteh.GAL.GALVote;
 import com.swifteh.GAL.VoteType;
+import com.tchristofferson.configupdater.ConfigUpdater;
 
 import io.minimum.minecraft.superbvote.SuperbVote;
 import io.minimum.minecraft.superbvote.util.PlayerVotes;
@@ -767,6 +770,37 @@ public class CommandLoader {
 						Main.plugin.getOptions().setDebug(DebugLevel.INFO);
 					}
 				});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Config", "Update" },
+				"VotingPlugin.Commands.AdminVote.Config.Edit|" + adminPerm, "Updates config with missing values") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				ArrayList<String> ignoreSections = new ArrayList<String>();
+				ignoreSections.add("VoteReminding");
+				ignoreSections.add("GUI");
+				ignoreSections.add("Shop");
+				ignoreSections.add("FirstVote");
+				ignoreSections.add("AllSites");
+				ignoreSections.add("Cummulative");
+				ignoreSections.add("VoteParty");
+				ignoreSections.add("MileStones");
+				ignoreSections.add("VoteStreak");
+				ignoreSections.add("MonthlyAwards");
+				ignoreSections.add("WeeklyAwards");
+				ignoreSections.add("DailyAwards");
+
+				File file = new File(plugin.getDataFolder(), "Config.yml");
+				try {
+					ConfigUpdater.update(plugin, "Config.yml", file, ignoreSections);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				config.reloadData();
+				config.loadValues();
+				sendMessage(sender, "&cUpdated config with new values");
+			}
+		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Config", "TempExtraDebug" },
