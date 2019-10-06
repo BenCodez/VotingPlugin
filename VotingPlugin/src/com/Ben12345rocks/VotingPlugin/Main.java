@@ -747,6 +747,11 @@ public class Main extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		if (Config.getInstance().isUseBungeeCoord()) {
+			registerBungeeChannels();
+			BungeeHandler.getInstance().load();
+		}
+
 		registerCommands();
 		registerEvents();
 		checkVotifier();
@@ -1071,6 +1076,12 @@ public class Main extends AdvancedCorePlugin {
 
 	private void setupFiles() {
 		config = Config.getInstance();
+		/*File file = new File(plugin.getDataFolder(), "Config.yml");
+		try {
+			ConfigUpdater.update(plugin, "Config.yml", file, new ArrayList<String>());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}*/
 		config.setup();
 		config.loadValues();
 

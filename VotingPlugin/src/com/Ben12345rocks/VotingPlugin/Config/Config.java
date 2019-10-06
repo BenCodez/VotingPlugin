@@ -137,7 +137,15 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
-	
+
+	@ConfigDataBoolean(path = "UseBungeecoord")
+	@Getter
+	private boolean useBungeeCoord = false;
+
+	@ConfigDataBoolean(path = "BungeeBroadcast")
+	@Getter
+	private boolean bungeeBroadcast = false;
+
 	@ConfigDataBoolean(path = "GUI.VoteURL.AllUrlsButton.RequireAllSitesVoted")
 	@Getter
 	private boolean guiVoteURLAllUrlsButtonrequireAllSitesVoted = true;

@@ -27,6 +27,7 @@
 				<filtering>true</filtering>
 				<includes>
 					<include>plugin.yml</include>
+					<include>bungee.yml</include>
 				</includes>
 			</resource>
 			<resource>
@@ -233,6 +234,18 @@
 				<updatePolicy>always</updatePolicy>
 			</snapshots>
 		</repository>
+		<repository>
+			<id>maven-central</id>
+			<url>https://oss.sonatype.org/content/groups/public</url>
+		</repository>
+		<repository>
+			<id>bungeecord-repo</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</repository>
+		<repository>
+			<id>bintray-repo</id>
+			<url>https://dl.bintray.com/nuvotifier/maven/</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -240,6 +253,7 @@
 			<artifactId>AdvancedCore</artifactId>
 			<version>master-SNAPSHOT</version>
 		</dependency>
+
 		<!-- <dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
 			<version>LATEST</version> <scope>compile</scope> </dependency> -->
 		<dependency>
@@ -288,6 +302,23 @@
 			<version>LATEST</version>
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>net.md-5</groupId>
+			<artifactId>bungeecord-api</artifactId>
+			<version>LATEST</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.vexsoftware</groupId>
+			<artifactId>nuvotifier-universal</artifactId>
+			<version>2.3.4</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.tchristofferson</groupId>
+			<artifactId>ConfigUpdater</artifactId>
+			<version>1.1-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 </project>

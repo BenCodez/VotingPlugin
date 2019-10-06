@@ -941,6 +941,16 @@ LoadSkulls: true
 # May not work on some plugins
 UseVaultPermissions: false
 
+# Plugin using bungee, requires plugin on bungee server
+UseBungeecoord: false
+
+# What server this is in bungee (must match)
+# Also can be applied to rewards
+Server: hub
+
+# Get the plugin to broadcast to all servers
+BungeeBroadcast: false
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database

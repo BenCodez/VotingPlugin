@@ -26,6 +26,7 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerReceivePointsEvent;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
+import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -598,6 +599,45 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				.withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly)).setOnline(isOnline()).send(this);
 	}
 
+	public void bungeeVote() {
+		if (Config.getInstance().isUseBungeeCoord()) {
+			String data = getData().getString("Proxy_" + Main.plugin.getOptions().getServer());
+			if (!data.isEmpty()) {
+				for (String service : data.split("%line%")) {
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(),
+							service, false);
+					voteEvent.setBungee(true);
+					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
+						}
+					});
+
+				}
+			}
+			getData().setString("Proxy_" + Main.plugin.getOptions().getServer(), "");
+
+			String data1 = getData().getString("Proxy_Online");
+			if (!data1.isEmpty()) {
+				for (String service : data1.split("%line%")) {
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(),
+							service, false);
+					voteEvent.setBungee(true);
+					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
+						}
+					});
+				}
+			}
+			getData().setString("Proxy_Online", "");
+		}
+	}
+
 	/**
 	 * Checks for gotten first vote.
 	 *
@@ -661,6 +701,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			Main.plugin.debug("Processing rewards is disabled");
 			return;
 		}
+
 		Main.plugin.extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {
@@ -679,7 +720,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			for (int i = 0; i < offlineVotes.size(); i++) {
 				if (plugin.hasVoteSite(offlineVotes.get(i))) {
 					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
-					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true);
+					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true, false);
 				} else {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
@@ -699,12 +740,12 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * @param broadcast
 	 *            the broadcast
 	 */
-	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast) {
+	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
 		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().isBroadcastVotesEnabled()
 				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}
-		voteSite.giveRewards(this, online);
+		voteSite.giveRewards(this, online, bungee);
 	}
 
 	/**

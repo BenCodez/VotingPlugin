@@ -14,6 +14,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
+import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -101,13 +102,19 @@ public class VoteSite {
 		init();
 	}
 
+	public void broadcastVote(User user) {
+		broadcastVote(user, true);
+	}
+
 	/**
 	 * Broadcast vote.
 	 *
 	 * @param user
 	 *            the user
+	 * @param checkBungee
+	 *            check bungee broadcast
 	 */
-	public void broadcastVote(User user) {
+	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
@@ -125,7 +132,12 @@ public class VoteSite {
 				}
 			}
 
-			MiscUtils.getInstance().broadcast(bc, players);
+			if (checkBungee && Config.getInstance().isBungeeBroadcast()) {
+				PluginMessage.getInstance().sendPluginMessage(user.getPlayer(), "Broadcast", getServiceSite(),
+						user.getPlayerName());
+			} else {
+				MiscUtils.getInstance().broadcast(bc, players);
+			}
 		} else {
 			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
 		}
@@ -156,14 +168,16 @@ public class VoteSite {
 	 * @param online
 	 *            the online
 	 */
-	public void giveRewards(User user, boolean online) {
+	public void giveRewards(User user, boolean online, boolean bungee) {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
-				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
+				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
+				.setServer(bungee).send(user);
 
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getEverySiteRewardPath()).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
-				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL()).send(user);
+				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
+				.setServer(bungee).send(user);
 	}
 
 	public boolean hasRewards() {

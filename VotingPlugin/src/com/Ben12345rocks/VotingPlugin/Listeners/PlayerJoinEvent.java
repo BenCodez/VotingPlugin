@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import com.Ben12345rocks.AdvancedCore.Listeners.AdvancedCoreLoginEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -48,6 +49,10 @@ public class PlayerJoinEvent implements Listener {
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 		if (player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
+		}
+
+		if (Main.plugin.getOptions().isProcessRewards() && Config.getInstance().isUseBungeeCoord()) {
+			user.bungeeVote();
 		}
 
 		// run remind
