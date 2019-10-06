@@ -77,7 +77,6 @@ import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.MVdWPlaceholders;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
-import com.tchristofferson.configupdater.ConfigUpdater;
 import com.vexsoftware.votifier.Votifier;
 
 import lombok.Getter;
@@ -1077,12 +1076,12 @@ public class Main extends AdvancedCorePlugin {
 
 	private void setupFiles() {
 		config = Config.getInstance();
-		File file = new File(plugin.getDataFolder(), "Config.yml");
+		/*File file = new File(plugin.getDataFolder(), "Config.yml");
 		try {
 			ConfigUpdater.update(plugin, "Config.yml", file, new ArrayList<String>());
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
+		}*/
 		config.setup();
 		config.loadValues();
 
