@@ -116,26 +116,26 @@ public class VoteSite {
 	 */
 	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
-			String playerName = user.getPlayerName();
-			String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
-			HashMap<String, String> placeholders = new HashMap<String, String>();
-			placeholders.put("player", playerName);
-			placeholders.put("nickname",
-					(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
-			placeholders.put("sitename", getDisplayName());
-			placeholders.put("servicesite", getServiceSite());
-			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
-			ArrayList<Player> players = new ArrayList<Player>();
-			for (Player p : Bukkit.getOnlinePlayers()) {
-				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
-					players.add(p);
-				}
-			}
-
 			if (checkBungee && Config.getInstance().isBungeeBroadcast()) {
 				PluginMessage.getInstance().sendPluginMessage(user.getPlayer(), "Broadcast", getServiceSite(),
 						user.getPlayerName());
 			} else {
+				String playerName = user.getPlayerName();
+				String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("player", playerName);
+				placeholders.put("nickname",
+						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
+				placeholders.put("sitename", getDisplayName());
+				placeholders.put("servicesite", getServiceSite());
+				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
+				ArrayList<Player> players = new ArrayList<Player>();
+				for (Player p : Bukkit.getOnlinePlayers()) {
+					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+						players.add(p);
+					}
+				}
+
 				MiscUtils.getInstance().broadcast(bc, players);
 			}
 		} else {

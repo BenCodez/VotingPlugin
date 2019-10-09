@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import com.Ben12345rocks.AdvancedCore.UserStorage.sql.DataType;
 import com.vexsoftware.votifier.bungee.events.VotifierEvent;
@@ -113,22 +115,19 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		String uuid = getUUID(name);
 
 		if (!uuid.isEmpty()) {
+			String data = mysql.getProxyVotes(uuid, "online");
+			String finalData = service + "%time%"
+					+ LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			if (data != null && !data.isEmpty()) {
+				finalData = data + "%line%" + service + "%time%"
+						+ LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			}
 			if (config.getSendVotesToAllServers()) {
 				for (String send : getProxy().getServers().keySet()) {
-					String data = mysql.getProxyVotes(uuid, send);
-					String finalData = service;
-					if (data != null && !data.isEmpty()) {
-						finalData = data + "%line%" + service;
-					}
 					mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
 					sendPluginMessage("bungeevote", uuid, name);
 				}
 			} else if (config.getSendToOnlineServer()) {
-				String data = mysql.getProxyVotes(uuid, "online");
-				String finalData = service;
-				if (data != null && !data.isEmpty()) {
-					finalData = data + "%line%" + service;
-				}
 				mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
 				sendPluginMessage("bungeevote", uuid, name);
 			}

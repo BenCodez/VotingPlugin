@@ -40,6 +40,7 @@ public class BungeeHandler {
 				} else {
 					Main.plugin.getLogger().warning("No votesite for " + data.get(0));
 				}
+				Main.plugin.setUpdate(true);
 			}
 		});
 	}

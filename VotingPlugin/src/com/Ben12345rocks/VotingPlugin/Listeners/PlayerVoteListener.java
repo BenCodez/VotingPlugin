@@ -84,7 +84,7 @@ public class PlayerVoteListener implements Listener {
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		user.updateName();
 
-		if (Config.getInstance().isClearCacheOnVote()) {
+		if (Config.getInstance().isClearCacheOnVote() || Config.getInstance().isUseBungeeCoord()) {
 			user.clearCache();
 		}
 
@@ -106,7 +106,11 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// update last vote time
-			user.setTime(voteSite);
+			if (event.getTime() != 0) {
+				user.setTime(voteSite, event.getTime());
+			} else {
+				user.setTime(voteSite);
+			}
 			user.setLastVoteCoolDownCheck(false, voteSite);
 
 			// check first vote rewards

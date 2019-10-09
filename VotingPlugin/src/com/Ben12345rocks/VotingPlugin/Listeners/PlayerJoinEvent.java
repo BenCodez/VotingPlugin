@@ -51,14 +51,15 @@ public class PlayerJoinEvent implements Listener {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
 		}
 
-		if (Main.plugin.getOptions().isProcessRewards() && Config.getInstance().isUseBungeeCoord()) {
+		boolean data = user.getData().hasData();
+		if (Main.plugin.getOptions().isProcessRewards() && Config.getInstance().isUseBungeeCoord() && data) {
 			user.bungeeVote();
 		}
 
 		// run remind
 		user.loginMessage();
 
-		if (user.getData().hasData()) {
+		if (data) {
 			// give offline vote (if they voted offline)
 			user.offVote();
 		}

@@ -45,6 +45,10 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private String serviceSite = "";
+	
+	@Getter
+	@Setter
+	private long time;
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);

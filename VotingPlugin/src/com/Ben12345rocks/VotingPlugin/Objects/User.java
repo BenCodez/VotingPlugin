@@ -600,31 +600,34 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void bungeeVote() {
+		bungeeVote(true);
+	}
+
+	public void bungeeVote(boolean clearCache) {
 		if (Config.getInstance().isUseBungeeCoord()) {
-			String data = getData().getString("Proxy_" + Main.plugin.getOptions().getServer());
-			if (!data.isEmpty()) {
-				for (String service : data.split("%line%")) {
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(),
-							service, false);
-					voteEvent.setBungee(true);
-					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
-						}
-					});
-
-				}
+			if (clearCache) {
+				Main.plugin.getMysql().clearCache(getUUID());
 			}
+
+			checkBungeeData(getData().getString("Proxy_" + Main.plugin.getOptions().getServer()));
 			getData().setString("Proxy_" + Main.plugin.getOptions().getServer(), "");
 
-			String data1 = getData().getString("Proxy_Online");
-			if (!data1.isEmpty()) {
-				for (String service : data1.split("%line%")) {
+			checkBungeeData(getData().getString("Proxy_Online"));
+			getData().setString("Proxy_Online", "");
+		}
+	}
+
+	private void checkBungeeData(String data) {
+		if (!data.isEmpty()) {
+			for (String serviceData : data.split("%line%")) {
+				String[] d = serviceData.split("%time%");
+				if (d.length == 2) {
+					String service = d[0];
+					String time = d[1];
 					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(),
 							service, false);
 					voteEvent.setBungee(true);
+					voteEvent.setTime(Long.parseLong(time));
 					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 						@Override
@@ -634,7 +637,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					});
 				}
 			}
-			getData().setString("Proxy_Online", "");
 		}
 	}
 
