@@ -35,8 +35,11 @@ public class BungeeHandler {
 				VoteSite site = Main.plugin.getVoteSite(data.get(0));
 				String p = data.get(1);
 				User user = UserManager.getInstance().getVotingPluginUser(p);
-				site.broadcastVote(user, false);
-
+				if (site != null) {
+					site.broadcastVote(user, false);
+				} else {
+					Main.plugin.getLogger().warning("No votesite for " + data.get(0));
+				}
 			}
 		});
 	}
