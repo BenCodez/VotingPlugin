@@ -11,6 +11,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataDouble;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataListString;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -310,6 +311,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
+	
+	@ConfigDataListString(path = "DisabledCommands")
+	@Getter
+	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
 	/**
 	 * Instantiates a new config.

@@ -951,6 +951,12 @@ Server: hub
 # Get the plugin to broadcast to all servers
 BungeeBroadcast: false
 
+# List of disabled commands from /vote
+# List the specific permission
+# E.g:
+# - PERMISSION
+DisabledCommands: []
+
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database

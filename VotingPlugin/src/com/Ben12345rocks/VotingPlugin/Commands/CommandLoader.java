@@ -2116,6 +2116,24 @@ public class CommandLoader {
 			cmd.setPerm(cmd.getPerm() + "|" + playerPerm);
 		}
 		plugin.getVoteCommand().addAll(avCommands);
+
+		ArrayList<CommandHandler> list = plugin.getVoteCommand();
+		ArrayList<String> disabledCommands = Config.getInstance().getDisabledCommands();
+		for (int i = list.size() - 1; i >= 0; i--) {
+			boolean remove = false;
+			for (String disabled : disabledCommands) {
+				CommandHandler handle = list.get(i);
+				if (handle.getPerm().contains(disabled)) {
+					remove = true;
+				}
+			}
+
+			if (remove) {
+				plugin.debug("Disabling: " + ArrayUtils.getInstance()
+						.makeStringList(ArrayUtils.getInstance().convert(list.get(i).getArgs())));
+				list.remove(i);
+			}
+		}
 	}
 
 	/**
