@@ -1,5 +1,13 @@
+# STILL A WORK IN PROGRESS, USE AT YOUR OWN RISK
+# 
+# Set bungeecoord to true on servers on the network
+# Set server name in each server related to what it is on bungee
+#
+# Have a reward on each server
 SendVotesToAllServers: true
-SendToOnlineServer: false
+# Have a reward on 1 server on the network
+SendToOnlineServer: false 
+# MYSQL Required
 # MYSQL INFO --------------------------
 Host: ''
 # Default port is 3306

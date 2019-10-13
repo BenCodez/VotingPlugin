@@ -946,7 +946,7 @@ UseBungeecoord: false
 
 # What server this is in bungee (must match)
 # Also can be applied to rewards
-Server: hub
+Server: PleaseSet
 
 # Get the plugin to broadcast to all servers
 BungeeBroadcast: false
@@ -973,10 +973,11 @@ ClearCacheOnJoin: false
 # Would recommend for some bungee setups
 ClearCacheOnVote: false
 
+# Will force GUI's to close on every click
+AlwaysCloseInventory: false
+
 # ###############################################################
 # Deprecated options, don't recommend using any of these
-
-AlwaysCloseInventory: false
 
 # Options for request api
 # Current methods:
@@ -987,10 +988,6 @@ AlwaysCloseInventory: false
 RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
-
-# Whether or not to disable checking names on mojang, disable if you hit the rate limit
-# Shouldn't make a noticeable impact if set to false
-#CheckNameMojang: false
 
 # Shouldn't need to change this
 #AutoKillInvs: true

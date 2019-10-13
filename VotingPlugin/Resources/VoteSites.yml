@@ -25,6 +25,8 @@ VoteSites:
     # vote url for /vote
     # Format for this can be set in Format.yml
     # Do not include colors here
+    # If you need to force a url set the url as this:
+    # VoteURL: '[Text="ANY TEXT TO CLICK ON HERE",url="URLHERE"]'
     VoteURL: 'link to vote URL here, used in /vote'
 
     # Time between votes in hours (used for /vote next)

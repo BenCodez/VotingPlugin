@@ -750,6 +750,12 @@ public class Main extends AdvancedCorePlugin {
 		if (Config.getInstance().isUseBungeeCoord()) {
 			registerBungeeChannels();
 			BungeeHandler.getInstance().load();
+			if (Config.getInstance().isUseBungeeCoord()) {
+				if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
+					getLogger().warning(
+							"Bungeecoord is true and server name is not set, bungeecoord features may not work");
+				}
+			}
 		}
 
 		registerCommands();
@@ -1092,7 +1098,7 @@ public class Main extends AdvancedCorePlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update || Config.getInstance().isAlwaysUpdate()) {
+		if (update || Config.getInstance().isAlwaysUpdate() || Config.getInstance().isUseBungeeCoord()) {
 			if (!updateStarted && plugin != null) {
 				if (!Config.getInstance().isUpdateWithPlayersOnlineOnly() || Bukkit.getOnlinePlayers().size() != 0) {
 					updateStarted = true;
@@ -1144,7 +1150,7 @@ public class Main extends AdvancedCorePlugin {
 							time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
 						} catch (Exception ex) {
-							plugin.getLogger().info("Looks like something went wrong.");
+							plugin.getLogger().info("Looks like something went wrong");
 							ex.printStackTrace();
 						}
 					}
