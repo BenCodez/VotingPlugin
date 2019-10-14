@@ -46,7 +46,7 @@ VoteSites:
     # This basiclly disables offline voting if set to true, don't misinterpret this option
     ForceOffline: false
     
-    # VoteSite Material for GUI's
+    # VoteSite Material for some GUI's
     # Removing this may result in an error, required on each site
     Item:
       Material: 'DIAMOND'
