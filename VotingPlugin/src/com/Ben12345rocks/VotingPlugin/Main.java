@@ -243,8 +243,8 @@ public class Main extends AdvancedCorePlugin {
 
 			uuids.removeAll(converted);
 
-			plugin.getLogger()
-					.info("Finished getting data from " + from.toString() + " Converting " + data.size() + " users");
+			plugin.getLogger().info("Finished getting data from " + from.toString() + " Converting " + data.size()
+					+ " users, " + uuids.size() + " left to convert");
 
 			getOptions().setStorageType(to);
 			loadUserAPI(getOptions().getStorageType());
@@ -1187,8 +1187,8 @@ public class Main extends AdvancedCorePlugin {
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
-				plugin.getLogger().warning("Exception occoured for '" + entry.getKey().getUUID() + "': "
-						+ e.getMessage() + ", turn debug on to see full stack traces");
+				plugin.getLogger()
+						.warning("Exception occoured for '" + entry.getKey().getUUID() + "': " + e.getMessage());
 			}
 		}
 	}
