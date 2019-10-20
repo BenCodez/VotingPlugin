@@ -2,7 +2,7 @@
 name: Question/Concerns
 about: Ask about a question or a concern about the plugin
 title: ''
-labels: Question
+labels: Question/Concern
 assignees: ''
 
 ---
