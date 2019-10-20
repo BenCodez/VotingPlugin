@@ -161,14 +161,6 @@ public class VoteSite {
 		return configVoteSites.getData(key);
 	}
 
-	/**
-	 * Give rewards.
-	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
-	 */
 	public void giveRewards(User user, boolean online, boolean bungee) {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())

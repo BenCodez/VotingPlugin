@@ -732,16 +732,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 	}
 
-	/**
-	 * Player vote.
-	 *
-	 * @param voteSite
-	 *            the vote site
-	 * @param online
-	 *            the online
-	 * @param broadcast
-	 *            the broadcast
-	 */
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
 		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().isBroadcastVotesEnabled()
 				&& broadcast) {
