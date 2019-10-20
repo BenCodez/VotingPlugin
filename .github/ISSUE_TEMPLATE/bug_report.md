@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Bug report for VotingPlugin
 title: ''
 labels: Possible Bug
 assignees: ''
