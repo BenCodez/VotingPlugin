@@ -213,7 +213,7 @@ public class Main extends AdvancedCorePlugin {
 
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
-			while (i < 250 && i < uuids.size()) {
+			while (i < Config.getInstance().getConvertAmount() && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));

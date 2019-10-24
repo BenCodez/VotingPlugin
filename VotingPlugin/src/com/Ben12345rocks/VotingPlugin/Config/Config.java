@@ -207,6 +207,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int convertDelay;
 
+	@ConfigDataInt(path = "ConvertAmount")
+	@Getter
+	private int convertAmount = 250;
+
 	@ConfigDataBoolean(path = "EnableDailyRewards")
 	@Getter
 	private boolean enableDailyRewards = false;
@@ -311,7 +315,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
-	
+
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();
