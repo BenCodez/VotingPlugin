@@ -19,6 +19,7 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
+import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -606,7 +607,9 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public void bungeeVote(boolean clearCache) {
 		if (Config.getInstance().isUseBungeeCoord()) {
 			if (clearCache) {
-				Main.plugin.getMysql().clearCache(getUUID());
+				if (Main.plugin.getStorageType().equals(UserStorage.MYSQL)) {
+					Main.plugin.getMysql().clearCache(getUUID());
+				}
 			}
 
 			checkBungeeData(getData().getString("Proxy_" + Main.plugin.getOptions().getServer()));
