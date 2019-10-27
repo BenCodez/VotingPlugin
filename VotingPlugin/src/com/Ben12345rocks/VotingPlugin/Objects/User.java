@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -927,8 +928,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				break;
 			case Monthly:
 				if (Config.getInstance().isLimitMonthlyVotes()) {
-					int days = TimeChecker.getInstance().getTime().getMonth().maxLength();
-					if (value > days) {
+					int days = LocalDate.now().lengthOfMonth();
+					if (value >= days * plugin.getVoteSites().size()) {
 						value = days * plugin.getVoteSites().size();
 					}
 				}
