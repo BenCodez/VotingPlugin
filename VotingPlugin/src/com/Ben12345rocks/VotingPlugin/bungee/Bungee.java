@@ -1,21 +1,20 @@
 package com.Ben12345rocks.VotingPlugin.bungee;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 
 import com.Ben12345rocks.AdvancedCore.UserStorage.sql.DataType;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
 import com.vexsoftware.votifier.bungee.events.VotifierEvent;
 import com.vexsoftware.votifier.model.Vote;
 
 import lombok.Getter;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.plugin.Plugin;
-import net.md_5.bungee.event.EventHandler;
+import net.md_5.bungee.config.Configuration;
 
 public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listener {
 
@@ -25,10 +24,13 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	@Getter
 	private BungeeMySQL mysql;
 
+	private SocketHandler socketHandler;
+
+	private HashMap<String, ClientHandler> clientHandles;
+
 	@Override
 	public void onEnable() {
 		getProxy().getPluginManager().registerListener(this, this);
-		this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
 		config = new Config(this);
 		config.load();
 
@@ -60,38 +62,31 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
+
+		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(),
+				config.getBungeePort());
+
+		socketHandler.add(new SocketReceiver() {
+
+			@Override
+			public void onReceive(String[] data) {
+				if (data.length > 2) {
+					if (data[0].equalsIgnoreCase("Broadcast")) {
+						sendServerMessage(data);
+					}
+				}
+			}
+		});
+
+		clientHandles = new HashMap<String, ClientHandler>();
+		for (String s : config.getSpigotServers()) {
+			Configuration d = config.getSpigotServerConfiguration(s);
+			clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298)));
+		}
 	}
 
 	public void reload() {
 		config.load();
-	}
-
-	@EventHandler
-	public void onPluginMessage(PluginMessageEvent ev) {
-		if (!ev.getTag().equals("VotingPlugin:VotingPlugin".toLowerCase())) {
-			return;
-		}
-		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
-		DataInputStream in = new DataInputStream(instream);
-		try {
-			ByteArrayOutputStream outstream = new ByteArrayOutputStream();
-			DataOutputStream out = new DataOutputStream(outstream);
-			String subchannel = in.readUTF();
-			int size = in.readInt();
-			out.writeUTF(subchannel);
-			out.writeInt(size);
-			for (int i = 0; i < size; i++) {
-				out.writeUTF(in.readUTF());
-			}
-			for (String send : getProxy().getServers().keySet()) {
-				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
-							outstream.toByteArray());
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 
 	public void onVote(VotifierEvent event) {
@@ -125,33 +120,18 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			if (config.getSendVotesToAllServers()) {
 				for (String send : getProxy().getServers().keySet()) {
 					mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
-					sendPluginMessage("bungeevote", uuid, name);
+					sendServerMessage("bungeevote", uuid, name);
 				}
 			} else if (config.getSendToOnlineServer()) {
 				mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
-				sendPluginMessage("bungeevote", uuid, name);
+				sendServerMessage("bungeevote", uuid, name);
 			}
 		}
 	}
 
-	public void sendPluginMessage(String channel, String... messageData) {
-		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
-		DataOutputStream out = new DataOutputStream(byteOutStream);
-		try {
-			out.writeUTF(channel);
-			out.writeInt(messageData.length);
-			for (String message : messageData) {
-				out.writeUTF(message);
-			}
-			for (String send : getProxy().getServers().keySet()) {
-				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
-							byteOutStream.toByteArray());
-				}
-			}
-			out.close();
-		} catch (Exception e) {
-			e.printStackTrace();
+	public void sendServerMessage(String... messageData) {
+		for (ClientHandler h : clientHandles.values()) {
+			h.sendMessage(messageData);
 		}
 	}
 

@@ -950,6 +950,16 @@ UseBungeecoord: false
 # Also can be applied to rewards
 Server: PleaseSet
 
+# Bungee communication, add bungee host/port here
+BungeeServer:
+  Host: '127.0.0.1'
+  Port: 1297
+  
+# Bungee communication, add this to bungee server
+SpigotServer:
+  Host: '127.0.0.1'
+  POrt: 1298
+
 # Get the plugin to broadcast to all servers
 BungeeBroadcast: false
 

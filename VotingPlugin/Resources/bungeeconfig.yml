@@ -7,6 +7,22 @@
 SendVotesToAllServers: true
 # Have a reward on 1 server on the network
 SendToOnlineServer: false 
+
+# Bungee communication, Add this to each spigot server
+BungeeServer:
+  Host: '127.0.0.1'
+  Port: 1297
+  
+# Bungee communication, add each spigot server here
+SpigotServers:
+  lobby:
+    Host: '127.0.0.1'
+    Port: 1298
+  factions:
+    Host: '127.0.0.1'
+    Port: 1999
+
+
 # MYSQL Required
 # MYSQL INFO --------------------------
 Host: ''

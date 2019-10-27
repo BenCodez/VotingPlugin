@@ -1,13 +1,16 @@
 package com.Ben12345rocks.VotingPlugin;
 
-import java.util.ArrayList;
 import java.util.UUID;
 
-import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
-import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessageHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
+import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+
+import lombok.Getter;
 
 public class BungeeHandler {
 	private static BungeeHandler instance = new BungeeHandler();
@@ -16,32 +19,70 @@ public class BungeeHandler {
 		return instance;
 	}
 
+	@Getter
+	private SocketHandler socketHandler;
+
+	@Getter
+	private ClientHandler clientHandler;
+
+	public void close() {
+		socketHandler.closeConnection();
+		clientHandler.stopConnection();
+	}
+
 	public void load() {
-		PluginMessage.getInstance().add(new PluginMessageHandler("bungeevote") {
+		socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
+				Config.getInstance().getSpigotServerPort());
+
+		socketHandler.add(new SocketReceiver() {
 
 			@Override
-			public void onRecieve(String subchannel, ArrayList<String> data) {
-				String uuid = data.get(0);
-				Main.plugin.getMysql().clearCache(uuid);
-				User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-				user.bungeeVote();
-			}
-		});
+			public void onReceive(String[] data) {
+				if (data.length > 2) {
+					if (data[0].equalsIgnoreCase("bungeevote")) {
+						String uuid = data[1];
+						User user = null;
+						if (!uuid.isEmpty()) {
+							Main.plugin.getMysql().clearCache(uuid);
+							user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+						} else {
+							user = UserManager.getInstance().getVotingPluginUser(data[2]);
+							user.clearCache();
+						}
 
-		PluginMessage.getInstance().add(new PluginMessageHandler("Broadcast") {
+						user.bungeeVote();
 
-			@Override
-			public void onRecieve(String subchannel, ArrayList<String> data) {
-				VoteSite site = Main.plugin.getVoteSite(data.get(0));
-				String p = data.get(1);
-				User user = UserManager.getInstance().getVotingPluginUser(p);
-				if (site != null) {
-					site.broadcastVote(user, false);
-				} else {
-					Main.plugin.getLogger().warning("No votesite for " + data.get(0));
+					}
 				}
-				Main.plugin.setUpdate(true);
 			}
 		});
+
+		socketHandler.add(new SocketReceiver() {
+
+			@Override
+			public void onReceive(String[] data) {
+				if (data.length > 2) {
+					if (data[0].equalsIgnoreCase("Broadcast")) {
+
+						VoteSite site = Main.plugin.getVoteSite(data[1]);
+						String p = data[2];
+						User user = UserManager.getInstance().getVotingPluginUser(p);
+						if (site != null) {
+							site.broadcastVote(user, false);
+						} else {
+							Main.plugin.getLogger().warning("No votesite for " + data[1]);
+						}
+						Main.plugin.setUpdate(true);
+					}
+				}
+			}
+		});
+
+		clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
+				Config.getInstance().getBungeeServerPort());
+	}
+
+	public void sendData(String... strings) {
+		clientHandler.sendMessage(strings);
 	}
 }

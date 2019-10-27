@@ -320,6 +320,22 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
+	@ConfigDataString(path = "BungeeServer.Host")
+	@Getter
+	private String bungeeServerHost = "";
+
+	@ConfigDataString(path = "SpigotServer.Host")
+	@Getter
+	private String spigotServerHost = "";
+
+	@ConfigDataInt(path = "BungeeServer.Port")
+	@Getter
+	private int bungeeServerPort = 1297;
+
+	@ConfigDataInt(path = "SpigotServer.Port")
+	@Getter
+	private int spigotServerPort = 1298;
+
 	/**
 	 * Instantiates a new config.
 	 */

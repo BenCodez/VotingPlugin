@@ -748,7 +748,6 @@ public class Main extends AdvancedCorePlugin {
 	@Override
 	public void onPostLoad() {
 		if (Config.getInstance().isUseBungeeCoord()) {
-			registerBungeeChannels();
 			BungeeHandler.getInstance().load();
 			if (Config.getInstance().isUseBungeeCoord()) {
 				if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
@@ -997,6 +996,9 @@ public class Main extends AdvancedCorePlugin {
 			}
 		}, 0);
 		HandlerList.unregisterAll(plugin);
+		if (Config.getInstance().isUseBungeeCoord()) {
+			BungeeHandler.getInstance().close();
+		}
 		plugin = null;
 	}
 

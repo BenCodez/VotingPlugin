@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Collection;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
@@ -55,6 +56,22 @@ public class Config {
 
 	public boolean getSendToOnlineServer() {
 		return getData().getBoolean("SendVotesToAllServers");
+	}
+
+	public String getBungeeHost() {
+		return getData().getString("BungeeServer.Host", "");
+	}
+
+	public int getBungeePort() {
+		return getData().getInt("BungeeServer.Port", 1297);
+	}
+
+	public Collection<String> getSpigotServers() {
+		return getData().getSection("SpigotServers").getKeys();
+	}
+
+	public Configuration getSpigotServerConfiguration(String s) {
+		return getData().getSection("SpigotServers." + s);
 	}
 
 }
