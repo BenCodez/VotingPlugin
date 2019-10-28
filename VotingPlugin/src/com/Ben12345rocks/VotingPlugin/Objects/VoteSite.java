@@ -14,8 +14,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
+import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -118,8 +117,7 @@ public class VoteSite {
 	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
 			if (checkBungee && Config.getInstance().isBungeeBroadcast()) {
-				PluginMessage.getInstance().sendPluginMessage(PlayerUtils.getInstance().getRandomPlayer(), "Broadcast",
-						getServiceSite(), user.getPlayerName());
+				BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
 			} else {
 				String playerName = user.getPlayerName();
 				String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
