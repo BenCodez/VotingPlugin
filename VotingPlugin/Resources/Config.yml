@@ -972,9 +972,11 @@ DisabledCommands: []
 # ---------------------------------------------------------
 # Mysql cache options
 # Clearing cache forces the plugin to pull from database
+# Not needed unless you are using multiple servers
 # ---------------------------------------------------------
 
 # Clear cache on update, setting to true reduces update speed
+# Also may require AlwaysUpdate set to true
 ClearCacheOnUpdate: false
 
 # Clear mysql on player join always
@@ -985,11 +987,11 @@ ClearCacheOnJoin: false
 # Would recommend for some bungee setups
 ClearCacheOnVote: false
 
-# Will force GUI's to close on every click
-AlwaysCloseInventory: false
-
 # ###############################################################
 # Deprecated options, don't recommend using any of these
+
+# Will force GUI's to close on every click
+AlwaysCloseInventory: false
 
 # Options for request api
 # Current methods:
