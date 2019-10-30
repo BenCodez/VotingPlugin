@@ -120,11 +120,17 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			if (config.getSendVotesToAllServers()) {
 				for (String send : getProxy().getServers().keySet()) {
 					mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
-					sendServerMessage("bungeevote", uuid, name);
+				}
+				sendServerMessage("bungeevote", uuid, name);
+				if (config.getBroadcast()) {
+					sendServerMessage("BungeeBroadcast", service, uuid, name);
 				}
 			} else if (config.getSendToOnlineServer()) {
 				mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
 				sendServerMessage("bungeevote", uuid, name);
+				if (config.getBroadcast()) {
+					sendServerMessage("BungeeBroadcast", service, uuid, name);
+				}
 			}
 		}
 	}
