@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.bungee;
 
 import java.util.HashMap;
+import java.util.List;
 
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
@@ -76,9 +77,12 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		});
 
 		clientHandles = new HashMap<String, ClientHandler>();
+		List<String> l = config.getBlockedServers();
 		for (String s : config.getSpigotServers()) {
-			Configuration d = config.getSpigotServerConfiguration(s);
-			clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298)));
+			if (!l.contains(s)) {
+				Configuration d = config.getSpigotServerConfiguration(s);
+				clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298)));
+			}
 		}
 	}
 
@@ -124,6 +128,9 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				} else {
 					server = p.getReconnectServer().getName();
 				}
+				if (config.getBlockedServers().contains(server)) {
+					server = config.getFallBack();
+				}
 				// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
 				sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
 				if (config.getBroadcast()) {
@@ -142,9 +149,9 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	}
 
 	public void sendServerMessageServer(String server, String... messageData) {
-
-		clientHandles.get(server).sendMessage(messageData);
-
+		if (clientHandles.containsKey(server)) {
+			clientHandles.get(server).sendMessage(messageData);
+		}
 	}
 
 }

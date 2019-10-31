@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.List;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
@@ -70,8 +71,16 @@ public class Config {
 		return getData().getSection("SpigotServers").getKeys();
 	}
 
+	public List<String> getBlockedServers() {
+		return getData().getStringList("BlockedServers");
+	}
+
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
+	}
+
+	public String getFallBack() {
+		return getData().getString("FallBackServer", "");
 	}
 
 	public Configuration getSpigotServerConfiguration(String s) {

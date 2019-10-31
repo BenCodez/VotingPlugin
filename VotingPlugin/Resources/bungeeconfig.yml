@@ -9,6 +9,10 @@ SendVotesToAllServers: true
 SendToOnlineServer: false 
 # Tell servers to broadcast
 Broadcast: true
+# List of servers the plugin won't send the vote to
+BlockedServers:
+- hub
+FallBackServer: factions
 
 # Bungee communication, Add this to each spigot server
 BungeeServer:
