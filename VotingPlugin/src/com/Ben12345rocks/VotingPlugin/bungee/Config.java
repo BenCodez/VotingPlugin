@@ -70,10 +70,6 @@ public class Config {
 		return getData().getSection("SpigotServers").getKeys();
 	}
 
-	public boolean getBroadcast() {
-		return getData().getBoolean("Broadcast", false);
-	}
-
 	public Configuration getSpigotServerConfiguration(String s) {
 		return getData().getSection("SpigotServers." + s);
 	}

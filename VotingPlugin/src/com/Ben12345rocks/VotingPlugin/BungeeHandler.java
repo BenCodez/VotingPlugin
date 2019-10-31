@@ -39,6 +39,8 @@ public class BungeeHandler {
 			public void run() {
 				clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
 						Config.getInstance().getBungeeServerPort());
+				
+				socketHandler.getServer().setSocketDelay(Config.getInstance().getSocketDelay());
 
 				socketHandler.add(new SocketReceiver() {
 
@@ -83,28 +85,6 @@ public class BungeeHandler {
 						}
 					}
 				});
-
-				socketHandler.add(new SocketReceiver() {
-
-					@Override
-					public void onReceive(String[] data) {
-						if (data.length > 2) {
-							if (data[0].equalsIgnoreCase("BungeeBroadcast")) {
-
-								VoteSite site = Main.plugin.getVoteSite(data[1]);
-								String p = data[3];
-								User user = UserManager.getInstance().getVotingPluginUser(p);
-								if (site != null) {
-									site.broadcastVote(user, false);
-								} else {
-									Main.plugin.getLogger().warning("No votesite for " + data[1]);
-								}
-								Main.plugin.setUpdate(true);
-							}
-						}
-					}
-				});
-
 			}
 		});
 

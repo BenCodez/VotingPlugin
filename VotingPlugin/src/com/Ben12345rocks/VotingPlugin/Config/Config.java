@@ -223,6 +223,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int delayBetweenUpdates = 3;
 
+	@ConfigDataInt(path = "SocketDelay")
+	@Getter
+	private int socketDelay = 4000;
+
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
