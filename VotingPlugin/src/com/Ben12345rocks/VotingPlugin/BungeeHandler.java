@@ -39,8 +39,6 @@ public class BungeeHandler {
 			public void run() {
 				clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
 						Config.getInstance().getBungeeServerPort());
-				
-				socketHandler.getServer().setSocketDelay(Config.getInstance().getSocketDelay());
 
 				socketHandler.add(new SocketReceiver() {
 
@@ -51,19 +49,19 @@ public class BungeeHandler {
 								String uuid = data[1];
 								User user = null;
 								if (!uuid.isEmpty()) {
-									Main.plugin.getMysql().clearCache(uuid);
 									user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 								} else {
 									user = UserManager.getInstance().getVotingPluginUser(data[2]);
-									user.clearCache();
 								}
+
+								user.clearCache();
 
 								user.bungeeVote();
 
 							}
 						}
 					}
-				});
+				}.setSocketDelay(Config.getInstance().getSocketDelay()));
 
 				socketHandler.add(new SocketReceiver() {
 
