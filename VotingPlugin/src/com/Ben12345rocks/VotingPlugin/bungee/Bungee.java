@@ -1,10 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.bungee;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 
-import com.Ben12345rocks.AdvancedCore.UserStorage.sql.DataType;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
@@ -110,21 +107,30 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		String uuid = getUUID(name);
 
 		if (!uuid.isEmpty()) {
-			String data = mysql.getProxyVotes(uuid, "online");
-			String finalData = service + "%time%"
-					+ LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-			if (data != null && !data.isEmpty()) {
-				finalData = data + "%line%" + service + "%time%"
-						+ LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-			}
 			if (config.getSendVotesToAllServers()) {
-				for (String send : getProxy().getServers().keySet()) {
-					mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
+				// for (String send : getProxy().getServers().keySet()) {
+				// mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
+				// }
+				sendServerMessage("bungeevote", uuid, name, service);
+				if (config.getBroadcast()) {
+					sendServerMessage("BungeeBroadcast", service, uuid, name);
 				}
-				sendServerMessage("bungeevote", uuid, name);
 			} else if (config.getSendToOnlineServer()) {
-				mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
-				sendServerMessage("bungeevote", uuid, name);
+				ProxiedPlayer p = getProxy().getPlayer(name);
+
+				String server = "";
+				if (p.isConnected()) {
+					server = p.getServer().getInfo().getName();
+				} else {
+					server = p.getReconnectServer().getName();
+				}
+				// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
+				sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
+				if (config.getBroadcast()) {
+					if (getProxy().getPlayer(name).isConnected()) {
+						sendServerMessage("BungeeBroadcast", service, uuid, name);
+					}
+				}
 			}
 		}
 	}
@@ -133,6 +139,12 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		for (ClientHandler h : clientHandles.values()) {
 			h.sendMessage(messageData);
 		}
+	}
+
+	public void sendServerMessageServer(String server, String... messageData) {
+
+		clientHandles.get(server).sendMessage(messageData);
+
 	}
 
 }

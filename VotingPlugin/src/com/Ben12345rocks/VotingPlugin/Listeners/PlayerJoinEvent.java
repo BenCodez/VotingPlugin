@@ -8,7 +8,6 @@ import org.bukkit.event.Listener;
 import com.Ben12345rocks.AdvancedCore.Listeners.AdvancedCoreLoginEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -52,9 +51,6 @@ public class PlayerJoinEvent implements Listener {
 		}
 
 		boolean data = user.getData().hasData();
-		if (Main.plugin.getOptions().isProcessRewards() && Config.getInstance().isUseBungeeCoord() && data) {
-			user.bungeeVote();
-		}
 
 		// run remind
 		user.loginMessage();

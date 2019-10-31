@@ -8,7 +8,7 @@ public class VotingPluginBungeeCommand extends Command {
 	private Bungee bungee;
 
 	public VotingPluginBungeeCommand(Bungee bungee) {
-		super("votingpluginbungee");
+		super("votingpluginbungee", "VotingPlugin.Admin");
 		this.bungee = bungee;
 	}
 

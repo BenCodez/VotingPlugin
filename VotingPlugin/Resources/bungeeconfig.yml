@@ -7,6 +7,8 @@
 SendVotesToAllServers: true
 # Have a reward on 1 server on the network
 SendToOnlineServer: false 
+# Tell servers to broadcast
+Broadcast: true
 
 # Bungee communication, Add this to each spigot server
 BungeeServer:

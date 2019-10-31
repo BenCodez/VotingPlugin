@@ -20,7 +20,6 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
-import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -601,46 +600,39 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				.withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly)).setOnline(isOnline()).send(this);
 	}
 
-	public void bungeeVote() {
-		bungeeVote(true);
-	}
-
-	public void bungeeVote(boolean clearCache) {
+	public void bungeeVote(String service) {
 		if (Config.getInstance().isUseBungeeCoord()) {
-			if (clearCache) {
-				if (Main.plugin.getStorageType().equals(UserStorage.MYSQL)) {
-					Main.plugin.getMysql().clearCache(getUUID());
+			Main.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
+
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+					true);
+			voteEvent.setBungee(true);
+			voteEvent.setForceBungee(true);
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
 				}
-			}
-
-			checkBungeeData(getData().getString("Proxy_" + Main.plugin.getOptions().getServer()));
-			getData().setString("Proxy_" + Main.plugin.getOptions().getServer(), "");
-
-			checkBungeeData(getData().getString("Proxy_Online"));
-			getData().setString("Proxy_Online", "");
+			});
 		}
 	}
 
-	private void checkBungeeData(String data) {
-		if (!data.isEmpty()) {
-			for (String serviceData : data.split("%line%")) {
-				String[] d = serviceData.split("%time%");
-				if (d.length == 2) {
-					String service = d[0];
-					String time = d[1];
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(),
-							service, false);
-					voteEvent.setBungee(true);
-					voteEvent.setTime(Long.parseLong(time));
-					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+	public void bungeeVoteOnline(String service) {
+		if (Config.getInstance().isUseBungeeCoord()) {
+			Main.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
-						@Override
-						public void run() {
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
-						}
-					});
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+					true);
+			voteEvent.setBungee(true);
+			voteEvent.setForceBungee(false);
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
 				}
-			}
+			});
 		}
 	}
 

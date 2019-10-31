@@ -44,7 +44,7 @@ public class BungeeHandler {
 
 					@Override
 					public void onReceive(String[] data) {
-						if (data.length > 2) {
+						if (data.length > 3) {
 							if (data[0].equalsIgnoreCase("bungeevote")) {
 								String uuid = data[1];
 								User user = null;
@@ -56,22 +56,45 @@ public class BungeeHandler {
 
 								user.clearCache();
 
-								user.bungeeVote();
+								user.bungeeVote(data[3]);
 
 							}
 						}
 					}
-				}.setSocketDelay(Config.getInstance().getSocketDelay()));
+				});
+				
+				socketHandler.add(new SocketReceiver() {
+
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 3) {
+							if (data[0].equalsIgnoreCase("bungeevoteonline")) {
+								String uuid = data[1];
+								User user = null;
+								if (!uuid.isEmpty()) {
+									user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+								} else {
+									user = UserManager.getInstance().getVotingPluginUser(data[2]);
+								}
+
+								user.clearCache();
+
+								user.bungeeVoteOnline(data[3]);
+
+							}
+						}
+					}
+				});
 
 				socketHandler.add(new SocketReceiver() {
 
 					@Override
 					public void onReceive(String[] data) {
 						if (data.length > 2) {
-							if (data[0].equalsIgnoreCase("Broadcast")) {
+							if (data[0].equalsIgnoreCase("BungeeBroadcast")) {
 
 								VoteSite site = Main.plugin.getVoteSite(data[1]);
-								String p = data[2];
+								String p = data[3];
 								User user = UserManager.getInstance().getVotingPluginUser(p);
 								if (site != null) {
 									site.broadcastVote(user, false);

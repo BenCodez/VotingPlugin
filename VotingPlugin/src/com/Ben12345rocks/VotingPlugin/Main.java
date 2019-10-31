@@ -1141,13 +1141,9 @@ public class Main extends AdvancedCorePlugin {
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 
-							boolean bungee = Config.getInstance().isUseBungeeCoord();
 							for (Player player : Bukkit.getOnlinePlayers()) {
 								User user = UserManager.getInstance().getVotingPluginUser(player);
 								user.offVote();
-								if (bungee) {
-									user.bungeeVote(false);
-								}
 							}
 							time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");

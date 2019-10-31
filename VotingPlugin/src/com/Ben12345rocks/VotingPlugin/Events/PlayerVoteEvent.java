@@ -70,5 +70,9 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private boolean bungee = false;
+	
+	@Getter
+	@Setter
+	private boolean forceBungee = false;
 
 }
