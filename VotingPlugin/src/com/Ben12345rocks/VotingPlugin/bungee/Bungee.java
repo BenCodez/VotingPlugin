@@ -1,8 +1,10 @@
 package com.Ben12345rocks.VotingPlugin.bungee;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 
+import com.Ben12345rocks.AdvancedCore.Util.Encryption.EncryptionHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
@@ -25,6 +27,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	private SocketHandler socketHandler;
 
 	private HashMap<String, ClientHandler> clientHandles;
+
+	private EncryptionHandler encryptionHandler;
 
 	@Override
 	public void onEnable() {
@@ -60,9 +64,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
+		encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
-		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(),
-				config.getBungeePort());
+		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(), config.getBungeePort(),
+				encryptionHandler);
 
 		socketHandler.add(new SocketReceiver() {
 
@@ -81,7 +86,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		for (String s : config.getSpigotServers()) {
 			if (!l.contains(s)) {
 				Configuration d = config.getSpigotServerConfiguration(s);
-				clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298)));
+				clientHandles.put(s,
+						new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298), encryptionHandler));
 			}
 		}
 	}
@@ -134,9 +140,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
 				sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
 				if (config.getBroadcast()) {
-					if (getProxy().getPlayer(name).isConnected()) {
-						sendServerMessage("BungeeBroadcast", service, uuid, name);
-					}
+					sendServerMessage("BungeeBroadcast", service, uuid, name);
 				}
 			}
 		}

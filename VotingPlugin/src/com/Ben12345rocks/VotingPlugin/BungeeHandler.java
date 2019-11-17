@@ -1,9 +1,11 @@
 package com.Ben12345rocks.VotingPlugin;
 
+import java.io.File;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
 
+import com.Ben12345rocks.AdvancedCore.Util.Encryption.EncryptionHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
@@ -27,18 +29,21 @@ public class BungeeHandler {
 	@Getter
 	private ClientHandler clientHandler;
 
+	private EncryptionHandler encryptionHandler;
+
 	public void close() {
 		socketHandler.closeConnection();
 		clientHandler.stopConnection();
 	}
 
 	public void load() {
+		encryptionHandler = new EncryptionHandler(new File(Main.plugin.getDataFolder(), "secretkey.key"));
 		Bukkit.getScheduler().runTask(Main.plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
-						Config.getInstance().getBungeeServerPort());
+						Config.getInstance().getBungeeServerPort(), encryptionHandler);
 
 				socketHandler.add(new SocketReceiver() {
 
@@ -62,7 +67,7 @@ public class BungeeHandler {
 						}
 					}
 				});
-				
+
 				socketHandler.add(new SocketReceiver() {
 
 					@Override
@@ -110,7 +115,7 @@ public class BungeeHandler {
 		});
 
 		socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
-				Config.getInstance().getSpigotServerPort());
+				Config.getInstance().getSpigotServerPort(), encryptionHandler);
 
 	}
 
