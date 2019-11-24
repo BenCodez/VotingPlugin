@@ -561,7 +561,7 @@ GUI:
   VoteShopName: 'VoteShop'
   
 BackButton:
-  Material: 'PAPER'
+  Material: 'BARRIER'
   Data: 0
   Amount: 1
   Name: '&8Back to VoteGUI'

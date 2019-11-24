@@ -59,7 +59,7 @@ public class PlayerGUIs {
 		if (sec != null) {
 			item = new ItemBuilder(sec);
 		} else {
-			item = new ItemBuilder(Material.PAPER, 1).setName("&8Back to VoteGUI");
+			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
 
 		BInventoryButton b = new BInventoryButton(item) {
