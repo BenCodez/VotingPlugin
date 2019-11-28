@@ -226,6 +226,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
+	
+	@ConfigDataListString(path = "DisabledDefaultPermissions")
+	@Getter
+	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
 
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter

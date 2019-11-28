@@ -2134,6 +2134,20 @@ public class CommandLoader {
 				list.remove(i);
 			}
 		}
+		ArrayList<String> disabledDefaultPerms = config.getDisabledDefaultPermissions();
+		for (CommandHandler cmd : list) {
+			boolean contains = false;
+			for (String dis : disabledDefaultPerms) {
+				if (cmd.getPerm().contains(dis + "|")) {
+					contains = true;
+				}
+			}
+			if (contains) {
+				cmd.setPerm(cmd.getPerm().replace("|" + playerPerm, ""));
+				plugin.debug("Disabling VotingPlugin.Player permission on " + cmd.getPerm());
+
+			}
+		}
 	}
 
 	/**

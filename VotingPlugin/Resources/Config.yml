@@ -454,8 +454,8 @@ GUI:
       Name: '&3&l%position%: &3%player%'
       Lore: '&3&lVotes: &3%votes%'
     SwitchItem:
-      Name: 'Switch TopVoter'
-      Lore: 'Currently: %Top%'
+      Name: '&3Switch TopVoter'
+      Lore: '&bCurrently: %Top%'
       Material: 'SIGN'
       Amount: 1
       # 8 Slots over from the bottom left
@@ -885,6 +885,10 @@ CountFakeVotes: true
 # Give VotingPlugin.Player by default
 # Requires restart to take affect
 GiveDefaultPermission: true
+
+# Permissions given by VotingPlugin.Player by default
+# Permissions listed here will no be accessible with the default permission
+DisabledDefaultPermissions: []
 
 # Remove old player files
 # Happens on startup or /av purge
