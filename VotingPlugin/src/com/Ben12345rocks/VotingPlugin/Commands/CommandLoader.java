@@ -1066,6 +1066,18 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "VotePartyExtraRequired", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.VoteParty.SetExtraRequired|" + adminPerm,
+						"Force a voteparty reward, resets vote count") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						ServerData.getInstance().setVotePartyExtraRequired(Integer.parseInt(args[1]));
+						sendMessage(sender, "&cSet VotePartyExtraRequired to " + args[1]);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "ForceMilestone", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.ForceMilestone|" + adminPerm, "Force a milestone") {
 

@@ -652,6 +652,8 @@ VoteParty:
   ResetEachDay: false
   # Reset at the end of the month
   ResetMonthly: false
+  # Reset extra votes
+  ResetExtraVotesMonthly: false
   # Count votes from /av vote?
   CountFakeVotes: true
   # Number of user votes that apply to vote party total the user needs to get rewards

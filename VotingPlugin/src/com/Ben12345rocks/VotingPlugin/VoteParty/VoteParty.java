@@ -231,6 +231,10 @@ public class VoteParty implements Listener {
 		if (Config.getInstance().getVotePartyResetMontly()) {
 			reset();
 		}
+
+		if (Config.getInstance().isVotePartyResetExtraVotesMonthly()) {
+			ServerData.getInstance().setVotePartyExtraRequired(0);
+		}
 	}
 
 	public void register() {
