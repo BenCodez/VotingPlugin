@@ -598,6 +598,9 @@ public class Commands {
 		if (time > 0) {
 			Date date = new Date(time);
 			String timeString = new SimpleDateFormat(config.getFormatTimeFormat()).format(date);
+			if (StringParser.getInstance().containsIgnorecase(timeString, "YamlConfiguration")) {
+				plugin.getLogger().warning("Detected issue parsing time, check time format");
+			}
 			return timeString;
 		}
 		return "";
