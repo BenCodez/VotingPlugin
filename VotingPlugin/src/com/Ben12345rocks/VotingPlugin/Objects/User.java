@@ -223,26 +223,31 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		if (time == 0) {
 			return true;
 		}
-		LocalDateTime now = TimeChecker.getInstance().getTime();
-		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
+		try {
+			LocalDateTime now = TimeChecker.getInstance().getTime();
+			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+					.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
-		if (!voteSite.isVoteDelayDaily()) {
-			int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
+			if (!voteSite.isVoteDelayDaily()) {
+				int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
 
-			if (votedelay == 0) {
+				if (votedelay == 0) {
+					return false;
+				}
+
+				LocalDateTime nextvote = lastVote.plusHours(votedelay);
+
+				return now.isAfter(nextvote);
+			} else {
+				if (now.getDayOfYear() != lastVote.getDayOfYear() || now.getYear() != lastVote.getYear()) {
+					return true;
+				}
 				return false;
 			}
-
-			LocalDateTime nextvote = lastVote.plusHours(votedelay);
-
-			return now.isAfter(nextvote);
-		} else {
-			if (now.getDayOfYear() != lastVote.getDayOfYear() || now.getYear() != lastVote.getYear()) {
-				return true;
-			}
-			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		return false;
 
 	}
 
