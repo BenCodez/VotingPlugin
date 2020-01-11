@@ -309,6 +309,7 @@ public class PlayerGUIs {
 						@Override
 						public void onClick(ClickEvent event) {
 							Player player = event.getWhoClicked();
+							event.getButton().getInv().closeInv(player, null);
 
 							User user = UserManager.getInstance().getVotingPluginUser(player);
 							user.clearCache();
