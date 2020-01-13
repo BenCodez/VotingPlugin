@@ -6,6 +6,7 @@ website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
 softdepend: [MVdWPlaceholders, Votifier]
 api-version: 1.13
+loadbefore: [ChatControl]
 commands:
   vote:
     description: Vote command
