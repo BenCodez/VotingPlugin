@@ -4,9 +4,8 @@ main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
-softdepend: [MVdWPlaceholders, Votifier]
+softdepend: [MVdWPlaceholders, Votifier, CMI]
 api-version: 1.13
-loadbefore: [ChatControl]
 commands:
   vote:
     description: Vote command
