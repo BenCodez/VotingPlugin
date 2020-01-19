@@ -1420,7 +1420,7 @@ public class CommandLoader {
 			}
 		});
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "URL", "(SiteName)" },
-				"VotingPlugin.Commands.Vote.URL.VoteSite|" + playerPerm, "Open VoteURL GUI", false) {
+				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {

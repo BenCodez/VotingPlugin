@@ -705,6 +705,10 @@ public class PlayerGUIs {
 	}
 
 	public void openVoteURL(Player player, String voteSite) {
+		if (!plugin.isVoteSite(voteSite)) {
+			player.sendMessage("Not a valid votesite");
+			return;
+		}
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 		VoteSite site = plugin.getVoteSite(voteSite);
 		BInventory inv = new BInventory(StringParser.getInstance()

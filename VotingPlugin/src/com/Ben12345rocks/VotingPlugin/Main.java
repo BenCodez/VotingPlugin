@@ -284,6 +284,15 @@ public class Main extends AdvancedCorePlugin {
 		return VoteParty.getInstance();
 	}
 
+	public boolean isVoteSite(String voteSite) {
+		for (VoteSite site : getVoteSites()) {
+			if (site.getKey().equalsIgnoreCase(voteSite)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Gets the vote site.
 	 *
