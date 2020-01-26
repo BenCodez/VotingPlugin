@@ -608,13 +608,12 @@ Shop:
 # To disable reward set value to []
 # Eg:
 # FirstVote: [] (All in one line)
-# By default all rewards are disabled
+# Rewards will be given if there is a reward to give
 
 # First vote rewards
 FirstVote: 
   Messages:
     Player: '&aYou voted for your first time!'
-  Money: 100
 
 # All vote rewards
 # Reward for voting on all sites in one day
