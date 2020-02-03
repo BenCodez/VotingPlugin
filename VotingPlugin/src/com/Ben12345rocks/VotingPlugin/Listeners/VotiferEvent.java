@@ -69,7 +69,7 @@ public class VotiferEvent implements Listener {
 		}
 
 		plugin.getLogger()
-				.info("Recieved a vote from service site '" + voteSite + "' by player '" + voteUsername + "'!");
+				.info("Received a vote from service site '" + voteSite + "' by player '" + voteUsername + "'!");
 
 		plugin.debug("PlayerUsername: " + voteUsername);
 		plugin.debug("VoteSite: " + voteSite);
