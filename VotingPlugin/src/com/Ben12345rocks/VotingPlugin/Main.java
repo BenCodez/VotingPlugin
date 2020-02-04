@@ -830,7 +830,7 @@ public class Main extends AdvancedCorePlugin {
 		}
 
 		// set columns
-		if (getStorageType().equals(UserStorage.MYSQL)) {
+		if (getStorageType().equals(UserStorage.MYSQL) && Config.getInstance().isAlterColumns()) {
 			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
 			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
 			getMysql().alterColumnType("Reminded", "VARCHAR(5)");

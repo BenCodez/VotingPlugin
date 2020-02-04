@@ -125,6 +125,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean addTotals = true;
 
+	@ConfigDataBoolean(path = "AlterColumns")
+	@Getter
+	private boolean alterColumns = true;
+
 	@Getter
 	private String allSitesRewardPath = "AllSites";
 
