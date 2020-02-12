@@ -924,7 +924,7 @@ public class Commands {
 				MessageBuilder message = new MessageBuilder(config.getFormatCommandsVoteURLS());
 				message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
 						.replacePlaceholder("SiteName", voteSite.getDisplayName())
-						.replacePlaceholder("player", user.getPlayerName())
+						.replacePlaceholder("player", "" + user.getPlayerName())
 						.replacePlaceholder("Next", "" + voteCommandNextInfo(user, voteSite)).colorize();
 				sites.add(message.getText());
 			}
