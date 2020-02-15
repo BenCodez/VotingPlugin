@@ -6,11 +6,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
+import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -65,6 +68,13 @@ public class ConfigVoteSites extends YMLFile {
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
+
+			for (Player p : Bukkit.getOnlinePlayers()) {
+				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite")) {
+					p.sendMessage(StringParser.getInstance().colorize("&cGenerating votesite for service site "
+							+ siteName + ", please check console for details"));
+				}
+			}
 		}
 	}
 

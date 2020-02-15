@@ -3,12 +3,10 @@ package com.Ben12345rocks.VotingPlugin.Listeners;
 import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -104,12 +102,6 @@ public class VotiferEvent implements Listener {
 					}
 					plugin.getLogger()
 							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
-					for (Player p : Bukkit.getOnlinePlayers()) {
-						if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite")) {
-							p.sendMessage(StringParser.getInstance().colorize("&cGenerating votesite for service site "
-									+ voteSiteName + ", please check console for details"));
-						}
-					}
 				}
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername,
