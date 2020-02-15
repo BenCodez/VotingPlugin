@@ -144,8 +144,12 @@ public class Main extends AdvancedCorePlugin {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			plugin.getLogger()
-					.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
+			if (!Config.getInstance().isUseBungeeCoord()) {
+				plugin.getLogger()
+						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
+			} else {
+				plugin.debug("No VotifierEvent found, but usebungeecoord enabled");
+			}
 		}
 	}
 

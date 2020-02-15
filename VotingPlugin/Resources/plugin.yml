@@ -225,4 +225,6 @@ permissions:
     default: false
   VotingPlugin.Sign.Create:
     description: Permission to create sign
+  VotingPlugin.Admin.GenerateServiceSite:
+    description: Permission for generating votesite message
   
