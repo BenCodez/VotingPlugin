@@ -509,6 +509,8 @@ public class CommandLoader {
 					});
 
 				}
+				sendMessage(sender,
+						"Using AdvancedCore " + plugin.getVersion() + "' built on '" + plugin.getBuildTime());
 			}
 		});
 
