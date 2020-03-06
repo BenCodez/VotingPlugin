@@ -1,6 +1,8 @@
 package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Map.Entry;
 
 import org.bukkit.OfflinePlayer;
@@ -233,6 +235,15 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				return Integer.toString(user.getPoints());
+			}
+		}.withDescription("User points"));
+
+		placeholders.add(new PlaceHolder<User>("Points_Format") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
+				return numberFormat.format(user.getPoints());
 			}
 		}.withDescription("User points"));
 
