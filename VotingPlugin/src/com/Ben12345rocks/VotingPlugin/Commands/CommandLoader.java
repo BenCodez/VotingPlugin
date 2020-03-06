@@ -1087,6 +1087,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						SpecialRewards.getInstance().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[3]));
+						sendMessage(sender, "&cMilestone " + args[3] + " forced");
 					}
 				});
 
@@ -1098,6 +1099,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						SpecialRewards.getInstance().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]));
+						sendMessage(sender, "&cCummulative " + args[3] + " forced");
 					}
 				});
 
@@ -1108,6 +1110,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				SpecialRewards.getInstance().giveAllSitesRewards(user, user.isOnline());
+				sendMessage(sender, "&cAllSites forced");
 			}
 		});
 
@@ -1118,6 +1121,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 				SpecialRewards.getInstance().giveFirstVoteRewards(user, user.isOnline());
+				sendMessage(sender, "&cFirstVote forced");
 			}
 		});
 
@@ -1130,6 +1134,7 @@ public class CommandLoader {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[3], args[4],
 								parseInt(args[4]));
+						sendMessage(sender, "&cVoteStreak " + args[3] + " " + args[4] + " forced");
 					}
 				});
 
