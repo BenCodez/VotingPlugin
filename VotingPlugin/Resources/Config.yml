@@ -948,8 +948,22 @@ LoadSkulls: true
 # May not work on some plugins
 UseVaultPermissions: false
 
+# List of disabled commands from /vote
+# List the specific permission
+# E.g:
+# - PERMISSION
+DisabledCommands: []
+
+# --------------------------
+# Bungee Setup 
+# Only if using votingplugin bungee to send votes
+# --------------------------
+
 # Plugin using bungee, requires plugin on bungee server
 UseBungeecoord: false
+
+# Get the plugin to broadcast to all servers
+BungeeBroadcast: false
 
 # What server this is in bungee (must match)
 # Also can be applied to rewards
@@ -963,16 +977,7 @@ BungeeServer:
 # Bungee communication, add this to bungee server
 SpigotServer:
   Host: '127.0.0.1'
-  POrt: 1298
-
-# Get the plugin to broadcast to all servers
-BungeeBroadcast: false
-
-# List of disabled commands from /vote
-# List the specific permission
-# E.g:
-# - PERMISSION
-DisabledCommands: []
+  Port: 1298
 
 # ---------------------------------------------------------
 # Mysql cache options
