@@ -957,6 +957,7 @@ DisabledCommands: []
 # --------------------------
 # Bungee Setup 
 # Only if using votingplugin bungee to send votes
+# REQUIRES RESTART FOR CHANGES TO TAKE EFFECT
 # --------------------------
 
 # Plugin using bungee, requires plugin on bungee server
