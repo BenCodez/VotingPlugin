@@ -137,6 +137,8 @@ public class Main extends AdvancedCorePlugin {
 	@Getter
 	private boolean ymlError = false;
 
+	private boolean votifierLoaded = true;
+
 	/**
 	 * Check votifier.
 	 */
@@ -150,6 +152,7 @@ public class Main extends AdvancedCorePlugin {
 			} else {
 				plugin.debug("No VotifierEvent found, but usebungeecoord enabled");
 			}
+			votifierLoaded = false;
 		}
 	}
 
@@ -1059,7 +1062,9 @@ public class Main extends AdvancedCorePlugin {
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
-		pm.registerEvents(new VotiferEvent(this), this);
+		if (votifierLoaded) {
+			pm.registerEvents(new VotiferEvent(this), this);
+		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
