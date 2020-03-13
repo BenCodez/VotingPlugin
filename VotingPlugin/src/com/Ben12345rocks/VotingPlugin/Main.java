@@ -1010,7 +1010,11 @@ public class Main extends AdvancedCorePlugin {
 		}, 0);
 		HandlerList.unregisterAll(plugin);
 		if (Config.getInstance().isUseBungeeCoord()) {
-			BungeeHandler.getInstance().close();
+			try {
+				BungeeHandler.getInstance().close();
+			} catch (Exception e) {
+				debug(e);
+			}
 		}
 		plugin = null;
 	}
