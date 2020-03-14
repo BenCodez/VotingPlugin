@@ -774,8 +774,8 @@ public class Main extends AdvancedCorePlugin {
 		}
 
 		registerCommands();
-		registerEvents();
 		checkVotifier();
+		registerEvents();
 		CheckUpdate.getInstance().startUp();
 		VoteReminding.getInstance().loadRemindChecking();
 		plugin.signs = new ArrayList<SignHandler>();
