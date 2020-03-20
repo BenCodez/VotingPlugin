@@ -1439,6 +1439,11 @@ public class CommandLoader {
 					String identifier = args[1];
 					Set<String> identifiers = Config.getInstance().getIdentifiers();
 					if (ArrayUtils.getInstance().containsIgnoreCase(identifiers, identifier)) {
+						for (String ident : identifiers) {
+							if (ident.equalsIgnoreCase(args[1])) {
+								identifier = ident;
+							}
+						}
 
 						String perm = Config.getInstance().getVoteShopPermission(identifier);
 						boolean hasPerm = false;
@@ -1493,6 +1498,8 @@ public class CommandLoader {
 
 							}
 						}
+					} else {
+						sendMessage(sender, "&cWrong voteshop item");
 					}
 				}
 			});
