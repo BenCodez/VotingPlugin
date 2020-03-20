@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -21,6 +22,8 @@ import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandle;
 import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
+import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -1426,6 +1429,71 @@ public class CommandLoader {
 				@Override
 				public void execute(CommandSender sender, String[] args) {
 					PlayerGUIs.getInstance().openVoteShop((Player) sender);
+				}
+			});
+			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop", "(Text)" },
+					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					String identifier = args[1];
+					Set<String> identifiers = Config.getInstance().getIdentifiers();
+					if (ArrayUtils.getInstance().containsIgnoreCase(identifiers, identifier)) {
+
+						String perm = Config.getInstance().getVoteShopPermission(identifier);
+						boolean hasPerm = false;
+						if (perm.isEmpty()) {
+							hasPerm = true;
+						} else {
+							hasPerm = sender.hasPermission(perm);
+						}
+
+						int limit = Config.getInstance().getIdentifierLimit(identifier);
+
+						User user = UserManager.getInstance().getVotingPluginUser(sender.getName());
+						boolean limitPass = true;
+						if (limit > 0) {
+
+							if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
+								limitPass = false;
+							}
+						}
+
+						if (!Config.getInstance().getVoteShopNotBuyable(identifier)) {
+							if (hasPerm) {
+								user.clearCache();
+								int points = Config.getInstance().getIdentifierCost(identifier);
+								if (identifier != null) {
+
+									if (limitPass) {
+										HashMap<String, String> placeholders = new HashMap<String, String>();
+										placeholders.put("identifier", identifier);
+										placeholders.put("points", "" + points);
+										placeholders.put("limit", "" + limit);
+										if (user.removePoints(points)) {
+
+											RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+													Config.getInstance().getIdentifierRewardsPath(identifier),
+													new RewardOptions().setPlaceholders(placeholders));
+
+											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+													Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
+											if (limit > 0) {
+												user.setVoteShopIdentifierLimit(identifier,
+														user.getVoteShopIdentifierLimit(identifier) + 1);
+											}
+										} else {
+											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+													Config.getInstance().getFormatShopFailedMsg(), placeholders));
+										}
+									} else {
+										user.sendMessage(Config.getInstance().getVoteShopLimitReached());
+									}
+								}
+
+							}
+						}
+					}
 				}
 			});
 		}
