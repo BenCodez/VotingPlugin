@@ -424,6 +424,18 @@ public class Main extends AdvancedCorePlugin {
 					}
 				}, 1000 * 60 * 10, 1000 * 60 * 5);
 
+				getTimer().schedule(new TimerTask() {
+
+					@Override
+					public void run() {
+						if (plugin != null && Config.getInstance().isExtraBackgroundUpdate()) {
+							basicBungeeUpdate();
+						} else {
+							cancel();
+						}
+					}
+				}, 1000, 1000 * 30);
+
 			}
 		}, 40L);
 
@@ -1178,6 +1190,15 @@ public class Main extends AdvancedCorePlugin {
 					updateStarted = false;
 				}
 			}
+		}
+	}
+
+	public void basicBungeeUpdate() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			User user = UserManager.getInstance().getVotingPluginUser(player);
+			user.clearCache();
+			user.offVote();
+			user.checkOfflineRewards();
 		}
 	}
 

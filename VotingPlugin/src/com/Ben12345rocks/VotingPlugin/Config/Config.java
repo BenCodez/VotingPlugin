@@ -56,6 +56,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL")
 	@Getter
 	private boolean commandsVoteRewardFromVoteURL = false;
+	
+	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
+	@Getter
+	private boolean extraBackgroundUpdate = false;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
 	@Getter
