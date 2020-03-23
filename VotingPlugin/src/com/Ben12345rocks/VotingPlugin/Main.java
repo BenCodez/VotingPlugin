@@ -1175,9 +1175,11 @@ public class Main extends AdvancedCorePlugin {
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 
-							for (Player player : Bukkit.getOnlinePlayers()) {
-								User user = UserManager.getInstance().getVotingPluginUser(player);
-								user.offVote();
+							if (!Config.getInstance().isExtraBackgroundUpdate()) {
+								for (Player player : Bukkit.getOnlinePlayers()) {
+									User user = UserManager.getInstance().getVotingPluginUser(player);
+									user.offVote();
+								}
 							}
 							time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
