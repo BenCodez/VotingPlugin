@@ -25,6 +25,7 @@ public class VotingPluginBungeeCommand extends Command {
 						String user = args[1];
 						String site = args[2];
 						bungee.saveVote(user, site);
+						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
 			}
