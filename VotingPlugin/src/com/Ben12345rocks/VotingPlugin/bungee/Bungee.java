@@ -98,8 +98,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	public void onVote(VotifierEvent event) {
 		Vote vote = event.getVote();
-		saveVote(vote.getUsername(), vote.getServiceName());
 		getLogger().info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
+		saveVote(vote.getUsername(), vote.getServiceName());
 	}
 
 	public String getUUID(String playerName) {
