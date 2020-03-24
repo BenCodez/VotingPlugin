@@ -130,10 +130,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				ProxiedPlayer p = getProxy().getPlayer(name);
 
 				String server = "";
-				if (p.isConnected()) {
+				if (p != null && p.isConnected()) {
 					server = p.getServer().getInfo().getName();
 				} else {
-					server = p.getReconnectServer().getName();
+					server = config.getFallBack();
 				}
 				if (config.getBlockedServers().contains(server)) {
 					server = config.getFallBack();
