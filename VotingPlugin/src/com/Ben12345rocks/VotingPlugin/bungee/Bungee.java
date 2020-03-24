@@ -15,6 +15,7 @@ import lombok.Getter;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
+import net.md_5.bungee.event.EventHandler;
 
 public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listener {
 
@@ -96,6 +97,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		config.load();
 	}
 
+	@EventHandler
 	public void onVote(VotifierEvent event) {
 		Vote vote = event.getVote();
 		getLogger().info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
