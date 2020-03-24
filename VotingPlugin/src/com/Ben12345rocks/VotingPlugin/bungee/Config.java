@@ -56,7 +56,7 @@ public class Config {
 	}
 
 	public boolean getSendToOnlineServer() {
-		return getData().getBoolean("SendVotesToAllServers");
+		return getData().getBoolean("SendToOnlineServer");
 	}
 
 	public String getBungeeHost() {

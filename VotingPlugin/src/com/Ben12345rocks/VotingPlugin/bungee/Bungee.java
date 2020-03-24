@@ -126,7 +126,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				if (config.getBroadcast()) {
 					sendServerMessage("BungeeBroadcast", service, uuid, name);
 				}
-			} else {
+			} else if (config.getSendToOnlineServer()) {
 				ProxiedPlayer p = getProxy().getPlayer(name);
 
 				String server = "";
