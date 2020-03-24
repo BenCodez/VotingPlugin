@@ -68,8 +68,6 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(), config.getBungeePort(),
 				encryptionHandler);
-		getLogger().info("Loading bungee receiving " + socketHandler.getServer().getHost() + ":"
-				+ socketHandler.getServer().getPort());
 
 		socketHandler.add(new SocketReceiver() {
 
@@ -128,7 +126,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				if (config.getBroadcast()) {
 					sendServerMessage("BungeeBroadcast", service, uuid, name);
 				}
-			} else if (config.getSendToOnlineServer()) {
+			} else {
 				ProxiedPlayer p = getProxy().getPlayer(name);
 
 				String server = "";
