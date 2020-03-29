@@ -575,6 +575,7 @@ VoteShopLimitReached: '&aYou reached your limit'
 Shop:
   # Identifier
   # Used in placeholders for formats
+  # Do not have spaces in the identifier
   Diamond:
     # Item
     Material: 'DIAMOND'
