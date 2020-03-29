@@ -1436,6 +1436,11 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
+					if (!Config.getInstance().getVoteShopEnabled()) {
+						sender.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
+						return;
+					}
+
 					String identifier = args[1];
 					Set<String> identifiers = Config.getInstance().getIdentifiers();
 					if (ArrayUtils.getInstance().containsIgnoreCase(identifiers, identifier)) {
