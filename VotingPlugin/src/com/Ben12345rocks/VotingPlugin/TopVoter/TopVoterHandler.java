@@ -602,6 +602,8 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 
+		plugin.debug("Number of users to check top voter: " + users.size());
+
 		for (TopVoter top : TopVoter.values()) {
 			plugin.getTopVoter(top).clear();
 			if (Config.getInstance().getLoadTopVoter(top)) {

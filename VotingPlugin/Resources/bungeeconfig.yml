@@ -1,6 +1,4 @@
-# STILL A WORK IN PROGRESS, USE AT YOUR OWN RISK
-# 
-# Set bungeecoord to true on servers on the network
+# Set bungeecoord to true on servers on the network (In VotingPlugin)
 # Set server name in each server related to what it is on bungee
 #
 # Have a reward on each server
