@@ -229,13 +229,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
-				int votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
+				double votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
 
 				if (votedelay == 0) {
 					return false;
 				}
 
-				LocalDateTime nextvote = lastVote.plusHours(votedelay);
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay);
 
 				return now.isAfter(nextvote);
 			} else {
