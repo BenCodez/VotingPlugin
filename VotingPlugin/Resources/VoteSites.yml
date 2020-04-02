@@ -33,6 +33,9 @@ VoteSites:
     # Most sites are 24 hours
     VoteDelay: 24
     
+    # Use to have a minute votedelay
+    #VoteDelayMin: 30
+    
     # Require waiting until votedelay time has pasted in order to accept vote
     # Recommend: false
     WaitUntilVoteDelay: false

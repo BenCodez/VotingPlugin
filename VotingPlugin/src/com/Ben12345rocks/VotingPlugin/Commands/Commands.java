@@ -747,7 +747,8 @@ public class Commands {
 				info = errorMsg;
 			} else {
 
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay);
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
 
 				if (time == 0 || now.isAfter(nextvote)) {
 					info = config.getFormatCommandsVoteNextInfoCanVote();

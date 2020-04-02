@@ -60,6 +60,10 @@ public class VoteSite {
 
 	@Getter
 	@Setter
+	private double voteDelayMin;
+
+	@Getter
+	@Setter
 	private boolean enabled;
 
 	@Getter
@@ -182,6 +186,7 @@ public class VoteSite {
 		setVoteURL(configVoteSites.getVoteURL(key));
 		setServiceSite(configVoteSites.getServiceSite(key));
 		setVoteDelay(configVoteSites.getVoteDelay(key));
+		setVoteDelayMin(configVoteSites.getVoteDelayMin(key));
 		setEnabled(configVoteSites.getVoteSiteEnabled(key));
 		setPriority(configVoteSites.getPriority(key));
 		displayName = configVoteSites.getDisplayName(key);

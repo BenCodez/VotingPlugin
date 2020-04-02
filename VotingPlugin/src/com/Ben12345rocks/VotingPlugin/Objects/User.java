@@ -24,7 +24,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
-import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerReceivePointsEvent;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
@@ -218,7 +217,6 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
 
-		String siteName = voteSite.getKey();
 		long time = getTime(voteSite);
 		if (time == 0) {
 			return true;
@@ -229,13 +227,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
-				double votedelay = ConfigVoteSites.getInstance().getVoteDelay(siteName);
+				double votedelay = voteSite.getVoteDelay();
 
 				if (votedelay == 0) {
 					return false;
 				}
 
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay);
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
 
 				return now.isAfter(nextvote);
 			} else {
