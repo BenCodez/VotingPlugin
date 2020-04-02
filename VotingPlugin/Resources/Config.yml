@@ -232,6 +232,7 @@ Format:
         
       Today:
         Line: '&6%player% : %VoteSite% : %Time%'
+        GUILine: '&6%VoteSite% : %Time%'
         
       # PlaceHolders:
       # %VotesRequired% = VotesRequired

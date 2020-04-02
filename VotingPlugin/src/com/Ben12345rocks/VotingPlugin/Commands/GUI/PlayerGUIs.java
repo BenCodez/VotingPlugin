@@ -456,7 +456,11 @@ public class PlayerGUIs {
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				String msg = "&6" + voteSite.getDisplayName() + " : " + timeString;
+				String msg = Config.getInstance().getFormatCommandsVoteTodayGUILine();
+				HashMap<String,String> placeholders = new HashMap<String,String>();
+				placeholders.put("VoteSite", voteSite.getDisplayName());
+				placeholders.put("Time", timeString);
+				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
 						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
 

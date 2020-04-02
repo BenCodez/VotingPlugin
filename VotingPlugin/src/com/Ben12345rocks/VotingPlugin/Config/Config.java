@@ -319,6 +319,10 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.Commands.Vote.Today.Line")
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
+	
+	@ConfigDataString(path = "Format.Commands.Vote.Today.GUILine")
+	@Getter
+	private String formatCommandsVoteTodayGUILine = "&6%VoteSite% : %Time%";
 
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
