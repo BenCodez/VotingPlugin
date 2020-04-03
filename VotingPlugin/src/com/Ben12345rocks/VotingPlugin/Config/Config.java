@@ -56,7 +56,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL")
 	@Getter
 	private boolean commandsVoteRewardFromVoteURL = false;
-	
+
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
@@ -319,10 +319,14 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.Commands.Vote.Today.Line")
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
-	
-	@ConfigDataString(path = "Format.Commands.Vote.Today.GUILine")
+
+	@ConfigDataString(path = "GUIVoteTodayLine")
 	@Getter
-	private String formatCommandsVoteTodayGUILine = "&6%VoteSite% : %Time%";
+	private String GUIVoteTodayLine = "&6%VoteSite% : %Time%";
+
+	@ConfigDataString(path = "GUIVoteTodayIconTitle")
+	@Getter
+	private String GUIVoteTodayIconTitle = "%player%";
 
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter

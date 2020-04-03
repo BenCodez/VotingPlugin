@@ -456,21 +456,23 @@ public class PlayerGUIs {
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				String msg = Config.getInstance().getFormatCommandsVoteTodayGUILine();
-				HashMap<String,String> placeholders = new HashMap<String,String>();
+				String msg = Config.getInstance().getGUIVoteTodayLine();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("VoteSite", voteSite.getDisplayName());
 				placeholders.put("Time", timeString);
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
-				inv.addButton(inv.getNextSlot(), new BInventoryButton(user.getPlayerName(), new String[] { msg },
-						MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
+				inv.addButton(inv.getNextSlot(),
+						new BInventoryButton(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getGUIVoteTodayIconTitle(), "player", user.getPlayerName()),
+								new String[] { msg }, MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
 
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						User user = UserManager.getInstance()
-								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
-						openVoteGUI(player, user);
-					}
-				});
+							@Override
+							public void onClick(ClickEvent clickEvent) {
+								User user = UserManager.getInstance().getVotingPluginUser(
+										clickEvent.getClickedItem().getItemMeta().getDisplayName());
+								openVoteGUI(player, user);
+							}
+						});
 			}
 		}
 
