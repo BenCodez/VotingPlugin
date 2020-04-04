@@ -125,123 +125,127 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
-				if (user.getDayVoteStreak() != 0) {
-					user.setDayVoteStreak(0);
+		synchronized (Main.plugin) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
+					if (user.getDayVoteStreak() != 0) {
+						user.setDayVoteStreak(0);
+					}
+				}
+
+				if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
+					user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
 				}
 			}
 
-			if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
-				user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+			if (Config.getInstance().getStoreTopVotersDaily()) {
+				plugin.getLogger().info("Saving TopVoters Daily");
+				storeTopVoters(TopVoter.Daily);
 			}
-		}
 
-		if (Config.getInstance().getStoreTopVotersDaily()) {
-			plugin.getLogger().info("Saving TopVoters Daily");
-			storeTopVoters(TopVoter.Daily);
-		}
-
-		try {
-			if (Config.getInstance().isEnableDailyRewards()) {
-				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
-				int i = 0;
-				int lastTotal = -1;
-				@SuppressWarnings("unchecked")
-				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Daily)
-						.clone();
-				for (User user : clone.keySet()) {
-					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-						if (Config.getInstance().getTopVoterAwardsTies()) {
-							if (user.getTotal(TopVoter.Daily) != lastTotal) {
+			try {
+				if (Config.getInstance().isEnableDailyRewards()) {
+					HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
+					int i = 0;
+					int lastTotal = -1;
+					@SuppressWarnings("unchecked")
+					LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin
+							.getTopVoter(TopVoter.Daily).clone();
+					for (User user : clone.keySet()) {
+						if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+							if (Config.getInstance().getTopVoterAwardsTies()) {
+								if (user.getTotal(TopVoter.Daily) != lastTotal) {
+									i++;
+								}
+							} else {
 								i++;
 							}
-						} else {
-							i++;
+							if (places.containsKey(i)) {
+								user.giveDailyTopVoterAward(i, places.get(i));
+							}
 						}
-						if (places.containsKey(i)) {
-							user.giveDailyTopVoterAward(i, places.get(i));
-						}
+						lastTotal = user.getTotal(TopVoter.Daily);
 					}
-					lastTotal = user.getTotal(TopVoter.Daily);
 				}
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		resetTotals(TopVoter.Daily);
 
+			resetTotals(TopVoter.Daily);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
-				user.setMonthVoteStreak(0);
-			} else {
-				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
-						TopVoter.Monthly, Config.getInstance().getVoteStreakRequirementMonth(),
-						LocalDateTime.now().minusDays(1))) {
-					user.addMonthVoteStreak();
-					SpecialRewards.getInstance().checkVoteStreak(user, "Month");
-				}
-			}
-
-			user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
-
-			if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
-				user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
-			}
-		}
-
-		if (Config.getInstance().getStoreTopVotersMonthly()) {
-			plugin.getLogger().info("Saving TopVoters Monthly");
-			storeTopVoters(TopVoter.Monthly);
-		}
-
-		try {
-			if (Config.getInstance().isEnableMonthlyAwards()) {
-				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
-				int i = 0;
-				int lastTotal = -1;
-
-				@SuppressWarnings("unchecked")
-				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Monthly)
-						.clone();
-				for (User user : clone.keySet()) {
-
-					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-						if (Config.getInstance().getTopVoterAwardsTies()) {
-							if (user.getTotal(TopVoter.Monthly) != lastTotal) {
-								i++;
-							}
-						} else {
-							i++;
-						}
-						if (places.containsKey(i)) {
-							user.giveMonthlyTopVoterAward(i, places.get(i));
-						}
-					}
-					lastTotal = user.getTotal(TopVoter.Monthly);
-				}
-
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		resetTotals(TopVoter.Monthly);
-
-		if (Config.getInstance().getResetMilestonesMonthly()) {
+		synchronized (Main.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				user.setMilestoneCount(0);
-				user.setHasGottenMilestone(new HashMap<String, Boolean>());
+				if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
+					user.setMonthVoteStreak(0);
+				} else {
+					if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
+							TopVoter.Monthly, Config.getInstance().getVoteStreakRequirementMonth(),
+							LocalDateTime.now().minusDays(1))) {
+						user.addMonthVoteStreak();
+						SpecialRewards.getInstance().checkVoteStreak(user, "Month");
+					}
+				}
+
+				user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
+
+				if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
+					user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+				}
 			}
 
+			if (Config.getInstance().getStoreTopVotersMonthly()) {
+				plugin.getLogger().info("Saving TopVoters Monthly");
+				storeTopVoters(TopVoter.Monthly);
+			}
+
+			try {
+				if (Config.getInstance().isEnableMonthlyAwards()) {
+					HashMap<Integer, String> places = handlePlaces(
+							Config.getInstance().getMonthlyPossibleRewardPlaces());
+					int i = 0;
+					int lastTotal = -1;
+
+					@SuppressWarnings("unchecked")
+					LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin
+							.getTopVoter(TopVoter.Monthly).clone();
+					for (User user : clone.keySet()) {
+
+						if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+							if (Config.getInstance().getTopVoterAwardsTies()) {
+								if (user.getTotal(TopVoter.Monthly) != lastTotal) {
+									i++;
+								}
+							} else {
+								i++;
+							}
+							if (places.containsKey(i)) {
+								user.giveMonthlyTopVoterAward(i, places.get(i));
+							}
+						}
+						lastTotal = user.getTotal(TopVoter.Monthly);
+					}
+
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			resetTotals(TopVoter.Monthly);
+
+			if (Config.getInstance().getResetMilestonesMonthly()) {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					user.setMilestoneCount(0);
+					user.setHasGottenMilestone(new HashMap<String, Boolean>());
+				}
+
+			}
 		}
 	}
 
@@ -253,57 +257,59 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
-				user.setWeekVoteStreak(0);
-			} else {
-				if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
-						TopVoter.Weekly, Config.getInstance().getVoteStreakRequirementWeek(), null)) {
-					user.addWeekVoteStreak();
-					SpecialRewards.getInstance().checkVoteStreak(user, "Week");
+		synchronized (Main.plugin) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
+					user.setWeekVoteStreak(0);
+				} else {
+					if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
+							TopVoter.Weekly, Config.getInstance().getVoteStreakRequirementWeek(), null)) {
+						user.addWeekVoteStreak();
+						SpecialRewards.getInstance().checkVoteStreak(user, "Week");
+					}
+				}
+
+				if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
+					user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
 				}
 			}
 
-			if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
-				user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+			if (Config.getInstance().getStoreTopVotersWeekly()) {
+				plugin.getLogger().info("Saving TopVoters Weekly");
+				storeTopVoters(TopVoter.Weekly);
 			}
-		}
 
-		if (Config.getInstance().getStoreTopVotersWeekly()) {
-			plugin.getLogger().info("Saving TopVoters Weekly");
-			storeTopVoters(TopVoter.Weekly);
-		}
-
-		try {
-			if (Config.getInstance().isEnableWeeklyAwards()) {
-				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
-				int i = 0;
-				int lastTotal = -1;
-				@SuppressWarnings("unchecked")
-				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Weekly)
-						.clone();
-				for (User user : clone.keySet()) {
-					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-						if (Config.getInstance().getTopVoterAwardsTies()) {
-							if (user.getTotal(TopVoter.Weekly) != lastTotal) {
+			try {
+				if (Config.getInstance().isEnableWeeklyAwards()) {
+					HashMap<Integer, String> places = handlePlaces(
+							Config.getInstance().getWeeklyPossibleRewardPlaces());
+					int i = 0;
+					int lastTotal = -1;
+					@SuppressWarnings("unchecked")
+					LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin
+							.getTopVoter(TopVoter.Weekly).clone();
+					for (User user : clone.keySet()) {
+						if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+							if (Config.getInstance().getTopVoterAwardsTies()) {
+								if (user.getTotal(TopVoter.Weekly) != lastTotal) {
+									i++;
+								}
+							} else {
 								i++;
 							}
-						} else {
-							i++;
+							if (places.containsKey(i)) {
+								user.giveWeeklyTopVoterAward(i, places.get(i));
+							}
 						}
-						if (places.containsKey(i)) {
-							user.giveWeeklyTopVoterAward(i, places.get(i));
-						}
+						lastTotal = user.getTotal(TopVoter.Weekly);
 					}
-					lastTotal = user.getTotal(TopVoter.Weekly);
 				}
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
+			resetTotals(TopVoter.Weekly);
 		}
-		resetTotals(TopVoter.Weekly);
-
 	}
 
 	public void register() {
