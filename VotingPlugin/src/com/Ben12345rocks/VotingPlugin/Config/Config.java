@@ -320,11 +320,11 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
 
-	@ConfigDataString(path = "GUIVoteTodayLine")
+	@ConfigDataString(path = "GUI.VoteToday.Line")
 	@Getter
 	private String GUIVoteTodayLine = "&6%VoteSite% : %Time%";
 
-	@ConfigDataString(path = "GUIVoteTodayIconTitle")
+	@ConfigDataString(path = "GUI.VoteToday.IconTitle")
 	@Getter
 	private String GUIVoteTodayIconTitle = "%player%";
 
