@@ -143,26 +143,34 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Daily);
 		}
 
-		if (Config.getInstance().isEnableDailyRewards()) {
-			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
-			int i = 0;
-			int lastTotal = -1;
-			for (User user : plugin.getTopVoter(TopVoter.Daily).keySet()) {
-				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getTotal(TopVoter.Daily) != lastTotal) {
+		try {
+			if (Config.getInstance().isEnableDailyRewards()) {
+				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
+				int i = 0;
+				int lastTotal = -1;
+				@SuppressWarnings("unchecked")
+				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Daily)
+						.clone();
+				for (User user : clone.keySet()) {
+					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+						if (Config.getInstance().getTopVoterAwardsTies()) {
+							if (user.getTotal(TopVoter.Daily) != lastTotal) {
+								i++;
+							}
+						} else {
 							i++;
 						}
-					} else {
-						i++;
+						if (places.containsKey(i)) {
+							user.giveDailyTopVoterAward(i, places.get(i));
+						}
 					}
-					if (places.containsKey(i)) {
-						user.giveDailyTopVoterAward(i, places.get(i));
-					}
+					lastTotal = user.getTotal(TopVoter.Daily);
 				}
-				lastTotal = user.getTotal(TopVoter.Daily);
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		
 		resetTotals(TopVoter.Daily);
 
 	}
@@ -194,26 +202,35 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Monthly);
 		}
 
-		if (Config.getInstance().isEnableMonthlyAwards()) {
-			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
-			int i = 0;
-			int lastTotal = -1;
-			for (User user : plugin.getTopVoter(TopVoter.Monthly).keySet()) {
+		try {
+			if (Config.getInstance().isEnableMonthlyAwards()) {
+				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getMonthlyPossibleRewardPlaces());
+				int i = 0;
+				int lastTotal = -1;
 
-				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getTotal(TopVoter.Monthly) != lastTotal) {
+				@SuppressWarnings("unchecked")
+				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Monthly)
+						.clone();
+				for (User user : clone.keySet()) {
+
+					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+						if (Config.getInstance().getTopVoterAwardsTies()) {
+							if (user.getTotal(TopVoter.Monthly) != lastTotal) {
+								i++;
+							}
+						} else {
 							i++;
 						}
-					} else {
-						i++;
+						if (places.containsKey(i)) {
+							user.giveMonthlyTopVoterAward(i, places.get(i));
+						}
 					}
-					if (places.containsKey(i)) {
-						user.giveMonthlyTopVoterAward(i, places.get(i));
-					}
+					lastTotal = user.getTotal(TopVoter.Monthly);
 				}
-				lastTotal = user.getTotal(TopVoter.Monthly);
+
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		resetTotals(TopVoter.Monthly);
@@ -258,25 +275,32 @@ public class TopVoterHandler implements Listener {
 			storeTopVoters(TopVoter.Weekly);
 		}
 
-		if (Config.getInstance().isEnableWeeklyAwards()) {
-			HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
-			int i = 0;
-			int lastTotal = -1;
-			for (User user : plugin.getTopVoter(TopVoter.Weekly).keySet()) {
-				if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					if (Config.getInstance().getTopVoterAwardsTies()) {
-						if (user.getTotal(TopVoter.Weekly) != lastTotal) {
+		try {
+			if (Config.getInstance().isEnableWeeklyAwards()) {
+				HashMap<Integer, String> places = handlePlaces(Config.getInstance().getWeeklyPossibleRewardPlaces());
+				int i = 0;
+				int lastTotal = -1;
+				@SuppressWarnings("unchecked")
+				LinkedHashMap<User, Integer> clone = (LinkedHashMap<User, Integer>) plugin.getTopVoter(TopVoter.Weekly)
+						.clone();
+				for (User user : clone.keySet()) {
+					if (!Config.getInstance().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+						if (Config.getInstance().getTopVoterAwardsTies()) {
+							if (user.getTotal(TopVoter.Weekly) != lastTotal) {
+								i++;
+							}
+						} else {
 							i++;
 						}
-					} else {
-						i++;
+						if (places.containsKey(i)) {
+							user.giveWeeklyTopVoterAward(i, places.get(i));
+						}
 					}
-					if (places.containsKey(i)) {
-						user.giveWeeklyTopVoterAward(i, places.get(i));
-					}
+					lastTotal = user.getTotal(TopVoter.Weekly);
 				}
-				lastTotal = user.getTotal(TopVoter.Weekly);
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 		resetTotals(TopVoter.Weekly);
 
