@@ -65,7 +65,9 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
-		identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+		if (Config.getInstance().isUseJavascriptPlaceholders()) {
+			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+		}
 
 		for (PlaceHolder<User> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
@@ -85,7 +87,9 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(Player p, String identifier) {
-		identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+		if (Config.getInstance().isUseJavascriptPlaceholders()) {
+			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+		}
 		return getPlaceHolder((OfflinePlayer) p, identifier);
 	}
 

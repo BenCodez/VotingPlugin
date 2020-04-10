@@ -842,6 +842,10 @@ ClickSound:
 # Playernames to not be broadcasted when voting
 # case sensitive
 VotingBroadcastBlacklist: []
+
+# Set to false to prevent javascript
+# parsing on placeholderapi placeholders
+UseJavascriptPlaceholders: true
   
 # Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false

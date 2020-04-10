@@ -339,6 +339,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
+	
+	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
+	@Getter
+	private boolean useJavascriptPlaceholders = true;
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
