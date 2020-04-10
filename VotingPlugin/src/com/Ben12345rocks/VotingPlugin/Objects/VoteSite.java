@@ -132,6 +132,7 @@ public class VoteSite {
 				placeholders.put("sitename", getDisplayName());
 				placeholders.put("servicesite", getServiceSite());
 				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
+				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
