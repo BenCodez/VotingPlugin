@@ -839,6 +839,8 @@ ClickSound:
   Volume: 1.0
   Pitch: 1.0
   
+# Playernames to not be broadcasted when voting
+# case sensitive
 VotingBroadcastBlacklist: []
   
 # Limit monthly votes to number of days of a month multipled by the number of sites
