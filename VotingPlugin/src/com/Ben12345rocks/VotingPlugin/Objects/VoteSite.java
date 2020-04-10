@@ -124,6 +124,10 @@ public class VoteSite {
 				BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
 			} else {
 				String playerName = user.getPlayerName();
+				if (config.getVotingBroadcastBlacklist().contains(playerName)) {
+					plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
+					return;
+				}
 				String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", playerName);

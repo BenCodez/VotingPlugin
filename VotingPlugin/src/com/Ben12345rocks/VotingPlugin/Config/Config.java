@@ -344,6 +344,10 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
+	@ConfigDataListString(path = "VotingBroadcastBlackList")
+	@Getter
+	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
+
 	@ConfigDataString(path = "BungeeServer.Host")
 	@Getter
 	private String bungeeServerHost = "";
