@@ -344,7 +344,7 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
-	@ConfigDataListString(path = "VotingBroadcastBlackList")
+	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
