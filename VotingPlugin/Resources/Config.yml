@@ -595,6 +595,10 @@ Shop:
     Permission: ''
     # Limit how many times you can buy this
     #Limit: 3
+    # Reset limit daily/weekly/monthly
+    #ResetDaily: false
+    #ResetWeekly: false
+    #ResetMonthly: false
     # If true, item is not buyable
     #NotBuyable: false
     # Rewards to run if player buys successfully

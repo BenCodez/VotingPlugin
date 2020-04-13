@@ -137,6 +137,11 @@ public class TopVoterHandler implements Listener {
 				if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
 					user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
 				}
+				for (String shopIdent : Config.getInstance().getIdentifiers()) {
+					if (Config.getInstance().getVoteShopResetDaily(shopIdent)) {
+						user.setVoteShopIdentifierLimit(shopIdent, 0);
+					}
+				}
 			}
 
 			if (Config.getInstance().getStoreTopVotersDaily()) {
@@ -189,6 +194,12 @@ public class TopVoterHandler implements Listener {
 							LocalDateTime.now().minusDays(1))) {
 						user.addMonthVoteStreak();
 						SpecialRewards.getInstance().checkVoteStreak(user, "Month");
+					}
+				}
+
+				for (String shopIdent : Config.getInstance().getIdentifiers()) {
+					if (Config.getInstance().getVoteShopResetMonthly(shopIdent)) {
+						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
 
@@ -267,6 +278,12 @@ public class TopVoterHandler implements Listener {
 							TopVoter.Weekly, Config.getInstance().getVoteStreakRequirementWeek(), null)) {
 						user.addWeekVoteStreak();
 						SpecialRewards.getInstance().checkVoteStreak(user, "Week");
+					}
+				}
+
+				for (String shopIdent : Config.getInstance().getIdentifiers()) {
+					if (Config.getInstance().getVoteShopResetWeekly(shopIdent)) {
+						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
 

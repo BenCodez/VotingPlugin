@@ -1347,6 +1347,18 @@ public class Config extends YMLFile {
 	public boolean getVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
 	}
+	
+	public boolean getVoteShopResetDaily(String shop) {
+		return getData().getBoolean("Shop." + shop + ".ResetDaily", false);
+	}
+	
+	public boolean getVoteShopResetWeekly(String shop) {
+		return getData().getBoolean("Shop." + shop + ".ResetWeekly", false);
+	}
+	
+	public boolean getVoteShopResetMonthly(String shop) {
+		return getData().getBoolean("Shop." + shop + ".ResetMonthly", false);
+	}
 
 	public String getVoteShopPermission(String ident) {
 		return getData().getString("Shop." + ident + ".Permission", "");
