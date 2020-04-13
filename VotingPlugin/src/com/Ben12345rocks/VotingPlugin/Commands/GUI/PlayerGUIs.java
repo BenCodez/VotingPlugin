@@ -390,28 +390,31 @@ public class PlayerGUIs {
 
 			@Override
 			public void onInput(Player player, boolean value) {
-				String ident = (String) PlayerUtils.getInstance().getPlayerMeta(player, "ident");
-				User user = UserManager.getInstance().getVotingPluginUser(player);
-				int points = Config.getInstance().getIdentifierCost(ident);
-				int limit = Config.getInstance().getIdentifierLimit(identifier);
-				HashMap<String, String> placeholders = new HashMap<String, String>();
-				placeholders.put("identifier", identifier);
-				placeholders.put("points", "" + points);
-				placeholders.put("limit", "" + limit);
-				if (user.removePoints(points)) {
+				if (value) {
+					String ident = (String) PlayerUtils.getInstance().getPlayerMeta(player, "ident");
+					User user = UserManager.getInstance().getVotingPluginUser(player);
+					int points = Config.getInstance().getIdentifierCost(ident);
+					int limit = Config.getInstance().getIdentifierLimit(identifier);
+					HashMap<String, String> placeholders = new HashMap<String, String>();
+					placeholders.put("identifier", identifier);
+					placeholders.put("points", "" + points);
+					placeholders.put("limit", "" + limit);
+					if (user.removePoints(points)) {
 
-					RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-							Config.getInstance().getIdentifierRewardsPath(identifier),
-							new RewardOptions().setPlaceholders(placeholders));
+						RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+								Config.getInstance().getIdentifierRewardsPath(identifier),
+								new RewardOptions().setPlaceholders(placeholders));
 
-					user.sendMessage(StringParser.getInstance()
-							.replacePlaceHolder(Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
-					if (limit > 0) {
-						user.setVoteShopIdentifierLimit(identifier, user.getVoteShopIdentifierLimit(identifier) + 1);
+						user.sendMessage(StringParser.getInstance()
+								.replacePlaceHolder(Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
+						if (limit > 0) {
+							user.setVoteShopIdentifierLimit(identifier,
+									user.getVoteShopIdentifierLimit(identifier) + 1);
+						}
+					} else {
+						user.sendMessage(StringParser.getInstance()
+								.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
 					}
-				} else {
-					user.sendMessage(StringParser.getInstance()
-							.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
 				}
 			}
 		}).usingMethod(InputMethod.INVENTORY).request(player);
