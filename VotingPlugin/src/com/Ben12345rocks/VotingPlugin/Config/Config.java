@@ -1349,15 +1349,15 @@ public class Config extends YMLFile {
 	}
 	
 	public boolean getVoteShopResetDaily(String shop) {
-		return getData().getBoolean("Shop." + shop + ".ResetDaily", false);
+		return getData().getBoolean("Shop." + shop + ".Reset.Daily", false);
 	}
 	
 	public boolean getVoteShopResetWeekly(String shop) {
-		return getData().getBoolean("Shop." + shop + ".ResetWeekly", false);
+		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
 	}
 	
 	public boolean getVoteShopResetMonthly(String shop) {
-		return getData().getBoolean("Shop." + shop + ".ResetMonthly", false);
+		return getData().getBoolean("Shop." + shop + ".Reset.Monthly", false);
 	}
 
 	public String getVoteShopPermission(String ident) {
