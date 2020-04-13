@@ -246,6 +246,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;
+	
+	@ConfigDataBoolean(path = "VoteShopRequireConfirmation")
+	@Getter
+	private boolean voteShopRequireConfirmation = false;
 
 	@Getter
 	private String firstVoteRewardsPath = "FirstVote";

@@ -574,6 +574,7 @@ VoteShopEnabled: true
 VoteShopHideLimitedReached: true
 # Requires above to be false
 VoteShopLimitReached: '&aYou reached your limit'
+VoteShopRequireConfirmation: false
 Shop:
   # Identifier
   # Used in placeholders for formats
