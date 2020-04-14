@@ -23,9 +23,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.InputMethod;
-import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequestBuilder;
-import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
@@ -386,38 +383,45 @@ public class PlayerGUIs {
 
 	public void openVoteShopConfirmation(Player player, String identifier) {
 		PlayerUtils.getInstance().setPlayerMeta(player, "ident", identifier);
-		new ValueRequestBuilder(new BooleanListener() {
+		BInventory inv = new BInventory("Confirm Purchase?");
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&cYes")) {
 
 			@Override
-			public void onInput(Player player, boolean value) {
-				if (value) {
-					String ident = (String) PlayerUtils.getInstance().getPlayerMeta(player, "ident");
-					User user = UserManager.getInstance().getVotingPluginUser(player);
-					int points = Config.getInstance().getIdentifierCost(ident);
-					int limit = Config.getInstance().getIdentifierLimit(identifier);
-					HashMap<String, String> placeholders = new HashMap<String, String>();
-					placeholders.put("identifier", identifier);
-					placeholders.put("points", "" + points);
-					placeholders.put("limit", "" + limit);
-					if (user.removePoints(points)) {
+			public void onClick(ClickEvent event) {
+				String ident = (String) PlayerUtils.getInstance().getPlayerMeta(event.getPlayer(), "ident");
+				User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
+				int points = Config.getInstance().getIdentifierCost(ident);
+				int limit = Config.getInstance().getIdentifierLimit(identifier);
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("identifier", identifier);
+				placeholders.put("points", "" + points);
+				placeholders.put("limit", "" + limit);
+				if (user.removePoints(points)) {
 
-						RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-								Config.getInstance().getIdentifierRewardsPath(identifier),
-								new RewardOptions().setPlaceholders(placeholders));
+					RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+							Config.getInstance().getIdentifierRewardsPath(identifier),
+							new RewardOptions().setPlaceholders(placeholders));
 
-						user.sendMessage(StringParser.getInstance()
-								.replacePlaceHolder(Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
-						if (limit > 0) {
-							user.setVoteShopIdentifierLimit(identifier,
-									user.getVoteShopIdentifierLimit(identifier) + 1);
-						}
-					} else {
-						user.sendMessage(StringParser.getInstance()
-								.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
+					user.sendMessage(StringParser.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
+					if (limit > 0) {
+						user.setVoteShopIdentifierLimit(identifier, user.getVoteShopIdentifierLimit(identifier) + 1);
 					}
+				} else {
+					user.sendMessage(StringParser.getInstance()
+							.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
 				}
+				event.getPlayer().closeInventory();
 			}
-		}).usingMethod(InputMethod.INVENTORY).request(player);
+		});
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.BARRIER).setName("&cNo")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				event.getPlayer().closeInventory();
+			}
+		});
+		inv.openInventory(player);
 	}
 
 	public void openVoteStreak(Player player, User user) {
