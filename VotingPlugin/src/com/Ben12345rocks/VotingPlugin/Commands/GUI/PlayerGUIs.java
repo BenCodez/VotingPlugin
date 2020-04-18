@@ -384,7 +384,7 @@ public class PlayerGUIs {
 	public void openVoteShopConfirmation(Player player, String identifier) {
 		PlayerUtils.getInstance().setPlayerMeta(player, "ident", identifier);
 		BInventory inv = new BInventory("Confirm Purchase?");
-		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&cYes")) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&aYes")) {
 
 			@Override
 			public void onClick(ClickEvent event) {
