@@ -142,6 +142,9 @@ Format:
       # Text will be sent before this
       Sites: '&4%num%: &c&l%SiteName% - &c%url%'
       
+      # If true, links will always be forced as urls
+      ForceLinks: false
+      
       # Format for /vote next
       Next: 
         # First line

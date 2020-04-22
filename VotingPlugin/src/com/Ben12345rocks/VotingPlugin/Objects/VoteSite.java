@@ -38,9 +38,16 @@ public class VoteSite {
 	/** The plugin. */
 	static Main plugin = Main.plugin;
 
-	@Getter
 	@Setter
 	private String voteURL;
+
+	public String getVoteURL() {
+		if (!Config.getInstance().isFormatCommandsVoteForceLinks()) {
+			return voteURL;
+		} else {
+			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
+		}
+	}
 
 	@Getter
 	@Setter

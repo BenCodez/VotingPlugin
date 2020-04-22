@@ -250,6 +250,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "VoteShopRequireConfirmation")
 	@Getter
 	private boolean voteShopRequireConfirmation = false;
+	
+	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
+	@Getter
+	private boolean formatCommandsVoteForceLinks = false;
 
 	@Getter
 	private String firstVoteRewardsPath = "FirstVote";
