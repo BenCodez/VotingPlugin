@@ -2175,14 +2175,18 @@ public class CommandLoader {
 
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						int pointsToGive = Integer.parseInt(args[2]);
-						if (cPlayer.getPoints() >= pointsToGive) {
-							user.addPoints(pointsToGive);
-							cPlayer.removePoints(pointsToGive);
-							sendMessage(sender, "&c" + pointsToGive + " points given to " + user.getPlayerName());
-							user.sendMessage(
-									"&cYou received " + pointsToGive + " points from " + cPlayer.getPlayerName());
+						if (pointsToGive > 0) {
+							if (cPlayer.getPoints() >= pointsToGive) {
+								user.addPoints(pointsToGive);
+								cPlayer.removePoints(pointsToGive);
+								sendMessage(sender, "&c" + pointsToGive + " points given to " + user.getPlayerName());
+								user.sendMessage(
+										"&cYou received " + pointsToGive + " points from " + cPlayer.getPlayerName());
+							} else {
+								sendMessage(sender, "&cNot enough points");
+							}
 						} else {
-							sendMessage(sender, "&cNot enough points");
+							sendMessage(sender, "&cNumber of points needs to be greater than 0");
 						}
 					}
 				}
