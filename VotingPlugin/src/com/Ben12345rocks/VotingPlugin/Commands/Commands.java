@@ -939,9 +939,14 @@ public class Commands {
 
 			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
+		for (int i = 0; i < sites.size(); i++) {
+			String str = StringParser.getInstance().parseJson(sites.get(i)).getText();
+			sites.set(i, str);
+		}
 		sites = ArrayUtils.getInstance().colorize(sites);
 		for (int i = 0; i < sites.size(); i++) {
-			sites.set(i, StringParser.getInstance().parseJson(sites.get(i)).getText());
+			String str = StringParser.getInstance().parseJson(sites.get(i)).getText();
+			sites.set(i, str);
 		}
 		return ArrayUtils.getInstance().convert(sites);
 	}
