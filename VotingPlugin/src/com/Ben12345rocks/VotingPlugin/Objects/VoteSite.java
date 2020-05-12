@@ -41,12 +41,16 @@ public class VoteSite {
 	@Setter
 	private String voteURL;
 
-	public String getVoteURL() {
-		if (!Config.getInstance().isFormatCommandsVoteForceLinks()) {
+	public String getVoteURL(boolean json) {
+		if (!Config.getInstance().isFormatCommandsVoteForceLinks() || !json) {
 			return voteURL;
 		} else {
 			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
 		}
+	}
+
+	public String getVoteURL() {
+		return getVoteURL(true);
 	}
 
 	@Getter

@@ -921,7 +921,7 @@ public class Commands {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				counter++;
-				String voteURL = voteSite.getVoteURL();
+				String voteURL = voteSite.getVoteURL(false);
 				MessageBuilder message = new MessageBuilder(config.getFormatCommandsVoteURLS());
 				message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
 						.replacePlaceholder("SiteName", voteSite.getDisplayName())
@@ -939,15 +939,8 @@ public class Commands {
 
 			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
-		for (int i = 0; i < sites.size(); i++) {
-			String str = StringParser.getInstance().parseJson(sites.get(i)).getText();
-			sites.set(i, str);
-		}
+
 		sites = ArrayUtils.getInstance().colorize(sites);
-		for (int i = 0; i < sites.size(); i++) {
-			String str = StringParser.getInstance().parseJson(sites.get(i)).getText();
-			sites.set(i, str);
-		}
 		return ArrayUtils.getInstance().convert(sites);
 	}
 
