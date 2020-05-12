@@ -940,6 +940,9 @@ public class Commands {
 			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
 		}
 		sites = ArrayUtils.getInstance().colorize(sites);
+		for (int i = 0; i < sites.size(); i++) {
+			sites.set(i, StringParser.getInstance().parseJson(sites.get(i)).getText());
+		}
 		return ArrayUtils.getInstance().convert(sites);
 	}
 
