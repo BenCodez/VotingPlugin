@@ -924,12 +924,12 @@ public class Commands {
 				String voteURL = voteSite.getVoteURL(false);
 				MessageBuilder message = new MessageBuilder(config.getFormatCommandsVoteURLS());
 				message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
-						.replacePlaceholder("SiteName", voteSite.getDisplayName())
-						.replacePlaceholder("Next", "" + voteCommandNextInfo(user, voteSite)).colorize();
+						.replacePlaceholder("SiteName", voteSite.getDisplayName());
 				if (user != null && user.getPlayerName() != null) {
-					message.replacePlaceholder("player", "" + user.getPlayerName());
+					message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
+							"" + voteCommandNextInfo(user, voteSite));
 				}
-				sites.add(message.getText());
+				sites.add(message.colorize().getText());
 			}
 		}
 		if (user != null) {
