@@ -90,7 +90,8 @@ public class Signs {
 		int time = 0;
 		for (int i = plugin.getSigns().size() - 1; i >= 0; i--) {
 			if (!plugin.getSigns().get(i).isValid()) {
-				plugin.debug("Sign " + i + " invalid, removing from data.");
+				plugin.debug("Sign " + i + " invalid, removing from data: "
+						+ plugin.getSigns().get(i).getLocation().toString());
 				plugin.getSigns().get(i).removeSign();
 				plugin.getSigns().remove(i);
 			} else {
