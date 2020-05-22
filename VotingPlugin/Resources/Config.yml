@@ -1004,7 +1004,7 @@ SpigotServer:
   Port: 1298
 
 # ---------------------------------------------------------
-# Mysql cache options
+# Mysql cache options (Some options effect SQLITE as well)
 # Clearing cache forces the plugin to pull from database
 # Not needed unless you are using multiple servers
 # ---------------------------------------------------------
@@ -1013,13 +1013,16 @@ SpigotServer:
 # Also may require AlwaysUpdate set to true
 ClearCacheOnUpdate: false
 
-# Clear mysql on player join always
+# Clear cache on player join always
 ClearCacheOnJoin: false
 
 # Clears cache for the player who voted only
 # Only effects if using mysql
 # Would recommend for some bungee setups
 ClearCacheOnVote: false
+
+# Clear cache when player leaves
+ClearCacheOnLeave: false
 
 # ###############################################################
 # Deprecated options, don't recommend using any of these

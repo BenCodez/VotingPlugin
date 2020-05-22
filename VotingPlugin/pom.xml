@@ -254,7 +254,7 @@
 			<version>master-SNAPSHOT</version>
 		</dependency>
 
-		<!-- <dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
+		<!--<dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
 			<version>LATEST</version> <scope>compile</scope> </dependency> -->
 		<dependency>
 			<groupId>org.spigotmc</groupId>
