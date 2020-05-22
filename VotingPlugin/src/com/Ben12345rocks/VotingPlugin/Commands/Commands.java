@@ -742,13 +742,13 @@ public class Commands {
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
-			if (votedelay == 0) {
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
 				String errorMsg = config.getFormatCommandsVoteNextInfoError();
 				info = errorMsg;
 			} else {
 
 				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-						.plusMinutes((long) voteSite.getVoteDelayMin());
+						.plusMinutes((long) voteSite.getVoteDelayMin()).plusHours((long) voteSite.getTimeOffSet());
 
 				if (time == 0 || now.isAfter(nextvote)) {
 					info = config.getFormatCommandsVoteNextInfoCanVote();

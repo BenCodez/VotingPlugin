@@ -75,6 +75,10 @@ public class VoteSite {
 
 	@Getter
 	@Setter
+	private double timeOffSet;
+
+	@Getter
+	@Setter
 	private boolean enabled;
 
 	@Getter
@@ -213,6 +217,7 @@ public class VoteSite {
 		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
 		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
 		waitUntilVoteDelay = configVoteSites.getWaitUntilVoteDelay(key);
+		timeOffSet = configVoteSites.getTimeOffSet(key);
 	}
 
 	public boolean isVaidServiceSite() {
