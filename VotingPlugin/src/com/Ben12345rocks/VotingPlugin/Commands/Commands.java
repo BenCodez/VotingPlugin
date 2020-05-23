@@ -769,7 +769,8 @@ public class Commands {
 			}
 		} else {
 			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
-				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0);
+				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+						.plusHours((long) voteSite.getTimeOffSet());
 				Duration dur = Duration.between(now, midnight);
 
 				int diffHours = (int) (dur.getSeconds() / (60 * 60));
