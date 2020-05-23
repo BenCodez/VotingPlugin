@@ -1004,7 +1004,7 @@ SpigotServer:
   Port: 1298
 
 # ---------------------------------------------------------
-# Mysql cache options (Some options effect SQLITE as well)
+# Mysql cache options 
 # Clearing cache forces the plugin to pull from database
 # Not needed unless you are using multiple servers
 # ---------------------------------------------------------
