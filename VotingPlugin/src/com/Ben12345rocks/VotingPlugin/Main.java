@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Timer;
 import java.util.TimerTask;
 
 import org.bukkit.Bukkit;
@@ -1016,13 +1015,7 @@ public class Main extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void onUnLoad() {
-		new Timer().schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-				Signs.getInstance().storeSigns();
-			}
-		}, 0);
+		Signs.getInstance().storeSigns();
 		HandlerList.unregisterAll(plugin);
 		if (Config.getInstance().isUseBungeeCoord()) {
 			try {
