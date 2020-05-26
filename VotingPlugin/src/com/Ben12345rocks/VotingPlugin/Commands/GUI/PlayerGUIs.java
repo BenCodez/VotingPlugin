@@ -146,7 +146,7 @@ public class PlayerGUIs {
 
 			if (lore.length == 0) {
 				if (slot.equalsIgnoreCase("url")) {
-					lore = Commands.getInstance().voteURLs(user);
+					lore = new String[] { "&aClick me" };
 				} else if (slot.equalsIgnoreCase("next")) {
 					lore = Commands.getInstance().voteCommandNext(user);
 				} else if (slot.equalsIgnoreCase("last")) {
@@ -200,7 +200,7 @@ public class PlayerGUIs {
 								});
 							} else {
 								if (slot.equalsIgnoreCase("url")) {
-									openVoteURL(player);
+									user.sendMessage(Commands.getInstance().voteURLs(user));
 								} else if (slot.equalsIgnoreCase("next")) {
 									openVoteNext(player, user);
 								} else if (slot.equalsIgnoreCase("last")) {

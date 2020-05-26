@@ -337,6 +337,8 @@ GUI:
         Data: 0
         Amount: 1
         Name: '&4URL'
+        Lore:
+        - '&aClick me for links'
         # You can set skulls of the player using the following
         # Remove the # to enable
         #Skull: '%Player%'
