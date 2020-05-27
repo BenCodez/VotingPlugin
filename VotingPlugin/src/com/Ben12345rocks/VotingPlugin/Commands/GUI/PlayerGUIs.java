@@ -201,6 +201,7 @@ public class PlayerGUIs {
 							} else {
 								if (slot.equalsIgnoreCase("url")) {
 									user.sendMessage(Commands.getInstance().voteURLs(user));
+									player.closeInventory();
 								} else if (slot.equalsIgnoreCase("next")) {
 									openVoteNext(player, user);
 								} else if (slot.equalsIgnoreCase("last")) {
