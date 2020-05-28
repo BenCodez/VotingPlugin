@@ -736,10 +736,10 @@ public class Commands {
 		String info = new String();
 
 		long time = user.getTime(voteSite);
-		LocalDateTime now = TimeChecker.getInstance().getTime().plusHours((long) voteSite.getTimeOffSet());
+		LocalDateTime now = TimeChecker.getInstance().getTime();
 		;
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet()).plusHours((long) voteSite.getTimeOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
