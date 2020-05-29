@@ -343,6 +343,21 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetPoints" },
+				"VotingPlugin.Commands.AdminVote.REsetPoints|" + adminPerm, "Clears all points of all players") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cStarting...");
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					user.setPoints(0);
+				}
+				sendMessage(sender, "&cFinished");
+
+			}
+		});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones", "(player)" },
 				"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm, "Resync Milestones") {
 
