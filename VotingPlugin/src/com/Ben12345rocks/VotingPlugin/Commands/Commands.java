@@ -739,7 +739,7 @@ public class Commands {
 		LocalDateTime now = TimeChecker.getInstance().getTime();
 		;
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(Main.plugin.getOptions().getTimeHourOffSet()).plusHours((long) voteSite.getTimeOffSet());
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
@@ -770,7 +770,8 @@ public class Commands {
 			}
 		} else {
 			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
-				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0);
+				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+						.plusHours((long) voteSite.getTimeOffSet());
 				Duration dur = Duration.between(now, midnight);
 
 				int diffHours = (int) (dur.getSeconds() / (60 * 60));
