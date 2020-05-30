@@ -246,11 +246,11 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;
-	
+
 	@ConfigDataBoolean(path = "VoteShopRequireConfirmation")
 	@Getter
 	private boolean voteShopRequireConfirmation = false;
-	
+
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
 	private boolean formatCommandsVoteForceLinks = true;
@@ -347,7 +347,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
-	
+
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
 	private boolean useJavascriptPlaceholders = true;
@@ -1009,6 +1009,10 @@ public class Config extends YMLFile {
 		return getData().getInt("Shop." + identifier + ".Cost");
 	}
 
+	public String getIdentifierIdentifierName(String identifier) {
+		return getData().getString("Shop." + identifier + ".Identifier_Name", identifier);
+	}
+
 	public int getIdentifierLimit(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Limit", -1);
 	}
@@ -1355,15 +1359,15 @@ public class Config extends YMLFile {
 	public boolean getVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
 	}
-	
+
 	public boolean getVoteShopResetDaily(String shop) {
 		return getData().getBoolean("Shop." + shop + ".Reset.Daily", false);
 	}
-	
+
 	public boolean getVoteShopResetWeekly(String shop) {
 		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
 	}
-	
+
 	public boolean getVoteShopResetMonthly(String shop) {
 		return getData().getBoolean("Shop." + shop + ".Reset.Monthly", false);
 	}

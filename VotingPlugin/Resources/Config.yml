@@ -585,6 +585,7 @@ Shop:
   # Used in placeholders for formats
   # Do not have spaces in the identifier
   Diamond:
+    Identifier_Name: 'Diamond'
     # Item
     Material: 'DIAMOND'
     Data: 0

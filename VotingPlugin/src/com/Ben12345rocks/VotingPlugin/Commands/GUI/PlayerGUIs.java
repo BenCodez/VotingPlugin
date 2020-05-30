@@ -330,7 +330,8 @@ public class PlayerGUIs {
 								if (limitPass) {
 									if (!Config.getInstance().isVoteShopRequireConfirmation()) {
 										HashMap<String, String> placeholders = new HashMap<String, String>();
-										placeholders.put("identifier", identifier);
+										placeholders.put("identifier",
+												Config.getInstance().getIdentifierIdentifierName(identifier));
 										placeholders.put("points", "" + points);
 										placeholders.put("limit", "" + limit);
 										if (user.removePoints(points)) {
