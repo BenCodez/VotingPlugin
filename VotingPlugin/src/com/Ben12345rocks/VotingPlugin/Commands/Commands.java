@@ -780,6 +780,9 @@ public class Commands {
 				if (diffHours < 0) {
 					diffHours = diffHours * -1;
 				}
+				if (diffHours >= 24) {
+					diffHours = diffHours - 24;
+				}
 				if (diffMinutes < 0) {
 					diffMinutes = diffMinutes * -1;
 				}
