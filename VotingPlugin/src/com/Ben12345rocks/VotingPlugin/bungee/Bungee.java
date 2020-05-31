@@ -119,34 +119,34 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	public void saveVote(String name, String service) {
 		String uuid = getUUID(name);
 
-		if (!uuid.isEmpty()) {
-			if (config.getSendVotesToAllServers()) {
-				// for (String send : getProxy().getServers().keySet()) {
-				// mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
-				// }
-				sendServerMessage("bungeevote", uuid, name, service);
-				if (config.getBroadcast()) {
-					sendServerMessage("BungeeBroadcast", service, uuid, name);
-				}
-			} else if (config.getSendToOnlineServer()) {
-				ProxiedPlayer p = getProxy().getPlayer(name);
-
-				String server = "";
-				if (p != null && p.isConnected()) {
-					server = p.getServer().getInfo().getName();
-				} else {
-					server = config.getFallBack();
-				}
-				if (config.getBlockedServers().contains(server)) {
-					server = config.getFallBack();
-				}
-				// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
-				sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
-				if (config.getBroadcast()) {
-					sendServerMessage("BungeeBroadcast", service, uuid, name);
-				}
+		if (config.getSendVotesToAllServers()) {
+			// for (String send : getProxy().getServers().keySet()) {
+			// mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
+			// }
+			sendServerMessage("bungeevote", uuid, name, service);
+			if (config.getBroadcast()) {
+				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
+		} else if (config.getSendToOnlineServer()) {
+			ProxiedPlayer p = getProxy().getPlayer(name);
+
+			String server = "";
+			if (p != null && p.isConnected()) {
+				server = p.getServer().getInfo().getName();
+			} else {
+				server = config.getFallBack();
+			}
+			if (config.getBlockedServers().contains(server)) {
+				server = config.getFallBack();
+			}
+			// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
+			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
+			if (config.getBroadcast()) {
+				sendServerMessage("BungeeBroadcast", service, uuid, name);
+			}
+
 		}
+
 	}
 
 	public void sendServerMessage(String... messageData) {
