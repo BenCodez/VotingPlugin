@@ -87,7 +87,10 @@ VoteSites:
         Reward1:
           Chance: 50
           # Any other requirement here
-          # If any requirement fails, the next will be attempted
+          # If any requirement fails, the next reward will be attempted
+          # Use permission requirement for rank based rewards
+          #RequirePermission: true
+          #Permission: 'permhere'
           Messages:
             Player: 'You got first reward'
         Reward2:
