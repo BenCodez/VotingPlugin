@@ -344,7 +344,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetPoints" },
-				"VotingPlugin.Commands.AdminVote.ResetPoints|" + adminPerm, "Clears all points of all players") {
+				"VotingPlugin.Commands.AdminVote.ResetPoints|" + adminPerm, "Clears all points of all players",true,false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {

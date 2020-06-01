@@ -111,6 +111,19 @@ public class BungeeHandler {
 						}
 					}
 				});
+
+				socketHandler.add(new SocketReceiver() {
+
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 0) {
+							if (data[0].equalsIgnoreCase("Status")) {
+
+								sendData("satusokay", Main.plugin.getOptions().getServer());
+							}
+						}
+					}
+				});
 			}
 		});
 

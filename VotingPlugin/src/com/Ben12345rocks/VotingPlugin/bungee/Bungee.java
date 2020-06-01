@@ -12,6 +12,7 @@ import com.vexsoftware.votifier.bungee.events.VotifierEvent;
 import com.vexsoftware.votifier.model.Vote;
 
 import lombok.Getter;
+import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
@@ -74,11 +75,18 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			@Override
 			public void onReceive(String[] data) {
-				if (data.length > 2) {
-					if (data[0].equalsIgnoreCase("Broadcast")) {
-						sendServerMessage(data);
+				if (data.length > 1) {
+					if (data[0].equalsIgnoreCase("statusokay")) {
+						String server = data[1];
+						getProxy().getLogger().info("Voting communicaton okay with " + server);
+					}
+					if (data.length > 2) {
+						if (data[0].equalsIgnoreCase("Broadcast")) {
+							sendServerMessage(data);
+						}
 					}
 				}
+
 			}
 		});
 
@@ -159,6 +167,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		if (clientHandles.containsKey(server)) {
 			clientHandles.get(server).sendMessage(messageData);
 		}
+	}
+
+	public void status(CommandSender sender) {
+		sendServerMessage("status");
 	}
 
 }

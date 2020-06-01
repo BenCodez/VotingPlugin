@@ -28,6 +28,10 @@ public class VotingPluginBungeeCommand extends Command {
 						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
+				if (args[0].equalsIgnoreCase("reload")) {
+					bungee.status(sender);
+					sender.sendMessage(new TextComponent("Checking status, waiting for response, check console"));
+				}
 			}
 		} else {
 			sender.sendMessage(new TextComponent("You do not have permission to do this!"));
