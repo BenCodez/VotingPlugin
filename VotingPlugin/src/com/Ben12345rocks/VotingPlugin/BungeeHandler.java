@@ -118,8 +118,8 @@ public class BungeeHandler {
 					public void onReceive(String[] data) {
 						if (data.length > 0) {
 							if (data[0].equalsIgnoreCase("Status")) {
-
-								sendData("satusokay", Main.plugin.getOptions().getServer());
+								Main.plugin.getLogger().info("Received status command, sending status back");
+								sendData("StatusOkay", Main.plugin.getOptions().getServer());
 							}
 						}
 					}

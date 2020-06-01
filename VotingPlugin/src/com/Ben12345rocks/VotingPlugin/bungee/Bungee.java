@@ -71,19 +71,31 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(), config.getBungeePort(),
 				encryptionHandler);
 
+		
+		
 		socketHandler.add(new SocketReceiver() {
 
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 1) {
-					if (data[0].equalsIgnoreCase("statusokay")) {
-						String server = data[1];
-						getProxy().getLogger().info("Voting communicaton okay with " + server);
-					}
 					if (data.length > 2) {
 						if (data[0].equalsIgnoreCase("Broadcast")) {
 							sendServerMessage(data);
 						}
+					}
+				}
+
+			}
+		});
+		
+		socketHandler.add(new SocketReceiver() {
+
+			@Override
+			public void onReceive(String[] data) {
+				if (data.length > 1) {
+					if (data[0].equalsIgnoreCase("StatusOkay")) {
+						String server = data[1];
+						getLogger().info("Voting communicaton okay with " + server);
 					}
 				}
 
