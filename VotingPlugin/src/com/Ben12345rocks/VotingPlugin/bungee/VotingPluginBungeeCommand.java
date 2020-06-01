@@ -28,9 +28,9 @@ public class VotingPluginBungeeCommand extends Command {
 						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
-				if (args[0].equalsIgnoreCase("reload")) {
-					bungee.status(sender);
+				if (args[0].equalsIgnoreCase("status")) {
 					sender.sendMessage(new TextComponent("Checking status, waiting for response, check console"));
+					bungee.status(sender);
 				}
 			}
 		} else {
