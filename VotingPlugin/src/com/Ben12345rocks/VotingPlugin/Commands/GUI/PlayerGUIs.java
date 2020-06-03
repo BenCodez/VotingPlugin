@@ -413,7 +413,14 @@ public class PlayerGUIs {
 					user.sendMessage(StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
 				}
-				event.getPlayer().closeInventory();
+				Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+					@Override
+					public void run() {
+						event.getPlayer().closeInventory();
+					}
+				});
+
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.BARRIER).setName("&cNo")) {
