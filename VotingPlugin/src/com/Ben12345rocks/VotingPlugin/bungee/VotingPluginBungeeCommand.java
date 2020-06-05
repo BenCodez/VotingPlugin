@@ -24,13 +24,20 @@ public class VotingPluginBungeeCommand extends Command {
 					if (args.length >= 2) {
 						String user = args[1];
 						String site = args[2];
-						bungee.saveVote(user, site);
+						bungee.sendSocketVote(user, site);
 						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {
 					sender.sendMessage(new TextComponent("Checking status, waiting for response, check console"));
 					bungee.status(sender);
+				}
+				if (args[0].equalsIgnoreCase("help")) {
+					TextComponent[] msg = new TextComponent[3];
+					msg[0] = new TextComponent("&avotingpluginbungee reload - Reload plugin");
+					msg[1] = new TextComponent("&avotingpluginbungee vote (player) (servicesite) - Send bungee vote");
+					msg[2] = new TextComponent("&avotingplugin status - Check socket connection status");
+					sender.sendMessage(msg);
 				}
 			}
 		} else {

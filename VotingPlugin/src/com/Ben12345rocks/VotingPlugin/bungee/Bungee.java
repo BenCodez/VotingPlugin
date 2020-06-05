@@ -71,8 +71,6 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(), config.getBungeePort(),
 				encryptionHandler);
 
-		
-		
 		socketHandler.add(new SocketReceiver() {
 
 			@Override
@@ -87,7 +85,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			}
 		});
-		
+
 		socketHandler.add(new SocketReceiver() {
 
 			@Override
@@ -121,7 +119,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	public void onVote(VotifierEvent event) {
 		Vote vote = event.getVote();
 		getLogger().info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
-		saveVote(vote.getUsername(), vote.getServiceName());
+		sendSocketVote(vote.getUsername(), vote.getServiceName());
+
 	}
 
 	public String getUUID(String playerName) {
@@ -136,7 +135,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		return "";
 	}
 
-	public void saveVote(String name, String service) {
+	public void sendSocketVote(String name, String service) {
 		String uuid = getUUID(name);
 
 		if (config.getSendVotesToAllServers()) {
