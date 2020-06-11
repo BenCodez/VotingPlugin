@@ -47,6 +47,7 @@ public class BungeeMySQL {
 		String database = section.getString("Database");
 		long lifeTime = section.getLong("MaxLifeTime", -1);
 		int maxThreads = section.getInt("MaxConnections", 1);
+		String str = section.getString("Line", "");
 		if (maxThreads < 1) {
 			maxThreads = 1;
 		}
@@ -60,7 +61,7 @@ public class BungeeMySQL {
 			name = tablePrefix + tableName;
 		}
 		mysql = new com.Ben12345rocks.AdvancedCore.UserStorage.mysql.api.MySQL(maxThreads);
-		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime)) {
+		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str)) {
 
 		}
 		try {
