@@ -181,49 +181,44 @@ public class PlayerGUIs {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
-						@Override
-						public void run() {
-							Player player = event.getWhoClicked();
-							String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
-							User user = getSelectedPlayer(player);
-							if (cmd.equalsIgnoreCase("none")) {
-								return;
-							} else if (!cmd.equals("")) {
-								Bukkit.getScheduler().runTask(plugin, new Runnable() {
+					Player player = event.getWhoClicked();
+					String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
+					User user = getSelectedPlayer(player);
+					if (cmd.equalsIgnoreCase("none")) {
+						return;
+					} else if (!cmd.equals("")) {
+						event.runSync(new Runnable() {
 
-									@Override
-									public void run() {
-										player.performCommand(cmd);
-									}
-								});
-							} else {
-								if (slot.equalsIgnoreCase("url")) {
-									user.sendMessage(Commands.getInstance().voteURLs(user));
-									player.closeInventory();
-								} else if (slot.equalsIgnoreCase("next")) {
-									openVoteNext(player, user);
-								} else if (slot.equalsIgnoreCase("last")) {
-									openVoteLast(player, user);
-								} else if (slot.equalsIgnoreCase("total")) {
-									openVoteTotal(player, user);
-								} else if (slot.equalsIgnoreCase("top")) {
-									openVoteTop(player, null);
-								} else if (slot.equalsIgnoreCase("today")) {
-									openVoteToday(player);
-								} else if (slot.equalsIgnoreCase("help")) {
-									player.performCommand("vote help");
-								} else if (slot.equalsIgnoreCase("shop")) {
-									openVoteShop(player);
-								} else if (slot.equalsIgnoreCase("lastmonth")) {
-									openVoteTopLastMonth(player);
-								}
+							@Override
+							public void run() {
+								player.performCommand(cmd);
 							}
+						});
+					} else {
+						if (slot.equalsIgnoreCase("url")) {
+							user.sendMessage(Commands.getInstance().voteURLs(user));
+							event.closeInventory();
+						} else if (slot.equalsIgnoreCase("next")) {
+							openVoteNext(player, user);
+						} else if (slot.equalsIgnoreCase("last")) {
+							openVoteLast(player, user);
+						} else if (slot.equalsIgnoreCase("total")) {
+							openVoteTotal(player, user);
+						} else if (slot.equalsIgnoreCase("top")) {
+							openVoteTop(player, null);
+						} else if (slot.equalsIgnoreCase("today")) {
+							openVoteToday(player);
+						} else if (slot.equalsIgnoreCase("help")) {
+							player.performCommand("vote help");
+						} else if (slot.equalsIgnoreCase("shop")) {
+							openVoteShop(player);
+						} else if (slot.equalsIgnoreCase("lastmonth")) {
+							openVoteTopLastMonth(player);
 						}
-					});
-
+					}
 				}
+
 			});
 		}
 
