@@ -43,7 +43,8 @@ public class BungeeHandler {
 			@Override
 			public void run() {
 				clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
-						Config.getInstance().getBungeeServerPort(), encryptionHandler);
+						Config.getInstance().getBungeeServerPort(), encryptionHandler,
+						Main.plugin.getOptions().getDebug().isDebug());
 
 				socketHandler.add(new SocketReceiver() {
 
@@ -128,7 +129,8 @@ public class BungeeHandler {
 		});
 
 		socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
-				Config.getInstance().getSpigotServerPort(), encryptionHandler);
+				Config.getInstance().getSpigotServerPort(), encryptionHandler,
+				Main.plugin.getOptions().getDebug().isDebug());
 
 	}
 

@@ -78,6 +78,10 @@ public class Config {
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
+	
+	public boolean getDebug() {
+		return getData().getBoolean("Debug", false);
+	}
 
 	public String getFallBack() {
 		return getData().getString("FallBackServer", "");

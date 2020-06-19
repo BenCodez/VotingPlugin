@@ -69,7 +69,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
 		socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(), config.getBungeePort(),
-				encryptionHandler);
+				encryptionHandler, config.getDebug());
 
 		socketHandler.add(new SocketReceiver() {
 
@@ -105,8 +105,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		for (String s : config.getSpigotServers()) {
 			if (!l.contains(s)) {
 				Configuration d = config.getSpigotServerConfiguration(s);
-				clientHandles.put(s,
-						new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298), encryptionHandler));
+				clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298),
+						encryptionHandler, config.getDebug()));
 			}
 		}
 	}
