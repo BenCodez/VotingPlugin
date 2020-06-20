@@ -605,7 +605,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void bungeeVote(String service) {
-		if (Config.getInstance().isUseBungeeCoord()) {
+		if (Config.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -623,7 +623,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void bungeeVoteOnline(String service) {
-		if (Config.getInstance().isUseBungeeCoord()) {
+		if (Config.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,

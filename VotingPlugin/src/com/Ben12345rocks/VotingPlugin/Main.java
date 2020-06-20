@@ -145,7 +145,7 @@ public class Main extends AdvancedCorePlugin {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			if (!Config.getInstance().isUseBungeeCoord()) {
+			if (!Config.getInstance().isUseBungeecoord()) {
 				plugin.getLogger()
 						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 			} else {
@@ -774,14 +774,14 @@ public class Main extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
-		if (Config.getInstance().isUseBungeeCoord()) {
+		if (Config.getInstance().isUseBungeecoord()) {
 			BungeeHandler.getInstance().load();
-			if (Config.getInstance().isUseBungeeCoord()) {
-				if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
-					getLogger().warning(
-							"Bungeecoord is true and server name is not set, bungeecoord features may not work");
-				}
+
+			if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
+				getLogger()
+						.warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
 			}
+
 		}
 
 		registerCommands();
@@ -1017,7 +1017,7 @@ public class Main extends AdvancedCorePlugin {
 	public void onUnLoad() {
 		Signs.getInstance().storeSigns();
 		HandlerList.unregisterAll(plugin);
-		if (Config.getInstance().isUseBungeeCoord()) {
+		if (Config.getInstance().isUseBungeecoord()) {
 			try {
 				BungeeHandler.getInstance().close();
 			} catch (Exception e) {
@@ -1127,7 +1127,7 @@ public class Main extends AdvancedCorePlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update || Config.getInstance().isAlwaysUpdate() || Config.getInstance().isUseBungeeCoord()) {
+		if (update || Config.getInstance().isAlwaysUpdate() || Config.getInstance().isUseBungeecoord()) {
 			if (!updateStarted && plugin != null) {
 				if (!Config.getInstance().isUpdateWithPlayersOnlineOnly() || Bukkit.getOnlinePlayers().size() != 0) {
 					updateStarted = true;
@@ -1139,7 +1139,7 @@ public class Main extends AdvancedCorePlugin {
 								plugin.debug("MySQL not loaded yet");
 								return;
 							} else if (Config.getInstance().isClearCacheOnUpdate()
-									|| Config.getInstance().isUseBungeeCoord()) {
+									|| Config.getInstance().isUseBungeecoord()) {
 								getMysql().clearCache();
 							} else {
 								getMysql().clearCacheBasic();

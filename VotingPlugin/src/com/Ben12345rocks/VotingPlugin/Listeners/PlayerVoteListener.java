@@ -84,7 +84,7 @@ public class PlayerVoteListener implements Listener {
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		user.updateName();
 
-		if (Config.getInstance().isClearCacheOnVote() || Config.getInstance().isUseBungeeCoord()) {
+		if (Config.getInstance().isClearCacheOnVote() || Config.getInstance().isUseBungeecoord()) {
 			user.clearCache();
 		}
 

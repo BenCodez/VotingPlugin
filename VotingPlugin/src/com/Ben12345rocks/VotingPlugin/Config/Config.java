@@ -149,7 +149,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "UseBungeecoord")
 	@Getter
-	private boolean useBungeeCoord = false;
+	private boolean useBungeecoord = false;
 
 	@ConfigDataBoolean(path = "BungeeBroadcast")
 	@Getter
