@@ -36,16 +36,14 @@ public class BungeeHandler {
 
 	public void load() {
 		Main.plugin.debug("Loading bungee handles");
-		
+
 		encryptionHandler = new EncryptionHandler(new File(Main.plugin.getDataFolder(), "secretkey.key"));
 
 		clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
-				Config.getInstance().getBungeeServerPort(), encryptionHandler,
-				Main.plugin.getOptions().getDebug().isDebug());
+				Config.getInstance().getBungeeServerPort(), encryptionHandler, Config.getInstance().isBungeeDebug());
 
 		socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
-				Config.getInstance().getSpigotServerPort(), encryptionHandler,
-				Main.plugin.getOptions().getDebug().isDebug());
+				Config.getInstance().getSpigotServerPort(), encryptionHandler, Config.getInstance().isBungeeDebug());
 
 		socketHandler.add(new SocketReceiver() {
 

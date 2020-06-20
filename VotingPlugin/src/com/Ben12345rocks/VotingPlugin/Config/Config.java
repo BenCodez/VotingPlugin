@@ -154,6 +154,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "BungeeBroadcast")
 	@Getter
 	private boolean bungeeBroadcast = false;
+	
+	@ConfigDataBoolean(path = "BungeeDebug")
+	@Getter
+	private boolean bungeeDebug = false;
 
 	@ConfigDataBoolean(path = "GUI.VoteURL.AllUrlsButton.RequireAllSitesVoted")
 	@Getter

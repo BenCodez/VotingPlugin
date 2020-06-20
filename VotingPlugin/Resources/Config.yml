@@ -1006,6 +1006,10 @@ SpigotServer:
   Host: '127.0.0.1'
   Port: 1298
 
+# Enables more debug messages for communication between servers
+# Use /votingpluginbungee status for testing communication
+BungeeDebug: false
+
 # ---------------------------------------------------------
 # Mysql cache options 
 # Clearing cache forces the plugin to pull from database
