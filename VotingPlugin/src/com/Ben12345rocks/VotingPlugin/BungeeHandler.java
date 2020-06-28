@@ -45,83 +45,81 @@ public class BungeeHandler {
 		socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
 				Config.getInstance().getSpigotServerPort(), encryptionHandler, Config.getInstance().isBungeeDebug());
 
-		socketHandler.add(new SocketReceiver() {
+		socketHandler.add(new SocketReceiver("bungeevote") {
 
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 3) {
-					if (data[0].equalsIgnoreCase("bungeevote")) {
-						String uuid = data[1];
-						User user = null;
-						if (!uuid.isEmpty()) {
-							user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-						} else {
-							user = UserManager.getInstance().getVotingPluginUser(data[2]);
-						}
-
-						user.clearCache();
-
-						user.bungeeVote(data[3]);
-
+					String uuid = data[1];
+					User user = null;
+					if (!uuid.isEmpty()) {
+						user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					} else {
+						user = UserManager.getInstance().getVotingPluginUser(data[2]);
 					}
+
+					user.clearCache();
+
+					user.bungeeVote(data[3]);
 				}
 			}
 		});
 
-		socketHandler.add(new SocketReceiver() {
+		socketHandler.add(new SocketReceiver("bungeevoteonline") {
 
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 3) {
-					if (data[0].equalsIgnoreCase("bungeevoteonline")) {
-						String uuid = data[1];
-						User user = null;
-						if (!uuid.isEmpty()) {
-							user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-						} else {
-							user = UserManager.getInstance().getVotingPluginUser(data[2]);
-						}
-
-						user.clearCache();
-
-						user.bungeeVoteOnline(data[3]);
-
+					String uuid = data[1];
+					User user = null;
+					if (!uuid.isEmpty()) {
+						user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					} else {
+						user = UserManager.getInstance().getVotingPluginUser(data[2]);
 					}
+
+					user.clearCache();
+
+					user.bungeeVoteOnline(data[3]);
 				}
 			}
 		});
 
-		socketHandler.add(new SocketReceiver() {
+		socketHandler.add(new SocketReceiver("BungeeBroadcast") {
 
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 2) {
-					if (data[0].equalsIgnoreCase("BungeeBroadcast")) {
-
-						VoteSite site = Main.plugin.getVoteSite(data[1]);
-						String p = data[3];
-						User user = UserManager.getInstance().getVotingPluginUser(p);
-						if (site != null) {
-							site.broadcastVote(user, false);
-						} else {
-							Main.plugin.getLogger().warning("No votesite for " + data[1]);
-						}
-						Main.plugin.setUpdate(true);
+					VoteSite site = Main.plugin.getVoteSite(data[1]);
+					String p = data[3];
+					User user = UserManager.getInstance().getVotingPluginUser(p);
+					if (site != null) {
+						site.broadcastVote(user, false);
+					} else {
+						Main.plugin.getLogger().warning("No votesite for " + data[1]);
 					}
+					Main.plugin.setUpdate(true);
 				}
 			}
 		});
 
-		socketHandler.add(new SocketReceiver() {
+		socketHandler.add(new SocketReceiver("Status") {
 
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 0) {
-					if (data[0].equalsIgnoreCase("Status")) {
-						Main.plugin.getLogger().info("Received status command, sending status back");
-						sendData("StatusOkay", Main.plugin.getOptions().getServer());
-					}
+					Main.plugin.getLogger().info("Received status command, sending status back");
+					sendData("StatusOkay", Main.plugin.getOptions().getServer());
+
 				}
+			}
+		});
+
+		socketHandler.add(new SocketReceiver("BungeeUpdate") {
+
+			@Override
+			public void onReceive(String[] data) {
+				Main.plugin.setUpdate(true);
 			}
 		});
 

@@ -139,14 +139,12 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		String uuid = getUUID(name);
 
 		if (config.getSendVotesToAllServers()) {
-			// for (String send : getProxy().getServers().keySet()) {
-			// mysql.update(uuid, "Proxy_" + send, finalData, DataType.STRING);
-			// }
 			sendServerMessage("bungeevote", uuid, name, service);
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
-		} else if (config.getSendToOnlineServer()) {
+		} else {
+			// online server only
 			ProxiedPlayer p = getProxy().getPlayer(name);
 
 			String server = "";
@@ -158,12 +156,12 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			if (config.getBlockedServers().contains(server)) {
 				server = config.getFallBack();
 			}
-			// mysql.update(uuid, "Proxy_Online", finalData, DataType.STRING);
+
 			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
-
+			sendServerMessage("BungeeUpdate");
 		}
 
 	}

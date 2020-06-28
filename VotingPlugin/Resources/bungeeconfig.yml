@@ -2,9 +2,8 @@
 # Set server name in each server related to what it is on bungee
 #
 # Have a reward on each server
+# If false, will send to online server only
 SendVotesToAllServers: true
-# Have a reward on 1 server on the network
-SendToOnlineServer: false 
 # Tell servers to broadcast
 Broadcast: true
 # List of servers the plugin won't send the vote to

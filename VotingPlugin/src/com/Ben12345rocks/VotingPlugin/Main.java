@@ -1127,7 +1127,7 @@ public class Main extends AdvancedCorePlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update || Config.getInstance().isAlwaysUpdate() || Config.getInstance().isUseBungeecoord()) {
+		if (update || Config.getInstance().isAlwaysUpdate()) {
 			if (!updateStarted && plugin != null) {
 				if (!Config.getInstance().isUpdateWithPlayersOnlineOnly() || Bukkit.getOnlinePlayers().size() != 0) {
 					updateStarted = true;
