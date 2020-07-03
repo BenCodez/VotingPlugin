@@ -308,7 +308,9 @@ public class PlayerGUIs {
 							event.getButton().getInv().closeInv(player, null);
 
 							User user = UserManager.getInstance().getVotingPluginUser(player);
-							user.clearCache();
+							if (Config.getInstance().isClearCacheOnVoteShopPurchase()) {
+								user.clearCache();
+							}
 							String identifier = (String) getData("identifier");
 							int limit = (int) getData("Limit");
 							int points = Config.getInstance().getIdentifierCost(identifier);

@@ -57,6 +57,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean commandsVoteRewardFromVoteURL = false;
 
+	@ConfigDataBoolean(path = "ClearCacheOnVoteShopPurchase")
+	@Getter
+	private boolean clearCacheOnVoteShopPurchase = true;
+
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
@@ -154,7 +158,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "BungeeBroadcast")
 	@Getter
 	private boolean bungeeBroadcast = false;
-	
+
 	@ConfigDataBoolean(path = "BungeeDebug")
 	@Getter
 	private boolean bungeeDebug = false;
