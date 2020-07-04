@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Commands;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ import com.Ben12345rocks.AdvancedCore.CommandAPI.TabCompleteHandler;
 import com.Ben12345rocks.AdvancedCore.Commands.GUI.UserGUI;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
+import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -222,6 +224,16 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<CommandHandler>());
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "CurrentPluginTime" },
+				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
+				sendMessage(sender, TimeChecker.getInstance().getTime().format(formatter));
+			}
+		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "GAL" },
 				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from GAL") {
