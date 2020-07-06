@@ -922,7 +922,7 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public String[] voteURLs(User user) {
+	public String[] voteURLs(User user,boolean json) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();
@@ -933,7 +933,7 @@ public class Commands {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				counter++;
-				String voteURL = voteSite.getVoteURL(false);
+				String voteURL = voteSite.getVoteURL(json);
 				MessageBuilder message = new MessageBuilder(config.getFormatCommandsVoteURLS());
 				message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
 						.replacePlaceholder("SiteName", voteSite.getDisplayName());

@@ -197,7 +197,7 @@ public class PlayerGUIs {
 						});
 					} else {
 						if (slot.equalsIgnoreCase("url")) {
-							user.sendMessage(Commands.getInstance().voteURLs(user));
+							user.sendMessage(Commands.getInstance().voteURLs(user,true));
 							event.closeInventory();
 						} else if (slot.equalsIgnoreCase("next")) {
 							openVoteNext(player, user);
@@ -713,7 +713,7 @@ public class PlayerGUIs {
 				@Override
 				public void onClick(ClickEvent event) {
 					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
-					user.sendMessage(Commands.getInstance().voteURLs(user));
+					user.sendMessage(Commands.getInstance().voteURLs(user, true));
 				}
 			});
 

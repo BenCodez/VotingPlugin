@@ -355,20 +355,22 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetPoints" },
-				"VotingPlugin.Commands.AdminVote.ResetPoints|" + adminPerm, "Clears all points of all players",true,false) {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "ResetPoints" },
+						"VotingPlugin.Commands.AdminVote.ResetPoints|" + adminPerm, "Clears all points of all players",
+						true, false) {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cStarting...");
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					user.setPoints(0);
-				}
-				sendMessage(sender, "&cFinished");
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cStarting...");
+						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							user.setPoints(0);
+						}
+						sendMessage(sender, "&cFinished");
 
-			}
-		});
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones", "(player)" },
 				"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm, "Resync Milestones") {
@@ -2228,9 +2230,9 @@ public class CommandLoader {
 						if (!Config.getInstance().isCommandsUseGUIVote() || !(sender instanceof Player)) {
 							if (isPlayer(sender)) {
 								User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-								user.sendMessage(Commands.getInstance().voteURLs(user));
+								user.sendMessage(Commands.getInstance().voteURLs(user, true));
 							} else {
-								sender.sendMessage(Commands.getInstance().voteURLs(null));
+								sender.sendMessage(Commands.getInstance().voteURLs(null, false));
 							}
 						} else {
 							PlayerGUIs.getInstance().openVoteURL((Player) sender);
@@ -2246,9 +2248,9 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (isPlayer(sender)) {
 					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(Commands.getInstance().voteURLs(user));
+					user.sendMessage(Commands.getInstance().voteURLs(user, true));
 				} else {
-					sender.sendMessage(Commands.getInstance().voteURLs(null));
+					sender.sendMessage(Commands.getInstance().voteURLs(null, true));
 				}
 			}
 		});
