@@ -454,6 +454,10 @@ GUI:
     Line: '&6%VoteSite% : %Time%'
     IconTitle: '%player%'
     BackButton: true
+    UseSkull: true
+    # If UseSkull is false, use this item
+    PlayerItem:
+      Material: 'PAPER'
   VoteTop:
     Name: 'VoteTop %topvoter%'
     BackButton: false
@@ -1030,6 +1034,8 @@ ClearCacheOnVote: false
 
 # Clear cache when player leaves
 ClearCacheOnLeave: false
+
+ClearCacheOnVoteShopPurchase: true
 
 # ###############################################################
 # Deprecated options, don't recommend using any of these

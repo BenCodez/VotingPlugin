@@ -9,6 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
+import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataConfigurationSection;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataDouble;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataListString;
@@ -339,6 +340,14 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "GUI.VoteToday.Line")
 	@Getter
 	private String GUIVoteTodayLine = "&6%VoteSite% : %Time%";
+
+	@ConfigDataBoolean(path = "GUI.VoteToday.UseSkull", defaultValue = true)
+	@Getter
+	private boolean GUIVoteTodayUseSkull = true;
+
+	@ConfigDataConfigurationSection(path = "GUI.VoteToday.PlayerItem")
+	@Getter
+	private ConfigurationSection GUIVoteTodayPlayerItem;
 
 	@ConfigDataString(path = "GUI.VoteToday.IconTitle")
 	@Getter

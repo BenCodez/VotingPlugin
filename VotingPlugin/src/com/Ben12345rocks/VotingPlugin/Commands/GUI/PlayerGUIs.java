@@ -12,6 +12,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
@@ -21,7 +22,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
@@ -197,7 +197,7 @@ public class PlayerGUIs {
 						});
 					} else {
 						if (slot.equalsIgnoreCase("url")) {
-							user.sendMessage(Commands.getInstance().voteURLs(user,true));
+							user.sendMessage(Commands.getInstance().voteURLs(user, true));
 							event.closeInventory();
 						} else if (slot.equalsIgnoreCase("next")) {
 							openVoteNext(player, user);
@@ -514,18 +514,24 @@ public class PlayerGUIs {
 				placeholders.put("VoteSite", voteSite.getDisplayName());
 				placeholders.put("Time", timeString);
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
-				inv.addButton(inv.getNextSlot(),
-						new BInventoryButton(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getGUIVoteTodayIconTitle(), "player", user.getPlayerName()),
-								new String[] { msg }, MiscUtils.getInstance().setSkullOwner(user.getOfflinePlayer())) {
+				ItemBuilder item = null;
+				if (Config.getInstance().isGUIVoteTodayUseSkull()) {
+					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(player);
+				} else {
+					item = new ItemBuilder(Config.getInstance().getGUIVoteTodayPlayerItem());
+				}
+				item.setName(StringParser.getInstance().replacePlaceHolder(
+						Config.getInstance().getGUIVoteTodayIconTitle(), "player", user.getPlayerName()));
+				item.setLore(msg);
+				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
 
-							@Override
-							public void onClick(ClickEvent clickEvent) {
-								User user = UserManager.getInstance().getVotingPluginUser(
-										clickEvent.getClickedItem().getItemMeta().getDisplayName());
-								openVoteGUI(player, user);
-							}
-						});
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						User user = UserManager.getInstance()
+								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
+						openVoteGUI(player, user);
+					}
+				});
 			}
 		}
 
