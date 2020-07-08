@@ -50,6 +50,7 @@ public class BungeeHandler {
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 3) {
+					Main.plugin.extraDebug("BungeeVote from " + data[2] + ", processing");
 					String uuid = data[1];
 					User user = null;
 					if (!uuid.isEmpty()) {
@@ -70,6 +71,7 @@ public class BungeeHandler {
 			@Override
 			public void onReceive(String[] data) {
 				if (data.length > 3) {
+					Main.plugin.extraDebug("BungeeVoteOnline from " + data[2] + ", processing");
 					String uuid = data[1];
 					User user = null;
 					if (!uuid.isEmpty()) {
@@ -98,7 +100,6 @@ public class BungeeHandler {
 					} else {
 						Main.plugin.getLogger().warning("No votesite for " + data[1]);
 					}
-					Main.plugin.setUpdate(true);
 				}
 			}
 		});
