@@ -458,6 +458,7 @@ GUI:
     # If UseSkull is false, use this item
     PlayerItem:
       Material: 'PAPER'
+      Amount: 1
   VoteTop:
     Name: 'VoteTop %topvoter%'
     BackButton: false
