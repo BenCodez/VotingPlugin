@@ -123,6 +123,10 @@ public class BungeeHandler {
 				Main.plugin.setUpdate(true);
 			}
 		});
+		
+		if (Main.plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
+			Main.plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
+		}
 
 	}
 

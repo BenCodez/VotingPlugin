@@ -70,7 +70,7 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.loadVoteSites();
 
 			for (Player p : Bukkit.getOnlinePlayers()) {
-				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite")) {
+				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite") || p.isOp()) {
 					p.sendMessage(StringParser.getInstance().colorize("&cGenerating votesite for service site "
 							+ siteName + ", please check console for details"));
 				}
