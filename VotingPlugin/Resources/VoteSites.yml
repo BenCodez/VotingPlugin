@@ -51,7 +51,7 @@ VoteSites:
     
     # VoteSite Material for some GUI's
     # Removing this may result in an error, required on each site
-    Item:
+    DisplayItem:
       Material: 'DIAMOND'
       Amount: 1
 
@@ -71,7 +71,7 @@ VoteSites:
     ServiceSite: 'PlanetMinecraft.com'
     VoteURL: 'link to vote URL here, used in /vote'
     VoteDelay: 24
-    Item:
+    DisplayItem:
       Material: 'DIAMOND'
       Amount: 1
     Rewards:

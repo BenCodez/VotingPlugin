@@ -63,8 +63,8 @@ public class ConfigVoteSites extends YMLFile {
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, 24);
-			set(siteName, "Item.Material", "GRASS");
-			set(siteName, "Item.Amount", 1);
+			set(siteName, "DisplayItem.Material", "GRASS");
+			set(siteName, "DisplayItem.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
@@ -98,6 +98,9 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	public ConfigurationSection getItem(String site) {
+		if (getData(site).isConfigurationSection("DisplayItem")) {
+			return getData(site).getConfigurationSection("DisplayItem");
+		}
 		return getData(site).getConfigurationSection("Item");
 	}
 
@@ -144,13 +147,13 @@ public class ConfigVoteSites extends YMLFile {
 	public int getVoteDelay(String siteName) {
 		return getData(siteName).getInt("VoteDelay");
 	}
-	
+
 	public int getTimeOffSet(String siteName) {
-		return getData(siteName).getInt("TimeOffSet",0);
+		return getData(siteName).getInt("TimeOffSet", 0);
 	}
-	
+
 	public int getVoteDelayMin(String siteName) {
-		return getData(siteName).getInt("VoteDelayMin",0);
+		return getData(siteName).getInt("VoteDelayMin", 0);
 	}
 
 	/**
