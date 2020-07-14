@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.CoolDown;
 
-import org.bukkit.Bukkit;
+import java.util.TimerTask;
+
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -53,20 +54,26 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void checkAll() {
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		Main.plugin.getTimer().schedule(new TimerTask() {
 
 			@Override
 			public void run() {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					if (Main.plugin != null) {
-						User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-						if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
-							user.checkCoolDownEvents();
+				if (Main.plugin != null) {
+					for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+						if (Main.plugin != null) {
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+								user.checkCoolDownEvents();
+							}
+						} else {
+							cancel();
 						}
 					}
+				} else {
+					cancel();
 				}
 			}
-		});
+		}, 1000 * 60 * 3);
 
 	}
 
