@@ -11,6 +11,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Directional;
 
+import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -259,19 +260,21 @@ public class SignHandler {
 	}
 
 	public void updateSkulls(Location loc1, Location loc2) {
-		BlockState state = getLocation().getBlock().getState();
-		if (state instanceof Sign && state.getBlockData() instanceof Directional) {
-			Directional s = (Directional) state.getBlockData();
-			Block b = location.getBlock().getRelative(s.getFacing());
-			Block above = b.getRelative(BlockFace.UP);
-			if (checkSkull(above)) {
-				return;
+		if (!NMSManager.getInstance().isVersion("1.12")) {
+			BlockState state = getLocation().getBlock().getState();
+			if (state instanceof Sign && state.getBlockData() instanceof Directional) {
+				Directional s = (Directional) state.getBlockData();
+				Block b = location.getBlock().getRelative(s.getFacing());
+				Block above = b.getRelative(BlockFace.UP);
+				if (checkSkull(above)) {
+					return;
+				}
+
 			}
 
-		}
-
-		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
-			checkSkull(block);
+			for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
+				checkSkull(block);
+			}
 		}
 	}
 }
