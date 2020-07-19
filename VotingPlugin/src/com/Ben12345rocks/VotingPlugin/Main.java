@@ -1075,7 +1075,9 @@ public class Main extends AdvancedCorePlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 		pm.registerEvents(new PlayerInteract(this), this);
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
-		pm.registerEvents(new PlayerCommandSendListener(this), this);
+		if (!NMSManager.getInstance().isVersion("1.12")) {
+			pm.registerEvents(new PlayerCommandSendListener(this), this);
+		}
 		pm.registerEvents(new CoolDownCheck(this), this);
 
 		plugin.debug("Loaded Events");
