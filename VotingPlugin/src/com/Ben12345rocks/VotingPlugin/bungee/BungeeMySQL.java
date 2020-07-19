@@ -137,6 +137,8 @@ public class BungeeMySQL {
 			ResultSet rs = sql.executeQuery();
 			rs.next();
 			String uuid = rs.getString("uuid");
+			sql.close();
+			rs.close();
 			if (uuid != null && !uuid.isEmpty()) {
 				return uuid;
 			}
@@ -156,6 +158,8 @@ public class BungeeMySQL {
 			ResultSet rs = sql.executeQuery();
 			rs.next();
 			String str = rs.getString("Proxy_" + server);
+			sql.close();
+			rs.close();
 			if (str != null && !str.isEmpty()) {
 				return str;
 			}
@@ -199,9 +203,13 @@ public class BungeeMySQL {
 			ResultSet rs = query.executeQuery();
 			while (rs.next()) {
 				if (rs.getString("uuid").equals(index)) {
+					query.close();
+					rs.close();
 					return true;
 				}
 			}
+			query.close();
+			rs.close();
 
 		} catch (SQLException ex) {
 			ex.printStackTrace();
@@ -232,8 +240,12 @@ public class BungeeMySQL {
 					String columnName = metadata.getColumnName(i);
 					columns.add(columnName);
 				}
+				query.close();
+				rs.close();
 				return columns;
 			}
+			query.close();
+			rs.close();
 
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -267,6 +279,8 @@ public class BungeeMySQL {
 				// System.out.println(rCol.getValue());
 				result.add(rCol);
 			}
+			sql.close();
+			rs.close();
 			return result;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -309,6 +323,8 @@ public class BungeeMySQL {
 				Column rCol = new Column("PlayerName", rs.getString("PlayerName"), DataType.STRING);
 				result.add(rCol);
 			}
+			query.close();
+			rs.close();
 		} catch (SQLException e) {
 		}
 
@@ -327,6 +343,8 @@ public class BungeeMySQL {
 				Column rCol = new Column("uuid", rs.getString("uuid"), DataType.STRING);
 				result.add(rCol);
 			}
+			query.close();
+			rs.close();
 		} catch (SQLException e) {
 			return null;
 		}
