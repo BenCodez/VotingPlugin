@@ -175,7 +175,11 @@ public class VoteSite {
 			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key)
 					.setLore("&cInvalid item for site: " + key);
 		} else {
-			return new ItemBuilder(item);
+			ItemBuilder builder = new ItemBuilder(item);
+			if(item.getBoolean("DisableLineBreaking")) {
+				builder.dontCheckLoreLength();
+			}
+			return builder;
 		}
 	}
 
