@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
+import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
@@ -515,7 +516,7 @@ public class PlayerGUIs {
 				placeholders.put("Time", timeString);
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
-				if (Config.getInstance().isGUIVoteTodayUseSkull()) {
+				if (Config.getInstance().isGUIVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
 					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(player);
 				} else {
 					item = new ItemBuilder(Config.getInstance().getGUIVoteTodayPlayerItem());
