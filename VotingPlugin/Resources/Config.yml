@@ -362,7 +362,7 @@ GUI:
         Name: '&4Total'
     Top:
       Item:
-        Material: 'SIGN'
+        Material: 'OAK_SIGN'
         Data: 0
         Amount: 1
         Name: '&4Top'
@@ -468,7 +468,7 @@ GUI:
     SwitchItem:
       Name: '&3Switch TopVoter'
       Lore: '&bCurrently: %Top%'
-      Material: 'SIGN'
+      Material: 'OAK_SIGN'
       Amount: 1
       # 8 Slots over from the bottom left
       Slot: 7
