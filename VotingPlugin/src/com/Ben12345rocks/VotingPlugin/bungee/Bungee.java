@@ -10,6 +10,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +55,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
 
+	private VoteCache voteCacheFile;
+
 	@EventHandler
 	public void onPluginMessage(PluginMessageEvent ev) {
 		if (!ev.getTag().equals("VotingPlugin:VotingPlugin".toLowerCase())) {
@@ -82,6 +85,35 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		}
 	}
 
+	public void checkOnlineVotes(ProxiedPlayer player, String uuid) {
+		if (player != null && player.isConnected() && cachedOnlineVotes.containsKey(uuid)) {
+			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
+			if (!c.isEmpty()) {
+				for (OfflineBungeeVote cache : c) {
+					sendPluginMessageServer(getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName(),
+							"VoteOnline", cache.getPlayerName(), cache.getUuid(), cache.getService(),
+							"" + cache.getTime(), Boolean.FALSE.toString());
+				}
+				cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+			}
+		}
+	}
+
+	public void checkCachedVotes(String server) {
+		if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
+			if (cachedVotes.containsKey(server)) {
+				ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
+				if (!c.isEmpty()) {
+					for (OfflineBungeeVote cache : c) {
+						sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
+								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString());
+					}
+					cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
+				}
+			}
+		}
+	}
+
 	@EventHandler
 	public void onServerConnected(ServerConnectedEvent event) {
 		final String server = event.getServer().getInfo().getName();
@@ -89,19 +121,9 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			@Override
 			public void run() {
-				if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
-					if (cachedVotes.containsKey(server)) {
-						ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
-						if (!c.isEmpty()) {
-							for (OfflineBungeeVote cache : c) {
-								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
-										cache.getService(), "" + cache.getTime());
-							}
-							cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
-						}
-					}
-				}
+				checkCachedVotes(server);
 			}
+
 		}, 2, TimeUnit.SECONDS);
 	}
 
@@ -112,21 +134,32 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			@Override
 			public void run() {
-				if (event.getPlayer().isConnected() && cachedOnlineVotes.containsKey(uuid)) {
-					ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
-					if (!c.isEmpty()) {
-						for (OfflineBungeeVote cache : c) {
-							sendPluginMessageServer(
-									getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName(),
-									"VoteOnline", cache.getPlayerName(), cache.getUuid(), cache.getService(),
-									"" + cache.getTime());
-						}
-						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
-					}
-				}
+				checkOnlineVotes(event.getPlayer(), uuid);
 			}
 		}, 2, TimeUnit.SECONDS);
 
+	}
+
+	@Override
+	public void onDisable() {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+				String server = entry.getKey();
+				int num = 0;
+				for (OfflineBungeeVote voteData : entry.getValue()) {
+					voteCacheFile.addVote(server, num, voteData);
+					num++;
+				}
+			}
+			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+				String name = entry.getKey();
+				int num = 0;
+				for (OfflineBungeeVote voteData : entry.getValue()) {
+					voteCacheFile.addVoteOnline(name, num, voteData);
+					num++;
+				}
+			}
+		}
 	}
 
 	@Override
@@ -167,8 +200,54 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
+			voteCacheFile = new VoteCache(this);
+			voteCacheFile.load();
 
+			try {
+				for (String server : voteCacheFile.getServers()) {
+					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+					for (String num : voteCacheFile.getServerVotes(server)) {
+						Configuration data = voteCacheFile.getServerVotes(server, num);
+						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
+								data.getString("Service"), data.getLong("Time")));
+					}
+					cachedVotes.put(server, vote);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			try {
+				for (String player : voteCacheFile.getPlayers()) {
+					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+					for (String num : voteCacheFile.getServerVotes(player)) {
+						Configuration data = voteCacheFile.getOnlineVotes(player, num);
+						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
+								data.getString("Service"), data.getLong("Time")));
+					}
+					cachedOnlineVotes.put(player, vote);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			voteCacheFile.clearData();
+
+			getProxy().getScheduler().runAsync(this, new Runnable() {
+
+				@Override
+				public void run() {
+					for (String server : cachedVotes.keySet()) {
+						checkCachedVotes(server);
+					}
+
+					for (String player : cachedOnlineVotes.keySet()) {
+						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player);
+					}
+				}
+			});
+
+			this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
@@ -214,7 +293,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				}
 			}
 		}
-		
+
 		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
@@ -227,10 +306,15 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		Vote vote = event.getVote();
 		getLogger().info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
 
+		vote(vote.getUsername(), vote.getServiceName());
+
+	}
+
+	public void vote(String player, String service) {
 		if (method.equals(BungeeMethod.SOCKETS)) {
-			sendSocketVote(vote.getUsername(), vote.getServiceName());
+			sendSocketVote(player, service);
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			String uuid = getUUID(vote.getUsername());
+			String uuid = getUUID(player);
 			if (uuid.isEmpty()) {
 				// ping spigot server for uuid?
 				return;
@@ -241,7 +325,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			for (Column d : data) {
 				if (d.getName().equalsIgnoreCase("alltimetotal") || d.getName().equalsIgnoreCase("monthtotal")
 						|| d.getName().equalsIgnoreCase("weeklytotal") || d.getName().equalsIgnoreCase("dailytotal")
-						|| d.getName().equalsIgnoreCase("Points")) {
+						|| d.getName().equalsIgnoreCase("Points") || d.getName().equalsIgnoreCase("milestonecount")) {
 					Object value = d.getValue();
 					int num = 0;
 					if (value instanceof Integer) {
@@ -257,7 +341,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					}
 					mysql.update(uuid, d.getName(), num + 1, DataType.STRING);
 					if (config.getDebug()) {
-						getLogger().info("Debug: Setting " + d.getName() + " to " + num + 1);
+						getLogger().info("Debug: Setting " + d.getName() + " to " + (num + 1));
 					}
 				}
 			}
@@ -273,30 +357,33 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 							cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
 						}
 						ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-						list.add(new OfflineBungeeVote(vote.getUsername(), uuid, vote.getServiceName(), time));
+						list.add(new OfflineBungeeVote(player, uuid, service, time));
 						cachedVotes.put(s, list);
+						if (config.getDebug()) {
+							getLogger().info("Caching vote for " + player + " on " + service);
+						}
 					} else {
 						// send
-						sendPluginMessageServer(s, "Vote", vote.getUsername(), uuid, vote.getServiceName(), "" + time);
+						sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time, Boolean.TRUE.toString());
 					}
 				}
 			} else {
 				ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 				if (p.isConnected()) {
-					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", vote.getUsername(), uuid,
-							vote.getServiceName(), "" + time);
+					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
+							"" + time, Boolean.TRUE.toString());
 				} else {
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 					}
 					ArrayList<OfflineBungeeVote> list = cachedVotes.get(uuid);
-					list.add(new OfflineBungeeVote(vote.getUsername(), uuid, vote.getServiceName(), time));
+					list.add(new OfflineBungeeVote(player, uuid, service, time));
 					cachedOnlineVotes.put(uuid, list);
+					getLogger().info("Caching online vote for " + player + " on " + service);
 				}
 			}
 
 		}
-
 	}
 
 	public String getUUID(String playerName) {

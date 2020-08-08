@@ -22,6 +22,7 @@ import com.Ben12345rocks.AdvancedCore.TimeChecker.TimeChecker;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
+import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerReceivePointsEvent;
@@ -31,6 +32,7 @@ import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
+import com.Ben12345rocks.VotingPlugin.bungee.BungeeMethod;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -623,7 +625,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			});
 		}
 	}
-	
+
 	public void bungeeVote(String service) {
 		if (Config.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
@@ -666,6 +668,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * @return true if user got the first vote reward
 	 */
 	public boolean hasGottenFirstVote() {
+		if (Config.getInstance().isUseBungeecoord()
+				&& BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+			return getTotal(TopVoter.AllTime) > 1;
+		}
 		return getTotal(TopVoter.AllTime) != 0;
 	}
 

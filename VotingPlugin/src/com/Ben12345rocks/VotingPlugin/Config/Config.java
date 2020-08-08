@@ -159,6 +159,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "BungeeBroadcast")
 	@Getter
 	private boolean bungeeBroadcast = false;
+	
+	@ConfigDataBoolean(path = "BungeeBroadcastAlways")
+	@Getter
+	private boolean bungeeBroadcastAlways = false;
 
 	@ConfigDataBoolean(path = "BungeeDebug")
 	@Getter

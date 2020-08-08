@@ -48,7 +48,7 @@ public class BungeeHandler {
 
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			Main.plugin.registerBungeeChannels();
-			
+
 			PluginMessage.getInstance().add(new PluginMessageHandler("Vote") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -61,9 +61,18 @@ public class BungeeHandler {
 					user.clearCache();
 
 					user.bungeeVotePluginMessaging(service, time);
+
+					if (Boolean.valueOf(args.get(4)) || Config.getInstance().isBungeeBroadcastAlways()) {
+						VoteSite site = Main.plugin.getVoteSite(service);
+						if (site != null) {
+							site.broadcastVote(user, false);
+						} else {
+							Main.plugin.getLogger().warning("No votesite for " + service);
+						}
+					}
 				}
 			});
-			
+
 			PluginMessage.getInstance().add(new PluginMessageHandler("VoteOnline") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -76,6 +85,15 @@ public class BungeeHandler {
 					user.clearCache();
 
 					user.bungeeVotePluginMessaging(service, time);
+
+					if (Boolean.valueOf(args.get(4)) || Config.getInstance().isBungeeBroadcastAlways()) {
+						VoteSite site = Main.plugin.getVoteSite(service);
+						if (site != null) {
+							site.broadcastVote(user, false);
+						} else {
+							Main.plugin.getLogger().warning("No votesite for " + service);
+						}
+					}
 				}
 			});
 

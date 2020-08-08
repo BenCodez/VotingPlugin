@@ -24,12 +24,12 @@ public class VotingPluginBungeeCommand extends Command {
 					if (args.length >= 2) {
 						String user = args[1];
 						String site = args[2];
-						bungee.sendSocketVote(user, site);
+						bungee.vote(user, site);
 						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {
-					sender.sendMessage(new TextComponent("Checking status, waiting for response, check console"));
+					sender.sendMessage(new TextComponent("Checking status, waiting for response, check console, only for socket method"));
 					bungee.status(sender);
 				}
 				if (args[0].equalsIgnoreCase("help")) {
