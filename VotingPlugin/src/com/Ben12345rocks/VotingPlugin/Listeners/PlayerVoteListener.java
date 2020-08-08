@@ -133,7 +133,7 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// add to total votes
-			if (Config.getInstance().isCountFakeVotes() || event.isRealVote()) {
+			if ((Config.getInstance().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
 				if (Config.getInstance().isAddTotals()) {
 					user.addTotal();
 					user.addTotalDaily();

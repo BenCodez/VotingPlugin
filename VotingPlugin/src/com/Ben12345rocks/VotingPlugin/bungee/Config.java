@@ -59,6 +59,10 @@ public class Config {
 		return getData().getBoolean("SendToOnlineServer");
 	}
 
+	public String getBungeeMethod() {
+		return getData().getString("BungeeMethod", "SOCKETS");
+	}
+
 	public String getBungeeHost() {
 		return getData().getString("BungeeServer.Host", "");
 	}
@@ -78,7 +82,7 @@ public class Config {
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
-	
+
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
 	}

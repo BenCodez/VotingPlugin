@@ -309,6 +309,10 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "GUI.VoteTop.PlayerItem.Material")
 	@Getter
 	private String guiVoteTopPlayerItemMaterial = "PAPER";
+	
+	@ConfigDataString(path = "BungeeMethod")
+	@Getter
+	private String bungeeMethod = "SOCKETS";
 
 	@ConfigDataBoolean(path = "AllowVotePointTransfers")
 	@Getter

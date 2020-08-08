@@ -604,6 +604,26 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				.withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly)).setOnline(isOnline()).send(this);
 	}
 
+	public void bungeeVotePluginMessaging(String service, long time) {
+		if (Config.getInstance().isUseBungeecoord()) {
+			Main.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
+
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+					true);
+			voteEvent.setBungee(true);
+			voteEvent.setForceBungee(true);
+			voteEvent.setTime(time);
+			voteEvent.setAddTotals(false);
+			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
+			});
+		}
+	}
+	
 	public void bungeeVote(String service) {
 		if (Config.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);

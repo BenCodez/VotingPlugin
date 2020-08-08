@@ -11,6 +11,12 @@ BlockedServers:
 - hub
 FallBackServer: factions
 
+# What type of bungee setup
+# Available:
+# SOCKETS 
+# PLUGINMESSAGING (WIP, use with caution)
+BungeeMethod: SOCKETS
+
 # Bungee communication, Add this to each spigot server
 BungeeServer:
   Host: '127.0.0.1'

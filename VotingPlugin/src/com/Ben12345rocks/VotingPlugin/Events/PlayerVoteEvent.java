@@ -44,8 +44,12 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
+	private boolean addTotals = true;
+
+	@Getter
+	@Setter
 	private String serviceSite = "";
-	
+
 	@Getter
 	@Setter
 	private long time;
@@ -70,7 +74,7 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private boolean bungee = false;
-	
+
 	@Getter
 	@Setter
 	private boolean forceBungee = false;
