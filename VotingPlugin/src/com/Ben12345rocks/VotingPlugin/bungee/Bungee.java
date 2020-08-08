@@ -214,6 +214,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				}
 			}
 		}
+		
+		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
 	public void reload() {
