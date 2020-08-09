@@ -994,9 +994,6 @@ ExtraBackgroundUpdate: false
 # Plugin using bungee, requires plugin on bungee server
 UseBungeecoord: false
 
-# Get the plugin to broadcast to all servers
-BungeeBroadcast: false
-
 # For pluginmessaging method only
 # Whether to broadcast on cached votes
 BungeeBroadcastAlways: false
@@ -1008,10 +1005,6 @@ BungeeBroadcastAlways: false
 # PLUGINMESSAGING (WIP, use with caution)
 BungeeMethod: SOCKETS
 
-# What server this is in bungee (must match)
-# Also can be applied to rewards
-Server: PleaseSet
-
 # Enables more debug messages for communication between servers
 # Use /votingpluginbungee status for testing communication
 BungeeDebug: false
@@ -1019,6 +1012,13 @@ BungeeDebug: false
 # -------------
 # For socket setup below only
 # -------------
+
+# Get the plugin to broadcast to all servers
+BungeeBroadcast: false
+
+# What server this is in bungee (must match)
+# Also can be applied to rewards
+Server: PleaseSet
 
 # Bungee communication, add bungee host/port here
 BungeeServer:

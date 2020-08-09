@@ -1,10 +1,15 @@
 package com.Ben12345rocks.VotingPlugin.bungee;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -21,6 +26,9 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.vexsoftware.votifier.bungee.events.VotifierEvent;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -230,7 +238,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-			
+
 			voteCacheFile.clearData();
 
 			getProxy().getScheduler().runAsync(this, new Runnable() {
@@ -310,14 +318,35 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	}
 
+	public void debug(String msg) {
+		if (config.getDebug()) {
+			getLogger().info("Debug: " + msg);
+		}
+	}
+
 	public void vote(String player, String service) {
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendSocketVote(player, service);
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			String uuid = getUUID(player);
 			if (uuid.isEmpty()) {
-				// ping spigot server for uuid?
-				return;
+				UUID u = null;
+				try {
+					u = fetchUUID(player);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				if (u == null) {
+					debug("Failed to get uuid for " + player);
+					return;
+				}
+				uuid = u.toString();
+			}
+
+			player = getProperName(uuid, player);
+
+			if (!mysql.getUuids().contains(uuid)) {
+				mysql.update(uuid, "PlayerName", player, DataType.STRING);
 			}
 
 			// add totals here
@@ -340,9 +369,9 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 						}
 					}
 					mysql.update(uuid, d.getName(), num + 1, DataType.STRING);
-					if (config.getDebug()) {
-						getLogger().info("Debug: Setting " + d.getName() + " to " + (num + 1));
-					}
+
+					debug("Setting " + d.getName() + " to " + (num + 1));
+
 				}
 			}
 
@@ -350,21 +379,24 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			if (config.getSendVotesToAllServers()) {
 				for (String s : getProxy().getServers().keySet()) {
-					ServerInfo info = getProxy().getServerInfo(s);
-					if (info.getPlayers().isEmpty()) {
-						// cache
-						if (!cachedVotes.containsKey(s)) {
-							cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
+					if (!config.getBlockedServers().contains(s)) {
+						ServerInfo info = getProxy().getServerInfo(s);
+						if (info.getPlayers().isEmpty()) {
+							// cache
+							if (!cachedVotes.containsKey(s)) {
+								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
+							}
+							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
+							list.add(new OfflineBungeeVote(player, uuid, service, time));
+							cachedVotes.put(s, list);
+
+							debug("Caching vote for " + player + " on " + service);
+
+						} else {
+							// send
+							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
+									Boolean.TRUE.toString());
 						}
-						ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-						list.add(new OfflineBungeeVote(player, uuid, service, time));
-						cachedVotes.put(s, list);
-						if (config.getDebug()) {
-							getLogger().info("Caching vote for " + player + " on " + service);
-						}
-					} else {
-						// send
-						sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time, Boolean.TRUE.toString());
 					}
 				}
 			} else {
@@ -379,11 +411,60 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					ArrayList<OfflineBungeeVote> list = cachedVotes.get(uuid);
 					list.add(new OfflineBungeeVote(player, uuid, service, time));
 					cachedOnlineVotes.put(uuid, list);
-					getLogger().info("Caching online vote for " + player + " on " + service);
+					debug("Caching online vote for " + player + " on " + service);
 				}
 			}
 
 		}
+	}
+
+	public UUID fetchUUID(String playerName) throws Exception {
+		// Get response from Mojang API
+		URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + playerName);
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		connection.connect();
+
+		if (connection.getResponseCode() == 400) {
+			System.err.println("There is no player with the name \"" + playerName + "\"!");
+			return null;
+		}
+
+		InputStream inputStream = connection.getInputStream();
+		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+
+		// Parse JSON response and get UUID
+		JsonElement element = new JsonParser().parse(bufferedReader);
+		JsonObject object = element.getAsJsonObject();
+		String uuidAsString = object.get("id").getAsString();
+
+		// Return UUID
+		return parseUUIDFromString(uuidAsString);
+	}
+
+	private UUID parseUUIDFromString(String uuidAsString) {
+		String[] parts = { "0x" + uuidAsString.substring(0, 8), "0x" + uuidAsString.substring(8, 12),
+				"0x" + uuidAsString.substring(12, 16), "0x" + uuidAsString.substring(16, 20),
+				"0x" + uuidAsString.substring(20, 32) };
+
+		long mostSigBits = Long.decode(parts[0]).longValue();
+		mostSigBits <<= 16;
+		mostSigBits |= Long.decode(parts[1]).longValue();
+		mostSigBits <<= 16;
+		mostSigBits |= Long.decode(parts[2]).longValue();
+
+		long leastSigBits = Long.decode(parts[3]).longValue();
+		leastSigBits <<= 48;
+		leastSigBits |= Long.decode(parts[4]).longValue();
+
+		return new UUID(mostSigBits, leastSigBits);
+	}
+
+	public String getProperName(String uuid, String currentName) {
+		ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
+		if (p != null && p.isConnected()) {
+			return p.getName();
+		}
+		return currentName;
 	}
 
 	public String getUUID(String playerName) {
@@ -458,11 +539,9 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		debug("Sending plugin message " + server + " " + channel + " "
+				+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
 
-		if (config.getDebug()) {
-			getLogger().info("Sending plugin message " + server + " " + channel + " "
-					+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
-		}
 	}
 
 	public void status(CommandSender sender) {

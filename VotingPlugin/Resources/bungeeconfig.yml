@@ -1,37 +1,6 @@
 # Set bungeecoord to true on servers on the network (In VotingPlugin)
 # Set server name in each server related to what it is on bungee
 #
-# Have a reward on each server
-# If false, will send to online server only
-SendVotesToAllServers: true
-# Tell servers to broadcast
-Broadcast: true
-# List of servers the plugin won't send the vote to
-BlockedServers:
-- hub
-FallBackServer: factions
-
-# What type of bungee setup
-# Available:
-# SOCKETS 
-# PLUGINMESSAGING (WIP, use with caution)
-BungeeMethod: SOCKETS
-
-# Bungee communication, Add this to each spigot server
-BungeeServer:
-  Host: '127.0.0.1'
-  Port: 1297
-  
-# Bungee communication, add each spigot server here
-SpigotServers:
-  lobby:
-    Host: '127.0.0.1'
-    Port: 1298
-  factions:
-    Host: '127.0.0.1'
-    Port: 1999
-
-
 # MYSQL Required
 # MYSQL INFO --------------------------
 Host: ''
@@ -49,7 +18,40 @@ MaxSize: -1
 # Table name prefix, for use with mutliple servers
 Prefix: ''
 #UseSSL: true
-#########################################
-
 
 Debug: false
+# Have a reward on each server
+# If false, will send to online server only
+SendVotesToAllServers: true
+# List of servers the plugin won't send the vote to
+BlockedServers:
+- hub
+
+# What type of bungee setup
+# Requires restart and set on all servers
+# Available:
+# SOCKETS 
+# PLUGINMESSAGING (WIP, use with caution)
+BungeeMethod: SOCKETS
+
+# ----------------------------
+# SOCKET METHOD Only, ignore otherwise
+# ----------------------------
+FallBackServer: factions
+
+# Tell servers to broadcast
+Broadcast: true
+
+# Bungee communication, Add this to each spigot server
+BungeeServer:
+  Host: '127.0.0.1'
+  Port: 1297
+  
+# Bungee communication, add each spigot server here
+SpigotServers:
+  lobby:
+    Host: '127.0.0.1'
+    Port: 1298
+  factions:
+    Host: '127.0.0.1'
+    Port: 1999
