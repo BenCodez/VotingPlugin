@@ -32,6 +32,8 @@ BlockedServers:
 # Available:
 # SOCKETS 
 # PLUGINMESSAGING (WIP, use with caution)
+# MYSQL (Uses mysql to send votes across server, 
+#        only gives one reward for the entire network)
 BungeeMethod: SOCKETS
 
 # ----------------------------

@@ -2,12 +2,15 @@ package com.Ben12345rocks.VotingPlugin.Listeners;
 
 import java.util.ArrayList;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
+import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
+import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
@@ -17,6 +20,7 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
+import com.Ben12345rocks.VotingPlugin.bungee.BungeeMethod;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -148,6 +152,22 @@ public class PlayerVoteListener implements Listener {
 			SpecialRewards.getInstance().checkAllSites(user);
 			SpecialRewards.getInstance().checkCumualativeVotes(user);
 			SpecialRewards.getInstance().checkMilestone(user);
+
+			if (config.isUseBungeecoord()) {
+				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)) {
+					final String uuid = user.getUUID();
+					Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							if (Bukkit.getOnlinePlayers().size() > 0) {
+								PluginMessage.getInstance().sendPluginMessage(
+										PlayerUtils.getInstance().getRandomOnlinePlayer(), "VoteUpdate", uuid);
+							}
+						}
+					}, 40);
+				}
+			}
 		}
 
 		plugin.setUpdate(true);

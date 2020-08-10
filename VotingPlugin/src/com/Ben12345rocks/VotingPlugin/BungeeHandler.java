@@ -97,6 +97,19 @@ public class BungeeHandler {
 				}
 			});
 
+			PluginMessage.getInstance().add(new PluginMessageHandler("VoteUpdate") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					String player = args.get(0);
+					Main.plugin.debug("pluginmessaging voteupdate received for " + player);
+					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(player));
+					user.clearCache();
+
+					user.offVote();
+				}
+			});
+
+			
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(Main.plugin.getDataFolder(), "secretkey.key"));
 

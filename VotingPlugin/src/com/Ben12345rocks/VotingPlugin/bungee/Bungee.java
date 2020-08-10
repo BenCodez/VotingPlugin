@@ -207,7 +207,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+		if (method.equals(BungeeMethod.MYSQL)) {
+			this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
+
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
