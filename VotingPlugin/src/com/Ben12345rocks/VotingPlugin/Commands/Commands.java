@@ -769,6 +769,7 @@ public class Commands {
 				}
 			}
 		} else {
+			now = now.plusHours(-(long) voteSite.getTimeOffSet());
 			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
 				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
 						.plusHours((long) voteSite.getTimeOffSet());
@@ -922,7 +923,7 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public String[] voteURLs(User user,boolean json) {
+	public String[] voteURLs(User user, boolean json) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = config.getFormatCommandsVoteText();
