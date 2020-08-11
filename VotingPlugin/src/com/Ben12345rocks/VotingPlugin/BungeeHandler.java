@@ -106,6 +106,23 @@ public class BungeeHandler {
 					user.clearCache();
 
 					user.offVote();
+					
+					Main.plugin.setUpdate(true);
+				}
+			});
+			
+			PluginMessage.getInstance().add(new PluginMessageHandler("VoteBroadcast") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					String uuid = args.get(0);
+					String service = args.get(1);
+					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					VoteSite site = Main.plugin.getVoteSite(service);
+					if (site != null) {
+						site.broadcastVote(user, false);
+					} else {
+						Main.plugin.getLogger().warning("No votesite for " + service);
+					}
 				}
 			});
 

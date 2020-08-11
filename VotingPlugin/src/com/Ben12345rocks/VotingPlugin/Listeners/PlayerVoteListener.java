@@ -167,6 +167,20 @@ public class PlayerVoteListener implements Listener {
 						}
 					}, 40);
 				}
+				if (config.isBungeeBroadcast()) {
+					final String uuid = user.getUUID();
+					final String service = voteSite.getServiceSite();
+					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							if (Bukkit.getOnlinePlayers().size() > 0) {
+								PluginMessage.getInstance().sendPluginMessage(
+										PlayerUtils.getInstance().getRandomOnlinePlayer(), "VoteBroadcast", uuid, service);
+							}
+						}
+					});
+				}
 			}
 		}
 
