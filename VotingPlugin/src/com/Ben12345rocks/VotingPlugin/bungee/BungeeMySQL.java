@@ -147,9 +147,11 @@ public class BungeeMySQL {
 			String uuid = rs.getString("uuid");
 			if (uuid != null && !uuid.isEmpty()) {
 				sql.close();
+				conn.close();
 				return uuid;
 			}
 			sql.close();
+			conn.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} catch (ArrayIndexOutOfBoundsException e) {
@@ -198,11 +200,12 @@ public class BungeeMySQL {
 			while (rs.next()) {
 				if (rs.getString("uuid").equals(index)) {
 					sql.close();
+					conn.close();
 					return true;
 				}
 			}
 			sql.close();
-
+			conn.close();
 		} catch (SQLException ex) {
 			ex.printStackTrace();
 		}
@@ -240,9 +243,11 @@ public class BungeeMySQL {
 					columns.add(columnName);
 				}
 				sql.close();
+				conn.close();
 				return columns;
 			}
 			sql.close();
+			conn.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -252,7 +257,8 @@ public class BungeeMySQL {
 
 	public ArrayList<Column> getExactQuery(Column column) {
 		ArrayList<Column> result = new ArrayList<>();
-		String query = "SELECT * FROM " + getName() + " WHERE `" + column.getName() + "`=?" + ";";
+		String query = "SELECT * FROM " + getName() + " WHERE `" + column.getName() + "`='"
+				+ column.getValue().toString() + "';";
 
 		try {
 			ResultSet rs = null;
@@ -283,6 +289,7 @@ public class BungeeMySQL {
 				result.add(rCol);
 			}
 			sql.close();
+			conn.close();
 			return result;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -334,6 +341,7 @@ public class BungeeMySQL {
 				result.add(rCol);
 			}
 			sql.close();
+			conn.close();
 		} catch (SQLException e) {
 		}
 
@@ -361,6 +369,7 @@ public class BungeeMySQL {
 				result.add(rCol);
 			}
 			sql.close();
+			conn.close();
 		} catch (SQLException e) {
 			return null;
 		}
