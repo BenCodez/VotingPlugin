@@ -141,7 +141,8 @@ public class VoteSite {
 			if (checkBungee && Config.getInstance().isBungeeBroadcast()) {
 				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.SOCKETS)) {
 					BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
-				} else if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)) {
+				} else if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)
+						|| BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 					String uuid = user.getUUID();
 					String service = getServiceSite();
 
