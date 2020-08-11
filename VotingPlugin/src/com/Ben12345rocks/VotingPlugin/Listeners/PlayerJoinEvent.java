@@ -1,13 +1,16 @@
 package com.Ben12345rocks.VotingPlugin.Listeners;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import com.Ben12345rocks.AdvancedCore.Listeners.AdvancedCoreLoginEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -59,6 +62,21 @@ public class PlayerJoinEvent implements Listener {
 			// give offline vote (if they voted offline)
 			user.offVote();
 		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		if (Config.getInstance().isDisableAdvancedTab()) {
+			return;
+		}
+		final java.util.UUID uuid = event.getPlayer().getUniqueId();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				Main.plugin.getAdvancedTab().remove(uuid);
+			}
+		});
 
 	}
 }

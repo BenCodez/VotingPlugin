@@ -138,6 +138,9 @@ public class Main extends AdvancedCorePlugin {
 
 	private boolean votifierLoaded = true;
 
+	@Getter
+	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
+
 	/**
 	 * Check votifier.
 	 */

@@ -30,18 +30,24 @@ public class PlayerCommandSendListener implements Listener {
 			return;
 		}
 		ArrayList<String> removeCmds = new ArrayList<String>();
-		ArrayList<String> whiteListed = new ArrayList<String>();
-		for (String cmd : event.getCommands()) {
-			if (CommandLoader.getInstance().isVotingPluginCommand(event.getPlayer(), cmd)) {
-				if (!CommandLoader.getInstance().hasPermission(event.getPlayer(), cmd) && !whiteListed.contains(cmd)) {
-					removeCmds.add(cmd);
-					// plugin.debug("removed " + cmd);
-				} else {
-					removeCmds.remove(cmd);
-					whiteListed.add(cmd);
-					// plugin.debug("has " + cmd);
+		if (!Main.plugin.getAdvancedTab().containsKey(event.getPlayer().getUniqueId())) {
+			ArrayList<String> whiteListed = new ArrayList<String>();
+			for (String cmd : event.getCommands()) {
+				if (CommandLoader.getInstance().isVotingPluginCommand(event.getPlayer(), cmd)) {
+					if (!CommandLoader.getInstance().hasPermission(event.getPlayer(), cmd)
+							&& !whiteListed.contains(cmd)) {
+						removeCmds.add(cmd);
+						// plugin.debug("removed " + cmd);
+					} else {
+						removeCmds.remove(cmd);
+						whiteListed.add(cmd);
+						// plugin.debug("has " + cmd);
+					}
 				}
 			}
+			Main.plugin.getAdvancedTab().put(event.getPlayer().getUniqueId(), removeCmds);
+		} else {
+			removeCmds = Main.plugin.getAdvancedTab().get(event.getPlayer().getUniqueId());
 		}
 		event.getCommands().removeAll(removeCmds);
 	}
