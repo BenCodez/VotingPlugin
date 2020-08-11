@@ -769,7 +769,7 @@ public class Commands {
 				}
 			}
 		} else {
-			now = now.plusHours(-(long) voteSite.getTimeOffSet());
+			lastVote = lastVote.plusHours((long) voteSite.getTimeOffSet());
 			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
 				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
 						.plusHours((long) voteSite.getTimeOffSet());
