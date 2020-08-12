@@ -774,7 +774,7 @@ public class Commands {
 						.plusHours((long) voteSite.getTimeOffSet());
 				Duration dur = Duration.between(now, midnight);
 
-				if (now.isBefore(midnight)) {
+				if (lastVote.isBefore(midnight)) {
 					int diffHours = (int) (dur.getSeconds() / (60 * 60));
 					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
@@ -798,6 +798,8 @@ public class Commands {
 				} else {
 					info = config.getFormatCommandsVoteNextInfoCanVote();
 				}
+			} else {
+				info = config.getFormatCommandsVoteNextInfoCanVote();
 			}
 
 		}
