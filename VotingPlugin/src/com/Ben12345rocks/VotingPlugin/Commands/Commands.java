@@ -769,32 +769,35 @@ public class Commands {
 				}
 			}
 		} else {
-			LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-			Duration dur = Duration.between(now, midnight);
+			if (!lastVote.isBefore(now.minusDays(1))) {
+				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+						.plusHours((long) voteSite.getTimeOffSet());
+				Duration dur = Duration.between(now, midnight);
 
-			if (now.isBefore(midnight)) {
-				int diffHours = (int) (dur.getSeconds() / (60 * 60));
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+				if (now.isBefore(midnight)) {
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
-				if (diffHours < 0) {
-					diffHours = diffHours * -1;
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+
+				} else {
+					info = config.getFormatCommandsVoteNextInfoCanVote();
 				}
-				if (diffHours >= 24) {
-					diffHours = diffHours - 24;
-				}
-				if (diffMinutes < 0) {
-					diffMinutes = diffMinutes * -1;
-				}
-
-				String timeMsg = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-						Long.toString(diffMinutes));
-				info = timeMsg;
-
-			} else {
-				info = config.getFormatCommandsVoteNextInfoCanVote();
 			}
 
 		}
