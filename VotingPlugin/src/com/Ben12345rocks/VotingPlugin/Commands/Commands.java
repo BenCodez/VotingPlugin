@@ -769,14 +769,14 @@ public class Commands {
 				}
 			}
 		} else {
-			lastVote = lastVote.plusHours((long) voteSite.getTimeOffSet());
-			if (lastVote.getDayOfYear() == now.getDayOfYear() && lastVote.getYear() == now.getYear()) {
-				LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
-						.plusHours((long) voteSite.getTimeOffSet());
-				Duration dur = Duration.between(now, midnight);
+			LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			Duration dur = Duration.between(now, midnight);
 
-				int diffHours = (int) (dur.getSeconds() / (60 * 60));
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+			if (dur.isNegative()) {
+			int diffHours = (int) (dur.getSeconds() / (60 * 60));
+			long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+			
 
 				if (diffHours < 0) {
 					diffHours = diffHours * -1;
