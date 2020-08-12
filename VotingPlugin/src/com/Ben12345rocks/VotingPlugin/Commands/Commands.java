@@ -774,9 +774,8 @@ public class Commands {
 			Duration dur = Duration.between(now, midnight);
 
 			if (dur.isNegative()) {
-			int diffHours = (int) (dur.getSeconds() / (60 * 60));
-			long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-			
+				int diffHours = (int) (dur.getSeconds() / (60 * 60));
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
 				if (diffHours < 0) {
 					diffHours = diffHours * -1;
