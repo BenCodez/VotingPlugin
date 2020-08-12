@@ -773,7 +773,7 @@ public class Commands {
 					.plusHours((long) voteSite.getTimeOffSet());
 			Duration dur = Duration.between(now, midnight);
 
-			if (!dur.isNegative()) {
+			if (now.isBefore(midnight)) {
 				int diffHours = (int) (dur.getSeconds() / (60 * 60));
 				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
