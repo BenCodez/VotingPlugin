@@ -769,14 +769,16 @@ public class Commands {
 				}
 			}
 		} else {
-			LocalDateTime midnight = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0).withMinute(0)
 					.plusHours((long) voteSite.getTimeOffSet());
-			if (lastVote
-					.isAfter(now.minusDays(1).withHour(0).withMinute(0).plusHours((long) voteSite.getTimeOffSet()))) {
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
 
-				if (lastVote.isBefore(midnight)) {
-					Duration dur = Duration.between(now, midnight);
-
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
 					int diffHours = (int) (dur.getSeconds() / (60 * 60));
 					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
@@ -796,14 +798,35 @@ public class Commands {
 					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
 							Long.toString(diffMinutes));
 					info = timeMsg;
-
 				} else {
 					info = config.getFormatCommandsVoteNextInfoCanVote();
 				}
 			} else {
-				info = config.getFormatCommandsVoteNextInfoCanVote();
-			}
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
 
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = config.getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					info = config.getFormatCommandsVoteNextInfoCanVote();
+				}
+			}
 		}
 		return info;
 	}
