@@ -1002,22 +1002,21 @@ BungeeBroadcastAlways: false
 # Requires restart and set on all servers
 # https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
-# SOCKETS 
-# PLUGINMESSAGING (WIP, use with caution)
-# MYSQL (Uses mysql to send votes across server, 
-#        only gives one reward for the entire network)
+# SOCKETS
+# PLUGINMESSAGING
+# MYSQL
 BungeeMethod: SOCKETS
 
 # Enables more debug messages for communication between servers
 # Use /votingpluginbungee status for testing communication
 BungeeDebug: false
 
-# -------------
-# For socket setup below only
-# -------------
-
 # Get the plugin to broadcast to all servers
 BungeeBroadcast: false
+
+# -----------------------------
+# For socket setup below only
+# -----------------------------
 
 # What server this is in bungee (must match)
 # Also can be applied to rewards

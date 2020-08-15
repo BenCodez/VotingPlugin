@@ -138,7 +138,7 @@ public class VoteSite {
 	 */
 	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
-			if (checkBungee && Config.getInstance().isBungeeBroadcast()) {
+			if (checkBungee && Config.getInstance().isBungeeBroadcast() && Config.getInstance().isUseBungeecoord()) {
 				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.SOCKETS)) {
 					BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
 				} else if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)

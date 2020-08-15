@@ -1,7 +1,7 @@
 # Set bungeecoord to true on servers on the network (In VotingPlugin)
 # Set server name in each server related to what it is on bungee
 #
-# MYSQL Required
+# MYSQL Required on all setups
 # MYSQL INFO --------------------------
 Host: ''
 # Default port is 3306
@@ -24,6 +24,7 @@ Debug: false
 # If false, will send to online server only
 SendVotesToAllServers: true
 # List of servers the plugin won't send the vote to
+# Uses names from bungeecoord config if not using SOCKETS method
 BlockedServers:
 - hub
 
@@ -32,9 +33,8 @@ BlockedServers:
 # https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # SOCKETS 
-# PLUGINMESSAGING (WIP, use with caution)
-# MYSQL (Uses mysql to send votes across server, 
-#        only gives one reward for the entire network)
+# PLUGINMESSAGING 
+# MYSQL
 BungeeMethod: SOCKETS
 
 # ----------------------------
