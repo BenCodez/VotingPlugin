@@ -1000,6 +1000,7 @@ BungeeBroadcastAlways: false
 
 # What type of bungee setup
 # Requires restart and set on all servers
+# https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # SOCKETS 
 # PLUGINMESSAGING (WIP, use with caution)
@@ -1031,8 +1032,6 @@ BungeeServer:
 SpigotServer:
   Host: '127.0.0.1'
   Port: 1298
-
-
 
 # ---------------------------------------------------------
 # Mysql cache options 

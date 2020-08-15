@@ -42,9 +42,11 @@ public class BungeeHandler {
 	}
 
 	public void load() {
-		Main.plugin.debug("Loading bungee handles");
+		Main.plugin.debug("Loading bungee handler");
 
 		method = BungeeMethod.getByName(Config.getInstance().getBungeeMethod());
+
+		Main.plugin.getLogger().info("Using BungeeMethod: " + method.toString());
 
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			Main.plugin.registerBungeeChannels();
@@ -106,11 +108,11 @@ public class BungeeHandler {
 					user.clearCache();
 
 					user.offVote();
-					
+
 					Main.plugin.setUpdate(true);
 				}
 			});
-			
+
 			PluginMessage.getInstance().add(new PluginMessageHandler("VoteBroadcast") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -126,7 +128,6 @@ public class BungeeHandler {
 				}
 			});
 
-			
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(Main.plugin.getDataFolder(), "secretkey.key"));
 
