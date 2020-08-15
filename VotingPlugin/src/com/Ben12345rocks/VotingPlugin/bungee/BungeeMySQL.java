@@ -273,20 +273,21 @@ public class BungeeMySQL {
 			 * sql.setParameter(1, column.getValue().toString());
 			 * ResultSet rs = sql.executeQuery();
 			 */
-			rs.next();
-			for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
-				String columnName = rs.getMetaData().getColumnLabel(i);
-				Column rCol = null;
-				if (intColumns.contains(columnName)) {
-					rCol = new Column(columnName, DataType.INTEGER);
-				} else {
-					rCol = new Column(columnName, DataType.STRING);
+			if (rs.next()) {
+				for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
+					String columnName = rs.getMetaData().getColumnLabel(i);
+					Column rCol = null;
+					if (intColumns.contains(columnName)) {
+						rCol = new Column(columnName, DataType.INTEGER);
+					} else {
+						rCol = new Column(columnName, DataType.STRING);
+					}
+					// System.out.println(i + " " +
+					// rs.getMetaData().getColumnLabel(i));
+					rCol.setValue(rs.getString(i));
+					// System.out.println(rCol.getValue());
+					result.add(rCol);
 				}
-				// System.out.println(i + " " +
-				// rs.getMetaData().getColumnLabel(i));
-				rCol.setValue(rs.getString(i));
-				// System.out.println(rCol.getValue());
-				result.add(rCol);
 			}
 			sql.close();
 			conn.close();
