@@ -152,7 +152,7 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean autoCreateVoteSites = true;
 
-	@ConfigDataBoolean(path = "UseBungeecoord")
+	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
 	@Getter
 	private boolean useBungeecoord = false;
 
