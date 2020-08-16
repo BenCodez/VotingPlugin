@@ -265,7 +265,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
 				if (user.canVoteAny()) {
-					return "Can Vote";
+					return Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
 				}
 				HashMap<VoteSite, Long> times = user.getLastVotes();
 				long biggest = -1;
