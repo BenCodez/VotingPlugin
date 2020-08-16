@@ -37,7 +37,6 @@ import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.event.PluginMessageEvent;
-import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
@@ -126,27 +125,16 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	@EventHandler
 	public void onServerConnected(ServerConnectedEvent event) {
 		final String server = event.getServer().getInfo().getName();
-		getProxy().getScheduler().schedule(this, new Runnable() {
-
-			@Override
-			public void run() {
-				checkCachedVotes(server);
-			}
-
-		}, 2, TimeUnit.SECONDS);
-	}
-
-	@EventHandler
-	public void onPlayerJoin(PostLoginEvent event) {
 		final String uuid = event.getPlayer().getUniqueId().toString();
 		getProxy().getScheduler().schedule(this, new Runnable() {
 
 			@Override
 			public void run() {
+				checkCachedVotes(server);
 				checkOnlineVotes(event.getPlayer(), uuid);
 			}
-		}, 2, TimeUnit.SECONDS);
 
+		}, 2, TimeUnit.SECONDS);
 	}
 
 	@Override
