@@ -405,7 +405,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				}
 			} else {
 				ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-				if (p.isConnected()) {
+				if (p != null && p.isConnected()) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 							"" + time, Boolean.TRUE.toString());
 				} else {
