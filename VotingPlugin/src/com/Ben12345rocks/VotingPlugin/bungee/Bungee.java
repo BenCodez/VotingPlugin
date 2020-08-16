@@ -400,7 +400,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 					}
-					ArrayList<OfflineBungeeVote> list = cachedVotes.get(uuid);
+					ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
+					if (list == null) {
+						list = new ArrayList<OfflineBungeeVote>();
+					}
 					list.add(new OfflineBungeeVote(player, uuid, service, time));
 					cachedOnlineVotes.put(uuid, list);
 					debug("Caching online vote for " + player + " on " + service);
