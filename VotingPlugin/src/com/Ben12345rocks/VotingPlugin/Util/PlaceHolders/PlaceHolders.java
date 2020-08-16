@@ -2,6 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Util.PlaceHolders;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map.Entry;
 
@@ -258,6 +259,29 @@ public class PlaceHolders {
 				return Boolean.toString(user.canVoteAll());
 			}
 		}.withDescription("Return true/false if player can vote on all sites"));
+
+		placeholders.add(new PlaceHolder<User>("Next_AnySite") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				HashMap<VoteSite, Long> times = user.getLastVotes();
+				long biggest = -1;
+				for (Long time : times.values()) {
+					if (time.longValue() > biggest) {
+						biggest = time.longValue();
+					}
+				}
+				for (Entry<VoteSite, Long> entry : times.entrySet()) {
+					if (entry.getValue().equals(biggest)) {
+						Commands.getInstance().voteCommandNextInfo(user, entry.getKey());
+					}
+				}
+				for (VoteSite site : times.keySet()) {
+					return Commands.getInstance().voteCommandNextInfo(user, site);
+				}
+				return "No votesites";
+			}
+		}.withDescription("How long until user can vote on anysite"));
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			placeholders.add(new PlaceHolder<User>("Next_" + voteSite.getKey()) {
