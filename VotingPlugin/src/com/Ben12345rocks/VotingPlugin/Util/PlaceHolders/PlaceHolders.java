@@ -273,7 +273,7 @@ public class PlaceHolders {
 				}
 				for (Entry<VoteSite, Long> entry : times.entrySet()) {
 					if (entry.getValue().equals(biggest)) {
-						Commands.getInstance().voteCommandNextInfo(user, entry.getKey());
+						return Commands.getInstance().voteCommandNextInfo(user, entry.getKey());
 					}
 				}
 				for (VoteSite site : times.keySet()) {
