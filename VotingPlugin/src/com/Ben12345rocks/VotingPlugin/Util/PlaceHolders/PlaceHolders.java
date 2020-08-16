@@ -264,6 +264,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				if (user.canVoteAny()) {
+					return "Can Vote";
+				}
 				HashMap<VoteSite, Long> times = user.getLastVotes();
 				long biggest = -1;
 				for (Long time : times.values()) {
@@ -279,6 +282,7 @@ public class PlaceHolders {
 				for (VoteSite site : times.keySet()) {
 					return Commands.getInstance().voteCommandNextInfo(user, site);
 				}
+
 				return "No votesites";
 			}
 		}.withDescription("How long until user can vote on anysite"));
