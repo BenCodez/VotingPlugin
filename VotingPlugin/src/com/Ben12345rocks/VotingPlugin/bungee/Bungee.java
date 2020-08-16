@@ -57,6 +57,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	private EncryptionHandler encryptionHandler;
 
+	@Getter
 	private BungeeMethod method;
 
 	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();

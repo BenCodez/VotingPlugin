@@ -143,12 +143,13 @@ public class BungeeMySQL {
 			 * Query sql = new Query(mysql, query);
 			 * ResultSet rs = sql.executeQuery();
 			 */
-			rs.next();
-			String uuid = rs.getString("uuid");
-			if (uuid != null && !uuid.isEmpty()) {
-				sql.close();
-				conn.close();
-				return uuid;
+			if (rs.next()) {
+				String uuid = rs.getString("uuid");
+				if (uuid != null && !uuid.isEmpty()) {
+					sql.close();
+					conn.close();
+					return uuid;
+				}
 			}
 			sql.close();
 			conn.close();
