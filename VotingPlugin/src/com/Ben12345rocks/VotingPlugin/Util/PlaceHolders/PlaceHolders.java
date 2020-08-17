@@ -275,7 +275,7 @@ public class PlaceHolders {
 					}
 				}
 				for (Entry<VoteSite, Long> entry : times.entrySet()) {
-					if (entry.getValue().equals(biggest)) {
+					if (entry.getValue().longValue() == biggest) {
 						return Commands.getInstance().voteCommandNextInfo(user, entry.getKey());
 					}
 				}
