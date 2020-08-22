@@ -174,6 +174,7 @@ public class PlayerGUIs {
 
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("points", "" + user.getPoints());
+			placeholders.put("player", user.getPlayerName());
 
 			builder.setPlaceholders(placeholders);
 			builder.setLore(ArrayUtils.getInstance().convert(lore));
