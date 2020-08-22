@@ -267,23 +267,25 @@ public class PlaceHolders {
 				if (user.canVoteAny()) {
 					return Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
 				}
-				HashMap<VoteSite, Long> times = user.getLastVotes();
-				long biggest = -1;
-				for (Long time : times.values()) {
-					if (time.longValue() > biggest) {
-						biggest = time.longValue();
+				long smallest = -1;
+				HashMap<Long, VoteSite> times = new HashMap<Long, VoteSite>();
+				for (VoteSite site : plugin.getVoteSites()) {
+					long t = Commands.getInstance().voteNextDurationTime(user, site);
+					if (smallest == -1) {
+						smallest = t;
 					}
-				}
-				for (Entry<VoteSite, Long> entry : times.entrySet()) {
-					if (entry.getValue().longValue() == biggest) {
-						return Commands.getInstance().voteCommandNextInfo(user, entry.getKey());
+					if (t < smallest) {
+						smallest = t;
 					}
+					times.put(t, site);
 				}
-				for (VoteSite site : times.keySet()) {
-					return Commands.getInstance().voteCommandNextInfo(user, site);
+				for (Entry<Long,VoteSite> entry : times.entrySet()) {
+					if (entry.getKey().longValue() == smallest) {
+						return Commands.getInstance().voteCommandNextInfo(user, entry.getValue());
+					}
 				}
 
-				return "No votesites";
+				return "Error";
 			}
 		}.withDescription("How long until user can vote on anysite"));
 

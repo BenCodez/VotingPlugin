@@ -723,6 +723,54 @@ public class Commands {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
+	public long voteNextDurationTime(User user, VoteSite voteSite) {
+		long time = user.getTime(voteSite);
+		LocalDateTime now = TimeChecker.getInstance().getTime();
+		;
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
+
+		if (!voteSite.isVoteDelayDaily()) {
+			double votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
+				return 0;
+			} else {
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
+
+				if (time == 0 || now.isAfter(nextvote)) {
+					return 0;
+				} else {
+					Duration dur = Duration.between(now, nextvote);
+					return dur.getSeconds();
+				}
+			}
+		} else {
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			} else {
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			}
+		}
+	}
+
 	/**
 	 * Vote command next info.
 	 *
@@ -769,12 +817,12 @@ public class Commands {
 				}
 			}
 		} else {
-			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
 			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
 					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
 
 			if (!now.isBefore(offsetoclocktoday)) {
 				if (!lastVote.isBefore(offsetoclocktoday)) {
