@@ -272,7 +272,7 @@ public class PlayerGUIs {
 
 	public void openVoteShop(Player player) {
 		if (!Config.getInstance().getVoteShopEnabled()) {
-			player.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
+			player.sendMessage(StringParser.getInstance().colorize(Config.getInstance().getVoteShopDisabled()));
 			return;
 		}
 

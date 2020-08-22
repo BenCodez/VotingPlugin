@@ -140,6 +140,10 @@ public class Config extends YMLFile {
 
 	@Getter
 	private String allSitesRewardPath = "AllSites";
+	
+	@Getter
+	@ConfigDataString(path = "VoteShopDisabled")
+	private String voteShopDisabled = "&cVote shop disabled";
 
 	@ConfigDataBoolean(path = "AlternateUUIDLookup")
 	@Getter
