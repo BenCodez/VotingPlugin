@@ -145,6 +145,7 @@ public class PlayerGUIs {
 
 			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
 
+			String str = Config.getInstance().getVoteTopDefault();
 			if (lore.length == 0) {
 				if (slot.equalsIgnoreCase("url")) {
 					lore = new String[] { "&aClick me" };
@@ -155,7 +156,7 @@ public class PlayerGUIs {
 				} else if (slot.equalsIgnoreCase("total")) {
 					lore = Commands.getInstance().voteCommandTotal(user);
 				} else if (slot.equalsIgnoreCase("top")) {
-					String str = Config.getInstance().getVoteTopDefault();
+
 					if (str.equalsIgnoreCase("monthly")) {
 						lore = TopVoterHandler.getInstance().topVoterMonthly(1);
 					} else if (str.equalsIgnoreCase("weekly")) {
@@ -175,6 +176,7 @@ public class PlayerGUIs {
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("points", "" + user.getPoints());
 			placeholders.put("player", user.getPlayerName());
+			placeholders.put("top", str);
 
 			builder.setPlaceholders(placeholders);
 			builder.setLore(ArrayUtils.getInstance().convert(lore));
