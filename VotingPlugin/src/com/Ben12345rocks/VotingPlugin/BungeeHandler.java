@@ -11,6 +11,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -72,6 +73,11 @@ public class BungeeHandler {
 							Main.plugin.getLogger().warning("No votesite for " + service);
 						}
 					}
+
+					if (args.size() > 4 && Boolean.valueOf(args.get(5))) {
+						ServerData.getInstance().addServiceSite(service);
+					}
+
 				}
 			});
 
@@ -95,6 +101,10 @@ public class BungeeHandler {
 						} else {
 							Main.plugin.getLogger().warning("No votesite for " + service);
 						}
+					}
+					
+					if (args.size() > 4 && Boolean.valueOf(args.get(5))) {
+						ServerData.getInstance().addServiceSite(service);
 					}
 				}
 			});

@@ -78,6 +78,7 @@ public class VoteCache {
 		section.set("Service", voteData.getService());
 		section.set("UUID", voteData.getUuid());
 		section.set("Time", voteData.getTime());
+		section.set("Real", voteData.isRealVote());
 		save();
 	}
 
@@ -87,6 +88,7 @@ public class VoteCache {
 		section.set("Service", voteData.getService());
 		section.set("UUID", voteData.getUuid());
 		section.set("Time", voteData.getTime());
+		section.set("Real", voteData.isRealVote());
 		save();
 	}
 
