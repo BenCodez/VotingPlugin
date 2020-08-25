@@ -48,6 +48,9 @@ public class VoteSite {
 		if (!Config.getInstance().isFormatCommandsVoteForceLinks() || !json) {
 			return voteURL;
 		} else {
+			if (!voteURL.startsWith("http")) {
+				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
+			}
 			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
 		}
 	}
