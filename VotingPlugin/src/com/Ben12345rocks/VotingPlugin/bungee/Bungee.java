@@ -192,6 +192,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 

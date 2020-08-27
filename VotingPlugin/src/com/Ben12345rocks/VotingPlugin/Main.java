@@ -875,6 +875,7 @@ public class Main extends AdvancedCorePlugin {
 			getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
 		}
 
 		// Add rewards
