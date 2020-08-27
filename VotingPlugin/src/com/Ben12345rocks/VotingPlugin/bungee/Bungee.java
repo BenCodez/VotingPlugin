@@ -384,7 +384,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote));
 							cachedVotes.put(s, list);
 
-							debug("Caching vote for " + player + " on " + service);
+							debug("Caching vote for " + player + " on " + service + " for " + s);
 
 						} else {
 							// send
