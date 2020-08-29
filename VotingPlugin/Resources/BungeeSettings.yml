@@ -18,7 +18,7 @@ BungeeBroadcastAlways: false
 # SOCKETS
 # PLUGINMESSAGING
 # MYSQL
-BungeeMethod: SOCKETS
+BungeeMethod: PLUGINMESSAGING
 
 # Enables more debug messages for communication between servers
 # Use /votingpluginbungee status for testing communication

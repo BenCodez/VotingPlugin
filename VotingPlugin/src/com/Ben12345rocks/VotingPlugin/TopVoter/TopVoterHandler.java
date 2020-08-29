@@ -656,26 +656,29 @@ public class TopVoterHandler implements Listener {
 		plugin.debug("Number of users to check top voter: " + users.size());
 
 		for (TopVoter top : TopVoter.values()) {
-			plugin.getTopVoter(top).clear();
 			if (Config.getInstance().getLoadTopVoter(top)) {
+				LinkedHashMap<User, Integer> map = new LinkedHashMap<User, Integer>();
+
 				for (User user : users) {
 					int total = user.getTotal(top);
 					if (total > 0) {
-						plugin.getTopVoter(top).put(user, total);
+						map.put(user, total);
 					}
 				}
-				plugin.getTopVoter().put(top, sortByValues(plugin.getTopVoter(top), false));
 
+				map = sortByValues(map, false);
 				int limitSize = Config.getInstance().getMaxiumNumberOfTopVotersToLoad();
 				if (limitSize > 0) {
-					ArrayList<User> listKeys = new ArrayList<User>(plugin.getTopVoter(top).keySet());
+					ArrayList<User> listKeys = new ArrayList<User>(map.keySet());
 					if (listKeys.size() > limitSize) {
-						for (int i = listKeys.size() - 1; i >= 0 && i > limitSize; i--) {
-							plugin.getTopVoter(top).remove(listKeys.get(i));
+						for (int i = listKeys.size() - 1; i >= 0 && i >= limitSize; i--) {
+							map.remove(listKeys.get(i));
 						}
 					}
 
 				}
+				plugin.getTopVoter(top).clear();
+				plugin.getTopVoter().put(top, map);
 				plugin.debug(top.toString() + " TopVoter loaded");
 			}
 		}
