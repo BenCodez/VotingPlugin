@@ -65,12 +65,14 @@ public class BungeeHandler {
 
 					user.bungeeVotePluginMessaging(service, time);
 
-					if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
-						VoteSite site = Main.plugin.getVoteSite(service);
-						if (site != null) {
-							site.broadcastVote(user, false);
-						} else {
-							Main.plugin.getLogger().warning("No votesite for " + service);
+					if (!BungeeSettings.getInstance().isBungeeBroadcast()) {
+						if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
+							VoteSite site = Main.plugin.getVoteSite(service);
+							if (site != null) {
+								site.broadcastVote(user, false);
+							} else {
+								Main.plugin.getLogger().warning("No votesite for " + service);
+							}
 						}
 					}
 
@@ -94,12 +96,14 @@ public class BungeeHandler {
 
 					user.bungeeVotePluginMessaging(service, time);
 
-					if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
-						VoteSite site = Main.plugin.getVoteSite(service);
-						if (site != null) {
-							site.broadcastVote(user, false);
-						} else {
-							Main.plugin.getLogger().warning("No votesite for " + service);
+					if (!BungeeSettings.getInstance().isBungeeBroadcast()) {
+						if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
+							VoteSite site = Main.plugin.getVoteSite(service);
+							if (site != null) {
+								site.broadcastVote(user, false);
+							} else {
+								Main.plugin.getLogger().warning("No votesite for " + service);
+							}
 						}
 					}
 
