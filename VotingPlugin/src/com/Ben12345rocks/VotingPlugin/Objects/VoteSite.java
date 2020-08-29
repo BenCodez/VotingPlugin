@@ -18,6 +18,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
 import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -141,7 +142,8 @@ public class VoteSite {
 	 */
 	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
-			if (checkBungee && Config.getInstance().isBungeeBroadcast() && Config.getInstance().isUseBungeecoord()) {
+			if (checkBungee && BungeeSettings.getInstance().isBungeeBroadcast()
+					&& BungeeSettings.getInstance().isUseBungeecoord()) {
 				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.SOCKETS)) {
 					BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
 				} else if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)

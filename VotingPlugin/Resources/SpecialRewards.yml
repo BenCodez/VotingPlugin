@@ -1,0 +1,176 @@
+# To disable reward set value to []
+# or remove entirely
+# Eg:
+# FirstVote: [] (All in one line)
+# Rewards will be given if there is a reward to give
+
+# First vote rewards
+FirstVote: 
+  Messages:
+    Player: '&aYou voted for your first time!'
+
+# All vote rewards
+# Reward for voting on all sites in one day
+AllSites: 
+  Messages:
+    Player: '&aYou voted on all sites in 1 day!'
+
+Cumulative:
+  # Number of votes required
+  # Allows multiple cumulative rewards
+  # Number be be around ' (E.g. '1')
+  # Can have multiple listed here
+  '20':
+    Enabled: false
+    # Wether or not votes must be made in same day/week
+    # Useful if you want to require a certain number of voting sites to be voted on
+    # for a daily/weekly reward instead of all of them
+    VotesInSameDay: false
+    VotesInSameWeek: false
+    VotesInSameMonth: false
+    Rewards: 
+      Messages:
+        Player: '&aYou got %cumulative% cumulative votes!'
+
+# Vote party configuration
+VoteParty:
+  # Wether or not vote party is enabled
+  Enabled: false
+  # Number of votes required to give rewards
+  VotesRequired: 20
+  # Increase the amount of votes required on each vote party reached
+  #IncreaseVotesRquired: 10
+  # If true, players who did not vote to reach the votes required will 
+  # recieve the reward
+  GiveAllPlayers: false
+  # If true, the vote count will reset each day
+  ResetEachDay: false
+  # Reset at the end of the month
+  ResetMonthly: false
+  # Reset extra votes
+  ResetExtraVotesMonthly: false
+  # Count votes from /av vote?
+  CountFakeVotes: true
+  # Number of user votes that apply to vote party total the user needs to get rewards
+  UserVotesRequired: 0
+  # Broadcast when vote party reached
+  Broadcast: '&cReached the vote party amount!'
+  # List of commands to execute, these only execute once.
+  # %player% does not work here
+  Commands: []
+  # Rewards to give per player
+  Rewards: 
+    Commands:
+    - say %player%
+    Items:
+      DIAMOND:
+        Material: 'DIAMOND'
+        Amount: 1
+  
+# Reset milestones at end of the month
+ResetMilestonesMonthly: false
+  
+MileStones:
+  # Number of votes required
+  # Allows multiple milestones
+  # Number be around ' (E.g. '1')
+  # Can have multiple listed here
+  '20':
+    Enabled: false
+    Rewards: 
+      Messages:
+        Player: '&aYou got %milestone% milestone votes!'
+   
+VoteStreak:
+  # Valid options: Day, Week, Month
+  Day:
+    # Number of days in a row
+    # Each day requires one vote
+    # Add a - to give a reward for every multiple (e.g. 2- = 2,4,6,8, and so on)
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Week:
+    # Number of weeks in a row
+    # Requires atleast one vote per week
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Month:
+    # Number of months in a row
+    # Requires atleast 1 vote per month
+    '2':
+      # Enabled or not
+      Enabled: false
+      # Rewards to give
+      Rewards:
+        Messages:
+          Player: "&aYou voted for %Streak% %Type%'s in a row!"
+  Requirement:
+    # Require certain percentage of votes
+    UsePercentage: false
+    # Percentage requirements of votes
+    # 50 = %50
+    Day: 50
+    Week: 50
+    Month: 50
+    
+# Reward given when vote cooldown ended
+VoteCoolDownEndedReward: []
+
+# ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS
+# IT WILL ONLY RUN ONE TIME FOR ANY NUMBER OF OFFLINE VOTES (3 offline votes = 1 AnySiteReward)
+# Any reward files listed here are ran on vote of any site
+# It is recommended to add rewards to each site instead of here
+# Using forceoffline won't work here
+# Use EverySiteReward in VoteSites.yml for a global reward for each site
+AnySiteRewards: []
+
+EnableMonthlyAwards: true
+# Rewards to give
+MonthlyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  # Using 1-10 will reward players in first to tenth place with the same reward
+  1:
+    Rewards:
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
+  2:
+    Rewards:
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
+    
+EnableWeeklyAwards: false
+# Rewards to give on weekly top voter
+WeeklyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  1:
+    Rewards:
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
+  2:
+    Rewards:
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'
+    
+EnableDailyRewards: false
+# Rewards to give on daily top voter
+DailyAwards:
+  # Position. 1 is first in top voter, 2 is second, etc...
+  1:
+    # Reward files to give
+    Rewards:
+      Messages:
+        Player: '&aYou came in first place in %TopVoter%!'
+  2:
+    Rewards:
+      Messages:
+        Player: '&aYou came in second place in %TopVoter%!'

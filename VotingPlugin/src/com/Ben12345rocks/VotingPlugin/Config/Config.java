@@ -10,7 +10,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataConfigurationSection;
-import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataDouble;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataListString;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
@@ -139,9 +138,6 @@ public class Config extends YMLFile {
 	private boolean alterColumns = true;
 
 	@Getter
-	private String allSitesRewardPath = "AllSites";
-	
-	@Getter
 	@ConfigDataString(path = "VoteShopDisabled")
 	private String voteShopDisabled = "&cVote shop disabled";
 
@@ -149,28 +145,9 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alternateUUIDLookup = false;
 
-	@Getter
-	private String anySiteRewardsPath = "AnySiteRewards";
-
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
-
-	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
-	@Getter
-	private boolean useBungeecoord = false;
-
-	@ConfigDataBoolean(path = "BungeeBroadcast")
-	@Getter
-	private boolean bungeeBroadcast = false;
-	
-	@ConfigDataBoolean(path = "BungeeBroadcastAlways")
-	@Getter
-	private boolean bungeeBroadcastAlways = false;
-
-	@ConfigDataBoolean(path = "BungeeDebug")
-	@Getter
-	private boolean bungeeDebug = false;
 
 	@ConfigDataBoolean(path = "GUI.VoteURL.AllUrlsButton.RequireAllSitesVoted")
 	@Getter
@@ -236,10 +213,6 @@ public class Config extends YMLFile {
 	@Getter
 	private int convertAmount = 250;
 
-	@ConfigDataBoolean(path = "EnableDailyRewards")
-	@Getter
-	private boolean enableDailyRewards = false;
-
 	@ConfigDataBoolean(path = "DisableUpdateChecking")
 	@Getter
 	private boolean disableUpdateChecking = false;
@@ -248,6 +221,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int delayBetweenUpdates = 3;
 
+	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
+	@Getter
+	private int MaxiumNumberOfTopVotersToLoad = -1;
+
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
@@ -255,10 +232,6 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "DisabledDefaultPermissions")
 	@Getter
 	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
-
-	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
-	@Getter
-	private boolean votePartyResetExtraVotesMonthly = false;
 
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
@@ -272,39 +245,9 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean formatCommandsVoteForceLinks = true;
 
-	@Getter
-	private String firstVoteRewardsPath = "FirstVote";
-
 	@ConfigDataBoolean(path = "LogVotesToFile")
 	@Getter
 	private boolean logVotesToFile = false;
-
-	@ConfigDataBoolean(path = "EnableMonthlyAwards")
-	@Getter
-	private boolean enableMonthlyAwards = false;
-
-	@Getter
-	private String votePartyRewardsPath = "VoteParty.Rewards";
-
-	@ConfigDataBoolean(path = "EnableWeeklyAwards")
-	@Getter
-	private boolean enableWeeklyAwards = false;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Day")
-	@Getter
-	private double voteStreakRequirementDay = 50;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
-	@Getter
-	private double voteStreakRequirementWeek = 50;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Month")
-	@Getter
-	private double voteStreakRequirementMonth = 50;
-
-	@ConfigDataBoolean(path = "VoteStreak.Requirement.UsePercentage")
-	@Getter
-	private boolean voteStreakRequirementUsePercentage = false;
 
 	@ConfigDataBoolean(path = "LoadCommandAliases")
 	@Getter
@@ -317,10 +260,6 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "GUI.VoteTop.PlayerItem.Material")
 	@Getter
 	private String guiVoteTopPlayerItemMaterial = "PAPER";
-	
-	@ConfigDataString(path = "BungeeMethod")
-	@Getter
-	private String bungeeMethod = "SOCKETS";
 
 	@ConfigDataBoolean(path = "AllowVotePointTransfers")
 	@Getter
@@ -380,6 +319,11 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
 	private boolean useJavascriptPlaceholders = true;
+	
+	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
+	@Getter
+	@Deprecated
+	private boolean useBungeecoord = false;
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
@@ -388,22 +332,6 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
-
-	@ConfigDataString(path = "BungeeServer.Host")
-	@Getter
-	private String bungeeServerHost = "";
-
-	@ConfigDataString(path = "SpigotServer.Host")
-	@Getter
-	private String spigotServerHost = "";
-
-	@ConfigDataInt(path = "BungeeServer.Port")
-	@Getter
-	private int bungeeServerPort = 1297;
-
-	@ConfigDataInt(path = "SpigotServer.Port")
-	@Getter
-	private int spigotServerPort = 1298;
 
 	/**
 	 * Instantiates a new config.
@@ -424,78 +352,6 @@ public class Config extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getBlackList() {
 		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the cumulative reward enabled.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative reward enabled
-	 */
-	public boolean getCumulativeRewardEnabled(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
-	}
-
-	/**
-	 * Gets the cumulative rewards path
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative rewards
-	 */
-	public String getCumulativeRewardsPath(int cumulative) {
-		return "Cumulative." + cumulative + ".Rewards";
-	}
-
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
-	public Set<String> getCumulativeVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the cumulative votes in same day.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative votes in same day
-	 */
-	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
-	}
-
-	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
-	}
-
-	public String getDailyAwardRewardsPath(String path) {
-		return "DailyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the daily possible reward places.
-	 *
-	 * @return the daily possible reward places
-	 */
-	public Set<String> getDailyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("DailyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-
-		}
 	}
 
 	/**
@@ -1094,62 +950,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LoadTopVoter.Weekly");
 	}
 
-	/**
-	 * Gets the milestone reward enabled.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".Enabled");
-	}
-
-	/**
-	 * Gets the milestone rewards.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone rewards
-	 */
-	public String getMilestoneRewardsPath(int milestones) {
-		return "MileStones." + milestones + ".Rewards";
-	}
-
-	/**
-	 * Gets the milestone votes.
-	 *
-	 * @return the milestone votes
-	 */
-	public Set<String> getMilestoneVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	public String getMonthlyAwardRewardsPath(String path) {
-		return "MonthlyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the monthly possible reward places.
-	 *
-	 * @return the monthly possible reward places
-	 */
-	public Set<String> getMonthlyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
 	public int getPointsOnVote() {
 		return getData().getInt("PointsOnVote", 1);
 	}
@@ -1179,10 +979,6 @@ public class Config extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getRequestAPIDisabledMethods() {
 		return (ArrayList<String>) getData().getList("RequestAPI.DisabledMethods", new ArrayList<String>());
-	}
-
-	public boolean getResetMilestonesMonthly() {
-		return getData().getBoolean("ResetMilestonesMonthly");
 	}
 
 	/**
@@ -1270,62 +1066,6 @@ public class Config extends YMLFile {
 	 */
 	public int getVoteGUISlotSlot(String slot) {
 		return getData().getInt("GUI.VoteGUI." + slot + ".Slot", -1);
-	}
-
-	public String getVotePartyBroadcast() {
-		return getData().getString("VoteParty.Broadcast", "");
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyCommands() {
-		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
-	}
-
-	public boolean getVotePartyCountFakeVotes() {
-		return getData().getBoolean("VoteParty.CountFakeVotes", true);
-	}
-
-	/**
-	 * Gets the vote party enabled.
-	 *
-	 * @return the vote party enabled
-	 */
-	public boolean getVotePartyEnabled() {
-		return getData().getBoolean("VoteParty.Enabled");
-	}
-
-	/**
-	 * Gets the vote party give all players.
-	 *
-	 * @return the vote party give all players
-	 */
-	public boolean getVotePartyGiveAllPlayers() {
-		return getData().getBoolean("VoteParty.GiveAllPlayers");
-	}
-
-	public int getVotePartyIncreaseVotesRquired() {
-		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
-	}
-
-	public boolean getVotePartyResetEachDay() {
-		return getData().getBoolean("VoteParty.ResetEachDay");
-	}
-
-	public boolean getVotePartyResetMontly() {
-		return getData().getBoolean("VoteParty.ResetMonthly");
-	}
-
-	public int getVotePartyUserVotesRequired() {
-		return getData().getInt("VoteParty.UserVotesRequired");
-	}
-
-	/**
-	 * Gets the vote party votes required.
-	 *
-	 * @return the vote party votes required
-	 */
-	public int getVotePartyVotesRequired() {
-		return getData().getInt("VoteParty.VotesRequired");
 	}
 
 	/**
@@ -1440,35 +1180,6 @@ public class Config extends YMLFile {
 		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
 	}
 
-	/**
-	 * Gets the votes required.
-	 *
-	 * @return the votes required
-	 */
-	public int getVotesRequired() {
-		return getData().getInt("VotesRequired");
-	}
-
-	public boolean getVoteStreakRewardEnabled(String type, String s) {
-		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
-	}
-
-	public String getVoteStreakRewardsPath(String type, String string) {
-		return "VoteStreak." + type + "." + string + ".Rewards";
-	}
-
-	public Set<String> getVoteStreakVotes(String type) {
-		try {
-			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
 	public String getVoteTopDefault() {
 		return getData().getString("VoteTopDefault", "Monthly");
 	}
@@ -1532,23 +1243,6 @@ public class Config extends YMLFile {
 	 */
 	public boolean getVoteURLViewAllUrlsButtonEnabled() {
 		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
-	}
-
-	public String getWeeklyAwardRewardsPath(String path) {
-		return "WeeklyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the weekly possible reward places.
-	 *
-	 * @return the weekly possible reward places
-	 */
-	public Set<String> getWeeklyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
 	}
 
 	public void loadValues() {

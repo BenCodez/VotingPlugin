@@ -24,7 +24,9 @@ import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerReceivePointsEvent;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
@@ -303,8 +305,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public void checkDayVoteStreak() {
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
-			if (!Config.getInstance().isVoteStreakRequirementUsePercentage()
-					|| hasPercentageTotal(TopVoter.Daily, Config.getInstance().getVoteStreakRequirementDay(), null)) {
+			if (!SpecialRewardsConfig.getInstance().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
+					TopVoter.Daily, SpecialRewardsConfig.getInstance().getVoteStreakRequirementDay(), null)) {
 				addDayVoteStreak();
 				SpecialRewards.getInstance().checkVoteStreak(this, "Day");
 				setDayVoteStreakLastUpdate(System.currentTimeMillis());
@@ -538,15 +540,17 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void giveDailyTopVoterAward(int place, String path) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getDailyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Daily")
-				.withPlaceHolder("votes", "" + getTotal(TopVoter.Daily)).setOnline(isOnline()).send(this);
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
+				SpecialRewardsConfig.getInstance().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
+						.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
+						.setOnline(isOnline()).send(this);
 	}
 
 	public void giveMonthlyTopVoterAward(int place, String path) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getMonthlyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly")
-				.withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly)).setOnline(isOnline()).send(this);
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
+				SpecialRewardsConfig.getInstance().getMonthlyAwardRewardsPath(path))
+						.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly")
+						.withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly)).setOnline(isOnline()).send(this);
 	}
 
 	public void giveOfflineOtherRewards() {
@@ -564,7 +568,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired != 0) {
-						if (Config.getInstance().getCumulativeRewardEnabled(votesRequired)) {
+						if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(votesRequired)) {
 							SpecialRewards.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
 						}
 					}
@@ -574,7 +578,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired > 0) {
-						if (Config.getInstance().getMilestoneRewardEnabled(votesRequired)) {
+						if (SpecialRewardsConfig.getInstance().getMilestoneRewardEnabled(votesRequired)) {
 							SpecialRewards.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
 						}
 					}
@@ -585,7 +589,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 					String type = args[1];
 					String st = args[2];
 
-					if (Config.getInstance().getVoteStreakRewardEnabled(type, st)) {
+					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled(type, st)) {
 						SpecialRewards.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
 					}
 
@@ -601,13 +605,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void giveWeeklyTopVoterAward(int place, String path) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getWeeklyAwardRewardsPath(path))
-				.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Weekly")
-				.withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly)).setOnline(isOnline()).send(this);
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
+				SpecialRewardsConfig.getInstance().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
+						.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
+						.setOnline(isOnline()).send(this);
 	}
 
 	public void bungeeVotePluginMessaging(String service, long time) {
-		if (Config.getInstance().isUseBungeecoord()) {
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -627,7 +632,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void bungeeVote(String service) {
-		if (Config.getInstance().isUseBungeecoord()) {
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -645,7 +650,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void bungeeVoteOnline(String service) {
-		if (Config.getInstance().isUseBungeecoord()) {
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -668,7 +673,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * @return true if user got the first vote reward
 	 */
 	public boolean hasGottenFirstVote() {
-		if (Config.getInstance().isUseBungeecoord()
+		if (BungeeSettings.getInstance().isUseBungeecoord()
 				&& BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 			return getTotal(TopVoter.AllTime) > 1;
 		}
@@ -792,8 +797,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 *            the online
 	 */
 	public void sendVoteEffects(boolean online) {
-		RewardHandler.getInstance().giveReward(this, Config.getInstance().getData(),
-				Config.getInstance().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
+		RewardHandler.getInstance().giveReward(this, SpecialRewardsConfig.getInstance().getData(),
+				SpecialRewardsConfig.getInstance().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
 	@Deprecated

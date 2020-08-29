@@ -52,8 +52,10 @@ import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AdminVoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.CoolDown.CoolDownCheck;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Listeners.BlockBreak;
@@ -141,6 +143,12 @@ public class Main extends AdvancedCorePlugin {
 	@Getter
 	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
 
+	@Getter
+	private SpecialRewardsConfig specialRewardsConfig;
+
+	@Getter
+	private BungeeSettings bungeeSettings;
+
 	/**
 	 * Check votifier.
 	 */
@@ -148,7 +156,7 @@ public class Main extends AdvancedCorePlugin {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			if (!Config.getInstance().isUseBungeecoord()) {
+			if (!BungeeSettings.getInstance().isUseBungeecoord()) {
 				plugin.getLogger()
 						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 			} else {
@@ -494,8 +502,8 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-						Config.getInstance().getFirstVoteRewardsPath())) {
+				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+						SpecialRewardsConfig.getInstance().getFirstVoteRewardsPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -518,8 +526,8 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-						Config.getInstance().getAllSitesRewardPath())) {
+				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+						SpecialRewardsConfig.getInstance().getAllSitesRewardPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -530,11 +538,11 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getCumulativeVotes().size() == 0) {
+				if (SpecialRewardsConfig.getInstance().getCumulativeVotes().size() == 0) {
 					return "False";
 				} else {
-					for (String cum : Config.getInstance().getCumulativeVotes()) {
-						if (Config.getInstance().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
+					for (String cum : SpecialRewardsConfig.getInstance().getCumulativeVotes()) {
+						if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
 							return "True";
 						}
 					}
@@ -546,7 +554,7 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (!Config.getInstance().getVotePartyEnabled()) {
+				if (!SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
 					return "False";
 				} else {
 					return "True";
@@ -557,11 +565,11 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (Config.getInstance().getMilestoneVotes().size() == 0) {
+				if (SpecialRewardsConfig.getInstance().getMilestoneVotes().size() == 0) {
 					return "False";
 				} else {
-					for (String milestone : Config.getInstance().getMilestoneVotes()) {
-						if (Config.getInstance().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
+					for (String milestone : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+						if (SpecialRewardsConfig.getInstance().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
 							return "True";
 						}
 					}
@@ -573,8 +581,8 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-						Config.getInstance().getAnySiteRewardsPath())) {
+				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+						SpecialRewardsConfig.getInstance().getAnySiteRewardsPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -585,11 +593,11 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : Config.getInstance().getVoteStreakVotes("Day")) {
+				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Day")) {
 
-					if (Config.getInstance().getVoteStreakRewardEnabled("Day", s)
-							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-									Config.getInstance().getVoteStreakRewardsPath("Day", s))) {
+					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Day", s)
+							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Day", s))) {
 						return "True";
 					}
 
@@ -602,11 +610,11 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : Config.getInstance().getVoteStreakVotes("Week")) {
+				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Week")) {
 
-					if (Config.getInstance().getVoteStreakRewardEnabled("Week", s)
-							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-									Config.getInstance().getVoteStreakRewardsPath("Week", s))) {
+					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Week", s)
+							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Week", s))) {
 						return "True";
 					}
 				}
@@ -619,11 +627,11 @@ public class Main extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : Config.getInstance().getVoteStreakVotes("Month")) {
+				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Month")) {
 
-					if (Config.getInstance().getVoteStreakRewardEnabled("Month", s)
-							&& RewardHandler.getInstance().hasRewards(Config.getInstance().getData(),
-									Config.getInstance().getVoteStreakRewardsPath("Month", s))) {
+					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Month", s)
+							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
+									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Month", s))) {
 						return "True";
 					}
 				}
@@ -777,7 +785,7 @@ public class Main extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
-		if (Config.getInstance().isUseBungeecoord()) {
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			BungeeHandler.getInstance().load();
 
 			if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
@@ -786,6 +794,8 @@ public class Main extends AdvancedCorePlugin {
 			}
 
 		}
+
+		getOptions().setServer(BungeeSettings.getInstance().getServer());
 
 		registerCommands();
 		checkVotifier();
@@ -821,7 +831,7 @@ public class Main extends AdvancedCorePlugin {
 		AdminGUI.getInstance().loadHook();
 
 		// vote party
-		if (Config.getInstance().getVotePartyEnabled()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
 			VoteParty.getInstance().check();
 		}
 		VoteParty.getInstance().register();
@@ -1021,7 +1031,7 @@ public class Main extends AdvancedCorePlugin {
 	public void onUnLoad() {
 		Signs.getInstance().storeSigns();
 		HandlerList.unregisterAll(plugin);
-		if (Config.getInstance().isUseBungeecoord()) {
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			try {
 				BungeeHandler.getInstance().close();
 			} catch (Exception e) {
@@ -1099,11 +1109,16 @@ public class Main extends AdvancedCorePlugin {
 		config.loadValues();
 
 		configVoteSites.reloadData();
+
+		specialRewardsConfig.reloadData();
+
+		bungeeSettings.reloadData();
 		checkYMLError();
 
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		reloadAdvancedCore();
+		getOptions().setServer(BungeeSettings.getInstance().getServer());
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -1122,6 +1137,14 @@ public class Main extends AdvancedCorePlugin {
 
 		configVoteSites = ConfigVoteSites.getInstance();
 		configVoteSites.setup();
+
+		specialRewardsConfig = SpecialRewardsConfig.getInstance();
+		specialRewardsConfig.setup();
+		specialRewardsConfig.loadValues();
+
+		bungeeSettings = BungeeSettings.getInstance();
+		bungeeSettings.setup();
+		bungeeSettings.loadValues();
 
 		checkYMLError();
 
@@ -1145,7 +1168,7 @@ public class Main extends AdvancedCorePlugin {
 								plugin.debug("MySQL not loaded yet");
 								return;
 							} else if (Config.getInstance().isClearCacheOnUpdate()
-									|| Config.getInstance().isUseBungeecoord()) {
+									|| BungeeSettings.getInstance().isUseBungeecoord()) {
 								getMysql().clearCache();
 							} else {
 								getMysql().clearCacheBasic();

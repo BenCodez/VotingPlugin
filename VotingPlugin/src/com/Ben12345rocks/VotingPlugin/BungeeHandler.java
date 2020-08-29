@@ -10,7 +10,7 @@ import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessageHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.ClientHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Sockets.SocketReceiver;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -45,7 +45,7 @@ public class BungeeHandler {
 	public void load() {
 		Main.plugin.debug("Loading bungee handler");
 
-		method = BungeeMethod.getByName(Config.getInstance().getBungeeMethod());
+		method = BungeeMethod.getByName(BungeeSettings.getInstance().getBungeeMethod());
 
 		Main.plugin.getLogger().info("Using BungeeMethod: " + method.toString());
 
@@ -65,7 +65,7 @@ public class BungeeHandler {
 
 					user.bungeeVotePluginMessaging(service, time);
 
-					if (Boolean.valueOf(args.get(4)) || Config.getInstance().isBungeeBroadcastAlways()) {
+					if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
 						VoteSite site = Main.plugin.getVoteSite(service);
 						if (site != null) {
 							site.broadcastVote(user, false);
@@ -94,7 +94,7 @@ public class BungeeHandler {
 
 					user.bungeeVotePluginMessaging(service, time);
 
-					if (Boolean.valueOf(args.get(4)) || Config.getInstance().isBungeeBroadcastAlways()) {
+					if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
 						VoteSite site = Main.plugin.getVoteSite(service);
 						if (site != null) {
 							site.broadcastVote(user, false);
@@ -102,7 +102,7 @@ public class BungeeHandler {
 							Main.plugin.getLogger().warning("No votesite for " + service);
 						}
 					}
-					
+
 					if (args.size() > 4 && Boolean.valueOf(args.get(5))) {
 						ServerData.getInstance().addServiceSite(service);
 					}
@@ -141,13 +141,14 @@ public class BungeeHandler {
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(Main.plugin.getDataFolder(), "secretkey.key"));
 
-			clientHandler = new ClientHandler(Config.getInstance().getBungeeServerHost(),
-					Config.getInstance().getBungeeServerPort(), encryptionHandler,
-					Config.getInstance().isBungeeDebug());
+			clientHandler = new ClientHandler(BungeeSettings.getInstance().getBungeeServerHost(),
+					BungeeSettings.getInstance().getBungeeServerPort(), encryptionHandler,
+					BungeeSettings.getInstance().isBungeeDebug());
 
-			socketHandler = new SocketHandler(Main.plugin.getVersion(), Config.getInstance().getSpigotServerHost(),
-					Config.getInstance().getSpigotServerPort(), encryptionHandler,
-					Config.getInstance().isBungeeDebug());
+			socketHandler = new SocketHandler(Main.plugin.getVersion(),
+					BungeeSettings.getInstance().getSpigotServerHost(),
+					BungeeSettings.getInstance().getSpigotServerPort(), encryptionHandler,
+					BungeeSettings.getInstance().isBungeeDebug());
 
 			socketHandler.add(new SocketReceiver("bungeevote") {
 

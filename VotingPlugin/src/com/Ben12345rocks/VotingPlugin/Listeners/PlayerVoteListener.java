@@ -12,6 +12,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.AdvancedCore.Util.PluginMessage.PluginMessage;
 import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
@@ -88,7 +89,7 @@ public class PlayerVoteListener implements Listener {
 		User user = UserManager.getInstance().getVotingPluginUser(playerName);
 		user.updateName();
 
-		if (Config.getInstance().isClearCacheOnVote() || Config.getInstance().isUseBungeecoord()) {
+		if (Config.getInstance().isClearCacheOnVote() || BungeeSettings.getInstance().isUseBungeecoord()) {
 			user.clearCache();
 		}
 
@@ -103,7 +104,7 @@ public class PlayerVoteListener implements Listener {
 			VoteParty.getInstance().vote(user, event.isRealVote());
 
 			// broadcast vote if enabled in config
-			if (config.isBroadcastVotesEnabled() && (!Config.getInstance().isBungeeBroadcast() || !event.isBungee())) {
+			if (config.isBroadcastVotesEnabled() && (BungeeSettings.getInstance().isBungeeBroadcast() || !event.isBungee())) {
 				if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
 					voteSite.broadcastVote(user);
 				}
@@ -153,7 +154,7 @@ public class PlayerVoteListener implements Listener {
 			SpecialRewards.getInstance().checkCumualativeVotes(user);
 			SpecialRewards.getInstance().checkMilestone(user);
 
-			if (config.isUseBungeecoord()) {
+			if (BungeeSettings.getInstance().isUseBungeecoord()) {
 				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)) {
 					final String uuid = user.getUUID();
 					Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {

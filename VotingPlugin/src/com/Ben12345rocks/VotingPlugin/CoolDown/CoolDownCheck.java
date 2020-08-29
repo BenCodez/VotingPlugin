@@ -11,7 +11,7 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.TimeChecker.Events.DateChangedEvent;
 import com.Ben12345rocks.AdvancedCore.UserManager.UUID;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteCoolDownEndEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -79,7 +79,7 @@ public class CoolDownCheck implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		RewardHandler.getInstance().giveReward(event.getPlayer(), Config.getInstance().getData(),
+		RewardHandler.getInstance().giveReward(event.getPlayer(), SpecialRewardsConfig.getInstance().getData(),
 				"VoteCoolDownEndedReward",
 				new RewardOptions().addPlaceholder("Votesite", event.getVoteSite().getDisplayName()));
 	}

@@ -18,6 +18,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.VotePartyEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -95,12 +96,12 @@ public class VoteParty implements Listener {
 			if (event.isCancelled()) {
 				return;
 			}
-			MiscUtils.getInstance().broadcast(Config.getInstance().getVotePartyBroadcast());
+			MiscUtils.getInstance().broadcast(SpecialRewardsConfig.getInstance().getVotePartyBroadcast());
 			giveRewards();
 
-			if (Config.getInstance().getVotePartyIncreaseVotesRquired() > 0) {
+			if (SpecialRewardsConfig.getInstance().getVotePartyIncreaseVotesRquired() > 0) {
 				ServerData.getInstance().setVotePartyExtraRequired(ServerData.getInstance().getVotePartyExtraRequired()
-						+ Config.getInstance().getVotePartyIncreaseVotesRquired());
+						+ SpecialRewardsConfig.getInstance().getVotePartyIncreaseVotesRquired());
 			}
 		}
 
@@ -113,7 +114,7 @@ public class VoteParty implements Listener {
 	 *            the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
-		if (Config.getInstance().getVotePartyEnabled()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
 			ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
 			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
@@ -165,7 +166,7 @@ public class VoteParty implements Listener {
 	}
 
 	public int getVotesRequired() {
-		int required = Config.getInstance().getVotePartyVotesRequired();
+		int required = SpecialRewardsConfig.getInstance().getVotePartyVotesRequired();
 		int extra = ServerData.getInstance().getVotePartyExtraRequired();
 		if (extra > 0) {
 			return required + extra;
@@ -174,8 +175,8 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveReward(User user) {
-		if (Config.getInstance().getVotePartyUserVotesRequired() > 0) {
-			if (user.getVotePartyVotes() < Config.getInstance().getVotePartyUserVotesRequired()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyUserVotesRequired() > 0) {
+			if (user.getVotePartyVotes() < SpecialRewardsConfig.getInstance().getVotePartyUserVotesRequired()) {
 				return;
 			}
 		}
@@ -183,16 +184,16 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveReward(User user, boolean online) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVotePartyRewardsPath())
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), SpecialRewardsConfig.getInstance().getVotePartyRewardsPath())
 				.setOnline(online)
-				.withPlaceHolder("VotesRequired", "" + Config.getInstance().getVotePartyVotesRequired()).send(user);
+				.withPlaceHolder("VotesRequired", "" + SpecialRewardsConfig.getInstance().getVotePartyVotesRequired()).send(user);
 	}
 
 	/**
 	 * Give rewards.
 	 */
 	public void giveRewards() {
-		for (final String cmd : Config.getInstance().getVotePartyCommands()) {
+		for (final String cmd : SpecialRewardsConfig.getInstance().getVotePartyCommands()) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 				@Override
@@ -203,7 +204,7 @@ public class VoteParty implements Listener {
 			});
 		}
 
-		if (Config.getInstance().getVotePartyGiveAllPlayers()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyGiveAllPlayers()) {
 			plugin.debug("Giving all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -221,18 +222,18 @@ public class VoteParty implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (Config.getInstance().getVotePartyResetEachDay()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyResetEachDay()) {
 			reset();
 		}
 	}
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		if (Config.getInstance().getVotePartyResetMontly()) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyResetMontly()) {
 			reset();
 		}
 
-		if (Config.getInstance().isVotePartyResetExtraVotesMonthly()) {
+		if (SpecialRewardsConfig.getInstance().isVotePartyResetExtraVotesMonthly()) {
 			ServerData.getInstance().setVotePartyExtraRequired(0);
 		}
 	}
@@ -276,8 +277,8 @@ public class VoteParty implements Listener {
 	}
 
 	public synchronized void vote(User user, boolean realVote) {
-		if (Config.getInstance().getVotePartyEnabled()) {
-			if (Config.getInstance().getVotePartyCountFakeVotes() || realVote) {
+		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
+			if (SpecialRewardsConfig.getInstance().getVotePartyCountFakeVotes() || realVote) {
 				addTotal(user);
 				addVotePlayer(user);
 				check();

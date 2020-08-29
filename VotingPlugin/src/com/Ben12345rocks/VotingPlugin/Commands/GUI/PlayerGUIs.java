@@ -26,6 +26,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Commands;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -309,7 +310,8 @@ public class PlayerGUIs {
 							event.getButton().getInv().closeInv(player, null);
 
 							User user = UserManager.getInstance().getVotingPluginUser(player);
-							if (Config.getInstance().isClearCacheOnVoteShopPurchase()) {
+							if (Config.getInstance().isClearCacheOnVoteShopPurchase()
+									|| BungeeSettings.getInstance().isUseBungeecoord()) {
 								user.clearCache();
 							}
 							String identifier = (String) getData("identifier");

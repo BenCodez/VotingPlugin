@@ -46,6 +46,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
@@ -1342,13 +1343,13 @@ public class CommandLoader {
 										Player player = event.getWhoClicked();
 										String playerName = (String) event.getMeta(player, "Player");
 										BInventory inv = new BInventory("MileStones: " + playerName);
-										for (String mileStoneName : Config.getInstance().getMilestoneVotes()) {
+										for (String mileStoneName : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
 											if (StringParser.getInstance().isInt(mileStoneName)) {
 												int mileStone = Integer.parseInt(mileStoneName);
 
 												inv.addButton(inv.getNextSlot(),
 														new BInventoryButton("" + mileStone, new String[] {
-																"Enabled: " + Config.getInstance()
+																"Enabled: " + SpecialRewardsConfig.getInstance()
 																		.getMilestoneRewardEnabled(mileStone),
 																"&cClick to set wether this has been completed or not" },
 																new ItemStack(Material.STONE)) {

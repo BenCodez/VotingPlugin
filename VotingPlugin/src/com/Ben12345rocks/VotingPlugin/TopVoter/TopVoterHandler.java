@@ -27,6 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
@@ -150,8 +151,9 @@ public class TopVoterHandler implements Listener {
 			}
 
 			try {
-				if (Config.getInstance().isEnableDailyRewards()) {
-					HashMap<Integer, String> places = handlePlaces(Config.getInstance().getDailyPossibleRewardPlaces());
+				if (SpecialRewardsConfig.getInstance().isEnableDailyRewards()) {
+					HashMap<Integer, String> places = handlePlaces(
+							SpecialRewardsConfig.getInstance().getDailyPossibleRewardPlaces());
 					int i = 0;
 					int lastTotal = -1;
 					@SuppressWarnings("unchecked")
@@ -189,9 +191,10 @@ public class TopVoterHandler implements Listener {
 				if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 					user.setMonthVoteStreak(0);
 				} else {
-					if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
-							TopVoter.Monthly, Config.getInstance().getVoteStreakRequirementMonth(),
-							LocalDateTime.now().minusDays(1))) {
+					if (!SpecialRewardsConfig.getInstance().isVoteStreakRequirementUsePercentage()
+							|| user.hasPercentageTotal(TopVoter.Monthly,
+									SpecialRewardsConfig.getInstance().getVoteStreakRequirementMonth(),
+									LocalDateTime.now().minusDays(1))) {
 						user.addMonthVoteStreak();
 						SpecialRewards.getInstance().checkVoteStreak(user, "Month");
 					}
@@ -216,9 +219,9 @@ public class TopVoterHandler implements Listener {
 			}
 
 			try {
-				if (Config.getInstance().isEnableMonthlyAwards()) {
+				if (SpecialRewardsConfig.getInstance().isEnableMonthlyAwards()) {
 					HashMap<Integer, String> places = handlePlaces(
-							Config.getInstance().getMonthlyPossibleRewardPlaces());
+							SpecialRewardsConfig.getInstance().getMonthlyPossibleRewardPlaces());
 					int i = 0;
 					int lastTotal = -1;
 
@@ -249,7 +252,7 @@ public class TopVoterHandler implements Listener {
 
 			resetTotals(TopVoter.Monthly);
 
-			if (Config.getInstance().getResetMilestonesMonthly()) {
+			if (SpecialRewardsConfig.getInstance().getResetMilestonesMonthly()) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 					user.setMilestoneCount(0);
@@ -274,8 +277,9 @@ public class TopVoterHandler implements Listener {
 				if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 					user.setWeekVoteStreak(0);
 				} else {
-					if (!Config.getInstance().isVoteStreakRequirementUsePercentage() || user.hasPercentageTotal(
-							TopVoter.Weekly, Config.getInstance().getVoteStreakRequirementWeek(), null)) {
+					if (!SpecialRewardsConfig.getInstance().isVoteStreakRequirementUsePercentage()
+							|| user.hasPercentageTotal(TopVoter.Weekly,
+									SpecialRewardsConfig.getInstance().getVoteStreakRequirementWeek(), null)) {
 						user.addWeekVoteStreak();
 						SpecialRewards.getInstance().checkVoteStreak(user, "Week");
 					}
@@ -298,9 +302,9 @@ public class TopVoterHandler implements Listener {
 			}
 
 			try {
-				if (Config.getInstance().isEnableWeeklyAwards()) {
+				if (SpecialRewardsConfig.getInstance().isEnableWeeklyAwards()) {
 					HashMap<Integer, String> places = handlePlaces(
-							Config.getInstance().getWeeklyPossibleRewardPlaces());
+							SpecialRewardsConfig.getInstance().getWeeklyPossibleRewardPlaces());
 					int i = 0;
 					int lastTotal = -1;
 					@SuppressWarnings("unchecked")
@@ -661,6 +665,17 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 				plugin.getTopVoter().put(top, sortByValues(plugin.getTopVoter(top), false));
+
+				int limitSize = Config.getInstance().getMaxiumNumberOfTopVotersToLoad();
+				if (limitSize > 0) {
+					ArrayList<User> listKeys = new ArrayList<User>(plugin.getTopVoter(top).keySet());
+					if (listKeys.size() > limitSize) {
+						for (int i = listKeys.size() - 1; i >= 0 && i > limitSize; i--) {
+							plugin.getTopVoter(top).remove(listKeys.get(i));
+						}
+					}
+
+				}
 				plugin.debug(top.toString() + " TopVoter loaded");
 			}
 		}
