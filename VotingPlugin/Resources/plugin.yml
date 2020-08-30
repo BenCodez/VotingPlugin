@@ -4,7 +4,7 @@ main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: Ben12345rocks
-softdepend: [MVdWPlaceholders, Votifier, CMI, Vault, PlaceholderAPI, ProtocolLib, MVdWPlaceholderAPI, AuthMe]
+softdepend: [MVdWPlaceholders, Votifier, VotifierPlus, NuVotifier, CMI, Vault, PlaceholderAPI, ProtocolLib, MVdWPlaceholderAPI, AuthMe]
 api-version: 1.13
 commands:
   vote:
@@ -204,6 +204,19 @@ commands:
   adminvoteUser:
     description: Command Alias
     aliases: avUser
+  adminvoteCurrentPluginTime:
+    description: Command Alias
+    aliases: avCurrentPluginTime
+  adminvoteResetPoints:
+    description: Command Alias
+    aliases: avResetPoints
+  adminvoteVotePartyExtraRequired:
+    description: Command Alias
+    aliases: avVotePartyExtraRequired
+  adminvoteRunCMD:
+    description: Command Alias
+    aliases: avRunCMD
+    
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
