@@ -195,9 +195,6 @@ commands:
   adminvoteForceVoteParty:
     description: Command Alias
     aliases: avForceVoteParty
-  adminvoteUserEditValue:
-    description: Command Alias
-    aliases: avUserEditValue
   adminvoteSetRequestMethod:
     description: Command Alias
     aliases: avSetRequestMethod
