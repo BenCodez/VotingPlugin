@@ -2251,7 +2251,7 @@ public class CommandLoader {
 					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
 					user.sendMessage(Commands.getInstance().voteURLs(user, true));
 				} else {
-					sender.sendMessage(Commands.getInstance().voteURLs(null, true));
+					sender.sendMessage(Commands.getInstance().voteURLs(null, false));
 				}
 			}
 		});
