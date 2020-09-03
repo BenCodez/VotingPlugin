@@ -1126,7 +1126,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "ForceMilestone", "(Number)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteShop", "(VoteShop)" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteShop|" + adminPerm, "Force a voteshop reward") {
 
 					@Override
@@ -1139,7 +1139,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteShop", "(VoteShop)" },
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceMilestone", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.ForceMilestone|" + adminPerm, "Force a milestone") {
 
 					@Override
@@ -1444,7 +1444,7 @@ public class CommandLoader {
 			public void updateReplacements() {
 			}
 		});
-		
+
 		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(VoteShop)", sites) {
 
 			@Override
