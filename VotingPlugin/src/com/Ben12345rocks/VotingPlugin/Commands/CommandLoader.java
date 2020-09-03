@@ -1127,6 +1127,19 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "ForceMilestone", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.ForceVoteShop|" + adminPerm, "Force a voteshop reward") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
+								Config.getInstance().getIdentifierRewardsPath(args[3]), new RewardOptions());
+						sendMessage(sender, "&cVoteShop " + args[3] + " forced");
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteShop", "(VoteShop)" },
 						"VotingPlugin.Commands.AdminVote.ForceMilestone|" + adminPerm, "Force a milestone") {
 
 					@Override
@@ -1343,7 +1356,8 @@ public class CommandLoader {
 										Player player = event.getWhoClicked();
 										String playerName = (String) event.getMeta(player, "Player");
 										BInventory inv = new BInventory("MileStones: " + playerName);
-										for (String mileStoneName : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+										for (String mileStoneName : SpecialRewardsConfig.getInstance()
+												.getMilestoneVotes()) {
 											if (StringParser.getInstance().isInt(mileStoneName)) {
 												int mileStone = Integer.parseInt(mileStoneName);
 
@@ -1422,6 +1436,22 @@ public class CommandLoader {
 				ArrayList<String> sites = new ArrayList<String>();
 				for (VoteSite site : plugin.getVoteSites()) {
 					sites.add(site.getKey());
+				}
+				setReplace(sites);
+			}
+
+			@Override
+			public void updateReplacements() {
+			}
+		});
+		
+		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(VoteShop)", sites) {
+
+			@Override
+			public void reload() {
+				ArrayList<String> sites = new ArrayList<String>();
+				for (String str : Config.getInstance().getIdentifiers()) {
+					sites.add(str);
 				}
 				setReplace(sites);
 			}
