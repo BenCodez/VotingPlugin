@@ -58,7 +58,7 @@ public class VoteReminding {
 
 		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
 				|| PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Player")) {
-			if (user.canVoteAll()) {
+			if (user.canVoteAll() || (user.canVoteAny() && user.hasPermission("VotingPlugin.Login.RemindVotes.Any"))) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
 					if (!Config.getInstance().getVoteRemindingRemindOnlyOnce()) {
