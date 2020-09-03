@@ -319,6 +319,10 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	}
 
 	public void vote(String player, String service, boolean realVote) {
+		if (player == null || player.isEmpty()) {
+			getLogger().info("No name from vote on " + service);
+			return;
+		}
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendSocketVote(player, service);
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
