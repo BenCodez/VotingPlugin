@@ -817,6 +817,12 @@ DisabledCommands: []
 # Enable to true for extra player checks
 ExtraBackgroundUpdate: false
 
+# This will prevent spam clicking GUI's to prevent exploits
+# Number is time in between clicking in milliseconds
+SpamClickTime: 350
+# Message to send when inventory forced closed
+SpamClickMessage: '&cDetected spam clicking GUI, closing to prevent exploits'
+
 # ---------------------------------------------------------
 # Mysql cache options 
 # Clearing cache forces the plugin to pull from database
