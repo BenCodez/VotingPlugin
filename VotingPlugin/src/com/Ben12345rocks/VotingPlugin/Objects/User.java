@@ -924,7 +924,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 *            the new points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt("Points", value);
+		getUserData().setInt("Points", value, !BungeeSettings.getInstance().isUseBungeecoord());
 	}
 
 	public void setReminded(boolean reminded) {
