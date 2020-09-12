@@ -2,11 +2,10 @@ package com.Ben12345rocks.VotingPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -477,9 +476,10 @@ public class Main extends AdvancedCorePlugin {
 	 * @param voteSite
 	 *            the vote site
 	 */
-	public void logVote(Date date, String playerName, String voteSite) {
+	public void logVote(LocalDateTime date, String playerName, String voteSite) {
 		if (Config.getInstance().isLogVotesToFile()) {
-			String str = new SimpleDateFormat("EEE, d MMM yyyy HH:mm").format(date);
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+			String str = formatter.format(date);
 			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
 		}
 	}

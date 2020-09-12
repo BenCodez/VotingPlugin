@@ -1,5 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Listeners;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 
 import org.bukkit.Bukkit;
@@ -104,7 +106,8 @@ public class PlayerVoteListener implements Listener {
 			VoteParty.getInstance().vote(user, event.isRealVote());
 
 			// broadcast vote if enabled in config
-			if (config.isBroadcastVotesEnabled() && (BungeeSettings.getInstance().isBungeeBroadcast() || !event.isBungee())) {
+			if (config.isBroadcastVotesEnabled()
+					&& (BungeeSettings.getInstance().isBungeeBroadcast() || !event.isBungee())) {
 				if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
 					voteSite.broadcastVote(user);
 				}
@@ -117,6 +120,16 @@ public class PlayerVoteListener implements Listener {
 				user.setTime(voteSite);
 			}
 			user.setLastVoteCoolDownCheck(false, voteSite);
+
+			// try logging to file
+			if (Config.getInstance().isLogVotesToFile()) {
+				try {
+					Main.plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(),
+							playerName, voteSite.getKey());
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
 
 			// check first vote rewards
 			SpecialRewards.getInstance().checkFirstVote(user);
@@ -168,7 +181,6 @@ public class PlayerVoteListener implements Listener {
 						}
 					}, 40);
 				}
-
 			}
 		}
 
