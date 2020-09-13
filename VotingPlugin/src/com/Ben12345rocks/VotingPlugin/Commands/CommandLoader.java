@@ -1150,6 +1150,38 @@ public class CommandLoader {
 					}
 				});
 
+		for (final TopVoter top : TopVoter.values()) {
+			if (!top.equals(TopVoter.AllTime)) {
+				plugin.getAdminVoteCommand()
+						.add(new CommandHandler(
+								new String[] { "User", "(player)", "ForceTopVoter", top.toString(), "(Number)" },
+								"VotingPlugin.Commands.AdminVote.ForceTopVoter." + top.toString() + "|" + adminPerm,
+								"Force a top voter reward") {
+
+							@Override
+							public void execute(CommandSender sender, String[] args) {
+								User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+								int place = parseInt(args[4]);
+								switch (top) {
+									case Daily:
+										user.giveDailyTopVoterAward(place, args[4]);
+										break;
+									case Monthly:
+										user.giveMonthlyTopVoterAward(place, args[4]);
+										break;
+									case Weekly:
+										user.giveWeeklyTopVoterAward(place, args[4]);
+										break;
+									default:
+										break;
+
+								}
+								sendMessage(sender, "&cTopVoter " + top.toString() + " " + args[4] + " forced");
+							}
+						});
+			}
+		}
+
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "ForceCummulative", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.ForceCummulative|" + adminPerm, "Force a cummulative reward") {
