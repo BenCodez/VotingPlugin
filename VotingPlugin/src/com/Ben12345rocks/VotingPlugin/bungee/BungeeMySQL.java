@@ -59,7 +59,7 @@ public class BungeeMySQL {
 		}
 
 		//EX: &useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-		String sqlProperties = section.getString("sqlProperties");
+		String sqlProperties = "&" + section.getString("sqlProperties");
 		
 		name = tableName;
 		if (tablePrefix != null) {
