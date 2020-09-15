@@ -52,17 +52,21 @@ public class BungeeMySQL {
 		if (maxThreads < 1) {
 			maxThreads = 1;
 		}
+		
 		boolean useSSL = section.getBoolean("UseSSL", false);
 		if (!section.getString("Name", "").isEmpty()) {
 			tableName = section.getString("Name", "");
 		}
 
+		//EX: &useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+		String sqlProperties = section.getString("sqlProperties");
+		
 		name = tableName;
 		if (tablePrefix != null) {
 			name = tablePrefix + tableName;
 		}
 		mysql = new com.Ben12345rocks.AdvancedCore.UserStorage.mysql.api.MySQL(maxThreads);
-		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str)) {
+		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, sqlProperties + str)) {
 
 		}
 		try {

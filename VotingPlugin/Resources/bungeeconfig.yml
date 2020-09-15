@@ -19,6 +19,10 @@ MaxSize: -1
 Prefix: ''
 #UseSSL: true
 
+#Must start with an &.
+#EX: '&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true'
+#sqlProperties: ''
+
 Debug: false
 # Have a reward on each server
 # If false, will send to online server only
