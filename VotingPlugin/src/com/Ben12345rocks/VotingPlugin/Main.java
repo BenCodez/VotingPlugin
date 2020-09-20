@@ -95,7 +95,6 @@ public class Main extends AdvancedCorePlugin {
 
 	/** The plugin. */
 	public static Main plugin;
-	
 
 	@Getter
 	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
