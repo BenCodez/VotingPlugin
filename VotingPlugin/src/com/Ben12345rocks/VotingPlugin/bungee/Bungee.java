@@ -65,31 +65,19 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	private VoteCache voteCacheFile;
 
-	@EventHandler
-	public void onPluginMessage(PluginMessageEvent ev) {
-		if (!ev.getTag().equals("VotingPlugin:VotingPlugin".toLowerCase())) {
-			return;
-		}
-		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
-		DataInputStream in = new DataInputStream(instream);
-		try {
-			ByteArrayOutputStream outstream = new ByteArrayOutputStream();
-			DataOutputStream out = new DataOutputStream(outstream);
-			String subchannel = in.readUTF();
-			int size = in.readInt();
-			out.writeUTF(subchannel);
-			out.writeInt(size);
-			for (int i = 0; i < size; i++) {
-				out.writeUTF(in.readUTF());
-			}
-			for (String send : getProxy().getServers().keySet()) {
-				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
-							outstream.toByteArray());
+	public void checkCachedVotes(String server) {
+		if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
+			if (cachedVotes.containsKey(server)) {
+				ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
+				if (!c.isEmpty()) {
+					for (OfflineBungeeVote cache : c) {
+						sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
+								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
+								"" + cache.isRealVote());
+					}
+					cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
 				}
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
 
@@ -107,35 +95,53 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		}
 	}
 
-	public void checkCachedVotes(String server) {
-		if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
-			if (cachedVotes.containsKey(server)) {
-				ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
-				if (!c.isEmpty()) {
-					for (OfflineBungeeVote cache : c) {
-						sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
-								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-								"" + cache.isRealVote());
-					}
-					cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
-				}
-			}
+	public void debug(String msg) {
+		if (config.getDebug()) {
+			getLogger().info("Debug: " + msg);
 		}
 	}
 
-	@EventHandler
-	public void onServerConnected(ServerConnectedEvent event) {
-		final String server = event.getServer().getInfo().getName();
-		final String uuid = event.getPlayer().getUniqueId().toString();
-		getProxy().getScheduler().schedule(this, new Runnable() {
+	public UUID fetchUUID(String playerName) throws Exception {
+		// Get response from Mojang API
+		URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + playerName);
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		connection.connect();
 
-			@Override
-			public void run() {
-				checkCachedVotes(server);
-				checkOnlineVotes(event.getPlayer(), uuid);
-			}
+		if (connection.getResponseCode() == 400) {
+			System.err.println("There is no player with the name \"" + playerName + "\"!");
+			return null;
+		}
 
-		}, 2, TimeUnit.SECONDS);
+		InputStream inputStream = connection.getInputStream();
+		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+
+		// Parse JSON response and get UUID
+		JsonElement element = new JsonParser().parse(bufferedReader);
+		JsonObject object = element.getAsJsonObject();
+		String uuidAsString = object.get("id").getAsString();
+
+		// Return UUID
+		return parseUUIDFromString(uuidAsString);
+	}
+
+	public String getProperName(String uuid, String currentName) {
+		ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
+		if (p != null && p.isConnected()) {
+			return p.getName();
+		}
+		return currentName;
+	}
+
+	public String getUUID(String playerName) {
+		ProxiedPlayer p = getProxy().getPlayer(playerName);
+		if (p != null && p.isConnected()) {
+			return p.getUniqueId().toString();
+		}
+		String str = mysql.getUUID(playerName);
+		if (str != null) {
+			return str;
+		}
+		return "";
 	}
 
 	@Override
@@ -299,8 +305,47 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
-	public void reload() {
-		config.load();
+	@EventHandler
+	public void onPluginMessage(PluginMessageEvent ev) {
+		if (!ev.getTag().equals("VotingPlugin:VotingPlugin".toLowerCase())) {
+			return;
+		}
+		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
+		DataInputStream in = new DataInputStream(instream);
+		try {
+			ByteArrayOutputStream outstream = new ByteArrayOutputStream();
+			DataOutputStream out = new DataOutputStream(outstream);
+			String subchannel = in.readUTF();
+			int size = in.readInt();
+			out.writeUTF(subchannel);
+			out.writeInt(size);
+			for (int i = 0; i < size; i++) {
+				out.writeUTF(in.readUTF());
+			}
+			for (String send : getProxy().getServers().keySet()) {
+				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
+					getProxy().getServers().get(send).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
+							outstream.toByteArray());
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	@EventHandler
+	public void onServerConnected(ServerConnectedEvent event) {
+		final String server = event.getServer().getInfo().getName();
+		final String uuid = event.getPlayer().getUniqueId().toString();
+		getProxy().getScheduler().schedule(this, new Runnable() {
+
+			@Override
+			public void run() {
+				checkCachedVotes(server);
+				checkOnlineVotes(event.getPlayer(), uuid);
+			}
+
+		}, 2, TimeUnit.SECONDS);
 	}
 
 	@EventHandler
@@ -312,10 +357,95 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 	}
 
-	public void debug(String msg) {
-		if (config.getDebug()) {
-			getLogger().info("Debug: " + msg);
+	private UUID parseUUIDFromString(String uuidAsString) {
+		String[] parts = { "0x" + uuidAsString.substring(0, 8), "0x" + uuidAsString.substring(8, 12),
+				"0x" + uuidAsString.substring(12, 16), "0x" + uuidAsString.substring(16, 20),
+				"0x" + uuidAsString.substring(20, 32) };
+
+		long mostSigBits = Long.decode(parts[0]).longValue();
+		mostSigBits <<= 16;
+		mostSigBits |= Long.decode(parts[1]).longValue();
+		mostSigBits <<= 16;
+		mostSigBits |= Long.decode(parts[2]).longValue();
+
+		long leastSigBits = Long.decode(parts[3]).longValue();
+		leastSigBits <<= 48;
+		leastSigBits |= Long.decode(parts[4]).longValue();
+
+		return new UUID(mostSigBits, leastSigBits);
+	}
+
+	public void reload() {
+		config.load();
+	}
+
+	public void sendPluginMessageServer(String server, String channel, String... messageData) {
+		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(byteOutStream);
+		try {
+			out.writeUTF(channel);
+			out.writeInt(messageData.length);
+			for (String message : messageData) {
+				out.writeUTF(message);
+			}
+			if (getProxy().getServers().get(server).getPlayers().size() > 0) {
+				getProxy().getServers().get(server).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
+						byteOutStream.toByteArray(), false);
+			}
+			out.close();
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		debug("Sending plugin message " + server + " " + channel + " "
+				+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
+
+	}
+
+	public void sendServerMessage(String... messageData) {
+		for (ClientHandler h : clientHandles.values()) {
+			h.sendMessage(messageData);
+		}
+	}
+
+	public void sendServerMessageServer(String server, String... messageData) {
+		if (clientHandles.containsKey(server)) {
+			clientHandles.get(server).sendMessage(messageData);
+		}
+	}
+
+	public void sendSocketVote(String name, String service) {
+		String uuid = getUUID(name);
+
+		if (config.getSendVotesToAllServers()) {
+			sendServerMessage("bungeevote", uuid, name, service);
+			if (config.getBroadcast()) {
+				sendServerMessage("BungeeBroadcast", service, uuid, name);
+			}
+		} else {
+			// online server only
+			ProxiedPlayer p = getProxy().getPlayer(name);
+
+			String server = "";
+			if (p != null && p.isConnected()) {
+				server = p.getServer().getInfo().getName();
+			} else {
+				server = config.getFallBack();
+			}
+			if (config.getBlockedServers().contains(server)) {
+				server = config.getFallBack();
+			}
+
+			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
+			if (config.getBroadcast()) {
+				sendServerMessage("BungeeBroadcast", service, uuid, name);
+			}
+			sendServerMessage("BungeeUpdate");
+		}
+
+	}
+
+	public void status(CommandSender sender) {
+		sendServerMessage("status");
 	}
 
 	public void vote(String player, String service, boolean realVote) {
@@ -417,136 +547,6 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			}
 
 		}
-	}
-
-	public UUID fetchUUID(String playerName) throws Exception {
-		// Get response from Mojang API
-		URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + playerName);
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-		connection.connect();
-
-		if (connection.getResponseCode() == 400) {
-			System.err.println("There is no player with the name \"" + playerName + "\"!");
-			return null;
-		}
-
-		InputStream inputStream = connection.getInputStream();
-		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-
-		// Parse JSON response and get UUID
-		JsonElement element = new JsonParser().parse(bufferedReader);
-		JsonObject object = element.getAsJsonObject();
-		String uuidAsString = object.get("id").getAsString();
-
-		// Return UUID
-		return parseUUIDFromString(uuidAsString);
-	}
-
-	private UUID parseUUIDFromString(String uuidAsString) {
-		String[] parts = { "0x" + uuidAsString.substring(0, 8), "0x" + uuidAsString.substring(8, 12),
-				"0x" + uuidAsString.substring(12, 16), "0x" + uuidAsString.substring(16, 20),
-				"0x" + uuidAsString.substring(20, 32) };
-
-		long mostSigBits = Long.decode(parts[0]).longValue();
-		mostSigBits <<= 16;
-		mostSigBits |= Long.decode(parts[1]).longValue();
-		mostSigBits <<= 16;
-		mostSigBits |= Long.decode(parts[2]).longValue();
-
-		long leastSigBits = Long.decode(parts[3]).longValue();
-		leastSigBits <<= 48;
-		leastSigBits |= Long.decode(parts[4]).longValue();
-
-		return new UUID(mostSigBits, leastSigBits);
-	}
-
-	public String getProperName(String uuid, String currentName) {
-		ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-		if (p != null && p.isConnected()) {
-			return p.getName();
-		}
-		return currentName;
-	}
-
-	public String getUUID(String playerName) {
-		ProxiedPlayer p = getProxy().getPlayer(playerName);
-		if (p != null && p.isConnected()) {
-			return p.getUniqueId().toString();
-		}
-		String str = mysql.getUUID(playerName);
-		if (str != null) {
-			return str;
-		}
-		return "";
-	}
-
-	public void sendSocketVote(String name, String service) {
-		String uuid = getUUID(name);
-
-		if (config.getSendVotesToAllServers()) {
-			sendServerMessage("bungeevote", uuid, name, service);
-			if (config.getBroadcast()) {
-				sendServerMessage("BungeeBroadcast", service, uuid, name);
-			}
-		} else {
-			// online server only
-			ProxiedPlayer p = getProxy().getPlayer(name);
-
-			String server = "";
-			if (p != null && p.isConnected()) {
-				server = p.getServer().getInfo().getName();
-			} else {
-				server = config.getFallBack();
-			}
-			if (config.getBlockedServers().contains(server)) {
-				server = config.getFallBack();
-			}
-
-			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
-			if (config.getBroadcast()) {
-				sendServerMessage("BungeeBroadcast", service, uuid, name);
-			}
-			sendServerMessage("BungeeUpdate");
-		}
-
-	}
-
-	public void sendServerMessage(String... messageData) {
-		for (ClientHandler h : clientHandles.values()) {
-			h.sendMessage(messageData);
-		}
-	}
-
-	public void sendServerMessageServer(String server, String... messageData) {
-		if (clientHandles.containsKey(server)) {
-			clientHandles.get(server).sendMessage(messageData);
-		}
-	}
-
-	public void sendPluginMessageServer(String server, String channel, String... messageData) {
-		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
-		DataOutputStream out = new DataOutputStream(byteOutStream);
-		try {
-			out.writeUTF(channel);
-			out.writeInt(messageData.length);
-			for (String message : messageData) {
-				out.writeUTF(message);
-			}
-			if (getProxy().getServers().get(server).getPlayers().size() > 0) {
-				getProxy().getServers().get(server).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
-						byteOutStream.toByteArray(), false);
-			}
-			out.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		debug("Sending plugin message " + server + " " + channel + " "
-				+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
-
-	}
-
-	public void status(CommandSender sender) {
-		sendServerMessage("status");
 	}
 
 }

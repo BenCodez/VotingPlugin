@@ -27,19 +27,6 @@ public class BungeeSettings extends YMLFile {
 		return instance;
 	}
 
-	public BungeeSettings() {
-		super(new File(Main.plugin.getDataFolder(), "BungeeSettings.yml"));
-	}
-
-	public void loadValues() {
-		new AnnotationHandler().load(getData(), this);
-	}
-
-	@Override
-	public void onFileCreation() {
-		plugin.saveResource("BungeeSettings.yml", true);
-	}
-
 	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
 	@Getter
 	private boolean useBungeecoord = false;
@@ -79,4 +66,17 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataInt(path = "SpigotServer.Port")
 	@Getter
 	private int spigotServerPort = 1298;
+
+	public BungeeSettings() {
+		super(new File(Main.plugin.getDataFolder(), "BungeeSettings.yml"));
+	}
+
+	public void loadValues() {
+		new AnnotationHandler().load(getData(), this);
+	}
+
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("BungeeSettings.yml", true);
+	}
 }

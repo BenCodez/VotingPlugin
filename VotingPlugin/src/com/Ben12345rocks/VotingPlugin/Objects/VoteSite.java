@@ -45,21 +45,6 @@ public class VoteSite {
 	@Setter
 	private String voteURL;
 
-	public String getVoteURL(boolean json) {
-		if (!Config.getInstance().isFormatCommandsVoteForceLinks() || !json) {
-			return voteURL;
-		} else {
-			if (!voteURL.startsWith("http")) {
-				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
-			}
-			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
-		}
-	}
-
-	public String getVoteURL() {
-		return getVoteURL(true);
-	}
-
 	@Getter
 	@Setter
 	private String serviceSite;
@@ -201,6 +186,21 @@ public class VoteSite {
 
 	public ConfigurationSection getSiteData() {
 		return configVoteSites.getData(key);
+	}
+
+	public String getVoteURL() {
+		return getVoteURL(true);
+	}
+
+	public String getVoteURL(boolean json) {
+		if (!Config.getInstance().isFormatCommandsVoteForceLinks() || !json) {
+			return voteURL;
+		} else {
+			if (!voteURL.startsWith("http")) {
+				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
+			}
+			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
+		}
 	}
 
 	public void giveRewards(User user, boolean online, boolean bungee) {

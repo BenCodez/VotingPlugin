@@ -54,6 +54,14 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private long time;
 
+	@Getter
+	@Setter
+	private boolean bungee = false;
+
+	@Getter
+	@Setter
+	private boolean forceBungee = false;
+
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
 		this.player = voteUsername;
@@ -70,13 +78,5 @@ public class PlayerVoteEvent extends Event {
 	public HandlerList getHandlers() {
 		return handlers;
 	}
-
-	@Getter
-	@Setter
-	private boolean bungee = false;
-
-	@Getter
-	@Setter
-	private boolean forceBungee = false;
 
 }

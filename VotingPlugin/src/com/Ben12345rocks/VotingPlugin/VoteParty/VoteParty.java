@@ -184,9 +184,11 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveReward(User user, boolean online) {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), SpecialRewardsConfig.getInstance().getVotePartyRewardsPath())
-				.setOnline(online)
-				.withPlaceHolder("VotesRequired", "" + SpecialRewardsConfig.getInstance().getVotePartyVotesRequired()).send(user);
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
+				SpecialRewardsConfig.getInstance().getVotePartyRewardsPath()).setOnline(online)
+						.withPlaceHolder("VotesRequired",
+								"" + SpecialRewardsConfig.getInstance().getVotePartyVotesRequired())
+						.send(user);
 	}
 
 	/**

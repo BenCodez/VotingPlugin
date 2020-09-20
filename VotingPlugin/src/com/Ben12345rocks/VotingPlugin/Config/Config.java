@@ -319,7 +319,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
 	private boolean useJavascriptPlaceholders = true;
-	
+
 	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
 	@Getter
 	@Deprecated
@@ -1129,20 +1129,20 @@ public class Config extends YMLFile {
 		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
 	}
 
-	public boolean getVoteShopResetDaily(String shop) {
-		return getData().getBoolean("Shop." + shop + ".Reset.Daily", false);
+	public String getVoteShopPermission(String ident) {
+		return getData().getString("Shop." + ident + ".Permission", "");
 	}
 
-	public boolean getVoteShopResetWeekly(String shop) {
-		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
+	public boolean getVoteShopResetDaily(String shop) {
+		return getData().getBoolean("Shop." + shop + ".Reset.Daily", false);
 	}
 
 	public boolean getVoteShopResetMonthly(String shop) {
 		return getData().getBoolean("Shop." + shop + ".Reset.Monthly", false);
 	}
 
-	public String getVoteShopPermission(String ident) {
-		return getData().getString("Shop." + ident + ".Permission", "");
+	public boolean getVoteShopResetWeekly(String shop) {
+		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
 	}
 
 	/**

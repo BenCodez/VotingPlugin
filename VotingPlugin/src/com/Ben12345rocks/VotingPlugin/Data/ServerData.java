@@ -128,22 +128,6 @@ public class ServerData {
 	}
 
 	/**
-	 * Gets the sign location.
-	 *
-	 * @param sign
-	 *            the sign
-	 * @return the sign location
-	 */
-	public Location getSignSkullLocation(String sign) {
-		if (getData().getString("Signs." + sign + ".Skull.World", "").isEmpty()) {
-			return null;
-		}
-		return new Location(Bukkit.getWorld(getData().getString("Signs." + sign + ".Skull.World")),
-				getData().getDouble("Signs." + sign + ".Skull.X"), getData().getDouble("Signs." + sign + ".Skull.Y"),
-				getData().getDouble("Signs." + sign + ".Skull.Z"));
-	}
-
-	/**
 	 * Gets the sign position.
 	 *
 	 * @param sign
@@ -165,6 +149,22 @@ public class ServerData {
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
+	}
+
+	/**
+	 * Gets the sign location.
+	 *
+	 * @param sign
+	 *            the sign
+	 * @return the sign location
+	 */
+	public Location getSignSkullLocation(String sign) {
+		if (getData().getString("Signs." + sign + ".Skull.World", "").isEmpty()) {
+			return null;
+		}
+		return new Location(Bukkit.getWorld(getData().getString("Signs." + sign + ".Skull.World")),
+				getData().getDouble("Signs." + sign + ".Skull.X"), getData().getDouble("Signs." + sign + ".Skull.Y"),
+				getData().getDouble("Signs." + sign + ".Skull.Z"));
 	}
 
 	public int getVotePartyExtraRequired() {

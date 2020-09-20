@@ -29,26 +29,150 @@ public class SpecialRewardsConfig extends YMLFile {
 		return instance;
 	}
 
+	@ConfigDataBoolean(path = "EnableWeeklyAwards")
+	@Getter
+	private boolean enableWeeklyAwards = false;
+
+	@ConfigDataBoolean(path = "EnableDailyRewards")
+	@Getter
+	private boolean enableDailyRewards = false;
+
+	@ConfigDataBoolean(path = "EnableMonthlyAwards")
+	@Getter
+	private boolean enableMonthlyAwards = false;
+
+	@Getter
+	private String anySiteRewardsPath = "AnySiteRewards";
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Day")
+	@Getter
+	private double voteStreakRequirementDay = 50;
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
+	@Getter
+	private double voteStreakRequirementWeek = 50;
+
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Month")
+	@Getter
+	private double voteStreakRequirementMonth = 50;
+
+	@ConfigDataBoolean(path = "VoteStreak.Requirement.UsePercentage")
+	@Getter
+	private boolean voteStreakRequirementUsePercentage = false;
+
+	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
+	@Getter
+	private boolean votePartyResetExtraVotesMonthly = false;
+
+	@Getter
+	private String allSitesRewardPath = "AllSites";
+
+	@Getter
+	private String votePartyRewardsPath = "VoteParty.Rewards";
+
+	@Getter
+	private String firstVoteRewardsPath = "FirstVote";
+
 	public SpecialRewardsConfig() {
 		super(new File(Main.plugin.getDataFolder(), "SpecialRewards.yml"));
 	}
 
-	public void loadValues() {
-		new AnnotationHandler().load(getData(), this);
+	public boolean getCumulativeRewardEnabled(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
 	}
 
-	public String getWeeklyAwardRewardsPath(String path) {
-		return "WeeklyAwards." + path + ".Rewards";
+	public String getCumulativeRewardsPath(int cumulative) {
+		return "Cumulative." + cumulative + ".Rewards";
 	}
 
 	/**
-	 * Gets the weekly possible reward places.
+	 * Gets the cumulative votes.
 	 *
-	 * @return the weekly possible reward places
+	 * @return the cumulative votes
 	 */
-	public Set<String> getWeeklyPossibleRewardPlaces() {
+	public Set<String> getCumulativeVotes() {
 		try {
-			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
+			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	/**
+	 * Gets the cumulative votes in same day.
+	 *
+	 * @param cumulative
+	 *            the cumulative
+	 * @return the cumulative votes in same day
+	 */
+	public boolean getCumulativeVotesInSameDay(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
+	}
+
+	public boolean getCumulativeVotesInSameMonth(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
+	}
+
+	public boolean getCumulativeVotesInSameWeek(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
+	}
+
+	public String getDailyAwardRewardsPath(String path) {
+		return "DailyAwards." + path + ".Rewards";
+	}
+
+	/**
+	 * Gets the daily possible reward places.
+	 *
+	 * @return the daily possible reward places
+	 */
+	public Set<String> getDailyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("DailyAwards").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+
+		}
+	}
+
+	/**
+	 * Gets the milestone reward enabled.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone reward enabled
+	 */
+	public boolean getMilestoneRewardEnabled(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".Enabled");
+	}
+
+	/**
+	 * Gets the milestone rewards.
+	 *
+	 * @param milestones
+	 *            the milestones
+	 * @return the milestone rewards
+	 */
+	public String getMilestoneRewardsPath(int milestones) {
+		return "MileStones." + milestones + ".Rewards";
+	}
+
+	/**
+	 * Gets the milestone votes.
+	 *
+	 * @return the milestone votes
+	 */
+	public Set<String> getMilestoneVotes() {
+		try {
+			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
+			if (set != null) {
+				return set;
+			}
+			return new HashSet<String>();
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
@@ -71,47 +195,8 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
-	public String getDailyAwardRewardsPath(String path) {
-		return "DailyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the daily possible reward places.
-	 *
-	 * @return the daily possible reward places
-	 */
-	public Set<String> getDailyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("DailyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-
-		}
-	}
-
-	@ConfigDataBoolean(path = "EnableWeeklyAwards")
-	@Getter
-	private boolean enableWeeklyAwards = false;
-
-	@ConfigDataBoolean(path = "EnableDailyRewards")
-	@Getter
-	private boolean enableDailyRewards = false;
-
-	@ConfigDataBoolean(path = "EnableMonthlyAwards")
-	@Getter
-	private boolean enableMonthlyAwards = false;
-
-	@Override
-	public void onFileCreation() {
-		plugin.saveResource("SpecialRewards.yml", true);
-	}
-
-	public boolean getCumulativeRewardEnabled(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
-	}
-
-	public String getCumulativeRewardsPath(int cumulative) {
-		return "Cumulative." + cumulative + ".Rewards";
+	public boolean getResetMilestonesMonthly() {
+		return getData().getBoolean("ResetMilestonesMonthly");
 	}
 
 	public String getVotePartyBroadcast() {
@@ -170,35 +255,12 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getInt("VoteParty.VotesRequired");
 	}
 
-	@Getter
-	private String anySiteRewardsPath = "AnySiteRewards";
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Day")
-	@Getter
-	private double voteStreakRequirementDay = 50;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
-	@Getter
-	private double voteStreakRequirementWeek = 50;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Month")
-	@Getter
-	private double voteStreakRequirementMonth = 50;
-
-	@ConfigDataBoolean(path = "VoteStreak.Requirement.UsePercentage")
-	@Getter
-	private boolean voteStreakRequirementUsePercentage = false;
-
 	public boolean getVoteStreakRewardEnabled(String type, String s) {
 		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
 	}
 
 	public String getVoteStreakRewardsPath(String type, String string) {
 		return "VoteStreak." + type + "." + string + ".Rewards";
-	}
-
-	public boolean getResetMilestonesMonthly() {
-		return getData().getBoolean("ResetMilestonesMonthly");
 	}
 
 	public Set<String> getVoteStreakVotes(String type) {
@@ -213,91 +275,29 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
+	public String getWeeklyAwardRewardsPath(String path) {
+		return "WeeklyAwards." + path + ".Rewards";
+	}
+
 	/**
-	 * Gets the cumulative votes.
+	 * Gets the weekly possible reward places.
 	 *
-	 * @return the cumulative votes
+	 * @return the weekly possible reward places
 	 */
-	public Set<String> getCumulativeVotes() {
+	public Set<String> getWeeklyPossibleRewardPlaces() {
 		try {
-			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
+			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
 		} catch (Exception ex) {
 			return new HashSet<String>();
 		}
 	}
 
-	/**
-	 * Gets the milestone reward enabled.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".Enabled");
+	public void loadValues() {
+		new AnnotationHandler().load(getData(), this);
 	}
 
-	/**
-	 * Gets the milestone rewards.
-	 *
-	 * @param milestones
-	 *            the milestones
-	 * @return the milestone rewards
-	 */
-	public String getMilestoneRewardsPath(int milestones) {
-		return "MileStones." + milestones + ".Rewards";
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("SpecialRewards.yml", true);
 	}
-
-	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
-	@Getter
-	private boolean votePartyResetExtraVotesMonthly = false;
-
-	/**
-	 * Gets the milestone votes.
-	 *
-	 * @return the milestone votes
-	 */
-	public Set<String> getMilestoneVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	/**
-	 * Gets the cumulative votes in same day.
-	 *
-	 * @param cumulative
-	 *            the cumulative
-	 * @return the cumulative votes in same day
-	 */
-	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
-	}
-
-	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
-	}
-
-	public boolean getCumulativeVotesInSameMonth(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
-	}
-
-	@Getter
-	private String allSitesRewardPath = "AllSites";
-
-	@Getter
-	private String votePartyRewardsPath = "VoteParty.Rewards";
-
-	@Getter
-	private String firstVoteRewardsPath = "FirstVote";
 }

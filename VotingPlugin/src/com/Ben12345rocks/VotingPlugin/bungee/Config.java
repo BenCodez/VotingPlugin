@@ -21,9 +21,54 @@ public class Config {
 		this.bungee = bungee;
 	}
 
+	public List<String> getBlockedServers() {
+		return getData().getStringList("BlockedServers");
+	}
+
+	public boolean getBroadcast() {
+		return getData().getBoolean("Broadcast", false);
+	}
+
+	public String getBungeeHost() {
+		return getData().getString("BungeeServer.Host", "");
+	}
+
+	public String getBungeeMethod() {
+		return getData().getString("BungeeMethod", "SOCKETS");
+	}
+
+	public int getBungeePort() {
+		return getData().getInt("BungeeServer.Port", 1297);
+	}
+
+	public boolean getDebug() {
+		return getData().getBoolean("Debug", false);
+	}
+
+	public String getFallBack() {
+		return getData().getString("FallBackServer", "");
+	}
+
+	public boolean getSendToOnlineServer() {
+		return getData().getBoolean("SendToOnlineServer");
+	}
+
+	public boolean getSendVotesToAllServers() {
+		return getData().getBoolean("SendVotesToAllServers");
+	}
+
+	public Configuration getSpigotServerConfiguration(String s) {
+		return getData().getSection("SpigotServers." + s);
+	}
+
+	public Collection<String> getSpigotServers() {
+		return getData().getSection("SpigotServers").getKeys();
+	}
+
 	public void load() {
-		if (!bungee.getDataFolder().exists())
+		if (!bungee.getDataFolder().exists()) {
 			bungee.getDataFolder().mkdir();
+		}
 
 		File file = new File(bungee.getDataFolder(), "bungeeconfig.yml");
 
@@ -49,50 +94,6 @@ public class Config {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-
-	public boolean getSendVotesToAllServers() {
-		return getData().getBoolean("SendVotesToAllServers");
-	}
-
-	public boolean getSendToOnlineServer() {
-		return getData().getBoolean("SendToOnlineServer");
-	}
-
-	public String getBungeeMethod() {
-		return getData().getString("BungeeMethod", "SOCKETS");
-	}
-
-	public String getBungeeHost() {
-		return getData().getString("BungeeServer.Host", "");
-	}
-
-	public int getBungeePort() {
-		return getData().getInt("BungeeServer.Port", 1297);
-	}
-
-	public Collection<String> getSpigotServers() {
-		return getData().getSection("SpigotServers").getKeys();
-	}
-
-	public List<String> getBlockedServers() {
-		return getData().getStringList("BlockedServers");
-	}
-
-	public boolean getBroadcast() {
-		return getData().getBoolean("Broadcast", false);
-	}
-
-	public boolean getDebug() {
-		return getData().getBoolean("Debug", false);
-	}
-
-	public String getFallBack() {
-		return getData().getString("FallBackServer", "");
-	}
-
-	public Configuration getSpigotServerConfiguration(String s) {
-		return getData().getSection("SpigotServers." + s);
 	}
 
 }

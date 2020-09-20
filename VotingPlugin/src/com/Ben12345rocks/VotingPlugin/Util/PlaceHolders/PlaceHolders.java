@@ -279,7 +279,7 @@ public class PlaceHolders {
 					}
 					times.put(t, site);
 				}
-				for (Entry<Long,VoteSite> entry : times.entrySet()) {
+				for (Entry<Long, VoteSite> entry : times.entrySet()) {
 					if (entry.getKey().longValue() == smallest) {
 						return Commands.getInstance().voteCommandNextInfo(user, entry.getValue());
 					}

@@ -130,36 +130,6 @@ public class BungeeMySQL {
 		}
 	}
 
-	public String getUUID(String playerName) {
-		String query = "SELECT uuid FROM " + getName() + " WHERE " + "PlayerName" + "='" + playerName + "';";
-		try {
-			ResultSet rs = null;
-
-			Connection conn = mysql.getConnectionManager().getConnection();
-			PreparedStatement sql = conn.prepareStatement(query);
-
-			rs = sql.executeQuery();
-			/*
-			 * Query sql = new Query(mysql, query);
-			 * ResultSet rs = sql.executeQuery();
-			 */
-			if (rs.next()) {
-				String uuid = rs.getString("uuid");
-				if (uuid != null && !uuid.isEmpty()) {
-					sql.close();
-					conn.close();
-					return uuid;
-				}
-			}
-			sql.close();
-			conn.close();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		} catch (ArrayIndexOutOfBoundsException e) {
-		}
-		return null;
-	}
-
 	public void checkColumn(String column, DataType dataType) {
 		synchronized (object4) {
 			if (!getColumns().contains(column)) {
@@ -377,6 +347,36 @@ public class BungeeMySQL {
 		}
 
 		return result;
+	}
+
+	public String getUUID(String playerName) {
+		String query = "SELECT uuid FROM " + getName() + " WHERE " + "PlayerName" + "='" + playerName + "';";
+		try {
+			ResultSet rs = null;
+
+			Connection conn = mysql.getConnectionManager().getConnection();
+			PreparedStatement sql = conn.prepareStatement(query);
+
+			rs = sql.executeQuery();
+			/*
+			 * Query sql = new Query(mysql, query);
+			 * ResultSet rs = sql.executeQuery();
+			 */
+			if (rs.next()) {
+				String uuid = rs.getString("uuid");
+				if (uuid != null && !uuid.isEmpty()) {
+					sql.close();
+					conn.close();
+					return uuid;
+				}
+			}
+			sql.close();
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} catch (ArrayIndexOutOfBoundsException e) {
+		}
+		return null;
 	}
 
 	public Set<String> getUuids() {

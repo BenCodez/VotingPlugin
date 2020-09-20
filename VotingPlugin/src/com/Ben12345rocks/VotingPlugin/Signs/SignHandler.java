@@ -87,10 +87,6 @@ public class SignHandler {
 		return false;
 	}
 
-	public boolean isSkullSet() {
-		return skullLocation != null;
-	}
-
 	/**
 	 * Check skulls.
 	 */
@@ -150,6 +146,10 @@ public class SignHandler {
 	 */
 	public boolean isLocationSame(Location loc) {
 		return loc.equals(getLocation());
+	}
+
+	public boolean isSkullSet() {
+		return skullLocation != null;
 	}
 
 	/**

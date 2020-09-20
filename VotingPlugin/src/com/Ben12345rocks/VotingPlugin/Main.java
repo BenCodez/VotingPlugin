@@ -148,6 +148,15 @@ public class Main extends AdvancedCorePlugin {
 	@Getter
 	private BungeeSettings bungeeSettings;
 
+	public void basicBungeeUpdate() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			User user = UserManager.getInstance().getVotingPluginUser(player);
+			user.clearCache();
+			user.offVote();
+			user.checkOfflineRewards();
+		}
+	}
+
 	/**
 	 * Check votifier.
 	 */
@@ -300,15 +309,6 @@ public class Main extends AdvancedCorePlugin {
 		return VoteParty.getInstance();
 	}
 
-	public boolean isVoteSite(String voteSite) {
-		for (VoteSite site : getVoteSites()) {
-			if (site.getKey().equalsIgnoreCase(voteSite)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	/**
 	 * Gets the vote site.
 	 *
@@ -398,6 +398,15 @@ public class Main extends AdvancedCorePlugin {
 		String siteName = getVoteSiteName(site);
 		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean isVoteSite(String voteSite) {
+		for (VoteSite site : getVoteSites()) {
+			if (site.getKey().equalsIgnoreCase(voteSite)) {
 				return true;
 			}
 		}
@@ -1214,15 +1223,6 @@ public class Main extends AdvancedCorePlugin {
 					updateStarted = false;
 				}
 			}
-		}
-	}
-
-	public void basicBungeeUpdate() {
-		for (Player player : Bukkit.getOnlinePlayers()) {
-			User user = UserManager.getInstance().getVotingPluginUser(player);
-			user.clearCache();
-			user.offVote();
-			user.checkOfflineRewards();
 		}
 	}
 

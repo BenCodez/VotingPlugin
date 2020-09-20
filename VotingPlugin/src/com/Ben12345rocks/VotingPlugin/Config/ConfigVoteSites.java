@@ -137,6 +137,10 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
+	public int getTimeOffSet(String siteName) {
+		return getData(siteName).getInt("TimeOffSet", 0);
+	}
+
 	/**
 	 * Gets the vote delay.
 	 *
@@ -146,10 +150,6 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public int getVoteDelay(String siteName) {
 		return getData(siteName).getInt("VoteDelay");
-	}
-
-	public int getTimeOffSet(String siteName) {
-		return getData(siteName).getInt("TimeOffSet", 0);
 	}
 
 	public int getVoteDelayMin(String siteName) {
