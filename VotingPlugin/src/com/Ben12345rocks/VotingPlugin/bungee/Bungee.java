@@ -482,7 +482,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 			for (Column d : data) {
 				if (d.getName().equalsIgnoreCase("alltimetotal") || d.getName().equalsIgnoreCase("monthtotal")
 						|| d.getName().equalsIgnoreCase("weeklytotal") || d.getName().equalsIgnoreCase("dailytotal")
-						|| d.getName().equalsIgnoreCase("Points") || d.getName().equalsIgnoreCase("milestonecount")) {
+						|| d.getName().equalsIgnoreCase("Points") || d.getName().equalsIgnoreCase("MilestoneCount")) {
 					Object value = d.getValue();
 					int num = 0;
 					if (value instanceof Integer) {

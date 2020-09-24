@@ -8,6 +8,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -33,6 +34,8 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+
+import xyz.upperlevel.spigot.book.BookUtil;
 
 public class PlayerGUIs {
 	static PlayerGUIs instance = new PlayerGUIs();
@@ -692,84 +695,127 @@ public class PlayerGUIs {
 	 */
 	public void openVoteURL(Player player) {
 		setSelectedPlayer(player, null);
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
-
 		User user = UserManager.getInstance().getVotingPluginUser(player);
+		if (!Config.getInstance().isCommandsVoteBookGUI()) {
+			// normal GUI
+			BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
 
-		int count = 0;
-		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
-			ItemBuilder builderAll = new ItemBuilder(
-					Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
-			if (Config.getInstance().isGuiVoteURLAllUrlsButtonrequireAllSitesVoted()) {
-				if (user.canVoteAny()) {
-					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
-				}
-			} else {
-				if (user.canVoteAll()) {
-					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
-				}
-			}
-
-			if (!builderAll.hasCustomDisplayName()) {
-				builderAll.setName("&4All Voting Sites");
-			}
-			if (!builderAll.hasCustomLore()) {
-				builderAll.setLore("&cClick Me");
-			}
-
-			inv.addButton(count, new BInventoryButton(builderAll) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
-					user.sendMessage(Commands.getInstance().voteURLs(user, true));
-				}
-			});
-
-			count++;
-		}
-
-		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
-			if (user.canVoteSite(voteSite)) {
-				builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
-			} else {
-				builder.addLoreLine(Config.getInstance().getVoteURLNextVote().replace("%Info%",
-						Commands.getInstance().voteCommandNextInfo(user, voteSite)));
-			}
-
-			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
-
-			inv.addButton(count, new BInventoryButton(builder) {
-
-				@Override
-				public void onClick(ClickEvent event) {
-					Player player = event.getPlayer();
-					if (player != null) {
-						if (Config.getInstance().isCommandsVoteRewardFromVoteURL()
-								&& event.getClick().equals(ClickType.RIGHT)) {
-							voteReward(player, voteSite.getKey());
-						} else {
-							User user = UserManager.getInstance().getVotingPluginUser(player);
-							user.sendMessage(StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
-									.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-											Config.getInstance().getGUIVoteURLURLText(), "voteurl",
-											voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
-									"player", player.getName()));
-						}
+			int count = 0;
+			if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
+				ItemBuilder builderAll = new ItemBuilder(
+						Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
+				if (Config.getInstance().isGuiVoteURLAllUrlsButtonrequireAllSitesVoted()) {
+					if (user.canVoteAny()) {
+						builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
 					}
+				} else {
+					if (user.canVoteAll()) {
+						builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+					}
+				}
 
+				if (!builderAll.hasCustomDisplayName()) {
+					builderAll.setName("&4All Voting Sites");
+				}
+				if (!builderAll.hasCustomLore()) {
+					builderAll.setLore("&cClick Me");
+				}
+
+				inv.addButton(count, new BInventoryButton(builderAll) {
+
+					@Override
+					public void onClick(ClickEvent event) {
+						User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
+						user.sendMessage(Commands.getInstance().voteURLs(user, true));
+					}
+				});
+
+				count++;
+			}
+
+			for (final VoteSite voteSite : plugin.getVoteSites()) {
+				ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
+				if (user.canVoteSite(voteSite)) {
+					builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
+				} else {
+					builder.addLoreLine(Config.getInstance().getVoteURLNextVote().replace("%Info%",
+							Commands.getInstance().voteCommandNextInfo(user, voteSite)));
+				}
+
+				builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
+
+				inv.addButton(count, new BInventoryButton(builder) {
+
+					@Override
+					public void onClick(ClickEvent event) {
+						Player player = event.getPlayer();
+						if (player != null) {
+							if (Config.getInstance().isCommandsVoteRewardFromVoteURL()
+									&& event.getClick().equals(ClickType.RIGHT)) {
+								voteReward(player, voteSite.getKey());
+							} else {
+								User user = UserManager.getInstance().getVotingPluginUser(player);
+								user.sendMessage(
+										StringParser.getInstance()
+												.replacePlaceHolder(
+														StringParser.getInstance()
+																.replacePlaceHolder(
+																		StringParser.getInstance().replacePlaceHolder(
+																				Config.getInstance()
+																						.getGUIVoteURLURLText(),
+																				"voteurl", voteSite.getVoteURL()),
+																		"sitename", voteSite.getDisplayName()),
+														"player", player.getName()));
+							}
+						}
+
+					}
+				});
+				count++;
+			}
+
+			if (Config.getInstance().getGUIVoteURLBackButton()) {
+				inv.addButton(getBackButton());
+			}
+
+			inv.openInventory(player);
+		} else {
+			// book gui
+			BookUtil.PageBuilder page = new BookUtil.PageBuilder();
+			for (final VoteSite site : plugin.getVoteSites()) {
+				try {
+					page.add(StringParser.getInstance().replacePlaceHolder(
+							StringParser.getInstance().colorize(Config.getInstance().getVoteURLSiteName()), "Name",
+							site.getDisplayName()));
+					ChatColor color = ChatColor.RED;
+					if (user.canVoteSite(site)) {
+						color = ChatColor.GREEN;
+					}
+					String url = StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText();
+					if (!url.startsWith("http")) {
+						url = "https://" + url;
+					}
+					page.add(BookUtil.TextBuilder.of("Click me").color(color)
+							.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url))
+							.build());
+					page.newLine();
+				} catch (IllegalArgumentException e) {
+					e.printStackTrace();
+				}
+			}
+			ItemStack book = BookUtil.writtenBook().author(player.getName())
+					.title(StringParser.getInstance().colorize(Config.getInstance().getGUIVoteURLName()))
+					.pages(page.build()).build();
+
+			Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					BookUtil.openPlayer(player, book);
 				}
 			});
-			count++;
+
 		}
-
-		if (Config.getInstance().getGUIVoteURLBackButton()) {
-			inv.addButton(getBackButton());
-		}
-
-		inv.openInventory(player);
-
 	}
 
 	public void openVoteURL(Player player, String voteSite) {

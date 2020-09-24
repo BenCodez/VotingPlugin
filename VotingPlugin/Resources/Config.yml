@@ -113,6 +113,8 @@ Commands:
   # disable /vote reward commands
   # Effective after restart
   DisableVoteRewardGUIs: false
+  # Enable to use book GUI instead of normal GUI
+  VoteBookGUI: false
 
 Format:
   # CommandHandler help message

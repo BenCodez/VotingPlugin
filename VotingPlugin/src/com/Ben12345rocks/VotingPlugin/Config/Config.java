@@ -315,6 +315,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
+	
+	@ConfigDataBoolean(path = "Commands.VoteBookGUI")
+	@Getter
+	private boolean commandsVoteBookGUI = false;
 
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
