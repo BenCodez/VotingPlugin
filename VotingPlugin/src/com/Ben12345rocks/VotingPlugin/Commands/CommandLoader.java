@@ -342,7 +342,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones" },
-				"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm, "Resync Milestones") {
+				"VotingPlugin.Commands.AdminVote.ResyncMilestones|" + adminPerm, "Resync Milestones") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -350,6 +350,42 @@ public class CommandLoader {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 					user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
+				}
+				sendMessage(sender, "&cFinished");
+
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestonesAlreadyGiven" },
+				"VotingPlugin.Commands.AdminVote.ResyncMilestonesGiven|" + adminPerm, "Resync Milestones already given") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cStarting...");
+				ArrayList<Integer> nums = new ArrayList<Integer>();
+
+				for (String str : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+					try {
+						nums.add(Integer.parseInt(str));
+					} catch (Exception e) {
+						plugin.getLogger().warning("Failed to get number from " + str);
+					}
+				}
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					int milestoneCount = user.getMilestoneCount();
+					for (int num : nums) {
+						if (milestoneCount >= num) {
+							if (!user.hasGottenMilestone(num)) {
+								sendMessage(sender,
+										"&cMilestone " + num + " for " + user.getPlayerName()
+												+ " not already given when it should be, Current AllTimeTotal: "
+												+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
+												+ user.getMilestoneCount());
+								user.setHasGotteMilestone(num, true);
+							}
+						}
+					}
 				}
 				sendMessage(sender, "&cFinished");
 

@@ -3,7 +3,7 @@ version: ${project.version}
 main: com.Ben12345rocks.VotingPlugin.Main
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
-author: Ben12345rocks
+author: BenCodez
 softdepend: [MVdWPlaceholders, Votifier, VotifierPlus, NuVotifier, CMI, Vault, PlaceholderAPI, ProtocolLib, MVdWPlaceholderAPI, AuthMe]
 api-version: 1.13
 commands:
