@@ -108,7 +108,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		connection.connect();
 
 		if (connection.getResponseCode() == 400) {
-			System.err.println("There is no player with the name \"" + playerName + "\"!");
+			getProxy().getLogger().info("There is no player with the name \"" + playerName + "\"!");
 			return null;
 		}
 

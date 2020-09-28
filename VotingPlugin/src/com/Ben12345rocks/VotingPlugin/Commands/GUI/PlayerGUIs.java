@@ -35,6 +35,8 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import xyz.upperlevel.spigot.book.BookUtil;
 
 public class PlayerGUIs {
@@ -781,31 +783,63 @@ public class PlayerGUIs {
 			inv.openInventory(player);
 		} else {
 			// book gui
-			BookUtil.PageBuilder page = new BookUtil.PageBuilder();
+			ArrayList<BaseComponent> builder = new ArrayList<BaseComponent>();
+			BookUtil.PageBuilder currentPage = new BookUtil.PageBuilder();
+			int lines = 0;
 			for (final VoteSite site : plugin.getVoteSites()) {
+
 				try {
-					page.add(StringParser.getInstance().replacePlaceHolder(
-							StringParser.getInstance().colorize(Config.getInstance().getVoteURLSiteName()), "Name",
-							site.getDisplayName()));
-					ChatColor color = ChatColor.RED;
+					ArrayList<String> layout = Config.getInstance().getGUIVoteURLBookGUILayout();
+
+					lines += layout.size();
+					if ((lines + layout.size()) >= 14) {
+						builder.addAll(ArrayUtils.getInstance().convertBaseComponent(currentPage.build()));
+						currentPage = new BookUtil.PageBuilder();
+					}
+					HashMap<String, String> placeholders = new HashMap<String, String>();
+					placeholders.put("Sitename", site.getDisplayName());
+					ChatColor color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUIAlreadyVotedColor());
+					String text = Config.getInstance().getGUIVoteURLBookGUIAlreadyVotedText();
 					if (user.canVoteSite(site)) {
-						color = ChatColor.GREEN;
+						color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUICanVoteColor());
+						text = Config.getInstance().getGUIVoteURLBookGUICanVoteText();
 					}
 					String url = StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText();
 					if (!url.startsWith("http")) {
-						url = "https://" + url;
+						if (!url.startsWith("www.")) {
+							url = "https://www." + url;
+						} else {
+							url = "https://" + url;
+						}
 					}
-					page.add(BookUtil.TextBuilder.of("Click me").color(color)
-							.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url))
-							.build());
-					page.newLine();
-				} catch (IllegalArgumentException e) {
+
+					for (String str : layout) {
+						lines++;
+						str = StringParser.getInstance().replacePlaceHolder(str, placeholders);
+
+						if (StringParser.getInstance().containsIgnorecase(str, "[URLText]")) {
+							String[] split = str.split("[UrlText]");
+							BaseComponent comp = new TextComponent(StringParser.getInstance().colorize(split[0]));
+							comp.addExtra(BookUtil.TextBuilder.of(text).color(color)
+									.onClick(BookUtil.ClickAction.openUrl(url))
+									.onHover(BookUtil.HoverAction.showText(url)).build());
+							comp.addExtra(StringParser.getInstance().colorize(split[1]));
+							currentPage.add(comp);
+						} else {
+							currentPage.add(StringParser.getInstance().colorize(str));
+						}
+						currentPage.newLine();
+					}
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
+
+			builder.addAll(ArrayUtils.getInstance().convertBaseComponent(currentPage.build()));
+
 			ItemStack book = BookUtil.writtenBook().author(player.getName())
-					.title(StringParser.getInstance().colorize(Config.getInstance().getGUIVoteURLName()))
-					.pages(page.build()).build();
+					.title(StringParser.getInstance().colorize(Config.getInstance().getGUIVoteURLBookGUITitle()))
+					.pages(ArrayUtils.getInstance().convertBaseComponent(builder)).build();
 
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 

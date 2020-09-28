@@ -419,6 +419,17 @@ GUI:
       Amount: 1
     URLText: '%VoteUrl%'
     
+  VoteURLBookGUI:
+    Title: '&cVoteURL'
+    SiteName: '&c%name%'
+    CanVoteText: 'Click me'
+    CanVoteColor: 'GREEN'
+    AlreadyVotedText: 'Click me'
+    AlreadyVotedColor: 'RED' 
+    Layout:
+    - '&c%Sitename%'
+    - '[URLText]'
+    
   VoteRewardBackButton: false
   # Customize /vote reward
   # Show players what you get when you vote on each site

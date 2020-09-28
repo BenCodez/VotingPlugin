@@ -13,6 +13,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataConfigurationSec
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataListString;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -336,6 +337,34 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
+	
+	@ConfigDataListString(path = "GUI.VoteURLBookGUI.Layout")
+	@Getter
+	private ArrayList<String> GUIVoteURLBookGUILayout = ArrayUtils.getInstance().convert(new String[] {"&c%Sitename%","[URLText]"});
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.Title")
+	@Getter
+	private String GUIVoteURLBookGUITitle = "&cVoteURL";
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.SiteName")
+	@Getter
+	private String GUIVoteURLBookGUISiteName = "&c%name%";
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteText")
+	@Getter
+	private String GUIVoteURLBookGUICanVoteText = "Click me";
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedText")
+	@Getter
+	private String GUIVoteURLBookGUIAlreadyVotedText = "Click me";
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteColor")
+	@Getter
+	private String GUIVoteURLBookGUICanVoteColor = "GREEN";
+	
+	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedColor")
+	@Getter
+	private String GUIVoteURLBookGUIAlreadyVotedColor = "RED";
 
 	/**
 	 * Instantiates a new config.
