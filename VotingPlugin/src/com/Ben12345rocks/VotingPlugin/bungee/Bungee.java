@@ -241,7 +241,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 
 			voteCacheFile.clearData();
 
-			getProxy().getScheduler().runAsync(this, new Runnable() {
+			getProxy().getScheduler().schedule(this, new Runnable() {
 
 				@Override
 				public void run() {
@@ -253,7 +253,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player);
 					}
 				}
-			});
+			}, 15l, TimeUnit.SECONDS);
 
 			this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
