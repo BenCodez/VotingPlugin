@@ -783,7 +783,7 @@ public class PlayerGUIs {
 			inv.openInventory(player);
 		} else {
 			// book gui
-			ArrayList<BaseComponent> builder = new ArrayList<BaseComponent>();
+			ArrayList<BaseComponent[]> builder = new ArrayList<BaseComponent[]>();
 			BookUtil.PageBuilder currentPage = new BookUtil.PageBuilder();
 			int lines = 0;
 			for (final VoteSite site : plugin.getVoteSites()) {
@@ -792,10 +792,13 @@ public class PlayerGUIs {
 					ArrayList<String> layout = Config.getInstance().getGUIVoteURLBookGUILayout();
 
 					lines += layout.size();
-					if ((lines + layout.size()) >= 14) {
-						builder.addAll(ArrayUtils.getInstance().convertBaseComponent(currentPage.build()));
+					if (lines > 14) {
+						builder.add(currentPage.build());
 						currentPage = new BookUtil.PageBuilder();
+						lines = layout.size();
+						plugin.debug("New page");
 					}
+
 					HashMap<String, String> placeholders = new HashMap<String, String>();
 					placeholders.put("Sitename", site.getDisplayName());
 					ChatColor color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUIAlreadyVotedColor());
@@ -804,7 +807,8 @@ public class PlayerGUIs {
 						color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUICanVoteColor());
 						text = Config.getInstance().getGUIVoteURLBookGUICanVoteText();
 					}
-					String url = StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText();
+					String url = ChatColor.stripColor(StringParser.getInstance()
+							.colorize(StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText()));
 					if (!url.startsWith("http")) {
 						if (!url.startsWith("www.")) {
 							url = "https://www." + url;
@@ -814,16 +818,16 @@ public class PlayerGUIs {
 					}
 
 					for (String str : layout) {
-						lines++;
 						str = StringParser.getInstance().replacePlaceHolder(str, placeholders);
 
-						if (StringParser.getInstance().containsIgnorecase(str, "[URLText]")) {
+						if (StringParser.getInstance().containsIgnorecase(str, "[UrlText]")) {
 							String[] split = str.split("[UrlText]");
-							BaseComponent comp = new TextComponent(StringParser.getInstance().colorize(split[0]));
+							String s = split[0].substring(0, split[0].length() - 1);
+							BaseComponent comp = new TextComponent(StringParser.getInstance().colorize(s));
 							comp.addExtra(BookUtil.TextBuilder.of(text).color(color)
 									.onClick(BookUtil.ClickAction.openUrl(url))
 									.onHover(BookUtil.HoverAction.showText(url)).build());
-							comp.addExtra(StringParser.getInstance().colorize(split[1]));
+							comp.addExtra(StringParser.getInstance().colorize(str.substring(s.length() + 9)));
 							currentPage.add(comp);
 						} else {
 							currentPage.add(StringParser.getInstance().colorize(str));
@@ -835,11 +839,11 @@ public class PlayerGUIs {
 				}
 			}
 
-			builder.addAll(ArrayUtils.getInstance().convertBaseComponent(currentPage.build()));
+			builder.add(currentPage.build());
 
 			ItemStack book = BookUtil.writtenBook().author(player.getName())
 					.title(StringParser.getInstance().colorize(Config.getInstance().getGUIVoteURLBookGUITitle()))
-					.pages(ArrayUtils.getInstance().convertBaseComponent(builder)).build();
+					.pages(builder).build();
 
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 

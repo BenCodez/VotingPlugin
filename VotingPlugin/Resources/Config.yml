@@ -428,7 +428,7 @@ GUI:
     AlreadyVotedColor: 'RED' 
     Layout:
     - '&c%Sitename%'
-    - '[URLText]'
+    - '[UrlText]'
     
   VoteRewardBackButton: false
   # Customize /vote reward

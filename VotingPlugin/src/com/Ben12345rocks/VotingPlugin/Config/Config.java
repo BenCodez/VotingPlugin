@@ -316,7 +316,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
-	
+
 	@ConfigDataBoolean(path = "Commands.VoteBookGUI")
 	@Getter
 	private boolean commandsVoteBookGUI = false;
@@ -337,31 +337,32 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
-	
+
 	@ConfigDataListString(path = "GUI.VoteURLBookGUI.Layout")
 	@Getter
-	private ArrayList<String> GUIVoteURLBookGUILayout = ArrayUtils.getInstance().convert(new String[] {"&c%Sitename%","[URLText]"});
-	
+	private ArrayList<String> GUIVoteURLBookGUILayout = ArrayUtils.getInstance()
+			.convert(new String[] { "&c%Sitename%", "[UrlText]" });
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.Title")
 	@Getter
 	private String GUIVoteURLBookGUITitle = "&cVoteURL";
-	
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.SiteName")
 	@Getter
 	private String GUIVoteURLBookGUISiteName = "&c%name%";
-	
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteText")
 	@Getter
 	private String GUIVoteURLBookGUICanVoteText = "Click me";
-	
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedText")
 	@Getter
 	private String GUIVoteURLBookGUIAlreadyVotedText = "Click me";
-	
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteColor")
 	@Getter
 	private String GUIVoteURLBookGUICanVoteColor = "GREEN";
-	
+
 	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedColor")
 	@Getter
 	private String GUIVoteURLBookGUIAlreadyVotedColor = "RED";
