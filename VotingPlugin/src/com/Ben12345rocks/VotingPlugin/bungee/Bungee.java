@@ -66,16 +66,18 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	private VoteCache voteCacheFile;
 
 	public void checkCachedVotes(String server) {
-		if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
-			if (cachedVotes.containsKey(server)) {
-				ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
-				if (!c.isEmpty()) {
-					for (OfflineBungeeVote cache : c) {
-						sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
-								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-								"" + cache.isRealVote());
+		if (getProxy().getServerInfo(server) != null) {
+			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
+				if (cachedVotes.containsKey(server)) {
+					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
+					if (!c.isEmpty()) {
+						for (OfflineBungeeVote cache : c) {
+							sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
+									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
+									"" + cache.isRealVote());
+						}
+						cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
 					}
-					cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
 				}
 			}
 		}
