@@ -356,41 +356,43 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestonesAlreadyGiven" },
-				"VotingPlugin.Commands.AdminVote.ResyncMilestonesGiven|" + adminPerm, "Resync Milestones already given") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "ResyncMilestonesAlreadyGiven" },
+						"VotingPlugin.Commands.AdminVote.ResyncMilestonesGiven|" + adminPerm,
+						"Resync Milestones already given") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cStarting...");
-				ArrayList<Integer> nums = new ArrayList<Integer>();
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cStarting...");
+						ArrayList<Integer> nums = new ArrayList<Integer>();
 
-				for (String str : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
-					try {
-						nums.add(Integer.parseInt(str));
-					} catch (Exception e) {
-						plugin.getLogger().warning("Failed to get number from " + str);
-					}
-				}
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					int milestoneCount = user.getMilestoneCount();
-					for (int num : nums) {
-						if (milestoneCount >= num) {
-							if (!user.hasGottenMilestone(num)) {
-								sendMessage(sender,
-										"&cMilestone " + num + " for " + user.getPlayerName()
-												+ " not already given when it should be, Current AllTimeTotal: "
-												+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
-												+ user.getMilestoneCount());
-								user.setHasGotteMilestone(num, true);
+						for (String str : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+							try {
+								nums.add(Integer.parseInt(str));
+							} catch (Exception e) {
+								plugin.getLogger().warning("Failed to get number from " + str);
 							}
 						}
-					}
-				}
-				sendMessage(sender, "&cFinished");
+						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							int milestoneCount = user.getMilestoneCount();
+							for (int num : nums) {
+								if (milestoneCount >= num) {
+									if (!user.hasGottenMilestone(num)) {
+										sendMessage(sender,
+												"&cMilestone " + num + " for " + user.getPlayerName()
+														+ " not already given when it should be, Current AllTimeTotal: "
+														+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
+														+ user.getMilestoneCount());
+										user.setHasGotteMilestone(num, true);
+									}
+								}
+							}
+						}
+						sendMessage(sender, "&cFinished");
 
-			}
-		});
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "ResetPoints" },
@@ -1252,18 +1254,36 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", "(Text)", "(Number)" },
-						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm, "Force a votestreak reward") {
+		for (TopVoter value : TopVoter.valuesMinusAllTime()) {
+			String str = "";
+			switch (value) {
+				case Daily:
+					str = "Day";
+					break;
+				case Monthly:
+					str = "Month";
+					break;
+				case Weekly:
+					str = "Week";
+					break;
+				default:
+					break;
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[3], args[4],
-								parseInt(args[4]));
-						sendMessage(sender, "&cVoteStreak " + args[3] + " " + args[4] + " forced");
-					}
-				});
+			}
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
+							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
+							"Force a votestreak reward for " + str) {
+
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[3], args[4],
+									parseInt(args[4]));
+							sendMessage(sender, "&cVoteStreak " + args[3] + " " + args[4] + " forced");
+						}
+					});
+		}
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders", "(player)" },
