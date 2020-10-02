@@ -15,6 +15,10 @@ public enum TopVoter {
 		return AllTime;
 	}
 
+	public static TopVoter[] valuesMinusAllTime() {
+		return new TopVoter[] { TopVoter.Daily, TopVoter.Weekly, TopVoter.Monthly };
+	}
+
 	public static TopVoter getTopVoter(String str) {
 		for (TopVoter value : values()) {
 			if (value.toString().equalsIgnoreCase(str)) {

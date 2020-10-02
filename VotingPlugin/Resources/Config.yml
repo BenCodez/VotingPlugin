@@ -712,6 +712,11 @@ UseJavascriptPlaceholders: true
 # Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false
 
+# This is an extra safe guard to prevent milestones 
+# from being executed more than once
+# Shoudn't be needed, but enable if you have trouble with milestones
+PreventRepeatMilestones: false
+
 ######################
 # Debug
 ######################

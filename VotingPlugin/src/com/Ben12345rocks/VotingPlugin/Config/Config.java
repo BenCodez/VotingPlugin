@@ -330,6 +330,10 @@ public class Config extends YMLFile {
 	@Deprecated
 	private boolean useBungeecoord = false;
 
+	@ConfigDataBoolean(path = "PreventRepeatMilestones")
+	@Getter
+	private boolean preventRepeatMilestones = false;
+
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();

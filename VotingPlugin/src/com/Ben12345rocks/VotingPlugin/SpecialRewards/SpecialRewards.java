@@ -1,5 +1,6 @@
 package com.Ben12345rocks.VotingPlugin.SpecialRewards;
 
+import java.util.ArrayList;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -147,6 +148,31 @@ public class SpecialRewards {
 	 * @return true, if successful
 	 */
 	public boolean checkMilestone(User user) {
+		if (Config.getInstance().isPreventRepeatMilestones()) {
+			ArrayList<Integer> nums = new ArrayList<Integer>();
+
+			for (String str : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+				try {
+					nums.add(Integer.parseInt(str));
+				} catch (Exception e) {
+					plugin.getLogger().warning("Failed to get number from " + str);
+				}
+			}
+
+			int milestoneCount = user.getMilestoneCount();
+			for (int num : nums) {
+				if (milestoneCount >= num) {
+					if (!user.hasGottenMilestone(num)) {
+						plugin.getLogger().info("Milestone " + num + " for " + user.getPlayerName()
+								+ " not already given when it should be, Current AllTimeTotal: "
+								+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
+								+ user.getMilestoneCount());
+						user.setHasGotteMilestone(num, true);
+					}
+				}
+			}
+		}
+
 		boolean gotMilestone = false;
 		Set<String> votes = SpecialRewardsConfig.getInstance().getMilestoneVotes();
 		for (String vote : votes) {
