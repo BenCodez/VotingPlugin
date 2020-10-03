@@ -1255,21 +1255,23 @@ public class CommandLoader {
 		});
 
 		for (TopVoter value : TopVoter.valuesMinusAllTime()) {
-			String str = "";
+			String text = "";
 			switch (value) {
 				case Daily:
-					str = "Day";
+					text = "Day";
 					break;
 				case Monthly:
-					str = "Month";
+					text = "Month";
 					break;
 				case Weekly:
-					str = "Week";
+					text = "Week";
 					break;
 				default:
 					break;
 
 			}
+
+			final String str = text;
 			plugin.getAdminVoteCommand()
 					.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
 							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
@@ -1278,9 +1280,9 @@ public class CommandLoader {
 						@Override
 						public void execute(CommandSender sender, String[] args) {
 							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-							SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), args[3], args[4],
+							SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), str, args[4],
 									parseInt(args[4]));
-							sendMessage(sender, "&cVoteStreak " + args[3] + " " + args[4] + " forced");
+							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
 						}
 					});
 		}
