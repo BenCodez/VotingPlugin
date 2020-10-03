@@ -1188,36 +1188,66 @@ public class CommandLoader {
 					}
 				});
 
-		for (final TopVoter top : TopVoter.values()) {
-			if (!top.equals(TopVoter.AllTime)) {
-				plugin.getAdminVoteCommand()
-						.add(new CommandHandler(
-								new String[] { "User", "(player)", "ForceTopVoter", top.toString(), "(Number)" },
-								"VotingPlugin.Commands.AdminVote.ForceTopVoter." + top.toString() + "|" + adminPerm,
-								"Force a top voter reward") {
+		for (final TopVoter top : TopVoter.valuesMinusAllTime()) {
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(
+							new String[] { "User", "(player)", "ForceTopVoter", top.toString(), "(Number)" },
+							"VotingPlugin.Commands.AdminVote.ForceTopVoter." + top.toString() + "|" + adminPerm,
+							"Force a top voter reward") {
 
-							@Override
-							public void execute(CommandSender sender, String[] args) {
-								User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-								int place = parseInt(args[4]);
-								switch (top) {
-									case Daily:
-										user.giveDailyTopVoterAward(place, args[4]);
-										break;
-									case Monthly:
-										user.giveMonthlyTopVoterAward(place, args[4]);
-										break;
-									case Weekly:
-										user.giveWeeklyTopVoterAward(place, args[4]);
-										break;
-									default:
-										break;
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							int place = parseInt(args[4]);
+							switch (top) {
+								case Daily:
+									user.giveDailyTopVoterAward(place, args[4]);
+									break;
+								case Monthly:
+									user.giveMonthlyTopVoterAward(place, args[4]);
+									break;
+								case Weekly:
+									user.giveWeeklyTopVoterAward(place, args[4]);
+									break;
+								default:
+									break;
 
-								}
-								sendMessage(sender, "&cTopVoter " + top.toString() + " " + args[4] + " forced");
 							}
-						});
+							sendMessage(sender, "&cTopVoter " + top.toString() + " " + args[4] + " forced");
+						}
+					});
+
+			String text = "";
+			switch (top) {
+				case Daily:
+					text = "Day";
+					break;
+				case Monthly:
+					text = "Month";
+					break;
+				case Weekly:
+					text = "Week";
+					break;
+				default:
+					break;
+
 			}
+
+			final String str = text;
+
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
+							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
+							"Force a votestreak reward for " + str) {
+
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), str, args[4],
+									parseInt(args[4]));
+							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
+						}
+					});
 		}
 
 		plugin.getAdminVoteCommand()
@@ -1253,39 +1283,6 @@ public class CommandLoader {
 				sendMessage(sender, "&cFirstVote forced");
 			}
 		});
-
-		for (TopVoter value : TopVoter.valuesMinusAllTime()) {
-			String text = "";
-			switch (value) {
-				case Daily:
-					text = "Day";
-					break;
-				case Monthly:
-					text = "Month";
-					break;
-				case Weekly:
-					text = "Week";
-					break;
-				default:
-					break;
-
-			}
-
-			final String str = text;
-			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
-							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
-							"Force a votestreak reward for " + str) {
-
-						@Override
-						public void execute(CommandSender sender, String[] args) {
-							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-							SpecialRewards.getInstance().giveVoteStreakReward(user, user.isOnline(), str, args[4],
-									parseInt(args[4]));
-							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
-						}
-					});
-		}
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders", "(player)" },
