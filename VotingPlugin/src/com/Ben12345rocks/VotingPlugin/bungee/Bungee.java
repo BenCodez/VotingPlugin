@@ -193,7 +193,6 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
 		getMysql().alterColumnType("Points", "INT DEFAULT '0'");
 		getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("MileStoneTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
