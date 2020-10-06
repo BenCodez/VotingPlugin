@@ -746,9 +746,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
 				sendVoteEffects(true);
+				setOfflineVotes(new ArrayList<String>());
 			}
-
-			setOfflineVotes(new ArrayList<String>());
 
 			for (int i = 0; i < offlineVotes.size(); i++) {
 				if (plugin.hasVoteSite(offlineVotes.get(i))) {
