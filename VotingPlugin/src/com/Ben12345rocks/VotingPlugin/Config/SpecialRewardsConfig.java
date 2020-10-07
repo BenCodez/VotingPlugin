@@ -229,6 +229,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	public boolean getVotePartyGiveAllPlayers() {
 		return getData().getBoolean("VoteParty.GiveAllPlayers");
 	}
+	
+	public boolean getVotePartyCountOfflineVotes() {
+		return getData().getBoolean("VoteParty.CountOfflineVotes",true);
+	}
 
 	public int getVotePartyIncreaseVotesRquired() {
 		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);

@@ -282,9 +282,11 @@ public class VoteParty implements Listener {
 	public synchronized void vote(User user, boolean realVote) {
 		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
 			if (SpecialRewardsConfig.getInstance().getVotePartyCountFakeVotes() || realVote) {
-				addTotal(user);
-				addVotePlayer(user);
-				check();
+				if (SpecialRewardsConfig.getInstance().getVotePartyCountOfflineVotes() || user.isOnline()) {
+					addTotal(user);
+					addVotePlayer(user);
+					check();
+				}
 			}
 		}
 	}

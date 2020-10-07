@@ -53,6 +53,8 @@ VoteParty:
   CountFakeVotes: true
   # Number of user votes that apply to vote party total the user needs to get rewards
   UserVotesRequired: 0
+  # Count offline votes
+  CountOfflineVotes: true
   # Broadcast when vote party reached
   Broadcast: '&cReached the vote party amount!'
   # List of commands to execute, these only execute once.
