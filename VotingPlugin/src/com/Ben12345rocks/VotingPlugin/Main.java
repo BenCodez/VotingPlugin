@@ -2,6 +2,10 @@ package com.Ben12345rocks.VotingPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URL;
+import java.security.CodeSource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -10,6 +14,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.Set;
 import java.util.TimerTask;
 
@@ -17,6 +23,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.permissions.Permission;
@@ -792,8 +799,51 @@ public class Main extends AdvancedCorePlugin {
 		});
 	}
 
+	private YamlConfiguration getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("advancedcoreversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
+								defConfigStream.close();
+								return defConfig;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	@Getter
+	private String time = "";
+	@Getter
+	private String profile = "";
+
+	private void loadVersionFile() {
+		YamlConfiguration conf = getVersionFile();
+		if (conf != null) {
+			time = conf.getString("time", "");
+			profile = conf.getString("profile", "");
+		}
+	}
+
 	@Override
 	public void onPostLoad() {
+		loadVersionFile();
+		getOptions().setServer(BungeeSettings.getInstance().getServer());
 		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			BungeeHandler.getInstance().load();
 
@@ -803,8 +853,6 @@ public class Main extends AdvancedCorePlugin {
 			}
 
 		}
-
-		getOptions().setServer(BungeeSettings.getInstance().getServer());
 
 		registerCommands();
 		checkVotifier();
@@ -953,6 +1001,9 @@ public class Main extends AdvancedCorePlugin {
 		}
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
+		if (getProfile().equals("dev")) {
+			plugin.getLogger().warning("Using dev build, this is not a stable build, use at your own risk");
+		}
 
 		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
 				ConfigVoteSites.getInstance().getEverySiteRewardPath());

@@ -1356,7 +1356,7 @@ public class CommandLoader {
 							commands.put(str, cmdHandle);
 						}
 					} catch (Exception ex) {
-						plugin.debug("Failed to load command and tab completer for /vote" + arg);
+						plugin.devDebug("Failed to load command and tab completer for /vote" + arg);
 					}
 				}
 
@@ -1377,7 +1377,7 @@ public class CommandLoader {
 							commands.put(str, cmdHandle);
 						}
 					} catch (Exception ex) {
-						plugin.debug("Failed to load command and tab completer for /adminvote" + arg + ": "
+						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": "
 								+ ex.getMessage());
 
 					}
