@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.security.CodeSource;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,10 +16,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 import java.util.Set;
 import java.util.TimerTask;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -50,9 +52,9 @@ import com.Ben12345rocks.AdvancedCore.Util.Logger.Logger;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.BStatsMetrics;
 import com.Ben12345rocks.AdvancedCore.Util.Metrics.MCStatsMetrics;
+import com.Ben12345rocks.AdvancedCore.Util.Misc.MiscUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
-import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAdminVote;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandVote;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
@@ -1192,18 +1194,18 @@ public class Main extends AdvancedCorePlugin {
 	private void setupFiles() {
 		config = Config.getInstance();
 		config.setup();
-		config.loadValues();
+		// config.loadValues();
 
 		configVoteSites = ConfigVoteSites.getInstance();
 		configVoteSites.setup();
 
 		specialRewardsConfig = SpecialRewardsConfig.getInstance();
 		specialRewardsConfig.setup();
-		specialRewardsConfig.loadValues();
+		// specialRewardsConfig.loadValues();
 
 		bungeeSettings = BungeeSettings.getInstance();
 		bungeeSettings.setup();
-		bungeeSettings.loadValues();
+		// bungeeSettings.loadValues();
 
 		checkYMLError();
 
@@ -1252,7 +1254,7 @@ public class Main extends AdvancedCorePlugin {
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
 									+ " users");
 							TopVoterHandler.getInstance().updateTopVoters(users);
-							Commands.getInstance().updateVoteToday(users);
+							updateVoteToday(users);
 							ServerData.getInstance().updateValues();
 							Signs.getInstance().updateSigns();
 
@@ -1274,6 +1276,29 @@ public class Main extends AdvancedCorePlugin {
 				}
 			}
 		}
+	}
+
+	public void updateVoteToday(ArrayList<User> users) {
+		plugin.getVoteToday().clear();
+
+		for (User user : users) {
+			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+			for (VoteSite voteSite : plugin.getVoteSites()) {
+				long time = user.getTime(voteSite);
+				if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
+						&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
+						&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
+
+					times.put(voteSite, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+
+				}
+			}
+			if (times.keySet().size() > 0) {
+				plugin.getVoteToday().put(user, times);
+			}
+
+		}
+		plugin.debug("Updated VoteToday");
 	}
 
 	public void updateAdvancedCoreHook() {

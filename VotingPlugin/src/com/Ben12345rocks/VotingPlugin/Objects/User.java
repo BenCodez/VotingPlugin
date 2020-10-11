@@ -1,11 +1,14 @@
 package com.Ben12345rocks.VotingPlugin.Objects;
 
+import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -724,6 +727,264 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
 			VoteReminding.getInstance().runRemindLogin(this);
 		}
+	}
+
+	public String voteCommandNextInfo(VoteSite voteSite) {
+		String info = new String();
+
+		long time = getTime(voteSite);
+		LocalDateTime now = TimeChecker.getInstance().getTime();
+		;
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
+
+		if (!voteSite.isVoteDelayDaily()) {
+			double votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
+				String errorMsg = Config.getInstance().getFormatCommandsVoteNextInfoError();
+				info = errorMsg;
+			} else {
+
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
+
+				if (time == 0 || now.isAfter(nextvote)) {
+					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
+				} else {
+					Duration dur = Duration.between(now, nextvote);
+
+					long diffHours = dur.getSeconds() / (60 * 60);
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoTime();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Long.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+
+				}
+			}
+		} else {
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
+				}
+			} else {
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
+				}
+			}
+		}
+		return info;
+	}
+
+	public String voteCommandLastDuration(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		if (time > 0) {
+			LocalDateTime now = LocalDateTime.now();
+			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+
+			Duration dur = Duration.between(lastVote, now);
+
+			long diffSecond = dur.getSeconds();
+			int diffDays = (int) (diffSecond / 60 / 60 / 24);
+			int diffHours = (int) (diffSecond / 60 / 60 - diffDays * 24);
+			int diffMinutes = (int) (diffSecond / 60 - diffHours * 60 - diffDays * 24 * 60);
+			int diffSeconds = (int) (diffSecond - diffMinutes * 60 - diffHours * 60 * 60 - diffDays * 24 * 60 * 60);
+
+			String info = "";
+			if (diffDays == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsDay()), "amount", "" + diffDays);
+				info += " ";
+			} else if (diffDays > 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsDays()), "amount", "" + diffDays);
+				info += " ";
+			}
+
+			if (diffHours == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsHour()), "amount", "" + diffHours);
+				info += " ";
+			} else if (diffHours > 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsHours()), "amount", "" + diffHours);
+				info += " ";
+			}
+
+			if (diffMinutes == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsMinute()), "amount", "" + diffMinutes);
+				info += " ";
+			} else if (diffMinutes > 1) {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						Config.getInstance().getFormatTimeFormatsMinutes()), "amount", "" + diffMinutes);
+				info += " ";
+			}
+
+			if (diffSeconds == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								Config.getInstance().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
+			} else {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						Config.getInstance().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
+			}
+
+			info = StringParser.getInstance()
+					.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLastVoted(), "times", info);
+
+			return info;
+		}
+		return Config.getInstance().getFormatCommandsVoteLastNeverVoted();
+	}
+
+	public long voteNextDurationTime(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		LocalDateTime now = TimeChecker.getInstance().getTime();
+		;
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(Main.plugin.getOptions().getTimeHourOffSet());
+
+		if (!voteSite.isVoteDelayDaily()) {
+			double votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
+				return 0;
+			} else {
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
+
+				if (time == 0 || now.isAfter(nextvote)) {
+					return 0;
+				} else {
+					Duration dur = Duration.between(now, nextvote);
+					return dur.getSeconds();
+				}
+			}
+		} else {
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			} else {
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			}
+		}
+	}
+
+	public String voteCommandLastLine(VoteSite voteSite) {
+		String timeString = voteCommandLastDate(voteSite);
+		String timeSince = voteCommandLastDuration(voteSite);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringParser.getInstance().replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLine(),
+				placeholders);
+	}
+
+	/**
+	 * Vote command last date.
+	 *
+	 * @param user
+	 *            the user
+	 * @param voteSite
+	 *            the vote site
+	 * @return the string
+	 */
+	@Deprecated
+	public String voteCommandLastDate(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		if (time > 0) {
+			Date date = new Date(time);
+			String timeString = new SimpleDateFormat(Config.getInstance().getFormatTimeFormat()).format(date);
+			if (StringParser.getInstance().containsIgnorecase(timeString, "YamlConfiguration")) {
+				plugin.getLogger().warning("Detected issue parsing time, check time format");
+			}
+			return timeString;
+		}
+		return "";
 	}
 
 	/**

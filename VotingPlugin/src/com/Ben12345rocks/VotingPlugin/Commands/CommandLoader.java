@@ -31,6 +31,7 @@ import com.Ben12345rocks.AdvancedCore.UserManager.UserStorage;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
@@ -39,13 +40,29 @@ import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.StringListener;
+import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
-import com.Ben12345rocks.VotingPlugin.Commands.GUI.PlayerGUIs;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVoteHelp;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVotePerms;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteBest;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteGUI;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteHelp;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteLast;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteNext;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteShop;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteStreak;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteToday;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteTopVoter;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteTopVoterLastMonth;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteTotal;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteURL;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteURLVoteSite;
 import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.AliasesTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
 import com.Ben12345rocks.VotingPlugin.Events.PlayerVoteEvent;
@@ -54,7 +71,6 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
@@ -457,15 +473,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				int page = 1;
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendJson(Commands.getInstance().adminHelp(sender, page - 1));
-				} else {
-					sender.sendMessage(ArrayUtils.getInstance().convert(
-							ArrayUtils.getInstance().comptoString(Commands.getInstance().adminHelp(sender, page - 1))));
-				}
-
+				new AdminVoteHelp(plugin, sender, 1).open();
+				;
 			}
 		});
 
@@ -501,13 +510,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendJson(Commands.getInstance().adminHelp(sender, page - 1));
-				} else {
-					sender.sendMessage(ArrayUtils.getInstance().convert(
-							ArrayUtils.getInstance().comptoString(Commands.getInstance().adminHelp(sender, page - 1))));
-				}
+				new AdminVoteHelp(plugin, sender, page).open();
+				;
 
 			}
 		});
@@ -517,7 +521,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(Commands.getInstance().listPerms(sender));
+				new AdminVotePerms(plugin, sender).open();
 			}
 		});
 
@@ -528,7 +532,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						Commands.getInstance().listPerms(sender, args[1], 1);
+						new AdminVotePerms(plugin, sender, 1, args[1]).open();
 					}
 				});
 
@@ -539,7 +543,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						Commands.getInstance().listPerms(sender, args[1], Integer.parseInt(args[2]));
+						new AdminVotePerms(plugin, sender, Integer.parseInt(args[2]), args[1]).open();
 					}
 				});
 
@@ -1559,13 +1563,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendJson(Commands.getInstance().voteHelpText(sender));
-				} else {
-					sender.sendMessage(ArrayUtils.getInstance().convert(
-							ArrayUtils.getInstance().comptoString(Commands.getInstance().voteHelpText(sender))));
-				}
+				new VoteHelp(plugin, sender).open();
 			}
 		});
 
@@ -1575,7 +1573,7 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					PlayerGUIs.getInstance().openVoteShop((Player) sender);
+					new VoteShop(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 				}
 			});
 			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop", "(Text)" },
@@ -1662,7 +1660,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				PlayerGUIs.getInstance().openVoteURL((Player) sender);
+				new VoteURL(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender), true)
+						.open();
 
 			}
 		});
@@ -1671,32 +1670,10 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				PlayerGUIs.getInstance().openVoteURL((Player) sender, args[1]);
-
+				new VoteURLVoteSite(plugin, (Player) sender,
+						UserManager.getInstance().getVotingPluginUser((Player) sender), args[1]).open();
 			}
 		});
-
-		if (!Config.getInstance().isCommandsDisableVoteRewardGUIs()) {
-			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Reward" },
-					"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteReward GUI", false) {
-
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					PlayerGUIs.getInstance().voteReward((Player) sender, "");
-
-				}
-			});
-
-			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Reward", "(SiteName)" },
-					"VotingPlugin.Commands.Vote.Reward|" + playerPerm, "Open VoteURL GUI for VoteSIte", false) {
-
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					PlayerGUIs.getInstance().voteReward((Player) sender, args[1]);
-
-				}
-			});
-		}
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Last", "(player)" },
 				"VotingPlugin.Commands.Vote.Last.Other|" + modPerm, "See other players last votes") {
@@ -1704,21 +1681,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().isCommandsUseGUILast() || !(sender instanceof Player)) {
-						String playerName = args[1];
-						if (sender instanceof Player) {
-
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(Commands.getInstance()
-									.voteCommandLast(UserManager.getInstance().getVotingPluginUser(playerName)));
-						} else {
-							sender.sendMessage(ArrayUtils.getInstance().colorize(Commands.getInstance()
-									.voteCommandLast(UserManager.getInstance().getVotingPluginUser(playerName))));
-						}
-					} else {
-						PlayerGUIs.getInstance().openVoteLast((Player) sender,
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-					}
+					new VoteLast(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -1728,21 +1691,11 @@ public class CommandLoader {
 		});
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Last" },
-				"VotingPlugin.Commands.Vote.Last|" + playerPerm, "See your last votes") {
+				"VotingPlugin.Commands.Vote.Last|" + playerPerm, "See your last votes", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUILast()) {
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(Commands.getInstance().voteCommandLast(user));
-					} else {
-						sender.sendMessage("You must be a player to do this!");
-					}
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteLast((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(sender.getName()));
-				}
+				new VoteLast(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -1770,21 +1723,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().isCommandsUseGUINext() || !(sender instanceof Player)) {
-						String playerName = args[1];
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(Commands.getInstance()
-									.voteCommandNext(UserManager.getInstance().getVotingPluginUser(playerName)));
-
-						} else {
-							sender.sendMessage(ArrayUtils.getInstance().colorize(Commands.getInstance()
-									.voteCommandNext(UserManager.getInstance().getVotingPluginUser(playerName))));
-						}
-					} else {
-						PlayerGUIs.getInstance().openVoteNext((Player) sender,
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-					}
+					new VoteNext(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -1827,22 +1766,11 @@ public class CommandLoader {
 		});
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Next" },
-				"VotingPlugin.Commands.Vote.Next|" + playerPerm, "See your next votes") {
+				"VotingPlugin.Commands.Vote.Next|" + playerPerm, "See your next votes", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUINext()) {
-					if (sender instanceof Player) {
-						String playerName = sender.getName();
-						User user = UserManager.getInstance().getVotingPluginUser(playerName);
-						user.sendMessage(Commands.getInstance().voteCommandNext(user));
-					} else {
-						sender.sendMessage("You must be a player to do this!");
-					}
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteNext((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(sender.getName()));
-				}
+				new VoteNext(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -1851,9 +1779,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				Player player = (Player) sender;
-				PlayerGUIs.getInstance().openVoteGUI(player, UserManager.getInstance().getVotingPluginUser(player));
-
+				new VoteGUI(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -1862,10 +1788,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				Player player = (Player) sender;
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					PlayerGUIs.getInstance().openVoteGUI(player,
-							UserManager.getInstance().getVotingPluginUser(args[1]));
+					new VoteGUI(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -1882,7 +1806,8 @@ public class CommandLoader {
 
 						@Override
 						public void execute(CommandSender sender, String[] args) {
-							PlayerGUIs.getInstance().openVoteTopLastMonth((Player) sender);
+							new VoteTopVoterLastMonth(plugin, sender,
+									UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 						}
 					});
 		}
@@ -1892,71 +1817,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUITopVoter()) {
-					int page = 1;
-					String str = Config.getInstance().getVoteTopDefault();
-					if (str.equalsIgnoreCase("monthly")) {
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-							Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-								@Override
-								public void run() {
-									Commands.getInstance().sendTopVoterMonthlyScoreBoard((Player) sender, page);
-								}
-							});
-						} else {
-							sender.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-						}
-					} else if (str.equalsIgnoreCase("weekly")) {
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-							Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-								@Override
-								public void run() {
-									Commands.getInstance().sendTopVoterWeeklyScoreBoard((Player) sender, page);
-								}
-							});
-						} else {
-							sender.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-						}
-					} else if (str.equalsIgnoreCase("daily")) {
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-							Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-								@Override
-								public void run() {
-									Commands.getInstance().sendTopVoterDailyScoreBoard((Player) sender, page);
-								}
-							});
-						} else {
-							sender.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-						}
-					} else if (str.equalsIgnoreCase("all")) {
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-							Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-								@Override
-								public void run() {
-									Commands.getInstance().sendTopVoterAllTimeScoreBoard((Player) sender, page);
-								}
-							});
-						} else {
-							sender.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-						}
-					}
-
-				} else if (sender instanceof Player) {
-					PlayerGUIs.getInstance().openVoteTop((Player) sender, null);
-				}
-
+				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), 1)
+						.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodTopVoter().toUpperCase()));
 			}
 		});
 
@@ -1966,65 +1828,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				String str = Config.getInstance().getVoteTopDefault();
-				if (str.equalsIgnoreCase("monthly")) {
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
-							@Override
-							public void run() {
-								Commands.getInstance().sendTopVoterMonthlyScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-					}
-				} else if (str.equalsIgnoreCase("weekly")) {
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Commands.getInstance().sendTopVoterWeeklyScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-					}
-				} else if (str.equalsIgnoreCase("daily")) {
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Commands.getInstance().sendTopVoterDailyScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-					}
-				} else if (str.equalsIgnoreCase("all")) {
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Commands.getInstance().sendTopVoterAllTimeScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-					}
-				}
-
+				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page).open(GUIMethod.CHAT);
 			}
 		});
 
@@ -2034,20 +1839,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							Commands.getInstance().sendTopVoterMonthlyScoreBoard((Player) sender, page);
-						}
-					});
-				} else {
-					sender.sendMessage(TopVoterHandler.getInstance().topVoterMonthly(page));
-				}
-
+				new VoteTopVoter(plugin, sender, null, TopVoter.Monthly, page).open(GUIMethod.CHAT);
 			}
 		});
 
@@ -2057,20 +1849,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							Commands.getInstance().sendTopVoterAllTimeScoreBoard((Player) sender, page);
-						}
-					});
-				} else {
-					sender.sendMessage(TopVoterHandler.getInstance().topVoterAllTime(page));
-				}
-
+				new VoteTopVoter(plugin, sender, null, TopVoter.AllTime, page).open(GUIMethod.CHAT);
 			}
 		});
 
@@ -2080,19 +1859,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							Commands.getInstance().sendTopVoterWeeklyScoreBoard((Player) sender, page);
-						}
-					});
-				} else {
-					sender.sendMessage(TopVoterHandler.getInstance().topVoterWeekly(page));
-				}
+				new VoteTopVoter(plugin, sender, null, TopVoter.Weekly, page).open(GUIMethod.CHAT);
 
 			}
 		});
@@ -2103,19 +1870,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							Commands.getInstance().sendTopVoterDailyScoreBoard((Player) sender, page);
-						}
-					});
-				} else {
-					sender.sendMessage(TopVoterHandler.getInstance().topVoterDaily(page));
-				}
+				new VoteTopVoter(plugin, sender, null, TopVoter.Daily, page).open(GUIMethod.CHAT);
 			}
 		});
 
@@ -2134,25 +1889,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUIToday() || !(sender instanceof Player)) {
-					int page = Integer.parseInt(args[1]);
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(Commands.getInstance().commandVoteToday(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Commands.getInstance().sendVoteTodayScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(Commands.getInstance().commandVoteToday(page));
-					}
-				} else {
-					PlayerGUIs.getInstance().openVoteToday((Player) sender);
-				}
-
+				int page = Integer.parseInt(args[1]);
+				new VoteToday(plugin, sender, null, page).open();
 			}
 		});
 
@@ -2161,25 +1899,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUIToday() || !(sender instanceof Player)) {
-					int page = 1;
-					if (sender instanceof Player) {
-						User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-						user.sendMessage(Commands.getInstance().commandVoteToday(page));
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Commands.getInstance().sendVoteTodayScoreBoard((Player) sender, page);
-							}
-						});
-					} else {
-						sender.sendMessage(Commands.getInstance().commandVoteToday(page));
-					}
-				} else {
-					PlayerGUIs.getInstance().openVoteToday((Player) sender);
-				}
-
+				new VoteToday(plugin, sender, null, 1).open();
 			}
 		});
 
@@ -2188,12 +1908,34 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(Commands.getInstance().voteCommandTotalAll());
-				} else {
-					sender.sendMessage(Commands.getInstance().voteCommandTotalAll());
+				ArrayList<String> msg = new ArrayList<String>();
+
+				ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+
+				int daily = 0;
+				int weekly = 0;
+				int month = 0;
+				int all = 0;
+
+				for (String uuid : uuids) {
+					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					daily += user.getTotal(TopVoter.Daily);
+					weekly += user.getTotal(TopVoter.Weekly);
+					month += user.getTotal(TopVoter.Monthly);
+					all += user.getTotal(TopVoter.AllTime);
 				}
+
+				for (String s : config.getFormatCommandsVoteTotalAll()) {
+					String str = StringParser.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
+					str = StringParser.getInstance().replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
+					str = StringParser.getInstance().replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
+					str = StringParser.getInstance().replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
+					msg.add(str);
+				}
+
+				msg = ArrayUtils.getInstance().colorize(msg);
+				sendMessage(sender, msg);
+
 			}
 		});
 
@@ -2203,20 +1945,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().isCommandsUseGUITotal() || !(sender instanceof Player)) {
-						String playerName = args[1];
-						if (sender instanceof Player) {
-							User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-							user.sendMessage(Commands.getInstance()
-									.voteCommandTotal(UserManager.getInstance().getVotingPluginUser(playerName)));
-						} else {
-							sender.sendMessage(ArrayUtils.getInstance().colorize(Commands.getInstance()
-									.voteCommandTotal(UserManager.getInstance().getVotingPluginUser(playerName))));
-						}
-					} else {
-						PlayerGUIs.getInstance().openVoteTotal((Player) sender,
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-					}
+					new VoteTotal(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -2226,22 +1955,11 @@ public class CommandLoader {
 		});
 
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Total" },
-				"VotingPlugin.Commands.Vote.Total|" + playerPerm, "View your total votes") {
+				"VotingPlugin.Commands.Vote.Total|" + playerPerm, "View your total votes", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUITotal() || !(sender instanceof Player)) {
-					if (sender instanceof Player) {
-						String playerName = sender.getName();
-						User user = UserManager.getInstance().getVotingPluginUser(playerName);
-						user.sendMessage(Commands.getInstance().voteCommandTotal(user));
-					} else {
-						sender.sendMessage("You must be a player to do this!");
-					}
-				} else {
-					PlayerGUIs.getInstance().openVoteTotal((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(sender.getName()));
-				}
+				new VoteTotal(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -2250,12 +1968,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUIBest() || !(sender instanceof Player)) {
-					sender.sendMessage(Commands.getInstance().best(sender, sender.getName()));
-				} else {
-					PlayerGUIs.getInstance().openVoteBest((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(sender.getName()));
-				}
+				new VoteBest(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -2265,12 +1978,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().isCommandsUseGUIBest() || !(sender instanceof Player)) {
-						sender.sendMessage(Commands.getInstance().best(sender, args[1]));
-					} else {
-						PlayerGUIs.getInstance().openVoteBest((Player) sender,
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-					}
+					new VoteBest(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -2283,12 +1991,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!Config.getInstance().isCommandsUseGUIStreak() || !(sender instanceof Player)) {
-					sender.sendMessage(Commands.getInstance().streak(sender, sender.getName()));
-				} else {
-					PlayerGUIs.getInstance().openVoteStreak((Player) sender,
-							UserManager.getInstance().getVotingPluginUser(sender.getName()));
-				}
+				new VoteStreak(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
@@ -2298,12 +2001,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (com.Ben12345rocks.AdvancedCore.UserManager.UserManager.getInstance().userExist(args[1])) {
-					if (!Config.getInstance().isCommandsUseGUIStreak() || !(sender instanceof Player)) {
-						sender.sendMessage(Commands.getInstance().streak(sender, args[1]));
-					} else {
-						PlayerGUIs.getInstance().openVoteStreak((Player) sender,
-								UserManager.getInstance().getVotingPluginUser(args[1]));
-					}
+					new VoteStreak(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatUserNotExist(), "player", args[1]));
@@ -2345,17 +2043,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						if (!Config.getInstance().isCommandsUseGUIVote() || !(sender instanceof Player)) {
-							if (isPlayer(sender)) {
-								User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-								user.sendMessage(Commands.getInstance().voteURLs(user, true));
-							} else {
-								sender.sendMessage(Commands.getInstance().voteURLs(null, false));
-							}
-						} else {
-							PlayerGUIs.getInstance().openVoteURL((Player) sender);
-						}
-
+						new VoteURL(plugin, sender, null, true).open();
 					}
 				});
 
@@ -2364,12 +2052,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (isPlayer(sender)) {
-					User user = UserManager.getInstance().getVotingPluginUser((Player) sender);
-					user.sendMessage(Commands.getInstance().voteURLs(user, true));
-				} else {
-					sender.sendMessage(Commands.getInstance().voteURLs(null, false));
-				}
+				new VoteURL(plugin, sender, null, true).open();
 			}
 		});
 
@@ -2421,5 +2104,30 @@ public class CommandLoader {
 	 */
 	public void setCommands(HashMap<String, CommandHandler> commands) {
 		this.commands = commands;
+	}
+
+	public BInventoryButton getBackButton(User user) {
+		ConfigurationSection sec = Config.getInstance().getBackButton();
+		ItemBuilder item;
+		if (sec != null) {
+			item = new ItemBuilder(sec);
+		} else {
+			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
+		}
+
+		BInventoryButton b = new BInventoryButton(item) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				new VoteGUI(plugin, event.getWhoClicked(), user)
+						.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
+			}
+		};
+
+		if (!Config.getInstance().isAlwaysCloseInventory()) {
+			b.dontClose();
+		}
+
+		return b;
 	}
 }

@@ -1,0 +1,16 @@
+# GUI Methods:
+# - BOOK
+# - GUI
+# - CHAT (Disables GUI's)
+GUIMethod:
+  Today: CHEST
+  TopVoter: CHEST
+  Last: CHEST
+  Next: CHEST
+  Total: CHEST
+  URL: CHEST
+  Best: CHEST
+  Streak: CHEST
+  GUI: CHEST # CHAT not availabe for this
+  
+  

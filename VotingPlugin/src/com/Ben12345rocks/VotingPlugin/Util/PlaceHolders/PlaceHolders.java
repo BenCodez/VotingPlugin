@@ -12,7 +12,6 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Commands.Commands;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
@@ -270,7 +269,7 @@ public class PlaceHolders {
 				long smallest = -1;
 				HashMap<Long, VoteSite> times = new HashMap<Long, VoteSite>();
 				for (VoteSite site : plugin.getVoteSites()) {
-					long t = Commands.getInstance().voteNextDurationTime(user, site);
+					long t = user.voteNextDurationTime(site);
 					if (smallest == -1) {
 						smallest = t;
 					}
@@ -281,7 +280,7 @@ public class PlaceHolders {
 				}
 				for (Entry<Long, VoteSite> entry : times.entrySet()) {
 					if (entry.getKey().longValue() == smallest) {
-						return Commands.getInstance().voteCommandNextInfo(user, entry.getValue());
+						return user.voteCommandNextInfo(entry.getValue());
 					}
 				}
 
@@ -294,14 +293,14 @@ public class PlaceHolders {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
-					return Commands.getInstance().voteCommandNextInfo(user, voteSite);
+					return user.voteCommandNextInfo(voteSite);
 				}
 			}.withDescription("How long until user can vote on " + voteSite.getKey()));
 			placeholders.add(new PlaceHolder<User>("Last_" + voteSite.getKey()) {
 
 				@Override
 				public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
-					return Commands.getInstance().voteCommandLastDuration(user, voteSite);
+					return user.voteCommandLastDuration(voteSite);
 				}
 			}.withDescription("How long ago user voted on " + voteSite.getKey()));
 			placeholders.add(new PlaceHolder<User>("CanVote_" + voteSite.getKey()) {
