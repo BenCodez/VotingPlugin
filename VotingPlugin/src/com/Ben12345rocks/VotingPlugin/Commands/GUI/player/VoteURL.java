@@ -53,7 +53,7 @@ public class VoteURL extends GUIHandler {
 		for (final VoteSite site : plugin.getVoteSites()) {
 
 			try {
-				ArrayList<String> layout = Config.getInstance().getGUIVoteURLBookGUILayout();
+				ArrayList<String> layout = GUI.getInstance().getBookVoteURLBookGUILayout();
 
 				lines += layout.size();
 				if (lines > 14) {
@@ -65,11 +65,11 @@ public class VoteURL extends GUIHandler {
 
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("Sitename", site.getDisplayName());
-				ChatColor color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUIAlreadyVotedColor());
-				String text = Config.getInstance().getGUIVoteURLBookGUIAlreadyVotedText();
+				ChatColor color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedColor());
+				String text = GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedText();
 				if (user.canVoteSite(site)) {
-					color = ChatColor.valueOf(Config.getInstance().getGUIVoteURLBookGUICanVoteColor());
-					text = Config.getInstance().getGUIVoteURLBookGUICanVoteText();
+					color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUICanVoteColor());
+					text = GUI.getInstance().getBookVoteURLBookGUICanVoteText();
 				}
 				String url = ChatColor.stripColor(StringParser.getInstance()
 						.colorize(StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText()));
@@ -106,7 +106,7 @@ public class VoteURL extends GUIHandler {
 		builder.add(currentPage.build());
 
 		ItemStack book = BookUtil.writtenBook().author(player.getName())
-				.title(StringParser.getInstance().colorize(Config.getInstance().getGUIVoteURLBookGUITitle()))
+				.title(StringParser.getInstance().colorize(GUI.getInstance().getBookVoteURLBookGUITitle()))
 				.pages(builder).build();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
@@ -128,19 +128,19 @@ public class VoteURL extends GUIHandler {
 		User user = UserManager.getInstance().getVotingPluginUser(player);
 
 		// normal GUI
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteURLName());
 
 		int count = 0;
-		if (Config.getInstance().getVoteURLViewAllUrlsButtonEnabled()) {
+		if (GUI.getInstance().getChestVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = new ItemBuilder(
-					Config.getInstance().getVoteURLAlreadyVotedAllUrlsButtonItemSection());
-			if (Config.getInstance().isGuiVoteURLAllUrlsButtonrequireAllSitesVoted()) {
+					GUI.getInstance().getChestVoteURLAlreadyVotedAllUrlsButtonItemSection());
+			if (GUI.getInstance().isChestVoteURLAllUrlsButtonrequireAllSitesVoted()) {
 				if (user.canVoteAny()) {
-					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+					builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
 				}
 			} else {
 				if (user.canVoteAll()) {
-					builderAll = new ItemBuilder(Config.getInstance().getVoteURLCanVoteAllUrlsButtonItemSection());
+					builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
 				}
 			}
 
@@ -165,15 +165,15 @@ public class VoteURL extends GUIHandler {
 		}
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteURLAlreadyVotedItemSection());
+			ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteURLAlreadyVotedItemSection());
 			if (user.canVoteSite(voteSite)) {
-				builder = new ItemBuilder(Config.getInstance().getVoteURLCanVoteItemSection());
+				builder = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteItemSection());
 			} else {
-				builder.addLoreLine(Config.getInstance().getVoteURLNextVote().replace("%Info%",
-						user.voteCommandNextInfo(voteSite)));
+				builder.addLoreLine(
+						GUI.getInstance().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 			}
 
-			builder.setName(Config.getInstance().getVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
+			builder.setName(GUI.getInstance().getChestVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
 
 			inv.addButton(count, new BInventoryButton(builder) {
 
@@ -185,7 +185,7 @@ public class VoteURL extends GUIHandler {
 						user.sendMessage(StringParser.getInstance().replacePlaceHolder(
 								StringParser.getInstance()
 										.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-												Config.getInstance().getGUIVoteURLURLText(), "voteurl",
+												GUI.getInstance().getChestVoteURLURLText(), "voteurl",
 												voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
 								"player", player.getName()));
 
@@ -196,7 +196,7 @@ public class VoteURL extends GUIHandler {
 			count++;
 		}
 
-		if (Config.getInstance().getGUIVoteURLBackButton()) {
+		if (GUI.getInstance().getChestVoteURLBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 
@@ -239,7 +239,7 @@ public class VoteURL extends GUIHandler {
 
 		return ArrayUtils.getInstance().colorize(sites);
 	}
-	
+
 	@Override
 	public void open() {
 		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodURL().toUpperCase()));

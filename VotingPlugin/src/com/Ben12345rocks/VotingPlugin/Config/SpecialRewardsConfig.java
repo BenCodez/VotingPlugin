@@ -296,6 +296,7 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
+	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
 	}

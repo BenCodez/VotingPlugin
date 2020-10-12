@@ -65,7 +65,7 @@ public class VoteNext extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteNextName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteNextName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
@@ -84,7 +84,7 @@ public class VoteNext extends GUIHandler {
 			});
 		}
 
-		if (Config.getInstance().getGUIVoteNextBackButton()) {
+		if (GUI.getInstance().getChestVoteNextBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 		inv.openInventory(player);

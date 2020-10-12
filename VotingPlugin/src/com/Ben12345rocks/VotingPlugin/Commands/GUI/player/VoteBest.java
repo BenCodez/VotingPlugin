@@ -61,10 +61,10 @@ public class VoteBest extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteBestName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteBestName());
 		inv.addPlaceholder("player", user.getPlayerName());
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestDayBestItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteBestDayBestItem())
 				.addPlaceholder("Best", "" + user.getBestDayVoteStreak())) {
 
 			@Override
@@ -73,7 +73,7 @@ public class VoteBest extends GUIHandler {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestWeekBestItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteBestWeekBestItem())
 				.addPlaceholder("Best", "" + user.getBestWeekVoteStreak())) {
 
 			@Override
@@ -82,7 +82,7 @@ public class VoteBest extends GUIHandler {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteBestMonthBestItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteBestMonthBestItem())
 				.addPlaceholder("Best", "" + user.getBestMonthVoteStreak())) {
 
 			@Override

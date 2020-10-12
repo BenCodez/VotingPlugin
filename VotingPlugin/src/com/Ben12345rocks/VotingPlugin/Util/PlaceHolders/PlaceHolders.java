@@ -13,6 +13,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -140,8 +141,8 @@ public class PlaceHolders {
 			}
 		}.withDescription("User milestonecount"));
 
-		for (final String identifier : Config.getInstance().getIdentifiers()) {
-			if (Config.getInstance().getIdentifierLimit(identifier) > 0) {
+		for (final String identifier : GUI.getInstance().getChestShopIdentifiers()) {
+			if (GUI.getInstance().getChestShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<User>("VoteShopLimit_" + identifier) {
 
 					@Override

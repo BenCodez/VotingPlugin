@@ -44,11 +44,11 @@ public class VoteTotal extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTotalName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteTotalName());
 		inv.addPlaceholder("player", user.getPlayerName());
 
 		for (TopVoter top : TopVoter.values()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteTotalItem(top))
+			inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteTotalItem(top))
 					.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName())) {
 
 				@Override
@@ -58,7 +58,7 @@ public class VoteTotal extends GUIHandler {
 			});
 		}
 
-		if (Config.getInstance().getGUIVoteTotalBackButton()) {
+		if (GUI.getInstance().getChestVoteTotalBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 		inv.openInventory(player);

@@ -46,7 +46,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 
 		users = plugin.getLastMonthTopVoter().entrySet();
 
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTopName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteTopName());
 		inv.addPlaceholder("topvoter", "Last Month");
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
@@ -56,16 +56,16 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 		for (Entry<User, Integer> entry : users) {
 			ItemBuilder playerItem;
 
-			if (Config.getInstance().isGuiVoteTopUseSkull()) {
+			if (GUI.getInstance().isChestVoteTopUseSkull()) {
 				playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
 			} else {
-				playerItem = new ItemBuilder(Material.valueOf(Config.getInstance().getGuiVoteTopPlayerItemMaterial()));
+				playerItem = new ItemBuilder(Material.valueOf(GUI.getInstance().getChestVoteTopPlayerItemMaterial()));
 			}
 
 			playerItem.setLore(new ArrayList<String>());
 
-			inv.addButton(new BInventoryButton(playerItem.setName(Config.getInstance().getGUIVoteTopItemName())
-					.addLoreLine(Config.getInstance().getGUIVoteTopItemLore()).addPlaceholder("position", "" + pos)
+			inv.addButton(new BInventoryButton(playerItem.setName(GUI.getInstance().getChestVoteTopItemName())
+					.addLoreLine(GUI.getInstance().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
 					.addPlaceholder("player", entry.getKey().getPlayerName())
 					.addPlaceholder("votes", "" + entry.getValue())) {
 
@@ -78,12 +78,12 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 			pos++;
 		}
 
-		if (Config.getInstance().getGUIVoteTopBackButton()) {
+		if (GUI.getInstance().getChestVoteTopBackButton()) {
 			inv.getPageButtons().add(CommandLoader.getInstance().getBackButton(user).setSlot(1));
 		}
 
 		inv.setPages(true);
-		inv.setMaxInvSize(Config.getInstance().getGUIVoteTopSize());
+		inv.setMaxInvSize(GUI.getInstance().getChestVoteTopSize());
 		inv.openInventory(player);
 	}
 

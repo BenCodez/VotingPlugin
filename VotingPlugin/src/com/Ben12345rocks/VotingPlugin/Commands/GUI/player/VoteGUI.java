@@ -51,7 +51,7 @@ public class VoteGUI extends GUIHandler {
 			player.sendMessage(StringParser.getInstance().colorize(Main.plugin.getOptions().getFormatNoPerms()));
 			return;
 		}
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteGUIName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteGUIName());
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
@@ -60,12 +60,12 @@ public class VoteGUI extends GUIHandler {
 		inv.addPlaceholder("player", user.getPlayerName());
 		inv.addPlaceholder("top", Config.getInstance().getVoteTopDefault());
 
-		for (String slot : Config.getInstance().getVoteGUISlots()) {
-			ItemBuilder builder = new ItemBuilder(Config.getInstance().getVoteGUISlotSection(slot));
+		for (String slot : GUI.getInstance().getChestVoteGUISlots()) {
+			ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteGUISlotSection(slot));
 
 			String[] lore = new String[1];
 
-			lore = ArrayUtils.getInstance().convert(Config.getInstance().getVoteGUISlotLore(slot));
+			lore = ArrayUtils.getInstance().convert(GUI.getInstance().getChestVoteGUISlotLore(slot));
 
 			String str = Config.getInstance().getVoteTopDefault();
 			if (lore.length == 0) {
@@ -103,7 +103,7 @@ public class VoteGUI extends GUIHandler {
 				public void onClick(ClickEvent event) {
 
 					Player player = event.getWhoClicked();
-					String cmd = Config.getInstance().getVoteGUISlotCommand(slot);
+					String cmd = GUI.getInstance().getChestVoteGUISlotCommand(slot);
 					if (cmd.equalsIgnoreCase("none")) {
 						return;
 					} else if (!cmd.equals("")) {

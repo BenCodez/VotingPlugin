@@ -51,7 +51,7 @@ public class VoteToday extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteTodayName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteTodayName());
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
@@ -60,19 +60,19 @@ public class VoteToday extends GUIHandler {
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				String msg = Config.getInstance().getGUIVoteTodayLine();
+				String msg = GUI.getInstance().getChestVoteTodayLine();
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("VoteSite", voteSite.getDisplayName());
 				placeholders.put("Time", timeString);
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
-				if (Config.getInstance().isGUIVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
+				if (GUI.getInstance().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
 					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(player);
 				} else {
-					item = new ItemBuilder(Config.getInstance().getGUIVoteTodayPlayerItem());
+					item = new ItemBuilder(GUI.getInstance().getChestVoteTodayPlayerItem());
 				}
 				item.setName(StringParser.getInstance().replacePlaceHolder(
-						Config.getInstance().getGUIVoteTodayIconTitle(), "player", user.getPlayerName()));
+						GUI.getInstance().getChestVoteTodayIconTitle(), "player", user.getPlayerName()));
 				item.setLore(msg);
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
 
@@ -87,7 +87,7 @@ public class VoteToday extends GUIHandler {
 			}
 		}
 
-		if (Config.getInstance().getGUIVoteTodayBackButton()) {
+		if (GUI.getInstance().getChestVoteTodayBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 		inv.openInventory(player);

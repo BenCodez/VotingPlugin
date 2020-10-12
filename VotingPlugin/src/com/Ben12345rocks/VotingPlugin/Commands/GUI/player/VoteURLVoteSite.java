@@ -15,6 +15,7 @@ import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Commands.CommandLoader;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 
@@ -47,7 +48,7 @@ public class VoteURLVoteSite extends GUIHandler {
 			return;
 		}
 		VoteSite site = plugin.getVoteSite(voteSite);
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteURLSiteName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteURLSiteName());
 		inv.addPlaceholder("site", site.getDisplayName());
 		inv.setMeta(player, "VoteSite", site);
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
@@ -82,7 +83,7 @@ public class VoteURLVoteSite extends GUIHandler {
 			}
 		});
 
-		if (Config.getInstance().getGUIVoteURLBackButton()) {
+		if (GUI.getInstance().getChestVoteURLBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 		inv.openInventory(player);

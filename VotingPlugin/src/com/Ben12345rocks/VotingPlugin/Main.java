@@ -722,62 +722,6 @@ public class Main extends AdvancedCorePlugin {
 				return "" + Config.getInstance().getVoteRemindingEnabled();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Today") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUIToday();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_TopVoter") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUITopVoter();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Last") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUILast();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Next") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUINext();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Total") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUITotal();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Vote") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUIVote();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Best") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUIBest();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseGUI_Streak") {
-
-			@Override
-			public String getValue() {
-				return "" + Config.getInstance().isCommandsUseGUIStreak();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
 
 			@Override

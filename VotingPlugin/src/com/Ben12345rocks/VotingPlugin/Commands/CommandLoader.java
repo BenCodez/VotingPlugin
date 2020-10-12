@@ -1175,7 +1175,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-								Config.getInstance().getIdentifierRewardsPath(args[3]), new RewardOptions());
+								GUI.getInstance().getChestShopIdentifierRewardsPath(args[3]), new RewardOptions());
 						sendMessage(sender, "&cVoteShop " + args[3] + " forced");
 					}
 				});
@@ -1541,7 +1541,7 @@ public class CommandLoader {
 			@Override
 			public void reload() {
 				ArrayList<String> sites = new ArrayList<String>();
-				for (String str : Config.getInstance().getIdentifiers()) {
+				for (String str : GUI.getInstance().getChestShopIdentifiers()) {
 					sites.add(str);
 				}
 				setReplace(sites);
@@ -1567,7 +1567,7 @@ public class CommandLoader {
 			}
 		});
 
-		if (Config.getInstance().getVoteShopEnabled()) {
+		if (GUI.getInstance().getChestVoteShopEnabled()) {
 			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop" },
 					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
 
@@ -1581,13 +1581,13 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					if (!Config.getInstance().getVoteShopEnabled()) {
+					if (!GUI.getInstance().getChestVoteShopEnabled()) {
 						sender.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
 						return;
 					}
 
 					String identifier = args[1];
-					Set<String> identifiers = Config.getInstance().getIdentifiers();
+					Set<String> identifiers = GUI.getInstance().getChestShopIdentifiers();
 					if (ArrayUtils.getInstance().containsIgnoreCase(identifiers, identifier)) {
 						for (String ident : identifiers) {
 							if (ident.equalsIgnoreCase(args[1])) {
@@ -1595,7 +1595,7 @@ public class CommandLoader {
 							}
 						}
 
-						String perm = Config.getInstance().getVoteShopPermission(identifier);
+						String perm = GUI.getInstance().getChestVoteShopPermission(identifier);
 						boolean hasPerm = false;
 						if (perm.isEmpty()) {
 							hasPerm = true;
@@ -1603,7 +1603,7 @@ public class CommandLoader {
 							hasPerm = sender.hasPermission(perm);
 						}
 
-						int limit = Config.getInstance().getIdentifierLimit(identifier);
+						int limit = GUI.getInstance().getChestShopIdentifierLimit(identifier);
 
 						User user = UserManager.getInstance().getVotingPluginUser(sender.getName());
 						boolean limitPass = true;
@@ -1614,10 +1614,10 @@ public class CommandLoader {
 							}
 						}
 
-						if (!Config.getInstance().getVoteShopNotBuyable(identifier)) {
+						if (!GUI.getInstance().getChestVoteShopNotBuyable(identifier)) {
 							if (hasPerm) {
 								user.clearCache();
-								int points = Config.getInstance().getIdentifierCost(identifier);
+								int points = GUI.getInstance().getChestShopIdentifierCost(identifier);
 								if (identifier != null) {
 
 									if (limitPass) {
@@ -1628,7 +1628,7 @@ public class CommandLoader {
 										if (user.removePoints(points)) {
 
 											RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-													Config.getInstance().getIdentifierRewardsPath(identifier),
+													GUI.getInstance().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
 											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
@@ -1642,7 +1642,7 @@ public class CommandLoader {
 													Config.getInstance().getFormatShopFailedMsg(), placeholders));
 										}
 									} else {
-										user.sendMessage(Config.getInstance().getVoteShopLimitReached());
+										user.sendMessage(GUI.getInstance().getChestVoteShopLimitReached());
 									}
 								}
 
@@ -1798,7 +1798,7 @@ public class CommandLoader {
 			}
 		});
 
-		if (Config.getInstance().isLastMonthGUI()) {
+		if (GUI.getInstance().isLastMonthGUI()) {
 			plugin.getVoteCommand()
 					.add(new CommandHandler(new String[] { "LastMonthTop" },
 							"VotingPlugin.Commands.Vote.LastMonthTop|" + playerPerm,

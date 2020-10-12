@@ -2,18 +2,14 @@ package com.Ben12345rocks.VotingPlugin.Config;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
-import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataConfigurationSection;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataListString;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataString;
-import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFile;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
@@ -41,22 +37,13 @@ public class Config extends YMLFile {
 		return instance;
 	}
 
-	@ConfigDataString(
-			path = "Format.Commands.Vote.ToggleBroadcasts.Enabled", defaultValue = "&cYou will now see vote broadcasts"
-	)
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled")
 	@Getter
-	private String formatCommandsVoteToggleBroadcastEnabled;
+	private String formatCommandsVoteToggleBroadcastEnabled = "&cYou will now see vote broadcasts";
 
-	@ConfigDataString(
-			path = "Format.Commands.Vote.ToggleBroadcasts.Disabled",
-			defaultValue = "&cYou will no longer see vote broadcasts"
-	)
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled")
 	@Getter
-	private String formatCommandsVoteToggleBroadcastDisabled;
-
-	@ConfigDataBoolean(path = "Commands.VoteRewardFromVoteURL")
-	@Getter
-	private boolean commandsVoteRewardFromVoteURL = false;
+	private String formatCommandsVoteToggleBroadcastDisabled = "&cYou will no longer see vote broadcasts";
 
 	@ConfigDataBoolean(path = "ClearCacheOnVoteShopPurchase")
 	@Getter
@@ -114,10 +101,6 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatTimeFormatsSecond;
 
-	@ConfigDataBoolean(path = "Commands.DisableVoteRewardGUIs")
-	@Getter
-	private boolean commandsDisableVoteRewardGUIs;
-
 	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
 	private boolean alwaysUpdate = false;
@@ -138,10 +121,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alterColumns = true;
 
-	@Getter
-	@ConfigDataString(path = "VoteShopDisabled")
-	private String voteShopDisabled = "&cVote shop disabled";
-
 	@ConfigDataBoolean(path = "AlternateUUIDLookup")
 	@Getter
 	private boolean alternateUUIDLookup = false;
@@ -149,10 +128,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
-
-	@ConfigDataBoolean(path = "GUI.VoteURL.AllUrlsButton.RequireAllSitesVoted")
-	@Getter
-	private boolean guiVoteURLAllUrlsButtonrequireAllSitesVoted = true;
 
 	@ConfigDataBoolean(path = "Format.BroadcastVote")
 	@Getter
@@ -166,45 +141,9 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean clearCacheOnVote = false;
 
-	@ConfigDataBoolean(path = "Commands.UseGUI.Best")
-	@Getter
-	private boolean commandsUseGUIBest = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Last")
-	@Getter
-	private boolean commandsUseGUILast = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Next")
-	@Getter
-	private boolean commandsUseGUINext = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Streak")
-	@Getter
-	private boolean commandsUseGUIStreak = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Today")
-	@Getter
-	private boolean commandsUseGUIToday = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.TopVoter")
-	@Getter
-	private boolean commandsUseGUITopVoter = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Total")
-	@Getter
-	private boolean commandsUseGUITotal = true;
-
-	@ConfigDataBoolean(path = "Commands.UseGUI.Vote")
-	@Getter
-	private boolean commandsUseGUIVote = true;
-
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;
-
-	@ConfigDataBoolean(path = "GUI.VoteRewardBackButton")
-	@Getter
-	private boolean voteRewardBackButton = false;
 
 	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
 	@Getter
@@ -238,9 +177,7 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean disableAdvancedTab = false;
 
-	@ConfigDataBoolean(path = "VoteShopRequireConfirmation")
-	@Getter
-	private boolean voteShopRequireConfirmation = false;
+	
 
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
@@ -254,14 +191,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean loadCommandAliases = true;
 
-	@ConfigDataBoolean(path = "GUI.VoteTop.UseSkull")
-	@Getter
-	private boolean guiVoteTopUseSkull = true;
-
-	@ConfigDataString(path = "GUI.VoteTop.PlayerItem.Material")
-	@Getter
-	private String guiVoteTopPlayerItemMaterial = "PAPER";
-
 	@ConfigDataBoolean(path = "AllowVotePointTransfers")
 	@Getter
 	private boolean allowVotePointTransfers = false;
@@ -274,14 +203,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alwaysCloseInventory = false;
 
-	@ConfigDataBoolean(path = "VoteShopHideLimitedReached")
-	@Getter
-	private boolean voteShopHideLimitedReached = true;
-
-	@ConfigDataString(path = "VoteShopLimitReached")
-	@Getter
-	private String voteShopLimitReached = "&aYou reached your limit";
-
 	@Getter
 	private int formatPageSize = 10;
 
@@ -289,46 +210,17 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
 
-	@ConfigDataString(path = "GUI.VoteToday.Line")
-	@Getter
-	private String GUIVoteTodayLine = "&6%VoteSite% : %Time%";
-
-	@ConfigDataBoolean(path = "GUI.VoteToday.UseSkull", defaultValue = true)
-	@Getter
-	private boolean GUIVoteTodayUseSkull = true;
-
-	@ConfigDataConfigurationSection(path = "GUI.VoteToday.PlayerItem")
-	@Getter
-	private ConfigurationSection GUIVoteTodayPlayerItem;
-
-	@ConfigDataString(path = "GUI.VoteToday.IconTitle")
-	@Getter
-	private String GUIVoteTodayIconTitle = "%player%";
-
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
 	private boolean overrideVersionDisable = false;
-
-	@ConfigDataBoolean(path = "LastMonthGUI")
-	@Getter
-	private boolean lastMonthGUI = false;
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
 
-	@ConfigDataBoolean(path = "Commands.VoteBookGUI")
-	@Getter
-	private boolean commandsVoteBookGUI = false;
-
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
 	private boolean useJavascriptPlaceholders = true;
-
-	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
-	@Getter
-	@Deprecated
-	private boolean useBungeecoord = false;
 
 	@ConfigDataBoolean(path = "PreventRepeatMilestones")
 	@Getter
@@ -342,34 +234,7 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
-	@ConfigDataListString(path = "GUI.VoteURLBookGUI.Layout")
-	@Getter
-	private ArrayList<String> GUIVoteURLBookGUILayout = ArrayUtils.getInstance()
-			.convert(new String[] { "&c%Sitename%", "[UrlText]" });
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.Title")
-	@Getter
-	private String GUIVoteURLBookGUITitle = "&cVoteURL";
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.SiteName")
-	@Getter
-	private String GUIVoteURLBookGUISiteName = "&c%name%";
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteText")
-	@Getter
-	private String GUIVoteURLBookGUICanVoteText = "Click me";
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedText")
-	@Getter
-	private String GUIVoteURLBookGUIAlreadyVotedText = "Click me";
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.CanVoteColor")
-	@Getter
-	private String GUIVoteURLBookGUICanVoteColor = "GREEN";
-
-	@ConfigDataString(path = "GUI.VoteURLBookGUI.AlreadyVotedColor")
-	@Getter
-	private String GUIVoteURLBookGUIAlreadyVotedColor = "RED";
+	
 
 	/**
 	 * Instantiates a new config.
@@ -768,194 +633,7 @@ public class Config extends YMLFile {
 		return getData().getBoolean("GiveDefaultPermission", true);
 	}
 
-	public ConfigurationSection getGUIVoteBestDayBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.DayBest.Item");
-	}
-
-	public ConfigurationSection getGUIVoteBestMonthBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.MonthBest.Item");
-	}
-
-	public String getGUIVoteBestName() {
-		return getData().getString("GUI.VoteBest.Name", "VoteBest: %player%");
-	}
-
-	public ConfigurationSection getGUIVoteBestWeekBestItem() {
-		return getData().getConfigurationSection("GUI.VoteBest.WeekBest.Item");
-	}
-
-	public String getGUIVoteGUIName() {
-		return getData().getString("GUI.VoteGUIName", "&cVoteGUI: &c&l%player%");
-	}
-
-	public boolean getGUIVoteLastBackButton() {
-		return getData().getBoolean("GUI.VoteLast.BackButton");
-	}
-
-	public String getGUIVoteLastName() {
-		return getData().getString("GUI.VoteLast.Name", "VoteLast: %player%");
-	}
-
-	public boolean getGUIVoteNextBackButton() {
-		return getData().getBoolean("GUI.VoteNext.BackButton");
-	}
-
-	public String getGUIVoteNextName() {
-		return getData().getString("GUI.VoteNext.Name", "VoteNext: %player%");
-	}
-
-	public String getGUIVoteRewardName() {
-		return getData().getString("GUI.VoteRewardName", "VoteReward");
-	}
-
-	public boolean getGUIVoteStreakBackButton() {
-		return getData().getBoolean("GUI.VoteStreak.BackButton");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentDayStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentDayStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentMonthStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentMonthStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakCurrentWeekStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.CurrentWeekStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestDayStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestDayStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestMonthStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestMonthStreak.Item");
-	}
-
-	public ConfigurationSection getGUIVoteStreakHighestWeekStreakItem() {
-		return getData().getConfigurationSection("GUI.VoteStreak.HighestWeekStreak.Item");
-	}
-
-	public String getGUIVoteStreakName() {
-		return getData().getString("GUI.VoteStreak.Name", "VoteStreak");
-	}
-
-	public boolean getGUIVoteTodayBackButton() {
-		return getData().getBoolean("GUI.VoteToday.BackButton");
-	}
-
-	public String getGUIVoteTodayName() {
-		return getData().getString("GUI.VoteToday.Name", "VoteToday");
-	}
-
-	public boolean getGUIVoteTopBackButton() {
-		return getData().getBoolean("GUI.VoteToday.BackButton");
-	}
-
-	public String getGUIVoteTopItemLore() {
-		return getData().getString("GUI.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
-	}
-
-	public String getGUIVoteTopItemName() {
-		return getData().getString("GUI.VoteTop.Item.Name", "&3&l%position%: &3%player%");
-	}
-
-	public String getGUIVoteTopName() {
-		return getData().getString("GUI.VoteTop.Name", "VoteTop %topvoter%");
-	}
-
-	public int getGUIVoteTopSize() {
-		return getData().getInt("GUI.VoteTop.Size", 27);
-	}
-
-	public ConfigurationSection getGUIVoteTopSwitchItem() {
-		return getData().getConfigurationSection("GUI.VoteTop.SwitchItem");
-	}
-
-	public ConfigurationSection getGUIVoteTotalAllTimeTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.AllTimeTotal.Item");
-	}
-
-	public boolean getGUIVoteTotalBackButton() {
-		return getData().getBoolean("GUI.VoteTotal.BackButton");
-	}
-
-	public ConfigurationSection getGUIVoteTotalDayTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.DayTotal.Item");
-	}
-
-	public ConfigurationSection getGUIVoteTotalItem(TopVoter top) {
-		switch (top) {
-			case AllTime:
-				return getGUIVoteTotalAllTimeTotalItem();
-			case Daily:
-				return getGUIVoteTotalDayTotalItem();
-			case Monthly:
-				return getGUIVoteTotalMonthTotalItem();
-			case Weekly:
-				return getGUIVoteTotalWeekTotalItem();
-			default:
-				return getGUIVoteTotalAllTimeTotalItem();
-
-		}
-	}
-
-	public ConfigurationSection getGUIVoteTotalMonthTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.MonthTotal.Item");
-	}
-
-	public String getGUIVoteTotalName() {
-		return getData().getString("GUI.VoteTotal.Name", "VoteTotal: %player%");
-	}
-
-	public ConfigurationSection getGUIVoteTotalWeekTotalItem() {
-		return getData().getConfigurationSection("GUI.VoteTotal.WeekTotal.Item");
-	}
-
-	public boolean getGUIVoteURLBackButton() {
-		return getData().getBoolean("GUI.VoteURL.BackButton");
-	}
-
-	public String getGUIVoteURLName() {
-		return getData().getString("GUI.VoteURL.Name", "&cVoteURL");
-	}
-
-	public String getGUIVoteURLSiteName() {
-		return getData().getString("GUI.VoteURLSite.Name", "VoteSite %site%");
-	}
-
-	public String getGUIVoteURLURLText() {
-		return getData().getString("GUI.VoteURL.URLText", "%VoteUrl%");
-	}
-
-	public int getIdentifierCost(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Cost");
-	}
-
-	public String getIdentifierIdentifierName(String identifier) {
-		return getData().getString("Shop." + identifier + ".Identifier_Name", identifier);
-	}
-
-	public int getIdentifierLimit(String identifier) {
-		return getData().getInt("Shop." + identifier + ".Limit", -1);
-	}
-
-	public String getIdentifierRewardsPath(String identifier) {
-		return "Shop." + identifier + ".Rewards";
-
-	}
-
-	public Set<String> getIdentifiers() {
-		ConfigurationSection shop = getData().getConfigurationSection("Shop");
-		if (shop != null) {
-			return shop.getKeys(false);
-		}
-		return new HashSet<String>();
-	}
-
-	public ConfigurationSection getIdentifierSection(String identifier) {
-		return getData().getConfigurationSection("Shop." + identifier);
-	}
+	
 
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {
@@ -1054,57 +732,7 @@ public class Config extends YMLFile {
 		return getData().getBoolean("TopVoterIgnorePermission");
 	}
 
-	/**
-	 * Gets the vote GUI slot command.
-	 *
-	 * @param slot
-	 *            the slot
-	 * @return the vote GUI slot command
-	 */
-
-	public String getVoteGUISlotCommand(String slot) {
-		return getData().getString("GUI.VoteGUI." + slot + ".Command", "");
-	}
-
-	/**
-	 * Gets the vote GUI slot lore.
-	 *
-	 * @param slot
-	 *            the slot
-	 * @return the vote GUI slot lore
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVoteGUISlotLore(String slot) {
-		return (ArrayList<String>) getData().getList("GUI.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the vote GUI slots.
-	 *
-	 * @return the vote GUI slots
-	 */
-	public Set<String> getVoteGUISlots() {
-		try {
-			return getData().getConfigurationSection("GUI.VoteGUI").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	public ConfigurationSection getVoteGUISlotSection(String slot) {
-		return getData().getConfigurationSection("GUI.VoteGUI." + slot + ".Item");
-	}
-
-	/**
-	 * Gets the vote GUI slot slot.
-	 *
-	 * @param slot
-	 *            the slot
-	 * @return the vote GUI slot slot
-	 */
-	public int getVoteGUISlotSlot(String slot) {
-		return getData().getInt("GUI.VoteGUI." + slot + ".Slot", -1);
-	}
+	
 
 	/**
 	 * Gets the enabled.
@@ -1151,138 +779,12 @@ public class Config extends YMLFile {
 		return "VoteReminding.Rewards";
 	}
 
-	public boolean getVoteShopBackButton() {
-		return getData().getBoolean("VoteShopBackButton", true);
-	}
-
-	public boolean getVoteShopEnabled() {
-		return getData().getBoolean("VoteShopEnabled", true);
-	}
-
-	public String getVoteShopName() {
-		return getData().getString("GUI.VoteShopName", "VoteShop");
-	}
-
-	public boolean getVoteShopNotBuyable(String shop) {
-		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
-	}
-
-	public String getVoteShopPermission(String ident) {
-		return getData().getString("Shop." + ident + ".Permission", "");
-	}
-
-	public boolean getVoteShopResetDaily(String shop) {
-		return getData().getBoolean("Shop." + shop + ".Reset.Daily", false);
-	}
-
-	public boolean getVoteShopResetMonthly(String shop) {
-		return getData().getBoolean("Shop." + shop + ".Reset.Monthly", false);
-	}
-
-	public boolean getVoteShopResetWeekly(String shop) {
-		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
-	}
-
-	/**
-	 * Gets the vote site items.
-	 *
-	 * @param site
-	 *            the site
-	 * @return the vote site items
-	 */
-	public Set<String> getVoteSiteItems(String site) {
-		String siteName = site.replace(".", "-");
-		try {
-			return getData().getConfigurationSection("GUI.VoteReward." + siteName + ".Items").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	public ConfigurationSection getVoteSiteItemsSection(String site, String item) {
-		String siteName = site.replace(".", "-");
-		return getData().getConfigurationSection("GUI.VoteReward." + siteName + ".Items." + item);
-	}
-
-	/**
-	 * Gets the vote site items slot.
-	 *
-	 * @param site
-	 *            the site
-	 * @param item
-	 *            the item
-	 * @return the vote site items slot
-	 */
-	public int getVoteSiteItemsSlot(String site, String item) {
-		String siteName = site.replace(".", "-");
-		return getData().getInt("GUI.VoteReward." + siteName + ".Items." + item + ".Slot");
-	}
-
 	public String getVoteTopDefault() {
 		return getData().getString("VoteTopDefault", "Monthly");
 	}
 
-	public ConfigurationSection getVoteURLAlreadyVotedAllUrlsButtonItemSection() {
-		if (getData().isConfigurationSection("GUI.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
-			return getData().getConfigurationSection("GUI.VoteURL.AllUrlsButton.AlreadyVotedItem");
-		} else {
-			return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
-		}
-	}
 
-	public ConfigurationSection getVoteURLAlreadyVotedItemSection() {
-		return getData().getConfigurationSection("GUI.VoteURL.AlreadyVotedItem");
-	}
-
-	public ConfigurationSection getVoteURLCanVoteAllUrlsButtonItemSection() {
-		if (getData().isConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem")) {
-			return getData().getConfigurationSection("GUI.VoteURL.AllUrlsButton.CanVoteItem");
-		} else {
-			return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
-		}
-	}
-
-	public ConfigurationSection getVoteURLCanVoteItemSection() {
-		return getData().getConfigurationSection("GUI.VoteURL.CanVoteItem");
-	}
-
-	/**
-	 * Gets the vote URL next vote.
-	 *
-	 * @return the vote URL next vote
-	 */
-	public String getVoteURLNextVote() {
-		return getData().getString("GUI.VoteURL.NextVote", "&cCan Vote In: %Info%");
-
-	}
-
-	/**
-	 * Gets the vote URL see URL.
-	 *
-	 * @return the vote URL see URL
-	 */
-	public String getVoteURLSeeURL() {
-		return getData().getString("GUI.VoteURL.SeeURL", "&cClick to see URL");
-	}
-
-	/**
-	 * Gets the vote URL site name.
-	 *
-	 * @return the vote URL site name
-	 */
-	public String getVoteURLSiteName() {
-		return getData().getString("GUI.VoteURL.SiteName", "&c%Name%");
-	}
-
-	/**
-	 * Gets the vote URL view all urls button enabled.
-	 *
-	 * @return the vote URL view all urls button enabled
-	 */
-	public boolean getVoteURLViewAllUrlsButtonEnabled() {
-		return getData().getBoolean("GUI.VoteURL.ViewAllUrlsButtonEnabled");
-	}
-
+	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
 	}

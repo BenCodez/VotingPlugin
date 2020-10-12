@@ -71,6 +71,7 @@ public class BungeeSettings extends YMLFile {
 		super(new File(Main.plugin.getDataFolder(), "BungeeSettings.yml"));
 	}
 
+	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
 	}

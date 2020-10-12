@@ -27,6 +27,7 @@ import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.YML.YMLFileHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
@@ -98,7 +99,7 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void loadLastMonth() {
-		if (Config.getInstance().isLastMonthGUI()) {
+		if (GUI.getInstance().isLastMonthGUI()) {
 			plugin.getLastMonthTopVoter().clear();
 
 			LinkedHashMap<User, Integer> totals = new LinkedHashMap<User, Integer>();
@@ -138,8 +139,8 @@ public class TopVoterHandler implements Listener {
 				if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
 					user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
 				}
-				for (String shopIdent : Config.getInstance().getIdentifiers()) {
-					if (Config.getInstance().getVoteShopResetDaily(shopIdent)) {
+				for (String shopIdent : GUI.getInstance().getChestShopIdentifiers()) {
+					if (GUI.getInstance().getChestVoteShopResetDaily(shopIdent)) {
 						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
@@ -200,8 +201,8 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 
-				for (String shopIdent : Config.getInstance().getIdentifiers()) {
-					if (Config.getInstance().getVoteShopResetMonthly(shopIdent)) {
+				for (String shopIdent :GUI.getInstance().getChestShopIdentifiers()) {
+					if (GUI.getInstance().getChestVoteShopResetMonthly(shopIdent)) {
 						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
@@ -285,8 +286,8 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 
-				for (String shopIdent : Config.getInstance().getIdentifiers()) {
-					if (Config.getInstance().getVoteShopResetWeekly(shopIdent)) {
+				for (String shopIdent : GUI.getInstance().getChestShopIdentifiers()) {
+					if (GUI.getInstance().getChestVoteShopResetWeekly(shopIdent)) {
 						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}

@@ -43,10 +43,10 @@ public class VoteStreak extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(Config.getInstance().getGUIVoteStreakName());
+		BInventory inv = new BInventory(GUI.getInstance().getChestVoteStreakName());
 		inv.addPlaceholder("player", user.getPlayerName());
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentDayStreakItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakCurrentDayStreakItem())
 				.addPlaceholder("Streak", "" + user.getDayVoteStreak())) {
 
 			@Override
@@ -55,7 +55,7 @@ public class VoteStreak extends GUIHandler {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentWeekStreakItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakCurrentWeekStreakItem())
 				.addPlaceholder("Streak", "" + user.getWeekVoteStreak())) {
 
 			@Override
@@ -65,7 +65,7 @@ public class VoteStreak extends GUIHandler {
 		});
 
 		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakCurrentMonthStreakItem())
+				new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakCurrentMonthStreakItem())
 						.addPlaceholder("Streak", "" + user.getMonthVoteStreak())) {
 
 					@Override
@@ -74,7 +74,7 @@ public class VoteStreak extends GUIHandler {
 					}
 				});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestDayStreakItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakHighestDayStreakItem())
 				.addPlaceholder("Streak", "" + user.getBestDayVoteStreak())) {
 
 			@Override
@@ -83,7 +83,7 @@ public class VoteStreak extends GUIHandler {
 			}
 		});
 
-		inv.addButton(new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestWeekStreakItem())
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakHighestWeekStreakItem())
 				.addPlaceholder("Streak", "" + user.getBestWeekVoteStreak())) {
 
 			@Override
@@ -93,7 +93,7 @@ public class VoteStreak extends GUIHandler {
 		});
 
 		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Config.getInstance().getGUIVoteStreakHighestMonthStreakItem())
+				new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteStreakHighestMonthStreakItem())
 						.addPlaceholder("Streak", "" + user.getBestMonthVoteStreak())) {
 
 					@Override
@@ -102,7 +102,7 @@ public class VoteStreak extends GUIHandler {
 					}
 				});
 
-		if (Config.getInstance().getGUIVoteStreakBackButton()) {
+		if (GUI.getInstance().getChestVoteStreakBackButton()) {
 			inv.addButton(CommandLoader.getInstance().getBackButton(user));
 		}
 

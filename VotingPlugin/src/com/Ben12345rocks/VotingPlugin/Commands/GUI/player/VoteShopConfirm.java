@@ -20,6 +20,7 @@ import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 
 public class VoteShopConfirm extends GUIHandler {
@@ -52,16 +53,16 @@ public class VoteShopConfirm extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent event) {
 				String ident = (String) PlayerUtils.getInstance().getPlayerMeta(event.getPlayer(), "ident");
-				int points = Config.getInstance().getIdentifierCost(ident);
-				int limit = Config.getInstance().getIdentifierLimit(identifier);
+				int points = GUI.getInstance().getChestShopIdentifierCost(ident);
+				int limit = GUI.getInstance().getChestShopIdentifierLimit(identifier);
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("identifier", identifier);
 				placeholders.put("points", "" + points);
 				placeholders.put("limit", "" + limit);
 				if (user.removePoints(points)) {
 
-					RewardHandler.getInstance().giveReward(user, Config.getInstance().getData(),
-							Config.getInstance().getIdentifierRewardsPath(identifier),
+					RewardHandler.getInstance().giveReward(user, GUI.getInstance().getData(),
+							GUI.getInstance().getChestShopIdentifierRewardsPath(identifier),
 							new RewardOptions().setPlaceholders(placeholders));
 
 					user.sendMessage(StringParser.getInstance()
