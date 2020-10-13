@@ -43,6 +43,9 @@ public class VoteURL extends GUIHandler {
 		this.plugin = plugin;
 		this.user = user;
 		this.json = json;
+		if (user == null && player instanceof Player) {
+			user = UserManager.getInstance().getVotingPluginUser((Player) user);
+		}
 	}
 
 	@Override
@@ -122,7 +125,7 @@ public class VoteURL extends GUIHandler {
 	public void onChat(CommandSender sender) {
 		sendMessage(getChat(sender));
 	}
-	
+
 	private ItemBuilder getItemAll() {
 		ItemBuilder builderAll = new ItemBuilder(
 				GUI.getInstance().getChestVoteURLAlreadyVotedAllUrlsButtonItemSection());
@@ -154,7 +157,7 @@ public class VoteURL extends GUIHandler {
 		if (GUI.getInstance().getChestVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = getItemAll();
 
-			inv.addButton(count, new UpdatingBInventoryButton(builderAll,1000,1000) {
+			inv.addButton(count, new UpdatingBInventoryButton(builderAll, 1000, 1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -175,7 +178,7 @@ public class VoteURL extends GUIHandler {
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			ItemBuilder builder = getItemVoteSite(voteSite);
 
-			inv.addButton(count, new UpdatingBInventoryButton(builder,1000,1000) {
+			inv.addButton(count, new UpdatingBInventoryButton(builder, 1000, 1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
