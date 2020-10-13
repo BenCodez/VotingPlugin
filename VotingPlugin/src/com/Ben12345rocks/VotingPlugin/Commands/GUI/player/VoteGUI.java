@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -41,6 +41,44 @@ public class VoteGUI extends GUIHandler {
 		// not available
 	}
 
+	private ItemBuilder getItemSlot(String slot, Player player) {
+		ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteGUISlotSection(slot));
+
+		String[] lore = new String[1];
+
+		lore = ArrayUtils.getInstance().convert(GUI.getInstance().getChestVoteGUISlotLore(slot));
+
+		String str = Config.getInstance().getVoteTopDefault();
+		if (lore.length == 0) {
+			if (slot.equalsIgnoreCase("url")) {
+				lore = new String[] { "&aClick me" };
+			} else if (slot.equalsIgnoreCase("next")) {
+				lore = ArrayUtils.getInstance().convert(new VoteNext(plugin, player, user).getChat(player));
+			} else if (slot.equalsIgnoreCase("last")) {
+				lore = ArrayUtils.getInstance().convert(new VoteLast(plugin, player, user).getChat(player));
+			} else if (slot.equalsIgnoreCase("total")) {
+				lore = ArrayUtils.getInstance().convert(new VoteTotal(plugin, player, user).getChat(player));
+			} else if (slot.equalsIgnoreCase("top")) {
+
+				if (str.equalsIgnoreCase("monthly")) {
+					lore = TopVoterHandler.getInstance().topVoterMonthly(1);
+				} else if (str.equalsIgnoreCase("weekly")) {
+					lore = TopVoterHandler.getInstance().topVoterWeekly(1);
+				} else if (str.equalsIgnoreCase("daily")) {
+					lore = TopVoterHandler.getInstance().topVoterDaily(1);
+				} else {
+					lore = TopVoterHandler.getInstance().topVoterAllTime(1);
+				}
+			} else if (slot.equalsIgnoreCase("today")) {
+				lore = new VoteToday(plugin, player, user, 1).voteToday();
+			} else if (slot.equalsIgnoreCase("help")) {
+				lore = new String[] { "Click to view help" };
+			}
+		}
+		builder.setLore(ArrayUtils.getInstance().convert(lore));
+		return builder;
+	}
+
 	@Override
 	public void onChest(Player player) {
 		if ((!player.getName().equals(user.getPlayerName())
@@ -61,43 +99,9 @@ public class VoteGUI extends GUIHandler {
 		inv.addPlaceholder("top", Config.getInstance().getVoteTopDefault());
 
 		for (String slot : GUI.getInstance().getChestVoteGUISlots()) {
-			ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteGUISlotSection(slot));
+			ItemBuilder builder = getItemSlot(slot, player);
 
-			String[] lore = new String[1];
-
-			lore = ArrayUtils.getInstance().convert(GUI.getInstance().getChestVoteGUISlotLore(slot));
-
-			String str = Config.getInstance().getVoteTopDefault();
-			if (lore.length == 0) {
-				if (slot.equalsIgnoreCase("url")) {
-					lore = new String[] { "&aClick me" };
-				} else if (slot.equalsIgnoreCase("next")) {
-					lore = ArrayUtils.getInstance().convert(new VoteNext(plugin, player, user).getChat(player));
-				} else if (slot.equalsIgnoreCase("last")) {
-					lore = ArrayUtils.getInstance().convert(new VoteLast(plugin, player, user).getChat(player));
-				} else if (slot.equalsIgnoreCase("total")) {
-					lore = ArrayUtils.getInstance().convert(new VoteTotal(plugin, player, user).getChat(player));
-				} else if (slot.equalsIgnoreCase("top")) {
-
-					if (str.equalsIgnoreCase("monthly")) {
-						lore = TopVoterHandler.getInstance().topVoterMonthly(1);
-					} else if (str.equalsIgnoreCase("weekly")) {
-						lore = TopVoterHandler.getInstance().topVoterWeekly(1);
-					} else if (str.equalsIgnoreCase("daily")) {
-						lore = TopVoterHandler.getInstance().topVoterDaily(1);
-					} else {
-						lore = TopVoterHandler.getInstance().topVoterAllTime(1);
-					}
-				} else if (slot.equalsIgnoreCase("today")) {
-					lore = new VoteToday(plugin, player, user, 1).voteToday();
-				} else if (slot.equalsIgnoreCase("help")) {
-					lore = new String[] { "Click to view help" };
-				}
-			}
-
-			builder.setLore(ArrayUtils.getInstance().convert(lore));
-
-			inv.addButton(new BInventoryButton(builder) {
+			inv.addButton(new UpdatingBInventoryButton(builder, 1000, 1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -135,6 +139,11 @@ public class VoteGUI extends GUIHandler {
 							new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
 						}
 					}
+				}
+
+				@Override
+				public ItemBuilder onUpdate(Player player) {
+					return getItemSlot(slot, player);
 				}
 
 			});

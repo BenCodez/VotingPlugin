@@ -12,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import com.Ben12345rocks.AdvancedCore.NMSManager.NMSManager;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -74,7 +74,7 @@ public class VoteToday extends GUIHandler {
 				item.setName(StringParser.getInstance().replacePlaceHolder(
 						GUI.getInstance().getChestVoteTodayIconTitle(), "player", user.getPlayerName()));
 				item.setLore(msg);
-				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
+				inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(item,1000,1000) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
@@ -82,6 +82,12 @@ public class VoteToday extends GUIHandler {
 								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
+					}
+
+					@Override
+					public ItemBuilder onUpdate(Player arg0) {
+						// TODO Auto-generated method stub
+						return null;
 					}
 				});
 			}

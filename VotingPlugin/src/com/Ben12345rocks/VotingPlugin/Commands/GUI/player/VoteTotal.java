@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
@@ -47,13 +47,21 @@ public class VoteTotal extends GUIHandler {
 		BInventory inv = new BInventory(GUI.getInstance().getChestVoteTotalName());
 		inv.addPlaceholder("player", user.getPlayerName());
 
-		for (TopVoter top : TopVoter.values()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestVoteTotalItem(top))
-					.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName())) {
+		for (final TopVoter top : TopVoter.values()) {
+			inv.addButton(new UpdatingBInventoryButton(
+					new ItemBuilder(GUI.getInstance().getChestVoteTotalItem(top))
+							.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName()),
+					1000, 1000) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 
+				}
+
+				@Override
+				public ItemBuilder onUpdate(Player arg0) {
+					return new ItemBuilder(GUI.getInstance().getChestVoteTotalItem(top))
+							.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName());
 				}
 			});
 		}
@@ -84,7 +92,7 @@ public class VoteTotal extends GUIHandler {
 
 		return ArrayUtils.getInstance().colorize(msg);
 	}
-	
+
 	@Override
 	public void open() {
 		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodTotal().toUpperCase()));

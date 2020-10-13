@@ -12,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
-import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.MessageBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
@@ -122,36 +122,39 @@ public class VoteURL extends GUIHandler {
 	public void onChat(CommandSender sender) {
 		sendMessage(getChat(sender));
 	}
+	
+	private ItemBuilder getItemAll() {
+		ItemBuilder builderAll = new ItemBuilder(
+				GUI.getInstance().getChestVoteURLAlreadyVotedAllUrlsButtonItemSection());
+		if (GUI.getInstance().isChestVoteURLAllUrlsButtonrequireAllSitesVoted()) {
+			if (user.canVoteAny()) {
+				builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
+			}
+		} else {
+			if (user.canVoteAll()) {
+				builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
+			}
+		}
+
+		if (!builderAll.hasCustomDisplayName()) {
+			builderAll.setName("&4All Voting Sites");
+		}
+		if (!builderAll.hasCustomLore()) {
+			builderAll.setLore("&cClick Me");
+		}
+		return builderAll;
+	}
 
 	@Override
 	public void onChest(Player player) {
-		User user = UserManager.getInstance().getVotingPluginUser(player);
-
 		// normal GUI
 		BInventory inv = new BInventory(GUI.getInstance().getChestVoteURLName());
 
 		int count = 0;
 		if (GUI.getInstance().getChestVoteURLViewAllUrlsButtonEnabled()) {
-			ItemBuilder builderAll = new ItemBuilder(
-					GUI.getInstance().getChestVoteURLAlreadyVotedAllUrlsButtonItemSection());
-			if (GUI.getInstance().isChestVoteURLAllUrlsButtonrequireAllSitesVoted()) {
-				if (user.canVoteAny()) {
-					builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
-				}
-			} else {
-				if (user.canVoteAll()) {
-					builderAll = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteAllUrlsButtonItemSection());
-				}
-			}
+			ItemBuilder builderAll = getItemAll();
 
-			if (!builderAll.hasCustomDisplayName()) {
-				builderAll.setName("&4All Voting Sites");
-			}
-			if (!builderAll.hasCustomLore()) {
-				builderAll.setLore("&cClick Me");
-			}
-
-			inv.addButton(count, new BInventoryButton(builderAll) {
+			inv.addButton(count, new UpdatingBInventoryButton(builderAll,1000,1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -159,23 +162,20 @@ public class VoteURL extends GUIHandler {
 					json = true;
 					user.sendMessage(getChat(player));
 				}
+
+				@Override
+				public ItemBuilder onUpdate(Player player) {
+					return getItemAll();
+				}
 			});
 
 			count++;
 		}
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteURLAlreadyVotedItemSection());
-			if (user.canVoteSite(voteSite)) {
-				builder = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteItemSection());
-			} else {
-				builder.addLoreLine(
-						GUI.getInstance().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
-			}
+			ItemBuilder builder = getItemVoteSite(voteSite);
 
-			builder.setName(GUI.getInstance().getChestVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
-
-			inv.addButton(count, new BInventoryButton(builder) {
+			inv.addButton(count, new UpdatingBInventoryButton(builder,1000,1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -192,6 +192,11 @@ public class VoteURL extends GUIHandler {
 					}
 
 				}
+
+				@Override
+				public ItemBuilder onUpdate(Player player) {
+					return getItemVoteSite(voteSite);
+				}
 			});
 			count++;
 		}
@@ -202,6 +207,19 @@ public class VoteURL extends GUIHandler {
 
 		inv.openInventory(player);
 
+	}
+
+	private ItemBuilder getItemVoteSite(VoteSite voteSite) {
+		ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteURLAlreadyVotedItemSection());
+		if (user.canVoteSite(voteSite)) {
+			builder = new ItemBuilder(GUI.getInstance().getChestVoteURLCanVoteItemSection());
+		} else {
+			builder.addLoreLine(
+					GUI.getInstance().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
+		}
+
+		builder.setName(GUI.getInstance().getChestVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
+		return builder;
 	}
 
 	@Override

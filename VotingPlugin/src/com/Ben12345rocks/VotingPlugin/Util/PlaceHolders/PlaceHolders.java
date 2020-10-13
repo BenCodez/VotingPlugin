@@ -77,10 +77,16 @@ public class PlaceHolders {
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
+		user.setWaitForCache(false);
 
 		for (PlaceHolder<User> placeholder : placeholders) {
-			if (placeholder.matches(identifier)) {
-				return placeholder.placeholderRequest(p, user, identifier);
+			try {
+				if (placeholder.matches(identifier)) {
+					return placeholder.placeholderRequest(p, user, identifier);
+				}
+			} catch (Exception e) {
+				plugin.debug(e);
+				return "...";
 			}
 		}
 

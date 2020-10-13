@@ -381,28 +381,28 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getBestDayVoteStreak() {
-		return getData().getInt("BestDayVoteStreak");
+		return getData().getInt("BestDayVoteStreak", isWaitForCache());
 	}
 
 	public int getBestMonthVoteStreak() {
-		return getData().getInt("BestMonthVoteStreak");
+		return getData().getInt("BestMonthVoteStreak", isWaitForCache());
 	}
 
 	public int getBestWeekVoteStreak() {
-		return getData().getInt("BestWeekVoteStreak");
+		return getData().getInt("BestWeekVoteStreak", isWaitForCache());
 	}
 
 	@Deprecated
 	public int getDailyTotal() {
-		return getUserData().getInt("DailyTotal");
+		return getUserData().getInt("DailyTotal", isWaitForCache());
 	}
 
 	public int getDayVoteStreak() {
-		return getData().getInt("DayVoteStreak");
+		return getData().getInt("DayVoteStreak", isWaitForCache());
 	}
 
 	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate");
+		String str = getData().getString("DayVoteStreakLastUpdate", isWaitForCache());
 		if (str.isEmpty()) {
 			return 0;
 		}
@@ -427,15 +427,15 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getHighestDailyTotal() {
-		return getData().getInt("HighestDailyTotal");
+		return getData().getInt("HighestDailyTotal", isWaitForCache());
 	}
 
 	public int getHighestMonthlyTotal() {
-		return getData().getInt("HighestMonthlyTotal");
+		return getData().getInt("HighestMonthlyTotal", isWaitForCache());
 	}
 
 	public int getHighestWeeklyTotal() {
-		return getData().getInt("HighestWeeklyTotal");
+		return getData().getInt("HighestWeeklyTotal", isWaitForCache());
 	}
 
 	public boolean getLastCoolDownCheck(VoteSite site) {
@@ -468,7 +468,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getLastMonthTotal() {
-		return getData().getInt("LastMonthTotal");
+		return getData().getInt("LastMonthTotal", isWaitForCache());
 	}
 
 	public HashMap<VoteSite, Long> getLastVotes() {
@@ -511,7 +511,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount", getAllTimeTotal());
+		return getData().getInt("MilestoneCount", getAllTimeTotal(), isWaitForCache());
 	}
 
 	@Deprecated
@@ -520,7 +520,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getMonthVoteStreak() {
-		return getData().getInt("MonthVoteStreak");
+		return getData().getInt("MonthVoteStreak", isWaitForCache());
 	}
 
 	public ArrayList<String> getOfflineOtherRewards() {
@@ -537,7 +537,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	 * @return the points
 	 */
 	public int getPoints() {
-		return getUserData().getInt("Points");
+		return getUserData().getInt("Points", isWaitForCache());
 	}
 
 	public int getSitesVotedOn() {
@@ -568,13 +568,13 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public int getTotal(TopVoter top) {
 		switch (top) {
 			case AllTime:
-				return getUserData().getInt("AllTimeTotal");
+				return getUserData().getInt("AllTimeTotal", isWaitForCache());
 			case Daily:
-				return getUserData().getInt("DailyTotal");
+				return getUserData().getInt("DailyTotal", isWaitForCache());
 			case Monthly:
-				return getData().getInt("MonthTotal");
+				return getData().getInt("MonthTotal", isWaitForCache());
 			case Weekly:
-				return getUserData().getInt("WeeklyTotal");
+				return getUserData().getInt("WeeklyTotal", isWaitForCache());
 			default:
 				break;
 		}
@@ -582,11 +582,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getVotePartyVotes() {
-		return getUserData().getInt("VotePartyVotes");
+		return getUserData().getInt("VotePartyVotes", isWaitForCache());
 	}
 
 	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier);
+		return getData().getInt("VoteShopLimit" + identifier, isWaitForCache());
 	}
 
 	@Deprecated
@@ -595,7 +595,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public int getWeekVoteStreak() {
-		return getData().getInt("WeekVoteStreak");
+		return getData().getInt("WeekVoteStreak", isWaitForCache());
 	}
 
 	public void giveDailyTopVoterAward(int place, String path) {

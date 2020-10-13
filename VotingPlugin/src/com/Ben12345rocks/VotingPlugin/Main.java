@@ -63,6 +63,7 @@ import com.Ben12345rocks.VotingPlugin.Commands.TabCompleter.VoteTabCompleter;
 import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
+import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
 import com.Ben12345rocks.VotingPlugin.CoolDown.CoolDownCheck;
 import com.Ben12345rocks.VotingPlugin.Data.ServerData;
@@ -1135,6 +1136,9 @@ public class Main extends AdvancedCorePlugin {
 		});
 	}
 
+	@Getter
+	private GUI gui;
+
 	private void setupFiles() {
 		config = Config.getInstance();
 		config.setup();
@@ -1150,6 +1154,9 @@ public class Main extends AdvancedCorePlugin {
 		bungeeSettings = BungeeSettings.getInstance();
 		bungeeSettings.setup();
 		// bungeeSettings.loadValues();
+
+		gui = GUI.getInstance();
+		gui.setup();
 
 		checkYMLError();
 

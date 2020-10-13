@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventoryButton;
+import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
@@ -65,12 +66,18 @@ public class VoteURLVoteSite extends GUIHandler {
 					}
 				});
 
-		inv.addButton(new BInventoryButton(
-				new ItemBuilder(Material.COMPASS).setName("&4Next Vote").addLoreLine(user.voteCommandNextInfo(site))) {
+		inv.addButton(new UpdatingBInventoryButton(
+				new ItemBuilder(Material.COMPASS).setName("&4Next Vote").addLoreLine(user.voteCommandNextInfo(site)),
+				1000, 1000) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				new VoteURL(plugin, clickEvent.getPlayer(), user, true).open();
+			}
+
+			@Override
+			public ItemBuilder onUpdate(Player arg0) {
+				return new ItemBuilder(Material.COMPASS).setName("&4Next Vote").addLoreLine(user.voteCommandNextInfo(site));
 			}
 		});
 
