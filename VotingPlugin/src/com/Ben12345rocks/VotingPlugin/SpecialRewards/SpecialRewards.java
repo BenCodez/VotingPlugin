@@ -9,7 +9,9 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
+import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
@@ -17,6 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerSpecialRewardEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SpecialRewardType;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
+import com.Ben12345rocks.VotingPlugin.bungee.BungeeMethod;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -105,11 +108,19 @@ public class SpecialRewards {
 						}
 
 						if ((total % votesRequired) == 0 && total != 0) {
-							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
-							gotCumulative = true;
+							if (BungeeSettings.getInstance().isUseBungeecoord()
+									&& BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+								if (user.hasLastCumulative(votesRequired) != total) {
+									gotCumulative = true;
+									user.setLastCumulative(votesRequired, total);
+								}
+							} else {
+								gotCumulative = true;
+							}
 						}
 
 						if (gotCumulative) {
+							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						}
 					}
@@ -163,10 +174,11 @@ public class SpecialRewards {
 			for (int num : nums) {
 				if (milestoneCount >= num) {
 					if (!user.hasGottenMilestone(num)) {
-						plugin.getLogger().info("Milestone " + num + " for " + user.getPlayerName()
-								+ " not already given when it should be, Current AllTimeTotal: "
-								+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
-								+ user.getMilestoneCount());
+						plugin.getLogger()
+								.info("Milestone " + num + " for " + user.getPlayerName()
+										+ " not already given when it should be, Current AllTimeTotal: "
+										+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
+										+ user.getMilestoneCount());
 						user.setHasGotteMilestone(num, true);
 					}
 				}
