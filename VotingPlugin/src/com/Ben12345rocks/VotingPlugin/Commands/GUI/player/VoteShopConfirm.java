@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Commands.GUI.player;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -52,8 +51,7 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				String ident = (String) PlayerUtils.getInstance().getPlayerMeta(event.getPlayer(), "ident");
-				int points = GUI.getInstance().getChestShopIdentifierCost(ident);
+				int points = GUI.getInstance().getChestShopIdentifierCost(identifier);
 				int limit = GUI.getInstance().getChestShopIdentifierLimit(identifier);
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("identifier", identifier);
@@ -74,13 +72,11 @@ public class VoteShopConfirm extends GUIHandler {
 					user.sendMessage(StringParser.getInstance()
 							.replacePlaceHolder(Config.getInstance().getFormatShopFailedMsg(), placeholders));
 				}
-				Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-					@Override
-					public void run() {
-						event.getPlayer().closeInventory();
-					}
-				});
+				if (GUI.getInstance().getChestVoteShopCloseGUI(identifier)) {
+					event.getButton().getInv().closeInv(player, null);
+				} else {
+					new VoteShop(plugin, event.getPlayer(), user);
+				}
 
 			}
 		});
@@ -88,7 +84,11 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				event.getPlayer().closeInventory();
+				if (GUI.getInstance().getChestVoteShopCloseGUI(identifier)) {
+					event.getButton().getInv().closeInv(player, null);
+				} else {
+					new VoteShop(plugin, event.getPlayer(), user);
+				}
 			}
 		});
 		inv.openInventory(player);
@@ -98,7 +98,7 @@ public class VoteShopConfirm extends GUIHandler {
 	public ArrayList<String> getChat(CommandSender arg0) {
 		return null;
 	}
-	
+
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);

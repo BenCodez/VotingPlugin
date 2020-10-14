@@ -81,7 +81,6 @@ public class VoteShop extends GUIHandler {
 						@Override
 						public void onClick(ClickEvent event) {
 							Player player = event.getWhoClicked();
-							event.getButton().getInv().closeInv(player, null);
 
 							User user = UserManager.getInstance().getVotingPluginUser(player);
 							if (Config.getInstance().isClearCacheOnVoteShopPurchase()
@@ -92,6 +91,9 @@ public class VoteShop extends GUIHandler {
 							int limit = (int) getData("Limit");
 							int points = GUI.getInstance().getChestShopIdentifierCost(identifier);
 							if (identifier != null) {
+								if (GUI.getInstance().getChestVoteShopCloseGUI(identifier)) {
+									event.getButton().getInv().closeInv(player, null);
+								}
 
 								// limit fail-safe, should never be needed, except in rare cases
 								boolean limitPass = true;

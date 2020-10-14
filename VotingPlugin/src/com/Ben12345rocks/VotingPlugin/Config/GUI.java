@@ -418,6 +418,10 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
 	}
+	
+	public boolean getChestVoteShopCloseGUI(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
+	}
 
 	public String getChestVoteShopPermission(String ident) {
 		return getData().getString("CHEST.Shop." + ident + ".Permission", "");

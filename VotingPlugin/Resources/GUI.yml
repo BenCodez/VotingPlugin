@@ -274,6 +274,8 @@ CHEST:
       Cost: 3
       # Permission required, leave blank for no permission
       Permission: ''
+      # Whether or not to keep GUI open after purchase
+      CloseGUI: true
       # Limit how many times you can buy this
       #Limit: 3
       # Reset limit daily/weekly/monthly
