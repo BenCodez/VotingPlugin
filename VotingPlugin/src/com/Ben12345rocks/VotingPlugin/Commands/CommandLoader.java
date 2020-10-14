@@ -2043,7 +2043,11 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						new VoteURL(plugin, sender, null, true).open();
+						User user = null;
+						if (sender instanceof Player) {
+							user = UserManager.getInstance().getVotingPluginUser((Player) sender);
+						}
+						new VoteURL(plugin, sender, user, true).open();
 					}
 				});
 
