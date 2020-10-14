@@ -868,17 +868,6 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				ArrayList<String> ignoreSections = new ArrayList<String>();
 				ignoreSections.add("VoteReminding");
-				ignoreSections.add("GUI");
-				ignoreSections.add("Shop");
-				ignoreSections.add("FirstVote");
-				ignoreSections.add("AllSites");
-				ignoreSections.add("Cummulative");
-				ignoreSections.add("VoteParty");
-				ignoreSections.add("MileStones");
-				ignoreSections.add("VoteStreak");
-				ignoreSections.add("MonthlyAwards");
-				ignoreSections.add("WeeklyAwards");
-				ignoreSections.add("DailyAwards");
 
 				File file = new File(plugin.getDataFolder(), "Config.yml");
 				try {
@@ -1255,14 +1244,14 @@ public class CommandLoader {
 		}
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(player)", "ForceCummulative", "(Number)" },
-						"VotingPlugin.Commands.AdminVote.ForceCummulative|" + adminPerm, "Force a cummulative reward") {
+				.add(new CommandHandler(new String[] { "User", "(player)", "ForceCumulative", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.ForceCumulative|" + adminPerm, "Force a cumulative reward") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						SpecialRewards.getInstance().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]));
-						sendMessage(sender, "&cCummulative " + args[3] + " forced");
+						sendMessage(sender, "&cCumulative " + args[3] + " forced");
 					}
 				});
 
