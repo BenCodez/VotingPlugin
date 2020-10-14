@@ -44,7 +44,7 @@ public class VoteURL extends GUIHandler {
 		this.user = user;
 		this.json = json;
 		if (user == null && player instanceof Player) {
-			user = UserManager.getInstance().getVotingPluginUser((Player) user);
+			user = UserManager.getInstance().getVotingPluginUser((Player) player);
 		}
 	}
 
