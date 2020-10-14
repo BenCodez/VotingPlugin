@@ -221,7 +221,7 @@ public class VoteURL extends GUIHandler {
 					GUI.getInstance().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
 
-		builder.setName(GUI.getInstance().getChestVoteURLSiteName().replace("%Name%", voteSite.getDisplayName()));
+		builder.setName(GUI.getInstance().getChestVoteURLGUISiteName().replace("%Name%", voteSite.getDisplayName()));
 		return builder;
 	}
 
