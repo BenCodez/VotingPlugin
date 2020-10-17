@@ -61,12 +61,17 @@ public class BungeeHandler {
 					long time = Long.parseLong(args.get(3));
 					Main.plugin.debug("pluginmessaging vote received from " + player + " on " + service);
 					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+
+					boolean wasOnline = Boolean.valueOf(args.get(4));
+
+					String text = args.get(6);
+
 					user.clearCache();
 
-					user.bungeeVotePluginMessaging(service, time);
+					user.bungeeVotePluginMessaging(service, time, text);
 
 					if (!BungeeSettings.getInstance().isBungeeBroadcast()) {
-						if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
+						if (wasOnline || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {
 							VoteSite site = Main.plugin.getVoteSite(service);
 							if (site != null) {
 								site.broadcastVote(user, false);
@@ -90,11 +95,12 @@ public class BungeeHandler {
 					String uuid = args.get(1);
 					String service = args.get(2);
 					long time = Long.parseLong(args.get(3));
+					String text = args.get(6);
 					Main.plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
 					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.clearCache();
 
-					user.bungeeVotePluginMessaging(service, time);
+					user.bungeeVotePluginMessaging(service, time, text);
 
 					if (!BungeeSettings.getInstance().isBungeeBroadcast()) {
 						if (Boolean.valueOf(args.get(4)) || BungeeSettings.getInstance().isBungeeBroadcastAlways()) {

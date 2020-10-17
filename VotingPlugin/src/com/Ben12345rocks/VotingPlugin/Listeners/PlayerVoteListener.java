@@ -164,7 +164,7 @@ public class PlayerVoteListener implements Listener {
 
 			// other rewards
 			SpecialRewards.getInstance().checkAllSites(user);
-			SpecialRewards.getInstance().checkCumualativeVotes(user);
+			SpecialRewards.getInstance().checkCumualativeVotes(user, event.getBungeeTextTotals());
 			SpecialRewards.getInstance().checkMilestone(user);
 
 			if (BungeeSettings.getInstance().isUseBungeecoord()) {

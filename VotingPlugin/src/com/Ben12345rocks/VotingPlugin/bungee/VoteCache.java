@@ -25,6 +25,7 @@ public class VoteCache {
 		section.set("UUID", voteData.getUuid());
 		section.set("Time", voteData.getTime());
 		section.set("Real", voteData.isRealVote());
+		section.set("Text", voteData.getText());
 		save();
 	}
 
@@ -35,6 +36,7 @@ public class VoteCache {
 		section.set("UUID", voteData.getUuid());
 		section.set("Time", voteData.getTime());
 		section.set("Real", voteData.isRealVote());
+		section.set("Text", voteData.getText());
 		save();
 	}
 

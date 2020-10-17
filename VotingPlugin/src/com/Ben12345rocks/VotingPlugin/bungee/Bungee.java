@@ -74,7 +74,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 						for (OfflineBungeeVote cache : c) {
 							sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
 									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-									"" + cache.isRealVote());
+									"" + cache.isRealVote(), cache.getText());
 						}
 						cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
 					}
@@ -90,7 +90,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				for (OfflineBungeeVote cache : c) {
 					sendPluginMessageServer(getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName(),
 							"VoteOnline", cache.getPlayerName(), cache.getUuid(), cache.getService(),
-							"" + cache.getTime(), Boolean.FALSE.toString(), "" + cache.isRealVote());
+							"" + cache.getTime(), Boolean.FALSE.toString(), "" + cache.isRealVote(), cache.getText());
 				}
 				cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 			}
@@ -218,7 +218,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					for (String num : voteCacheFile.getServerVotes(server)) {
 						Configuration data = voteCacheFile.getServerVotes(server, num);
 						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real")));
+								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
+								data.getString("Text")));
 					}
 					cachedVotes.put(server, vote);
 				}
@@ -232,7 +233,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					for (String num : voteCacheFile.getServerVotes(player)) {
 						Configuration data = voteCacheFile.getOnlineVotes(player, num);
 						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real")));
+								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
+								data.getString("Text")));
 					}
 					cachedOnlineVotes.put(player, vote);
 				}
@@ -449,6 +451,36 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 		sendServerMessage("status");
 	}
 
+	private int getValue(ArrayList<Column> cols, String column) {
+		for (Column d : cols) {
+			if (d.getName().equalsIgnoreCase(column)) {
+
+				Object value = d.getValue();
+				int num = 0;
+				if (value instanceof Integer) {
+					try {
+						num = (int) value;
+					} catch (ClassCastException | NullPointerException ex) {
+					}
+				} else if (value instanceof String) {
+					try {
+						num = Integer.parseInt((String) value);
+					} catch (Exception e) {
+					}
+				}
+				return num;
+			}
+		}
+		return -1;
+	}
+
+	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
+		int num = getValue(cols, column) + toAdd;
+		debug("Setting " + column + " to " + num + " for " + uuid);
+		mysql.update(uuid, column, num, DataType.INTEGER);
+		return num;
+	}
+
 	public void vote(String player, String service, boolean realVote) {
 		if (player == null || player.isEmpty()) {
 			getLogger().info("No name from vote on " + service);
@@ -478,31 +510,11 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				mysql.update(uuid, "PlayerName", player, DataType.STRING);
 			}
 
-			// add totals here
 			ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
-			for (Column d : data) {
-				if (d.getName().equalsIgnoreCase("alltimetotal") || d.getName().equalsIgnoreCase("monthtotal")
-						|| d.getName().equalsIgnoreCase("weeklytotal") || d.getName().equalsIgnoreCase("dailytotal")
-						|| d.getName().equalsIgnoreCase("Points") || d.getName().equalsIgnoreCase("MilestoneCount")) {
-					Object value = d.getValue();
-					int num = 0;
-					if (value instanceof Integer) {
-						try {
-							num = (int) value;
-						} catch (ClassCastException | NullPointerException ex) {
-						}
-					} else if (value instanceof String) {
-						try {
-							num = Integer.parseInt((String) value);
-						} catch (Exception e) {
-						}
-					}
-					mysql.update(uuid, d.getName(), num + 1, DataType.STRING);
 
-					debug("Setting " + d.getName() + " to " + (num + 1));
-
-				}
-			}
+			String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" + mysqlUpdate(data, uuid, "MonthTotal", 1)
+					+ "//" + mysqlUpdate(data, uuid, "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1)
+					+ "//" + mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid, "MilestoneCount", 1);
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -516,7 +528,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
 							}
 							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote));
+							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text));
 							cachedVotes.put(s, list);
 
 							debug("Caching vote for " + player + " on " + service + " for " + s);
@@ -524,7 +536,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 						} else {
 							// send
 							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote);
+									Boolean.TRUE.toString(), "" + realVote, text);
 						}
 					}
 				}
@@ -532,7 +544,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 				if (p != null && p.isConnected()) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
-							"" + time, Boolean.TRUE.toString(), "" + realVote);
+							"" + time, Boolean.TRUE.toString(), "" + realVote, text);
 				} else {
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -541,7 +553,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 					if (list == null) {
 						list = new ArrayList<OfflineBungeeVote>();
 					}
-					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote));
+					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text));
 					cachedOnlineVotes.put(uuid, list);
 					debug("Caching online vote for " + player + " on " + service);
 				}

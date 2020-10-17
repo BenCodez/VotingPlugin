@@ -9,9 +9,7 @@ import com.Ben12345rocks.AdvancedCore.Rewards.RewardBuilder;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardHandler;
 import com.Ben12345rocks.AdvancedCore.Rewards.RewardOptions;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
-import com.Ben12345rocks.VotingPlugin.BungeeHandler;
 import com.Ben12345rocks.VotingPlugin.Main;
-import com.Ben12345rocks.VotingPlugin.Config.BungeeSettings;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.ConfigVoteSites;
 import com.Ben12345rocks.VotingPlugin.Config.SpecialRewardsConfig;
@@ -19,7 +17,6 @@ import com.Ben12345rocks.VotingPlugin.Events.PlayerSpecialRewardEvent;
 import com.Ben12345rocks.VotingPlugin.Events.SpecialRewardType;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
-import com.Ben12345rocks.VotingPlugin.bungee.BungeeMethod;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -86,7 +83,7 @@ public class SpecialRewards {
 	 *            the user
 	 * @return true, if successful
 	 */
-	public boolean checkCumualativeVotes(User user) {
+	public boolean checkCumualativeVotes(User user, String bungeeTextTotals) {
 		boolean gotCumulative = false;
 		Set<String> votes = SpecialRewardsConfig.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
@@ -97,24 +94,40 @@ public class SpecialRewards {
 							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
 									SpecialRewardsConfig.getInstance().getCumulativeRewardsPath(votesRequired))) {
 						int total = 0;
+						boolean useBungeeTotalNum = false;
+						String[] data = new String[] { "0", "0", "0", "0" };
+						if (bungeeTextTotals != null) {
+							data = bungeeTextTotals.split("//");
+							useBungeeTotalNum = true;
+						}
 						if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
-							total = user.getTotal(TopVoter.Daily);
+							if (!useBungeeTotalNum) {
+								total = user.getTotal(TopVoter.Daily);
+							} else {
+								total = Integer.parseInt(data[3]);
+							}
 						} else if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
-							total = user.getTotal(TopVoter.Weekly);
+							if (!useBungeeTotalNum) {
+								total = user.getTotal(TopVoter.Weekly);
+							} else {
+								total = Integer.parseInt(data[2]);
+							}
 						} else if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameMonth(votesRequired)) {
-							total = user.getTotal(TopVoter.Monthly);
+							if (!useBungeeTotalNum) {
+								total = user.getTotal(TopVoter.Monthly);
+							} else {
+								total = Integer.parseInt(data[1]);
+							}
 						} else {
-							total = user.getTotal(TopVoter.AllTime);
+							if (!useBungeeTotalNum) {
+								total = user.getTotal(TopVoter.AllTime);
+							} else {
+								total = Integer.parseInt(data[0]);
+							}
 						}
 
-						if ((total % votesRequired) == 0 && total != 0) {
-							if (BungeeSettings.getInstance().isUseBungeecoord()
-									&& BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-								if (user.hasLastCumulative(votesRequired) != total) {
-									gotCumulative = true;
-									user.setLastCumulative(votesRequired, total);
-								}
-							} else {
+						if (total != 0) {
+							if ((total % votesRequired) == 0) {
 								gotCumulative = true;
 							}
 						}
@@ -122,6 +135,8 @@ public class SpecialRewards {
 						if (gotCumulative) {
 							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
+						} else {
+							plugin.devDebug(user.getPlayerName() + " not able to get cumulative " + votesRequired);
 						}
 					}
 				}
