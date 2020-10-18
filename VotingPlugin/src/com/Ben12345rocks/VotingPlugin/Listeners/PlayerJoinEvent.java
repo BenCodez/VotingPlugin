@@ -62,6 +62,8 @@ public class PlayerJoinEvent implements Listener {
 			// give offline vote (if they voted offline)
 			user.offVote();
 		}
+		
+		user.loginRewards();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -75,6 +77,9 @@ public class PlayerJoinEvent implements Listener {
 			@Override
 			public void run() {
 				Main.plugin.getAdvancedTab().remove(uuid);
+				
+				User user = UserManager.getInstance().getVotingPluginUser(uuid);
+				user.logoutRewards();
 			}
 		});
 

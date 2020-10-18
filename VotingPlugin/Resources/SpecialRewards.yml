@@ -136,6 +136,13 @@ VoteCoolDownEndedReward: []
 # Use EverySiteReward in VoteSites.yml for a global reward for each site
 AnySiteRewards: []
 
+# Rewards to run when player logs in
+LoginRewards: []
+
+# Rewards to run when player logs off
+# Will queue until player logs in unless forceoffline is enabled
+LogoutRewards: []
+
 EnableMonthlyAwards: true
 # Rewards to give
 MonthlyAwards:

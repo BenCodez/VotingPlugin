@@ -216,6 +216,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		}
 	}
 
+	public void loginRewards() {
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LoginRewards").send(this);
+	}
+	
+	public void logoutRewards() {
+		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LogoutRewards").send(this);
+	}
+
 	public void bungeeVotePluginMessaging(String service, long time, String bungeeTextTotals) {
 		if (BungeeSettings.getInstance().isUseBungeecoord()) {
 			Main.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
