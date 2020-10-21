@@ -490,6 +490,14 @@ public class PlaceHolders {
 				return "";
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
+		
+		placeholders.add(new PlaceHolder<User>("VotePartyContributedVotes") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, User user, String identifier) {
+				return "" + user.getVotePartyVotes();
+			}
+		}.useStartsWith().withDescription("See vote party placeholders contributed"));
 
 		placeholders.add(new PlaceHolder<User>("Top_DailyVotes_") {
 
