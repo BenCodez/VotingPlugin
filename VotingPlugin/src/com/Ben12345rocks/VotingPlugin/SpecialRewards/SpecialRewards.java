@@ -187,7 +187,7 @@ public class SpecialRewards {
 
 			int milestoneCount = user.getMilestoneCount();
 			for (int num : nums) {
-				if (milestoneCount >= num) {
+				if (milestoneCount > num) {
 					if (!user.hasGottenMilestone(num)) {
 						plugin.getLogger()
 								.info("Milestone " + num + " for " + user.getPlayerName()
