@@ -51,8 +51,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Instantiates a new user.
 	 *
-	 * @param player
-	 *            the player
+	 * @param player the player
 	 */
 	@Deprecated
 	public User(Player player) {
@@ -62,8 +61,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Instantiates a new user.
 	 *
-	 * @param playerName
-	 *            the player name
+	 * @param playerName the player name
 	 */
 	@Deprecated
 	public User(String playerName) {
@@ -73,8 +71,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Instantiates a new user.
 	 *
-	 * @param uuid
-	 *            the uuid
+	 * @param uuid the uuid
 	 */
 	@Deprecated
 	public User(UUID uuid) {
@@ -84,14 +81,24 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Instantiates a new user.
 	 *
-	 * @param uuid
-	 *            the uuid
-	 * @param loadName
-	 *            the load name
+	 * @param uuid     the uuid
+	 * @param loadName the load name
 	 */
 	@Deprecated
 	public User(UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
+	}
+
+	public void setPrimaryAccount(java.util.UUID uuid) {
+		getData().setString("PrimaryAccount", uuid.toString());
+	}
+
+	public java.util.UUID getPrimaryAccount() {
+		String s = getData().getString("PrimaryAccount", true);
+		if (s != null && !s.isEmpty()) {
+			return java.util.UUID.fromString(s);
+		}
+		return null;
 	}
 
 	public void addAllTimeTotal() {
@@ -135,8 +142,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Adds the points.
 	 *
-	 * @param value
-	 *            the value
+	 * @param value the value
 	 */
 	public void addPoints(int value) {
 		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
@@ -219,7 +225,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public void loginRewards() {
 		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LoginRewards").send(this);
 	}
-	
+
 	public void logoutRewards() {
 		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LogoutRewards").send(this);
 	}
@@ -273,8 +279,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Can vote site.
 	 *
-	 * @param voteSite
-	 *            the vote site
+	 * @param voteSite the vote site
 	 * @return true, if successful
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
@@ -562,8 +567,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Gets the time.
 	 *
-	 * @param voteSite
-	 *            the vote site
+	 * @param voteSite the vote site
 	 * @return the time
 	 */
 	public long getTime(VoteSite voteSite) {
@@ -576,16 +580,16 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public int getTotal(TopVoter top) {
 		switch (top) {
-			case AllTime:
-				return getUserData().getInt("AllTimeTotal", isWaitForCache());
-			case Daily:
-				return getUserData().getInt("DailyTotal", isWaitForCache());
-			case Monthly:
-				return getData().getInt("MonthTotal", isWaitForCache());
-			case Weekly:
-				return getUserData().getInt("WeeklyTotal", isWaitForCache());
-			default:
-				break;
+		case AllTime:
+			return getUserData().getInt("AllTimeTotal", isWaitForCache());
+		case Daily:
+			return getUserData().getInt("DailyTotal", isWaitForCache());
+		case Monthly:
+			return getData().getInt("MonthTotal", isWaitForCache());
+		case Weekly:
+			return getUserData().getInt("WeeklyTotal", isWaitForCache());
+		default:
+			break;
 		}
 		return 0;
 	}
@@ -595,42 +599,24 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	/*
-	 * public Integer hasLastCumulative(int votesRequired) {
-	 * HashMap<Integer, Integer> lastCumative = getLastCumulatives();
-	 * if (lastCumative.containsKey(votesRequired)) {
-	 * return lastCumative.get(votesRequired);
-	 * }
-	 * return 0;
-	 * }
-	 * public HashMap<Integer, Integer> getLastCumulatives() {
-	 * HashMap<Integer, Integer> lastCumulative = new HashMap<Integer, Integer>();
-	 * ArrayList<String> milestoneList =
-	 * getUserData().getStringList("LastCumulative");
-	 * for (String str : milestoneList) {
-	 * String[] data = str.split("//");
-	 * if (data.length > 1) {
-	 * try {
-	 * lastCumulative.put(Integer.parseInt(data[0]), Integer.parseInt(data[1]));
-	 * } catch (Exception e) {
-	 * e.printStackTrace();
-	 * }
-	 * }
-	 * }
-	 * return lastCumulative;
-	 * }
+	 * public Integer hasLastCumulative(int votesRequired) { HashMap<Integer,
+	 * Integer> lastCumative = getLastCumulatives(); if
+	 * (lastCumative.containsKey(votesRequired)) { return
+	 * lastCumative.get(votesRequired); } return 0; } public HashMap<Integer,
+	 * Integer> getLastCumulatives() { HashMap<Integer, Integer> lastCumulative =
+	 * new HashMap<Integer, Integer>(); ArrayList<String> milestoneList =
+	 * getUserData().getStringList("LastCumulative"); for (String str :
+	 * milestoneList) { String[] data = str.split("//"); if (data.length > 1) { try
+	 * { lastCumulative.put(Integer.parseInt(data[0]), Integer.parseInt(data[1])); }
+	 * catch (Exception e) { e.printStackTrace(); } } } return lastCumulative; }
 	 * public void setLastCumulatives(HashMap<Integer, Integer> lastCumulative) {
-	 * ArrayList<String> data = new ArrayList<String>();
-	 * for (Entry<Integer, Integer> entry : lastCumulative.entrySet()) {
-	 * String str = entry.getKey() + "//" + entry.getValue();
-	 * data.add(str);
-	 * }
-	 * getUserData().setStringList("LastCumulative", data);
-	 * }
-	 * public void setLastCumulative(int votesRequired, int value) {
-	 * HashMap<Integer, Integer> lastCumulative = getLastCumulatives();
-	 * lastCumulative.put(votesRequired, value);
-	 * setLastCumulatives(lastCumulative);
-	 * }
+	 * ArrayList<String> data = new ArrayList<String>(); for (Entry<Integer,
+	 * Integer> entry : lastCumulative.entrySet()) { String str = entry.getKey() +
+	 * "//" + entry.getValue(); data.add(str); }
+	 * getUserData().setStringList("LastCumulative", data); } public void
+	 * setLastCumulative(int votesRequired, int value) { HashMap<Integer, Integer>
+	 * lastCumulative = getLastCumulatives(); lastCumulative.put(votesRequired,
+	 * value); setLastCumulatives(lastCumulative); }
 	 */
 
 	public int getVoteShopIdentifierLimit(String identifier) {
@@ -734,8 +720,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Checks for gotten milestone.
 	 *
-	 * @param votesRequired
-	 *            the votes required
+	 * @param votesRequired the votes required
 	 * @return true, if successful
 	 */
 	public boolean hasGottenMilestone(int votesRequired) {
@@ -749,14 +734,14 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
 		int total = getTotal(top);
 		switch (top) {
-			case Daily:
-				return total / plugin.getVoteSites().size() * 100 > percentage;
-			case Monthly:
-				return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
-			case Weekly:
-				return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
-			default:
-				return false;
+		case Daily:
+			return total / plugin.getVoteSites().size() * 100 > percentage;
+		case Monthly:
+			return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
+		case Weekly:
+			return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
+		default:
+			return false;
 		}
 	}
 
@@ -1015,10 +1000,8 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Vote command last date.
 	 *
-	 * @param user
-	 *            the user
-	 * @param voteSite
-	 *            the vote site
+	 * @param user     the user
+	 * @param voteSite the vote site
 	 * @return the string
 	 */
 	@Deprecated
@@ -1082,8 +1065,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Removes the points.
 	 *
-	 * @param points
-	 *            the points
+	 * @param points the points
 	 * @return true, if successful
 	 */
 	public boolean removePoints(int points) {
@@ -1101,8 +1083,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Send vote effects.
 	 *
-	 * @param online
-	 *            the online
+	 * @param online the online
 	 */
 	public void sendVoteEffects(boolean online) {
 		RewardHandler.getInstance().giveReward(this, SpecialRewardsConfig.getInstance().getData(),
@@ -1228,8 +1209,7 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	/**
 	 * Sets the points.
 	 *
-	 * @param value
-	 *            the new points
+	 * @param value the new points
 	 */
 	public void setPoints(int value) {
 		getUserData().setInt("Points", value, !BungeeSettings.getInstance().isUseBungeecoord());
@@ -1255,27 +1235,27 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 
 	public void setTotal(TopVoter top, int value) {
 		switch (top) {
-			case AllTime:
-				getUserData().setInt("AllTimeTotal", value);
-				break;
-			case Daily:
-				getUserData().setInt("DailyTotal", value);
-				break;
-			case Monthly:
-				if (Config.getInstance().isLimitMonthlyVotes()) {
-					LocalDateTime time = TimeChecker.getInstance().getTime();
-					int days = YearMonth.of(time.getYear(), time.getMonth()).lengthOfMonth();
-					if (value >= days * plugin.getVoteSites().size()) {
-						value = days * plugin.getVoteSites().size();
-					}
+		case AllTime:
+			getUserData().setInt("AllTimeTotal", value);
+			break;
+		case Daily:
+			getUserData().setInt("DailyTotal", value);
+			break;
+		case Monthly:
+			if (Config.getInstance().isLimitMonthlyVotes()) {
+				LocalDateTime time = TimeChecker.getInstance().getTime();
+				int days = YearMonth.of(time.getYear(), time.getMonth()).lengthOfMonth();
+				if (value >= days * plugin.getVoteSites().size()) {
+					value = days * plugin.getVoteSites().size();
 				}
-				getData().setInt("MonthTotal", value);
-				break;
-			case Weekly:
-				getUserData().setInt("WeeklyTotal", value);
-				break;
-			default:
-				break;
+			}
+			getData().setInt("MonthTotal", value);
+			break;
+		case Weekly:
+			getUserData().setInt("WeeklyTotal", value);
+			break;
+		default:
+			break;
 
 		}
 	}

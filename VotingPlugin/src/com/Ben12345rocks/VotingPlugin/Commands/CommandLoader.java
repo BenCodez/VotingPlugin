@@ -5,14 +5,11 @@ import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -74,18 +71,7 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Table;
-import com.google.common.collect.Table.Cell;
-import com.mythicacraft.voteroulette.VoteRoulette;
-import com.mythicacraft.voteroulette.Voter;
-import com.swifteh.GAL.GAL;
-import com.swifteh.GAL.GALVote;
-import com.swifteh.GAL.VoteType;
 import com.tchristofferson.configupdater.ConfigUpdater;
-
-import io.minimum.minecraft.superbvote.SuperbVote;
-import io.minimum.minecraft.superbvote.util.PlayerVotes;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -249,98 +235,6 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
 				sendMessage(sender, TimeChecker.getInstance().getTime().format(formatter));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "GAL" },
-				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from GAL") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Bukkit.getServer().getPluginManager().getPlugin("GAListener") != null) {
-					sender.sendMessage("Starting to convert");
-					Table<String, Integer, Long> totals = GAL.p.db.getTotals();
-					for (Cell<String, Integer, Long> entry : totals.cellSet()) {
-						String name = entry.getRowKey();
-						int total = entry.getColumnKey();
-						User user = UserManager.getInstance().getVotingPluginUser(name);
-						user.setTotal(TopVoter.AllTime, user.getTotal(TopVoter.AllTime) + total);
-					}
-					sender.sendMessage("Totals added");
-
-					ListMultimap<VoteType, GALVote> votes = GAL.p.galVote;
-					for (Entry<VoteType, GALVote> entry : votes.entries()) {
-						if (entry.getKey().equals(VoteType.NORMAL)) {
-							String msg = entry.getValue().message;
-							List<String> cmds = entry.getValue().commands;
-							String service = entry.getValue().key;
-							if (service.equalsIgnoreCase("default")) {
-
-							} else {
-								VoteSite site = plugin.getVoteSite(service);
-								if (site == null) {
-									sender.sendMessage("Failed to create vote site, autogeneratesites false?");
-									return;
-								}
-								ConfigurationSection data = configVoteSites.getData()
-										.getConfigurationSection(configVoteSites.getRewardsPath(site.getKey()));
-								data.set("Commands.Console", cmds);
-								data.set("Messages.Player", msg);
-								configVoteSites.saveData();
-								sender.sendMessage("created vote site: " + site.getKey());
-							}
-
-						}
-					}
-				} else {
-					sender.sendMessage("GAL not loaded");
-				}
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "VoteRoulette" },
-				"VotingPlugin.Commands.AdminVote.ConvertFrom.GAL|" + adminPerm, "Convert from VoteRoulette") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Bukkit.getServer().getPluginManager().getPlugin("VoteRoulette") != null) {
-					for (OfflinePlayer offPlayer : Bukkit.getOfflinePlayers()) {
-						VoteRoulette.getInstance();
-						Voter voter = VoteRoulette.getVoterManager().getVoter(offPlayer.getUniqueId(),
-								offPlayer.getName());
-						User user = UserManager.getInstance().getVotingPluginUser(offPlayer);
-						user.setTotal(TopVoter.AllTime,
-								user.getTotal(TopVoter.AllTime) + voter.getStatSheet().getLifetimeVotes());
-						user.setTotal(TopVoter.Monthly,
-								user.getTotal(TopVoter.Monthly) + voter.getStatSheet().getCurrentMonthVotes());
-					}
-				} else {
-					sender.sendMessage("VoteRoulette not loaded");
-				}
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ConvertFrom", "SuperbVote" },
-				"VotingPlugin.Commands.AdminVote.ConvertFrom.SuperbVote|" + adminPerm, "Convert from SuperbVote") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (Bukkit.getServer().getPluginManager().getPlugin("SuperbVote") != null) {
-					sender.sendMessage("Starting to convert");
-
-					for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
-						PlayerVotes votes = SuperbVote.getPlugin().getVoteStorage().getVotes(p.getUniqueId());
-						if (votes != null) {
-							User user = UserManager.getInstance().getVotingPluginUser(p);
-							if (votes.getVotes() > 0) {
-								user.setTotal(TopVoter.AllTime, votes.getVotes());
-							}
-						}
-					}
-
-				} else {
-					sender.sendMessage("SuperbVote not loaded");
-				}
 			}
 		});
 
