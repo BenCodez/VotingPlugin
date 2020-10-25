@@ -83,7 +83,6 @@ import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.Updater.CheckUpdate;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
-import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.MVdWPlaceholders;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.Ben12345rocks.VotingPlugin.VoteReminding.VoteReminding;
@@ -858,11 +857,6 @@ public class Main extends AdvancedCorePlugin {
 
 		// placeholderapi loading
 		PlaceHolders.getInstance().load();
-
-		// MVDW placeholders, may be removed in the future
-		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
-			MVdWPlaceholders.getInstance().loadMVdWPlaceholders();
-		}
 
 		// set columns
 		if (getStorageType().equals(UserStorage.MYSQL) && Config.getInstance().isAlterColumns()) {
