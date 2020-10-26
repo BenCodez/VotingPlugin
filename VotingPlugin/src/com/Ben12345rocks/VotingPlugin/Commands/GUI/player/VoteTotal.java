@@ -61,7 +61,8 @@ public class VoteTotal extends GUIHandler {
 				@Override
 				public ItemBuilder onUpdate(Player arg0) {
 					return new ItemBuilder(GUI.getInstance().getChestVoteTotalItem(top))
-							.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName());
+							.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName())
+							.addPlaceholder("player", user.getPlayerName());
 				}
 			});
 		}

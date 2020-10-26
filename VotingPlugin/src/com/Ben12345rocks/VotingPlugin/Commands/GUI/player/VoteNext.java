@@ -79,7 +79,7 @@ public class VoteNext extends GUIHandler {
 				@Override
 				public ItemBuilder onUpdate(Player player) {
 					return site.getItem().setName(site.getDisplayName()).setLore(user.voteCommandNextInfo(site))
-							.setAmountNone(1);
+							.setAmountNone(1).addPlaceholder("player", user.getPlayerName());
 				}
 			});
 		}
