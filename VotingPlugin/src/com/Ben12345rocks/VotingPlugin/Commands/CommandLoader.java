@@ -451,6 +451,9 @@ public class CommandLoader {
 				if (plugin.isYmlError()) {
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
 				}
+				if (plugin.getProfile().equals("dev")) {
+					sendMessage(sender, "&cDetected using dev build, there could be bugs, use at your own risk");
+				}
 				sendMessage(sender,
 						"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 				if (ServerData.getInstance().getServiceSites().size() == 0) {

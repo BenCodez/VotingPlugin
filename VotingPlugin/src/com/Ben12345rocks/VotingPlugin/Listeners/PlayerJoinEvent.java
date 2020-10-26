@@ -21,7 +21,6 @@ import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 public class PlayerJoinEvent implements Listener {
 
 	/** The plugin. */
-	@SuppressWarnings("unused")
 	private static Main plugin;
 
 	/**

@@ -4,11 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
@@ -17,6 +15,8 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.MessageBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.BookWrapper;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.Layout;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -28,8 +28,6 @@ import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteURL extends GUIHandler {
@@ -50,75 +48,32 @@ public class VoteURL extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-		ArrayList<BaseComponent[]> builder = new ArrayList<BaseComponent[]>();
-		BookUtil.PageBuilder currentPage = new BookUtil.PageBuilder();
-		int lines = 0;
-		for (final VoteSite site : plugin.getVoteSites()) {
-
-			try {
-				ArrayList<String> layout = GUI.getInstance().getBookVoteURLBookGUILayout();
-
-				lines += layout.size();
-				if (lines > 14) {
-					builder.add(currentPage.build());
-					currentPage = new BookUtil.PageBuilder();
-					lines = layout.size();
-					plugin.debug("New page");
-				}
-
-				HashMap<String, String> placeholders = new HashMap<String, String>();
-				placeholders.put("Sitename", site.getDisplayName());
-				ChatColor color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedColor());
-				String text = GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedText();
-				if (user.canVoteSite(site)) {
-					color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUICanVoteColor());
-					text = GUI.getInstance().getBookVoteURLBookGUICanVoteText();
-				}
-				String url = ChatColor.stripColor(StringParser.getInstance()
-						.colorize(StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText()));
-				if (!url.startsWith("http")) {
-					if (!url.startsWith("www.")) {
-						url = "https://www." + url;
-					} else {
-						url = "https://" + url;
-					}
-				}
-
-				for (String str : layout) {
-					str = StringParser.getInstance().replacePlaceHolder(str, placeholders);
-
-					if (StringParser.getInstance().containsIgnorecase(str, "[UrlText]")) {
-						String[] split = str.split("[UrlText]");
-						String s = split[0].substring(0, split[0].length() - 1);
-						BaseComponent comp = new TextComponent(StringParser.getInstance().colorize(s));
-						comp.addExtra(
-								BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
-										.onHover(BookUtil.HoverAction.showText(url)).build());
-						comp.addExtra(StringParser.getInstance().colorize(str.substring(s.length() + 9)));
-						currentPage.add(comp);
-					} else {
-						currentPage.add(StringParser.getInstance().colorize(str));
-					}
-					currentPage.newLine();
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
+		BookWrapper book = new BookWrapper(GUI.getInstance().getBookVoteURLBookGUITitle());
+		
+		for (VoteSite site : plugin.getVoteSites()) {
+			Layout layout = new Layout(GUI.getInstance().getBookVoteURLBookGUILayout()).addPlaceholder("sitename", site.getDisplayName());
+			String text = GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedText();
+			ChatColor color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedColor());
+			if (user.canVoteSite(site)) {
+				color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUICanVoteColor());
+				text = GUI.getInstance().getBookVoteURLBookGUICanVoteText();
 			}
+			String url = ChatColor.stripColor(StringParser.getInstance()
+					.colorize(StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText()));
+			if (!url.startsWith("http")) {
+				if (!url.startsWith("www.")) {
+					url = "https://www." + url;
+				} else {
+					url = "https://" + url;
+				}
+			}
+			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
+					.onHover(BookUtil.HoverAction.showText(url)).build());
+			book.addLayout(layout);
+		
 		}
-
-		builder.add(currentPage.build());
-
-		ItemStack book = BookUtil.writtenBook().author(player.getName())
-				.title(StringParser.getInstance().colorize(GUI.getInstance().getBookVoteURLBookGUITitle()))
-				.pages(builder).build();
-
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				BookUtil.openPlayer(player, book);
-			}
-		});
+		
+		book.open(player);
 	}
 
 	@Override
@@ -200,6 +155,7 @@ public class VoteURL extends GUIHandler {
 				public ItemBuilder onUpdate(Player player) {
 					return getItemVoteSite(voteSite);
 				}
+
 			});
 			count++;
 		}

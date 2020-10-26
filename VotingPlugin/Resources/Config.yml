@@ -434,9 +434,6 @@ PurgeMin: 90
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
 
-# If true, plugin will send scoreboards on some commands
-SendScoreboards: true
-
 # If true, plugin will automaticly generate votesites
 # Disable this if you experience issues with sites being created randomly
 # Most cases this will work all the time

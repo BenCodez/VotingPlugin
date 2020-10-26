@@ -142,10 +142,6 @@ public class GUI extends YMLFile {
 	@Getter
 	private String bookVoteURLBookGUITitle = "&cVoteURL";
 
-	@ConfigDataString(path = "BOOK.VoteURLBookGUI.SiteName")
-	@Getter
-	private String bookVoteURLBookGUISiteName = "&c%name%";
-
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteText")
 	@Getter
 	private String bookVoteURLBookGUICanVoteText = "Click me";

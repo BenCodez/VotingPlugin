@@ -306,8 +306,7 @@ public class Main extends AdvancedCorePlugin {
 	/**
 	 * Gets the user.
 	 *
-	 * @param uuid
-	 *            the uuid
+	 * @param uuid the uuid
 	 * @return the user
 	 */
 	public User getUser(UUID uuid) {
@@ -321,8 +320,7 @@ public class Main extends AdvancedCorePlugin {
 	/**
 	 * Gets the vote site.
 	 *
-	 * @param site
-	 *            the site name
+	 * @param site the site name
 	 * @return the vote site
 	 */
 	public VoteSite getVoteSite(String site) {
@@ -343,8 +341,7 @@ public class Main extends AdvancedCorePlugin {
 	/**
 	 * Gets the vote site name.
 	 *
-	 * @param urls
-	 *            the url
+	 * @param urls the url
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String... urls) {
@@ -487,12 +484,9 @@ public class Main extends AdvancedCorePlugin {
 	/**
 	 * Log vote.
 	 *
-	 * @param date
-	 *            the date
-	 * @param playerName
-	 *            the player name
-	 * @param voteSite
-	 *            the vote site
+	 * @param date       the date
+	 * @param playerName the player name
+	 * @param voteSite   the vote site
 	 */
 	public void logVote(LocalDateTime date, String playerName, String voteSite) {
 		if (Config.getInstance().isLogVotesToFile()) {
@@ -678,27 +672,29 @@ public class Main extends AdvancedCorePlugin {
 				return "" + Config.getInstance().isAutoCreateVoteSites();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("sendscoreboards") {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("BungeeMethod") {
 
 			@Override
 			public String getValue() {
-				return "" + getOptions().isSendScoreboards();
+				if (BungeeSettings.getInstance().isUseBungeecoord()) {
+					return "" + BungeeHandler.getInstance().getMethod().toString();
+				} else {
+					return "Disabled";
+				}
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofuser") {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
 
 			@Override
 			public String getValue() {
 				int total = UserManager.getInstance().getAllUUIDs().size();
-				int num = total / 100;
-				num = num * 100;
-				int num2 = (total + 100) / 100;
-				num2 = num2 * 100;
 				if (total < 1000) {
-					num = 0;
-					num2 = 1000;
+					return "<1000";
+				} else if (total > 10000) {
+					return ">10000";
+				} else {
+					return "1000-10000";
 				}
-				return "" + num + "-" + num2;
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage") {
@@ -756,7 +752,7 @@ public class Main extends AdvancedCorePlugin {
 					ZipEntry e = zip.getNextEntry();
 					if (e != null) {
 						String name = e.getName();
-						if (name.equals("advancedcoreversion.yml")) {
+						if (name.equals("votingpluginversion.yml")) {
 							Reader defConfigStream = new InputStreamReader(zip);
 							if (defConfigStream != null) {
 								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
@@ -995,6 +991,7 @@ public class Main extends AdvancedCorePlugin {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -1025,6 +1022,7 @@ public class Main extends AdvancedCorePlugin {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
@@ -1111,6 +1109,8 @@ public class Main extends AdvancedCorePlugin {
 		configVoteSites.reloadData();
 
 		specialRewardsConfig.reloadData();
+
+		GUI.getInstance().reloadData();
 
 		bungeeSettings.reloadData();
 		checkYMLError();

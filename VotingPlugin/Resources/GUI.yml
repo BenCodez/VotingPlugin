@@ -295,12 +295,11 @@ CHEST:
 BOOK:
   VoteURLBookGUI:
     Title: '&cVoteURL'
-    SiteName: '&c%name%'
     CanVoteText: 'Click me'
     CanVoteColor: 'GREEN'
     AlreadyVotedText: 'Click me'
     AlreadyVotedColor: 'RED' 
     Layout:
-    - '&c%Sitename%'
+    - '&3&l%Sitename%'
     - '[UrlText]'
   
