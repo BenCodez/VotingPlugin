@@ -19,6 +19,7 @@ import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
 public class VoteGUI extends GUIHandler {
 
@@ -45,7 +46,6 @@ public class VoteGUI extends GUIHandler {
 		ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestVoteGUISlotSection(slot));
 
 		String[] lore = new String[1];
-
 		lore = ArrayUtils.getInstance().convert(GUI.getInstance().getChestVoteGUISlotLore(slot));
 
 		String str = Config.getInstance().getVoteTopDefault();
@@ -143,7 +143,12 @@ public class VoteGUI extends GUIHandler {
 
 				@Override
 				public ItemBuilder onUpdate(Player player) {
-					return getItemSlot(slot, player);
+					ItemBuilder item = getItemSlot(slot, player);
+					User user = UserManager.getInstance().getVotingPluginUser(player);
+					item.addPlaceholder("points", "" + user.getPoints());
+					item.addPlaceholder("player", user.getPlayerName());
+					item.addPlaceholder("top", Config.getInstance().getVoteTopDefault());
+					return item;
 				}
 
 			});
