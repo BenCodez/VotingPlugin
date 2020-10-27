@@ -442,12 +442,39 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Reload" },
-				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin") {
+				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, will not reload user storage") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
 				plugin.reload();
+				if (plugin.isYmlError()) {
+					sendMessage(sender, "&3Detected yml error, please check server log for details");
+				}
+				if (plugin.getProfile().equals("dev")) {
+					sendMessage(sender, "&cDetected using dev build, there could be bugs, use at your own risk");
+				}
+				sendMessage(sender,
+						"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded! Note: User storage has not been reloaded");
+				if (ServerData.getInstance().getServiceSites().size() == 0) {
+					sendMessage(sender, "&c"
+							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
+				}
+				if (!Config.getInstance().isDisableUpdateChecking()
+						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
+					sendMessage(sender,
+							"&3Plugin has update available! https://www.spigotmc.org/resources/votingplugin.15358/");
+				}
+			}
+		});
+		
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ReloadAll" },
+				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, including user storage") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
+				plugin.reloadAll();
 				if (plugin.isYmlError()) {
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
 				}

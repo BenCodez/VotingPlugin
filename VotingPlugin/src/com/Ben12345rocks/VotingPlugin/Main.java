@@ -1101,6 +1101,10 @@ public class Main extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void reload() {
+		reloadPlugin(false);
+	}
+	
+	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
 
 		config.reloadData();
@@ -1117,7 +1121,7 @@ public class Main extends AdvancedCorePlugin {
 
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		reloadAdvancedCore();
+		reloadAdvancedCore(userStorage);
 		getOptions().setServer(BungeeSettings.getInstance().getServer());
 		PlaceHolders.getInstance().load();
 		CoolDownCheck.getInstance().checkAll();
@@ -1128,6 +1132,10 @@ public class Main extends AdvancedCorePlugin {
 				update();
 			}
 		});
+	}
+	
+	public void reloadAll() {
+		reloadPlugin(true);
 	}
 
 	@Getter

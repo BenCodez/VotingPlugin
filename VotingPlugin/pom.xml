@@ -320,19 +320,6 @@
 			</properties>
 			<dependencies>
 				<dependency>
-					<groupId>com.github.Ben12345rocks</groupId>
-					<artifactId>AdvancedCore</artifactId>
-					<version>3.0-SNAPSHOT</version>
-				</dependency>
-			</dependencies>
-		</profile>
-		<profile>
-			<id>localdev</id>
-			<properties>
-				<build.profile.id>dev</build.profile.id>
-			</properties>
-			<dependencies>
-				<dependency>
 					<groupId>com.Ben12345rocks</groupId>
 					<artifactId>AdvancedCore</artifactId>
 					<version>LATEST</version>
