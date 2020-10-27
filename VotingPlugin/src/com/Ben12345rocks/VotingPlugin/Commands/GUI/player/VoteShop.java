@@ -51,6 +51,7 @@ public class VoteShop extends GUIHandler {
 		}
 
 		BInventory inv = new BInventory(GUI.getInstance().getChestVoteShopName());
+		inv.dontClose();
 
 		for (final String identifier : GUI.getInstance().getChestShopIdentifiers()) {
 
