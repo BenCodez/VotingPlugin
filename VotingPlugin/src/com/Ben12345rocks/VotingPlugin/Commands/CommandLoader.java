@@ -1997,7 +1997,7 @@ public class CommandLoader {
 	}
 
 	public BInventoryButton getBackButton(User user) {
-		ConfigurationSection sec = Config.getInstance().getBackButton();
+		ConfigurationSection sec = GUI.getInstance().getCHESTBackButton();
 		ItemBuilder item;
 		if (sec != null) {
 			item = new ItemBuilder(sec);

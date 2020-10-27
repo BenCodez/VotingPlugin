@@ -495,4 +495,8 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteURLViewAllUrlsButtonEnabled() {
 		return getData().getBoolean("CHEST.VoteURL.ViewAllUrlsButtonEnabled");
 	}
+	
+	public ConfigurationSection getCHESTBackButton() {
+		return getData().getConfigurationSection("CHEST.BackButton");
+	}
 }

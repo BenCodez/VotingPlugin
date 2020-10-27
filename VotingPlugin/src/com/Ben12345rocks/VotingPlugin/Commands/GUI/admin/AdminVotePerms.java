@@ -39,7 +39,7 @@ public class AdminVotePerms extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-
+		
 	}
 
 	@Override

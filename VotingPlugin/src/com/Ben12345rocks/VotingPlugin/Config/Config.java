@@ -3,8 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Config;
 import java.io.File;
 import java.util.ArrayList;
 
-import org.bukkit.configuration.ConfigurationSection;
-
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.AnnotationHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataBoolean;
 import com.Ben12345rocks.AdvancedCore.Util.Annotation.ConfigDataInt;
@@ -241,10 +239,6 @@ public class Config extends YMLFile {
 	 */
 	public Config() {
 		super(new File(Main.plugin.getDataFolder(), "Config.yml"));
-	}
-
-	public ConfigurationSection getBackButton() {
-		return getData().getConfigurationSection("BackButton");
 	}
 
 	/**
