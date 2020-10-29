@@ -68,7 +68,7 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 	public void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
-				if (cachedVotes.containsKey(server)) {
+				if (cachedVotes.containsKey(server) && !config.getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
 					if (!c.isEmpty()) {
 						for (OfflineBungeeVote cache : c) {
@@ -542,7 +542,8 @@ public class Bungee extends Plugin implements net.md_5.bungee.api.plugin.Listene
 				}
 			} else {
 				ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-				if (p != null && p.isConnected()) {
+				if (p != null && p.isConnected()
+						&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 							"" + time, Boolean.TRUE.toString(), "" + realVote, text);
 				} else {
