@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI.player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -10,6 +11,8 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.BInventory.ClickEvent;
 import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.BookWrapper;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.Layout;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
@@ -18,6 +21,8 @@ import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
+
+import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteNext extends GUIHandler {
 
@@ -32,7 +37,20 @@ public class VoteNext extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-		// TODO
+		BookWrapper book = new BookWrapper(GUI.getInstance().getBookVoteURLBookGUITitle());
+
+		// add colors/config options
+		for (VoteSite site : plugin.getVoteSites()) {
+			Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+			nextLayout.replaceTextComponent("[Json]",
+					BookUtil.TextBuilder.of(book.colorize(site.getDisplayName()))
+							.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
+							.onHover(BookUtil.HoverAction.showText(user.voteCommandNextInfo(site))).build());
+			book.addLayout(nextLayout);
+		}
+		book.addLine();
+
+		book.open(player);
 	}
 
 	@Override

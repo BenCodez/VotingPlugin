@@ -58,17 +58,8 @@ public class VoteURL extends GUIHandler {
 				color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUICanVoteColor());
 				text = GUI.getInstance().getBookVoteURLBookGUICanVoteText();
 			}
-			String url = ChatColor.stripColor(StringParser.getInstance()
-					.colorize(StringParser.getInstance().parseJson(site.getVoteURL(false)).toPlainText()));
-			if (!url.startsWith("http")) {
-				if (!url.startsWith("www.")) {
-					url = "https://www." + url;
-				} else {
-					url = "https://" + url;
-				}
-			}
-			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
-					.onHover(BookUtil.HoverAction.showText(url)).build());
+			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
+					.onHover(BookUtil.HoverAction.showText(site.getVoteURLJsonStrip())).build());
 			book.addLayout(layout);
 		
 		}

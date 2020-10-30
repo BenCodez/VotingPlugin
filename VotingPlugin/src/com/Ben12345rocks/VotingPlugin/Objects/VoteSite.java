@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -95,8 +96,7 @@ public class VoteSite {
 	/**
 	 * Instantiates a new vote site.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public VoteSite(Main plugin) {
 		VoteSite.plugin = plugin;
@@ -105,8 +105,7 @@ public class VoteSite {
 	/**
 	 * Instantiates a new vote site.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 */
 	public VoteSite(String siteName) {
 		key = siteName.replace(".", "_");
@@ -120,10 +119,8 @@ public class VoteSite {
 	/**
 	 * Broadcast vote.
 	 *
-	 * @param user
-	 *            the user
-	 * @param checkBungee
-	 *            check bungee broadcast
+	 * @param user        the user
+	 * @param checkBungee check bungee broadcast
 	 */
 	public void broadcastVote(User user, boolean checkBungee) {
 		if (!user.isVanished()) {
@@ -186,6 +183,19 @@ public class VoteSite {
 
 	public ConfigurationSection getSiteData() {
 		return configVoteSites.getData(key);
+	}
+
+	public String getVoteURLJsonStrip() {
+		String url = ChatColor.stripColor(StringParser.getInstance()
+				.colorize(StringParser.getInstance().parseJson(getVoteURL(false)).toPlainText()));
+		if (!url.startsWith("http")) {
+			if (!url.startsWith("www.")) {
+				url = "https://www." + url;
+			} else {
+				url = "https://" + url;
+			}
+		}
+		return url;
 	}
 
 	public String getVoteURL() {

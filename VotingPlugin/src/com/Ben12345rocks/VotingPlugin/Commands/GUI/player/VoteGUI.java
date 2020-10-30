@@ -1,6 +1,7 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI.player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -11,15 +12,20 @@ import com.Ben12345rocks.AdvancedCore.Util.Inventory.UpdatingBInventoryButton;
 import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.BookWrapper;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.Layout;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Config.GUI;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.Objects.VoteSite;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoterHandler;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
+
+import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteGUI extends GUIHandler {
 
@@ -34,7 +40,36 @@ public class VoteGUI extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-		// TODO
+		BookWrapper book = new BookWrapper(GUI.getInstance().getBookVoteURLBookGUITitle());
+
+		// url - click to open
+		Layout urlLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+		urlLayout.replaceTextComponent("[Json]",
+				BookUtil.TextBuilder.of(book.colorize("Click me")).onClick(BookUtil.ClickAction.runCommand("/vote url"))
+						.onHover(BookUtil.HoverAction.showText("Clicking me opens url GUI")).build());
+		book.addLayout(urlLayout);
+		book.addLine();
+
+		// next - click to open
+		for (VoteSite site : plugin.getVoteSites()) {
+			Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+			nextLayout.replaceTextComponent("[Json]",
+					BookUtil.TextBuilder.of(site.getDisplayName())
+							.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
+							.onHover(BookUtil.HoverAction.showText(user.voteCommandNextInfo(site))).build());
+			book.addLayout(nextLayout);
+		}
+		book.addLine();
+
+		// total - click to open
+
+		// top = click to open
+
+		// today - click to open
+
+		// shop - click to open
+
+		book.open(player);
 	}
 
 	@Override

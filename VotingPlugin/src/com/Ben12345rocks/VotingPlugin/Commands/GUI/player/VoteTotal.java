@@ -34,7 +34,7 @@ public class VoteTotal extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-		// TODO
+		// future release?
 	}
 
 	@Override
