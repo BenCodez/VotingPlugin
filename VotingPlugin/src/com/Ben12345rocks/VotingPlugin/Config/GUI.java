@@ -276,16 +276,16 @@ public class GUI extends YMLFile {
 
 	public ConfigurationSection getChestVoteTotalItem(TopVoter top) {
 		switch (top) {
-			case AllTime:
-				return getChestVoteTotalAllTimeTotalItem();
-			case Daily:
-				return getChestVoteTotalDayTotalItem();
-			case Monthly:
-				return getChestVoteTotalMonthTotalItem();
-			case Weekly:
-				return getChestVoteTotalWeekTotalItem();
-			default:
-				return getChestVoteTotalAllTimeTotalItem();
+		case AllTime:
+			return getChestVoteTotalAllTimeTotalItem();
+		case Daily:
+			return getChestVoteTotalDayTotalItem();
+		case Monthly:
+			return getChestVoteTotalMonthTotalItem();
+		case Weekly:
+			return getChestVoteTotalWeekTotalItem();
+		default:
+			return getChestVoteTotalAllTimeTotalItem();
 
 		}
 	}
@@ -350,8 +350,7 @@ public class GUI extends YMLFile {
 	/**
 	 * Gets the vote GUI slot command.
 	 *
-	 * @param slot
-	 *            the slot
+	 * @param slot the slot
 	 * @return the vote GUI slot command
 	 */
 
@@ -362,8 +361,7 @@ public class GUI extends YMLFile {
 	/**
 	 * Gets the vote GUI slot lore.
 	 *
-	 * @param slot
-	 *            the slot
+	 * @param slot the slot
 	 * @return the vote GUI slot lore
 	 */
 	@SuppressWarnings("unchecked")
@@ -391,14 +389,13 @@ public class GUI extends YMLFile {
 	/**
 	 * Gets the vote GUI slot slot.
 	 *
-	 * @param slot
-	 *            the slot
+	 * @param slot the slot
 	 * @return the vote GUI slot slot
 	 */
 	public int getChestVoteGUISlotSlot(String slot) {
 		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
 	}
-	
+
 	public boolean getChestVoteShopBackButton() {
 		return getData().getBoolean("CHEST.VoteShopBackButton", true);
 	}
@@ -414,7 +411,7 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
 	}
-	
+
 	public boolean getChestVoteShopCloseGUI(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
 	}
@@ -434,7 +431,7 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteShopResetWeekly(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Weekly", false);
 	}
-	
+
 	public ConfigurationSection getChestVoteURLAlreadyVotedAllUrlsButtonItemSection() {
 		if (getData().isConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
 			return getData().getConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem");
@@ -442,6 +439,18 @@ public class GUI extends YMLFile {
 			return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
 		}
 	}
+
+	@Getter
+	@ConfigDataString(path = "CHEST.ShopConfirmPurchase.Title")
+	private String chestShopConfirmPurchaseTitle = "Confirm Purchase?";
+
+	@Getter
+	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.YesItem")
+	private ConfigurationSection chestShopConfirmPurchaseYesItem;
+
+	@Getter
+	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.NoItem")
+	private ConfigurationSection chestShopConfirmPurchaseNoItem;
 
 	public ConfigurationSection getChestVoteURLAlreadyVotedItemSection() {
 		return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
@@ -495,7 +504,7 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteURLViewAllUrlsButtonEnabled() {
 		return getData().getBoolean("CHEST.VoteURL.ViewAllUrlsButtonEnabled");
 	}
-	
+
 	public ConfigurationSection getCHESTBackButton() {
 		return getData().getConfigurationSection("CHEST.BackButton");
 	}

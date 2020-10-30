@@ -37,10 +37,11 @@ BlockedServers:
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
-# ----------------------------
-# SOCKET METHOD Only, ignore otherwise
-# ----------------------------
 FallBackServer: factions
+
+# ----------------------------
+# SOCKET METHOD Settings
+# ----------------------------
 
 # Tell servers to broadcast
 Broadcast: true

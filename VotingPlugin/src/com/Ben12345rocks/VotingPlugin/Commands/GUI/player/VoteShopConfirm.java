@@ -3,7 +3,6 @@ package com.Ben12345rocks.VotingPlugin.Commands.GUI.player;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -46,8 +45,8 @@ public class VoteShopConfirm extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		PlayerUtils.getInstance().setPlayerMeta(player, "ident", identifier);
-		BInventory inv = new BInventory("Confirm Purchase?");
-		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&aYes")) {
+		BInventory inv = new BInventory(GUI.getInstance().getChestShopConfirmPurchaseTitle());
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestShopConfirmPurchaseYesItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {
@@ -80,7 +79,7 @@ public class VoteShopConfirm extends GUIHandler {
 
 			}
 		});
-		inv.addButton(new BInventoryButton(new ItemBuilder(Material.BARRIER).setName("&cNo")) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(GUI.getInstance().getChestShopConfirmPurchaseNoItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {

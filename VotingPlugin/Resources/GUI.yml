@@ -290,7 +290,19 @@ CHEST:
         Items:
           Diamond:
             Material: 'DIAMOND'
-            Amount: 1     
+            Amount: 1    
+
+  ShopConfirmPurchase:
+    Title: 'Confirm Purchase?'
+    YesItem:
+      Material: EMERALD_BLOCK
+      Amount: 1
+      Name: '&aYes'
+    NoItem:
+      Material: BARRIER
+      Amount: 1
+      Name: '&cNo'
+    
             
 BOOK:
   VoteURLBookGUI:
