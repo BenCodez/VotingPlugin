@@ -1103,7 +1103,7 @@ public class Main extends AdvancedCorePlugin {
 	public void reload() {
 		reloadPlugin(false);
 	}
-	
+
 	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
 
@@ -1133,7 +1133,7 @@ public class Main extends AdvancedCorePlugin {
 			}
 		});
 	}
-	
+
 	public void reloadAll() {
 		reloadPlugin(true);
 	}
@@ -1258,6 +1258,9 @@ public class Main extends AdvancedCorePlugin {
 		getJavascriptEngine().put("VotingPlugin", this);
 		allowDownloadingFromSpigot(15358);
 		setConfigData(Config.getInstance().getData());
+		if (BungeeSettings.getInstance().isUseBungeecoord()) {
+			getOptions().setClearCacheOnJoin(true);
+		}
 	}
 
 	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
