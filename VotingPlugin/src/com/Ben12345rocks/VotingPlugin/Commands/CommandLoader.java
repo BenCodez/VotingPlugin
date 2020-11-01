@@ -696,7 +696,6 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
-						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(
 								StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
 					}
@@ -710,7 +709,6 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[3]));
-						SpecialRewards.getInstance().checkMilestone(user);
 						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
 					}

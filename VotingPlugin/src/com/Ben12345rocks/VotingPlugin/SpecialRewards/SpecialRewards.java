@@ -54,8 +54,7 @@ public class SpecialRewards {
 	/**
 	 * Instantiates a new other vote reward.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public SpecialRewards(Main plugin) {
 		SpecialRewards.plugin = plugin;
@@ -64,8 +63,7 @@ public class SpecialRewards {
 	/**
 	 * Check all sites.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 * @return true, if successful
 	 */
 	public boolean checkAllSites(User user) {
@@ -79,8 +77,7 @@ public class SpecialRewards {
 	/**
 	 * Check cumualative votes.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 * @return true, if successful
 	 */
 	public boolean checkCumualativeVotes(User user, String bungeeTextTotals) {
@@ -150,8 +147,7 @@ public class SpecialRewards {
 	/**
 	 * Check first vote.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 * @return true, if successful
 	 */
 	public boolean checkFirstVote(User user) {
@@ -169,11 +165,20 @@ public class SpecialRewards {
 	/**
 	 * Check milestone.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkMilestone(User user) {
+	public boolean checkMilestone(User user, String bungeeTextTotals) {
+		int milestoneCount = user.getMilestoneCount();
+		String[] data = bungeeTextTotals.split("//");
+		if (data.length > 4) {
+			try {
+				milestoneCount = Integer.parseInt(data[5]);
+			} catch (Exception e) {
+				e.printStackTrace();
+				milestoneCount = user.getMilestoneCount();
+			}
+		}
 		if (Config.getInstance().isPreventRepeatMilestones()) {
 			ArrayList<Integer> nums = new ArrayList<Integer>();
 
@@ -185,7 +190,6 @@ public class SpecialRewards {
 				}
 			}
 
-			int milestoneCount = user.getMilestoneCount();
 			for (int num : nums) {
 				if (milestoneCount > num) {
 					if (!user.hasGottenMilestone(num)) {
@@ -210,7 +214,7 @@ public class SpecialRewards {
 							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
 									SpecialRewardsConfig.getInstance().getMilestoneRewardsPath(votesRequired))) {
 
-						int userVotesTotal = user.getMilestoneCount();
+						int userVotesTotal = milestoneCount;
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
 							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
 							user.setHasGotteMilestone(votesRequired, true);
@@ -279,10 +283,8 @@ public class SpecialRewards {
 	/**
 	 * Give all sites rewards.
 	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
+	 * @param user   the user
+	 * @param online the online
 	 */
 	public void giveAllSitesRewards(User user, boolean online) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
@@ -298,12 +300,9 @@ public class SpecialRewards {
 	/**
 	 * Give cumulative vote reward.
 	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
-	 * @param cumulative
-	 *            the cumulative
+	 * @param user       the user
+	 * @param online     the online
+	 * @param cumulative the cumulative
 	 */
 	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
@@ -322,10 +321,8 @@ public class SpecialRewards {
 	/**
 	 * Give first vote rewards.
 	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
+	 * @param user   the user
+	 * @param online the online
 	 */
 	public void giveFirstVoteRewards(User user, boolean online) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
@@ -341,12 +338,9 @@ public class SpecialRewards {
 	/**
 	 * Give milestone vote reward.
 	 *
-	 * @param user
-	 *            the user
-	 * @param online
-	 *            the online
-	 * @param milestone
-	 *            the milestone
+	 * @param user      the user
+	 * @param online    the online
+	 * @param milestone the milestone
 	 */
 	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,

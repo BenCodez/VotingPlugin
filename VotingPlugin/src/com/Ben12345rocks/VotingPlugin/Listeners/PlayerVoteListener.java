@@ -45,8 +45,7 @@ public class PlayerVoteListener implements Listener {
 	/**
 	 * Instantiates a new votifer event.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public PlayerVoteListener(Main plugin) {
 		PlayerVoteListener.plugin = plugin;
@@ -55,8 +54,7 @@ public class PlayerVoteListener implements Listener {
 	/**
 	 * On votifer event.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
@@ -165,7 +163,7 @@ public class PlayerVoteListener implements Listener {
 			// other rewards
 			SpecialRewards.getInstance().checkAllSites(user);
 			SpecialRewards.getInstance().checkCumualativeVotes(user, event.getBungeeTextTotals());
-			SpecialRewards.getInstance().checkMilestone(user);
+			SpecialRewards.getInstance().checkMilestone(user, event.getBungeeTextTotals());
 
 			if (BungeeSettings.getInstance().isUseBungeecoord()) {
 				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)) {
