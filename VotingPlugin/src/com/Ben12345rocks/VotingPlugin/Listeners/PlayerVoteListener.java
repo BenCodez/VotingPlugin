@@ -66,6 +66,10 @@ public class PlayerVoteListener implements Listener {
 				return;
 			}
 		}
+		
+		if (event.isBungee()) {
+			plugin.debug("BungeePlayerVote forcebungee: " + event.isForceBungee() + ", bungeetotals: " + event.getBungeeTextTotals());
+		}
 
 		VoteSite voteSite = event.getVoteSite();
 
