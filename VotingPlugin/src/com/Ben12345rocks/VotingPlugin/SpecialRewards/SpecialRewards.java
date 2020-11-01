@@ -172,13 +172,15 @@ public class SpecialRewards {
 	 */
 	public boolean checkMilestone(User user, String bungeeTextTotals) {
 		int milestoneCount = user.getMilestoneCount();
-		String[] data = bungeeTextTotals.split("//");
-		if (data.length > 4) {
-			try {
-				milestoneCount = Integer.parseInt(data[5]);
-			} catch (Exception e) {
-				e.printStackTrace();
-				milestoneCount = user.getMilestoneCount();
+		if (bungeeTextTotals != null) {
+			String[] data = bungeeTextTotals.split("//");
+			if (data.length > 4) {
+				try {
+					milestoneCount = Integer.parseInt(data[5]);
+				} catch (Exception e) {
+					e.printStackTrace();
+					milestoneCount = user.getMilestoneCount();
+				}
 			}
 		}
 		if (Config.getInstance().isPreventRepeatMilestones()) {
