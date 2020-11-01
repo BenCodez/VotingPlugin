@@ -81,7 +81,7 @@ public class SpecialRewards {
 	 * @return true, if successful
 	 */
 	public boolean checkCumualativeVotes(User user, String bungeeTextTotals) {
-		boolean gotCumulative = false;
+		boolean gotCumulativeAny = false;
 		Set<String> votes = SpecialRewardsConfig.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
 			if (StringParser.getInstance().isInt(vote)) {
@@ -90,6 +90,7 @@ public class SpecialRewards {
 					if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(votesRequired)
 							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
 									SpecialRewardsConfig.getInstance().getCumulativeRewardsPath(votesRequired))) {
+						boolean gotCumulative = false;
 						int total = 0;
 						boolean useBungeeTotalNum = false;
 						String[] data = new String[] { "0", "0", "0", "0" };
@@ -130,6 +131,7 @@ public class SpecialRewards {
 						}
 
 						if (gotCumulative) {
+							gotCumulativeAny = true;
 							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
 							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						} else {
@@ -141,7 +143,7 @@ public class SpecialRewards {
 				plugin.debug("Invalid cumulative number: " + vote);
 			}
 		}
-		return gotCumulative;
+		return gotCumulativeAny;
 	}
 
 	/**
