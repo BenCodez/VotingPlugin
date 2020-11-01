@@ -123,7 +123,7 @@ public class SpecialRewards {
 							}
 						}
 
-						if (total != 0) {
+						if (total != 0 && total >= votesRequired) {
 							if ((total % votesRequired) == 0) {
 								gotCumulative = true;
 							}
