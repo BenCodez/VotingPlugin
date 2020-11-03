@@ -38,17 +38,16 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	@Override
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper("Placeholders");
-		
+
 		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
 			String value = placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier);
-			String msg = "%VotingPlugin_" + identifier + "% = "
-					+ value;
+			String msg = identifier + " = " + value;
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
-			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(identifier).color(ChatColor.AQUA)
+			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(msg).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(value)).build());
 			book.addLayout(layout);
 		}
@@ -60,11 +59,10 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 				identifier += "1";
 			}
 			String value = placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier);
-			String msg = "%VotingPlugin_" + identifier + "% = "
-					+ value;
-			
+			String msg = identifier + " = " + value;
+
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
-			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(identifier).color(ChatColor.AQUA)
+			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(msg).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(value)).build());
 			book.addLayout(layout);
 		}
