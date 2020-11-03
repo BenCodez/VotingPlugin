@@ -32,7 +32,6 @@ import com.Ben12345rocks.AdvancedCore.Util.Item.ItemBuilder;
 import com.Ben12345rocks.AdvancedCore.Util.Messages.StringParser;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.PlayerUtils;
-import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.AdvancedCore.Util.Updater.Updater;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.ValueRequest;
 import com.Ben12345rocks.AdvancedCore.Util.ValueRequest.Listeners.BooleanListener;
@@ -43,6 +42,8 @@ import com.Ben12345rocks.VotingPlugin.Commands.Executers.CommandAliases;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.AdminGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVoteHelp;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVotePerms;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVotePlaceholders;
+import com.Ben12345rocks.VotingPlugin.Commands.GUI.admin.AdminVotePlaceholdersPlayer;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteBest;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteGUI;
 import com.Ben12345rocks.VotingPlugin.Commands.GUI.player.VoteHelp;
@@ -69,7 +70,6 @@ import com.Ben12345rocks.VotingPlugin.SpecialRewards.SpecialRewards;
 import com.Ben12345rocks.VotingPlugin.Test.VoteTester;
 import com.Ben12345rocks.VotingPlugin.TopVoter.TopVoter;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
-import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 import com.Ben12345rocks.VotingPlugin.VoteParty.VoteParty;
 import com.tchristofferson.configupdater.ConfigUpdater;
 
@@ -120,8 +120,7 @@ public class CommandLoader {
 	/**
 	 * Instantiates a new command loader.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public CommandLoader(Main plugin) {
 		CommandLoader.plugin = plugin;
@@ -454,8 +453,8 @@ public class CommandLoader {
 				if (plugin.getProfile().equals("dev")) {
 					sendMessage(sender, "&cDetected using dev build, there could be bugs, use at your own risk");
 				}
-				sendMessage(sender,
-						"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded! Note: User storage has not been reloaded");
+				sendMessage(sender, "&4" + plugin.getName() + " v" + plugin.getDescription().getVersion()
+						+ " reloaded! Note: User storage has not been reloaded");
 				if (ServerData.getInstance().getServiceSites().size() == 0) {
 					sendMessage(sender, "&c"
 							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
@@ -467,7 +466,7 @@ public class CommandLoader {
 				}
 			}
 		});
-		
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ReloadAll" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, including user storage") {
 
@@ -886,27 +885,26 @@ public class CommandLoader {
 						plugin.setUpdater(new Updater(plugin, 15358, false));
 						final Updater.UpdateResult result = plugin.getUpdater().getResult();
 						switch (result) {
-							case FAIL_SPIGOT: {
-								sender.sendMessage(StringParser.getInstance()
-										.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
-								break;
-							}
-							case NO_UPDATE: {
-								sender.sendMessage(StringParser.getInstance().colorize("&c&l" + plugin.getName()
-										+ " &cis up to date! Version: &c&l" + plugin.getUpdater().getVersion()));
-								break;
-							}
-							case UPDATE_AVAILABLE: {
-								sender.sendMessage(StringParser.getInstance()
-										.colorize("&c&l" + plugin.getName()
-												+ " &chas an update available! Your Version: &c&l"
-												+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
-												+ plugin.getUpdater().getVersion()));
-								break;
-							}
-							default: {
-								break;
-							}
+						case FAIL_SPIGOT: {
+							sender.sendMessage(StringParser.getInstance()
+									.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
+							break;
+						}
+						case NO_UPDATE: {
+							sender.sendMessage(StringParser.getInstance().colorize("&c&l" + plugin.getName()
+									+ " &cis up to date! Version: &c&l" + plugin.getUpdater().getVersion()));
+							break;
+						}
+						case UPDATE_AVAILABLE: {
+							sender.sendMessage(StringParser.getInstance().colorize(
+									"&c&l" + plugin.getName() + " &chas an update available! Your Version: &c&l"
+											+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
+											+ plugin.getUpdater().getVersion()));
+							break;
+						}
+						default: {
+							break;
+						}
 						}
 					}
 				});
@@ -1025,33 +1023,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						ArrayList<String> msg = new ArrayList<String>();
-						msg.add("&cPlaceholders:");
-						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
-							String identifier = placeholder.getIdentifier();
-							if (identifier.endsWith("_")) {
-								identifier += "#";
-							}
-							if (placeholder.hasDescription()) {
-								msg.add("%VotingPlugin_" + identifier + "% - " + placeholder.getDescription());
-							} else {
-								msg.add("%VotingPlugin_" + identifier + "%");
-							}
-						}
-
-						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
-							String identifier = placeholder.getIdentifier();
-							if (identifier.endsWith("_")) {
-								identifier += "#";
-							}
-							if (placeholder.hasDescription()) {
-								msg.add("%VotingPlugin_" + identifier + "% - " + placeholder.getDescription());
-							} else {
-								msg.add("%VotingPlugin_" + identifier + "%");
-							}
-						}
-
-						sendMessage(sender, msg);
+						new AdminVotePlaceholders(plugin, sender).open();
 					}
 				});
 
@@ -1115,17 +1087,17 @@ public class CommandLoader {
 							User user = UserManager.getInstance().getVotingPluginUser(args[1]);
 							int place = parseInt(args[4]);
 							switch (top) {
-								case Daily:
-									user.giveDailyTopVoterAward(place, args[4]);
-									break;
-								case Monthly:
-									user.giveMonthlyTopVoterAward(place, args[4]);
-									break;
-								case Weekly:
-									user.giveWeeklyTopVoterAward(place, args[4]);
-									break;
-								default:
-									break;
+							case Daily:
+								user.giveDailyTopVoterAward(place, args[4]);
+								break;
+							case Monthly:
+								user.giveMonthlyTopVoterAward(place, args[4]);
+								break;
+							case Weekly:
+								user.giveWeeklyTopVoterAward(place, args[4]);
+								break;
+							default:
+								break;
 
 							}
 							sendMessage(sender, "&cTopVoter " + top.toString() + " " + args[4] + " forced");
@@ -1134,17 +1106,17 @@ public class CommandLoader {
 
 			String text = "";
 			switch (top) {
-				case Daily:
-					text = "Day";
-					break;
-				case Monthly:
-					text = "Month";
-					break;
-				case Weekly:
-					text = "Week";
-					break;
-				default:
-					break;
+			case Daily:
+				text = "Day";
+				break;
+			case Monthly:
+				text = "Month";
+				break;
+			case Weekly:
+				text = "Week";
+				break;
+			default:
+				break;
 
 			}
 
@@ -1206,28 +1178,9 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						ArrayList<String> msg = new ArrayList<String>();
-						msg.add("&cPlaceholders:");
-						User user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
-							String identifier = placeholder.getIdentifier();
-							if (identifier.endsWith("_")) {
-								identifier += "1";
-							}
-							msg.add("%VotingPlugin_" + identifier + "% = "
-									+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
-						}
-
-						for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
-							String identifier = placeholder.getIdentifier();
-							if (identifier.endsWith("_")) {
-								identifier += "1";
-							}
-							msg.add("%VotingPlugin_" + identifier + "% = "
-									+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
-						}
-
-						sendMessage(sender, msg);
+						new AdminVotePlaceholdersPlayer(plugin, sender,
+								UserManager.getInstance().getVotingPluginUser(args[1])).open();
+						;
 					}
 				});
 
@@ -2014,8 +1967,7 @@ public class CommandLoader {
 	/**
 	 * Sets the commands.
 	 *
-	 * @param commands
-	 *            the commands
+	 * @param commands the commands
 	 */
 	public void setCommands(HashMap<String, CommandHandler> commands) {
 		this.commands = commands;

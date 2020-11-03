@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +54,7 @@ public class BungeeMySQL {
 			maxThreads = 1;
 		}
 		boolean useSSL = section.getBoolean("UseSSL", false);
+		boolean publicKeyRetrieval = section.getBoolean("PublicKeyRetrieval", false);
 		if (!section.getString("Name", "").isEmpty()) {
 			tableName = section.getString("Name", "");
 		}
@@ -62,7 +64,7 @@ public class BungeeMySQL {
 			name = tablePrefix + tableName;
 		}
 		mysql = new com.Ben12345rocks.AdvancedCore.UserStorage.mysql.api.MySQL(maxThreads);
-		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str)) {
+		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str, publicKeyRetrieval)) {
 
 		}
 		try {
@@ -165,8 +167,7 @@ public class BungeeMySQL {
 
 			rs = sql.executeQuery();
 			/*
-			 * Query query = new Query(mysql, sql);
-			 * ResultSet rs = query.executeQuery();
+			 * Query query = new Query(mysql, sql); ResultSet rs = query.executeQuery();
 			 */
 			while (rs.next()) {
 				if (rs.getString("uuid").equals(index)) {
@@ -200,8 +201,8 @@ public class BungeeMySQL {
 
 			rs = sql.executeQuery();
 			/*
-			 * Query query = new Query(mysql, "SELECT * FROM " + getName() + ";");
-			 * ResultSet rs = query.executeQuery();
+			 * Query query = new Query(mysql, "SELECT * FROM " + getName() + ";"); ResultSet
+			 * rs = query.executeQuery();
 			 */
 
 			ResultSetMetaData metadata = rs.getMetaData();
@@ -240,9 +241,8 @@ public class BungeeMySQL {
 			rs = sql.executeQuery();
 
 			/*
-			 * Query sql = new Query(mysql, query);
-			 * sql.setParameter(1, column.getValue().toString());
-			 * ResultSet rs = sql.executeQuery();
+			 * Query sql = new Query(mysql, query); sql.setParameter(1,
+			 * column.getValue().toString()); ResultSet rs = sql.executeQuery();
 			 */
 			if (rs.next()) {
 				for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
@@ -304,8 +304,7 @@ public class BungeeMySQL {
 
 			rs = sql.executeQuery();
 			/*
-			 * Query query = new Query(mysql, sql);
-			 * ResultSet rs = query.executeQuery();
+			 * Query query = new Query(mysql, sql); ResultSet rs = query.executeQuery();
 			 */
 
 			while (rs.next()) {
@@ -332,8 +331,7 @@ public class BungeeMySQL {
 
 			rs = sql.executeQuery();
 			/*
-			 * Query query = new Query(mysql, sql);
-			 * ResultSet rs = query.executeQuery();
+			 * Query query = new Query(mysql, sql); ResultSet rs = query.executeQuery();
 			 */
 
 			while (rs.next()) {
@@ -359,8 +357,7 @@ public class BungeeMySQL {
 
 			rs = sql.executeQuery();
 			/*
-			 * Query sql = new Query(mysql, query);
-			 * ResultSet rs = sql.executeQuery();
+			 * Query sql = new Query(mysql, query); ResultSet rs = sql.executeQuery();
 			 */
 			if (rs.next()) {
 				String uuid = rs.getString("uuid");
@@ -400,25 +397,31 @@ public class BungeeMySQL {
 	}
 
 	public void insert(String index, String column, Object value, DataType dataType) {
-		insertQuery(index, column, value, dataType);
-
+		insertQuery(index, Arrays.asList(new Column(column, value, dataType)));
 	}
 
-	public void insertQuery(String index, String column, Object value, DataType dataType) {
-		synchronized (object2) {
-			String query = "INSERT " + getName() + " ";
+	public void insertQuery(String index, List<Column> cols) {
+		String query = "INSERT " + getName() + " ";
 
-			query += "set uuid='" + index + "', ";
-			query += column + "='" + value.toString() + "';";
-			// AdvancedCorePlugin.getInstance().extraDebug(query);
+		query += "set uuid='" + index + "', ";
 
-			try {
-				uuids.add(index);
-				new Query(mysql, query).executeUpdateAsync();
-			} catch (SQLException e) {
-				e.printStackTrace();
+		for (int i = 0; i < cols.size(); i++) {
+			Column col = cols.get(i);
+			if (i == cols.size() - 1) {
+				query += col.getName() + "='" + col.getValue().toString() + "';";
+			} else {
+				query += col.getName() + "='" + col.getValue().toString() + "', ";
 			}
+
 		}
+
+		try {
+			uuids.add(index);
+			new Query(mysql, query).executeUpdateAsync();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	public boolean isIntColumn(String key) {
@@ -464,5 +467,46 @@ public class BungeeMySQL {
 			insert(index, column, value, dataType);
 		}
 
+	}
+
+	public void update(String index, List<Column> cols, boolean queue) {
+		for (Column col : cols) {
+			checkColumn(col.getName(), col.getDataType());
+		}
+		if (getUuids().contains(index)) {
+			synchronized (object2) {
+
+				String query = "UPDATE " + getName() + " SET ";
+
+				for (int i = 0; i < cols.size(); i++) {
+					Column col = cols.get(i);
+					if (i == cols.size() - 1) {
+						if (col.getDataType().equals(DataType.STRING)) {
+							query += col.getName() + "='" + col.getValue().toString() + "';";
+						} else {
+							query += col.getName() + "=" + col.getValue().toString() + ";";
+						}
+					} else {
+						if (col.getDataType().equals(DataType.STRING)) {
+							query += col.getName() + "='" + col.getValue().toString() + "', ";
+						} else {
+							query += col.getName() + "=" + col.getValue().toString() + ", ";
+						}
+
+					}
+				}
+				query += " WHERE `uuid`=";
+				query += "'" + index + "';";
+
+				try {
+					Query q = new Query(mysql, query);
+					q.executeUpdateAsync();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+		} else {
+			insertQuery(index, cols);
+		}
 	}
 }
