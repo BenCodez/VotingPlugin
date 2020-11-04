@@ -1,18 +1,24 @@
 package com.Ben12345rocks.VotingPlugin.Commands.GUI.admin;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
 import com.Ben12345rocks.AdvancedCore.CommandAPI.CommandHandler;
 import com.Ben12345rocks.AdvancedCore.Util.Misc.ArrayUtils;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.BookWrapper;
+import com.Ben12345rocks.AdvancedCore.Util.bookgui.Layout;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
 import com.Ben12345rocks.VotingPlugin.Config.Config;
+
+import xyz.upperlevel.spigot.book.BookUtil;
 
 public class AdminVotePerms extends GUIHandler {
 
@@ -39,7 +45,80 @@ public class AdminVotePerms extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-		
+		BookWrapper book = new BookWrapper("Placeholders");
+		book.addToCurrentPage(BookUtil.TextBuilder.of(book.colorize("&c&lCommand : Permissions")).build());
+
+		boolean includePlayer = playerName != null;
+		Player p = null;
+		if (includePlayer) {
+			p = Bukkit.getPlayer(playerName);
+			if (p == null) {
+				// not online
+				includePlayer = false;
+				player.sendMessage(book.colorize("&cPlayer not online"));
+			}
+		}
+		for (CommandHandler handle : plugin.getVoteCommand()) {
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(handle.getHelpLineCommand("/vote"))
+					.color(ChatColor.AQUA).onHover(BookUtil.HoverAction.showText(handle.getHelpMessage())).build());
+			book.addLayout(layout);
+			if (includePlayer) {
+				Layout hasPerm = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+				boolean perm = handle.hasPerm(p);
+				ChatColor hasPermColor = ChatColor.RED;
+				if (perm) {
+					hasPermColor = ChatColor.DARK_GREEN;
+				}
+				String str = ChatColor.AQUA + handle.getPerm() + " : " + hasPermColor + perm;
+				hasPerm.replaceTextComponent("[Json]",
+						BookUtil.TextBuilder.of(str).onHover(BookUtil.HoverAction.showText(str)).build());
+				book.addLayout(hasPerm);
+			}
+		}
+
+		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(handle.getHelpLineCommand("/adminvote"))
+					.color(ChatColor.AQUA).onHover(BookUtil.HoverAction.showText(handle.getHelpMessage())).build());
+			book.addLayout(layout);
+			if (includePlayer) {
+				Layout hasPerm = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+				boolean perm = handle.hasPerm(p);
+				ChatColor hasPermColor = ChatColor.RED;
+				if (perm) {
+					hasPermColor = ChatColor.DARK_GREEN;
+				}
+				String str = ChatColor.AQUA + handle.getPerm() + " : " + hasPermColor + perm;
+				hasPerm.replaceTextComponent("[Json]",
+						BookUtil.TextBuilder.of(str).onHover(BookUtil.HoverAction.showText(str)).build());
+				book.addLayout(hasPerm);
+			}
+		}
+
+		for (Permission perm : plugin.getDescription().getPermissions()) {
+			if (includePlayer) {
+				Layout hasPerm = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+				boolean permB = p.hasPermission(perm);
+				ChatColor hasPermColor = ChatColor.RED;
+				if (permB) {
+					hasPermColor = ChatColor.DARK_GREEN;
+				}
+				String str = ChatColor.AQUA + perm.getName() + " : " + hasPermColor + perm;
+				hasPerm.replaceTextComponent("[Json]",
+						BookUtil.TextBuilder.of(str).onHover(BookUtil.HoverAction.showText(str)).build());
+				book.addLayout(hasPerm);
+			} else {
+				Layout hasPerm = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+
+				String str = ChatColor.AQUA + perm.getName();
+				hasPerm.replaceTextComponent("[Json]",
+						BookUtil.TextBuilder.of(str).onHover(BookUtil.HoverAction.showText(str)).build());
+				book.addLayout(hasPerm);
+			}
+		}
+
+		book.open(player);
 	}
 
 	@Override
@@ -58,7 +137,11 @@ public class AdminVotePerms extends GUIHandler {
 
 	@Override
 	public void open() {
-		open(GUIMethod.CHAT);
+		try {	
+			open(GUIMethod.BOOK);
+		} catch (Exception e) {
+			open(GUIMethod.CHAT);
+		}
 	}
 
 	public String[] listPerms(CommandSender sender) {

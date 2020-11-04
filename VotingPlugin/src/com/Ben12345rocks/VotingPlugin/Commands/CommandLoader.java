@@ -419,7 +419,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "Perms", "(OnlinePlayer)" },
+				.add(new CommandHandler(new String[] { "Perms", "(Player)" },
 						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
 						"List permissions from the plugin the player has") {
 
@@ -430,7 +430,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "Perms", "(OnlinePlayer)", "(Number)" },
+				.add(new CommandHandler(new String[] { "Perms", "(Player)", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
 						"List permissions from the plugin the player has") {
 
