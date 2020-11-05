@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map.Entry;
 
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -58,8 +59,7 @@ public class PlaceHolders {
 	/**
 	 * Instantiates a new place holders.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public PlaceHolders(Main plugin) {
 		PlaceHolders.plugin = plugin;
@@ -77,7 +77,9 @@ public class PlaceHolders {
 		}
 
 		User user = UserManager.getInstance().getVotingPluginUser(p);
-		user.setWaitForCache(false);
+		if (Bukkit.isPrimaryThread()) {
+			user.setWaitForCache(false);
+		}
 
 		for (PlaceHolder<User> placeholder : placeholders) {
 			try {
@@ -490,7 +492,7 @@ public class PlaceHolders {
 				return "";
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
-		
+
 		placeholders.add(new PlaceHolder<User>("VotePartyContributedVotes") {
 
 			@Override
