@@ -49,21 +49,24 @@ public class VoteURL extends GUIHandler {
 	@Override
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper(GUI.getInstance().getBookVoteURLBookGUITitle());
-		
+
 		for (VoteSite site : plugin.getVoteSites()) {
-			Layout layout = new Layout(GUI.getInstance().getBookVoteURLBookGUILayout()).addPlaceholder("sitename", site.getDisplayName());
+			Layout layout = new Layout(GUI.getInstance().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
+					site.getDisplayName());
 			String text = GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedText();
 			ChatColor color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUIAlreadyVotedColor());
 			if (user.canVoteSite(site)) {
 				color = ChatColor.valueOf(GUI.getInstance().getBookVoteURLBookGUICanVoteColor());
 				text = GUI.getInstance().getBookVoteURLBookGUICanVoteText();
 			}
-			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
-					.onHover(BookUtil.HoverAction.showText(site.getVoteURLJsonStrip())).build());
+			String url = StringParser.getInstance().replacePlaceHolder(site.getVoteURLJsonStrip(), "player",
+					user.getPlayerName());
+			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color)
+					.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url)).build());
 			book.addLayout(layout);
-		
+
 		}
-		
+
 		book.open(player);
 	}
 

@@ -116,12 +116,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 
 	@Override
 	public void open() {
-		try {
-			open(GUIMethod.BOOK);
-		} catch (Exception e) {
-			e.printStackTrace();
-			open(GUIMethod.CHAT);
-		}
+		open(GUIMethod.CHAT);
 	}
 
 }

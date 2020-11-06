@@ -34,7 +34,6 @@ public class AdminVoteHelp extends GUIHandler {
 
 	@Override
 	public void onBook(Player player) {
-
 	}
 
 	@Override
@@ -55,10 +54,8 @@ public class AdminVoteHelp extends GUIHandler {
 	/**
 	 * Admin help.
 	 *
-	 * @param sender
-	 *            the sender
-	 * @param page
-	 *            the page
+	 * @param sender the sender
+	 * @param page   the page
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
@@ -85,8 +82,7 @@ public class AdminVoteHelp extends GUIHandler {
 	/**
 	 * Admin help text.
 	 *
-	 * @param sender
-	 *            the sender
+	 * @param sender the sender
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelpText(CommandSender sender) {
