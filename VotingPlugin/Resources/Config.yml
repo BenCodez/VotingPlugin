@@ -97,7 +97,8 @@ VoteReminding:
 
 Format:
   # CommandHandler help message
-  HelpLine: '&3&l%Command% - &3%HelpMessage%'
+  # Mainly used in admin help page, see below for /vote help
+  HelpLine: '&6%Command% - &6%HelpMessage%'
 
   # Broadcast vote message
   # Set to an empty message to disable
@@ -190,9 +191,9 @@ Format:
       # Format for /vote help
       Help:
         # Title of /vote help
-        Title: '&3&lVoting Player Help'
+        Title: '&6&lVoting Player Help'
         # Format for help message in /v help
-        Line: '&3&l%Command% - &3%HelpMessage%'
+        Line: '&6%Command% - &6%HelpMessage%'
         # Require permission to see command in /v help or /av help
         RequirePermission: true
         
@@ -371,6 +372,8 @@ LimitMonthlyVotes: false
 # from being executed more than once
 # Shoudn't be needed, but enable if you have trouble with milestones
 PreventRepeatMilestones: false
+
+UsePrimaryAccountForPlaceholders: false
 
 ######################
 # Debug

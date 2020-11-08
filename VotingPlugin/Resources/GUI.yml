@@ -5,17 +5,17 @@
 # GUI Methods:
 # - BOOK
 # - GUI
-# - CHAT (Disables GUI's)
+# - CHAT (Disables GUI)
 GUIMethod:
-  Today: CHEST
-  TopVoter: CHEST
-  Last: CHEST
-  Next: CHEST
-  Total: CHEST
+  Today: CHEST #BOOK not available (future update?)
+  TopVoter: CHEST #BOOK not available (future update?)
+  Last: CHEST #BOOK not available (future update?)
+  Next: CHEST 
+  Total: CHEST #BOOK not available (future update?)
   URL: CHEST
-  Best: CHEST
-  Streak: CHEST
-  GUI: CHEST # CHAT not availabe for this
+  Best: CHEST #BOOK not available (future update?)
+  Streak: CHEST #BOOK not available (future update?)
+  GUI: CHEST #CHAT/BOOK not availabe for this (future update?)
   
 # Enable command for last month gui
 # Requires restart to take effect

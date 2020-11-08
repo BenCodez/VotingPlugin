@@ -68,11 +68,11 @@ public class AdminVoteHelp extends GUIHandler {
 			maxPage++;
 		}
 
-		msg.add(StringParser.getInstance().stringToComp("&3&lVotingPlugin Admin Help " + (page + 1) + "/" + maxPage));
-		msg.add(StringParser.getInstance().stringToComp("&3&l() = Needed"));
-		msg.add(StringParser.getInstance().stringToComp("&3&lAliases: adminvote, av"));
+		msg.add(StringParser.getInstance().stringToComp("&6&lVotingPlugin Admin Help " + (page) + "/" + maxPage));
+		msg.add(StringParser.getInstance().stringToComp("&6&l() = Needed"));
+		msg.add(StringParser.getInstance().stringToComp("&6&lAliases: adminvote, av"));
 
-		for (int i = pagesize * page; (i < text.size()) && (i < ((page + 1) * pagesize)); i++) {
+		for (int i = pagesize * (page - 1); (i < text.size()) && (i < ((page) * pagesize)); i++) {
 			msg.add(text.get(i));
 		}
 
@@ -92,7 +92,7 @@ public class AdminVoteHelp extends GUIHandler {
 		boolean requirePerms = Config.getInstance().getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
-			if (sender.hasPermission(cmdHandle.getPerm()) && requirePerms) {
+			if (requirePerms && sender.hasPermission(cmdHandle.getPerm())) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			} else {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));

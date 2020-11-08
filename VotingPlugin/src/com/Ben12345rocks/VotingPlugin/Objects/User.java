@@ -101,6 +101,10 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 		return null;
 	}
 
+	public boolean hasPrimaryAccount() {
+		return getPrimaryAccount() != null;
+	}
+
 	public void addAllTimeTotal() {
 		setAllTimeTotal(getAllTimeTotal() + 1);
 	}

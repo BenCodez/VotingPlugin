@@ -80,6 +80,12 @@ public class PlaceHolders {
 		if (Bukkit.isPrimaryThread()) {
 			user.setWaitForCache(false);
 		}
+		if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+			user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+			if (Bukkit.isPrimaryThread()) {
+				user.setWaitForCache(false);
+			}
+		}
 
 		for (PlaceHolder<User> placeholder : placeholders) {
 			try {

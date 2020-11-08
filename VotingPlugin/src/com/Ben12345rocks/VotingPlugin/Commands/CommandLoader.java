@@ -1422,12 +1422,38 @@ public class CommandLoader {
 	 */
 	private void loadVoteCommand() {
 		plugin.setVoteCommand(new ArrayList<CommandHandler>());
+		if (Config.getInstance().isUsePrimaryAccountForPlaceholders()) {
+			plugin.getVoteCommand().add(new CommandHandler(new String[] { "SetPrimaryAccount", "(player)" },
+					"VotingPlugin.Commands.Vote.SetPrimaryAccount|" + modPerm, "Set primary account", false) {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					User user = UserManager.getInstance().getVotingPluginUser(sender.getName());
+					try {
+						user.setPrimaryAccount(java.util.UUID.fromString(PlayerUtils.getInstance().getUUID(args[1])));
+						sendMessage(sender, "&cPrimary account set");
+					} catch (Exception e) {
+						e.printStackTrace();
+						sendMessage(sender, "Failed to set primary account: " + e.getMessage());
+					}
+				}
+			});
+		}
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Help&?" },
-				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View this page") {
+				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteHelp(plugin, sender).open();
+				new VoteHelp(plugin, sender, 1).open();
+			}
+		});
+
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Help&?", "(number)" },
+				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new VoteHelp(plugin, sender, Integer.parseInt(args[1])).open();
 			}
 		});
 

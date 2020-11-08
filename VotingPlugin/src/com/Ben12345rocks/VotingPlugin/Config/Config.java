@@ -50,6 +50,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
+	
+	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
+	@Getter
+	private boolean usePrimaryAccountForPlaceholders = false;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
 	@Getter
@@ -295,7 +299,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote help line
 	 */
 	public String getFormatCommandsVoteHelpLine() {
-		return getData().getString("Format.Commands.Vote.Help.Line", "&3&l%Command% - &3%HelpMessage%");
+		return getData().getString("Format.Commands.Vote.Help.Line", "&6%Command% - &6%HelpMessage%");
 	}
 
 	/**
@@ -313,7 +317,7 @@ public class Config extends YMLFile {
 	 * @return the commands vote help title
 	 */
 	public String getFormatCommandsVoteHelpTitle() {
-		return getData().getString("Format.Commands.Vote.Help.Title", "Voting Player Help");
+		return getData().getString("Format.Commands.Vote.Help.Title", "&6Voting Player Help");
 
 	}
 
@@ -478,15 +482,6 @@ public class Config extends YMLFile {
 	public String getFormatCommandVoteTopTitle() {
 		return getData().getString("Format.Commands.Vote.Top.Title", "&3Top %Top% Voters %page%/%maxpages%");
 
-	}
-
-	/**
-	 * Gets the format help line.
-	 *
-	 * @return the format help line
-	 */
-	public String getFormatHelpLine() {
-		return getData().getString("Format.HelpLine", "&3&l%Command% - &3%HelpMessage%");
 	}
 
 	public String getFormatNextPage() {
