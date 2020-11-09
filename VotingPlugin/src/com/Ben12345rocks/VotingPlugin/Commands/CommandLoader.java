@@ -1429,12 +1429,18 @@ public class CommandLoader {
 				@Override
 				public void execute(CommandSender sender, String[] args) {
 					User user = UserManager.getInstance().getVotingPluginUser(sender.getName());
-					try {
-						user.setPrimaryAccount(java.util.UUID.fromString(PlayerUtils.getInstance().getUUID(args[1])));
-						sendMessage(sender, "&cPrimary account set");
-					} catch (Exception e) {
-						e.printStackTrace();
-						sendMessage(sender, "Failed to set primary account: " + e.getMessage());
+					if (args[1].equals("none")) {
+						user.setPrimaryAccount(null);
+						sendMessage(sender, "&cRemoved primary account");
+					} else {
+						try {
+							user.setPrimaryAccount(
+									java.util.UUID.fromString(PlayerUtils.getInstance().getUUID(args[1])));
+							sendMessage(sender, "&cPrimary account set");
+						} catch (Exception e) {
+							e.printStackTrace();
+							sendMessage(sender, "Failed to set primary account: " + e.getMessage());
+						}
 					}
 				}
 			});

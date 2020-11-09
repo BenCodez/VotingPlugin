@@ -90,7 +90,11 @@ public class User extends com.Ben12345rocks.AdvancedCore.UserManager.User {
 	}
 
 	public void setPrimaryAccount(java.util.UUID uuid) {
-		getData().setString("PrimaryAccount", uuid.toString());
+		if (uuid != null) {
+			getData().setString("PrimaryAccount", uuid.toString());
+		} else {
+			getData().setString("PrimaryAccount", "");
+		}
 	}
 
 	public java.util.UUID getPrimaryAccount() {

@@ -13,7 +13,9 @@ import com.Ben12345rocks.AdvancedCore.Util.bookgui.Layout;
 import com.Ben12345rocks.AdvancedCore.gui.GUIHandler;
 import com.Ben12345rocks.AdvancedCore.gui.GUIMethod;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
+import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 import com.Ben12345rocks.VotingPlugin.Util.PlaceHolders.PlaceHolders;
 
 import xyz.upperlevel.spigot.book.BookUtil;
@@ -73,13 +75,17 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	public void onChat(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
+		User placeholderUser = user;
+		if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+			placeholderUser = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+		}
 		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
 			msg.add("%VotingPlugin_" + identifier + "% = "
-					+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
+					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
 		}
 
 		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
@@ -87,8 +93,9 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
+
 			msg.add("%VotingPlugin_" + identifier + "% = "
-					+ placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier));
+					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
 		}
 		sendMessage(msg);
 	}
