@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 
 import com.Ben12345rocks.AdvancedCore.Util.Placeholder.PlaceHolder;
 import com.Ben12345rocks.VotingPlugin.Main;
+import com.Ben12345rocks.VotingPlugin.Config.Config;
 import com.Ben12345rocks.VotingPlugin.Objects.User;
 import com.Ben12345rocks.VotingPlugin.UserManager.UserManager;
 
@@ -41,8 +42,7 @@ public class MVdWPlaceholders {
 	/**
 	 * Instantiates a new place holders.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public MVdWPlaceholders(Main plugin) {
 		MVdWPlaceholders.plugin = plugin;
@@ -58,8 +58,11 @@ public class MVdWPlaceholders {
 
 						@Override
 						public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
-							return place.placeholderRequest(event.getOfflinePlayer(),
-									UserManager.getInstance().getVotingPluginUser(event.getOfflinePlayer()),
+							User user = UserManager.getInstance().getVotingPluginUser(event.getOfflinePlayer());
+							if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+								user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+							}
+							return place.placeholderRequest(event.getOfflinePlayer(), user,
 									event.getPlaceholder().substring("VotingPlugin_".length()));
 						}
 
