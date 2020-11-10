@@ -82,7 +82,6 @@ public class PlaceHolders {
 		}
 		if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 			user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
-			plugin.debug("using alt account");
 			if (Bukkit.isPrimaryThread()) {
 				user.setWaitForCache(false);
 			}

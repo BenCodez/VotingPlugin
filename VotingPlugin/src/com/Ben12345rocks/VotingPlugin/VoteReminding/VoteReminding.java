@@ -40,8 +40,7 @@ public class VoteReminding {
 	/**
 	 * Instantiates a new vote reminding.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public VoteReminding(Main plugin) {
 		VoteReminding.plugin = plugin;
@@ -50,8 +49,7 @@ public class VoteReminding {
 	/**
 	 * Check remind.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 */
 	public void checkRemind(User user) {
 		String playerName = user.getPlayerName();
@@ -99,29 +97,37 @@ public class VoteReminding {
 	/**
 	 * Run remind.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 */
 	public void runRemind(User user) {
-		if (Config.getInstance().getVoteRemindingEnabled() && user.canVoteAll() && user.shouldBeReminded()) {
-			user.setReminded(true);
-			giveReward(user);
+		if (Config.getInstance().getVoteRemindingEnabled()) {
+			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+			}
+			if (user.canVoteAll() && user.shouldBeReminded()) {
+				user.setReminded(true);
+				giveReward(user);
 
-			plugin.debug(user.getPlayerName() + " was reminded!");
+				plugin.debug(user.getPlayerName() + " was reminded!");
 
+			}
 		}
 	}
 
 	public void runRemindLogin(User user) {
-		if (Config.getInstance().getVoteRemindingEnabled()
-				&& (!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())
-				&& user.shouldBeReminded()) {
-			giveReward(user);
-			if (user.getData().hasData()) {
-				user.setReminded(true);
+		if (Config.getInstance().getVoteRemindingEnabled()) {
+			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
-			plugin.debug(user.getPlayerName() + " was reminded!");
+			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())
+					&& user.shouldBeReminded()) {
+				giveReward(user);
+				if (user.getData().hasData()) {
+					user.setReminded(true);
+				}
+				plugin.debug(user.getPlayerName() + " was reminded!");
 
+			}
 		}
 	}
 }
