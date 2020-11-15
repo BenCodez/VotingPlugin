@@ -2,6 +2,10 @@ package com.bencodez.votingplugin.config;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.advancedcore.yml.YMLFile;
 import com.bencodez.advancedcore.yml.annotation.AnnotationHandler;
@@ -50,7 +54,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
-	
+
 	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
 	@Getter
 	private boolean usePrimaryAccountForPlaceholders = false;
@@ -179,8 +183,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean disableAdvancedTab = false;
 
-	
-
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
 	private boolean formatCommandsVoteForceLinks = true;
@@ -236,7 +238,21 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
-	
+	@ConfigDataBoolean(path = "AddCustomCommands")
+	@Getter
+	private boolean addCustomCommands = false;
+
+	public Set<String> getCustomCommands() {
+		Set<String> str = getData().getConfigurationSection("CustomCommands").getKeys(false);
+		if (str == null) {
+			str = new HashSet<String>();
+		}
+		return str;
+	}
+
+	public ConfigurationSection getCustomCommands(String ident) {
+		return getData().getConfigurationSection("CustomCommands." + ident);
+	}
 
 	/**
 	 * Instantiates a new config.
@@ -622,20 +638,18 @@ public class Config extends YMLFile {
 		return getData().getBoolean("GiveDefaultPermission", true);
 	}
 
-	
-
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {
-			case AllTime:
-				return getLoadTopVoterAllTime();
-			case Daily:
-				return getLoadTopVoterDaily();
-			case Monthly:
-				return getLoadTopVoterMonthly();
-			case Weekly:
-				return getLoadTopVoterWeekly();
-			default:
-				return false;
+		case AllTime:
+			return getLoadTopVoterAllTime();
+		case Daily:
+			return getLoadTopVoterDaily();
+		case Monthly:
+			return getLoadTopVoterMonthly();
+		case Weekly:
+			return getLoadTopVoterWeekly();
+		default:
+			return false;
 		}
 	}
 
@@ -721,8 +735,6 @@ public class Config extends YMLFile {
 		return getData().getBoolean("TopVoterIgnorePermission");
 	}
 
-	
-
 	/**
 	 * Gets the enabled.
 	 *
@@ -771,7 +783,6 @@ public class Config extends YMLFile {
 	public String getVoteTopDefault() {
 		return getData().getString("VoteTopDefault", "Monthly");
 	}
-
 
 	@Override
 	public void loadValues() {

@@ -68,8 +68,8 @@ import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.tchristofferson.configupdater.ConfigUpdater;
 
@@ -1955,6 +1955,27 @@ public class CommandLoader {
 				new VoteURL(plugin, sender, null, true).open();
 			}
 		});
+
+		if (Config.getInstance().isAddCustomCommands()) {
+			for (String ident : Config.getInstance().getCustomCommands()) {
+				ConfigurationSection section = Config.getInstance().getCustomCommands(ident);
+				@SuppressWarnings("unchecked")
+				String[] args = ArrayUtils.getInstance()
+						.convert((ArrayList<String>) section.getList("Args", new ArrayList<String>()));
+				plugin.getVoteCommand().add(new CommandHandler(args, section.getString("Permission", ""),
+						section.getString("HelpMessage", "")) {
+
+					@SuppressWarnings("unchecked")
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, section.getString("Message", ""));
+						for (String str : (ArrayList<String>) section.getList("Commands", new ArrayList<String>())) {
+							Bukkit.getServer().dispatchCommand(sender, str);
+						}
+					}
+				});
+			}
+		}
 
 		ArrayList<CommandHandler> avCommands = com.bencodez.advancedcore.command.CommandLoader.getInstance()
 				.getBasicCommands("VotingPlugin");

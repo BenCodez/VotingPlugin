@@ -380,6 +380,25 @@ PreventRepeatMilestones: false
 # Mainly to be used for alts and such
 UsePrimaryAccountForPlaceholders: false
 
+AddCustomCommands: false
+
+# Injects custom command to /vote
+# Requires AddCustomCommand: true to be set
+CustomCommands:
+  # identifier, not specific name
+  command1:
+    Args:
+    - token
+    # Message to send on command
+    Message: 'token message'
+    # Permission for this command
+    Permission: 'votingplugin.commands.vote.token'
+    # help message
+    HelpMessage: 'See tokens'
+    # Forces player to run this command
+    Commands:
+    - tokencommand
+
 ######################
 # Debug
 ######################
