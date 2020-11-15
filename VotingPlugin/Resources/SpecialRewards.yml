@@ -143,7 +143,6 @@ LoginRewards: []
 # Will queue until player logs in unless forceoffline is enabled
 LogoutRewards: []
 
-EnableMonthlyAwards: true
 # Rewards to give
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...

@@ -1,4 +1,4 @@
 name: ${project.name}
 version: ${project.version}
-main: com.Ben12345rocks.VotingPlugin.bungee.Bungee
-author: Ben12345rocks
+main: com.bencodez.votingplugin.bungee.VotingPluginBungee
+author: BenCodez

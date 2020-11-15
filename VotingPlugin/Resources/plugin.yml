@@ -1,6 +1,6 @@
 name: ${project.name}
 version: ${project.version}
-main: com.Ben12345rocks.VotingPlugin.Main
+main: com.bencodez.votingplugin.VotingPluginMain
 description: Highly Customizable Voting Listener!
 website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: BenCodez
