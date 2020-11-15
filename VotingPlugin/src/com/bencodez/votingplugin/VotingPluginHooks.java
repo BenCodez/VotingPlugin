@@ -3,7 +3,7 @@ package com.bencodez.votingplugin;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInject;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.UserManager;
 
 public class VotingPluginHooks {
 	private static VotingPluginHooks instance = new VotingPluginHooks();

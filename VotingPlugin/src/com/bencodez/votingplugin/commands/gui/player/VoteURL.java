@@ -23,20 +23,20 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteURL extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 	private boolean json;
 
-	public VoteURL(VotingPluginMain plugin, CommandSender player, User user, boolean json) {
+	public VoteURL(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, boolean json) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -115,7 +115,7 @@ public class VoteURL extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					User user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
 					json = true;
 					user.sendMessage(getChat(player));
 				}
@@ -138,7 +138,7 @@ public class VoteURL extends GUIHandler {
 				public void onClick(ClickEvent event) {
 					Player player = event.getPlayer();
 					if (player != null) {
-						User user = UserManager.getInstance().getVotingPluginUser(player);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 						user.sendMessage(StringParser.getInstance().replacePlaceHolder(
 								StringParser.getInstance()
 										.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(

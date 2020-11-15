@@ -16,17 +16,17 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 public class VoteGUI extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 
-	public VoteGUI(VotingPluginMain plugin, CommandSender player, User user) {
+	public VoteGUI(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -173,7 +173,7 @@ public class VoteGUI extends GUIHandler {
 				@Override
 				public ItemBuilder onUpdate(Player player) {
 					ItemBuilder item = getItemSlot(slot, player);
-					User user = UserManager.getInstance().getVotingPluginUser(player);
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 					item.addPlaceholder("points", "" + user.getPoints());
 					item.addPlaceholder("player", user.getPlayerName());
 					item.addPlaceholder("top", Config.getInstance().getVoteTopDefault());

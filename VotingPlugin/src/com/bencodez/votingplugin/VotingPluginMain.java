@@ -75,7 +75,6 @@ import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
@@ -84,7 +83,8 @@ import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.updater.CheckUpdate;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
 import com.vexsoftware.votifier.Votifier;
@@ -107,10 +107,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public static VotingPluginMain plugin;
 
 	@Getter
-	private LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>> topVoter;
+	private LinkedHashMap<TopVoter, LinkedHashMap<VotingPluginUser, Integer>> topVoter;
 
 	@Getter
-	private LinkedHashMap<User, Integer> lastMonthTopVoter;
+	private LinkedHashMap<VotingPluginUser, Integer> lastMonthTopVoter;
 
 	@Getter
 	@Setter
@@ -128,7 +128,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private List<VoteSite> voteSites;
 
 	@Getter
-	private LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>> voteToday;
+	private LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	@Getter
 	@Setter
@@ -160,7 +160,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
-			User user = UserManager.getInstance().getVotingPluginUser(player);
+			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 			user.clearCache();
 			user.offVote();
 			user.checkOfflineRewards();
@@ -237,7 +237,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		ArrayList<String> uuids = new ArrayList<String>(UserManager.getInstance().getAllUUIDs());
 
 		while (uuids.size() > 0) {
-			HashMap<User, HashMap<String, String>> data = new HashMap<User, HashMap<String, String>>();
+			HashMap<VotingPluginUser, HashMap<String, String>> data = new HashMap<VotingPluginUser, HashMap<String, String>>();
 			getOptions().setStorageType(from);
 			loadUserAPI(getOptions().getStorageType());
 			// setStorageType(to);
@@ -251,7 +251,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			while (i < Config.getInstance().getConvertAmount() && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
-					User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 
 					HashMap<String, String> values = new HashMap<String, String>();
 					for (String key : user.getData().getKeys()) {
@@ -296,11 +296,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.getLogger().info("Finished convertting");
 	}
 
-	public ArrayList<User> convertSet(Set<User> set) {
-		return new ArrayList<User>(set);
+	public ArrayList<VotingPluginUser> convertSet(Set<VotingPluginUser> set) {
+		return new ArrayList<VotingPluginUser>(set);
 	}
 
-	public LinkedHashMap<User, Integer> getTopVoter(TopVoter top) {
+	public LinkedHashMap<VotingPluginUser, Integer> getTopVoter(TopVoter top) {
 		return topVoter.get(top);
 	}
 
@@ -310,7 +310,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @param uuid the uuid
 	 * @return the user
 	 */
-	public User getUser(UUID uuid) {
+	public VotingPluginUser getUser(UUID uuid) {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
@@ -812,7 +812,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
-		lastMonthTopVoter = new LinkedHashMap<User, Integer>();
+		lastMonthTopVoter = new LinkedHashMap<VotingPluginUser, Integer>();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
@@ -821,11 +821,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug("Loaded last month top voters");
 			}
 		});
-		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<User, Integer>>();
+		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<VotingPluginUser, Integer>>();
 		for (TopVoter top : TopVoter.values()) {
-			topVoter.put(top, new LinkedHashMap<User, Integer>());
+			topVoter.put(top, new LinkedHashMap<VotingPluginUser, Integer>());
 		}
-		voteToday = new LinkedHashMap<User, HashMap<VoteSite, LocalDateTime>>();
+		voteToday = new LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>>();
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		AdminGUI.getInstance().loadHook();
@@ -890,7 +890,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 
 			@Override
-			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.User user, int num,
+			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
 					HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 				return null;
@@ -916,7 +916,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
 
 			@Override
-			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.User user,
+			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					ConfigurationSection section, HashMap<String, String> placeholders) {
 				if (section.getBoolean("Enabled")) {
 					user.sendBossBar(
@@ -935,8 +935,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			RewardHandler.getInstance().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
 
 				@Override
-				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.User user) {
-					User vUser = UserManager.getInstance().getVotingPluginUser(user);
+				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
+					VotingPluginUser vUser = UserManager.getInstance().getVotingPluginUser(user);
 					return "" + vUser.getTotal(top);
 				}
 			});
@@ -1198,10 +1198,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						long time = System.currentTimeMillis();
 						try {
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-							ArrayList<User> users = new ArrayList<User>();
+							ArrayList<VotingPluginUser> users = new ArrayList<VotingPluginUser>();
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
-									User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 									users.add(user);
 									// extraDebug("Loading " + uuid);
 									// java.lang.Thread.sleep(5000);
@@ -1218,7 +1218,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							if (!Config.getInstance().isExtraBackgroundUpdate()) {
 								for (Player player : Bukkit.getOnlinePlayers()) {
-									User user = UserManager.getInstance().getVotingPluginUser(player);
+									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 									user.offVote();
 								}
 							}
@@ -1236,10 +1236,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	public void updateVoteToday(ArrayList<User> users) {
+	public void updateVoteToday(ArrayList<VotingPluginUser> users) {
 		plugin.getVoteToday().clear();
 
-		for (User user : users) {
+		for (VotingPluginUser user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				long time = user.getTime(voteSite);
@@ -1268,9 +1268,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	private void writeConvertData(HashMap<User, HashMap<String, String>> data) {
+	private void writeConvertData(HashMap<VotingPluginUser, HashMap<String, String>> data) {
 		boolean checkInt = getStorageType().equals(UserStorage.MYSQL);
-		for (Entry<User, HashMap<String, String>> entry : data.entrySet()) {
+		for (Entry<VotingPluginUser, HashMap<String, String>> entry : data.entrySet()) {
 			try {
 				for (Entry<String, String> values : entry.getValue().entrySet()) {
 					String value = values.getValue();

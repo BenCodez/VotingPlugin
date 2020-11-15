@@ -18,14 +18,14 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTopVoterLastMonth extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 
-	public VoteTopVoterLastMonth(VotingPluginMain plugin, CommandSender player, User user) {
+	public VoteTopVoterLastMonth(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -42,7 +42,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		Set<Entry<User, Integer>> users = null;
+		Set<Entry<VotingPluginUser, Integer>> users = null;
 
 		users = plugin.getLastMonthTopVoter().entrySet();
 
@@ -53,7 +53,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 		}
 
 		int pos = 1;
-		for (Entry<User, Integer> entry : users) {
+		for (Entry<VotingPluginUser, Integer> entry : users) {
 			ItemBuilder playerItem;
 
 			if (GUI.getInstance().isChestVoteTopUseSkull()) {
@@ -71,7 +71,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					User user = (User) getData("User");
+					VotingPluginUser user = (VotingPluginUser) getData("User");
 					new VoteGUI(plugin, player, user).open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
 				}
 			}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));

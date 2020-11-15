@@ -11,8 +11,8 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -47,7 +47,7 @@ public class PlayerJoinEvent implements Listener {
 		}
 		Player player = event.getPlayer();
 
-		User user = UserManager.getInstance().getVotingPluginUser(player);
+		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 		if (player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
 		}
@@ -77,7 +77,7 @@ public class PlayerJoinEvent implements Listener {
 			public void run() {
 				VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
 				
-				User user = UserManager.getInstance().getVotingPluginUser(uuid);
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
 				user.logoutRewards();
 			}
 		});

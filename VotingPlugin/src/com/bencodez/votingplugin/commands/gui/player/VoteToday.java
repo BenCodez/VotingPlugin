@@ -22,17 +22,17 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 public class VoteToday extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 	private int page;
 
-	public VoteToday(VotingPluginMain plugin, CommandSender player, User user, int page) {
+	public VoteToday(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, int page) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -55,7 +55,7 @@ public class VoteToday extends GUIHandler {
 		if (!Config.getInstance().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
-		for (User user : plugin.getVoteToday().keySet()) {
+		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
@@ -78,7 +78,7 @@ public class VoteToday extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						User user = UserManager.getInstance()
+						VotingPluginUser user = UserManager.getInstance()
 								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
@@ -120,7 +120,7 @@ public class VoteToday extends GUIHandler {
 
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (User user : plugin.getVoteToday().keySet()) {
+		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());

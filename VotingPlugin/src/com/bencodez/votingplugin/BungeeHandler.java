@@ -13,9 +13,9 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.data.ServerData;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 import lombok.Getter;
 
@@ -60,7 +60,7 @@ public class BungeeHandler {
 					String service = args.get(2);
 					long time = Long.parseLong(args.get(3));
 					VotingPluginMain.plugin.debug("pluginmessaging vote received from " + player + " on " + service);
-					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 
 					boolean wasOnline = Boolean.valueOf(args.get(4));
 
@@ -97,7 +97,7 @@ public class BungeeHandler {
 					long time = Long.parseLong(args.get(3));
 					String text = args.get(6);
 					VotingPluginMain.plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
-					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.clearCache();
 
 					user.bungeeVotePluginMessaging(service, time, text);
@@ -124,7 +124,7 @@ public class BungeeHandler {
 				public void onRecieve(String subChannel, ArrayList<String> args) {
 					String player = args.get(0);
 					VotingPluginMain.plugin.debug("pluginmessaging voteupdate received for " + player);
-					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(player));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(player));
 					user.clearCache();
 
 					user.offVote();
@@ -138,7 +138,7 @@ public class BungeeHandler {
 				public void onRecieve(String subChannel, ArrayList<String> args) {
 					String uuid = args.get(0);
 					String service = args.get(1);
-					User user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					VoteSite site = VotingPluginMain.plugin.getVoteSite(service);
 					if (site != null) {
 						site.broadcastVote(user, false);
@@ -167,7 +167,7 @@ public class BungeeHandler {
 					if (data.length > 3) {
 						VotingPluginMain.plugin.extraDebug("BungeeVote from " + data[2] + ", processing");
 						String uuid = data[1];
-						User user = null;
+						VotingPluginUser user = null;
 						if (!uuid.isEmpty()) {
 							user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 						} else {
@@ -188,7 +188,7 @@ public class BungeeHandler {
 					if (data.length > 3) {
 						VotingPluginMain.plugin.extraDebug("BungeeVoteOnline from " + data[2] + ", processing");
 						String uuid = data[1];
-						User user = null;
+						VotingPluginUser user = null;
 						if (!uuid.isEmpty()) {
 							user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 						} else {
@@ -209,7 +209,7 @@ public class BungeeHandler {
 					if (data.length > 2) {
 						VoteSite site = VotingPluginMain.plugin.getVoteSite(data[1]);
 						String p = data[3];
-						User user = UserManager.getInstance().getVotingPluginUser(p);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 						if (site != null) {
 							site.broadcastVote(user, false);
 						} else {

@@ -24,7 +24,8 @@ import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.data.ServerData;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -112,7 +113,7 @@ public class VoteSite {
 		init();
 	}
 
-	public void broadcastVote(User user) {
+	public void broadcastVote(VotingPluginUser user) {
 		broadcastVote(user, true);
 	}
 
@@ -122,7 +123,7 @@ public class VoteSite {
 	 * @param user        the user
 	 * @param checkBungee check bungee broadcast
 	 */
-	public void broadcastVote(User user, boolean checkBungee) {
+	public void broadcastVote(VotingPluginUser user, boolean checkBungee) {
 		if (!user.isVanished()) {
 			if (checkBungee && BungeeSettings.getInstance().isBungeeBroadcast()
 					&& BungeeSettings.getInstance().isUseBungeecoord()) {
@@ -213,7 +214,7 @@ public class VoteSite {
 		}
 	}
 
-	public void giveRewards(User user, boolean online, boolean bungee) {
+	public void giveRewards(VotingPluginUser user, boolean online, boolean bungee) {
 		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())

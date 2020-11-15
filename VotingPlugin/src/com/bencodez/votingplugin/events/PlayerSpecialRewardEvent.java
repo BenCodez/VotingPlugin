@@ -3,7 +3,7 @@ package com.bencodez.votingplugin.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.objects.User;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -28,7 +28,7 @@ public class PlayerSpecialRewardEvent extends Event {
 
 	@Getter
 	@Setter
-	private User user;
+	private VotingPluginUser user;
 
 	@Getter
 	@Setter
@@ -38,7 +38,7 @@ public class PlayerSpecialRewardEvent extends Event {
 	@Setter
 	private boolean cancelled;
 
-	public PlayerSpecialRewardEvent(User user, SpecialRewardType type) {
+	public PlayerSpecialRewardEvent(VotingPluginUser user, SpecialRewardType type) {
 		super(true);
 		this.type = type;
 		this.user = user;

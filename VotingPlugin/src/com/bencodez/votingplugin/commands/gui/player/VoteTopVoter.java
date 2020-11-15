@@ -21,18 +21,18 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTopVoter extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 	private TopVoter top;
 	private int page;
 
-	public VoteTopVoter(VotingPluginMain plugin, CommandSender player, User user, TopVoter top, int page) {
+	public VoteTopVoter(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, TopVoter top, int page) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -56,11 +56,11 @@ public class VoteTopVoter extends GUIHandler {
 			if (top == null) {
 				top = TopVoter.getDefault();
 			}
-			Set<Entry<User, Integer>> users = null;
+			Set<Entry<VotingPluginUser, Integer>> users = null;
 
 			String topVoter = top.getName();
 			@SuppressWarnings("unchecked")
-			LinkedHashMap<User, Integer> topVotes = (LinkedHashMap<User, Integer>) plugin.getTopVoter(top).clone();
+			LinkedHashMap<VotingPluginUser, Integer> topVotes = (LinkedHashMap<VotingPluginUser, Integer>) plugin.getTopVoter(top).clone();
 			users = topVotes.entrySet();
 
 			BInventory inv = new BInventory(GUI.getInstance().getChestVoteTopName());
@@ -70,7 +70,7 @@ public class VoteTopVoter extends GUIHandler {
 			}
 
 			int pos = 1;
-			for (Entry<User, Integer> entry : users) {
+			for (Entry<VotingPluginUser, Integer> entry : users) {
 				ItemBuilder playerItem;
 
 				if (GUI.getInstance().isChestVoteTopUseSkull()) {
@@ -89,7 +89,7 @@ public class VoteTopVoter extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						User user = (User) getData("User");
+						VotingPluginUser user = (VotingPluginUser) getData("User");
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
 					}

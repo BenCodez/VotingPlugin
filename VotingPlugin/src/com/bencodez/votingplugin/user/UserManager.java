@@ -1,15 +1,12 @@
-package com.bencodez.votingplugin.usermanager;
-
-import java.util.ArrayList;
+package com.bencodez.votingplugin.user;
 
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.User;
 
-public class UserManager {
+public class UserManager extends com.bencodez.advancedcore.api.user.UserManager {
 	/** The instance. */
 	static UserManager instance = new UserManager();
 	/** The plugin. */
@@ -28,33 +25,29 @@ public class UserManager {
 		super();
 	}
 
-	public ArrayList<String> getAllUUIDs() {
-		return com.bencodez.advancedcore.api.user.UserManager.getInstance().getAllUUIDs();
-	}
-
-	public User getVotingPluginUser(com.bencodez.advancedcore.api.user.User user) {
+	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
 		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
 	}
 
-	public User getVotingPluginUser(java.util.UUID uuid) {
+	public VotingPluginUser getVotingPluginUser(java.util.UUID uuid) {
 		return getVotingPluginUser(new UUID(uuid.toString()));
 	}
 
-	public User getVotingPluginUser(OfflinePlayer player) {
+	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getName());
 	}
 
-	public User getVotingPluginUser(Player player) {
+	public VotingPluginUser getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getName());
 	}
 
 	@SuppressWarnings("deprecation")
-	public User getVotingPluginUser(String playerName) {
-		return new User(com.bencodez.advancedcore.api.user.UserManager.getInstance().getProperName(playerName));
+	public VotingPluginUser getVotingPluginUser(String playerName) {
+		return new VotingPluginUser(com.bencodez.advancedcore.api.user.UserManager.getInstance().getProperName(playerName));
 	}
 
 	@SuppressWarnings("deprecation")
-	public User getVotingPluginUser(UUID uuid) {
-		return new User(uuid);
+	public VotingPluginUser getVotingPluginUser(UUID uuid) {
+		return new VotingPluginUser(uuid);
 	}
 }

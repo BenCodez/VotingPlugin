@@ -13,8 +13,8 @@ import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -61,7 +61,7 @@ public class CoolDownCheck implements Listener {
 				if (VotingPluginMain.plugin != null) {
 					for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 						if (VotingPluginMain.plugin != null) {
-							User user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 							if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
 								user.checkCoolDownEvents();
 							}

@@ -19,10 +19,10 @@ import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 
 // TODO: Auto-generated Javadoc
@@ -90,7 +90,7 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 
-		User user = UserManager.getInstance().getVotingPluginUser(playerName);
+		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerName);
 		user.updateName();
 
 		if (Config.getInstance().isClearCacheOnVote() || BungeeSettings.getInstance().isUseBungeecoord()) {

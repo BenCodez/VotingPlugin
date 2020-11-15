@@ -12,7 +12,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**

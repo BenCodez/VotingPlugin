@@ -7,8 +7,8 @@ import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -51,7 +51,7 @@ public class VoteReminding {
 	 *
 	 * @param user the user
 	 */
-	public void checkRemind(User user) {
+	public void checkRemind(VotingPluginUser user) {
 		String playerName = user.getPlayerName();
 
 		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
@@ -73,7 +73,7 @@ public class VoteReminding {
 		}
 	}
 
-	private void giveReward(User user) {
+	private void giveReward(VotingPluginUser user) {
 		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteRemindingRewardsPath())
 				.setGiveOffline(false).send(user);
 	}
@@ -87,7 +87,7 @@ public class VoteReminding {
 			@Override
 			public void run() {
 				for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-					User user = UserManager.getInstance().getVotingPluginUser(player);
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 					checkRemind(user);
 				}
 			}
@@ -99,7 +99,7 @@ public class VoteReminding {
 	 *
 	 * @param user the user
 	 */
-	public void runRemind(User user) {
+	public void runRemind(VotingPluginUser user) {
 		if (Config.getInstance().getVoteRemindingEnabled()) {
 			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
@@ -114,7 +114,7 @@ public class VoteReminding {
 		}
 	}
 
-	public void runRemindLogin(User user) {
+	public void runRemindLogin(VotingPluginUser user) {
 		if (Config.getInstance().getVoteRemindingEnabled()) {
 			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());

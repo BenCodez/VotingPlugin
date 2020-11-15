@@ -19,15 +19,15 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteShopConfirm extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 	private String identifier;
 
-	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, User user, String identifier) {
+	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String identifier) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;

@@ -373,6 +373,11 @@ LimitMonthlyVotes: false
 # Shoudn't be needed, but enable if you have trouble with milestones
 PreventRepeatMilestones: false
 
+# When enabled the command /vote setprimaryaccount (playername)
+# will be shown (after restart)
+# Primary account will be used instead of the players account to get
+# placeholder and other data such as vote reminding
+# Mainly to be used for alts and such
 UsePrimaryAccountForPlaceholders: false
 
 ######################

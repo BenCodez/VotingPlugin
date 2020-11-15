@@ -3,8 +3,8 @@ package com.bencodez.votingplugin.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -29,7 +29,7 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 
 	@Getter
 	@Setter
-	private User player;
+	private VotingPluginUser player;
 
 	@Getter
 	@Setter
@@ -39,7 +39,7 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 	@Setter
 	private boolean cancelled;
 
-	public PlayerVoteCoolDownEndEvent(User user, VoteSite site) {
+	public PlayerVoteCoolDownEndEvent(VotingPluginUser user, VoteSite site) {
 		super(true);
 		player = user;
 		voteSite = site;

@@ -5,8 +5,8 @@ import org.bukkit.Bukkit;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 import be.maximvdw.placeholderapi.PlaceholderAPI;
 import be.maximvdw.placeholderapi.PlaceholderReplaceEvent;
@@ -51,14 +51,14 @@ public class MVdWPlaceholders {
 	public void loadMVdWPlaceholders() {
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			// The plugin is enabled
-			for (final PlaceHolder<User> place : PlaceHolders.getInstance().getPlaceholders()) {
+			for (final PlaceHolder<VotingPluginUser> place : PlaceHolders.getInstance().getPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(VotingPluginMain.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {
 
 						@Override
 						public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
-							User user = UserManager.getInstance().getVotingPluginUser(event.getOfflinePlayer());
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(event.getOfflinePlayer());
 							if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 								user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 							}
@@ -71,7 +71,7 @@ public class MVdWPlaceholders {
 
 			}
 
-			for (final PlaceHolder<User> place : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+			for (final PlaceHolder<VotingPluginUser> place : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(VotingPluginMain.plugin, "VotingPlugin_" + str, new PlaceholderReplacer() {

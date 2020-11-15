@@ -3,7 +3,7 @@ package com.bencodez.votingplugin.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.objects.User;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -28,7 +28,7 @@ public class PlayerReceivePointsEvent extends Event {
 
 	@Getter
 	@Setter
-	private User player;
+	private VotingPluginUser player;
 
 	@Getter
 	@Setter
@@ -42,7 +42,7 @@ public class PlayerReceivePointsEvent extends Event {
 	@Setter
 	private String serviceSite = "";
 
-	public PlayerReceivePointsEvent(User user, int points) {
+	public PlayerReceivePointsEvent(VotingPluginUser user, int points) {
 		super(true);
 		this.player = user;
 		this.points = points;

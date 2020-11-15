@@ -19,17 +19,17 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteNext extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 
-	public VoteNext(VotingPluginMain plugin, CommandSender player, User user) {
+	public VoteNext(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;

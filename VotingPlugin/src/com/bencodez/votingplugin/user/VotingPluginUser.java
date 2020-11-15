@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.objects;
+package com.bencodez.votingplugin.user;
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -34,6 +34,7 @@ import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.voteparty.VoteParty;
@@ -43,7 +44,7 @@ import com.bencodez.votingplugin.votereminding.VoteReminding;
 /**
  * The Class User.
  */
-public class User extends com.bencodez.advancedcore.api.user.User {
+public class VotingPluginUser extends com.bencodez.advancedcore.api.user.AdvancedCoreUser {
 
 	/** The plugin. */
 	static VotingPluginMain plugin = VotingPluginMain.plugin;
@@ -54,7 +55,7 @@ public class User extends com.bencodez.advancedcore.api.user.User {
 	 * @param player the player
 	 */
 	@Deprecated
-	public User(Player player) {
+	public VotingPluginUser(Player player) {
 		super(plugin, player);
 	}
 
@@ -64,7 +65,7 @@ public class User extends com.bencodez.advancedcore.api.user.User {
 	 * @param playerName the player name
 	 */
 	@Deprecated
-	public User(String playerName) {
+	public VotingPluginUser(String playerName) {
 		super(plugin, playerName);
 	}
 
@@ -74,7 +75,7 @@ public class User extends com.bencodez.advancedcore.api.user.User {
 	 * @param uuid the uuid
 	 */
 	@Deprecated
-	public User(UUID uuid) {
+	public VotingPluginUser(UUID uuid) {
 		super(plugin, uuid);
 	}
 
@@ -85,7 +86,7 @@ public class User extends com.bencodez.advancedcore.api.user.User {
 	 * @param loadName the load name
 	 */
 	@Deprecated
-	public User(UUID uuid, boolean loadName) {
+	public VotingPluginUser(UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
 	}
 
@@ -331,7 +332,7 @@ public class User extends com.bencodez.advancedcore.api.user.User {
 	 * @return true, if successful
 	 */
 	public boolean checkAllVotes() {
-		User user = this;
+		VotingPluginUser user = this;
 
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();

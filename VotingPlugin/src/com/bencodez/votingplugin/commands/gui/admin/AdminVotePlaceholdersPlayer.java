@@ -14,9 +14,9 @@ import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
@@ -24,9 +24,9 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 
 	@SuppressWarnings("unused")
 	private VotingPluginMain plugin;
-	private User user;
+	private VotingPluginUser user;
 
-	public AdminVotePlaceholdersPlayer(VotingPluginMain plugin, CommandSender player, User user) {
+	public AdminVotePlaceholdersPlayer(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -41,7 +41,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper("Placeholders");
 
-		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
@@ -54,7 +54,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			book.addLayout(layout);
 		}
 
-		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
@@ -75,11 +75,11 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	public void onChat(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
-		User placeholderUser = user;
+		VotingPluginUser placeholderUser = user;
 		if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 			placeholderUser = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 		}
-		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
@@ -88,7 +88,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
 		}
 
-		for (PlaceHolder<User> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";

@@ -17,15 +17,15 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteLast extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 
-	public VoteLast(VotingPluginMain plugin, CommandSender player, User user) {
+	public VoteLast(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;

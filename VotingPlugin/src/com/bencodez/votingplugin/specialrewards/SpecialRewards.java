@@ -15,8 +15,8 @@ import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.topvoter.TopVoter;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -66,7 +66,7 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkAllSites(User user) {
+	public boolean checkAllSites(VotingPluginUser user) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes) {
 			giveAllSitesRewards(user, user.isOnline());
@@ -80,7 +80,7 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkCumualativeVotes(User user, String bungeeTextTotals) {
+	public boolean checkCumualativeVotes(VotingPluginUser user, String bungeeTextTotals) {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = SpecialRewardsConfig.getInstance().getCumulativeVotes();
 		for (String vote : votes) {
@@ -152,7 +152,7 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkFirstVote(User user) {
+	public boolean checkFirstVote(VotingPluginUser user) {
 		if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
 				SpecialRewardsConfig.getInstance().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
@@ -170,7 +170,7 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkMilestone(User user, String bungeeTextTotals) {
+	public boolean checkMilestone(VotingPluginUser user, String bungeeTextTotals) {
 		int milestoneCount = user.getMilestoneCount();
 		if (bungeeTextTotals != null) {
 			String[] data = bungeeTextTotals.split("//");
@@ -234,7 +234,7 @@ public class SpecialRewards {
 		return gotMilestone;
 	}
 
-	public boolean checkVoteStreak(User user, String type) {
+	public boolean checkVoteStreak(VotingPluginUser user, String type) {
 		boolean gotReward = false;
 
 		Set<String> streaks = SpecialRewardsConfig.getInstance().getVoteStreakVotes(type);
@@ -290,7 +290,7 @@ public class SpecialRewards {
 	 * @param user   the user
 	 * @param online the online
 	 */
-	public void giveAllSitesRewards(User user, boolean online) {
+	public void giveAllSitesRewards(VotingPluginUser user, boolean online) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -308,7 +308,7 @@ public class SpecialRewards {
 	 * @param online     the online
 	 * @param cumulative the cumulative
 	 */
-	public void giveCumulativeVoteReward(User user, boolean online, int cumulative) {
+	public void giveCumulativeVoteReward(VotingPluginUser user, boolean online, int cumulative) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.CUMMULATIVE.setAmount(cumulative));
 		Bukkit.getPluginManager().callEvent(event);
@@ -328,7 +328,7 @@ public class SpecialRewards {
 	 * @param user   the user
 	 * @param online the online
 	 */
-	public void giveFirstVoteRewards(User user, boolean online) {
+	public void giveFirstVoteRewards(VotingPluginUser user, boolean online) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -346,7 +346,7 @@ public class SpecialRewards {
 	 * @param online    the online
 	 * @param milestone the milestone
 	 */
-	public void giveMilestoneVoteReward(User user, boolean online, int milestone) {
+	public void giveMilestoneVoteReward(VotingPluginUser user, boolean online, int milestone) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.MILESTONE.setAmount(milestone));
 		Bukkit.getPluginManager().callEvent(event);
@@ -359,7 +359,7 @@ public class SpecialRewards {
 						.withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
-	public void giveVoteStreakReward(User user, boolean online, String type, String string, int votes) {
+	public void giveVoteStreakReward(VotingPluginUser user, boolean online, String type, String string, int votes) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.VOTESTREAK.setType(type).setAmount(votes));
 		Bukkit.getPluginManager().callEvent(event);

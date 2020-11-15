@@ -7,8 +7,8 @@ import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 public class VoteTester {
 
@@ -23,7 +23,7 @@ public class VoteTester {
 	public void testRewards(int amount, String name, String rewardName) {
 		long time1 = System.currentTimeMillis();
 		ArrayList<Long> timesPerReward = new ArrayList<Long>();
-		User user = UserManager.getInstance().getVotingPluginUser(name);
+		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(name);
 		Reward reward = RewardHandler.getInstance().getReward(rewardName);
 		int rewardsGiven = 0;
 		for (int i = 0; i < amount; i++) {

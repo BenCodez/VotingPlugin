@@ -20,15 +20,15 @@ import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
-import com.bencodez.votingplugin.usermanager.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 
 public class VoteShop extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 
-	public VoteShop(VotingPluginMain plugin, CommandSender player, User user) {
+	public VoteShop(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
@@ -67,7 +67,7 @@ public class VoteShop extends GUIHandler {
 
 			boolean limitPass = true;
 			if (limit > 0) {
-				User user = UserManager.getInstance().getVotingPluginUser(player);
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 				if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
 					limitPass = false;
 				}
@@ -83,7 +83,7 @@ public class VoteShop extends GUIHandler {
 						public void onClick(ClickEvent event) {
 							Player player = event.getWhoClicked();
 
-							User user = UserManager.getInstance().getVotingPluginUser(player);
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 							if (Config.getInstance().isClearCacheOnVoteShopPurchase()
 									|| BungeeSettings.getInstance().isUseBungeecoord()) {
 								user.clearCache();

@@ -17,16 +17,16 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.objects.User;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteURLVoteSite extends GUIHandler {
 
-	private User user;
+	private VotingPluginUser user;
 	private VotingPluginMain plugin;
 	private String voteSite;
 
-	public VoteURLVoteSite(VotingPluginMain plugin, CommandSender player, User user, String voteSite) {
+	public VoteURLVoteSite(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String voteSite) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
