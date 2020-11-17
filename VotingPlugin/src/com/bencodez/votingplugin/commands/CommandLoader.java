@@ -29,7 +29,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.api.time.TimeChecker;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -221,7 +220,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
-				sendMessage(sender, TimeChecker.getInstance().getTime().format(formatter));
+				sendMessage(sender, plugin.getTimeChecker().getTime().format(formatter));
 			}
 		});
 

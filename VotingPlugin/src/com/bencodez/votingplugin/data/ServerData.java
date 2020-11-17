@@ -60,12 +60,10 @@ public class ServerData {
 	 * @return the data
 	 */
 	public ConfigurationSection getData() {
-		ConfigurationSection data = com.bencodez.advancedcore.data.ServerData.getInstance().getData()
-				.getConfigurationSection("VotingPlugin");
+		ConfigurationSection data = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
 		if (data == null) {
-			com.bencodez.advancedcore.data.ServerData.getInstance().getData().createSection("VotingPlugin");
-			data = com.bencodez.advancedcore.data.ServerData.getInstance().getData()
-					.getConfigurationSection("VotingPlugin");
+			plugin.getServerDataFile().getData().createSection("VotingPlugin");
+			data = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
 		}
 		return data;
 	}
@@ -161,7 +159,7 @@ public class ServerData {
 	 * Reload data.
 	 */
 	public void reloadData() {
-		com.bencodez.advancedcore.data.ServerData.getInstance().reloadData();
+		plugin.getServerDataFile().reloadData();
 	}
 
 	/**
@@ -188,7 +186,7 @@ public class ServerData {
 	 * Save data.
 	 */
 	public synchronized void saveData() {
-		com.bencodez.advancedcore.data.ServerData.getInstance().saveData();
+		plugin.getServerDataFile().saveData();
 	}
 
 	public void setServiceSites(ArrayList<String> list) {

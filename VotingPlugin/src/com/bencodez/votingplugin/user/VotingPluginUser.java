@@ -23,7 +23,6 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.api.time.TimeChecker;
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -267,7 +266,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return true;
 		}
 		try {
-			LocalDateTime now = TimeChecker.getInstance().getTime();
+			LocalDateTime now = plugin.getTimeChecker().getTime();
 			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
 					.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
 
@@ -993,7 +992,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			break;
 		case Monthly:
 			if (plugin.getConfigFile().isLimitMonthlyVotes()) {
-				LocalDateTime time = TimeChecker.getInstance().getTime();
+				LocalDateTime time = plugin.getTimeChecker().getTime();
 				int days = YearMonth.of(time.getYear(), time.getMonth()).lengthOfMonth();
 				if (value >= days * plugin.getVoteSites().size()) {
 					value = days * plugin.getVoteSites().size();
@@ -1151,7 +1150,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		String info = new String();
 
 		long time = getTime(voteSite);
-		LocalDateTime now = TimeChecker.getInstance().getTime();
+		LocalDateTime now = plugin.getTimeChecker().getTime();
 		;
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
 				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
@@ -1184,11 +1183,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 			}
 		} else {
-			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+			LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
 					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+			LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
 					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+			LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0)
 					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
 
 			if (!now.isBefore(offsetoclocktoday)) {
@@ -1248,7 +1247,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public long voteNextDurationTime(VoteSite voteSite) {
 		long time = getTime(voteSite);
-		LocalDateTime now = TimeChecker.getInstance().getTime();
+		LocalDateTime now = plugin.getTimeChecker().getTime();
 		;
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
 				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
@@ -1269,11 +1268,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 			}
 		} else {
-			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+			LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
 					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+			LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
 					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+			LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0)
 					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
 
 			if (!now.isBefore(offsetoclocktoday)) {

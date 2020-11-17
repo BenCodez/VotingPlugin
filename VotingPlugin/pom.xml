@@ -2,7 +2,7 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.Ben12345rocks</groupId>
+	<groupId>com.bencodez</groupId>
 	<artifactId>VotingPlugin</artifactId>
 	<version>5.24.1</version>
 	<packaging>jar</packaging>
@@ -105,8 +105,8 @@
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
 						<relocation>
-							<pattern>com.Ben12345rocks.AdvancedCore</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.AdvancedCore</shadedPattern>
+							<pattern>com.bencodez.advancedcore</pattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.advancedcore</shadedPattern>
 						</relocation>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
@@ -314,7 +314,7 @@
 			</properties>
 			<dependencies>
 				<dependency>
-					<groupId>com.github.Ben12345rocks</groupId>
+					<groupId>com.github.bencodez</groupId>
 					<artifactId>AdvancedCore</artifactId>
 					<version>master-SNAPSHOT</version>
 				</dependency>
@@ -327,7 +327,7 @@
 			</properties>
 			<dependencies>
 				<dependency>
-					<groupId>com.Ben12345rocks</groupId>
+					<groupId>com.bencodez</groupId>
 					<artifactId>AdvancedCore</artifactId>
 					<version>LATEST</version>
 					<scope>compile</scope>

@@ -1,12 +1,14 @@
 package com.bencodez.votingplugin.user;
 
+import java.util.ArrayList;
+
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-public class UserManager extends com.bencodez.advancedcore.api.user.UserManager {
+public class UserManager {
 	/** The instance. */
 	static UserManager instance = new UserManager();
 	/** The plugin. */
@@ -23,6 +25,10 @@ public class UserManager extends com.bencodez.advancedcore.api.user.UserManager 
 
 	public UserManager() {
 		super();
+	}
+	
+	public ArrayList<String> getAllUUIDs() {
+		return com.bencodez.advancedcore.api.user.UserManager.getInstance().getAllUUIDs();
 	}
 
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
