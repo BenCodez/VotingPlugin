@@ -16,16 +16,10 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
-import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessage;
-import com.bencodez.votingplugin.BungeeHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.config.BungeeSettings;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.ConfigVoteSites;
-import com.bencodez.votingplugin.data.ServerData;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -34,42 +28,9 @@ import lombok.Setter;
  * The Class VoteSite.
  */
 public class VoteSite {
-
-	/** The config. */
-	static Config config = Config.getInstance();
-
-	/** The config vote sites. */
-	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	@Setter
-	private String voteURL;
-
-	@Getter
-	@Setter
-	private String serviceSite;
-
-	@Getter
-	@Setter
-	private String key;
-
 	@Getter
 	@Setter
 	private String displayName;
-
-	@Getter
-	@Setter
-	private double voteDelay;
-
-	@Getter
-	@Setter
-	private double voteDelayMin;
-
-	@Getter
-	@Setter
-	private double timeOffSet;
 
 	@Getter
 	@Setter
@@ -77,18 +38,43 @@ public class VoteSite {
 
 	@Getter
 	@Setter
-	private boolean voteDelayDaily;
-
-	@Getter
-	@Setter
-	private int priority;
+	private boolean giveOffline;
 
 	@Setter
 	private ConfigurationSection item;
 
 	@Getter
 	@Setter
-	private boolean giveOffline;
+	private String key;
+
+	private VotingPluginMain plugin;
+
+	@Getter
+	@Setter
+	private int priority;
+
+	@Getter
+	@Setter
+	private String serviceSite;
+
+	@Getter
+	@Setter
+	private double timeOffSet;
+
+	@Getter
+	@Setter
+	private double voteDelay;
+
+	@Getter
+	@Setter
+	private boolean voteDelayDaily;
+
+	@Getter
+	@Setter
+	private double voteDelayMin;
+
+	@Setter
+	private String voteURL;
 
 	@Getter
 	@Setter
@@ -97,18 +83,10 @@ public class VoteSite {
 	/**
 	 * Instantiates a new vote site.
 	 *
-	 * @param plugin the plugin
-	 */
-	public VoteSite(VotingPluginMain plugin) {
-		VoteSite.plugin = plugin;
-	}
-
-	/**
-	 * Instantiates a new vote site.
-	 *
 	 * @param siteName the site name
 	 */
-	public VoteSite(String siteName) {
+	public VoteSite(VotingPluginMain plugin, String siteName) {
+		this.plugin = plugin;
 		key = siteName.replace(".", "_");
 		init();
 	}
@@ -125,28 +103,28 @@ public class VoteSite {
 	 */
 	public void broadcastVote(VotingPluginUser user, boolean checkBungee) {
 		if (!user.isVanished()) {
-			if (checkBungee && BungeeSettings.getInstance().isBungeeBroadcast()
-					&& BungeeSettings.getInstance().isUseBungeecoord()) {
-				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.SOCKETS)) {
-					BungeeHandler.getInstance().sendData("Broadcast", getServiceSite(), user.getPlayerName());
-				} else if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)
-						|| BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
+					&& plugin.getBungeeSettings().isUseBungeecoord()) {
+				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS)) {
+					plugin.getBungeeHandler().sendData("Broadcast", getServiceSite(), user.getPlayerName());
+				} else if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)
+						|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 					String uuid = user.getUUID();
 					String service = getServiceSite();
 
 					if (Bukkit.getOnlinePlayers().size() > 0) {
-						PluginMessage.getInstance().sendPluginMessage(PlayerUtils.getInstance().getRandomOnlinePlayer(),
+						plugin.getPluginMessaging().sendPluginMessage(PlayerUtils.getInstance().getRandomOnlinePlayer(),
 								"VoteBroadcast", uuid, service);
 					}
 				}
 
 			} else {
 				String playerName = user.getPlayerName();
-				if (config.getVotingBroadcastBlacklist().contains(playerName)) {
+				if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
 					plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
 					return;
 				}
-				String bc = StringParser.getInstance().colorize(config.getFormatBroadCastMsg());
+				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatBroadCastMsg());
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
@@ -183,7 +161,22 @@ public class VoteSite {
 	}
 
 	public ConfigurationSection getSiteData() {
-		return configVoteSites.getData(key);
+		return plugin.getConfigVoteSites().getData(key);
+	}
+
+	public String getVoteURL() {
+		return getVoteURL(true);
+	}
+
+	public String getVoteURL(boolean json) {
+		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json) {
+			return voteURL;
+		} else {
+			if (!voteURL.startsWith("http")) {
+				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
+			}
+			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
+		}
 	}
 
 	public String getVoteURLJsonStrip() {
@@ -199,61 +192,46 @@ public class VoteSite {
 		return url;
 	}
 
-	public String getVoteURL() {
-		return getVoteURL(true);
-	}
-
-	public String getVoteURL(boolean json) {
-		if (!Config.getInstance().isFormatCommandsVoteForceLinks() || !json) {
-			return voteURL;
-		} else {
-			if (!voteURL.startsWith("http")) {
-				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
-			}
-			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
-		}
-	}
-
 	public void giveRewards(VotingPluginUser user, boolean online, boolean bungee) {
-		new RewardBuilder(configVoteSites.getData(), configVoteSites.getRewardsPath(key)).setOnline(online)
-				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
-				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
-				.setServer(bungee).send(user);
+		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getRewardsPath(key))
+				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
+				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
+				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 
-		new RewardBuilder(configVoteSites.getData(), configVoteSites.getEverySiteRewardPath()).setOnline(online)
-				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
-				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
-				.setServer(bungee).send(user);
+		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getEverySiteRewardPath())
+				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
+				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
+				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 	}
 
 	public boolean hasRewards() {
-		return RewardHandler.getInstance().hasRewards(configVoteSites.getData(), configVoteSites.getRewardsPath(key));
+		return RewardHandler.getInstance().hasRewards(plugin.getConfigVoteSites().getData(),
+				plugin.getConfigVoteSites().getRewardsPath(key));
 	}
 
 	/**
 	 * Inits the.
 	 */
 	public void init() {
-		setVoteURL(configVoteSites.getVoteURL(key));
-		setServiceSite(configVoteSites.getServiceSite(key));
-		setVoteDelay(configVoteSites.getVoteDelay(key));
-		setVoteDelayMin(configVoteSites.getVoteDelayMin(key));
-		setEnabled(configVoteSites.getVoteSiteEnabled(key));
-		setPriority(configVoteSites.getPriority(key));
-		displayName = configVoteSites.getDisplayName(key);
+		setVoteURL(plugin.getConfigVoteSites().getVoteURL(key));
+		setServiceSite(plugin.getConfigVoteSites().getServiceSite(key));
+		setVoteDelay(plugin.getConfigVoteSites().getVoteDelay(key));
+		setVoteDelayMin(plugin.getConfigVoteSites().getVoteDelayMin(key));
+		setEnabled(plugin.getConfigVoteSites().getVoteSiteEnabled(key));
+		setPriority(plugin.getConfigVoteSites().getPriority(key));
+		displayName = plugin.getConfigVoteSites().getDisplayName(key);
 		if (displayName == null || displayName.equals("")) {
 			displayName = key;
 		}
-		item = configVoteSites.getItem(key);
-		voteDelayDaily = configVoteSites.getVoteSiteResetVoteDelayDaily(key);
-		giveOffline = configVoteSites.getVoteSiteGiveOffline(key);
-		waitUntilVoteDelay = configVoteSites.getWaitUntilVoteDelay(key);
-		timeOffSet = configVoteSites.getTimeOffSet(key);
+		item = plugin.getConfigVoteSites().getItem(key);
+		voteDelayDaily = plugin.getConfigVoteSites().getVoteSiteResetVoteDelayDaily(key);
+		giveOffline = plugin.getConfigVoteSites().getVoteSiteGiveOffline(key);
+		waitUntilVoteDelay = plugin.getConfigVoteSites().getWaitUntilVoteDelay(key);
+		timeOffSet = plugin.getConfigVoteSites().getTimeOffSet(key);
 	}
 
 	public boolean isVaidServiceSite() {
-		return ArrayUtils.getInstance().containsIgnoreCase(ServerData.getInstance().getServiceSites(),
-				getServiceSite());
+		return ArrayUtils.getInstance().containsIgnoreCase(plugin.getServerData().getServiceSites(), getServiceSite());
 	}
 
 }

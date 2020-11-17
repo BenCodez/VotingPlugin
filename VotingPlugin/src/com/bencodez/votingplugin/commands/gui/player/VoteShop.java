@@ -16,22 +16,23 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.BungeeSettings;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteShop extends GUIHandler {
 
-	private VotingPluginUser user;
 	private VotingPluginMain plugin;
+	private VotingPluginUser user;
 
 	public VoteShop(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
+	}
+
+	@Override
+	public ArrayList<String> getChat(CommandSender arg0) {
+		return null;
 	}
 
 	@Override
@@ -45,17 +46,17 @@ public class VoteShop extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		if (!GUI.getInstance().getChestVoteShopEnabled()) {
-			player.sendMessage(StringParser.getInstance().colorize(GUI.getInstance().getChestVoteShopDisabled()));
+		if (!plugin.getGui().getChestVoteShopEnabled()) {
+			player.sendMessage(StringParser.getInstance().colorize(plugin.getGui().getChestVoteShopDisabled()));
 			return;
 		}
 
-		BInventory inv = new BInventory(GUI.getInstance().getChestVoteShopName());
+		BInventory inv = new BInventory(plugin.getGui().getChestVoteShopName());
 		inv.dontClose();
 
-		for (final String identifier : GUI.getInstance().getChestShopIdentifiers()) {
+		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
 
-			String perm = GUI.getInstance().getChestVoteShopPermission(identifier);
+			String perm = plugin.getGui().getChestVoteShopPermission(identifier);
 			boolean hasPerm = false;
 			if (perm.isEmpty()) {
 				hasPerm = true;
@@ -63,7 +64,7 @@ public class VoteShop extends GUIHandler {
 				hasPerm = player.hasPermission(perm);
 			}
 
-			int limit = GUI.getInstance().getChestShopIdentifierLimit(identifier);
+			int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
 
 			boolean limitPass = true;
 			if (limit > 0) {
@@ -73,9 +74,9 @@ public class VoteShop extends GUIHandler {
 				}
 			}
 
-			if (!GUI.getInstance().getChestVoteShopNotBuyable(identifier)) {
-				if (hasPerm && (limitPass || !GUI.getInstance().isChestVoteShopHideLimitedReached())) {
-					ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestShopIdentifierSection(identifier));
+			if (!plugin.getGui().getChestVoteShopNotBuyable(identifier)) {
+				if (hasPerm && (limitPass || !plugin.getGui().isChestVoteShopHideLimitedReached())) {
+					ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier));
 
 					inv.addButton(new BInventoryButton(builder) {
 
@@ -84,15 +85,15 @@ public class VoteShop extends GUIHandler {
 							Player player = event.getWhoClicked();
 
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-							if (Config.getInstance().isClearCacheOnVoteShopPurchase()
-									|| BungeeSettings.getInstance().isUseBungeecoord()) {
+							if (plugin.getConfigFile().isClearCacheOnVoteShopPurchase()
+									|| plugin.getBungeeSettings().isUseBungeecoord()) {
 								user.clearCache();
 							}
 							String identifier = (String) getData("identifier");
 							int limit = (int) getData("Limit");
-							int points = GUI.getInstance().getChestShopIdentifierCost(identifier);
+							int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 							if (identifier != null) {
-								if (GUI.getInstance().getChestVoteShopCloseGUI(identifier)) {
+								if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
 									event.getButton().getInv().closeInv(player, null);
 								}
 
@@ -105,34 +106,34 @@ public class VoteShop extends GUIHandler {
 								}
 
 								if (limitPass) {
-									if (!GUI.getInstance().isChestVoteShopRequireConfirmation()) {
+									if (!plugin.getGui().isChestVoteShopRequireConfirmation()) {
 										HashMap<String, String> placeholders = new HashMap<String, String>();
 										placeholders.put("identifier",
-												GUI.getInstance().getChestShopIdentifierIdentifierName(identifier));
+												plugin.getGui().getChestShopIdentifierIdentifierName(identifier));
 										placeholders.put("points", "" + points);
 										placeholders.put("limit", "" + limit);
 										if (user.removePoints(points)) {
 
-											RewardHandler.getInstance().giveReward(user, GUI.getInstance().getData(),
-													GUI.getInstance().getChestShopIdentifierRewardsPath(identifier),
+											RewardHandler.getInstance().giveReward(user, plugin.getGui().getData(),
+													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
 											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
-													Config.getInstance().getFormatShopPurchaseMsg(), placeholders));
+													plugin.getConfigFile().getFormatShopPurchaseMsg(), placeholders));
 											if (limit > 0) {
 												user.setVoteShopIdentifierLimit(identifier,
 														user.getVoteShopIdentifierLimit(identifier) + 1);
 											}
 										} else {
 											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
-													Config.getInstance().getFormatShopFailedMsg(), placeholders));
+													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 										}
 									} else {
 										new VoteShopConfirm(plugin, player, user, identifier).open(GUIMethod.CHEST);
 										;
 									}
 								} else {
-									user.sendMessage(GUI.getInstance().getChestVoteShopLimitReached());
+									user.sendMessage(plugin.getGui().getChestVoteShopLimitReached());
 								}
 							}
 						}
@@ -141,7 +142,7 @@ public class VoteShop extends GUIHandler {
 				}
 			} else {
 				if (hasPerm) {
-					ItemBuilder builder = new ItemBuilder(GUI.getInstance().getChestShopIdentifierSection(identifier));
+					ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier));
 					inv.addButton(new BInventoryButton(builder) {
 
 						@Override
@@ -154,16 +155,11 @@ public class VoteShop extends GUIHandler {
 			}
 		}
 
-		if (GUI.getInstance().getChestVoteShopBackButton()) {
-			inv.addButton(CommandLoader.getInstance().getBackButton(user));
+		if (plugin.getGui().getChestVoteShopBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 
 		inv.openInventory(player);
-	}
-
-	@Override
-	public ArrayList<String> getChat(CommandSender arg0) {
-		return null;
 	}
 
 	@Override

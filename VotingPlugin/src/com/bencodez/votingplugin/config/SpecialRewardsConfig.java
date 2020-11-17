@@ -5,33 +5,21 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.bencodez.advancedcore.yml.YMLFile;
-import com.bencodez.advancedcore.yml.annotation.AnnotationHandler;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataBoolean;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataDouble;
+import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataDouble;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
 
 public class SpecialRewardsConfig extends YMLFile {
-	/** The instance. */
-	static SpecialRewardsConfig instance = new SpecialRewardsConfig();
 
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of Config.
-	 *
-	 * @return single instance of Config
-	 */
-	public static SpecialRewardsConfig getInstance() {
-		return instance;
-	}
-
-	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
-	private boolean enableWeeklyAwards = false;
+	private String allSitesRewardPath = "AllSites";
+
+	@Getter
+	private String anySiteRewardsPath = "AnySiteRewards";
 
 	@ConfigDataBoolean(path = "EnableDailyRewards")
 	@Getter
@@ -41,16 +29,26 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean enableMonthlyAwards = false;
 
+	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
-	private String anySiteRewardsPath = "AnySiteRewards";
+	private boolean enableWeeklyAwards = false;
+
+	@Getter
+	private String firstVoteRewardsPath = "FirstVote";
+
+	/** The plugin. */
+	private VotingPluginMain plugin;
+
+	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
+	@Getter
+	private boolean votePartyResetExtraVotesMonthly = false;
+
+	@Getter
+	private String votePartyRewardsPath = "VoteParty.Rewards";
 
 	@ConfigDataDouble(path = "VoteStreak.Requirement.Day")
 	@Getter
 	private double voteStreakRequirementDay = 50;
-
-	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
-	@Getter
-	private double voteStreakRequirementWeek = 50;
 
 	@ConfigDataDouble(path = "VoteStreak.Requirement.Month")
 	@Getter
@@ -60,21 +58,13 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean voteStreakRequirementUsePercentage = false;
 
-	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
+	@ConfigDataDouble(path = "VoteStreak.Requirement.Week")
 	@Getter
-	private boolean votePartyResetExtraVotesMonthly = false;
+	private double voteStreakRequirementWeek = 50;
 
-	@Getter
-	private String allSitesRewardPath = "AllSites";
-
-	@Getter
-	private String votePartyRewardsPath = "VoteParty.Rewards";
-
-	@Getter
-	private String firstVoteRewardsPath = "FirstVote";
-
-	public SpecialRewardsConfig() {
-		super(new File(VotingPluginMain.plugin.getDataFolder(), "SpecialRewards.yml"));
+	public SpecialRewardsConfig(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "SpecialRewards.yml"));
+		this.plugin = plugin;
 	}
 
 	public boolean getCumulativeRewardEnabled(int cumulative) {
@@ -105,8 +95,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	/**
 	 * Gets the cumulative votes in same day.
 	 *
-	 * @param cumulative
-	 *            the cumulative
+	 * @param cumulative the cumulative
 	 * @return the cumulative votes in same day
 	 */
 	public boolean getCumulativeVotesInSameDay(int cumulative) {
@@ -142,8 +131,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	/**
 	 * Gets the milestone reward enabled.
 	 *
-	 * @param milestones
-	 *            the milestones
+	 * @param milestones the milestones
 	 * @return the milestone reward enabled
 	 */
 	public boolean getMilestoneRewardEnabled(int milestones) {
@@ -153,8 +141,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	/**
 	 * Gets the milestone rewards.
 	 *
-	 * @param milestones
-	 *            the milestones
+	 * @param milestones the milestones
 	 * @return the milestone rewards
 	 */
 	public String getMilestoneRewardsPath(int milestones) {
@@ -212,6 +199,10 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getBoolean("VoteParty.CountFakeVotes", true);
 	}
 
+	public boolean getVotePartyCountOfflineVotes() {
+		return getData().getBoolean("VoteParty.CountOfflineVotes", true);
+	}
+
 	/**
 	 * Gets the vote party enabled.
 	 *
@@ -228,10 +219,6 @@ public class SpecialRewardsConfig extends YMLFile {
 	 */
 	public boolean getVotePartyGiveAllPlayers() {
 		return getData().getBoolean("VoteParty.GiveAllPlayers");
-	}
-	
-	public boolean getVotePartyCountOfflineVotes() {
-		return getData().getBoolean("VoteParty.CountOfflineVotes",true);
 	}
 
 	public int getVotePartyIncreaseVotesRquired() {

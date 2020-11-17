@@ -10,9 +10,6 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.ConfigVoteSites;
-import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -24,40 +21,10 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
  */
 public class SpecialRewards {
 
-	/** The config. */
-	static Config config = Config.getInstance();
+	private VotingPluginMain plugin;
 
-	/** The config vote sites. */
-	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The instance. */
-	static SpecialRewards instance = new SpecialRewards();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of OtherVoteReward.
-	 *
-	 * @return single instance of OtherVoteReward
-	 */
-	public static SpecialRewards getInstance() {
-		return instance;
-	}
-
-	/**
-	 * Instantiates a new other vote reward.
-	 */
-	private SpecialRewards() {
-	}
-
-	/**
-	 * Instantiates a new other vote reward.
-	 *
-	 * @param plugin the plugin
-	 */
 	public SpecialRewards(VotingPluginMain plugin) {
-		SpecialRewards.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**
@@ -82,14 +49,14 @@ public class SpecialRewards {
 	 */
 	public boolean checkCumualativeVotes(VotingPluginUser user, String bungeeTextTotals) {
 		boolean gotCumulativeAny = false;
-		Set<String> votes = SpecialRewardsConfig.getInstance().getCumulativeVotes();
+		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
 		for (String vote : votes) {
 			if (StringParser.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
-					if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(votesRequired)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getCumulativeRewardsPath(votesRequired))) {
+					if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(votesRequired)
+							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+									plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(votesRequired))) {
 						boolean gotCumulative = false;
 						int total = 0;
 						boolean useBungeeTotalNum = false;
@@ -98,19 +65,19 @@ public class SpecialRewards {
 							data = bungeeTextTotals.split("//");
 							useBungeeTotalNum = true;
 						}
-						if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameDay(votesRequired)) {
+						if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameDay(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Daily);
 							} else {
 								total = Integer.parseInt(data[3]);
 							}
-						} else if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameWeek(votesRequired)) {
+						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameWeek(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Weekly);
 							} else {
 								total = Integer.parseInt(data[2]);
 							}
-						} else if (SpecialRewardsConfig.getInstance().getCumulativeVotesInSameMonth(votesRequired)) {
+						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameMonth(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Monthly);
 							} else {
@@ -153,8 +120,8 @@ public class SpecialRewards {
 	 * @return true, if successful
 	 */
 	public boolean checkFirstVote(VotingPluginUser user) {
-		if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getFirstVoteRewardsPath())) {
+		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
 				giveFirstVoteRewards(user, user.isOnline());
 				return true;
@@ -183,10 +150,10 @@ public class SpecialRewards {
 				}
 			}
 		}
-		if (Config.getInstance().isPreventRepeatMilestones()) {
+		if (plugin.getConfigFile().isPreventRepeatMilestones()) {
 			ArrayList<Integer> nums = new ArrayList<Integer>();
 
-			for (String str : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
+			for (String str : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 				try {
 					nums.add(Integer.parseInt(str));
 				} catch (Exception e) {
@@ -209,14 +176,14 @@ public class SpecialRewards {
 		}
 
 		boolean gotMilestone = false;
-		Set<String> votes = SpecialRewardsConfig.getInstance().getMilestoneVotes();
+		Set<String> votes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
 		for (String vote : votes) {
 			if (StringParser.getInstance().isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
-					if (SpecialRewardsConfig.getInstance().getMilestoneRewardEnabled(votesRequired)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getMilestoneRewardsPath(votesRequired))) {
+					if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(votesRequired)
+							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+									plugin.getSpecialRewardsConfig().getMilestoneRewardsPath(votesRequired))) {
 
 						int userVotesTotal = milestoneCount;
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
@@ -237,7 +204,7 @@ public class SpecialRewards {
 	public boolean checkVoteStreak(VotingPluginUser user, String type) {
 		boolean gotReward = false;
 
-		Set<String> streaks = SpecialRewardsConfig.getInstance().getVoteStreakVotes(type);
+		Set<String> streaks = plugin.getSpecialRewardsConfig().getVoteStreakVotes(type);
 		for (String streak : streaks) {
 			String s = streak.replaceAll("-", "");
 			boolean multiple = false;
@@ -248,9 +215,9 @@ public class SpecialRewards {
 			if (StringParser.getInstance().isInt(s)) {
 				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
-					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled(type, streak)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath(type, "" + streak))) {
+					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, streak)
+							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, "" + streak))) {
 						int curStreak = 0;
 						if (type.equalsIgnoreCase("day")) {
 							curStreak = user.getDayVoteStreak();
@@ -297,8 +264,8 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		RewardHandler.getInstance().giveReward(user, SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getAllSitesRewardPath(), new RewardOptions().setOnline(online));
+		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getAllSitesRewardPath(), new RewardOptions().setOnline(online));
 	}
 
 	/**
@@ -317,8 +284,8 @@ public class SpecialRewards {
 			return;
 		}
 
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getCumulativeRewardsPath(cumulative)).setOnline(online)
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(cumulative)).setOnline(online)
 						.withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
 
@@ -335,8 +302,8 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		RewardHandler.getInstance().giveReward(user, SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getFirstVoteRewardsPath(), new RewardOptions().setOnline(online));
+		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
 	/**
@@ -354,8 +321,8 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getMilestoneRewardsPath(milestone)).setOnline(online)
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getMilestoneRewardsPath(milestone)).setOnline(online)
 						.withPlaceHolder("Milestone", "" + milestone).send(user);
 	}
 
@@ -367,8 +334,8 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath(type, string)).setOnline(online)
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, string)).setOnline(online)
 						.withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
 	}
 

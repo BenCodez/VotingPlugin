@@ -5,55 +5,35 @@ import java.util.ArrayList;
 import org.bukkit.Location;
 
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.data.ServerData;
+
+import lombok.Getter;
+import lombok.Setter;
 
 // TODO: Auto-generated Javadoc
 /**
  * The Class Signs.
  */
 public class Signs {
+	private VotingPluginMain plugin;
 
-	/** The instance. */
-	static Signs instance = new Signs();
+	@Getter
+	@Setter
+	private ArrayList<SignHandler> signs;
 
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of Signs.
-	 *
-	 * @return single instance of Signs
-	 */
-	public static Signs getInstance() {
-		return instance;
-	}
-
-	/**
-	 * Instantiates a new signs.
-	 */
-	private Signs() {
-	}
-
-	/**
-	 * Instantiates a new signs.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
 	public Signs(VotingPluginMain plugin) {
-		Signs.plugin = plugin;
+		this.plugin = plugin;
+		this.signs = new ArrayList<SignHandler>();
 	}
 
 	/**
 	 * Gets the sign from location.
 	 *
-	 * @param loc
-	 *            the loc
+	 * @param loc the loc
 	 * @return the sign from location
 	 */
 	public String getSignFromLocation(Location loc) {
-		for (String sign : ServerData.getInstance().getSigns()) {
-			if (ServerData.getInstance().getSignLocation(sign).equals(loc)) {
+		for (String sign : plugin.getServerData().getSigns()) {
+			if (plugin.getServerData().getSignLocation(sign).equals(loc)) {
 				return sign;
 			}
 		}
@@ -65,12 +45,12 @@ public class Signs {
 	 * Load signs.
 	 */
 	public void loadSigns() {
-		plugin.setSigns(new ArrayList<SignHandler>());
-		for (String sign : ServerData.getInstance().getSigns()) {
+		setSigns(new ArrayList<SignHandler>());
+		for (String sign : plugin.getServerData().getSigns()) {
 			// plugin.getLogger().info("Loading sign " + sign);
-			plugin.getSigns().add(new SignHandler(sign, ServerData.getInstance().getSignLocation(sign),
-					ServerData.getInstance().getSignSkullLocation(sign), ServerData.getInstance().getSignData(sign),
-					ServerData.getInstance().getSignPosition(sign)));
+			getSigns().add(new SignHandler(plugin, sign, plugin.getServerData().getSignLocation(sign),
+					plugin.getServerData().getSignSkullLocation(sign), plugin.getServerData().getSignData(sign),
+					plugin.getServerData().getSignPosition(sign)));
 		}
 	}
 
@@ -78,7 +58,7 @@ public class Signs {
 	 * Store signs.
 	 */
 	public void storeSigns() {
-		for (SignHandler sign : plugin.getSigns()) {
+		for (SignHandler sign : getSigns()) {
 			sign.storeSign();
 		}
 	}
@@ -88,15 +68,15 @@ public class Signs {
 	 */
 	public void updateSigns() {
 		int time = 0;
-		for (int i = plugin.getSigns().size() - 1; i >= 0; i--) {
-			if (!plugin.getSigns().get(i).isValid()) {
-				plugin.debug("Sign " + i + " invalid, removing from data: "
-						+ plugin.getSigns().get(i).getLocation().toString());
-				plugin.getSigns().get(i).removeSign();
-				plugin.getSigns().remove(i);
+		for (int i = getSigns().size() - 1; i >= 0; i--) {
+			if (!getSigns().get(i).isValid()) {
+				plugin.debug(
+						"Sign " + i + " invalid, removing from data: " + getSigns().get(i).getLocation().toString());
+				getSigns().get(i).removeSign();
+				getSigns().remove(i);
 			} else {
-				plugin.getSigns().get(i).updateLines();
-				plugin.getSigns().get(i).updateSign(time);
+				getSigns().get(i).updateLines();
+				getSigns().get(i).updateSign(time);
 				time += 5;
 			}
 		}

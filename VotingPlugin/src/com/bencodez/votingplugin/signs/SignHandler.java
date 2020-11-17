@@ -15,8 +15,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -31,11 +29,27 @@ public class SignHandler {
 
 	@Getter
 	@Setter
-	private String sign;
+	private String data;
+
+	/** The lines. */
+	private ArrayList<String> lines;
 
 	@Getter
 	@Setter
 	private Location location;
+
+	/** The player name. */
+	private String playerName;
+
+	/** The plugin. */
+	private VotingPluginMain plugin;
+
+	/** The position. */
+	private int position;
+
+	@Getter
+	@Setter
+	private String sign;
 
 	@Getter
 	@Setter
@@ -43,28 +57,14 @@ public class SignHandler {
 
 	@Getter
 	@Setter
-	private String data;
-
-	/** The lines. */
-	private ArrayList<String> lines;
-
-	/** The position. */
-	private int position;
-
-	/** The plugin. */
-	public VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/** The player name. */
-	private String playerName;
+	private boolean valid;
 
 	/** The votes. */
 	private int votes;
 
-	@Getter
-	@Setter
-	private boolean valid;
-
-	public SignHandler(String sign, Location location, Location skullLocation, String data, int position) {
+	public SignHandler(VotingPluginMain plugin, String sign, Location location, Location skullLocation, String data,
+			int position) {
+		this.plugin = plugin;
 		setSign(sign);
 		setLocation(location);
 		setSkullLocation(skullLocation);
@@ -129,7 +129,7 @@ public class SignHandler {
 	 * @return the right click message
 	 */
 	public String getRightClickMessage() {
-		String msg = Config.getInstance().getFormatSignTopVoterSignRightClickMessage();
+		String msg = plugin.getConfigFile().getFormatSignTopVoterSignRightClickMessage();
 		msg = msg.replace("%player%", playerName);
 		msg = msg.replace("%position%", "" + position);
 		msg = msg.replace("%votes%", "" + votes);
@@ -140,8 +140,7 @@ public class SignHandler {
 	/**
 	 * Checks if is location same.
 	 *
-	 * @param loc
-	 *            the loc
+	 * @param loc the loc
 	 * @return true, if is location same
 	 */
 	public boolean isLocationSame(Location loc) {
@@ -156,14 +155,14 @@ public class SignHandler {
 	 * Removes the sign.
 	 */
 	public void removeSign() {
-		ServerData.getInstance().removeSign(sign);
+		plugin.getServerData().removeSign(sign);
 	}
 
 	/**
 	 * Store sign.
 	 */
 	public void storeSign() {
-		ServerData.getInstance().setSign(sign, location, skullLocation, data, position);
+		plugin.getServerData().setSign(sign, location, skullLocation, data, position);
 	}
 
 	/**
@@ -173,10 +172,10 @@ public class SignHandler {
 		lines = new ArrayList<String>();
 		checkValidSign();
 		if (position != 0) {
-			String line1 = Config.getInstance().getFormatSignTopVoterSignLine1();
-			String line2 = Config.getInstance().getFormatSignTopVoterSignLine2();
-			String line3 = Config.getInstance().getFormatSignTopVoterSignLine3();
-			String line4 = Config.getInstance().getFormatSignTopVoterSignLine4();
+			String line1 = plugin.getConfigFile().getFormatSignTopVoterSignLine1();
+			String line2 = plugin.getConfigFile().getFormatSignTopVoterSignLine2();
+			String line3 = plugin.getConfigFile().getFormatSignTopVoterSignLine3();
+			String line4 = plugin.getConfigFile().getFormatSignTopVoterSignLine4();
 			lines.add(line1);
 			lines.add(line2);
 			lines.add(line3);
@@ -232,8 +231,7 @@ public class SignHandler {
 	/**
 	 * Update sign.
 	 *
-	 * @param delay
-	 *            the delay
+	 * @param delay the delay
 	 */
 	public void updateSign(int delay) {
 		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {

@@ -18,35 +18,10 @@ import com.bencodez.votingplugin.signs.SignHandler;
  */
 public class ServerData {
 
-	/** The instance. */
-	static ServerData instance = new ServerData();
+	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of ServerData.
-	 *
-	 * @return single instance of ServerData
-	 */
-	public static ServerData getInstance() {
-		return instance;
-	}
-
-	/**
-	 * Instantiates a new server data.
-	 */
-	private ServerData() {
-	}
-
-	/**
-	 * Instantiates a new server data.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
 	public ServerData(VotingPluginMain plugin) {
-		ServerData.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	public synchronized void addServiceSite(String site) {
@@ -60,12 +35,9 @@ public class ServerData {
 	/**
 	 * Adds the sign.
 	 *
-	 * @param location
-	 *            the location
-	 * @param data
-	 *            the data
-	 * @param position
-	 *            the position
+	 * @param location the location
+	 * @param data     the data
+	 * @param position the position
 	 */
 	public void addSign(Location location, String data, int position) {
 
@@ -78,8 +50,8 @@ public class ServerData {
 		getData().set("Signs." + count + ".Data", data);
 		getData().set("Signs." + count + ".Position", position);
 		saveData();
-		plugin.getSigns().add(new SignHandler("" + count, getSignLocation("" + count), getSignSkullLocation("" + count),
-				getSignData("" + count), getSignPosition("" + count)));
+		plugin.getSigns().getSigns().add(new SignHandler(plugin, "" + count, getSignLocation("" + count),
+				getSignSkullLocation("" + count), getSignData("" + count), getSignPosition("" + count)));
 	}
 
 	/**
@@ -106,8 +78,7 @@ public class ServerData {
 	/**
 	 * Gets the sign data.
 	 *
-	 * @param sign
-	 *            the sign
+	 * @param sign the sign
 	 * @return the sign data
 	 */
 	public String getSignData(String sign) {
@@ -117,8 +88,7 @@ public class ServerData {
 	/**
 	 * Gets the sign location.
 	 *
-	 * @param sign
-	 *            the sign
+	 * @param sign the sign
 	 * @return the sign location
 	 */
 	public Location getSignLocation(String sign) {
@@ -130,8 +100,7 @@ public class ServerData {
 	/**
 	 * Gets the sign position.
 	 *
-	 * @param sign
-	 *            the sign
+	 * @param sign the sign
 	 * @return the sign position
 	 */
 	public int getSignPosition(String sign) {
@@ -154,8 +123,7 @@ public class ServerData {
 	/**
 	 * Gets the sign location.
 	 *
-	 * @param sign
-	 *            the sign
+	 * @param sign the sign
 	 * @return the sign location
 	 */
 	public Location getSignSkullLocation(String sign) {
@@ -199,8 +167,7 @@ public class ServerData {
 	/**
 	 * Removes the sign.
 	 *
-	 * @param sign
-	 *            the sign
+	 * @param sign the sign
 	 */
 	public void removeSign(String sign) {
 		getData().set("Signs." + sign + ".World", null);

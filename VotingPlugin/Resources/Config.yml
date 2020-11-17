@@ -113,7 +113,7 @@ Format:
     # %url% = site URL
     Vote: 
       Text:
-      - '&6&lVote for our server!'
+      - '&3&lVote for our server!'
       
       # If you want to want to use the feature below where the plugin will
       # automaticly list the sites then set the message in the text above
@@ -122,7 +122,7 @@ Format:
       # make sure to set VoteURL in your VoteSites
       # Requires above to be true
       # Text will be sent before this
-      Sites: '&6%num%: &e&l%SiteName% - &e%url%'
+      Sites: '&3%num%: &6&l%SiteName% &6- %url%'
       
       # If true, links will always be forced as urls
       ForceLinks: true

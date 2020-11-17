@@ -7,15 +7,15 @@ public class OfflineBungeeVote {
 	@Getter
 	private String playerName;
 	@Getter
-	private String uuid;
+	private boolean realVote;
 	@Getter
 	private String service;
 	@Getter
+	private String text;
+	@Getter
 	private long time;
 	@Getter
-	private boolean realVote;
-	@Getter
-	private String text;
+	private String uuid;
 
 	public OfflineBungeeVote(String playerName, String uuid, String service, long time, boolean realVote, String text) {
 		this.playerName = playerName;

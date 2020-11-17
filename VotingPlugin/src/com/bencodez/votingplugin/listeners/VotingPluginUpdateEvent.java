@@ -19,8 +19,7 @@ public class VotingPluginUpdateEvent implements Listener {
 	/**
 	 * Instantiates a new advanced core update event.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public VotingPluginUpdateEvent(VotingPluginMain plugin) {
 		VotingPluginUpdateEvent.plugin = plugin;
@@ -29,8 +28,7 @@ public class VotingPluginUpdateEvent implements Listener {
 	/**
 	 * On plugin update.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPluginUpdate(PluginUpdateVersionEvent event) {

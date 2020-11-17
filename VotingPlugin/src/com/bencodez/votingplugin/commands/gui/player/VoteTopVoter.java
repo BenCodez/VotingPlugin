@@ -18,19 +18,15 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTopVoter extends GUIHandler {
 
-	private VotingPluginUser user;
+	private int page;
 	private VotingPluginMain plugin;
 	private TopVoter top;
-	private int page;
+	private VotingPluginUser user;
 
 	public VoteTopVoter(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, TopVoter top, int page) {
 		super(player);
@@ -38,6 +34,23 @@ public class VoteTopVoter extends GUIHandler {
 		this.user = user;
 		this.top = top;
 		this.page = page;
+	}
+
+	@Override
+	public ArrayList<String> getChat(CommandSender sender) {
+		switch (top) {
+		case AllTime:
+			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterAllTime(page));
+		case Daily:
+			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterDaily(page));
+		case Monthly:
+			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterMonthly(page));
+		case Weekly:
+			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterWeekly(page));
+		default:
+			break;
+		}
+		return new ArrayList<String>();
 	}
 
 	@Override
@@ -60,12 +73,13 @@ public class VoteTopVoter extends GUIHandler {
 
 			String topVoter = top.getName();
 			@SuppressWarnings("unchecked")
-			LinkedHashMap<VotingPluginUser, Integer> topVotes = (LinkedHashMap<VotingPluginUser, Integer>) plugin.getTopVoter(top).clone();
+			LinkedHashMap<VotingPluginUser, Integer> topVotes = (LinkedHashMap<VotingPluginUser, Integer>) plugin
+					.getTopVoter(top).clone();
 			users = topVotes.entrySet();
 
-			BInventory inv = new BInventory(GUI.getInstance().getChestVoteTopName());
+			BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 			inv.addPlaceholder("topvoter", topVoter);
-			if (!Config.getInstance().isAlwaysCloseInventory()) {
+			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 				inv.dontClose();
 			}
 
@@ -73,17 +87,16 @@ public class VoteTopVoter extends GUIHandler {
 			for (Entry<VotingPluginUser, Integer> entry : users) {
 				ItemBuilder playerItem;
 
-				if (GUI.getInstance().isChestVoteTopUseSkull()) {
+				if (plugin.getGui().isChestVoteTopUseSkull()) {
 					playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
 				} else {
-					playerItem = new ItemBuilder(
-							Material.valueOf(GUI.getInstance().getChestVoteTopPlayerItemMaterial()));
+					playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 				}
 
 				playerItem.setLore(new ArrayList<String>());
 
-				inv.addButton(new BInventoryButton(playerItem.setName(GUI.getInstance().getChestVoteTopItemName())
-						.addLoreLine(GUI.getInstance().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
+				inv.addButton(new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
+						.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
 						.addPlaceholder("player", entry.getKey().getPlayerName())
 						.addPlaceholder("votes", "" + entry.getValue())) {
 
@@ -91,7 +104,7 @@ public class VoteTopVoter extends GUIHandler {
 					public void onClick(ClickEvent clickEvent) {
 						VotingPluginUser user = (VotingPluginUser) getData("User");
 						new VoteGUI(plugin, player, user)
-								.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
+								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}
 				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
 				pos++;
@@ -99,7 +112,7 @@ public class VoteTopVoter extends GUIHandler {
 
 			final TopVoter cur = top;
 			inv.getPageButtons().add(new BInventoryButton(
-					new ItemBuilder(GUI.getInstance().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
+					new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
@@ -111,12 +124,12 @@ public class VoteTopVoter extends GUIHandler {
 				}
 			});
 
-			if (GUI.getInstance().getChestVoteTopBackButton()) {
-				inv.getPageButtons().add(CommandLoader.getInstance().getBackButton(user).setSlot(1));
+			if (plugin.getGui().getChestVoteTopBackButton()) {
+				inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
 			}
 
 			inv.setPages(true);
-			inv.setMaxInvSize(GUI.getInstance().getChestVoteTopSize());
+			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
 			inv.openInventory(player);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -124,25 +137,8 @@ public class VoteTopVoter extends GUIHandler {
 	}
 
 	@Override
-	public ArrayList<String> getChat(CommandSender sender) {
-		switch (top) {
-			case AllTime:
-				return ArrayUtils.getInstance().convert(TopVoterHandler.getInstance().topVoterAllTime(page));
-			case Daily:
-				return ArrayUtils.getInstance().convert(TopVoterHandler.getInstance().topVoterDaily(page));
-			case Monthly:
-				return ArrayUtils.getInstance().convert(TopVoterHandler.getInstance().topVoterMonthly(page));
-			case Weekly:
-				return ArrayUtils.getInstance().convert(TopVoterHandler.getInstance().topVoterWeekly(page));
-			default:
-				break;
-		}
-		return new ArrayList<String>();
-	}
-
-	@Override
 	public void open() {
-		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodTopVoter().toUpperCase()));
+		open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 	}
 
 }

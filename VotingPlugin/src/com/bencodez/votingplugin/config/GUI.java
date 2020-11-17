@@ -8,130 +8,34 @@ import java.util.Set;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.yml.YMLFile;
-import com.bencodez.advancedcore.yml.annotation.AnnotationHandler;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataBoolean;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataConfigurationSection;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataListString;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataString;
+import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataConfigurationSection;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
 
 public class GUI extends YMLFile {
-	/** The instance. */
-	static GUI instance = new GUI();
 
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of Config.
-	 *
-	 * @return single instance of Config
-	 */
-	public static GUI getInstance() {
-		return instance;
-	}
-
-	public GUI() {
-		super(new File(VotingPluginMain.plugin.getDataFolder(), "GUI.yml"));
-	}
-
-	@Override
-	public void loadValues() {
-		new AnnotationHandler().load(getData(), this);
-	}
-
-	@Override
-	public void onFileCreation() {
-		plugin.saveResource("GUI.yml", true);
-	}
-
-	@ConfigDataString(path = "GUIMethod.Today")
+	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedColor")
 	@Getter
-	private String guiMethodToday = "CHEST";
+	private String bookVoteURLBookGUIAlreadyVotedColor = "RED";
 
-	@ConfigDataString(path = "GUIMethod.TopVoter")
+	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedText")
 	@Getter
-	private String guiMethodTopVoter = "CHEST";
+	private String bookVoteURLBookGUIAlreadyVotedText = "Click me";
 
-	@ConfigDataString(path = "GUIMethod.Last")
+	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteColor")
 	@Getter
-	private String guiMethodLast = "CHEST";
+	private String bookVoteURLBookGUICanVoteColor = "GREEN";
 
-	@ConfigDataString(path = "GUIMethod.Next")
+	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteText")
 	@Getter
-	private String guiMethodNext = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Total")
-	@Getter
-	private String guiMethodTotal = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.URL")
-	@Getter
-	private String guiMethodURL = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Best")
-	@Getter
-	private String guiMethodBest = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Streak")
-	@Getter
-	private String guiMethodStreak = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.GUI")
-	@Getter
-	private String guiMethodGUI = "CHEST";
-
-	@ConfigDataBoolean(path = "LastMonthGUI")
-	@Getter
-	private boolean lastMonthGUI = false;
-
-	@ConfigDataString(path = "CHEST.VoteToday.Line")
-	@Getter
-	private String chestVoteTodayLine = "&6%VoteSite% : %Time%";
-
-	@ConfigDataBoolean(path = "CHEST.VoteToday.UseSkull", defaultValue = true)
-	@Getter
-	private boolean chestVoteTodayUseSkull = true;
-
-	@ConfigDataConfigurationSection(path = "CHEST.VoteToday.PlayerItem")
-	@Getter
-	private ConfigurationSection chestVoteTodayPlayerItem;
-
-	@ConfigDataString(path = "CHEST.VoteToday.IconTitle")
-	@Getter
-	private String chestVoteTodayIconTitle = "%player%";
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopHideLimitedReached")
-	@Getter
-	private boolean chestVoteShopHideLimitedReached = true;
-
-	@ConfigDataString(path = "CHEST.VoteShopLimitReached")
-	@Getter
-	private String chestVoteShopLimitReached = "&aYou reached your limit";
-
-	@ConfigDataBoolean(path = "CHEST.VoteTop.UseSkull")
-	@Getter
-	private boolean chestVoteTopUseSkull = true;
-
-	@ConfigDataString(path = "CHEST.VoteTop.PlayerItem.Material")
-	@Getter
-	private String chestVoteTopPlayerItemMaterial = "PAPER";
-
-	@Getter
-	@ConfigDataString(path = "CHEST.VoteShopDisabled")
-	private String chestVoteShopDisabled = "&cVote shop disabled";
-
-	@ConfigDataBoolean(path = "CHEST.VoteURL.AllUrlsButton.RequireAllSitesVoted")
-	@Getter
-	private boolean chestVoteURLAllUrlsButtonrequireAllSitesVoted = true;
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopRequireConfirmation")
-	@Getter
-	private boolean chestVoteShopRequireConfirmation = false;
+	private String bookVoteURLBookGUICanVoteText = "Click me";
 
 	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.Layout")
 	@Getter
@@ -142,21 +46,141 @@ public class GUI extends YMLFile {
 	@Getter
 	private String bookVoteURLBookGUITitle = "&cVoteURL";
 
-	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteText")
 	@Getter
-	private String bookVoteURLBookGUICanVoteText = "Click me";
+	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.NoItem")
+	private ConfigurationSection chestShopConfirmPurchaseNoItem;
 
-	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedText")
 	@Getter
-	private String bookVoteURLBookGUIAlreadyVotedText = "Click me";
+	@ConfigDataString(path = "CHEST.ShopConfirmPurchase.Title")
+	private String chestShopConfirmPurchaseTitle = "Confirm Purchase?";
 
-	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteColor")
 	@Getter
-	private String bookVoteURLBookGUICanVoteColor = "GREEN";
+	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.YesItem")
+	private ConfigurationSection chestShopConfirmPurchaseYesItem;
 
-	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedColor")
 	@Getter
-	private String bookVoteURLBookGUIAlreadyVotedColor = "RED";
+	@ConfigDataString(path = "CHEST.VoteShopDisabled")
+	private String chestVoteShopDisabled = "&cVote shop disabled";
+
+	@ConfigDataBoolean(path = "CHEST.VoteShopHideLimitedReached")
+	@Getter
+	private boolean chestVoteShopHideLimitedReached = true;
+
+	@ConfigDataString(path = "CHEST.VoteShopLimitReached")
+	@Getter
+	private String chestVoteShopLimitReached = "&aYou reached your limit";
+
+	@ConfigDataBoolean(path = "CHEST.VoteShopRequireConfirmation")
+	@Getter
+	private boolean chestVoteShopRequireConfirmation = false;
+
+	@ConfigDataString(path = "CHEST.VoteToday.IconTitle")
+	@Getter
+	private String chestVoteTodayIconTitle = "%player%";
+
+	@ConfigDataString(path = "CHEST.VoteToday.Line")
+	@Getter
+	private String chestVoteTodayLine = "&6%VoteSite% : %Time%";
+
+	@ConfigDataConfigurationSection(path = "CHEST.VoteToday.PlayerItem")
+	@Getter
+	private ConfigurationSection chestVoteTodayPlayerItem;
+
+	@ConfigDataBoolean(path = "CHEST.VoteToday.UseSkull", defaultValue = true)
+	@Getter
+	private boolean chestVoteTodayUseSkull = true;
+
+	@ConfigDataString(path = "CHEST.VoteTop.PlayerItem.Material")
+	@Getter
+	private String chestVoteTopPlayerItemMaterial = "PAPER";
+
+	@ConfigDataBoolean(path = "CHEST.VoteTop.UseSkull")
+	@Getter
+	private boolean chestVoteTopUseSkull = true;
+
+	@ConfigDataBoolean(path = "CHEST.VoteURL.AllUrlsButton.RequireAllSitesVoted")
+	@Getter
+	private boolean chestVoteURLAllUrlsButtonrequireAllSitesVoted = true;
+
+	@ConfigDataString(path = "GUIMethod.Best")
+	@Getter
+	private String guiMethodBest = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.GUI")
+	@Getter
+	private String guiMethodGUI = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Last")
+	@Getter
+	private String guiMethodLast = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Next")
+	@Getter
+	private String guiMethodNext = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Streak")
+	@Getter
+	private String guiMethodStreak = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Today")
+	@Getter
+	private String guiMethodToday = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.TopVoter")
+	@Getter
+	private String guiMethodTopVoter = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Total")
+	@Getter
+	private String guiMethodTotal = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.URL")
+	@Getter
+	private String guiMethodURL = "CHEST";
+
+	@ConfigDataBoolean(path = "LastMonthGUI")
+	@Getter
+	private boolean lastMonthGUI = false;
+
+	private VotingPluginMain plugin;
+
+	public GUI(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
+		this.plugin = plugin;
+	}
+
+	public ConfigurationSection getCHESTBackButton() {
+		return getData().getConfigurationSection("CHEST.BackButton");
+	}
+
+	public int getChestShopIdentifierCost(String identifier) {
+		return getData().getInt("CHEST.Shop." + identifier + ".Cost");
+	}
+
+	public String getChestShopIdentifierIdentifierName(String identifier) {
+		return getData().getString("CHEST.Shop." + identifier + ".Identifier_Name", identifier);
+	}
+
+	public int getChestShopIdentifierLimit(String identifier) {
+		return getData().getInt("CHEST.Shop." + identifier + ".Limit", -1);
+	}
+
+	public String getChestShopIdentifierRewardsPath(String identifier) {
+		return "CHEST.Shop." + identifier + ".Rewards";
+
+	}
+
+	public Set<String> getChestShopIdentifiers() {
+		ConfigurationSection shop = getData().getConfigurationSection("CHEST.Shop");
+		if (shop != null) {
+			return shop.getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
+	public ConfigurationSection getChestShopIdentifierSection(String identifier) {
+		return getData().getConfigurationSection("CHEST.Shop." + identifier);
+	}
 
 	public ConfigurationSection getChestVoteBestDayBestItem() {
 		return getData().getConfigurationSection("CHEST.VoteBest.DayBest.Item");
@@ -178,6 +202,55 @@ public class GUI extends YMLFile {
 		return getData().getString("CHEST.VoteGUIName", "&cVoteGUI: &c&l%player%");
 	}
 
+	/**
+	 * Gets the vote GUI slot command.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot command
+	 */
+
+	public String getChestVoteGUISlotCommand(String slot) {
+		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
+	}
+
+	/**
+	 * Gets the vote GUI slot lore.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot lore
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
+		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
+	}
+
+	/**
+	 * Gets the vote GUI slots.
+	 *
+	 * @return the vote GUI slots
+	 */
+	public Set<String> getChestVoteGUISlots() {
+		try {
+			return getData().getConfigurationSection("CHEST.VoteGUI").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<String>();
+		}
+	}
+
+	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
+		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
+	}
+
+	/**
+	 * Gets the vote GUI slot slot.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot slot
+	 */
+	public int getChestVoteGUISlotSlot(String slot) {
+		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
+	}
+
 	public boolean getChestVoteLastBackButton() {
 		return getData().getBoolean("CHEST.VoteLast.BackButton");
 	}
@@ -196,6 +269,42 @@ public class GUI extends YMLFile {
 
 	public String getChestVoteRewardName() {
 		return getData().getString("CHEST.VoteRewardName", "VoteReward");
+	}
+
+	public boolean getChestVoteShopBackButton() {
+		return getData().getBoolean("CHEST.VoteShopBackButton", true);
+	}
+
+	public boolean getChestVoteShopCloseGUI(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
+	}
+
+	public boolean getChestVoteShopEnabled() {
+		return getData().getBoolean("CHEST.VoteShopEnabled", true);
+	}
+
+	public String getChestVoteShopName() {
+		return getData().getString("CHEST.VoteShopName", "VoteShop");
+	}
+
+	public boolean getChestVoteShopNotBuyable(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
+	}
+
+	public String getChestVoteShopPermission(String ident) {
+		return getData().getString("CHEST.Shop." + ident + ".Permission", "");
+	}
+
+	public boolean getChestVoteShopResetDaily(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Daily", false);
+	}
+
+	public boolean getChestVoteShopResetMonthly(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Monthly", false);
+	}
+
+	public boolean getChestVoteShopResetWeekly(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Weekly", false);
 	}
 
 	public boolean getChestVoteStreakBackButton() {
@@ -302,136 +411,6 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteTotal.WeekTotal.Item");
 	}
 
-	public boolean getChestVoteURLBackButton() {
-		return getData().getBoolean("CHEST.VoteURL.BackButton");
-	}
-
-	public String getChestVoteURLName() {
-		return getData().getString("CHEST.VoteURL.Name", "&cVoteURL");
-	}
-
-	public String getChestVoteURLSiteName() {
-		return getData().getString("CHEST.VoteURLSite.Name", "VoteSite %site%");
-	}
-
-	public String getChestVoteURLURLText() {
-		return getData().getString("CHEST.VoteURL.URLText", "%VoteUrl%");
-	}
-
-	public int getChestShopIdentifierCost(String identifier) {
-		return getData().getInt("CHEST.Shop." + identifier + ".Cost");
-	}
-
-	public String getChestShopIdentifierIdentifierName(String identifier) {
-		return getData().getString("CHEST.Shop." + identifier + ".Identifier_Name", identifier);
-	}
-
-	public int getChestShopIdentifierLimit(String identifier) {
-		return getData().getInt("CHEST.Shop." + identifier + ".Limit", -1);
-	}
-
-	public String getChestShopIdentifierRewardsPath(String identifier) {
-		return "CHEST.Shop." + identifier + ".Rewards";
-
-	}
-
-	public Set<String> getChestShopIdentifiers() {
-		ConfigurationSection shop = getData().getConfigurationSection("CHEST.Shop");
-		if (shop != null) {
-			return shop.getKeys(false);
-		}
-		return new HashSet<String>();
-	}
-
-	public ConfigurationSection getChestShopIdentifierSection(String identifier) {
-		return getData().getConfigurationSection("CHEST.Shop." + identifier);
-	}
-
-	/**
-	 * Gets the vote GUI slot command.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot command
-	 */
-
-	public String getChestVoteGUISlotCommand(String slot) {
-		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
-	}
-
-	/**
-	 * Gets the vote GUI slot lore.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot lore
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
-		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
-	}
-
-	/**
-	 * Gets the vote GUI slots.
-	 *
-	 * @return the vote GUI slots
-	 */
-	public Set<String> getChestVoteGUISlots() {
-		try {
-			return getData().getConfigurationSection("CHEST.VoteGUI").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
-
-	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
-		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
-	}
-
-	/**
-	 * Gets the vote GUI slot slot.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot slot
-	 */
-	public int getChestVoteGUISlotSlot(String slot) {
-		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
-	}
-
-	public boolean getChestVoteShopBackButton() {
-		return getData().getBoolean("CHEST.VoteShopBackButton", true);
-	}
-
-	public boolean getChestVoteShopEnabled() {
-		return getData().getBoolean("CHEST.VoteShopEnabled", true);
-	}
-
-	public String getChestVoteShopName() {
-		return getData().getString("CHEST.VoteShopName", "VoteShop");
-	}
-
-	public boolean getChestVoteShopNotBuyable(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
-	}
-
-	public boolean getChestVoteShopCloseGUI(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
-	}
-
-	public String getChestVoteShopPermission(String ident) {
-		return getData().getString("CHEST.Shop." + ident + ".Permission", "");
-	}
-
-	public boolean getChestVoteShopResetDaily(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Daily", false);
-	}
-
-	public boolean getChestVoteShopResetMonthly(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Monthly", false);
-	}
-
-	public boolean getChestVoteShopResetWeekly(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Weekly", false);
-	}
-
 	public ConfigurationSection getChestVoteURLAlreadyVotedAllUrlsButtonItemSection() {
 		if (getData().isConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
 			return getData().getConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem");
@@ -440,20 +419,12 @@ public class GUI extends YMLFile {
 		}
 	}
 
-	@Getter
-	@ConfigDataString(path = "CHEST.ShopConfirmPurchase.Title")
-	private String chestShopConfirmPurchaseTitle = "Confirm Purchase?";
-
-	@Getter
-	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.YesItem")
-	private ConfigurationSection chestShopConfirmPurchaseYesItem;
-
-	@Getter
-	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.NoItem")
-	private ConfigurationSection chestShopConfirmPurchaseNoItem;
-
 	public ConfigurationSection getChestVoteURLAlreadyVotedItemSection() {
 		return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
+	}
+
+	public boolean getChestVoteURLBackButton() {
+		return getData().getBoolean("CHEST.VoteURL.BackButton");
 	}
 
 	public ConfigurationSection getChestVoteURLCanVoteAllUrlsButtonItemSection() {
@@ -466,6 +437,19 @@ public class GUI extends YMLFile {
 
 	public ConfigurationSection getChestVoteURLCanVoteItemSection() {
 		return getData().getConfigurationSection("CHEST.VoteURL.CanVoteItem");
+	}
+
+	/**
+	 * Gets the vote URL site name.
+	 *
+	 * @return the vote URL site name
+	 */
+	public String getChestVoteURLGUISiteName() {
+		return getData().getString("CHEST.VoteURL.SiteName", "&c%Name%");
+	}
+
+	public String getChestVoteURLName() {
+		return getData().getString("CHEST.VoteURL.Name", "&cVoteURL");
 	}
 
 	/**
@@ -487,13 +471,12 @@ public class GUI extends YMLFile {
 		return getData().getString("CHEST.VoteURL.SeeURL", "&cClick to see URL");
 	}
 
-	/**
-	 * Gets the vote URL site name.
-	 *
-	 * @return the vote URL site name
-	 */
-	public String getChestVoteURLGUISiteName() {
-		return getData().getString("CHEST.VoteURL.SiteName", "&c%Name%");
+	public String getChestVoteURLSiteName() {
+		return getData().getString("CHEST.VoteURLSite.Name", "VoteSite %site%");
+	}
+
+	public String getChestVoteURLURLText() {
+		return getData().getString("CHEST.VoteURL.URLText", "%VoteUrl%");
 	}
 
 	/**
@@ -505,7 +488,13 @@ public class GUI extends YMLFile {
 		return getData().getBoolean("CHEST.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
-	public ConfigurationSection getCHESTBackButton() {
-		return getData().getConfigurationSection("CHEST.BackButton");
+	@Override
+	public void loadValues() {
+		new AnnotationHandler().load(getData(), this);
+	}
+
+	@Override
+	public void onFileCreation() {
+		plugin.saveResource("GUI.yml", true);
 	}
 }

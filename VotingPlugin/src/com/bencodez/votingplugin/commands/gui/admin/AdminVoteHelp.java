@@ -12,43 +12,18 @@ import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
 
 import net.md_5.bungee.api.chat.TextComponent;
 
 public class AdminVoteHelp extends GUIHandler {
 
-	private VotingPluginMain plugin;
 	private int page;
+	private VotingPluginMain plugin;
 
 	public AdminVoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
 		super(player);
 		this.plugin = plugin;
 		this.page = page;
-	}
-
-	@Override
-	public ArrayList<String> getChat(CommandSender sender) {
-		return null;
-	}
-
-	@Override
-	public void onBook(Player player) {
-	}
-
-	@Override
-	public void onChat(CommandSender sender) {
-		sendMessageJson(adminHelp(sender, page));
-	}
-
-	@Override
-	public void onChest(Player player) {
-
-	}
-
-	@Override
-	public void open() {
-		open(GUIMethod.CHAT);
 	}
 
 	/**
@@ -59,7 +34,7 @@ public class AdminVoteHelp extends GUIHandler {
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
-		int pagesize = Config.getInstance().getFormatPageSize();
+		int pagesize = plugin.getConfigFile().getFormatPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		ArrayList<TextComponent> text = adminHelpText(sender);
 
@@ -89,7 +64,7 @@ public class AdminVoteHelp extends GUIHandler {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = Config.getInstance().getFormatCommandsVoteHelpRequirePermission();
+		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
 			if (requirePerms && sender.hasPermission(cmdHandle.getPerm())) {
@@ -106,6 +81,30 @@ public class AdminVoteHelp extends GUIHandler {
 		}
 
 		return msg;
+	}
+
+	@Override
+	public ArrayList<String> getChat(CommandSender sender) {
+		return null;
+	}
+
+	@Override
+	public void onBook(Player player) {
+	}
+
+	@Override
+	public void onChat(CommandSender sender) {
+		sendMessageJson(adminHelp(sender, page));
+	}
+
+	@Override
+	public void onChest(Player player) {
+
+	}
+
+	@Override
+	public void open() {
+		open(GUIMethod.CHAT);
 	}
 
 }

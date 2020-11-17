@@ -8,8 +8,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -18,23 +16,23 @@ import com.bencodez.votingplugin.config.Config;
 public class PlayerCommandSendListener implements Listener {
 
 	@SuppressWarnings("unused")
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	public PlayerCommandSendListener(VotingPluginMain plugin) {
-		PlayerCommandSendListener.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onTab(PlayerCommandSendEvent event) {
-		if (Config.getInstance().isDisableAdvancedTab()) {
+		if (plugin.getConfigFile().isDisableAdvancedTab()) {
 			return;
 		}
 		ArrayList<String> removeCmds = new ArrayList<String>();
 		if (!VotingPluginMain.plugin.getAdvancedTab().containsKey(event.getPlayer().getUniqueId())) {
 			ArrayList<String> whiteListed = new ArrayList<String>();
 			for (String cmd : event.getCommands()) {
-				if (CommandLoader.getInstance().isVotingPluginCommand(event.getPlayer(), cmd)) {
-					if (!CommandLoader.getInstance().hasPermission(event.getPlayer(), cmd)
+				if (plugin.getCommandLoader().isVotingPluginCommand(event.getPlayer(), cmd)) {
+					if (!plugin.getCommandLoader().hasPermission(event.getPlayer(), cmd)
 							&& !whiteListed.contains(cmd)) {
 						removeCmds.add(cmd);
 						// plugin.debug("removed " + cmd);

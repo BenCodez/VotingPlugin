@@ -11,19 +11,12 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
-import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessage;
-import com.bencodez.votingplugin.BungeeHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.config.BungeeSettings;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.specialrewards.SpecialRewards;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
-import com.bencodez.votingplugin.voteparty.VoteParty;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -31,16 +24,9 @@ import com.bencodez.votingplugin.voteparty.VoteParty;
  */
 public class PlayerVoteListener implements Listener {
 
-	/** The config. */
-	static Config config = Config.getInstance();
-
-	/** The config vote sites. */
-	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
 	private static Object object = new Object();
+
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new votifer event.
@@ -48,7 +34,7 @@ public class PlayerVoteListener implements Listener {
 	 * @param plugin the plugin
 	 */
 	public PlayerVoteListener(VotingPluginMain plugin) {
-		PlayerVoteListener.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**
@@ -59,23 +45,24 @@ public class PlayerVoteListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		String playerName = event.getPlayer();
-		if (!PlayerUtils.getInstance().isValidUser(playerName, Config.getInstance().isAllowUnJoinedCheckServer())) {
-			if (!config.isAllowUnjoined()) {
+		if (!PlayerUtils.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
+			if (!plugin.getConfigFile().isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 				return;
 			}
 		}
-		
+
 		if (event.isBungee()) {
-			plugin.debug("BungeePlayerVote forcebungee: " + event.isForceBungee() + ", bungeetotals: " + event.getBungeeTextTotals());
+			plugin.debug("BungeePlayerVote forcebungee: " + event.isForceBungee() + ", bungeetotals: "
+					+ event.getBungeeTextTotals());
 		}
 
 		VoteSite voteSite = event.getVoteSite();
 
 		// check valid service sites
 		if (voteSite == null) {
-			if (!Config.getInstance().isDisableNoServiceSiteMessage()) {
+			if (!plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No voting site with the service site: '" + event.getServiceSite() + "'");
 				plugin.getLogger().warning(
 						"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
@@ -93,7 +80,7 @@ public class PlayerVoteListener implements Listener {
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerName);
 		user.updateName();
 
-		if (Config.getInstance().isClearCacheOnVote() || BungeeSettings.getInstance().isUseBungeecoord()) {
+		if (plugin.getConfigFile().isClearCacheOnVote() || plugin.getBungeeSettings().isUseBungeecoord()) {
 			user.clearCache();
 		}
 
@@ -105,12 +92,12 @@ public class PlayerVoteListener implements Listener {
 		synchronized (object) {
 
 			// vote party
-			VoteParty.getInstance().vote(user, event.isRealVote());
+			plugin.getVoteParty().vote(user, event.isRealVote());
 
 			// broadcast vote if enabled in config
-			if (config.isBroadcastVotesEnabled()
-					&& (BungeeSettings.getInstance().isBungeeBroadcast() || !event.isBungee())) {
-				if (!Config.getInstance().getFormatBroadcastWhenOnline() || user.isOnline()) {
+			if (plugin.getConfigFile().isBroadcastVotesEnabled()
+					&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
+				if (!plugin.getConfigFile().getFormatBroadcastWhenOnline() || user.isOnline()) {
 					voteSite.broadcastVote(user);
 				}
 			}
@@ -124,17 +111,18 @@ public class PlayerVoteListener implements Listener {
 			user.setLastVoteCoolDownCheck(false, voteSite);
 
 			// try logging to file
-			if (Config.getInstance().isLogVotesToFile()) {
+			if (plugin.getConfigFile().isLogVotesToFile()) {
 				try {
-					VotingPluginMain.plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(),
-							playerName, voteSite.getKey());
+					VotingPluginMain.plugin.logVote(
+							LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(), playerName,
+							voteSite.getKey());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 
 			// check first vote rewards
-			SpecialRewards.getInstance().checkFirstVote(user);
+			plugin.getSpecialRewards().checkFirstVote(user);
 
 			if (user.isReminded()) {
 				user.setReminded(false);
@@ -142,8 +130,8 @@ public class PlayerVoteListener implements Listener {
 
 			// check if player has voted on all sites in one day
 
-			if (((user.isOnline() || voteSite.isGiveOffline()) && VotingPluginMain.plugin.getOptions().isProcessRewards())
-					|| event.isBungee()) {
+			if (((user.isOnline() || voteSite.isGiveOffline())
+					&& VotingPluginMain.plugin.getOptions().isProcessRewards()) || event.isBungee()) {
 				user.playerVote(voteSite, true, false, event.isForceBungee());
 				user.closeInv();
 			} else {
@@ -153,8 +141,8 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// add to total votes
-			if ((Config.getInstance().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
-				if (Config.getInstance().isAddTotals()) {
+			if ((plugin.getConfigFile().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
+				if (plugin.getConfigFile().isAddTotals()) {
 					user.addTotal();
 					user.addTotalDaily();
 					user.addTotalWeekly();
@@ -165,19 +153,19 @@ public class PlayerVoteListener implements Listener {
 			user.checkDayVoteStreak();
 
 			// other rewards
-			SpecialRewards.getInstance().checkAllSites(user);
-			SpecialRewards.getInstance().checkCumualativeVotes(user, event.getBungeeTextTotals());
-			SpecialRewards.getInstance().checkMilestone(user, event.getBungeeTextTotals());
+			plugin.getSpecialRewards().checkAllSites(user);
+			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals());
+			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals());
 
-			if (BungeeSettings.getInstance().isUseBungeecoord()) {
-				if (BungeeHandler.getInstance().getMethod().equals(BungeeMethod.MYSQL)) {
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
 					final String uuid = user.getUUID();
 					Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 						@Override
 						public void run() {
 							if (Bukkit.getOnlinePlayers().size() > 0) {
-								PluginMessage.getInstance().sendPluginMessage(
+								plugin.getPluginMessaging().sendPluginMessage(
 										PlayerUtils.getInstance().getRandomOnlinePlayer(), "VoteUpdate", uuid);
 							}
 						}

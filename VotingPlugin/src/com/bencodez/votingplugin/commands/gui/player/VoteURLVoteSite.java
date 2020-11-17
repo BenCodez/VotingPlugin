@@ -14,16 +14,13 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteURLVoteSite extends GUIHandler {
 
-	private VotingPluginUser user;
 	private VotingPluginMain plugin;
+	private VotingPluginUser user;
 	private String voteSite;
 
 	public VoteURLVoteSite(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String voteSite) {
@@ -31,6 +28,12 @@ public class VoteURLVoteSite extends GUIHandler {
 		this.plugin = plugin;
 		this.user = user;
 		this.voteSite = voteSite;
+	}
+
+	@Override
+	public ArrayList<String> getChat(CommandSender arg0) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	@Override
@@ -49,10 +52,10 @@ public class VoteURLVoteSite extends GUIHandler {
 			return;
 		}
 		VoteSite site = plugin.getVoteSite(voteSite);
-		BInventory inv = new BInventory(GUI.getInstance().getChestVoteURLSiteName());
+		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLSiteName());
 		inv.addPlaceholder("site", site.getDisplayName());
 		inv.setMeta(player, "VoteSite", site);
-		if (!Config.getInstance().isAlwaysCloseInventory()) {
+		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
 
@@ -77,7 +80,8 @@ public class VoteURLVoteSite extends GUIHandler {
 
 			@Override
 			public ItemBuilder onUpdate(Player arg0) {
-				return new ItemBuilder(Material.COMPASS).setName("&4Next Vote").addLoreLine(user.voteCommandNextInfo(site));
+				return new ItemBuilder(Material.COMPASS).setName("&4Next Vote")
+						.addLoreLine(user.voteCommandNextInfo(site));
 			}
 		});
 
@@ -90,17 +94,11 @@ public class VoteURLVoteSite extends GUIHandler {
 			}
 		});
 
-		if (GUI.getInstance().getChestVoteURLBackButton()) {
-			inv.addButton(CommandLoader.getInstance().getBackButton(user));
+		if (plugin.getGui().getChestVoteURLBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);
 
-	}
-
-	@Override
-	public ArrayList<String> getChat(CommandSender arg0) {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	@Override

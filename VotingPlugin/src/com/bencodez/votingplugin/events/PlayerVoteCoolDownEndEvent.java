@@ -29,15 +29,15 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 
 	@Getter
 	@Setter
+	private boolean cancelled;
+
+	@Getter
+	@Setter
 	private VotingPluginUser player;
 
 	@Getter
 	@Setter
 	private VoteSite voteSite;
-
-	@Getter
-	@Setter
-	private boolean cancelled;
 
 	public PlayerVoteCoolDownEndEvent(VotingPluginUser user, VoteSite site) {
 		super(true);
@@ -47,6 +47,7 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override

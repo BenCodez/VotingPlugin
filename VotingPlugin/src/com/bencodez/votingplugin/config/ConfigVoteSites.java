@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.yml.YMLFile;
+import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 
@@ -25,36 +25,23 @@ import com.bencodez.votingplugin.objects.VoteSite;
  */
 public class ConfigVoteSites extends YMLFile {
 
-	/** The instance. */
-	static ConfigVoteSites instance = new ConfigVoteSites();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of ConfigVoteSites.
-	 *
-	 * @return single instance of ConfigVoteSites
-	 */
-	public static ConfigVoteSites getInstance() {
-		return instance;
-	}
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new config vote sites.
 	 */
-	public ConfigVoteSites() {
-		super(new File(VotingPluginMain.plugin.getDataFolder(), "VoteSites.yml"));
+	public ConfigVoteSites(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "VoteSites.yml"));
+		this.plugin = plugin;
 	}
 
 	/**
 	 * Generate vote site.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 */
 	public void generateVoteSite(String siteName) {
-		if (Config.getInstance().isAutoCreateVoteSites()) {
+		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
 			String org = siteName;
 			siteName = siteName.replace(".", "_");
 			plugin.getLogger().warning("VoteSite " + siteName
@@ -81,8 +68,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the data.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the data
 	 */
 	public ConfigurationSection getData(String siteName) {
@@ -107,8 +93,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the priority.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the priority
 	 */
 	public int getPriority(String siteName) {
@@ -118,8 +103,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the rewards.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the rewards
 	 */
 	public String getRewardsPath(String siteName) {
@@ -129,8 +113,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the service site.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the service site
 	 */
 	public String getServiceSite(String siteName) {
@@ -144,8 +127,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the vote delay.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the vote delay
 	 */
 	public int getVoteDelay(String siteName) {
@@ -159,8 +141,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the vote site enabled.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the vote site enabled
 	 */
 	public boolean getVoteSiteEnabled(String siteName) {
@@ -170,8 +151,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the vote site file.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the vote site file
 	 */
 	public File getVoteSiteFile(String siteName) {
@@ -211,7 +191,7 @@ public class ConfigVoteSites extends YMLFile {
 					if (!siteCheck(site)) {
 						plugin.getLogger().warning("Failed to load site " + site + ", see above");
 					} else {
-						voteSites.add(new VoteSite(site));
+						voteSites.add(new VoteSite(plugin, site));
 					}
 				}
 			}
@@ -265,8 +245,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Gets the vote URL.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return the vote URL
 	 */
 	public String getVoteURL(String siteName) {
@@ -280,8 +259,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Checks if is service site good.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return true, if is service site good
 	 */
 	public boolean isServiceSiteGood(String siteName) {
@@ -294,8 +272,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Checks if is vote URL good.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return true, if is vote URL good
 	 */
 	public boolean isVoteURLGood(String siteName) {
@@ -314,10 +291,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Rename vote site.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param newName
-	 *            the new name
+	 * @param siteName the site name
+	 * @param newName  the new name
 	 * @return true, if successful
 	 */
 	public boolean renameVoteSite(String siteName, String newName) {
@@ -328,12 +303,9 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param path
-	 *            the path
-	 * @param value
-	 *            the value
+	 * @param siteName the site name
+	 * @param path     the path
+	 * @param value    the value
 	 */
 	public void set(String siteName, String path, Object value) {
 		// String playerName = user.getPlayerName();
@@ -349,10 +321,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the cumulative rewards.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param value
-	 *            the value
+	 * @param siteName the site name
+	 * @param value    the value
 	 */
 	public void setCumulativeRewards(String siteName, ArrayList<String> value) {
 		set(siteName, "Cumulative.Rewards", value);
@@ -369,10 +339,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the enabled.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param disabled
-	 *            the disabled
+	 * @param siteName the site name
+	 * @param disabled the disabled
 	 */
 	public void setEnabled(String siteName, boolean disabled) {
 		set(siteName, "Enabled", disabled);
@@ -386,10 +354,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the priority.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param value
-	 *            the value
+	 * @param siteName the site name
+	 * @param value    the value
 	 */
 	public void setPriority(String siteName, int value) {
 		set(siteName, "Priority", value);
@@ -398,10 +364,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the rewards.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param value
-	 *            the value
+	 * @param siteName the site name
+	 * @param value    the value
 	 */
 	public void setRewards(String siteName, ArrayList<String> value) {
 		set(siteName, "Rewards", value);
@@ -410,10 +374,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the service site.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param serviceSite
-	 *            the service site
+	 * @param siteName    the site name
+	 * @param serviceSite the service site
 	 */
 	public void setServiceSite(String siteName, String serviceSite) {
 		set(siteName, "ServiceSite", serviceSite);
@@ -422,10 +384,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the vote delay.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param voteDelay
-	 *            the vote delay
+	 * @param siteName  the site name
+	 * @param voteDelay the vote delay
 	 */
 	public void setVoteDelay(String siteName, int voteDelay) {
 		set(siteName, "VoteDelay", voteDelay);
@@ -438,10 +398,8 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Sets the vote URL.
 	 *
-	 * @param siteName
-	 *            the site name
-	 * @param url
-	 *            the url
+	 * @param siteName the site name
+	 * @param url      the url
 	 */
 	public void setVoteURL(String siteName, String url) {
 		set(siteName, "VoteURL", url);
@@ -450,8 +408,7 @@ public class ConfigVoteSites extends YMLFile {
 	/**
 	 * Site check.
 	 *
-	 * @param siteName
-	 *            the site name
+	 * @param siteName the site name
 	 * @return true, if successful
 	 */
 	public boolean siteCheck(String siteName) {

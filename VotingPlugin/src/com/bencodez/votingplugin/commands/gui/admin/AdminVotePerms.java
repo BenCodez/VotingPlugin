@@ -12,13 +12,12 @@ import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
 
 public class AdminVotePerms extends GUIHandler {
 
-	private VotingPluginMain plugin;
 	private int page;
 	private String playerName;
+	private VotingPluginMain plugin;
 
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player) {
 		super(player);
@@ -35,29 +34,6 @@ public class AdminVotePerms extends GUIHandler {
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
-	}
-
-	@Override
-	public void onBook(Player player) {
-	}
-
-	@Override
-	public void onChat(CommandSender sender) {
-		if (playerName != null) {
-			sendMessage(listPerms(sender, playerName, page));
-		} else {
-			sendMessage(listPerms(sender));
-		}
-	}
-
-	@Override
-	public void onChest(Player player) {
-
-	}
-
-	@Override
-	public void open() {
-		open(GUIMethod.CHAT);
 	}
 
 	public String[] listPerms(CommandSender sender) {
@@ -140,7 +116,7 @@ public class AdminVotePerms extends GUIHandler {
 
 			msg = ArrayUtils.getInstance().colorize(msg);
 
-			int pagesize = Config.getInstance().getFormatPageSize();
+			int pagesize = plugin.getConfigFile().getFormatPageSize();
 
 			int maxPage = msg.size() / pagesize;
 			if ((msg.size() % pagesize) != 0) {
@@ -157,6 +133,29 @@ public class AdminVotePerms extends GUIHandler {
 		}
 		return ArrayUtils.getInstance().colorize(text);
 
+	}
+
+	@Override
+	public void onBook(Player player) {
+	}
+
+	@Override
+	public void onChat(CommandSender sender) {
+		if (playerName != null) {
+			sendMessage(listPerms(sender, playerName, page));
+		} else {
+			sendMessage(listPerms(sender));
+		}
+	}
+
+	@Override
+	public void onChest(Player player) {
+
+	}
+
+	@Override
+	public void open() {
+		open(GUIMethod.CHAT);
 	}
 
 }

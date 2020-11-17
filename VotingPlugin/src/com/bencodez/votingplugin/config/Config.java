@@ -7,12 +7,12 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.bencodez.advancedcore.yml.YMLFile;
-import com.bencodez.advancedcore.yml.annotation.AnnotationHandler;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataBoolean;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataInt;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataListString;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataString;
+import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
@@ -24,104 +24,25 @@ import lombok.Getter;
  */
 public class Config extends YMLFile {
 
-	/** The instance. */
-	static Config instance = new Config();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of Config.
-	 *
-	 * @return single instance of Config
-	 */
-	public static Config getInstance() {
-		return instance;
-	}
-
-	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled")
+	@ConfigDataBoolean(path = "AddCustomCommands")
 	@Getter
-	private String formatCommandsVoteToggleBroadcastEnabled = "&cYou will now see vote broadcasts";
+	private boolean addCustomCommands = false;
 
-	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled")
+	@ConfigDataBoolean(path = "AddTotals")
 	@Getter
-	private String formatCommandsVoteToggleBroadcastDisabled = "&cYou will no longer see vote broadcasts";
-
-	@ConfigDataBoolean(path = "ClearCacheOnVoteShopPurchase")
-	@Getter
-	private boolean clearCacheOnVoteShopPurchase = true;
-
-	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
-	@Getter
-	private boolean extraBackgroundUpdate = false;
-
-	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
-	@Getter
-	private boolean usePrimaryAccountForPlaceholders = false;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
-	@Getter
-	private String formatCommandsVoteLastTimeFormat;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
-	@Getter
-	private String formatCommandsVoteLastLine;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
-	@Getter
-	private String formatCommandsVoteLastNeverVoted;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted")
-	@Getter
-	private String formatCommandsVoteLastLastVoted = "%times% ago";
-
-	@ConfigDataString(path = "Format.TimeFormats.Days", defaultValue = "Days")
-	@Getter
-	private String formatTimeFormatsDays;
-
-	@ConfigDataString(path = "Format.TimeFormats.Day", defaultValue = "Day")
-	@Getter
-	private String formatTimeFormatsDay;
-
-	@ConfigDataString(path = "Format.TimeFormats.Hours", defaultValue = "Hours")
-	@Getter
-	private String formatTimeFormatsHours;
-
-	@ConfigDataString(path = "Format.TimeFormats.Hour", defaultValue = "Hour")
-	@Getter
-	private String formatTimeFormatsHour;
-
-	@ConfigDataString(path = "Format.TimeFormats.Minutes", defaultValue = "Minutes")
-	@Getter
-	private String formatTimeFormatsMinutes;
-
-	@ConfigDataString(path = "Format.TimeFormats.Minute", defaultValue = "Minute")
-	@Getter
-	private String formatTimeFormatsMinute;
-
-	@ConfigDataString(path = "Format.TimeFormats.Seconds", defaultValue = "Seconds")
-	@Getter
-	private String formatTimeFormatsSeconds;
-
-	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
-	@Getter
-	private String formatTimeFormatsSecond;
-
-	@ConfigDataBoolean(path = "AlwaysUpdate")
-	@Getter
-	private boolean alwaysUpdate = false;
-
-	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly")
-	@Getter
-	private boolean updateWithPlayersOnlineOnly = false;
+	private boolean addTotals = true;
 
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;
 
-	@ConfigDataBoolean(path = "AddTotals")
+	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
-	private boolean addTotals = true;
+	private boolean allowUnJoinedCheckServer = true;
+
+	@ConfigDataBoolean(path = "AllowVotePointTransfers")
+	@Getter
+	private boolean allowVotePointTransfers = false;
 
 	@ConfigDataBoolean(path = "AlterColumns")
 	@Getter
@@ -130,6 +51,14 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AlternateUUIDLookup")
 	@Getter
 	private boolean alternateUUIDLookup = false;
+
+	@ConfigDataBoolean(path = "AlwaysCloseInventory")
+	@Getter
+	private boolean alwaysCloseInventory = false;
+
+	@ConfigDataBoolean(path = "AlwaysUpdate")
+	@Getter
+	private boolean alwaysUpdate = false;
 
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
@@ -147,100 +76,173 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean clearCacheOnVote = false;
 
-	@ConfigDataBoolean(path = "CountFakeVotes")
+	@ConfigDataBoolean(path = "ClearCacheOnVoteShopPurchase")
 	@Getter
-	private boolean countFakeVotes = true;
-
-	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
-	@Getter
-	private int convertDelay;
+	private boolean clearCacheOnVoteShopPurchase = true;
 
 	@ConfigDataInt(path = "ConvertAmount")
 	@Getter
 	private int convertAmount = 250;
 
-	@ConfigDataBoolean(path = "DisableUpdateChecking")
+	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
 	@Getter
-	private boolean disableUpdateChecking = false;
+	private int convertDelay;
+
+	@ConfigDataBoolean(path = "CountFakeVotes")
+	@Getter
+	private boolean countFakeVotes = true;
 
 	@ConfigDataInt(path = "DelayBetweenUpdates")
 	@Getter
 	private int delayBetweenUpdates = 3;
 
-	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
-	@Getter
-	private int MaxiumNumberOfTopVotersToLoad = -1;
-
-	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
-	@Getter
-	private boolean disableNoServiceSiteMessage = false;
-
-	@ConfigDataListString(path = "DisabledDefaultPermissions")
-	@Getter
-	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
-
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;
-
-	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
-	@Getter
-	private boolean formatCommandsVoteForceLinks = true;
-
-	@ConfigDataBoolean(path = "LogVotesToFile")
-	@Getter
-	private boolean logVotesToFile = false;
-
-	@ConfigDataBoolean(path = "LoadCommandAliases")
-	@Getter
-	private boolean loadCommandAliases = true;
-
-	@ConfigDataBoolean(path = "AllowVotePointTransfers")
-	@Getter
-	private boolean allowVotePointTransfers = false;
-
-	@ConfigDataBoolean(path = "LimitMonthlyVotes")
-	@Getter
-	private boolean limitMonthlyVotes = false;
-
-	@ConfigDataBoolean(path = "AlwaysCloseInventory")
-	@Getter
-	private boolean alwaysCloseInventory = false;
-
-	@Getter
-	private int formatPageSize = 10;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Today.Line")
-	@Getter
-	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
-
-	@ConfigDataBoolean(path = "OverrideVersionDisable")
-	@Getter
-	private boolean overrideVersionDisable = false;
-
-	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
-	@Getter
-	private boolean allowUnJoinedCheckServer = true;
-
-	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
-	@Getter
-	private boolean useJavascriptPlaceholders = true;
-
-	@ConfigDataBoolean(path = "PreventRepeatMilestones")
-	@Getter
-	private boolean preventRepeatMilestones = false;
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
 	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
+	@ConfigDataListString(path = "DisabledDefaultPermissions")
+	@Getter
+	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
+
+	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
+	@Getter
+	private boolean disableNoServiceSiteMessage = false;
+
+	@ConfigDataBoolean(path = "DisableUpdateChecking")
+	@Getter
+	private boolean disableUpdateChecking = false;
+
+	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
+	@Getter
+	private boolean extraBackgroundUpdate = false;
+
+	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
+	@Getter
+	private boolean formatCommandsVoteForceLinks = true;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted")
+	@Getter
+	private String formatCommandsVoteLastLastVoted = "%times% ago";
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
+	@Getter
+	private String formatCommandsVoteLastLine;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.NeverVoted", defaultValue = "Never voted")
+	@Getter
+	private String formatCommandsVoteLastNeverVoted;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
+	@Getter
+	private String formatCommandsVoteLastTimeFormat;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Today.Line")
+	@Getter
+	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled")
+	@Getter
+	private String formatCommandsVoteToggleBroadcastDisabled = "&cYou will no longer see vote broadcasts";
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled")
+	@Getter
+	private String formatCommandsVoteToggleBroadcastEnabled = "&cYou will now see vote broadcasts";
+
+	@Getter
+	private int formatPageSize = 10;
+
+	@ConfigDataString(path = "Format.TimeFormats.Day", defaultValue = "Day")
+	@Getter
+	private String formatTimeFormatsDay;
+
+	@ConfigDataString(path = "Format.TimeFormats.Days", defaultValue = "Days")
+	@Getter
+	private String formatTimeFormatsDays;
+
+	@ConfigDataString(path = "Format.TimeFormats.Hour", defaultValue = "Hour")
+	@Getter
+	private String formatTimeFormatsHour;
+
+	@ConfigDataString(path = "Format.TimeFormats.Hours", defaultValue = "Hours")
+	@Getter
+	private String formatTimeFormatsHours;
+
+	@ConfigDataString(path = "Format.TimeFormats.Minute", defaultValue = "Minute")
+	@Getter
+	private String formatTimeFormatsMinute;
+
+	@ConfigDataString(path = "Format.TimeFormats.Minutes", defaultValue = "Minutes")
+	@Getter
+	private String formatTimeFormatsMinutes;
+
+	@ConfigDataString(path = "Format.TimeFormats.Second", defaultValue = "Second")
+	@Getter
+	private String formatTimeFormatsSecond;
+
+	@ConfigDataString(path = "Format.TimeFormats.Seconds", defaultValue = "Seconds")
+	@Getter
+	private String formatTimeFormatsSeconds;
+
+	@ConfigDataBoolean(path = "LimitMonthlyVotes")
+	@Getter
+	private boolean limitMonthlyVotes = false;
+
+	@ConfigDataBoolean(path = "LoadCommandAliases")
+	@Getter
+	private boolean loadCommandAliases = true;
+
+	@ConfigDataBoolean(path = "LogVotesToFile")
+	@Getter
+	private boolean logVotesToFile = false;
+
+	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
+	@Getter
+	private int MaxiumNumberOfTopVotersToLoad = -1;
+
+	@ConfigDataBoolean(path = "OverrideVersionDisable")
+	@Getter
+	private boolean overrideVersionDisable = false;
+
+	@ConfigDataBoolean(path = "PreventRepeatMilestones")
+	@Getter
+	private boolean preventRepeatMilestones = false;
+
+	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly")
+	@Getter
+	private boolean updateWithPlayersOnlineOnly = false;
+
+	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
+	@Getter
+	private boolean useJavascriptPlaceholders = true;
+
+	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
+	@Getter
+	private boolean usePrimaryAccountForPlaceholders = false;
+
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
-	@ConfigDataBoolean(path = "AddCustomCommands")
-	@Getter
-	private boolean addCustomCommands = false;
+	/**
+	 * Instantiates a new config.
+	 */
+	public Config(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
+	}
+
+	/**
+	 * Gets the black list.
+	 *
+	 * @return the black list
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getBlackList() {
+		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
+	}
 
 	public Set<String> getCustomCommands() {
 		Set<String> str = getData().getConfigurationSection("CustomCommands").getKeys(false);
@@ -252,23 +254,6 @@ public class Config extends YMLFile {
 
 	public ConfigurationSection getCustomCommands(String ident) {
 		return getData().getConfigurationSection("CustomCommands." + ident);
-	}
-
-	/**
-	 * Instantiates a new config.
-	 */
-	public Config() {
-		super(new File(VotingPluginMain.plugin.getDataFolder(), "Config.yml"));
-	}
-
-	/**
-	 * Gets the black list.
-	 *
-	 * @return the black list
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getBlackList() {
-		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
 	}
 
 	/**
@@ -791,7 +776,7 @@ public class Config extends YMLFile {
 
 	@Override
 	public void onFileCreation() {
-		plugin.saveResource("Config.yml", true);
+		getPlugin().saveResource("Config.yml", true);
 	}
 
 }

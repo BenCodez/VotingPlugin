@@ -28,15 +28,15 @@ public class PlayerReceivePointsEvent extends Event {
 
 	@Getter
 	@Setter
+	private boolean cancelled;
+
+	@Getter
+	@Setter
 	private VotingPluginUser player;
 
 	@Getter
 	@Setter
 	private int points;
-
-	@Getter
-	@Setter
-	private boolean cancelled;
 
 	@Getter
 	@Setter
@@ -50,6 +50,7 @@ public class PlayerReceivePointsEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override

@@ -17,12 +17,9 @@ import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.SpecialRewardsConfig;
-import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.events.VotePartyEvent;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -30,35 +27,10 @@ import com.bencodez.votingplugin.user.UserManager;
  */
 public class VoteParty implements Listener {
 
-	/** The instance. */
-	static VoteParty instance = new VoteParty();
+	private VotingPluginMain plugin;
 
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of VoteParty.
-	 *
-	 * @return single instance of VoteParty
-	 */
-	public static VoteParty getInstance() {
-		return instance;
-	}
-
-	/**
-	 * Instantiates a new vote party.
-	 */
-	private VoteParty() {
-	}
-
-	/**
-	 * Instantiates a new vote party.
-	 *
-	 * @param plugin
-	 *            the plugin
-	 */
 	public VoteParty(VotingPluginMain plugin) {
-		VoteParty.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	public void addTotal(VotingPluginUser user) {
@@ -69,8 +41,7 @@ public class VoteParty implements Listener {
 	/**
 	 * Adds the vote player.
 	 *
-	 * @param user
-	 *            the user
+	 * @param user the user
 	 */
 	public void addVotePlayer(VotingPluginUser user) {
 		String uuid = user.getUUID();
@@ -96,12 +67,12 @@ public class VoteParty implements Listener {
 			if (event.isCancelled()) {
 				return;
 			}
-			MiscUtils.getInstance().broadcast(SpecialRewardsConfig.getInstance().getVotePartyBroadcast());
+			MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 			giveRewards();
 
-			if (SpecialRewardsConfig.getInstance().getVotePartyIncreaseVotesRquired() > 0) {
-				ServerData.getInstance().setVotePartyExtraRequired(ServerData.getInstance().getVotePartyExtraRequired()
-						+ SpecialRewardsConfig.getInstance().getVotePartyIncreaseVotesRquired());
+			if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired() > 0) {
+				plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
+						+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired());
 			}
 		}
 
@@ -110,12 +81,11 @@ public class VoteParty implements Listener {
 	/**
 	 * Command vote party.
 	 *
-	 * @param sender
-	 *            the sender
+	 * @param sender the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
-		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
-			ArrayList<String> msg = Config.getInstance().getFormatCommandsVoteParty();
+		if (plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
+			ArrayList<String> msg = plugin.getConfigFile().getFormatCommandsVoteParty();
 			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
 			int neededVotes = votesRequired - votes;
@@ -148,7 +118,7 @@ public class VoteParty implements Listener {
 	 * @return the total votes
 	 */
 	public int getTotalVotes() {
-		return ServerData.getInstance().getData().getInt("VoteParty.Total");
+		return plugin.getServerData().getData().getInt("VoteParty.Total");
 	}
 
 	/**
@@ -158,7 +128,7 @@ public class VoteParty implements Listener {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getVotedUsers() {
-		ArrayList<String> list = (ArrayList<String>) ServerData.getInstance().getData().getList("VoteParty.Voted");
+		ArrayList<String> list = (ArrayList<String>) plugin.getServerData().getData().getList("VoteParty.Voted");
 		if (list != null) {
 			return list;
 		}
@@ -166,8 +136,8 @@ public class VoteParty implements Listener {
 	}
 
 	public int getVotesRequired() {
-		int required = SpecialRewardsConfig.getInstance().getVotePartyVotesRequired();
-		int extra = ServerData.getInstance().getVotePartyExtraRequired();
+		int required = plugin.getSpecialRewardsConfig().getVotePartyVotesRequired();
+		int extra = plugin.getServerData().getVotePartyExtraRequired();
 		if (extra > 0) {
 			return required + extra;
 		}
@@ -175,8 +145,8 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveReward(VotingPluginUser user) {
-		if (SpecialRewardsConfig.getInstance().getVotePartyUserVotesRequired() > 0) {
-			if (user.getVotePartyVotes() < SpecialRewardsConfig.getInstance().getVotePartyUserVotesRequired()) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() > 0) {
+			if (user.getVotePartyVotes() < plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired()) {
 				return;
 			}
 		}
@@ -184,10 +154,10 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveReward(VotingPluginUser user, boolean online) {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getVotePartyRewardsPath()).setOnline(online)
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
 						.withPlaceHolder("VotesRequired",
-								"" + SpecialRewardsConfig.getInstance().getVotePartyVotesRequired())
+								"" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
 						.send(user);
 	}
 
@@ -195,7 +165,7 @@ public class VoteParty implements Listener {
 	 * Give rewards.
 	 */
 	public void giveRewards() {
-		for (final String cmd : SpecialRewardsConfig.getInstance().getVotePartyCommands()) {
+		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyCommands()) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 				@Override
@@ -206,7 +176,7 @@ public class VoteParty implements Listener {
 			});
 		}
 
-		if (SpecialRewardsConfig.getInstance().getVotePartyGiveAllPlayers()) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -225,19 +195,19 @@ public class VoteParty implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (SpecialRewardsConfig.getInstance().getVotePartyResetEachDay()) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyResetEachDay()) {
 			reset();
 		}
 	}
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		if (SpecialRewardsConfig.getInstance().getVotePartyResetMontly()) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyResetMontly()) {
 			reset();
 		}
 
-		if (SpecialRewardsConfig.getInstance().isVotePartyResetExtraVotesMonthly()) {
-			ServerData.getInstance().setVotePartyExtraRequired(0);
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
+			plugin.getServerData().setVotePartyExtraRequired(0);
 		}
 	}
 
@@ -260,29 +230,27 @@ public class VoteParty implements Listener {
 	/**
 	 * Sets the total votes.
 	 *
-	 * @param value
-	 *            the new total votes
+	 * @param value the new total votes
 	 */
 	public void setTotalVotes(int value) {
-		ServerData.getInstance().getData().set("VoteParty.Total", value);
-		ServerData.getInstance().saveData();
+		plugin.getServerData().getData().set("VoteParty.Total", value);
+		plugin.getServerData().saveData();
 	}
 
 	/**
 	 * Sets the voted users.
 	 *
-	 * @param value
-	 *            the new voted users
+	 * @param value the new voted users
 	 */
 	public void setVotedUsers(ArrayList<String> value) {
-		ServerData.getInstance().getData().set("VoteParty.Voted", value);
-		ServerData.getInstance().saveData();
+		plugin.getServerData().getData().set("VoteParty.Voted", value);
+		plugin.getServerData().saveData();
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote) {
-		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
-			if (SpecialRewardsConfig.getInstance().getVotePartyCountFakeVotes() || realVote) {
-				if (SpecialRewardsConfig.getInstance().getVotePartyCountOfflineVotes() || user.isOnline()) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
+			if (plugin.getSpecialRewardsConfig().getVotePartyCountFakeVotes() || realVote) {
+				if (plugin.getSpecialRewardsConfig().getVotePartyCountOfflineVotes() || user.isOnline()) {
 					addTotal(user);
 					addVotePlayer(user);
 					check();

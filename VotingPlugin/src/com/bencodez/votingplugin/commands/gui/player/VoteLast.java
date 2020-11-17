@@ -14,16 +14,13 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteLast extends GUIHandler {
 
-	private VotingPluginUser user;
 	private VotingPluginMain plugin;
+	private VotingPluginUser user;
 
 	public VoteLast(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
@@ -32,17 +29,12 @@ public class VoteLast extends GUIHandler {
 	}
 
 	@Override
-	public void onBook(Player player) {
-		// TODO
-	}
-	
-	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringParser.getInstance().replaceIgnoreCase(Config.getInstance().getFormatCommandsVoteLastTitle(),
+		msg.add(StringParser.getInstance().replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteLastTitle(),
 				"%player%", playerName));
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
@@ -53,13 +45,18 @@ public class VoteLast extends GUIHandler {
 	}
 
 	@Override
+	public void onBook(Player player) {
+		// TODO
+	}
+
+	@Override
 	public void onChat(CommandSender sender) {
 		sendMessage(getChat(sender));
 	}
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(GUI.getInstance().getChestVoteLastName());
+		BInventory inv = new BInventory(plugin.getGui().getChestVoteLastName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
@@ -78,17 +75,16 @@ public class VoteLast extends GUIHandler {
 			});
 		}
 
-		if (GUI.getInstance().getChestVoteLastBackButton()) {
-			inv.addButton(CommandLoader.getInstance().getBackButton(user));
+		if (plugin.getGui().getChestVoteLastBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 
 		inv.openInventory(player);
 	}
-	
+
 	@Override
 	public void open() {
-		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodLast().toUpperCase()));
+		open(GUIMethod.valueOf(plugin.getGui().getGuiMethodLast().toUpperCase()));
 	}
-
 
 }

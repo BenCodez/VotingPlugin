@@ -24,29 +24,18 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 
 public class AdminGUI {
-	static AdminGUI instance = new AdminGUI();
 
-	/**
-	 * Gets the single instance of Commands.
-	 *
-	 * @return single instance of Commands
-	 */
-	public static AdminGUI getInstance() {
-		return instance;
-	}
-
-	/** The plugin. */
-	VotingPluginMain plugin = VotingPluginMain.plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new commands.
 	 */
-	private AdminGUI() {
+	public AdminGUI(VotingPluginMain plugin) {
+		this.plugin = plugin;
 	}
 
 	/**
@@ -68,7 +57,7 @@ public class AdminGUI {
 
 						@Override
 						public void onInput(Player player, String value) {
-							ConfigVoteSites.getInstance().generateVoteSite(value);
+							plugin.getConfigVoteSites().generateVoteSite(value);
 							player.sendMessage("Generated site");
 							plugin.reload();
 						}
@@ -99,8 +88,7 @@ public class AdminGUI {
 	/**
 	 * Open admin GUI vote sites.
 	 *
-	 * @param player
-	 *            the player
+	 * @param player the player
 	 */
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
@@ -132,10 +120,8 @@ public class AdminGUI {
 	/**
 	 * Open admin GUI vote site site.
 	 *
-	 * @param player
-	 *            the player
-	 * @param voteSite
-	 *            the vote site
+	 * @param player   the player
+	 * @param voteSite the vote site
 	 */
 	public void openAdminGUIVoteSiteSite(Player player, VoteSite voteSite) {
 		EditGUI inv = new EditGUI("VoteSite: " + voteSite.getDisplayName());
@@ -170,7 +156,7 @@ public class AdminGUI {
 			@Override
 			public void setValue(Player player, Number num) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
-				ConfigVoteSites.getInstance().setPriority(voteSite.getKey(), num.intValue());
+				plugin.getConfigVoteSites().setPriority(voteSite.getKey(), num.intValue());
 				plugin.reload();
 			}
 		}));
@@ -181,7 +167,7 @@ public class AdminGUI {
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setServiceSite(siteName, value);
+				plugin.getConfigVoteSites().setServiceSite(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -191,7 +177,7 @@ public class AdminGUI {
 			@Override
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
-				ConfigVoteSites.getInstance().setDisplayName(voteSite.getKey(), value);
+				plugin.getConfigVoteSites().setDisplayName(voteSite.getKey(), value);
 				plugin.reload();
 			}
 		}));
@@ -202,7 +188,7 @@ public class AdminGUI {
 			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteURL(siteName, value);
+				plugin.getConfigVoteSites().setVoteURL(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -213,7 +199,7 @@ public class AdminGUI {
 			public void setValue(Player player, Number num) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteDelay(siteName, num.intValue());
+				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
 				plugin.reload();
 			}
 		}));
@@ -224,7 +210,7 @@ public class AdminGUI {
 			public void setValue(Player player, boolean value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setEnabled(siteName, value);
+				plugin.getConfigVoteSites().setEnabled(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -235,7 +221,7 @@ public class AdminGUI {
 			public void setValue(Player player, boolean value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setForceOffline(siteName, value);
+				plugin.getConfigVoteSites().setForceOffline(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -246,7 +232,7 @@ public class AdminGUI {
 			public void setValue(Player player, boolean value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				ConfigVoteSites.getInstance().setVoteDelayDaily(siteName, value);
+				plugin.getConfigVoteSites().setVoteDelayDaily(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -259,7 +245,7 @@ public class AdminGUI {
 						@Override
 						public void setValue(Player p, ArrayList<String> rewards) {
 							VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
-							ConfigVoteSites.getInstance().set(voteSite.getKey(), "Rewards", rewards);
+							plugin.getConfigVoteSites().set(voteSite.getKey(), "Rewards", rewards);
 							plugin.reload();
 						}
 					}));

@@ -10,9 +10,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -26,8 +25,7 @@ public class PlayerJoinEvent implements Listener {
 	/**
 	 * Instantiates a new player join event.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public PlayerJoinEvent(VotingPluginMain plugin) {
 		PlayerJoinEvent.plugin = plugin;
@@ -36,13 +34,12 @@ public class PlayerJoinEvent implements Listener {
 	/**
 	 * On player login.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
-		if (event.getPlayer() == null
-				|| (VotingPluginMain.plugin.getStorageType().equals(UserStorage.MYSQL) && VotingPluginMain.plugin.getMysql() == null)) {
+		if (event.getPlayer() == null || (VotingPluginMain.plugin.getStorageType().equals(UserStorage.MYSQL)
+				&& VotingPluginMain.plugin.getMysql() == null)) {
 			return;
 		}
 		Player player = event.getPlayer();
@@ -61,13 +58,13 @@ public class PlayerJoinEvent implements Listener {
 			// give offline vote (if they voted offline)
 			user.offVote();
 		}
-		
+
 		user.loginRewards();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerQuit(PlayerQuitEvent event) {
-		if (Config.getInstance().isDisableAdvancedTab()) {
+		if (plugin.getConfigFile().isDisableAdvancedTab()) {
 			return;
 		}
 		final java.util.UUID uuid = event.getPlayer().getUniqueId();
@@ -76,7 +73,7 @@ public class PlayerJoinEvent implements Listener {
 			@Override
 			public void run() {
 				VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
-				
+
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
 				user.logoutRewards();
 			}

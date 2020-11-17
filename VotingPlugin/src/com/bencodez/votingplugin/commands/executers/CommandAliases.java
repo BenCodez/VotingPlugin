@@ -17,13 +17,13 @@ import com.bencodez.votingplugin.VotingPluginMain;
  */
 public class CommandAliases implements CommandExecutor {
 
-	/** The plugin. */
-	private VotingPluginMain plugin = VotingPluginMain.plugin;
+	private boolean adminCommand;
 
 	/** The cmd handle. */
 	private CommandHandler cmdHandle;
 
-	private boolean adminCommand;
+	/** The plugin. */
+	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
 	public CommandAliases(CommandHandler cmdHandle, boolean adminCommand) {
 		this.cmdHandle = cmdHandle;
@@ -32,6 +32,7 @@ public class CommandAliases implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
 	 * CommandSender , org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])

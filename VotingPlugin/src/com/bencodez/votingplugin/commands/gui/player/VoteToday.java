@@ -19,18 +19,15 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteToday extends GUIHandler {
 
-	private VotingPluginUser user;
-	private VotingPluginMain plugin;
 	private int page;
+	private VotingPluginMain plugin;
+	private VotingPluginUser user;
 
 	public VoteToday(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, int page) {
 		super(player);
@@ -40,62 +37,8 @@ public class VoteToday extends GUIHandler {
 	}
 
 	@Override
-	public void onBook(Player player) {
-		// TODO
-	}
-
-	@Override
-	public void onChat(CommandSender sender) {
-		sendMessage(getChat(sender));
-	}
-
-	@Override
-	public void onChest(Player player) {
-		BInventory inv = new BInventory(GUI.getInstance().getChestVoteTodayName());
-		if (!Config.getInstance().isAlwaysCloseInventory()) {
-			inv.dontClose();
-		}
-		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
-
-			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
-				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				String msg = GUI.getInstance().getChestVoteTodayLine();
-				HashMap<String, String> placeholders = new HashMap<String, String>();
-				placeholders.put("VoteSite", voteSite.getDisplayName());
-				placeholders.put("Time", timeString);
-				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
-				ItemBuilder item = null;
-				if (GUI.getInstance().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
-					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(player);
-				} else {
-					item = new ItemBuilder(GUI.getInstance().getChestVoteTodayPlayerItem());
-				}
-				item.setName(StringParser.getInstance().replacePlaceHolder(
-						GUI.getInstance().getChestVoteTodayIconTitle(), "player", user.getPlayerName()));
-				item.setLore(msg);
-				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = UserManager.getInstance()
-								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
-						new VoteGUI(plugin, player, user)
-								.open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodGUI().toUpperCase()));
-					}
-				});
-			}
-		}
-
-		if (GUI.getInstance().getChestVoteTodayBackButton()) {
-			inv.addButton(CommandLoader.getInstance().getBackButton(user));
-		}
-		inv.openInventory(player);
-	}
-
-	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {
-		int pagesize = Config.getInstance().getFormatPageSize();
+		int pagesize = plugin.getConfigFile().getFormatPageSize();
 		if (page < 1) {
 			page = 1;
 		}
@@ -118,30 +61,84 @@ public class VoteToday extends GUIHandler {
 		return ArrayUtils.getInstance().colorize(msg);
 	}
 
+	@Override
+	public void onBook(Player player) {
+		// TODO
+	}
+
+	@Override
+	public void onChat(CommandSender sender) {
+		sendMessage(getChat(sender));
+	}
+
+	@Override
+	public void onChest(Player player) {
+		BInventory inv = new BInventory(plugin.getGui().getChestVoteTodayName());
+		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
+		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
+
+			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
+				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
+				String msg = plugin.getGui().getChestVoteTodayLine();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("VoteSite", voteSite.getDisplayName());
+				placeholders.put("Time", timeString);
+				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
+				ItemBuilder item = null;
+				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
+					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(player);
+				} else {
+					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
+				}
+				item.setName(StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
+						"player", user.getPlayerName()));
+				item.setLore(msg);
+				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						VotingPluginUser user = UserManager.getInstance()
+								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
+						new VoteGUI(plugin, player, user)
+								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+					}
+				});
+			}
+		}
+
+		if (plugin.getGui().getChestVoteTodayBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
+		}
+		inv.openInventory(player);
+	}
+
+	@Override
+	public void open() {
+		open(GUIMethod.valueOf(plugin.getGui().getGuiMethodToday().toUpperCase()));
+	}
+
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
 		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Config.getInstance().getFormatTimeFormat());
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
 				placeholders.put("time", timeString);
 				msg.add(StringParser.getInstance()
-						.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteTodayLine(), placeholders));
+						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 				// msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " +
 				// timeString);
 			}
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);
 		return ArrayUtils.getInstance().convert(msg);
-	}
-	
-	@Override
-	public void open() {
-		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodToday().toUpperCase()));
 	}
 
 }

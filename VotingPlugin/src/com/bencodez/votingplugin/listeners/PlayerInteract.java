@@ -26,8 +26,7 @@ public class PlayerInteract implements Listener {
 	/**
 	 * Instantiates a new player interact.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public PlayerInteract(VotingPluginMain plugin) {
 		PlayerInteract.plugin = plugin;
@@ -36,8 +35,7 @@ public class PlayerInteract implements Listener {
 	/**
 	 * On player interact.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onPlayerInteract(PlayerInteractEvent event) {
@@ -46,7 +44,7 @@ public class PlayerInteract implements Listener {
 			// plugin.debug("Checking for sign click");
 			if (event.getClickedBlock().getState() instanceof Sign) {
 				// plugin.debug(player.getName() + " right clicked a sign");
-				for (SignHandler sign : plugin.getSigns()) {
+				for (SignHandler sign : plugin.getSigns().getSigns()) {
 					if (sign.isLocationSame(event.getClickedBlock().getLocation())) {
 						// plugin.debug(player.getName() +
 						// " right clicked a top voter sign, sending message");
@@ -68,7 +66,7 @@ public class PlayerInteract implements Listener {
 				Object ob = PlayerUtils.getInstance().getPlayerMeta(player, "skullset");
 				if (ob != null) {
 					String sign1 = (String) ob;
-					for (SignHandler sign : plugin.getSigns()) {
+					for (SignHandler sign : plugin.getSigns().getSigns()) {
 						if (sign.getSign().equals(sign1)) {
 							sign.setSkullLocation(event.getClickedBlock().getLocation());
 							sign.storeSign();

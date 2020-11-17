@@ -6,9 +6,8 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -16,34 +15,14 @@ import com.bencodez.votingplugin.user.UserManager;
  */
 public class VoteReminding {
 
-	/** The instance. */
-	static VoteReminding instance = new VoteReminding();
-
 	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of VoteReminding.
-	 *
-	 * @return single instance of VoteReminding
-	 */
-	public static VoteReminding getInstance() {
-		return instance;
-	}
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new vote reminding.
-	 */
-	private VoteReminding() {
-	}
-
-	/**
-	 * Instantiates a new vote reminding.
-	 *
-	 * @param plugin the plugin
 	 */
 	public VoteReminding(VotingPluginMain plugin) {
-		VoteReminding.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**
@@ -59,7 +38,7 @@ public class VoteReminding {
 			if (user.canVoteAll() || (user.canVoteAny() && user.hasPermission("VotingPlugin.Login.RemindVotes.Any"))) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
-					if (!Config.getInstance().getVoteRemindingRemindOnlyOnce()) {
+					if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
 						runRemind(user);
 						user.setReminded(true);
 					} else if (!user.isReminded()) {
@@ -74,7 +53,7 @@ public class VoteReminding {
 	}
 
 	private void giveReward(VotingPluginUser user) {
-		new RewardBuilder(Config.getInstance().getData(), Config.getInstance().getVoteRemindingRewardsPath())
+		new RewardBuilder(plugin.getConfigFile().getData(), plugin.getConfigFile().getVoteRemindingRewardsPath())
 				.setGiveOffline(false).send(user);
 	}
 
@@ -91,7 +70,7 @@ public class VoteReminding {
 					checkRemind(user);
 				}
 			}
-		}, 10, Config.getInstance().getVoteRemindingRemindDelay() * 20 * 60);
+		}, 10, plugin.getConfigFile().getVoteRemindingRemindDelay() * 20 * 60);
 	}
 
 	/**
@@ -100,8 +79,8 @@ public class VoteReminding {
 	 * @param user the user
 	 */
 	public void runRemind(VotingPluginUser user) {
-		if (Config.getInstance().getVoteRemindingEnabled()) {
-			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
+			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
 			if (user.canVoteAll() && user.shouldBeReminded()) {
@@ -115,8 +94,8 @@ public class VoteReminding {
 	}
 
 	public void runRemindLogin(VotingPluginUser user) {
-		if (Config.getInstance().getVoteRemindingEnabled()) {
-			if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
+			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
 			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())

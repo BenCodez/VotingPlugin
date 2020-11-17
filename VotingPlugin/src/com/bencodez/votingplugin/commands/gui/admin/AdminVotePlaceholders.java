@@ -13,7 +13,6 @@ import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import xyz.upperlevel.spigot.book.BookUtil;
@@ -37,7 +36,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper("Placeholders");
 
-		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String msg = "";
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
@@ -55,7 +54,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 			book.addLayout(layout);
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String msg = "";
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
@@ -82,7 +81,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 	public void onChat(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
-		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "#";
@@ -94,7 +93,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 			}
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : PlaceHolders.getInstance().getNonPlayerPlaceholders()) {
+		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "#";

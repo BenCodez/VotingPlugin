@@ -19,18 +19,18 @@ import com.bencodez.advancedcore.api.user.userstorage.sql.DataType;
 import net.md_5.bungee.config.Configuration;
 
 public class BungeeMySQL {
-	private com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL mysql;
-
 	private List<String> columns = Collections.synchronizedList(new ArrayList<String>());
+
+	private List<String> intColumns = new ArrayList<String>();
 
 	// private HashMap<String, ArrayList<Column>> table;
 
 	// ConcurrentMap<String, ArrayList<Column>> table = new
 	// ConcurrentHashMap<String, ArrayList<Column>>();
 
-	private String name;
+	private com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL mysql;
 
-	private Set<String> uuids = Collections.synchronizedSet(new HashSet<String>());
+	private String name;
 
 	private Object object2 = new Object();
 
@@ -38,7 +38,7 @@ public class BungeeMySQL {
 
 	private Object object4 = new Object();
 
-	private List<String> intColumns = new ArrayList<String>();
+	private Set<String> uuids = Collections.synchronizedSet(new HashSet<String>());
 
 	public BungeeMySQL(String tableName, Configuration section) {
 		String tablePrefix = section.getString("Prefix");
@@ -400,35 +400,6 @@ public class BungeeMySQL {
 		columns = getColumnsQueury();
 	}
 
-	public void update(String index, String column, Object value, DataType dataType) {
-		checkColumn(column, dataType);
-		if (getUuids().contains(index)) {
-			synchronized (object2) {
-				String query = "UPDATE " + getName() + " SET ";
-
-				if (dataType == DataType.STRING) {
-					query += column + "='" + value.toString() + "'";
-				} else {
-					query += column + "=" + value;
-
-				}
-				query += " WHERE `uuid`=";
-				query += "'" + index + "';";
-
-				try {
-					Query q = new Query(mysql, query);
-					q.executeUpdate();
-				} catch (SQLException e) {
-					e.printStackTrace();
-				}
-			}
-
-		} else {
-			insert(index, column, value, dataType);
-		}
-
-	}
-
 	public void update(String index, List<Column> cols, boolean queue) {
 		for (Column col : cols) {
 			checkColumn(col.getName(), col.getDataType());
@@ -468,5 +439,34 @@ public class BungeeMySQL {
 		} else {
 			insertQuery(index, cols);
 		}
+	}
+
+	public void update(String index, String column, Object value, DataType dataType) {
+		checkColumn(column, dataType);
+		if (getUuids().contains(index)) {
+			synchronized (object2) {
+				String query = "UPDATE " + getName() + " SET ";
+
+				if (dataType == DataType.STRING) {
+					query += column + "='" + value.toString() + "'";
+				} else {
+					query += column + "=" + value;
+
+				}
+				query += " WHERE `uuid`=";
+				query += "'" + index + "';";
+
+				try {
+					Query q = new Query(mysql, query);
+					q.executeUpdate();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+			}
+
+		} else {
+			insert(index, column, value, dataType);
+		}
+
 	}
 }

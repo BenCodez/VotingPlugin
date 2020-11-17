@@ -43,11 +43,12 @@ public class UserManager extends com.bencodez.advancedcore.api.user.UserManager 
 
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(String playerName) {
-		return new VotingPluginUser(com.bencodez.advancedcore.api.user.UserManager.getInstance().getProperName(playerName));
+		return new VotingPluginUser(plugin,
+				com.bencodez.advancedcore.api.user.UserManager.getInstance().getProperName(playerName));
 	}
 
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid) {
-		return new VotingPluginUser(uuid);
+		return new VotingPluginUser(plugin, uuid);
 	}
 }

@@ -25,20 +25,13 @@ import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.time.TimeChecker;
 import com.bencodez.advancedcore.api.user.UUID;
-import com.bencodez.votingplugin.BungeeHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.config.BungeeSettings;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.voteparty.VoteParty;
-import com.bencodez.votingplugin.votereminding.VoteReminding;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -47,7 +40,7 @@ import com.bencodez.votingplugin.votereminding.VoteReminding;
 public class VotingPluginUser extends com.bencodez.advancedcore.api.user.AdvancedCoreUser {
 
 	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new user.
@@ -55,8 +48,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param player the player
 	 */
 	@Deprecated
-	public VotingPluginUser(Player player) {
+	public VotingPluginUser(VotingPluginMain plugin, Player player) {
 		super(plugin, player);
+		this.plugin = plugin;
 	}
 
 	/**
@@ -65,8 +59,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param playerName the player name
 	 */
 	@Deprecated
-	public VotingPluginUser(String playerName) {
+	public VotingPluginUser(VotingPluginMain plugin, String playerName) {
 		super(plugin, playerName);
+		this.plugin = plugin;
 	}
 
 	/**
@@ -75,8 +70,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param uuid the uuid
 	 */
 	@Deprecated
-	public VotingPluginUser(UUID uuid) {
+	public VotingPluginUser(VotingPluginMain plugin, UUID uuid) {
 		super(plugin, uuid);
+		this.plugin = plugin;
 	}
 
 	/**
@@ -86,28 +82,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param loadName the load name
 	 */
 	@Deprecated
-	public VotingPluginUser(UUID uuid, boolean loadName) {
+	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
-	}
-
-	public void setPrimaryAccount(java.util.UUID uuid) {
-		if (uuid != null) {
-			getData().setString("PrimaryAccount", uuid.toString());
-		} else {
-			getData().setString("PrimaryAccount", "");
-		}
-	}
-
-	public java.util.UUID getPrimaryAccount() {
-		String s = getData().getString("PrimaryAccount", true);
-		if (s != null && !s.isEmpty()) {
-			return java.util.UUID.fromString(s);
-		}
-		return null;
-	}
-
-	public boolean hasPrimaryAccount() {
-		return getPrimaryAccount() != null;
+		this.plugin = plugin;
 	}
 
 	public void addAllTimeTotal() {
@@ -142,7 +119,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds the points.
 	 */
 	public void addPoints() {
-		int points = Config.getInstance().getPointsOnVote();
+		int points = plugin.getConfigFile().getPointsOnVote();
 		if (points != 0) {
 			addPoints(points);
 		}
@@ -196,7 +173,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void bungeeVote(String service) {
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -214,7 +191,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void bungeeVoteOnline(String service) {
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -231,16 +208,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void loginRewards() {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LoginRewards").send(this);
-	}
-
-	public void logoutRewards() {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(), "LogoutRewards").send(this);
-	}
-
 	public void bungeeVotePluginMessaging(String service, long time, String bungeeTextTotals) {
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
@@ -377,10 +346,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void checkDayVoteStreak() {
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
-			if (!SpecialRewardsConfig.getInstance().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
-					TopVoter.Daily, SpecialRewardsConfig.getInstance().getVoteStreakRequirementDay(), null)) {
+			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
+					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
 				addDayVoteStreak();
-				SpecialRewards.getInstance().checkVoteStreak(this, "Day");
+				plugin.getSpecialRewards().checkVoteStreak(this, "Day");
 				setDayVoteStreakLastUpdate(System.currentTimeMillis());
 			}
 		}
@@ -563,6 +532,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getUserData().getInt("Points", isWaitForCache());
 	}
 
+	public java.util.UUID getPrimaryAccount() {
+		String s = getData().getString("PrimaryAccount", true);
+		if (s != null && !s.isEmpty()) {
+			return java.util.UUID.fromString(s);
+		}
+		return null;
+	}
+
 	public int getSitesVotedOn() {
 		int amount = 0;
 		for (VoteSite site : plugin.getVoteSites()) {
@@ -607,6 +584,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getUserData().getInt("VotePartyVotes", isWaitForCache());
 	}
 
+	public int getVoteShopIdentifierLimit(String identifier) {
+		return getData().getInt("VoteShopLimit" + identifier, isWaitForCache());
+	}
+
+	@Deprecated
+	public int getWeeklyTotal() {
+		return getUserData().getInt("WeeklyTotal");
+	}
+
+	public int getWeekVoteStreak() {
+		return getData().getInt("WeekVoteStreak", isWaitForCache());
+	}
+
+	public void giveDailyTopVoterAward(int place, String path) {
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
+						.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
+						.setOnline(isOnline()).send(this);
+	}
+
 	/*
 	 * public Integer hasLastCumulative(int votesRequired) { HashMap<Integer,
 	 * Integer> lastCumative = getLastCumulatives(); if
@@ -628,30 +625,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * value); setLastCumulatives(lastCumulative); }
 	 */
 
-	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier, isWaitForCache());
-	}
-
-	@Deprecated
-	public int getWeeklyTotal() {
-		return getUserData().getInt("WeeklyTotal");
-	}
-
-	public int getWeekVoteStreak() {
-		return getData().getInt("WeekVoteStreak", isWaitForCache());
-	}
-
-	public void giveDailyTopVoterAward(int place, String path) {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-						.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
-						.setOnline(isOnline()).send(this);
-	}
-
 	public void giveMonthlyTopVoterAward(int place, String path) {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getMonthlyAwardRewardsPath(path))
-						.withPlaceHolder("place", "" + place).withPlaceHolder("topvoter", "Monthly")
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
+						.withPlaceHolder("topvoter", "Monthly")
 						.withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly)).setOnline(isOnline()).send(this);
 	}
 
@@ -660,18 +637,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<String> offlineRewards = getOfflineOtherRewards();
 		for (String str : offlineRewards) {
 			if (str.equalsIgnoreCase("FirstVote")) {
-				SpecialRewards.getInstance().giveFirstVoteRewards(this, false);
+				plugin.getSpecialRewards().giveFirstVoteRewards(this, false);
 			} else if (str.equalsIgnoreCase("AllSites")) {
-				SpecialRewards.getInstance().giveAllSitesRewards(this, false);
+				plugin.getSpecialRewards().giveAllSitesRewards(this, false);
 			} else if (str.equalsIgnoreCase("VoteParty")) {
-				VoteParty.getInstance().giveReward(this, false);
+				plugin.getVoteParty().giveReward(this, false);
 			} else if (str.contains("Cumulative")) {
 				String st = str.substring("Cumulative".length());
 				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired != 0) {
-						if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(votesRequired)) {
-							SpecialRewards.getInstance().giveCumulativeVoteReward(this, false, votesRequired);
+						if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(votesRequired)) {
+							plugin.getSpecialRewards().giveCumulativeVoteReward(this, false, votesRequired);
 						}
 					}
 				}
@@ -680,8 +657,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				if (StringParser.getInstance().isInt(st)) {
 					int votesRequired = Integer.parseInt(st);
 					if (votesRequired > 0) {
-						if (SpecialRewardsConfig.getInstance().getMilestoneRewardEnabled(votesRequired)) {
-							SpecialRewards.getInstance().giveMilestoneVoteReward(this, true, votesRequired);
+						if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(votesRequired)) {
+							plugin.getSpecialRewards().giveMilestoneVoteReward(this, true, votesRequired);
 						}
 					}
 				}
@@ -691,8 +668,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					String type = args[1];
 					String st = args[2];
 
-					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled(type, st)) {
-						SpecialRewards.getInstance().giveVoteStreakReward(this, false, type, "" + st, -1);
+					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, st)) {
+						plugin.getSpecialRewards().giveVoteStreakReward(this, false, type, "" + st, -1);
 					}
 
 				}
@@ -707,8 +684,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void giveWeeklyTopVoterAward(int place, String path) {
-		new RewardBuilder(SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
 						.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
 						.setOnline(isOnline()).send(this);
 	}
@@ -719,8 +696,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if user got the first vote reward
 	 */
 	public boolean hasGottenFirstVote() {
-		if (BungeeSettings.getInstance().isUseBungeecoord()
-				&& BungeeHandler.getInstance().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()
+				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 			return getTotal(TopVoter.AllTime) > 1;
 		}
 		return getTotal(TopVoter.AllTime) != 0;
@@ -754,6 +731,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
+	public boolean hasPrimaryAccount() {
+		return getPrimaryAccount() != null;
+	}
+
 	public boolean isReminded() {
 		return getUserData().getBoolean("Reminded");
 	}
@@ -766,265 +747,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Login message.
 	 */
 	public void loginMessage() {
-		if (Config.getInstance().getVoteRemindingRemindOnLogin()) {
-			VoteReminding.getInstance().runRemindLogin(this);
+		if (plugin.getConfigFile().getVoteRemindingRemindOnLogin()) {
+			plugin.getVoteReminding().runRemindLogin(this);
 		}
 	}
 
-	public String voteCommandNextInfo(VoteSite voteSite) {
-		String info = new String();
-
-		long time = getTime(voteSite);
-		LocalDateTime now = TimeChecker.getInstance().getTime();
-		;
-		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
-
-		if (!voteSite.isVoteDelayDaily()) {
-			double votedelay = voteSite.getVoteDelay();
-			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
-				String errorMsg = Config.getInstance().getFormatCommandsVoteNextInfoError();
-				info = errorMsg;
-			} else {
-
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-						.plusMinutes((long) voteSite.getVoteDelayMin());
-
-				if (time == 0 || now.isAfter(nextvote)) {
-					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
-				} else {
-					Duration dur = Duration.between(now, nextvote);
-
-					long diffHours = dur.getSeconds() / (60 * 60);
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoTime();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Long.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-
-				}
-			}
-		} else {
-			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-
-			if (!now.isBefore(offsetoclocktoday)) {
-				if (!lastVote.isBefore(offsetoclocktoday)) {
-					Duration dur = Duration.between(now, offsetoclocktomorrow);
-					int diffHours = (int) (dur.getSeconds() / (60 * 60));
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					if (diffHours < 0) {
-						diffHours = diffHours * -1;
-					}
-					if (diffHours >= 24) {
-						diffHours = diffHours - 24;
-					}
-					if (diffMinutes < 0) {
-						diffMinutes = diffMinutes * -1;
-					}
-
-					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoVoteDelayDaily();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Integer.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-				} else {
-					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
-				}
-			} else {
-				if (!lastVote.isBefore(offsetoclockyesterday)) {
-					Duration dur = Duration.between(now, offsetoclocktoday);
-					int diffHours = (int) (dur.getSeconds() / (60 * 60));
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					if (diffHours < 0) {
-						diffHours = diffHours * -1;
-					}
-					if (diffHours >= 24) {
-						diffHours = diffHours - 24;
-					}
-					if (diffMinutes < 0) {
-						diffMinutes = diffMinutes * -1;
-					}
-
-					String timeMsg = Config.getInstance().getFormatCommandsVoteNextInfoVoteDelayDaily();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Integer.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-				} else {
-					info = Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
-				}
-			}
-		}
-		return info;
+	public void loginRewards() {
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LoginRewards").send(this);
 	}
 
-	public String voteCommandLastDuration(VoteSite voteSite) {
-		long time = getTime(voteSite);
-		if (time > 0) {
-			LocalDateTime now = LocalDateTime.now();
-			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
-
-			Duration dur = Duration.between(lastVote, now);
-
-			long diffSecond = dur.getSeconds();
-			int diffDays = (int) (diffSecond / 60 / 60 / 24);
-			int diffHours = (int) (diffSecond / 60 / 60 - diffDays * 24);
-			int diffMinutes = (int) (diffSecond / 60 - diffHours * 60 - diffDays * 24 * 60);
-			int diffSeconds = (int) (diffSecond - diffMinutes * 60 - diffHours * 60 * 60 - diffDays * 24 * 60 * 60);
-
-			String info = "";
-			if (diffDays == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsDay()), "amount", "" + diffDays);
-				info += " ";
-			} else if (diffDays > 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsDays()), "amount", "" + diffDays);
-				info += " ";
-			}
-
-			if (diffHours == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsHour()), "amount", "" + diffHours);
-				info += " ";
-			} else if (diffHours > 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsHours()), "amount", "" + diffHours);
-				info += " ";
-			}
-
-			if (diffMinutes == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsMinute()), "amount", "" + diffMinutes);
-				info += " ";
-			} else if (diffMinutes > 1) {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-						Config.getInstance().getFormatTimeFormatsMinutes()), "amount", "" + diffMinutes);
-				info += " ";
-			}
-
-			if (diffSeconds == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-								Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								Config.getInstance().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
-			} else {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-						Config.getInstance().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-						Config.getInstance().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
-			}
-
-			info = StringParser.getInstance()
-					.replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLastVoted(), "times", info);
-
-			return info;
-		}
-		return Config.getInstance().getFormatCommandsVoteLastNeverVoted();
-	}
-
-	public long voteNextDurationTime(VoteSite voteSite) {
-		long time = getTime(voteSite);
-		LocalDateTime now = TimeChecker.getInstance().getTime();
-		;
-		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
-
-		if (!voteSite.isVoteDelayDaily()) {
-			double votedelay = voteSite.getVoteDelay();
-			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
-				return 0;
-			} else {
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-						.plusMinutes((long) voteSite.getVoteDelayMin());
-
-				if (time == 0 || now.isAfter(nextvote)) {
-					return 0;
-				} else {
-					Duration dur = Duration.between(now, nextvote);
-					return dur.getSeconds();
-				}
-			}
-		} else {
-			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-
-			if (!now.isBefore(offsetoclocktoday)) {
-				if (!lastVote.isBefore(offsetoclocktoday)) {
-					Duration dur = Duration.between(now, offsetoclocktomorrow);
-					return dur.getSeconds();
-				} else {
-					return 0;
-				}
-			} else {
-				if (!lastVote.isBefore(offsetoclockyesterday)) {
-					Duration dur = Duration.between(now, offsetoclocktoday);
-					return dur.getSeconds();
-				} else {
-					return 0;
-				}
-			}
-		}
-	}
-
-	public String voteCommandLastLine(VoteSite voteSite) {
-		String timeString = voteCommandLastDate(voteSite);
-		String timeSince = voteCommandLastDuration(voteSite);
-
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayName());
-		placeholders.put("timesince", timeSince);
-
-		return StringParser.getInstance().replacePlaceHolder(Config.getInstance().getFormatCommandsVoteLastLine(),
-				placeholders);
-	}
-
-	/**
-	 * Vote command last date.
-	 *
-	 * @param user     the user
-	 * @param voteSite the vote site
-	 * @return the string
-	 */
-	@Deprecated
-	public String voteCommandLastDate(VoteSite voteSite) {
-		long time = getTime(voteSite);
-		if (time > 0) {
-			Date date = new Date(time);
-			String timeString = new SimpleDateFormat(Config.getInstance().getFormatTimeFormat()).format(date);
-			if (StringParser.getInstance().containsIgnorecase(timeString, "YamlConfiguration")) {
-				plugin.getLogger().warning("Detected issue parsing time, check time format");
-			}
-			return timeString;
-		}
-		return "";
+	public void logoutRewards() {
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LogoutRewards").send(this);
 	}
 
 	/**
@@ -1064,7 +797,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
-		if (Config.getInstance().getFormatBroadcastWhenOnline() && Config.getInstance().isBroadcastVotesEnabled()
+		if (plugin.getConfigFile().getFormatBroadcastWhenOnline() && plugin.getConfigFile().isBroadcastVotesEnabled()
 				&& broadcast) {
 			voteSite.broadcastVote(this);
 		}
@@ -1095,8 +828,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param online the online
 	 */
 	public void sendVoteEffects(boolean online) {
-		RewardHandler.getInstance().giveReward(this, SpecialRewardsConfig.getInstance().getData(),
-				SpecialRewardsConfig.getInstance().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
+		RewardHandler.getInstance().giveReward(this, plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 
 	@Deprecated
@@ -1221,7 +954,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the new points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt("Points", value, !BungeeSettings.getInstance().isUseBungeecoord());
+		getUserData().setInt("Points", value, !plugin.getBungeeSettings().isUseBungeecoord());
+	}
+
+	public void setPrimaryAccount(java.util.UUID uuid) {
+		if (uuid != null) {
+			getData().setString("PrimaryAccount", uuid.toString());
+		} else {
+			getData().setString("PrimaryAccount", "");
+		}
 	}
 
 	public void setReminded(boolean reminded) {
@@ -1251,7 +992,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			getUserData().setInt("DailyTotal", value);
 			break;
 		case Monthly:
-			if (Config.getInstance().isLimitMonthlyVotes()) {
+			if (plugin.getConfigFile().isLimitMonthlyVotes()) {
 				LocalDateTime time = TimeChecker.getInstance().getTime();
 				int days = YearMonth.of(time.getYear(), time.getMonth()).lengthOfMonth();
 				if (value >= days * plugin.getVoteSites().size()) {
@@ -1297,6 +1038,260 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Vote command last date.
+	 *
+	 * @param user     the user
+	 * @param voteSite the vote site
+	 * @return the string
+	 */
+	@Deprecated
+	public String voteCommandLastDate(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		if (time > 0) {
+			Date date = new Date(time);
+			String timeString = new SimpleDateFormat(plugin.getConfigFile().getFormatTimeFormat()).format(date);
+			if (StringParser.getInstance().containsIgnorecase(timeString, "YamlConfiguration")) {
+				plugin.getLogger().warning("Detected issue parsing time, check time format");
+			}
+			return timeString;
+		}
+		return "";
+	}
+
+	public String voteCommandLastDuration(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		if (time > 0) {
+			LocalDateTime now = LocalDateTime.now();
+			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault());
+
+			Duration dur = Duration.between(lastVote, now);
+
+			long diffSecond = dur.getSeconds();
+			int diffDays = (int) (diffSecond / 60 / 60 / 24);
+			int diffHours = (int) (diffSecond / 60 / 60 - diffDays * 24);
+			int diffMinutes = (int) (diffSecond / 60 - diffHours * 60 - diffDays * 24 * 60);
+			int diffSeconds = (int) (diffSecond - diffMinutes * 60 - diffHours * 60 * 60 - diffDays * 24 * 60 * 60);
+
+			String info = "";
+			if (diffDays == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								plugin.getConfigFile().getFormatTimeFormatsDay()), "amount", "" + diffDays);
+				info += " ";
+			} else if (diffDays > 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								plugin.getConfigFile().getFormatTimeFormatsDays()), "amount", "" + diffDays);
+				info += " ";
+			}
+
+			if (diffHours == 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								plugin.getConfigFile().getFormatTimeFormatsHour()), "amount", "" + diffHours);
+				info += " ";
+			} else if (diffHours > 1) {
+				info += StringParser.getInstance()
+						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+								plugin.getConfigFile().getFormatTimeFormatsHours()), "amount", "" + diffHours);
+				info += " ";
+			}
+
+			if (diffMinutes == 1) {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsMinute()), "amount", "" + diffMinutes);
+				info += " ";
+			} else if (diffMinutes > 1) {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsMinutes()), "amount", "" + diffMinutes);
+				info += " ";
+			}
+
+			if (diffSeconds == 1) {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
+			} else {
+				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
+			}
+
+			info = StringParser.getInstance()
+					.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLastVoted(), "times", info);
+
+			return info;
+		}
+		return plugin.getConfigFile().getFormatCommandsVoteLastNeverVoted();
+	}
+
+	public String voteCommandLastLine(VoteSite voteSite) {
+		String timeString = voteCommandLastDate(voteSite);
+		String timeSince = voteCommandLastDuration(voteSite);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringParser.getInstance().replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),
+				placeholders);
+	}
+
+	public String voteCommandNextInfo(VoteSite voteSite) {
+		String info = new String();
+
+		long time = getTime(voteSite);
+		LocalDateTime now = TimeChecker.getInstance().getTime();
+		;
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
+
+		if (!voteSite.isVoteDelayDaily()) {
+			double votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
+				String errorMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoError();
+				info = errorMsg;
+			} else {
+
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
+
+				if (time == 0 || now.isAfter(nextvote)) {
+					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
+				} else {
+					Duration dur = Duration.between(now, nextvote);
+
+					long diffHours = dur.getSeconds() / (60 * 60);
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoTime();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Long.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+
+				}
+			}
+		} else {
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
+				}
+			} else {
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					int diffHours = (int) (dur.getSeconds() / (60 * 60));
+					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+					if (diffHours < 0) {
+						diffHours = diffHours * -1;
+					}
+					if (diffHours >= 24) {
+						diffHours = diffHours - 24;
+					}
+					if (diffMinutes < 0) {
+						diffMinutes = diffMinutes * -1;
+					}
+
+					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
+							Integer.toString(diffHours));
+					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+							Long.toString(diffMinutes));
+					info = timeMsg;
+				} else {
+					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
+				}
+			}
+		}
+		return info;
+	}
+
+	public long voteNextDurationTime(VoteSite voteSite) {
+		long time = getTime(voteSite);
+		LocalDateTime now = TimeChecker.getInstance().getTime();
+		;
+		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
+
+		if (!voteSite.isVoteDelayDaily()) {
+			double votedelay = voteSite.getVoteDelay();
+			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
+				return 0;
+			} else {
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
+						.plusMinutes((long) voteSite.getVoteDelayMin());
+
+				if (time == 0 || now.isAfter(nextvote)) {
+					return 0;
+				} else {
+					Duration dur = Duration.between(now, nextvote);
+					return dur.getSeconds();
+				}
+			}
+		} else {
+			LocalDateTime offsetoclockyesterday = TimeChecker.getInstance().getTime().plusDays(-1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktoday = TimeChecker.getInstance().getTime().withHour(0).withMinute(0)
+					.plusHours((long) voteSite.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = TimeChecker.getInstance().getTime().plusDays(1).withHour(0)
+					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+
+			if (!now.isBefore(offsetoclocktoday)) {
+				if (!lastVote.isBefore(offsetoclocktoday)) {
+					Duration dur = Duration.between(now, offsetoclocktomorrow);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			} else {
+				if (!lastVote.isBefore(offsetoclockyesterday)) {
+					Duration dur = Duration.between(now, offsetoclocktoday);
+					return dur.getSeconds();
+				} else {
+					return 0;
+				}
+			}
+		}
 	}
 
 	public boolean voteStreakUpdatedToday(LocalDateTime time) {

@@ -8,9 +8,6 @@ import org.bukkit.event.block.SignChangeEvent;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.data.ServerData;
-import com.bencodez.votingplugin.signs.Signs;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -24,8 +21,7 @@ public class SignChange implements Listener {
 	/**
 	 * Instantiates a new sign change.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public SignChange(VotingPluginMain plugin) {
 		SignChange.plugin = plugin;
@@ -34,8 +30,7 @@ public class SignChange implements Listener {
 	/**
 	 * On sign change.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
@@ -49,14 +44,15 @@ public class SignChange implements Listener {
 					return;
 				}
 				try {
-					ServerData.getInstance().addSign(event.getBlock().getLocation(), event.getLine(2),
+					plugin.getServerData().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
 					event.getPlayer().sendMessage(StringParser.getInstance().colorize("&aAdded sign!"));
 					Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 						@Override
 						public void run() {
-							Signs.getInstance().updateSigns();
+							plugin.getSigns().updateSigns();
+							plugin.getSigns().storeSigns();
 						}
 					});
 				} catch (Exception ex) {
@@ -65,7 +61,7 @@ public class SignChange implements Listener {
 				}
 			} else {
 				event.getPlayer()
-						.sendMessage(StringParser.getInstance().colorize(Config.getInstance().getFormatNoPerms()));
+						.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatNoPerms()));
 			}
 		}
 

@@ -13,13 +13,10 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
-import com.bencodez.votingplugin.voteparty.VoteParty;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 
@@ -29,44 +26,20 @@ import lombok.Getter;
  */
 public class PlaceHolders {
 
-	/** The instance. */
-	static PlaceHolders instance = new PlaceHolders();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of PlaceHolders.
-	 *
-	 * @return single instance of PlaceHolders
-	 */
-	public static PlaceHolders getInstance() {
-		return instance;
-	}
+	@Getter
+	private ArrayList<PlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
 
 	@Getter
 	private ArrayList<PlaceHolder<VotingPluginUser>> placeholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
 
-	@Getter
-	private ArrayList<PlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
+	private VotingPluginMain plugin;
 
-	/**
-	 * Instantiates a new place holders.
-	 */
-	private PlaceHolders() {
-	}
-
-	/**
-	 * Instantiates a new place holders.
-	 *
-	 * @param plugin the plugin
-	 */
 	public PlaceHolders(VotingPluginMain plugin) {
-		PlaceHolders.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
-		if (Config.getInstance().isUseJavascriptPlaceholders()) {
+		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
@@ -80,7 +53,7 @@ public class PlaceHolders {
 		if (Bukkit.isPrimaryThread()) {
 			user.setWaitForCache(false);
 		}
-		if (Config.getInstance().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 			user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			if (Bukkit.isPrimaryThread()) {
 				user.setWaitForCache(false);
@@ -102,7 +75,7 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(Player p, String identifier) {
-		if (Config.getInstance().isUseJavascriptPlaceholders()) {
+		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 		return getPlaceHolder((OfflinePlayer) p, identifier);
@@ -155,8 +128,8 @@ public class PlaceHolders {
 			}
 		}.withDescription("User milestonecount"));
 
-		for (final String identifier : GUI.getInstance().getChestShopIdentifiers()) {
-			if (GUI.getInstance().getChestShopIdentifierLimit(identifier) > 0) {
+		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
+			if (plugin.getGui().getChestShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {
 
 					@Override
@@ -279,7 +252,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				if (user.canVoteAny()) {
-					return Config.getInstance().getFormatCommandsVoteNextInfoCanVote();
+					return plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
 				}
 				long smallest = -1;
 				HashMap<Long, VoteSite> times = new HashMap<Long, VoteSite>();
@@ -529,7 +502,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
-				return Integer.toString(VoteParty.getInstance().getTotalVotes());
+				return Integer.toString(plugin.getVoteParty().getTotalVotes());
 			}
 		}.withDescription("Current amount of voteparty votes"));
 
@@ -537,7 +510,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
-				return Integer.toString(VoteParty.getInstance().getNeededVotes());
+				return Integer.toString(plugin.getVoteParty().getNeededVotes());
 			}
 		}.withDescription("Voteparty votes needed"));
 
@@ -545,7 +518,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
-				return Integer.toString(VoteParty.getInstance().getVotesRequired());
+				return Integer.toString(plugin.getVoteParty().getVotesRequired());
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 

@@ -38,8 +38,7 @@ public class CommandVote implements CommandExecutor {
 	/**
 	 * Instantiates a new command vote.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public CommandVote(VotingPluginMain plugin) {
 		CommandVote.plugin = plugin;
@@ -47,6 +46,7 @@ public class CommandVote implements CommandExecutor {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
 	 * CommandSender , org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])

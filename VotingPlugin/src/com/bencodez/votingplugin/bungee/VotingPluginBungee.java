@@ -44,24 +44,24 @@ import net.md_5.bungee.event.EventHandler;
 
 public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.plugin.Listener {
 
-	@Getter
-	private Config config;
+	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
 
-	@Getter
-	private BungeeMySQL mysql;
-
-	private SocketHandler socketHandler;
+	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
 
 	private HashMap<String, ClientHandler> clientHandles;
+
+	@Getter
+	private Config config;
 
 	private EncryptionHandler encryptionHandler;
 
 	@Getter
 	private BungeeMethod method;
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	@Getter
+	private BungeeMySQL mysql;
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	private SocketHandler socketHandler;
 
 	private VoteCache voteCacheFile;
 
@@ -148,6 +148,36 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			return str;
 		}
 		return "";
+	}
+
+	private int getValue(ArrayList<Column> cols, String column) {
+		for (Column d : cols) {
+			if (d.getName().equalsIgnoreCase(column)) {
+
+				Object value = d.getValue();
+				int num = 0;
+				if (value instanceof Integer) {
+					try {
+						num = (int) value;
+					} catch (ClassCastException | NullPointerException ex) {
+					}
+				} else if (value instanceof String) {
+					try {
+						num = Integer.parseInt((String) value);
+					} catch (Exception e) {
+					}
+				}
+				return num;
+			}
+		}
+		return -1;
+	}
+
+	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
+		int num = getValue(cols, column) + toAdd;
+		debug("Setting " + column + " to " + num + " for " + uuid);
+		mysql.update(uuid, column, num, DataType.INTEGER);
+		return num;
 	}
 
 	@Override
@@ -453,36 +483,6 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 	public void status(CommandSender sender) {
 		sendServerMessage("status");
-	}
-
-	private int getValue(ArrayList<Column> cols, String column) {
-		for (Column d : cols) {
-			if (d.getName().equalsIgnoreCase(column)) {
-
-				Object value = d.getValue();
-				int num = 0;
-				if (value instanceof Integer) {
-					try {
-						num = (int) value;
-					} catch (ClassCastException | NullPointerException ex) {
-					}
-				} else if (value instanceof String) {
-					try {
-						num = Integer.parseInt((String) value);
-					} catch (Exception e) {
-					}
-				}
-				return num;
-			}
-		}
-		return -1;
-	}
-
-	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
-		int num = getValue(cols, column) + toAdd;
-		debug("Setting " + column + " to " + num + " for " + uuid);
-		mysql.update(uuid, column, num, DataType.INTEGER);
-		return num;
 	}
 
 	public void vote(String player, String service, boolean realVote) {

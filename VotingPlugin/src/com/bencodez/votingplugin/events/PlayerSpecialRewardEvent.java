@@ -28,7 +28,7 @@ public class PlayerSpecialRewardEvent extends Event {
 
 	@Getter
 	@Setter
-	private VotingPluginUser user;
+	private boolean cancelled;
 
 	@Getter
 	@Setter
@@ -36,7 +36,7 @@ public class PlayerSpecialRewardEvent extends Event {
 
 	@Getter
 	@Setter
-	private boolean cancelled;
+	private VotingPluginUser user;
 
 	public PlayerSpecialRewardEvent(VotingPluginUser user, SpecialRewardType type) {
 		super(true);
@@ -46,6 +46,7 @@ public class PlayerSpecialRewardEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override

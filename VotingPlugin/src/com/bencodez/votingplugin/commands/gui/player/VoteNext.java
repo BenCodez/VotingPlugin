@@ -16,9 +16,6 @@ import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.CommandLoader;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -26,8 +23,8 @@ import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteNext extends GUIHandler {
 
-	private VotingPluginUser user;
 	private VotingPluginMain plugin;
+	private VotingPluginUser user;
 
 	public VoteNext(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(player);
@@ -36,8 +33,31 @@ public class VoteNext extends GUIHandler {
 	}
 
 	@Override
+	public ArrayList<String> getChat(CommandSender sender) {
+		ArrayList<String> msg = new ArrayList<String>();
+
+		String playerName = user.getPlayerName();
+
+		msg.add(StringParser.getInstance().colorize(StringParser.getInstance()
+				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
+
+		for (VoteSite voteSite : plugin.getVoteSites()) {
+
+			String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
+
+			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
+					user.voteCommandNextInfo(voteSite));
+
+			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
+			msg.add(StringParser.getInstance().colorize(msgLine));
+
+		}
+		return msg;
+	}
+
+	@Override
 	public void onBook(Player player) {
-		BookWrapper book = new BookWrapper(GUI.getInstance().getBookVoteURLBookGUITitle());
+		BookWrapper book = new BookWrapper(plugin.getGui().getBookVoteURLBookGUITitle());
 
 		// add colors/config options
 		for (VoteSite site : plugin.getVoteSites()) {
@@ -54,36 +74,13 @@ public class VoteNext extends GUIHandler {
 	}
 
 	@Override
-	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
-
-		String playerName = user.getPlayerName();
-
-		msg.add(StringParser.getInstance().colorize(StringParser.getInstance()
-				.replaceIgnoreCase(Config.getInstance().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
-
-		for (VoteSite voteSite : plugin.getVoteSites()) {
-
-			String msgLine = Config.getInstance().getFormatCommandsVoteNextLayout();
-
-			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
-					user.voteCommandNextInfo(voteSite));
-
-			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
-			msg.add(StringParser.getInstance().colorize(msgLine));
-
-		}
-		return msg;
-	}
-
-	@Override
 	public void onChat(CommandSender sender) {
 		sendMessage(getChat(sender));
 	}
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory(GUI.getInstance().getChestVoteNextName());
+		BInventory inv = new BInventory(plugin.getGui().getChestVoteNextName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
@@ -102,15 +99,15 @@ public class VoteNext extends GUIHandler {
 			});
 		}
 
-		if (GUI.getInstance().getChestVoteNextBackButton()) {
-			inv.addButton(CommandLoader.getInstance().getBackButton(user));
+		if (plugin.getGui().getChestVoteNextBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);
 	}
-	
+
 	@Override
 	public void open() {
-		open(GUIMethod.valueOf(GUI.getInstance().getGuiMethodNext().toUpperCase()));
+		open(GUIMethod.valueOf(plugin.getGui().getGuiMethodNext().toUpperCase()));
 	}
 
 }

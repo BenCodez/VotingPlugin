@@ -22,16 +22,17 @@ import com.bencodez.votingplugin.VotingPluginMain;
  */
 public class AliasesTabCompleter implements TabCompleter {
 
-	/** The plugin. */
-	VotingPluginMain plugin = VotingPluginMain.plugin;
+	private boolean adminCommand;
 
 	/** The cmd handle. */
 	public CommandHandler cmdHandle;
 
-	private boolean adminCommand;
+	/** The plugin. */
+	VotingPluginMain plugin = VotingPluginMain.plugin;
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
 	 * CommandSender, org.bukkit.command.Command, java.lang.String,
 	 * java.lang.String[])

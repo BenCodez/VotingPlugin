@@ -23,8 +23,7 @@ public class BlockBreak implements Listener {
 	/**
 	 * Instantiates a new block break.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public BlockBreak(VotingPluginMain plugin) {
 		BlockBreak.plugin = plugin;
@@ -33,8 +32,7 @@ public class BlockBreak implements Listener {
 	/**
 	 * On block break.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onBlockBreak(BlockBreakEvent event) {
@@ -45,7 +43,7 @@ public class BlockBreak implements Listener {
 
 				@Override
 				public void run() {
-					for (SignHandler sign : plugin.getSigns()) {
+					for (SignHandler sign : plugin.getSigns().getSigns()) {
 						if (sign.getLocation().equals(loc)) {
 							sign.removeSign();
 							sign.setValid(false);

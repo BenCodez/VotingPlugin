@@ -9,9 +9,6 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.config.Config;
-import com.bencodez.votingplugin.config.ConfigVoteSites;
-import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
@@ -23,30 +20,22 @@ import com.vexsoftware.votifier.model.VotifierEvent;
  */
 public class VotiferEvent implements Listener {
 
-	/** The config. */
-	static Config config = Config.getInstance();
-
-	/** The config vote sites. */
-	static ConfigVoteSites configVoteSites = ConfigVoteSites.getInstance();
-
 	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new votifer event.
 	 *
-	 * @param plugin
-	 *            the plugin
+	 * @param plugin the plugin
 	 */
 	public VotiferEvent(VotingPluginMain plugin) {
-		VotiferEvent.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**
 	 * On votifer event.
 	 *
-	 * @param event
-	 *            the event
+	 * @param event the event
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onVotiferEvent(VotifierEvent event) {
@@ -59,7 +48,7 @@ public class VotiferEvent implements Listener {
 
 			@Override
 			public void run() {
-				ServerData.getInstance().addServiceSite(voteSite);
+				plugin.getServerData().addServiceSite(voteSite);
 			}
 		});
 
@@ -81,7 +70,7 @@ public class VotiferEvent implements Listener {
 			public void run() {
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
 
-				ArrayList<String> sites = configVoteSites.getVoteSitesNames();
+				ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames();
 				boolean createSite = false;
 				if (sites != null) {
 					if (!sites.contains(voteSiteName)) {
@@ -91,10 +80,10 @@ public class VotiferEvent implements Listener {
 					createSite = true;
 				}
 
-				if (Config.getInstance().isAutoCreateVoteSites() && createSite) {
+				if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
 					plugin.getLogger().warning("VoteSite with service site '" + voteSiteName
 							+ "' does not exist, attempting to generaterate...");
-					ConfigVoteSites.getInstance().generateVoteSite(voteSiteName);
+					plugin.getConfigVoteSites().generateVoteSite(voteSiteName);
 
 					ArrayList<String> services = new ArrayList<String>();
 					for (VoteSite site : plugin.getVoteSites()) {

@@ -2,21 +2,17 @@ package com.bencodez.votingplugin.topvoter;
 
 import java.util.ArrayList;
 
-import com.bencodez.votingplugin.config.Config;
+import com.bencodez.votingplugin.VotingPluginMain;
 
 public enum TopVoter {
-	AllTime, Monthly, Weekly, Daily;
+	AllTime, Daily, Monthly, Weekly;
 
 	public static TopVoter getDefault() {
-		TopVoter top = getTopVoter(Config.getInstance().getVoteTopDefault());
+		TopVoter top = getTopVoter(VotingPluginMain.plugin.getConfigFile().getVoteTopDefault());
 		if (top != null) {
 			return top;
 		}
 		return AllTime;
-	}
-
-	public static TopVoter[] valuesMinusAllTime() {
-		return new TopVoter[] { TopVoter.Daily, TopVoter.Weekly, TopVoter.Monthly };
 	}
 
 	public static TopVoter getTopVoter(String str) {
@@ -28,30 +24,34 @@ public enum TopVoter {
 		return AllTime;
 	}
 
+	public static TopVoter[] valuesMinusAllTime() {
+		return new TopVoter[] { TopVoter.Daily, TopVoter.Weekly, TopVoter.Monthly };
+	}
+
 	public String getName() {
 		if (this.equals(TopVoter.Monthly)) {
-			return Config.getInstance().getFormatTopVoterMonthly();
+			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterMonthly();
 		} else if (this.equals(TopVoter.Weekly)) {
-			return Config.getInstance().getFormatTopVoterWeekly();
+			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterWeekly();
 		} else if (this.equals(TopVoter.Daily)) {
-			return Config.getInstance().getFormatTopVoterDaily();
+			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterDaily();
 		} else {
-			return Config.getInstance().getFormatTopVoterAllTime();
+			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterAllTime();
 		}
 	}
 
 	public TopVoter next() {
 		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
-		if (Config.getInstance().getLoadTopVoterAllTime()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
 			list.add(TopVoter.AllTime);
 		}
-		if (Config.getInstance().getLoadTopVoterMonthly()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
 			list.add(TopVoter.Monthly);
 		}
-		if (Config.getInstance().getLoadTopVoterWeekly()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
 			list.add(TopVoter.Weekly);
 		}
-		if (Config.getInstance().getLoadTopVoterDaily()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
 			list.add(TopVoter.Daily);
 		}
 		for (int i = 0; i < list.size(); i++) {
@@ -68,16 +68,16 @@ public enum TopVoter {
 
 	public TopVoter prev() {
 		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
-		if (Config.getInstance().getLoadTopVoterAllTime()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
 			list.add(TopVoter.AllTime);
 		}
-		if (Config.getInstance().getLoadTopVoterMonthly()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
 			list.add(TopVoter.Monthly);
 		}
-		if (Config.getInstance().getLoadTopVoterWeekly()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
 			list.add(TopVoter.Weekly);
 		}
-		if (Config.getInstance().getLoadTopVoterDaily()) {
+		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
 			list.add(TopVoter.Daily);
 		}
 		for (int i = list.size() - 1; i >= 0; i--) {

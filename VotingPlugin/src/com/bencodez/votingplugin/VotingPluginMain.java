@@ -25,6 +25,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -78,13 +79,13 @@ import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
-import com.bencodez.votingplugin.signs.SignHandler;
 import com.bencodez.votingplugin.signs.Signs;
+import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.updater.CheckUpdate;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
 import com.vexsoftware.votifier.Votifier;
@@ -97,32 +98,100 @@ import lombok.Setter;
  */
 public class VotingPluginMain extends AdvancedCorePlugin {
 
+	/** The plugin. */
+	@Getter
+	public static VotingPluginMain plugin;
+
+	@Getter
+	@Setter
+	private ArrayList<CommandHandler> adminVoteCommand;
+
+	@Getter
+	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
+
+	@Getter
+	private BungeeHandler bungeeHandler;
+
+	@Getter
+	private BungeeSettings bungeeSettings;
+
+	@Getter
+	private CheckUpdate checkUpdate;
+
+	@Getter
+	private CommandLoader commandLoader;
+
 	/** The config. */
-	public static Config config;
+	@Getter
+	private Config configFile;
 
 	/** The config vote sites. */
-	public static ConfigVoteSites configVoteSites;
+	@Getter
+	private ConfigVoteSites configVoteSites;
 
-	/** The plugin. */
-	public static VotingPluginMain plugin;
+	@Getter
+	private CoolDownCheck coolDownCheck;
+
+	@Getter
+	private GUI gui;
+
+	@Getter
+	private LinkedHashMap<VotingPluginUser, Integer> lastMonthTopVoter;
+
+	@Getter
+	private MVdWPlaceholders mvdwPlaceholders;
+
+	@Getter
+	private PlaceHolders placeholders;
+
+	@Getter
+	private String profile = "";
+
+	@Getter
+	private ServerData serverData;
+
+	@Getter
+	@Setter
+	private Signs signs;
+
+	@Getter
+	private SpecialRewards specialRewards;
+
+	@Getter
+	private SpecialRewardsConfig specialRewardsConfig;
+
+	@Getter
+	private String time = "";
 
 	@Getter
 	private LinkedHashMap<TopVoter, LinkedHashMap<VotingPluginUser, Integer>> topVoter;
 
 	@Getter
-	private LinkedHashMap<VotingPluginUser, Integer> lastMonthTopVoter;
+	private TopVoterHandler topVoterHandler;
+
+	@Getter
+	@Setter
+	private boolean update = true;
 
 	@Getter
 	@Setter
 	private Updater updater;
 
 	@Getter
+	private boolean updateStarted = false;
+
+	@Getter
 	@Setter
 	private ArrayList<CommandHandler> voteCommand;
 
 	@Getter
-	@Setter
-	private ArrayList<CommandHandler> adminVoteCommand;
+	private Logger voteLog;
+
+	@Getter
+	private VoteParty voteParty;
+
+	@Getter
+	private VoteReminding voteReminding;
 
 	@Getter
 	private List<VoteSite> voteSites;
@@ -130,33 +199,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>> voteToday;
 
-	@Getter
-	@Setter
-	private ArrayList<SignHandler> signs;
-
-	@Getter
-	private Logger voteLog;
-
-	@Getter
-	@Setter
-	private boolean update = true;
-
-	@Getter
-	private boolean updateStarted = false;
-
-	@Getter
-	private boolean ymlError = false;
-
 	private boolean votifierLoaded = true;
 
 	@Getter
-	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
-
-	@Getter
-	private SpecialRewardsConfig specialRewardsConfig;
-
-	@Getter
-	private BungeeSettings bungeeSettings;
+	private boolean ymlError = false;
 
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
@@ -174,7 +220,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		try {
 			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			if (!BungeeSettings.getInstance().isUseBungeecoord()) {
+			if (!bungeeSettings.isUseBungeecoord()) {
 				plugin.getLogger()
 						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
 			} else {
@@ -197,13 +243,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void checkYMLError() {
-		if (config.isFailedToRead() || configVoteSites.isFailedToRead()) {
+		if (configFile.isFailedToRead() || configVoteSites.isFailedToRead()) {
 			ymlError = true;
-		} else if (!config.isFailedToRead() && !configVoteSites.isFailedToRead()) {
+		} else if (!configFile.isFailedToRead() && !configVoteSites.isFailedToRead()) {
 			ymlError = false;
 		}
 
-		if (config.isFailedToRead()) {
+		if (configFile.isFailedToRead()) {
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -248,7 +294,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			ArrayList<String> converted = new ArrayList<String>();
 			int i = 0;
-			while (i < Config.getInstance().getConvertAmount() && i < uuids.size()) {
+			while (i < configFile.getConvertAmount() && i < uuids.size()) {
 				String uuid = uuids.get(i);
 				try {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -272,7 +318,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 
 			try {
-				wait(Config.getInstance().getConvertDelay());
+				wait(configFile.getConvertDelay());
 			} catch (Exception e) {
 			}
 
@@ -300,6 +346,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return new ArrayList<VotingPluginUser>(set);
 	}
 
+	@Override
+	public FileConfiguration getConfig() {
+		return configFile.getData();
+	}
+
 	public LinkedHashMap<VotingPluginUser, Integer> getTopVoter(TopVoter top) {
 		return topVoter.get(top);
 	}
@@ -314,8 +365,32 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return UserManager.getInstance().getVotingPluginUser(uuid);
 	}
 
-	public VoteParty getVoteParty() {
-		return VoteParty.getInstance();
+	private YamlConfiguration getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("votingpluginversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
+								defConfigStream.close();
+								return defConfig;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	/**
@@ -331,9 +406,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return voteSite;
 			}
 		}
-		if (Config.getInstance().isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
+		if (configFile.isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
 			configVoteSites.generateVoteSite(siteName);
-			return new VoteSite(siteName.replace(".", "_"));
+			return new VoteSite(plugin, siteName.replace(".", "_"));
 		}
 		return null;
 
@@ -346,14 +421,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String... urls) {
-		ArrayList<String> sites = ConfigVoteSites.getInstance().getVoteSitesNames();
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames();
 		for (String url : urls) {
 			if (url == null) {
 				return null;
 			}
 			if (sites != null) {
 				for (String siteName : sites) {
-					String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
+					String URL = getConfigVoteSites().getServiceSite(siteName);
 					if (URL != null) {
 						if (URL.equalsIgnoreCase(url)) {
 							return siteName;
@@ -376,13 +451,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public String getVoteSiteServiceSite(String name) {
-		ArrayList<String> sites = ConfigVoteSites.getInstance().getVoteSitesNames();
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames();
 		if (name == null) {
 			return null;
 		}
 		if (sites != null) {
 			for (String siteName : sites) {
-				String URL = ConfigVoteSites.getInstance().getServiceSite(siteName);
+				String URL = getConfigVoteSites().getServiceSite(siteName);
 				if (URL != null) {
 					if (URL.equalsIgnoreCase(name)) {
 						return URL;
@@ -435,14 +510,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							cancel();
 						}
 					}
-				}, 1000, 1000 * 60 * Config.getInstance().getDelayBetweenUpdates());
+				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates());
 
 				getTimer().schedule(new TimerTask() {
 
 					@Override
 					public void run() {
 						if (plugin != null) {
-							CoolDownCheck.getInstance().checkAll();
+							coolDownCheck.checkAll();
 						} else {
 							cancel();
 						}
@@ -453,7 +528,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 					@Override
 					public void run() {
-						if (plugin != null && Config.getInstance().isExtraBackgroundUpdate()) {
+						if (plugin != null && configFile.isExtraBackgroundUpdate()) {
 							basicBungeeUpdate();
 						} else {
 							cancel();
@@ -464,6 +539,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}, 40L);
 
+	}
+
+	private void loadVersionFile() {
+		YamlConfiguration conf = getVersionFile();
+		if (conf != null) {
+			time = conf.getString("time", "");
+			profile = conf.getString("profile", "");
+		}
 	}
 
 	/**
@@ -490,7 +573,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @param voteSite   the vote site
 	 */
 	public void logVote(LocalDateTime date, String playerName, String voteSite) {
-		if (Config.getInstance().isLogVotesToFile()) {
+		if (configFile.isLogVotesToFile()) {
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 			String str = formatter.format(date);
 			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
@@ -515,8 +598,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-						SpecialRewardsConfig.getInstance().getFirstVoteRewardsPath())) {
+				if (RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+						specialRewardsConfig.getFirstVoteRewardsPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -527,8 +610,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
-						ConfigVoteSites.getInstance().getEverySiteRewardPath())) {
+				if (RewardHandler.getInstance().hasRewards(getConfigVoteSites().getData(),
+						getConfigVoteSites().getEverySiteRewardPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -539,8 +622,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-						SpecialRewardsConfig.getInstance().getAllSitesRewardPath())) {
+				if (RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+						specialRewardsConfig.getAllSitesRewardPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -551,11 +634,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (SpecialRewardsConfig.getInstance().getCumulativeVotes().size() == 0) {
+				if (specialRewardsConfig.getCumulativeVotes().size() == 0) {
 					return "False";
 				} else {
-					for (String cum : SpecialRewardsConfig.getInstance().getCumulativeVotes()) {
-						if (SpecialRewardsConfig.getInstance().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
+					for (String cum : specialRewardsConfig.getCumulativeVotes()) {
+						if (specialRewardsConfig.getCumulativeRewardEnabled(Integer.parseInt(cum))) {
 							return "True";
 						}
 					}
@@ -567,7 +650,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (!SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
+				if (!specialRewardsConfig.getVotePartyEnabled()) {
 					return "False";
 				} else {
 					return "True";
@@ -578,11 +661,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (SpecialRewardsConfig.getInstance().getMilestoneVotes().size() == 0) {
+				if (specialRewardsConfig.getMilestoneVotes().size() == 0) {
 					return "False";
 				} else {
-					for (String milestone : SpecialRewardsConfig.getInstance().getMilestoneVotes()) {
-						if (SpecialRewardsConfig.getInstance().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
+					for (String milestone : specialRewardsConfig.getMilestoneVotes()) {
+						if (specialRewardsConfig.getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
 							return "True";
 						}
 					}
@@ -594,8 +677,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				if (RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-						SpecialRewardsConfig.getInstance().getAnySiteRewardsPath())) {
+				if (RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+						specialRewardsConfig.getAnySiteRewardsPath())) {
 					return "True";
 				} else {
 					return "False";
@@ -606,11 +689,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Day")) {
+				for (String s : specialRewardsConfig.getVoteStreakVotes("Day")) {
 
-					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Day", s)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Day", s))) {
+					if (specialRewardsConfig.getVoteStreakRewardEnabled("Day", s)
+							&& RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+									specialRewardsConfig.getVoteStreakRewardsPath("Day", s))) {
 						return "True";
 					}
 
@@ -623,11 +706,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Week")) {
+				for (String s : specialRewardsConfig.getVoteStreakVotes("Week")) {
 
-					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Week", s)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Week", s))) {
+					if (specialRewardsConfig.getVoteStreakRewardEnabled("Week", s)
+							&& RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+									specialRewardsConfig.getVoteStreakRewardsPath("Week", s))) {
 						return "True";
 					}
 				}
@@ -640,11 +723,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				for (String s : SpecialRewardsConfig.getInstance().getVoteStreakVotes("Month")) {
+				for (String s : specialRewardsConfig.getVoteStreakVotes("Month")) {
 
-					if (SpecialRewardsConfig.getInstance().getVoteStreakRewardEnabled("Month", s)
-							&& RewardHandler.getInstance().hasRewards(SpecialRewardsConfig.getInstance().getData(),
-									SpecialRewardsConfig.getInstance().getVoteStreakRewardsPath("Month", s))) {
+					if (specialRewardsConfig.getVoteStreakRewardEnabled("Month", s)
+							&& RewardHandler.getInstance().hasRewards(specialRewardsConfig.getData(),
+									specialRewardsConfig.getVoteStreakRewardsPath("Month", s))) {
 						return "True";
 					}
 				}
@@ -670,15 +753,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().isAutoCreateVoteSites();
+				return "" + configFile.isAutoCreateVoteSites();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("BungeeMethod") {
 
 			@Override
 			public String getValue() {
-				if (BungeeSettings.getInstance().isUseBungeecoord()) {
-					return "" + BungeeHandler.getInstance().getMethod().toString();
+				if (bungeeSettings.isUseBungeecoord()) {
+					return "" + getBungeeHandler().getMethod().toString();
 				} else {
 					return "Disabled";
 				}
@@ -716,79 +799,39 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getVoteRemindingEnabled();
+				return "" + configFile.getVoteRemindingEnabled();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getLoadTopVoterMonthly();
+				return "" + configFile.getLoadTopVoterMonthly();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Weekly") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getLoadTopVoterWeekly();
+				return "" + configFile.getLoadTopVoterWeekly();
 			}
 		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Daily") {
 
 			@Override
 			public String getValue() {
-				return "" + Config.getInstance().getLoadTopVoterDaily();
+				return "" + configFile.getLoadTopVoterDaily();
 			}
 		});
-	}
-
-	private YamlConfiguration getVersionFile() {
-		try {
-			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
-			if (src != null) {
-				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
-				while (true) {
-					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
-								defConfigStream.close();
-								return defConfig;
-							}
-						}
-					}
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	@Getter
-	private String time = "";
-	@Getter
-	private String profile = "";
-
-	private void loadVersionFile() {
-		YamlConfiguration conf = getVersionFile();
-		if (conf != null) {
-			time = conf.getString("time", "");
-			profile = conf.getString("profile", "");
-		}
 	}
 
 	@Override
 	public void onPostLoad() {
 		loadVersionFile();
-		getOptions().setServer(BungeeSettings.getInstance().getServer());
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
-			BungeeHandler.getInstance().load();
+		getOptions().setServer(bungeeSettings.getServer());
+		if (bungeeSettings.isUseBungeecoord()) {
+			bungeeHandler = new BungeeHandler(this);
+			bungeeHandler.load();
 
 			if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
 				getLogger()
@@ -800,24 +843,28 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		registerCommands();
 		checkVotifier();
 		registerEvents();
-		CheckUpdate.getInstance().startUp();
-		VoteReminding.getInstance().loadRemindChecking();
-		plugin.signs = new ArrayList<SignHandler>();
+		checkUpdate = new CheckUpdate(this);
+		checkUpdate.startUp();
+		voteReminding = new VoteReminding(this);
+		voteReminding.loadRemindChecking();
+		specialRewards = new SpecialRewards(this);
+		signs = new Signs(this);
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				Signs.getInstance().loadSigns();
+				signs.loadSigns();
 			}
 		});
 
+		topVoterHandler = new TopVoterHandler(this);
 		lastMonthTopVoter = new LinkedHashMap<VotingPluginUser, Integer>();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
-				TopVoterHandler.getInstance().loadLastMonth();
+				topVoterHandler.loadLastMonth();
 				debug("Loaded last month top voters");
 			}
 		});
@@ -828,15 +875,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteToday = new LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>>();
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
-		AdminGUI.getInstance().loadHook();
+		new AdminGUI(this).loadHook();
 
 		// vote party
-		if (SpecialRewardsConfig.getInstance().getVotePartyEnabled()) {
-			VoteParty.getInstance().check();
+		voteParty = new VoteParty(this);
+		if (specialRewardsConfig.getVotePartyEnabled()) {
+			voteParty.check();
 		}
-		VoteParty.getInstance().register();
+		voteParty.register();
 
-		TopVoterHandler.getInstance().register();
+		topVoterHandler.register();
 
 		metrics();
 
@@ -853,14 +901,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadTimer();
 
 		// placeholderapi loading
-		PlaceHolders.getInstance().load();
-		
+		placeholders = new PlaceHolders(this);
+		placeholders.load();
+
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
-			MVdWPlaceholders.getInstance().loadMVdWPlaceholders();
+			mvdwPlaceholders = new MVdWPlaceholders(this);
+			mvdwPlaceholders.loadMVdWPlaceholders();
 		}
 
 		// set columns
-		if (getStorageType().equals(UserStorage.MYSQL) && Config.getInstance().isAlterColumns()) {
+		if (getStorageType().equals(UserStorage.MYSQL) && configFile.isAlterColumns()) {
 			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
 			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
 			getMysql().alterColumnType("Reminded", "VARCHAR(5)");
@@ -890,8 +940,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 
 			@Override
-			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
-					HashMap<String, String> placeholders) {
+			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
+					int num, HashMap<String, String> placeholders) {
 				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
 				return null;
 			}
@@ -947,11 +997,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			plugin.getLogger().warning("Using dev build, this is not a stable build, use at your own risk");
 		}
 
-		boolean hasRewards = RewardHandler.getInstance().hasRewards(ConfigVoteSites.getInstance().getData(),
-				ConfigVoteSites.getInstance().getEverySiteRewardPath());
+		boolean hasRewards = RewardHandler.getInstance().hasRewards(getConfigVoteSites().getData(),
+				getConfigVoteSites().getEverySiteRewardPath());
 
 		boolean issues = true;
-		ArrayList<String> services = ServerData.getInstance().getServiceSites();
+		ArrayList<String> services = serverData.getServiceSites();
 		for (VoteSite site : getVoteSites()) {
 			if (!site.hasRewards() && !hasRewards) {
 				issues = false;
@@ -996,7 +1046,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
 	 */
 	@Override
@@ -1008,7 +1058,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11")) {
 			plugin.getLogger().severe("Detected running " + Bukkit.getVersion()
 					+ ", this version is not supported on this build, read the plugin page. Disabling...");
-			if (!Config.getInstance().isOverrideVersionDisable()) {
+			if (!configFile.isOverrideVersionDisable()) {
 				Bukkit.getPluginManager().disablePlugin(this);
 				return;
 			} else {
@@ -1027,16 +1077,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
 	 */
 	@Override
 	public void onUnLoad() {
-		Signs.getInstance().storeSigns();
+		getSigns().storeSigns();
 		HandlerList.unregisterAll(plugin);
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
+		if (bungeeSettings.isUseBungeecoord()) {
 			try {
-				BungeeHandler.getInstance().close();
+				getBungeeHandler().close();
 			} catch (Exception e) {
 				debug(e);
 			}
@@ -1048,8 +1098,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register commands.
 	 */
 	private void registerCommands() {
-		CommandLoader.getInstance().loadCommands();
-		CommandLoader.getInstance().loadAliases();
+		commandLoader = new CommandLoader(this);
+		commandLoader.loadCommands();
+		commandLoader.loadAliases();
 
 		// /vote, /v
 		getCommand("vote").setExecutor(new CommandVote(this));
@@ -1065,7 +1116,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		Permission perm = Bukkit.getPluginManager().getPermission("VotingPlugin.Player");
 		if (perm != null) {
-			if (Config.getInstance().getGiveDefaultPermission()) {
+			if (configFile.getGiveDefaultPermission()) {
 				perm.setDefault(PermissionDefault.TRUE);
 				getLogger().info("Giving VotingPlugin.Player permission by default, can be disabled in the config");
 			} else {
@@ -1095,7 +1146,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (!NMSManager.getInstance().isVersion("1.12")) {
 			pm.registerEvents(new PlayerCommandSendListener(this), this);
 		}
-		pm.registerEvents(new CoolDownCheck(this), this);
+		coolDownCheck = new CoolDownCheck(this);
+		pm.registerEvents(coolDownCheck, this);
 
 		plugin.debug("Loaded Events");
 
@@ -1109,17 +1161,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadPlugin(false);
 	}
 
+	public void reloadAll() {
+		reloadPlugin(true);
+	}
+
 	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
 
-		config.reloadData();
-		config.loadValues();
+		configFile.reloadData();
+		configFile.loadValues();
 
 		configVoteSites.reloadData();
 
 		specialRewardsConfig.reloadData();
 
-		GUI.getInstance().reloadData();
+		gui.reloadData();
 
 		bungeeSettings.reloadData();
 		checkYMLError();
@@ -1127,9 +1183,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 		reloadAdvancedCore(userStorage);
-		getOptions().setServer(BungeeSettings.getInstance().getServer());
-		PlaceHolders.getInstance().load();
-		CoolDownCheck.getInstance().checkAll();
+		getOptions().setServer(bungeeSettings.getServer());
+		placeholders.load();
+		coolDownCheck.checkAll();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
@@ -1139,31 +1195,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 	}
 
-	public void reloadAll() {
-		reloadPlugin(true);
-	}
-
-	@Getter
-	private GUI gui;
-
 	private void setupFiles() {
-		config = Config.getInstance();
-		config.setup();
-		// config.loadValues();
+		configFile = new Config(this);
+		configFile.setup();
 
-		configVoteSites = ConfigVoteSites.getInstance();
+		configVoteSites = new ConfigVoteSites(this);
 		configVoteSites.setup();
 
-		specialRewardsConfig = SpecialRewardsConfig.getInstance();
+		specialRewardsConfig = new SpecialRewardsConfig(this);
 		specialRewardsConfig.setup();
 		// specialRewardsConfig.loadValues();
 
-		bungeeSettings = BungeeSettings.getInstance();
+		bungeeSettings = new BungeeSettings(this);
 		bungeeSettings.setup();
 		// bungeeSettings.loadValues();
 
-		gui = GUI.getInstance();
+		gui = new GUI(this);
 		gui.setup();
+
+		serverData = new ServerData(this);
 
 		checkYMLError();
 
@@ -1175,9 +1225,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Update.
 	 */
 	public void update() {
-		if (update || Config.getInstance().isAlwaysUpdate()) {
+		if (update || configFile.isAlwaysUpdate()) {
 			if (!updateStarted && plugin != null) {
-				if (!Config.getInstance().isUpdateWithPlayersOnlineOnly() || Bukkit.getOnlinePlayers().size() != 0) {
+				if (!configFile.isUpdateWithPlayersOnlineOnly() || Bukkit.getOnlinePlayers().size() != 0) {
 					updateStarted = true;
 					update = false;
 
@@ -1186,8 +1236,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							if (getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
-							} else if (Config.getInstance().isClearCacheOnUpdate()
-									|| BungeeSettings.getInstance().isUseBungeecoord()) {
+							} else if (configFile.isClearCacheOnUpdate() || bungeeSettings.isUseBungeecoord()) {
 								getMysql().clearCache();
 							} else {
 								getMysql().clearCacheBasic();
@@ -1201,7 +1250,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							ArrayList<VotingPluginUser> users = new ArrayList<VotingPluginUser>();
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
-									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+									VotingPluginUser user = UserManager.getInstance()
+											.getVotingPluginUser(new UUID(uuid));
 									users.add(user);
 									// extraDebug("Loading " + uuid);
 									// java.lang.Thread.sleep(5000);
@@ -1211,12 +1261,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							long time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
 									+ " users");
-							TopVoterHandler.getInstance().updateTopVoters(users);
+							topVoterHandler.updateTopVoters(users);
 							updateVoteToday(users);
-							ServerData.getInstance().updateValues();
-							Signs.getInstance().updateSigns();
+							serverData.updateValues();
+							getSigns().updateSigns();
 
-							if (!Config.getInstance().isExtraBackgroundUpdate()) {
+							if (!configFile.isExtraBackgroundUpdate()) {
 								for (Player player : Bukkit.getOnlinePlayers()) {
 									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 									user.offVote();
@@ -1233,6 +1283,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					updateStarted = false;
 				}
 			}
+		}
+	}
+
+	public void updateAdvancedCoreHook() {
+		getJavascriptEngine().put("VotingPlugin", this);
+		allowDownloadingFromSpigot(15358);
+		setConfigData(configFile.getData());
+		if (bungeeSettings.isUseBungeecoord()) {
+			getOptions().setClearCacheOnJoin(true);
 		}
 	}
 
@@ -1257,15 +1316,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		}
 		plugin.debug("Updated VoteToday");
-	}
-
-	public void updateAdvancedCoreHook() {
-		getJavascriptEngine().put("VotingPlugin", this);
-		allowDownloadingFromSpigot(15358);
-		setConfigData(Config.getInstance().getData());
-		if (BungeeSettings.getInstance().isUseBungeecoord()) {
-			getOptions().setClearCacheOnJoin(true);
-		}
 	}
 
 	private void writeConvertData(HashMap<VotingPluginUser, HashMap<String, String>> data) {

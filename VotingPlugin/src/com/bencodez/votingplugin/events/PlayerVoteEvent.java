@@ -28,11 +28,15 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private String player;
+	private boolean addTotals = true;
 
 	@Getter
 	@Setter
-	private VoteSite voteSite;
+	private boolean bungee = false;
+
+	@Getter
+	@Setter
+	private String bungeeTextTotals;
 
 	@Getter
 	@Setter
@@ -40,11 +44,15 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private boolean realVote = true;
+	private boolean forceBungee = false;
 
 	@Getter
 	@Setter
-	private boolean addTotals = true;
+	private String player;
+
+	@Getter
+	@Setter
+	private boolean realVote = true;
 
 	@Getter
 	@Setter
@@ -56,15 +64,7 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private boolean bungee = false;
-
-	@Getter
-	@Setter
-	private boolean forceBungee = false;
-	
-	@Getter
-	@Setter
-	private String bungeeTextTotals;
+	private VoteSite voteSite;
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
@@ -76,6 +76,7 @@ public class PlayerVoteEvent extends Event {
 
 	/*
 	 * (non-Javadoc)
+	 *
 	 * @see org.bukkit.event.Event#getHandlers()
 	 */
 	@Override

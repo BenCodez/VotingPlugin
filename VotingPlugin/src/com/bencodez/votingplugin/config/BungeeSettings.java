@@ -2,34 +2,16 @@ package com.bencodez.votingplugin.config;
 
 import java.io.File;
 
-import com.bencodez.advancedcore.yml.YMLFile;
-import com.bencodez.advancedcore.yml.annotation.AnnotationHandler;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataBoolean;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataInt;
-import com.bencodez.advancedcore.yml.annotation.ConfigDataString;
+import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
 
 public class BungeeSettings extends YMLFile {
-	/** The instance. */
-	static BungeeSettings instance = new BungeeSettings();
-
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
-
-	/**
-	 * Gets the single instance of Config.
-	 *
-	 * @return single instance of Config
-	 */
-	public static BungeeSettings getInstance() {
-		return instance;
-	}
-
-	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
-	@Getter
-	private boolean useBungeecoord = false;
 
 	@ConfigDataBoolean(path = "BungeeBroadcast")
 	@Getter
@@ -51,6 +33,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String bungeeServerHost = "";
 
+	@ConfigDataInt(path = "BungeeServer.Port")
+	@Getter
+	private int bungeeServerPort = 1297;
+
 	@ConfigDataString(path = "Server")
 	@Getter
 	private String server = "PleaseSet";
@@ -59,16 +45,16 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String spigotServerHost = "";
 
-	@ConfigDataInt(path = "BungeeServer.Port")
-	@Getter
-	private int bungeeServerPort = 1297;
-
 	@ConfigDataInt(path = "SpigotServer.Port")
 	@Getter
 	private int spigotServerPort = 1298;
 
-	public BungeeSettings() {
-		super(new File(VotingPluginMain.plugin.getDataFolder(), "BungeeSettings.yml"));
+	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
+	@Getter
+	private boolean useBungeecoord = false;
+
+	public BungeeSettings(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
 	}
 
 	@Override
@@ -78,6 +64,6 @@ public class BungeeSettings extends YMLFile {
 
 	@Override
 	public void onFileCreation() {
-		plugin.saveResource("BungeeSettings.yml", true);
+		getPlugin().saveResource("BungeeSettings.yml", true);
 	}
 }
