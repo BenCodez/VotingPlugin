@@ -49,10 +49,6 @@ public class Config {
 		return getData().getString("FallBackServer", "");
 	}
 
-	public boolean getSendToOnlineServer() {
-		return getData().getBoolean("SendToOnlineServer");
-	}
-
 	public boolean getSendVotesToAllServers() {
 		return getData().getBoolean("SendVotesToAllServers");
 	}
