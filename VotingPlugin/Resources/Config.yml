@@ -29,6 +29,7 @@ MySQL:
   # Table name prefix, for use with mutliple servers
   Prefix: ''
   #UseSSL: true
+  #PublicKeyRetrieval: false
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data)

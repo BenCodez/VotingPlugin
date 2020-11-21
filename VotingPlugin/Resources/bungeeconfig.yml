@@ -18,6 +18,7 @@ MaxSize: -1
 # Table name prefix, for use with mutliple servers
 Prefix: ''
 #UseSSL: true
+#PublicKeyRetrieval: false
 
 Debug: false
 # Have a reward on each server
