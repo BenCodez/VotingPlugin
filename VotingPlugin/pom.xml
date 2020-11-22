@@ -315,7 +315,7 @@
 			<dependencies>
 				<dependency>
 					<groupId>com.github.bencodez</groupId>
-					<artifactId>AdvancedCore</artifactId>
+					<artifactId>advancedcore</artifactId>
 					<version>master-SNAPSHOT</version>
 				</dependency>
 			</dependencies>
