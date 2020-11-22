@@ -342,7 +342,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
 		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("bungeemethod", () -> getConfig().getBungeeMethod().toString()));
+				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
 
 		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
 				() -> "" + getConfig().getSendVotesToAllServers()));

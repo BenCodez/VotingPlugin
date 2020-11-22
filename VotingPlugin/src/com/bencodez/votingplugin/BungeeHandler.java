@@ -46,7 +46,9 @@ public class BungeeHandler {
 
 		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
 
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+		if (method.equals(BungeeMethod.MYSQL)) {
+			plugin.registerBungeeChannels();
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			plugin.registerBungeeChannels();
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Vote") {

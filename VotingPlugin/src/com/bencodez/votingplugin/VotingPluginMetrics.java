@@ -171,17 +171,7 @@ public class VotingPluginMetrics {
 				return "" + plugin.getConfigFile().isAutoCreateVoteSites();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("BungeeMethod") {
 
-			@Override
-			public String getValue() {
-				if (plugin.getBungeeSettings().isUseBungeecoord()) {
-					return "" + plugin.getBungeeHandler().getMethod().toString();
-				} else {
-					return "Disabled";
-				}
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers") {
 
 			@Override
@@ -238,18 +228,15 @@ public class VotingPluginMetrics {
 				return "" + plugin.getConfigFile().getLoadTopVoterDaily();
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("UseBungeecoord") {
-
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isUseBungeecoord();
-			}
-		});
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeemethod") {
 
 			@Override
 			public String getValue() {
-				return "" + plugin.getBungeeHandler().getMethod().toString();
+				if (plugin.getBungeeSettings().isUseBungeecoord()) {
+					return "" + plugin.getBungeeHandler().getMethod().toString();
+				} else {
+					return "Disabled";
+				}
 			}
 		});
 	}
