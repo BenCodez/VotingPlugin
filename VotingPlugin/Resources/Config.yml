@@ -29,6 +29,7 @@ MySQL:
   # Table name prefix, for use with mutliple servers
   Prefix: ''
   #UseSSL: true
+  #PublicKeyRetrieval: false
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data)
@@ -89,36 +90,16 @@ VoteReminding:
 # ------------------------------------------------
     
 # Common PlacesHolders:
-# Please Note: Not all are usable in all sections
 # Special PlaceHolders will be commented where available
 # %player% = player name  
 # %SiteName% = vote site name
 #
 # Set Message to '' (2 ') to disable message
 
-Commands:
-  # Whether or not the following commands will open GUIs rather than display text
-  UseGUI:
-    Today: true
-    TopVoter: true
-    Last: true
-    Next: true
-    Total: true
-    Vote: true
-    Best: true
-    Streak: true
-  # If true, you can right click a votesite from /vote (gui version) and open the vote reward gui for that site
-  # Can be used to display rewards for that site
-  VoteRewardFromVoteURL: false
-  # disable /vote reward commands
-  # Effective after restart
-  DisableVoteRewardGUIs: false
-  # Enable to use book GUI instead of normal GUI
-  VoteBookGUI: false
-
 Format:
   # CommandHandler help message
-  HelpLine: '&3&l%Command% - &3%HelpMessage%'
+  # Mainly used in admin help page, see below for /vote help
+  HelpLine: '&6%Command% - &6%HelpMessage%'
 
   # Broadcast vote message
   # Set to an empty message to disable
@@ -133,7 +114,7 @@ Format:
     # %url% = site URL
     Vote: 
       Text:
-      - '&6&lVote for our server!'
+      - '&3&lVote for our server!'
       
       # If you want to want to use the feature below where the plugin will
       # automaticly list the sites then set the message in the text above
@@ -142,7 +123,7 @@ Format:
       # make sure to set VoteURL in your VoteSites
       # Requires above to be true
       # Text will be sent before this
-      Sites: '&6%num%: &e&l%SiteName% - &e%url%'
+      Sites: '&3%num%: &6&l%SiteName% &6- %url%'
       
       # If true, links will always be forced as urls
       ForceLinks: true
@@ -211,9 +192,9 @@ Format:
       # Format for /vote help
       Help:
         # Title of /vote help
-        Title: '&3&lVoting Player Help'
+        Title: '&6&lVoting Player Help'
         # Format for help message in /v help
-        Line: '&3&l%Command% - &3%HelpMessage%'
+        Line: '&6%Command% - &6%HelpMessage%'
         # Require permission to see command in /v help or /av help
         RequirePermission: true
         
@@ -318,332 +299,8 @@ Format:
     AllTime: 'AllTime'
 
 # ------------------------------------------------
-# GUI Options
-# ------------------------------------------------
-  
-# Enable command for last month gui
-# Requires restart to take effect
-LastMonthGUI: false
-  
-# Configure GUI's here
-# Note: Slots start at 0 instead of 1, max slot is 53 (don't go over) (E.g: last slot in first row of inventory is 8)
-# Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
-GUI:
-  # GUI for /vote gui, /vgui, votegui
-  VoteGUI:
-    # Items will be orders as it is below
-    URL:
-      # Standard item format, lore is automaticly applied 
-      Item:
-        Material: 'BOW'
-        Data: 0
-        Amount: 1
-        Name: '&4URL'
-        Lore:
-        - '&aClick me for links'
-        # You can set skulls of the player using the following
-        # Remove the # to enable
-        #Skull: '%Player%'
-    Next:
-      Item:
-        Material: 'COMPASS'
-        Data: 0
-        Amount: 1
-        Name: '&4Next'
-    Last:
-      Item:
-        Material: 'CLOCK'
-        Data: 0
-        Amount: 1
-        Name: '&4Last'
-    Total:
-      Item:
-        Material: 'CHEST'
-        Data: 0
-        Amount: 1
-        Name: '&4Total'
-    Top:
-      Item:
-        Material: 'OAK_SIGN'
-        Data: 0
-        Amount: 1
-        Name: '&4Top'
-    Today:
-      Item:
-        Material: 'BOOK'
-        Data: 0
-        Amount: 1
-        Name: '&4Today'
-    Shop:
-      Item:
-        Material: 'DIAMOND'
-        Data: 0
-        Amount: 1
-        Name: '&4Vote Shop'
-        Lore:
-        - '&aYou currently have %points% points'
-      
-  # GUI for /vote url
-  # And /vote if enabled in Config.yml
-  VoteURL:
-    # GUI Name
-    Name: '&cVoteURL'
-    BackButton: true
-    SiteName: '&c%Name%'
-    SeeURL: '&cClick to see URL'
-    NextVote: '&cCan Vote In: %Info%'
-    ViewAllUrlsButtonEnabled: true
-    AllUrlsButton:
-      RequireAllSitesVoted: true
-      AlreadyVotedItem:
-        Material: 'REDSTONE_BLOCK'
-        Data: 0 
-        Amount: 1
-        Name: '&4All Voting Sites'
-        Lore:
-        - '&cClick Me'
-      CanVoteItem:
-        Material: 'EMERALD_BLOCK'
-        Data: 0
-        Amount: 1
-        Name: '&4All Voting Sites'
-        Lore:
-        - '&cClick Me'
-    AlreadyVotedItem:
-      Material: 'REDSTONE_BLOCK'
-      Data: 0 
-      Amount: 1
-    CanVoteItem:
-      Material: 'EMERALD_BLOCK'
-      Data: 0
-      Amount: 1
-    URLText: '%VoteUrl%'
-    
-  VoteURLBookGUI:
-    Title: '&cVoteURL'
-    SiteName: '&c%name%'
-    CanVoteText: 'Click me'
-    CanVoteColor: 'GREEN'
-    AlreadyVotedText: 'Click me'
-    AlreadyVotedColor: 'RED' 
-    Layout:
-    - '&c%Sitename%'
-    - '[UrlText]'
-    
-  VoteRewardBackButton: false
-  # Customize /vote reward
-  # Show players what you get when you vote on each site
-  VoteReward:
-    # Name of votesite
-    ExampleVoteSite:
-      # items in /vote reward sitename
-      Items:
-        # Item
-        # This is not the item display name
-        # Do not have 2 of the same items
-        Diamond:
-          # Item ID
-          Material: 'DIAMOND'
-          # Item Data (Eg 1:4, data is 4)
-          Data: 0
-          # Amount of items
-          # Should be greater than 0
-          Amount: 1
-          # Item name
-          # Remove this line for no name
-          Name: '&4Example'
-          # Lore
-          # Remove this line for no lore
-          Lore:
-          - '&4Line 1'
-  VoteLast:
-    Name: 'VoteLast: %player%'
-    BackButton: true
-  VoteNext:
-    Name: 'VoteNext: %player%'
-    BackButton: true
-  VoteToday:
-    Name: 'VoteToday'
-    Line: '&6%VoteSite% : %Time%'
-    IconTitle: '%player%'
-    BackButton: true
-    UseSkull: true
-    # If UseSkull is false, use this item
-    PlayerItem:
-      Material: 'PAPER'
-      Amount: 1
-  VoteTop:
-    Name: 'VoteTop %topvoter%'
-    BackButton: false
-    Item:
-      Name: '&3&l%position%: &3%player%'
-      Lore: '&3&lVotes: &3%votes%'
-    SwitchItem:
-      Name: '&3Switch TopVoter'
-      Lore: '&bCurrently: %Top%'
-      Material: 'OAK_SIGN'
-      Amount: 1
-      # 8 Slots over from the bottom left
-      Slot: 7
-    # Number of topvoters to display on page +9
-    # 9 Slots on the botton are used for page buttons
-    Size: 27
-    # If true, /vote top will show player heads
-    UseSkull: true
-    # Item for player in GUI if use skull is false
-    PlayerItem:
-      Material: 'PAPER'
-  VoteTotal:
-    Name: 'VoteTotal: %player%'
-    BackButton: true
-    DayTotal:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cDaily Total'
-        Lore: '&c&lTotal: &c%Total%'
-        Amount: 1
-    WeekTotal:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cWeekly Total'
-        Lore: '&c&lTotal: &c%Total%'
-        Amount: 1
-    MonthTotal:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cMonthly Total'
-        Lore: '&c&lTotal: &c%Total%'
-        Amount: 1
-    AllTimeTotal:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cAllTime Total'
-        Lore: '&c&lTotal: &c%Total%'
-        Amount: 1
-  VoteBest:
-    Name: 'VoteBest: %player%'
-    DayBest:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cDaily Best'
-        Lore: '&c&lBest: &c%Best%'
-        Amount: 1
-    WeekBest:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cWeekly Best'
-        Lore: '&c&lBest: &c%Best%'
-        Amount: 1
-    MonthBest:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cMonthly Best'
-        Lore: '&c&lBest: &c%Best%'
-        Amount: 1
-  VoteStreak:
-    Name: 'VoteStreak: %player%'
-    BackButton: false
-    CurrentDayStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cCurrent Daily Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-    CurrentWeekStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cCurrent Weekly Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-    CurrentMonthStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cCurrent Monthly Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-    HighestDayStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cHighest Daily Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-    HighestWeekStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cHighest Weekly Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-    HighestMonthStreak:
-      Item:
-        Material: 'CLOCK'
-        Name: '&cHighest Monthly Streak'
-        Lore: '&c&lStreak: &c%Streak%'
-        Amount: 1
-  VoteURLSite:
-    Name: 'VoteSite: %site%'
-  VoteGUIName: '&cVoteGUI: &c&l%player%'
-  VoteRewardName: 'VoteReward'
-  VoteShopName: 'VoteShop'
-  
-BackButton:
-  Material: 'BARRIER'
-  Data: 0
-  Amount: 1
-  Name: '&8Back to VoteGUI'
-
-VoteShopBackButton: true
-VoteShopEnabled: true
-# Hide items in vote shop which user can not buy
-VoteShopHideLimitedReached: true
-# Requires above to be false
-VoteShopLimitReached: '&aYou reached your limit'
-VoteShopRequireConfirmation: false
-VoteShopDisabled: '&cVote shop disabled'
-Shop:
-  # Identifier
-  # Used in placeholders for formats
-  # Do not have spaces in the identifier
-  Diamond:
-    Identifier_Name: 'Diamond'
-    # Item
-    Material: 'DIAMOND'
-    Data: 0
-    Amount: 1
-    Name: '&4Buy A Diamond'
-    # You can set skulls of the player using the following
-    # Remove the # to enable
-    #Skull: '%Player%'
-    Lore:
-    - '&c&lCost: &c3 Voting Points'
-    # Number of voting points this cost
-    Cost: 3
-    # Permission required, leave blank for no permission
-    Permission: ''
-    # Limit how many times you can buy this
-    #Limit: 3
-    # Reset limit daily/weekly/monthly
-    #Reset:
-      #Daily: false
-      #Weekly: false
-      #Monthly: false
-    # If true, item is not buyable
-    #NotBuyable: false
-    # Rewards to run if player buys successfully
-    Rewards:
-      Items:
-        Diamond:
-          Material: 'DIAMOND'
-          Amount: 1     
-     
-# ------------------------------------------------
-# Extra Rewards
-# ------------------------------------------------
-    
-# Moved to SpecialRewards.yml
-# Rewards here will be copied upon updating
-
-# ------------------------------------------------
 # Top Voter
+# Top voter rewards available in specialrewards.yml
 # ------------------------------------------------
 
 # Top voter blacklist
@@ -717,6 +374,32 @@ LimitMonthlyVotes: false
 # Shoudn't be needed, but enable if you have trouble with milestones
 PreventRepeatMilestones: false
 
+# When enabled the command /vote setprimaryaccount (playername)
+# will be shown (after restart)
+# Primary account will be used instead of the players account to get
+# placeholder and other data such as vote reminding
+# Mainly to be used for alts and such
+UsePrimaryAccountForPlaceholders: false
+
+AddCustomCommands: false
+
+# Injects custom command to /vote
+# Requires AddCustomCommand: true to be set
+CustomCommands:
+  # identifier, not specific name
+  command1:
+    Args:
+    - token
+    # Message to send on command
+    Message: 'token message'
+    # Permission for this command
+    Permission: 'votingplugin.commands.vote.token'
+    # help message
+    HelpMessage: 'See tokens'
+    # Forces player to run this command
+    Commands:
+    - tokencommand
+
 ######################
 # Debug
 ######################
@@ -778,9 +461,6 @@ PurgeMin: 90
 
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
-
-# If true, plugin will send scoreboards on some commands
-SendScoreboards: true
 
 # If true, plugin will automaticly generate votesites
 # Disable this if you experience issues with sites being created randomly

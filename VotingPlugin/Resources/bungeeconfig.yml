@@ -18,6 +18,7 @@ MaxSize: -1
 # Table name prefix, for use with mutliple servers
 Prefix: ''
 #UseSSL: true
+#PublicKeyRetrieval: false
 
 Debug: false
 # Have a reward on each server
@@ -37,10 +38,11 @@ BlockedServers:
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
-# ----------------------------
-# SOCKET METHOD Only, ignore otherwise
-# ----------------------------
 FallBackServer: factions
+
+# ----------------------------
+# SOCKET METHOD Settings
+# ----------------------------
 
 # Tell servers to broadcast
 Broadcast: true

@@ -2,9 +2,9 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.Ben12345rocks</groupId>
-	<artifactId>VotingPlugin</artifactId>
-	<version>5.24.1</version>
+	<groupId>com.bencodez</groupId>
+	<artifactId>votingplugin</artifactId>
+	<version>6.0</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -28,6 +28,7 @@
 				<includes>
 					<include>plugin.yml</include>
 					<include>bungee.yml</include>
+					<include>votingpluginversion.yml</include>
 				</includes>
 			</resource>
 			<resource>
@@ -104,8 +105,8 @@
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
 						<relocation>
-							<pattern>com.Ben12345rocks.AdvancedCore</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.AdvancedCore</shadedPattern>
+							<pattern>com.bencodez.advancedcore</pattern>
+							<shadedPattern>${project.groupId}.${project.artifactId}.advancedcore</shadedPattern>
 						</relocation>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
@@ -248,18 +249,14 @@
 		</repository>
 	</repositories>
 	<dependencies>
-		<dependency>
-			<groupId>com.github.Ben12345rocks</groupId>
-			<artifactId>AdvancedCore</artifactId>
-			<version>master-SNAPSHOT</version>
-		</dependency>
+		<!--<dependency> <groupId>com.github.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
+			<version>3.0-SNAPSHOT</version> </dependency> -->
 
-		<!--<dependency> <groupId>com.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
-			<version>LATEST</version> <scope>compile</scope> </dependency> -->
+
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
-			<version>1.16.3-R0.1-SNAPSHOT</version>
+			<version>1.16.4-R0.1-SNAPSHOT</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -270,38 +267,10 @@
 			<systemPath>${project.basedir}/Jars/Votifier.jar</systemPath>
 		</dependency>
 		<dependency>
-			<groupId>com.swifteh</groupId>
-			<artifactId>GAL</artifactId>
-			<version>1.3.2</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/GAListener.jar</systemPath>
-		</dependency>
-		<dependency>
-			<groupId>com.mythicacraft</groupId>
-			<artifactId>voteroulette</artifactId>
-			<version>3.2.2</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/VoteRoulette.jar</systemPath>
-		</dependency>
-		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<version>1.18.2</version>
 			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.mimimum.minecraft</groupId>
-			<artifactId>SuperbVote</artifactId>
-			<version>0.5.3</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/SuperbVote-0.5.3.jar</systemPath>
-		</dependency>
-		<dependency>
-			<groupId>be.maximvdw</groupId>
-			<artifactId>MVdWPlaceholderAPI</artifactId>
-			<version>LATEST</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
 		</dependency>
 		<dependency>
 			<groupId>net.md-5</groupId>
@@ -321,15 +290,49 @@
 			<version>1.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<groupId>xyz.upperlevel.spigot.book</groupId>
-			<artifactId>spigot-book-api</artifactId>
-			<version>1.3</version>
-		</dependency>
-		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
 			<version>4.5.6</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>be.maximvdw</groupId>
+			<artifactId>MVdWPlaceholderAPI</artifactId>
+			<version>LATEST</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
+		</dependency>
 	</dependencies>
+	<profiles>
+		<profile>
+			<id>prod</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<build.profile.id>prod</build.profile.id>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>com.github.bencodez</groupId>
+					<artifactId>AdvancedCore</artifactId>
+					<version>master-SNAPSHOT</version>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>dev</id>
+			<properties>
+				<build.profile.id>dev</build.profile.id>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>com.bencodez</groupId>
+					<artifactId>AdvancedCore</artifactId>
+					<version>LATEST</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+	</profiles>
 </project>
