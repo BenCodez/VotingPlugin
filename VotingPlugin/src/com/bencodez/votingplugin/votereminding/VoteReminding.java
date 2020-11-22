@@ -18,9 +18,6 @@ public class VoteReminding {
 	/** The plugin. */
 	private VotingPluginMain plugin;
 
-	/**
-	 * Instantiates a new vote reminding.
-	 */
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}

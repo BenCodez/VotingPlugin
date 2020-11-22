@@ -227,9 +227,6 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
-	/**
-	 * Instantiates a new config.
-	 */
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
 	}

@@ -31,9 +31,6 @@ public class AdminGUI {
 
 	private VotingPluginMain plugin;
 
-	/**
-	 * Instantiates a new commands.
-	 */
 	public AdminGUI(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}

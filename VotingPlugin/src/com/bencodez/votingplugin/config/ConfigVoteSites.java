@@ -27,9 +27,6 @@ public class ConfigVoteSites extends YMLFile {
 
 	private VotingPluginMain plugin;
 
-	/**
-	 * Instantiates a new config vote sites.
-	 */
 	public ConfigVoteSites(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "VoteSites.yml"));
 		this.plugin = plugin;

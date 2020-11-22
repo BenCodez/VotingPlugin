@@ -80,11 +80,6 @@ public class VoteSite {
 	@Setter
 	private boolean waitUntilVoteDelay;
 
-	/**
-	 * Instantiates a new vote site.
-	 *
-	 * @param siteName the site name
-	 */
 	public VoteSite(VotingPluginMain plugin, String siteName) {
 		this.plugin = plugin;
 		key = siteName.replace(".", "_");

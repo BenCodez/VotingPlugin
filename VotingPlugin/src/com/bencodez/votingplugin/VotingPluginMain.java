@@ -95,7 +95,6 @@ import lombok.Setter;
  */
 public class VotingPluginMain extends AdvancedCorePlugin {
 
-	/** The plugin. */
 	@Getter
 	public static VotingPluginMain plugin;
 
@@ -118,11 +117,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private CommandLoader commandLoader;
 
-	/** The config. */
 	@Getter
 	private Config configFile;
 
-	/** The config vote sites. */
 	@Getter
 	private ConfigVoteSites configVoteSites;
 

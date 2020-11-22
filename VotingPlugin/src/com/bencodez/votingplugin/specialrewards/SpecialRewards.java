@@ -41,12 +41,6 @@ public class SpecialRewards {
 		return checkAllVotes;
 	}
 
-	/**
-	 * Check cumualative votes.
-	 *
-	 * @param user the user
-	 * @return true, if successful
-	 */
 	public boolean checkCumualativeVotes(VotingPluginUser user, String bungeeTextTotals) {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
@@ -131,12 +125,6 @@ public class SpecialRewards {
 		return false;
 	}
 
-	/**
-	 * Check milestone.
-	 *
-	 * @param user the user
-	 * @return true, if successful
-	 */
 	public boolean checkMilestone(VotingPluginUser user, String bungeeTextTotals) {
 		int milestoneCount = user.getMilestoneCount();
 		if (bungeeTextTotals != null) {

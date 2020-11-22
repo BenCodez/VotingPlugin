@@ -321,6 +321,23 @@
 			</dependencies>
 		</profile>
 		<profile>
+			<id>prod2</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<build.profile.id>prod</build.profile.id>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>com.bencodez</groupId>
+					<artifactId>AdvancedCore</artifactId>
+					<version>LATEST</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
 			<id>dev</id>
 			<properties>
 				<build.profile.id>dev</build.profile.id>
