@@ -211,7 +211,7 @@
 								<resource>
 									<directory>${basedir}/target</directory>
 									<includes>
-										<include>${project.artifactId}.jar</include>
+										<include>VotingPlugin.jar</include>
 									</includes>
 								</resource>
 							</resources>
