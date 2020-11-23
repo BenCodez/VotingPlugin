@@ -18,7 +18,7 @@ https://github.com/Ben12345rocks/VotingPlugin/blob/master/VotingPlugin/Resources
     </repository>
     
     <dependency>
-	    <groupId>com.github.Ben12345rocks</groupId>
+	    <groupId>com.github.BenCodez</groupId>
 	    <artifactId>VotingPlugin</artifactId>
 	    <version>LATEST</version>
 	    <scope>provided</scope>
