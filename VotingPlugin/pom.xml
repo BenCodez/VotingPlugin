@@ -322,11 +322,8 @@
 		</profile>
 		<profile>
 			<id>prod2</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
 			<properties>
-				<build.profile.id>prod</build.profile.id>
+				<build.profile.id>prod2</build.profile.id>
 			</properties>
 			<dependencies>
 				<dependency>
