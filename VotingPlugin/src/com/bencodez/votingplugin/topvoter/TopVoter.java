@@ -60,7 +60,7 @@ public enum TopVoter {
 				if (next > list.size() - 1) {
 					next = 0;
 				}
-				return TopVoter.values()[next];
+				return list.get(next);
 			}
 		}
 		return TopVoter.AllTime;
@@ -86,7 +86,7 @@ public enum TopVoter {
 				if (prev < 0) {
 					prev = list.size() - 1;
 				}
-				return TopVoter.values()[prev];
+				return list.get(prev);
 			}
 		}
 		return TopVoter.AllTime;

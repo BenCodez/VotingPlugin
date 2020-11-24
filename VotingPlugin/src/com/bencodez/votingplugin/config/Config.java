@@ -640,7 +640,7 @@ public class Config extends YMLFile {
 	}
 
 	public boolean getLoadTopVoterDaily() {
-		return getData().getBoolean("LoadTopVoter.Daily");
+		return getData().getBoolean("LoadTopVoter.Daily", false);
 	}
 
 	public boolean getLoadTopVoterMonthly() {
@@ -648,7 +648,7 @@ public class Config extends YMLFile {
 	}
 
 	public boolean getLoadTopVoterWeekly() {
-		return getData().getBoolean("LoadTopVoter.Weekly");
+		return getData().getBoolean("LoadTopVoter.Weekly", false);
 	}
 
 	public int getPointsOnVote() {
