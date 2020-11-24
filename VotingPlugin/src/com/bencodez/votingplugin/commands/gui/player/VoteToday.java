@@ -4,10 +4,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
@@ -89,7 +87,7 @@ public class VoteToday extends GUIHandler {
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
 				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
-					item = new ItemBuilder(new ItemStack(Material.PLAYER_HEAD, 1)).setSkullOwner(user.getOfflinePlayer());
+					item = new ItemBuilder(user.getPlayerHead());
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
 				}
