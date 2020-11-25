@@ -27,7 +27,7 @@ public class BungeeSettings extends YMLFile {
 
 	@ConfigDataString(path = "BungeeMethod")
 	@Getter
-	private String bungeeMethod = "SOCKETS";
+	private String bungeeMethod = "PLUGINMESSAGING";
 
 	@ConfigDataString(path = "BungeeServer.Host")
 	@Getter
