@@ -3,7 +3,7 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
-	<artifactId>votingplugin</artifactId>
+	<artifactId>VotingPlugin</artifactId>
 	<version>6.0</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
@@ -106,29 +106,29 @@
 							other plugins -->
 						<relocation>
 							<pattern>com.bencodez.advancedcore</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.advancedcore</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.advancedcore</shadedPattern>
 						</relocation>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>me.mrten.mysqlapi</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.mysqlapi</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.mysqlapi</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.HikariCP</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.HikariCP</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.HikariCP</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.hikari</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.hikari</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.hikari</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.slf4j.slf4j-simple</pattern>
-							<shadedPattern>${project.groupId}.${project.artifactId}.slf4j-simple</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.slf4j-simple</shadedPattern>
 						</relocation>
 					</relocations>
 				</configuration>
