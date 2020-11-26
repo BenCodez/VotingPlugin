@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+@Deprecated
 public class User {
 	private VotingPluginUser user;
 	public User(Player p) {
