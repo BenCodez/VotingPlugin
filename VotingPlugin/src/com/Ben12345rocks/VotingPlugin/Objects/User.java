@@ -23,4 +23,8 @@ public class User {
 	public void addPoints(int points) {
 		user.addPoints(points);
 	}
+	
+	public void removePoints(int points) {
+		user.removePoints(points);
+	}
  }
