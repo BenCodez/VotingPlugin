@@ -1938,7 +1938,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteURL(plugin, sender, null, true).open();
+				new VoteURL(plugin, sender, null, true).open(GUIMethod.CHAT);
 			}
 		});
 
