@@ -106,7 +106,7 @@ public class VoteShop extends GUIHandler {
 								}
 
 								if (limitPass) {
-									if (!plugin.getGui().isChestVoteShopRequireConfirmation()) {
+									if (!plugin.getGui().isChestVoteShopRequireConfirmation(identifier)) {
 										HashMap<String, String> placeholders = new HashMap<String, String>();
 										placeholders.put("identifier",
 												plugin.getGui().getChestShopIdentifierIdentifierName(identifier));

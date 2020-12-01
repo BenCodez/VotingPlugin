@@ -276,6 +276,8 @@ CHEST:
       Permission: ''
       # Whether or not to keep GUI open after purchase
       CloseGUI: true
+      # Require confirmation on purchase, overrides global option above
+      RequireConfirmation: false
       # Limit how many times you can buy this
       #Limit: 3
       # Reset limit daily/weekly/monthly

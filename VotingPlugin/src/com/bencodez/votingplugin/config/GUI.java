@@ -497,4 +497,9 @@ public class GUI extends YMLFile {
 	public void onFileCreation() {
 		plugin.saveResource("GUI.yml", true);
 	}
+
+	public boolean isChestVoteShopRequireConfirmation(String identifier) {
+		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",
+				isChestVoteShopRequireConfirmation());
+	}
 }
