@@ -24,7 +24,7 @@ public class User {
 		user.addPoints(points);
 	}
 	
-	public void removePoints(int points) {
-		user.removePoints(points);
+	public boolean removePoints(int points) {
+		return user.removePoints(points);
 	}
  }
