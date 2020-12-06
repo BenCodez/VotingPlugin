@@ -64,8 +64,6 @@ public class PlayerVoteListener implements Listener {
 		if (voteSite == null) {
 			if (!plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No voting site with the service site: '" + event.getServiceSite() + "'");
-				plugin.getLogger().warning(
-						"Please read here on how to fix it: https://github.com/Ben12345rocks/VotingPlugin/wiki/Common-Problems");
 
 				ArrayList<String> services = new ArrayList<String>();
 				for (VoteSite site : plugin.getVoteSites()) {
