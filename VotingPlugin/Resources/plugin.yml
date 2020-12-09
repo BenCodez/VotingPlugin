@@ -141,9 +141,6 @@ commands:
   adminvoteClearCache:
     description: Command Alias
     aliases: avClearCache
-  adminvoteConvertFrom:
-    description: Command Alias
-    aliases: avConvertFrom
   adminvoteServiceSites:
     description: Command Alias
     aliases: avServiceSites
