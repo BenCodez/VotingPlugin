@@ -351,6 +351,10 @@ PointsOnVote: 1
 # Not really recommended
 AddTotals: true
 
+# If true, items given for rewards are dropped on the ground
+# If false, items will be given when there is space
+DropOnFullInv: true
+
 # Click sound when using gui
 # Set to none for no sound
 ClickSound: 
