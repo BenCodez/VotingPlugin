@@ -15,6 +15,9 @@ AllSites:
   Messages:
     Player: '&aYou voted on all sites in 1 day!'
 
+# NOTE: This is not a 1 time reward, that's what milestones are for!
+# If total votes (Can be changed) divided by cumulative amount 
+# and as no remainder (So divides perfectly)then a reward is given
 Cumulative:
   # Number of votes required
   # Allows multiple cumulative rewards
@@ -42,6 +45,7 @@ VoteParty:
   #IncreaseVotesRquired: 10
   # If true, players who did not vote to reach the votes required will 
   # recieve the reward
+  # If false, only players who voted get rewards
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
@@ -62,6 +66,8 @@ VoteParty:
   Commands: []
   # Rewards to give per player
   Rewards: 
+    # Uncomment below for online player rewards only
+    #RewardType: ONLINE
     Commands:
     - say %player%
     Items:
@@ -72,6 +78,7 @@ VoteParty:
 # Reset milestones at end of the month
 ResetMilestonesMonthly: false
   
+# One time reward to be given (unless you reset it somehow)
 MileStones:
   # Number of votes required
   # Allows multiple milestones
@@ -142,6 +149,8 @@ LoginRewards: []
 # Rewards to run when player logs off
 # Will queue until player logs in unless forceoffline is enabled
 LogoutRewards: []
+
+EnableMonthlyAwards: true
 
 # Rewards to give
 MonthlyAwards:

@@ -27,7 +27,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@ConfigDataBoolean(path = "EnableMonthlyAwards")
 	@Getter
-	private boolean enableMonthlyAwards = false;
+	private boolean enableMonthlyAwards = true;
 
 	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
