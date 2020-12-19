@@ -240,7 +240,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-			this.getProxy().registerChannel("VP:VP".toLowerCase());
+			this.getProxy().registerChannel("vp:vp".toLowerCase());
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			voteCacheFile = new VoteCache(this);
@@ -352,7 +352,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 	@EventHandler
 	public void onPluginMessage(PluginMessageEvent ev) {
-		if (!ev.getTag().equals("VP:VP".toLowerCase())) {
+		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
 			return;
 		}
 		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
@@ -369,7 +369,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 			for (String send : getProxy().getServers().keySet()) {
 				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("VP:VP".toLowerCase(),
+					getProxy().getServers().get(send).sendData("vp:vp".toLowerCase(),
 							outstream.toByteArray());
 				}
 			}
