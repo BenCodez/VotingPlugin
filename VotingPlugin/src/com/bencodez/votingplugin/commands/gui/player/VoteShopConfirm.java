@@ -66,7 +66,7 @@ public class VoteShopConfirm extends GUIHandler {
 							new RewardOptions().setPlaceholders(placeholders));
 
 					user.sendMessage(StringParser.getInstance()
-							.replacePlaceHolder(plugin.getConfigFile().getFormatShopPurchaseMsg(), placeholders));
+							.replacePlaceHolder(plugin.getGui().getCHESTVoteShopPurchase(identifier), placeholders));
 					if (limit > 0) {
 						user.setVoteShopIdentifierLimit(identifier, user.getVoteShopIdentifierLimit(identifier) + 1);
 					}

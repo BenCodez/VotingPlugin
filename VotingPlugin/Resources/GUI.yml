@@ -278,6 +278,8 @@ CHEST:
       CloseGUI: true
       # Require confirmation on purchase, overrides global option above
       RequireConfirmation: false
+      # Overrides other purchase message
+      #PurchaseMessage: 'Thanks for the purchase'
       # Limit how many times you can buy this
       #Limit: 3
       # Reset limit daily/weekly/monthly

@@ -143,6 +143,10 @@ public class GUI extends YMLFile {
 	private boolean lastMonthGUI = false;
 
 	private VotingPluginMain plugin;
+	
+	public String getCHESTVoteShopPurchase(String identifier) {
+		return getData().getString("CHEST.Shop." + identifier +".PurchaseMessage", plugin.getConfigFile().getFormatShopPurchaseMsg());
+	}
 
 	public GUI(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
