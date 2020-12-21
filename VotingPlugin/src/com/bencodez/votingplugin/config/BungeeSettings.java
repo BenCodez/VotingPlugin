@@ -37,6 +37,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private int bungeeServerPort = 1297;
 
+	@ConfigDataBoolean(path = "RemoveInvalidUsers")
+	@Getter
+	private boolean removeInvalidUsers = false;
+
 	@ConfigDataString(path = "Server")
 	@Getter
 	private String server = "PleaseSet";

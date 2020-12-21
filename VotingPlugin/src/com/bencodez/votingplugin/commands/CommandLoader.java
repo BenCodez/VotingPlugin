@@ -1205,6 +1205,9 @@ public class CommandLoader {
 
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
+						if (plugin.getConfigFile().isDisableAdvancedTab()) {
+							plugin.getCommand("vote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
+						}
 						for (String str : plugin.getCommand("vote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
 						}
@@ -1226,6 +1229,9 @@ public class CommandLoader {
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
+						if (plugin.getConfigFile().isDisableAdvancedTab()) {
+							plugin.getCommand("adminvote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
+						}
 						for (String str : plugin.getCommand("adminvote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
 						}

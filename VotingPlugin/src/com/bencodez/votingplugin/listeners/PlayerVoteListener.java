@@ -49,6 +49,9 @@ public class PlayerVoteListener implements Listener {
 			if (!plugin.getConfigFile().isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
+					UserManager.getInstance().getVotingPluginUser(playerName).remove();
+				}
 				return;
 			}
 		}
