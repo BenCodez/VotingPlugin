@@ -366,9 +366,9 @@ ClickSound:
 # case sensitive
 VotingBroadcastBlacklist: []
 
-# Set to false to prevent javascript
-# parsing on placeholderapi placeholders
-UseJavascriptPlaceholders: true
+# When enabled, javascript will be parsed on placeholders (from placeholderapi)
+# allows more fancy placeholders with math for example
+UseJavascriptPlaceholders: false
   
 # Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false

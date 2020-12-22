@@ -217,7 +217,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
-	private boolean useJavascriptPlaceholders = true;
+	private boolean useJavascriptPlaceholders = false;
 
 	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
 	@Getter
