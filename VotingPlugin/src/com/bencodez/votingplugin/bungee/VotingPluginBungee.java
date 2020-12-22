@@ -434,7 +434,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				out.writeUTF(message);
 			}
 			if (getProxy().getServers().get(server).getPlayers().size() > 0) {
-				getProxy().getServers().get(server).sendData("VotingPlugin:VotingPlugin".toLowerCase(),
+				getProxy().getServers().get(server).sendData("vp:vp".toLowerCase(),
 						byteOutStream.toByteArray(), false);
 			}
 			out.close();
