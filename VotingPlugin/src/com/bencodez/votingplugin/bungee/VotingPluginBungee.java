@@ -240,7 +240,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-			this.getProxy().registerChannel("vp:vp".toLowerCase());
+			this.getProxy().registerChannel("vp:vp");
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			voteCacheFile = new VoteCache(this);
@@ -292,7 +292,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				}
 			}, 15l, TimeUnit.SECONDS);
 
-			this.getProxy().registerChannel("VotingPlugin:VotingPlugin".toLowerCase());
+			this.getProxy().registerChannel("vp:vp");
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
