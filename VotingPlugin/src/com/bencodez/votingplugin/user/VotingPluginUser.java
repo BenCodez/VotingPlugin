@@ -780,6 +780,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteSite.broadcastVote(this);
 		}
 		voteSite.giveRewards(this, online, bungee);
+		sendVoteEffects(online);
 	}
 
 	/**
