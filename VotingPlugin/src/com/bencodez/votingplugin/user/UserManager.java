@@ -26,7 +26,7 @@ public class UserManager {
 	public UserManager() {
 		super();
 	}
-	
+
 	public ArrayList<String> getAllUUIDs() {
 		return com.bencodez.advancedcore.api.user.UserManager.getInstance().getAllUUIDs();
 	}
@@ -39,8 +39,13 @@ public class UserManager {
 		return getVotingPluginUser(new UUID(uuid.toString()));
 	}
 
+	@SuppressWarnings("deprecation")
+	public VotingPluginUser getVotingPluginUser(java.util.UUID uuid, String playerName) {
+		return new VotingPluginUser(plugin, new UUID(uuid.toString()), playerName);
+	}
+
 	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
-		return getVotingPluginUser(player.getName());
+		return getVotingPluginUser(player.getUniqueId(), player.getName());
 	}
 
 	public VotingPluginUser getVotingPluginUser(Player player) {

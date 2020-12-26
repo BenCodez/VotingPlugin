@@ -60,6 +60,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	@Deprecated
+	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, String playerName) {
+		super(plugin, uuid, playerName);
+		this.plugin = plugin;
+	}
+
+	@Deprecated
 	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, boolean loadName) {
 		super(plugin, uuid, loadName);
 		this.plugin = plugin;
