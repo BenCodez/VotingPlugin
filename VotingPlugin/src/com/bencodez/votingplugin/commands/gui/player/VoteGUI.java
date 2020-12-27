@@ -62,7 +62,14 @@ public class VoteGUI extends GUIHandler {
 					lore = plugin.getTopVoterHandler().topVoterAllTime(1);
 				}
 			} else if (slot.equalsIgnoreCase("today")) {
-				lore = new VoteToday(plugin, player, user, 1).voteToday();
+				String[] today = new VoteToday(plugin, player, user, 1).voteToday();
+				ArrayList<String> list = new ArrayList<String>();
+				if (today.length > 0) {
+					for (int i = today.length - 1; i < today.length && list.size() < 10 && i >= 0; i--) {
+						list.add(today[i]);
+					}
+				}
+				lore = ArrayUtils.getInstance().convert(list);
 			} else if (slot.equalsIgnoreCase("help")) {
 				lore = new String[] { "Click to view help" };
 			}
