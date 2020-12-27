@@ -1,8 +1,10 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -133,6 +135,33 @@ public class VoteToday extends GUIHandler {
 						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 				// msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " +
 				// timeString);
+			}
+		}
+		msg = ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().convert(msg);
+	}
+
+	public String[] voteTodayGUI() {
+		ArrayList<String> msg = new ArrayList<String>();
+		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
+
+			LocalDateTime mostRecent = null;
+			VoteSite mostRecentSite = null;
+			for (Entry<VoteSite, LocalDateTime> entry : plugin.getVoteToday().get(user).entrySet()) {
+				if (mostRecent == null || entry.getValue().isAfter(mostRecent)) {
+					mostRecent = entry.getValue();
+					mostRecentSite = entry.getKey();
+				}
+			}
+			if (mostRecent != null) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
+				String timeString = mostRecent.format(formatter);
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("player", user.getPlayerName());
+				placeholders.put("votesite", mostRecentSite.getKey());
+				placeholders.put("time", timeString);
+				msg.add(StringParser.getInstance()
+						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 			}
 		}
 		msg = ArrayUtils.getInstance().colorize(msg);

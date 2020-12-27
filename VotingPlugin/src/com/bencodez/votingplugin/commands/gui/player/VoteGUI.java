@@ -62,7 +62,7 @@ public class VoteGUI extends GUIHandler {
 					lore = plugin.getTopVoterHandler().topVoterAllTime(1);
 				}
 			} else if (slot.equalsIgnoreCase("today")) {
-				String[] today = new VoteToday(plugin, player, user, 1).voteToday();
+				String[] today = new VoteToday(plugin, player, user, 1).voteTodayGUI();
 				ArrayList<String> list = new ArrayList<String>();
 				if (today.length > 0) {
 					for (int i = today.length - 1; i < today.length && list.size() < 10 && i >= 0; i--) {
