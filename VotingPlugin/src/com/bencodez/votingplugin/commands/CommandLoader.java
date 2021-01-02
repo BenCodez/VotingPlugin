@@ -1710,6 +1710,34 @@ public class CommandLoader {
 			}
 		});
 
+		for (final TopVoter top : TopVoter.values()) {
+			String argName = top.toString();
+			String perm = top.toString();
+			if (argName.equals(TopVoter.AllTime.toString())) {
+				argName = "AllTime&All";
+				perm = "All";
+			}
+
+			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", argName },
+					"VotingPlugin.Commands.Vote.Top." + perm + "|" + playerPerm, "Open page of Top Voters") {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					new VoteTopVoter(plugin, sender, null, top, 1).open(GUIMethod.CHAT);
+				}
+			});
+
+			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", argName, "(number)" },
+					"VotingPlugin.Commands.Vote.Top." + perm + "|" + playerPerm, "Open page of Top Voters") {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					int page = Integer.parseInt(args[2]);
+					new VoteTopVoter(plugin, sender, null, top, page).open(GUIMethod.CHAT);
+				}
+			});
+		}
+
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", "(number)" },
 				"VotingPlugin.Commands.Vote.Top|" + playerPerm, "Open page of Top Voters") {
 
@@ -1718,47 +1746,6 @@ public class CommandLoader {
 				int page = Integer.parseInt(args[1]);
 
 				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page).open(GUIMethod.CHAT);
-			}
-		});
-
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", "(number)", "Monthly" },
-				"VotingPlugin.Commands.Vote.Top.Monthly|" + playerPerm, "Open page of Top Voters") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int page = Integer.parseInt(args[1]);
-				new VoteTopVoter(plugin, sender, null, TopVoter.Monthly, page).open(GUIMethod.CHAT);
-			}
-		});
-
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", "(number)", "All" },
-				"VotingPlugin.Commands.Vote.Top.All|" + playerPerm, "Open page of Top Voters All Time") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int page = Integer.parseInt(args[1]);
-				new VoteTopVoter(plugin, sender, null, TopVoter.AllTime, page).open(GUIMethod.CHAT);
-			}
-		});
-
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", "(number)", "Weekly" },
-				"VotingPlugin.Commands.Vote.Top.Weekly|" + playerPerm, "Open page of Top Voters") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int page = Integer.parseInt(args[1]);
-				new VoteTopVoter(plugin, sender, null, TopVoter.Weekly, page).open(GUIMethod.CHAT);
-
-			}
-		});
-
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "Top", "(number)", "Daily" },
-				"VotingPlugin.Commands.Vote.Top.Daily|" + playerPerm, "Open page of Top Voters") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int page = Integer.parseInt(args[1]);
-				new VoteTopVoter(plugin, sender, null, TopVoter.Daily, page).open(GUIMethod.CHAT);
 			}
 		});
 
