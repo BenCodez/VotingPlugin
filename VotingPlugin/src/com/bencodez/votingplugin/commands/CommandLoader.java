@@ -1391,6 +1391,28 @@ public class CommandLoader {
 			}
 		});
 
+		ArrayList<String> topVoter = new ArrayList<String>();
+		for (TopVoter top : TopVoter.values()) {
+			topVoter.add(top.toString());
+		}
+
+		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(topvoter)", topVoter) {
+
+			@Override
+			public void reload() {
+				ArrayList<String> topVoter = new ArrayList<String>();
+				for (TopVoter top : TopVoter.values()) {
+					topVoter.add(top.toString());
+				}
+				setReplace(topVoter);
+
+			}
+
+			@Override
+			public void updateReplacements() {
+			}
+		});
+
 		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(VoteShop)", sites) {
 
 			@Override
@@ -1714,7 +1736,7 @@ public class CommandLoader {
 			String argName = top.toString();
 			String perm = top.toString();
 			if (argName.equals(TopVoter.AllTime.toString())) {
-				argName = "AllTime&All";
+				argName = "All";
 				perm = "All";
 			}
 
