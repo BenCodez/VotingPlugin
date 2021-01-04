@@ -412,7 +412,7 @@ public class TopVoterHandler implements Listener {
 		String title = plugin.getConfigFile().getFormatCommandVoteTopTitle();
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
-		title = title.replace("%Top%", "All Time");
+		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterAllTime());
 		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -451,7 +451,7 @@ public class TopVoterHandler implements Listener {
 		String title = plugin.getConfigFile().getFormatCommandVoteTopTitle();
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
-		title = title.replace("%Top%", "Daily");
+		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterDaily());
 		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -490,7 +490,7 @@ public class TopVoterHandler implements Listener {
 		String title = plugin.getConfigFile().getFormatCommandVoteTopTitle();
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
-		title = title.replace("%Top%", "Monthly");
+		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterMonthly());
 		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
@@ -610,7 +610,7 @@ public class TopVoterHandler implements Listener {
 		String title = plugin.getConfigFile().getFormatCommandVoteTopTitle();
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
-		title = title.replace("%Top%", "Weekly");
+		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterWeekly());
 		msg.add(StringParser.getInstance().colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
