@@ -13,6 +13,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 /**
  * The Class PlayerJoinEvent.
  */
+@Deprecated
 public class PlayerCommandSendListener implements Listener {
 
 	@SuppressWarnings("unused")

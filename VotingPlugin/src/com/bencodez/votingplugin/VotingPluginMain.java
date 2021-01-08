@@ -66,7 +66,6 @@ import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.listeners.BlockBreak;
-import com.bencodez.votingplugin.listeners.PlayerCommandSendListener;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
@@ -899,9 +898,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 		pm.registerEvents(new PlayerInteract(this), this);
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
-		if (!NMSManager.getInstance().isVersion("1.12")) {
+		/*if (!NMSManager.getInstance().isVersion("1.12")) {
 			pm.registerEvents(new PlayerCommandSendListener(this), this);
-		}
+		}*/
 		coolDownCheck = new CoolDownCheck(this);
 		pm.registerEvents(coolDownCheck, this);
 

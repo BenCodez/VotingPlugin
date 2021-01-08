@@ -4,7 +4,7 @@
 #
 # GUI Methods:
 # - BOOK
-# - GUI
+# - CHEST
 # - CHAT (Disables GUI)
 GUIMethod:
   Today: CHEST #BOOK not available (future update?)

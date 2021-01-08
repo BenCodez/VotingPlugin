@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -14,6 +15,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.permissions.Permission;
 
 import com.bencodez.advancedcore.DebugLevel;
 import com.bencodez.advancedcore.api.command.CommandHandler;
@@ -1200,14 +1202,29 @@ public class CommandLoader {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					commands.put("vote" + arg, cmdHandle);
+
+					try {
+						String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+
+						if (perms.length > 1) {
+							// has another perm
+							plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
+							Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+							p.getChildren().put(perms[0], true);
+							p.recalculatePermissibles();
+						}
+					} catch (Exception e) {
+						plugin.devDebug("Failed to set permission for /vote" + arg);
+					}
+
 					try {
 						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
 
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
-						if (plugin.getConfigFile().isDisableAdvancedTab()) {
-							plugin.getCommand("vote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
-						}
+
+						plugin.getCommand("vote" + arg).setPermission(cmdHandle.getPerm().split(Pattern.quote("|"))[0]);
+
 						for (String str : plugin.getCommand("vote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
 						}
@@ -1225,13 +1242,28 @@ public class CommandLoader {
 				for (String arg : args) {
 					commands.put("adminvote" + arg, cmdHandle);
 					try {
+						String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+
+						if (perms.length > 1) {
+							// has another perm
+							plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
+							Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+							p.getChildren().put(perms[0], true);
+							p.recalculatePermissibles();
+						}
+					} catch (Exception e) {
+						plugin.devDebug("Failed to set permission for /adminvote" + arg);
+					}
+					try {
 						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
-						if (plugin.getConfigFile().isDisableAdvancedTab()) {
-							plugin.getCommand("adminvote" + arg).setPermission(cmdHandle.getPerm().split("|")[0]);
-						}
+
+						
+						plugin.getCommand("adminvote" + arg)
+								.setPermission(cmdHandle.getPerm().split(Pattern.quote("|"))[0]);
+
 						for (String str : plugin.getCommand("adminvote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
 						}
