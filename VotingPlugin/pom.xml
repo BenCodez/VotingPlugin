@@ -126,6 +126,10 @@
 							<pattern>com.zaxxer.hikari</pattern>
 							<shadedPattern>${project.groupId}.votingplugin.hikari</shadedPattern>
 						</relocation>
+						<relocation>
+							<pattern>xyz.upperlevel.spigot.book</pattern>
+							<shadedPattern>${project.groupId}.votingplugin.upperlevel.book</shadedPattern>
+						</relocation>
 					</relocations>
 				</configuration>
 				<executions>
