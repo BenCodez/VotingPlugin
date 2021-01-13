@@ -4,6 +4,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -65,6 +66,10 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private VoteSite voteSite;
+	
+	@Getter
+	@Setter
+	private VotingPluginUser votingPluginUser;
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);

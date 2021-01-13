@@ -199,6 +199,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
 					true);
 			voteEvent.setBungee(true);
+			voteEvent.setVotingPluginUser(this);
 			voteEvent.setForceBungee(true);
 			voteEvent.setTime(time);
 			voteEvent.setAddTotals(false);

@@ -56,6 +56,11 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
+		if (playerName.isEmpty()) {
+			plugin.getLogger().warning("Empty player name for vote");
+			return;
+		}
+
 		if (event.isBungee()) {
 			plugin.debug("BungeePlayerVote forcebungee: " + event.isForceBungee() + ", bungeetotals: "
 					+ event.getBungeeTextTotals());
@@ -78,7 +83,12 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerName);
+		VotingPluginUser user = null;
+		if (event.getVotingPluginUser() != null) {
+			user = event.getVotingPluginUser();
+		} else {
+			user = UserManager.getInstance().getVotingPluginUser(playerName);
+		}
 		user.updateName(true);
 
 		if (plugin.getConfigFile().isClearCacheOnVote() || plugin.getBungeeSettings().isUseBungeecoord()) {

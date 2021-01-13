@@ -369,8 +369,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 			for (String send : getProxy().getServers().keySet()) {
 				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("vp:vp".toLowerCase(),
-							outstream.toByteArray());
+					getProxy().getServers().get(send).sendData("vp:vp".toLowerCase(), outstream.toByteArray());
 				}
 			}
 		} catch (Exception e) {
@@ -434,8 +433,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				out.writeUTF(message);
 			}
 			if (getProxy().getServers().get(server).getPlayers().size() > 0) {
-				getProxy().getServers().get(server).sendData("vp:vp".toLowerCase(),
-						byteOutStream.toByteArray(), false);
+				getProxy().getServers().get(server).sendData("vp:vp".toLowerCase(), byteOutStream.toByteArray(), false);
 			}
 			out.close();
 		} catch (Exception e) {
@@ -507,7 +505,9 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				try {
 					u = fetchUUID(player);
 				} catch (Exception e) {
-					e.printStackTrace();
+					if (getConfig().getDebug()) {
+						e.printStackTrace();
+					}
 				}
 				if (u == null) {
 					debug("Failed to get uuid for " + player);
