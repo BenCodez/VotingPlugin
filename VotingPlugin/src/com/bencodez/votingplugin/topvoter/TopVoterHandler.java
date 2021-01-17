@@ -24,6 +24,7 @@ import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.UUID;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -105,6 +106,9 @@ public class TopVoterHandler implements Listener {
 		plugin.setUpdate(true);
 		plugin.update();
 		loadLastMonth();
+		if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			plugin.getMysql().clearCache();
+		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -112,14 +116,18 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
-					if (user.getDayVoteStreak() != 0) {
-						user.setDayVoteStreak(0);
+				if (plugin.getConfigFile().isUseVoteStreaks()) {
+					if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
+						if (user.getDayVoteStreak() != 0) {
+							user.setDayVoteStreak(0);
+						}
 					}
 				}
 
-				if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
-					user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+				if (plugin.getConfigFile().isUseHighestTotals()) {
+					if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
+						user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+					}
 				}
 				for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
 					if (plugin.getGui().getChestVoteShopResetDaily(shopIdent)) {
@@ -163,6 +171,10 @@ public class TopVoterHandler implements Listener {
 			}
 
 			resetTotals(TopVoter.Daily);
+			
+			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				plugin.getMysql().clearCache();
+			}
 		}
 	}
 
@@ -171,15 +183,17 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
-					user.setMonthVoteStreak(0);
-				} else {
-					if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
-							|| user.hasPercentageTotal(TopVoter.Monthly,
-									plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
-									LocalDateTime.now().minusDays(1))) {
-						user.addMonthVoteStreak();
-						plugin.getSpecialRewards().checkVoteStreak(user, "Month");
+				if (plugin.getConfigFile().isUseVoteStreaks()) {
+					if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
+						user.setMonthVoteStreak(0);
+					} else {
+						if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+								|| user.hasPercentageTotal(TopVoter.Monthly,
+										plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
+										LocalDateTime.now().minusDays(1))) {
+							user.addMonthVoteStreak();
+							plugin.getSpecialRewards().checkVoteStreak(user, "Month");
+						}
 					}
 				}
 
@@ -191,8 +205,10 @@ public class TopVoterHandler implements Listener {
 
 				user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
 
-				if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
-					user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+				if (plugin.getConfigFile().isUseHighestTotals()) {
+					if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
+						user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+					}
 				}
 			}
 
@@ -243,6 +259,10 @@ public class TopVoterHandler implements Listener {
 				}
 
 			}
+			
+			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				plugin.getMysql().clearCache();
+			}
 		}
 	}
 
@@ -257,14 +277,16 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
-					user.setWeekVoteStreak(0);
-				} else {
-					if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
-							|| user.hasPercentageTotal(TopVoter.Weekly,
-									plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
-						user.addWeekVoteStreak();
-						plugin.getSpecialRewards().checkVoteStreak(user, "Week");
+				if (plugin.getConfigFile().isUseVoteStreaks()) {
+					if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
+						user.setWeekVoteStreak(0);
+					} else {
+						if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+								|| user.hasPercentageTotal(TopVoter.Weekly,
+										plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
+							user.addWeekVoteStreak();
+							plugin.getSpecialRewards().checkVoteStreak(user, "Week");
+						}
 					}
 				}
 
@@ -274,8 +296,10 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 
-				if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
-					user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+				if (plugin.getConfigFile().isUseHighestTotals()) {
+					if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
+						user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+					}
 				}
 			}
 
@@ -313,6 +337,10 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 			resetTotals(TopVoter.Weekly);
+			
+			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				plugin.getMysql().clearCache();
+			}
 		}
 	}
 
@@ -321,11 +349,15 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void resetTotals(TopVoter topVoter) {
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-			if (user.getTotal(topVoter) != 0) {
-				user.resetTotals(topVoter);
+		if (!plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				if (user.getTotal(topVoter) != 0) {
+					user.resetTotals(topVoter);
+				}
 			}
+		} else {
+			plugin.getMysql().wipeColumnData(topVoter.getColumnName());
 		}
 	}
 

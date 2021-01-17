@@ -639,6 +639,14 @@ public class Config extends YMLFile {
 		return getData().getBoolean("LoadTopVoter.AllTime", true);
 	}
 
+	@ConfigDataBoolean(path = "UseVoteStreaks")
+	@Getter
+	private boolean useVoteStreaks = true;
+	
+	@ConfigDataBoolean(path = "UseHighestTotals")
+	@Getter
+	private boolean useHighestTotals = true;
+
 	public boolean getLoadTopVoterDaily() {
 		return getData().getBoolean("LoadTopVoter.Daily", false);
 	}

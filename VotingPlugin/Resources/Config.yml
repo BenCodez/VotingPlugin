@@ -343,6 +343,12 @@ StoreTopVoters:
 # Most of these values can be left untouched for most setups
 # ------------------------------------------------
 
+# If false, votestreaks will be disabled
+UseVoteStreaks: true
+
+# If false, storing best totals will be disabled
+UseHighestTotals: true
+
 # Number of points to give on vote
 # Set to 0 to give no points
 PointsOnVote: 1
