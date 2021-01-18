@@ -37,6 +37,7 @@ import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.event.PluginMessageEvent;
+import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
@@ -64,6 +65,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 	private SocketHandler socketHandler;
 
 	private VoteCache voteCacheFile;
+
+	private NonVotedPlayersCache nonVotedPlayersCache;
 
 	public void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -147,6 +150,9 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		if (str != null) {
 			return str;
 		}
+		if (nonVotedPlayersCache != null) {
+			return nonVotedPlayersCache.playerExists(playerName);
+		}
 		return "";
 	}
 
@@ -170,7 +176,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				return num;
 			}
 		}
-		return -1;
+		return 0;
 	}
 
 	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
@@ -199,6 +205,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					num++;
 				}
 			}
+			nonVotedPlayersCache.save();
 		}
 	}
 
@@ -246,6 +253,9 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
+			nonVotedPlayersCache = new NonVotedPlayersCache(this);
+			nonVotedPlayersCache.load();
+
 			try {
 				for (String server : voteCacheFile.getServers()) {
 					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
@@ -291,6 +301,17 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					}
 				}
 			}, 15l, TimeUnit.SECONDS);
+
+			getProxy().getScheduler().schedule(this, new Runnable() {
+
+				@Override
+				public void run() {
+					if (nonVotedPlayersCache != null) {
+						debug("Checking nonvotedplayers.yml...");
+						nonVotedPlayersCache.check();
+					}
+				}
+			}, 1l, 60l, TimeUnit.MINUTES);
 
 			this.getProxy().registerChannel("vp:vp");
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
@@ -374,6 +395,13 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	@EventHandler
+	public void onLogin(PostLoginEvent event) {
+		if (nonVotedPlayersCache != null) {
+			nonVotedPlayersCache.addPlayer(event.getPlayer());
 		}
 	}
 
@@ -501,19 +529,24 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			String uuid = getUUID(player);
 			if (uuid.isEmpty()) {
-				UUID u = null;
-				try {
-					u = fetchUUID(player);
-				} catch (Exception e) {
-					if (getConfig().getDebug()) {
-						e.printStackTrace();
+				if (config.getAllowUnJoined()) {
+					UUID u = null;
+					try {
+						u = fetchUUID(player);
+					} catch (Exception e) {
+						if (getConfig().getDebug()) {
+							e.printStackTrace();
+						}
 					}
-				}
-				if (u == null) {
-					debug("Failed to get uuid for " + player);
+					if (u == null) {
+						debug("Failed to get uuid for " + player);
+						return;
+					}
+					uuid = u.toString();
+				} else {
+					getLogger().info("Ignoring vote from " + player);
 					return;
 				}
-				uuid = u.toString();
 			}
 
 			player = getProperName(uuid, player);

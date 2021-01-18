@@ -40,6 +40,8 @@ BungeeMethod: PLUGINMESSAGING
 
 FallBackServer: factions
 
+AllowUnJoined: false
+
 # ----------------------------
 # SOCKET METHOD Settings
 # ----------------------------

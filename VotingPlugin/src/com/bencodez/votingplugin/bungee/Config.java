@@ -28,6 +28,10 @@ public class Config {
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
+	
+	public boolean getAllowUnJoined() {
+		return getData().getBoolean("AllowUnJoined",false);
+	}
 
 	public String getBungeeHost() {
 		return getData().getString("BungeeServer.Host", "");
