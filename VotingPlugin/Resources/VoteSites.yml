@@ -101,6 +101,12 @@ VoteSites:
         Fallback:
           Messages:
             Player: 'You got unlucky'
+            
+      # Give 1 diamond
+      Items:
+        item1:
+          Material: DIAMOND
+          Amount: 1
 
       Messages:
         Player: 'You voted'

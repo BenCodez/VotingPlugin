@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.commands.gui.admin;
 
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -19,9 +21,10 @@ public class AdminVotePerms extends GUIHandler {
 	private String playerName;
 	private VotingPluginMain plugin;
 
-	public AdminVotePerms(VotingPluginMain plugin, CommandSender player) {
+	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page) {
 		super(player);
 		this.plugin = plugin;
+		this.page = page;
 	}
 
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page, String playerName) {
@@ -38,17 +41,18 @@ public class AdminVotePerms extends GUIHandler {
 
 	public String[] listPerms(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("&c&lCommand : Permissions (seperated by |)");
 
 		for (CommandHandler handle : plugin.getVoteCommand()) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
-					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
 			} else {
-				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm());
+				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
 
 		}
@@ -56,30 +60,57 @@ public class AdminVotePerms extends GUIHandler {
 		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
-					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
 			} else {
-				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm());
+				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
 			if (sender instanceof Player) {
-				if (sender.hasPermission(perm)) {
-					msg.add("&a" + perm.getName() + " : true");
+				Set<String> child = perm.getChildren().keySet();
+				if (child.size() > 0) {
+					if (sender.hasPermission(perm)) {
+						msg.add("&6" + perm.getName() + " : &atrue");
+					} else {
+						msg.add("&6" + perm.getName() + " : &cfalse");
+					}
 				} else {
-					msg.add("&c" + perm.getName() + " : false");
+					if (sender.hasPermission(perm)) {
+						msg.add("&6" + perm.getName() + " : &atrue");
+					} else {
+						msg.add("&6" + perm.getName() + " : &cfalse");
+					}
 				}
+
 			} else {
 				msg.add(perm.getName());
 			}
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
+		int pagesize = plugin.getConfigFile().getFormatPageSize();
 
-		return ArrayUtils.getInstance().convert(msg);
+		int maxPage = msg.size() / pagesize;
+		if ((msg.size() % pagesize) != 0) {
+			maxPage++;
+		}
+
+		ArrayList<String> text = new ArrayList<String>();
+
+		text.add("&c&lCommand : Permissions " + page + "/" + maxPage);
+
+		for (int i = pagesize * page - pagesize; i < msg.size() && i < pagesize * page; i++) {
+			text.add(msg.get(i));
+		}
+
+		text = ArrayUtils.getInstance().colorize(text);
+
+		return ArrayUtils.getInstance().convert(text);
 	}
 
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {
@@ -91,26 +122,39 @@ public class AdminVotePerms extends GUIHandler {
 
 			for (CommandHandler handle : plugin.getVoteCommand()) {
 				if (handle.hasPerm(p)) {
-					msg.add("&a" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : true");
+					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&c" + handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : false");
+					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
 
 			}
 
 			for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 				if (handle.hasPerm(p)) {
-					msg.add("&a" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : true");
+					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&c" + handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : false");
+					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
+							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
 			}
 
 			for (Permission perm : plugin.getDescription().getPermissions()) {
-				if (p.hasPermission(perm)) {
-					msg.add("&a" + perm.getName() + " : true");
+				Set<String> child = perm.getChildren().keySet();
+				if (child.size() > 0) {
+					if (p.hasPermission(perm)) {
+						msg.add("&6" + perm.getName() + " : &atrue");
+					} else {
+						msg.add("&6" + perm.getName() + " : &cfalse");
+					}
 				} else {
-					msg.add("&c" + perm.getName() + " : false");
+					if (p.hasPermission(perm)) {
+						msg.add("&6" + perm.getName() + " : &atrue");
+					} else {
+						msg.add("&6" + perm.getName() + " : &cfalse");
+					}
 				}
 			}
 
@@ -123,7 +167,7 @@ public class AdminVotePerms extends GUIHandler {
 				maxPage++;
 			}
 
-			text.add("&c&lCommand : Permissions (seperated by |) " + page + "/" + maxPage);
+			text.add("&c&lCommand : Permissions for " + player + " " + page + "/" + maxPage);
 
 			for (int i = pagesize * page - pagesize; i < msg.size() && i < pagesize * page; i++) {
 				text.add(msg.get(i));
@@ -133,6 +177,27 @@ public class AdminVotePerms extends GUIHandler {
 		}
 		return ArrayUtils.getInstance().colorize(text);
 
+	}
+
+	public String[] listPermsDev(CommandSender sender) {
+		ArrayList<String> msg = new ArrayList<String>();
+		msg.add("&c&lCommand : Permissions (seperated by |) : Help message");
+
+		for (CommandHandler handle : plugin.getVoteCommand()) {
+			msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : " + handle.getHelpMessage());
+		}
+
+		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
+			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : " + handle.getHelpMessage());
+		}
+
+		for (Permission perm : plugin.getDescription().getPermissions()) {
+			msg.add(perm.getName() + " : " + perm.getDescription());
+		}
+
+		msg = ArrayUtils.getInstance().colorize(msg);
+
+		return ArrayUtils.getInstance().convert(msg);
 	}
 
 	@Override

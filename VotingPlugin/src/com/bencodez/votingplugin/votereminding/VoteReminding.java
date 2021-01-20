@@ -95,7 +95,8 @@ public class VoteReminding {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
-			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || user.canVoteAll())
+			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || (user.canVoteAll()
+					|| (user.canVoteAny() && user.hasPermission("VotingPlugin.Login.RemindVotes.Any"))))
 					&& user.shouldBeReminded()) {
 				giveReward(user);
 				if (user.getData().hasData()) {

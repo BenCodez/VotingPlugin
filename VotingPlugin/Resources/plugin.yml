@@ -215,9 +215,9 @@ permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
   VotingPlugin.Mod:
-    description: Allows mod access player commands
+    description: Allows mod commands
   VotingPlugin.Admin:
-    description: Allows admin access player commands
+    description: Allows admincommands
   VotingPlugin.Login.RemindVotes:
     description: Allows players to get remined on login if they can vote
     default: true
@@ -234,4 +234,7 @@ permissions:
     description: Permission to create sign
   VotingPlugin.Admin.GenerateServiceSite:
     description: Permission for generating votesite message
+  VotingPlugin.Login.RemindVotes.Any:
+    description: Remind if player can vote on any website, rather than all
+    default: false
   

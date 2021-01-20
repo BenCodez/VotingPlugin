@@ -403,12 +403,21 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new AdminVotePerms(plugin, sender).open();
+				new AdminVotePerms(plugin, sender, 1).open();
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Perms", "(Number)" },
+				"VotingPlugin.Commands.AdminVote.Perms|" + adminPerm, "List permissions") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVotePerms(plugin, sender, Integer.parseInt(args[1])).open();
 			}
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "Perms", "(Player)" },
+				.add(new CommandHandler(new String[] { "PermsPlayer", "(Player)" },
 						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
 						"List permissions from the plugin the player has") {
 
@@ -419,7 +428,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "Perms", "(Player)", "(Number)" },
+				.add(new CommandHandler(new String[] { "PermsPlayer", "(Player)", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
 						"List permissions from the plugin the player has") {
 
@@ -428,6 +437,29 @@ public class CommandLoader {
 						new AdminVotePerms(plugin, sender, Integer.parseInt(args[2]), args[1]).open();
 					}
 				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "Perms", "(Number)", "(Player)" },
+						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
+						"List permissions from the plugin the specificed player has") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						new AdminVotePerms(plugin, sender, Integer.parseInt(args[1]), args[2]).open();
+					}
+				});
+
+		if (plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
+			plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "PermsDebug" },
+					"VotingPlugin.Commands.AdminVote.PermsDebug", "Dev permission list") {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					sendMessage(sender, ArrayUtils.getInstance()
+							.convert(new AdminVotePerms(plugin, sender, 0).listPermsDev(sender)));
+				}
+			});
+		}
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Reload" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, will not reload user storage") {
@@ -1260,7 +1292,6 @@ public class CommandLoader {
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
 
-						
 						plugin.getCommand("adminvote" + arg)
 								.setPermission(cmdHandle.getPerm().split(Pattern.quote("|"))[0]);
 
