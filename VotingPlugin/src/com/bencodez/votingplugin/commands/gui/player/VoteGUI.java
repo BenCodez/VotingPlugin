@@ -27,6 +27,9 @@ public class VoteGUI extends GUIHandler {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
+		if (this.user == null && player instanceof Player) {
+			user = UserManager.getInstance().getVotingPluginUser((Player) player);
+		}
 	}
 
 	@Override
