@@ -181,14 +181,21 @@ public class AdminVotePerms extends GUIHandler {
 
 	public String[] listPermsDev(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("&c&lCommand : Permissions (seperated by |) : Help message");
+		msg.add("Command");
+		msg.add("  Permissions (seperated by |");
+		msg.add("  Help messasge");
+		msg.add("  ");
 
 		for (CommandHandler handle : plugin.getVoteCommand()) {
-			msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm() + " : " + handle.getHelpMessage());
+			msg.add(handle.getHelpLineCommand("/vote"));
+			msg.add("  " + handle.getPerm());
+			msg.add("  " + handle.getHelpMessage());
 		}
 
 		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
-			msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm() + " : " + handle.getHelpMessage());
+			msg.add(handle.getHelpLineCommand("/av"));
+			msg.add("  " + handle.getPerm());
+			msg.add("  " + handle.getHelpMessage());
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {

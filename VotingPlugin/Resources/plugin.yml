@@ -112,9 +112,6 @@ commands:
   adminvoteconfig:
     description: Command Alias
     aliases: avconfig
-  adminvotesettotal:
-    description: Command Alias
-    aliases: avsettotal
   adminvoteupdatecheck:
     description: Command Alias
     aliases: avupdatecheck
@@ -127,9 +124,6 @@ commands:
   adminvotegivereward:
     description: Command Alias
     aliases: avgivereward
-  adminvoteusers:
-    description: Command Alias
-    aliases: avusers
   adminvoteConvertFromData:
     description: Command Alias
     aliases: avConvertFromData
@@ -147,6 +141,20 @@ commands:
   adminvoteSetVotePartyCount:
     description: Command Alias
     aliases: avSetVotePartyCount
+  adminvoteChoices:
+    description: Command Alias
+    aliases: avChoices
+  adminvoteReloadAll:
+    description: Command Alias
+    aliases: avReloadAll
+  adminvotePermsPlayer:
+    description: Command Alias
+    aliases: avPermsPlayer
+  adminvoteResyncMilestonesAlreadyGiven:
+    description: Command Alias
+    aliases: avResyncMilestonesAlreadyGiven
+  voteSetPrimaryAccount:
+    description: Command Alias
   adminvoteClearOfflineVotes:
     description: Command Alias
     aliases: avClearOfflineVotes

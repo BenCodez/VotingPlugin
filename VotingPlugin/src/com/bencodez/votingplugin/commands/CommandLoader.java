@@ -451,7 +451,7 @@ public class CommandLoader {
 
 		if (plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
 			plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "PermsDebug" },
-					"VotingPlugin.Commands.AdminVote.PermsDebug", "Dev permission list") {
+					"VotingPlugin.Commands.AdminVote.PermsDebug", "Dev permission list, generate this list, requires dev debug") {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
@@ -541,6 +541,7 @@ public class CommandLoader {
 					});
 
 				}
+
 				sendMessage(sender,
 						"Using AdvancedCore " + plugin.getVersion() + "' built on '" + plugin.getBuildTime());
 			}
@@ -1265,6 +1266,20 @@ public class CommandLoader {
 					}
 				}
 
+			} else {
+				try {
+					String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+
+					if (perms.length > 1) {
+						// has another perm
+						plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
+						Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+						p.getChildren().put(perms[0], true);
+						p.recalculatePermissibles();
+					}
+				} catch (Exception e) {
+					plugin.devDebug("Failed to set permission for /vote");
+				}
 			}
 		}
 
@@ -1305,6 +1320,20 @@ public class CommandLoader {
 					}
 				}
 
+			} else {
+				try {
+					String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+
+					if (perms.length > 1) {
+						// has another perm
+						plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
+						Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+						p.getChildren().put(perms[0], true);
+						p.recalculatePermissibles();
+					}
+				} catch (Exception e) {
+					plugin.devDebug("Failed to set permission for /vote");
+				}
 			}
 		}
 	}
