@@ -27,9 +27,6 @@ public class VoteGUI extends GUIHandler {
 		super(player);
 		this.plugin = plugin;
 		this.user = user;
-		if (this.user == null && player instanceof Player) {
-			user = UserManager.getInstance().getVotingPluginUser((Player) player);
-		}
 	}
 
 	@Override
@@ -122,6 +119,9 @@ public class VoteGUI extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
+		if (this.user == null) {
+			user = UserManager.getInstance().getVotingPluginUser((Player) player);
+		}
 		if ((!player.getName().equals(user.getPlayerName())
 				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
 				&& !player.hasPermission("VotingPlugin.Mod"))
