@@ -17,6 +17,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -96,12 +97,12 @@ public class VoteToday extends GUIHandler {
 				item.setName(StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
 						"player", user.getPlayerName()));
 				item.setLore(msg);
+				final String uuid = user.getUUID();
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = UserManager.getInstance()
-								.getVotingPluginUser(clickEvent.getClickedItem().getItemMeta().getDisplayName());
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}
