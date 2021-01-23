@@ -36,6 +36,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean allowUnjoined = false;
 
+	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
+	@Getter
+	private boolean useVoteGUIMainCommand = false;
+
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
@@ -642,7 +646,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UseVoteStreaks")
 	@Getter
 	private boolean useVoteStreaks = true;
-	
+
 	@ConfigDataBoolean(path = "UseHighestTotals")
 	@Getter
 	private boolean useHighestTotals = true;

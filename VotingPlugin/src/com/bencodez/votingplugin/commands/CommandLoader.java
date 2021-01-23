@@ -2007,7 +2007,13 @@ public class CommandLoader {
 						if (sender instanceof Player) {
 							user = UserManager.getInstance().getVotingPluginUser((Player) sender);
 						}
-						new VoteURL(plugin, sender, user, true).open();
+						if (plugin.getConfigFile().isUseVoteGUIMainCommand() && sender instanceof Player) {
+							// vote gui command
+							new VoteGUI(plugin, sender, user).open();
+						} else {
+							new VoteURL(plugin, sender, user, true).open();
+						}
+
 					}
 				});
 

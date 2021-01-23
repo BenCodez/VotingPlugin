@@ -349,6 +349,9 @@ UseVoteStreaks: true
 # If false, storing best totals will be disabled
 UseHighestTotals: true
 
+# If true, /vote will open /vote gui by default
+UseVoteGUIMainCommand: false
+
 # Number of points to give on vote
 # Set to 0 to give no points
 PointsOnVote: 1
