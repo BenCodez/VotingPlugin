@@ -394,6 +394,9 @@ PreventRepeatMilestones: false
 # Mainly to be used for alts and such
 UsePrimaryAccountForPlaceholders: false
 
+# If true, permissions will be handled differently
+MultiplePermissionsCheck: false
+
 AddCustomCommands: false
 
 # Injects custom command to /vote
