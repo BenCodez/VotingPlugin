@@ -450,15 +450,16 @@ public class CommandLoader {
 				});
 
 		if (plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
-			plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "PermsDebug" },
-					"VotingPlugin.Commands.AdminVote.PermsDebug", "Dev permission list, generate this list, requires dev debug") {
+			plugin.getAdminVoteCommand()
+					.add(new CommandHandler(new String[] { "PermsDebug" }, "VotingPlugin.Commands.AdminVote.PermsDebug",
+							"Dev permission list, generate this list, requires dev debug") {
 
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					sendMessage(sender, ArrayUtils.getInstance()
-							.convert(new AdminVotePerms(plugin, sender, 0).listPermsDev(sender)));
-				}
-			});
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							sendMessage(sender, ArrayUtils.getInstance()
+									.convert(new AdminVotePerms(plugin, sender, 0).listPermsDev(sender)));
+						}
+					});
 		}
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Reload" },
@@ -1247,7 +1248,7 @@ public class CommandLoader {
 							p.recalculatePermissibles();
 						}
 					} catch (Exception e) {
-						plugin.devDebug("Failed to set permission for /vote" + arg);
+						plugin.debug("Failed to set permission for /vote" + arg);
 					}
 
 					try {
@@ -1278,7 +1279,7 @@ public class CommandLoader {
 						p.recalculatePermissibles();
 					}
 				} catch (Exception e) {
-					plugin.devDebug("Failed to set permission for /vote");
+					plugin.debug("Failed to set permission for /vote");
 				}
 			}
 		}
@@ -1299,7 +1300,7 @@ public class CommandLoader {
 							p.recalculatePermissibles();
 						}
 					} catch (Exception e) {
-						plugin.devDebug("Failed to set permission for /adminvote" + arg);
+						plugin.debug("Failed to set permission for /adminvote" + arg);
 					}
 					try {
 						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
@@ -1332,7 +1333,7 @@ public class CommandLoader {
 						p.recalculatePermissibles();
 					}
 				} catch (Exception e) {
-					plugin.devDebug("Failed to set permission for /vote");
+					plugin.debug("Failed to set permission for /vote");
 				}
 			}
 		}
