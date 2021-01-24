@@ -239,4 +239,17 @@ public class ServerData {
 	public void updateValues() {
 		setVersion();
 	}
+
+	public boolean isLastVotePartySameDay() {
+		int num = getData().getInt("LastVoteParty", 0);
+		if (num != plugin.getTimeChecker().getTime().getDayOfYear()) {
+			return true;
+		}
+		return false;
+	}
+
+	public void updateLastVoteParty() {
+		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
+		saveData();
+	}
 }

@@ -49,6 +49,8 @@ VoteParty:
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
+  # If true, will give voteparty only once per day
+  OnlyOncePerDay: false
   # Reset at the end of the month
   ResetMonthly: false
   # Reset extra votes

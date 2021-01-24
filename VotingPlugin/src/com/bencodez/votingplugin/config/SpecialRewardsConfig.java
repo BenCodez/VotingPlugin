@@ -229,6 +229,10 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
 
+	public boolean getVotePartyOnlyOncePerDay() {
+		return getData().getBoolean("VoteParty.OnlyOncePerDay");
+	}
+
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
