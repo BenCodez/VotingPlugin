@@ -773,7 +773,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!contains) {
 				issues = false;
 				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
-						+ ", may be an invalid service site. Vote on the site and look in console for a service site, if you get nothing then there is an issue with votifier");
+						+ ", may be an invalid service site. Please read: https://github.com/BenCodez/VotingPlugin/wiki/Votifier-Troubleshooting");
 			}
 		}
 
@@ -898,9 +898,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 		pm.registerEvents(new PlayerInteract(this), this);
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
-		/*if (!NMSManager.getInstance().isVersion("1.12")) {
-			pm.registerEvents(new PlayerCommandSendListener(this), this);
-		}*/
+		/*
+		 * if (!NMSManager.getInstance().isVersion("1.12")) { pm.registerEvents(new
+		 * PlayerCommandSendListener(this), this); }
+		 */
 		coolDownCheck = new CoolDownCheck(this);
 		pm.registerEvents(coolDownCheck, this);
 

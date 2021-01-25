@@ -147,9 +147,9 @@ public class VoteSite {
 	 */
 	public ItemBuilder getItem() {
 		if (item == null) {
-			plugin.getLogger().warning("Invalid item section in site: " + key);
-			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid item for site: " + key)
-					.setLore("&cInvalid item for site: " + key);
+			plugin.getLogger().warning("Invalid display item section in site: " + key);
+			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid display item for site: " + key)
+					.setLore("&cInvalid display item for site: " + key);
 		} else {
 			return new ItemBuilder(item);
 		}
