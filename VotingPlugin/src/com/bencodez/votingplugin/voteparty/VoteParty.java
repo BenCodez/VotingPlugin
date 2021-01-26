@@ -62,7 +62,9 @@ public class VoteParty implements Listener {
 		if (getTotalVotes() >= getVotesRequired() && ((plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
 				&& plugin.getServerData().isLastVotePartySameDay())
 				|| !plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay())) {
-			setTotalVotes(getTotalVotes() - getVotesRequired());
+			if (plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
+				setTotalVotes(getTotalVotes() - getVotesRequired());
+			}
 
 			VotePartyEvent event = new VotePartyEvent();
 			Bukkit.getPluginManager().callEvent(event);

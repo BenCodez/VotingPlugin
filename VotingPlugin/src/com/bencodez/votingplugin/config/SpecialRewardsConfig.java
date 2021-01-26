@@ -43,6 +43,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
 
+	@ConfigDataBoolean(path = "VoteParty.ResetCount")
+	@Getter
+	private boolean votePartyResetCount = true;
+
 	@Getter
 	private String votePartyRewardsPath = "VoteParty.Rewards";
 
