@@ -59,7 +59,9 @@ public class VoteParty implements Listener {
 	 * Check.
 	 */
 	public void check() {
-		if (getTotalVotes() >= getVotesRequired() && (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay() && plugin.getServerData().isLastVotePartySameDay())) {
+		if (getTotalVotes() >= getVotesRequired() && ((plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
+				&& plugin.getServerData().isLastVotePartySameDay())
+				|| !plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay())) {
 			setTotalVotes(getTotalVotes() - getVotesRequired());
 
 			VotePartyEvent event = new VotePartyEvent();
@@ -74,7 +76,7 @@ public class VoteParty implements Listener {
 				plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
 						+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired());
 			}
-			
+
 			if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()) {
 				plugin.getServerData().updateLastVoteParty();
 			}
