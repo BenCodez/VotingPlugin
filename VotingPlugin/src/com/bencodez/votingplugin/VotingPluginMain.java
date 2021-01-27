@@ -634,9 +634,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		// vote party
 		voteParty = new VoteParty(this);
-		if (specialRewardsConfig.getVotePartyEnabled()) {
-			voteParty.check();
-		}
 		voteParty.register();
 
 		topVoterHandler.register();
