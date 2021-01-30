@@ -25,6 +25,7 @@ import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
@@ -192,7 +193,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void bungeeVotePluginMessaging(String service, long time, String bungeeTextTotals) {
+	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -203,7 +204,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setForceBungee(true);
 			voteEvent.setTime(time);
 			voteEvent.setAddTotals(false);
-			voteEvent.setBungeeTextTotals(bungeeTextTotals);
+			voteEvent.setBungeeTextTotals(text);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override

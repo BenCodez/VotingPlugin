@@ -47,14 +47,17 @@ AllowUnJoined: false
 # ----------------------------
 
 # Tell servers to broadcast
+# For socket method
 Broadcast: true
 
 # Bungee communication, Add this to each spigot server
+# For socket method
 BungeeServer:
   Host: '127.0.0.1'
   Port: 1297
   
 # Bungee communication, add each spigot server here
+# For socket method
 SpigotServers:
   lobby:
     Host: '127.0.0.1'

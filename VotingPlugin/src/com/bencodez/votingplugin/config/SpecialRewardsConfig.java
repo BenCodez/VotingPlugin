@@ -240,6 +240,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
+	
+	public boolean getVotePartyResetWeekly() {
+		return getData().getBoolean("VoteParty.ResetWeekly");
+	}
 
 	public int getVotePartyUserVotesRequired() {
 		return getData().getInt("VoteParty.UserVotesRequired");

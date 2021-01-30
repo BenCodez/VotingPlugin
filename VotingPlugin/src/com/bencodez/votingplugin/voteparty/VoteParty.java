@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
+import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
@@ -198,20 +199,27 @@ public class VoteParty implements Listener {
 				giveReward(user);
 			}
 		}
-		reset();
+		reset(false);
 	}
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().getVotePartyResetEachDay()) {
-			reset();
+			reset(true);
+		}
+	}
+
+	@EventHandler
+	public void onWeekChange(WeekChangeEvent event) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyResetWeekly()) {
+			reset(true);
 		}
 	}
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().getVotePartyResetMontly()) {
-			reset();
+			reset(true);
 		}
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
@@ -223,7 +231,10 @@ public class VoteParty implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	public void reset() {
+	public void reset(boolean override) {
+		if (override) {
+			setTotalVotes(0);
+		}
 		setVotedUsers(new ArrayList<String>());
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));

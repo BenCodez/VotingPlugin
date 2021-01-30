@@ -245,9 +245,14 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
 		method = BungeeMethod.getByName(config.getBungeeMethod());
+		if (method == null) {
+			method = BungeeMethod.PLUGINMESSAGING;
+		}
+
+		this.getProxy().registerChannel("vp:vp");
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-			this.getProxy().registerChannel("vp:vp");
+			// this.getProxy().registerChannel("vp:vp");
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			voteCacheFile = new VoteCache(this);
@@ -312,8 +317,6 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					}
 				}
 			}, 1l, 60l, TimeUnit.MINUTES);
-
-			this.getProxy().registerChannel("vp:vp");
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
@@ -557,9 +560,18 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 			ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
 
-			String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" + mysqlUpdate(data, uuid, "MonthTotal", 1)
-					+ "//" + mysqlUpdate(data, uuid, "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1)
-					+ "//" + mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid, "MilestoneCount", 1);
+			BungeeMessageData text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
+					mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
+					mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
+					mysqlUpdate(data, uuid, "MilestoneCount", 1));
+
+			/*
+			 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
+			 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
+			 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
+			 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
+			 * "MilestoneCount", 1);
+			 */
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -573,7 +585,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
 							}
 							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text));
+							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 							cachedVotes.put(s, list);
 
 							debug("Caching vote for " + player + " on " + service + " for " + s);
@@ -581,7 +593,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 						} else {
 							// send
 							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote, text);
+									Boolean.TRUE.toString(), "" + realVote, text.toString());
 						}
 					}
 				}
@@ -590,7 +602,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				if (p != null && p.isConnected()
 						&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
-							"" + time, Boolean.TRUE.toString(), "" + realVote, text);
+							"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString());
 				} else {
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -599,7 +611,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					if (list == null) {
 						list = new ArrayList<OfflineBungeeVote>();
 					}
-					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text));
+					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 					cachedOnlineVotes.put(uuid, list);
 					debug("Caching online vote for " + player + " on " + service);
 				}

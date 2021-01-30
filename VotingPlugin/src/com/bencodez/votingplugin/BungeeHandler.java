@@ -9,6 +9,7 @@ import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.UserManager;
@@ -64,7 +65,7 @@ public class BungeeHandler {
 
 					boolean wasOnline = Boolean.valueOf(args.get(4));
 
-					String text = args.get(6);
+					BungeeMessageData text = new BungeeMessageData(args.get(6));
 
 					user.clearCache();
 
@@ -95,7 +96,7 @@ public class BungeeHandler {
 					String uuid = args.get(1);
 					String service = args.get(2);
 					long time = Long.parseLong(args.get(3));
-					String text = args.get(6);
+					BungeeMessageData text = new BungeeMessageData(args.get(6));
 					plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
 							player);

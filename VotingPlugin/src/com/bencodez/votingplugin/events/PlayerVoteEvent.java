@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
+import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -37,7 +38,7 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private String bungeeTextTotals;
+	private BungeeMessageData bungeeTextTotals;
 
 	@Getter
 	@Setter
@@ -66,7 +67,7 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private VoteSite voteSite;
-	
+
 	@Getter
 	@Setter
 	private VotingPluginUser votingPluginUser;

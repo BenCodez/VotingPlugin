@@ -10,6 +10,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -41,7 +42,7 @@ public class SpecialRewards {
 		return checkAllVotes;
 	}
 
-	public boolean checkCumualativeVotes(VotingPluginUser user, String bungeeTextTotals) {
+	public boolean checkCumualativeVotes(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
 		for (String vote : votes) {
@@ -53,35 +54,30 @@ public class SpecialRewards {
 									plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(votesRequired))) {
 						boolean gotCumulative = false;
 						int total = 0;
-						boolean useBungeeTotalNum = false;
-						String[] data = new String[] { "0", "0", "0", "0" };
-						if (bungeeTextTotals != null) {
-							data = bungeeTextTotals.split("//");
-							useBungeeTotalNum = true;
-						}
+						boolean useBungeeTotalNum = bungeeMessageData != null;
 						if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameDay(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Daily);
 							} else {
-								total = Integer.parseInt(data[3]);
+								total = bungeeMessageData.getDailyTotal();
 							}
 						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameWeek(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Weekly);
 							} else {
-								total = Integer.parseInt(data[2]);
+								total = bungeeMessageData.getWeeklyTotal();
 							}
 						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameMonth(votesRequired)) {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.Monthly);
 							} else {
-								total = Integer.parseInt(data[1]);
+								total = bungeeMessageData.getMonthTotal();
 							}
 						} else {
 							if (!useBungeeTotalNum) {
 								total = user.getTotal(TopVoter.AllTime);
 							} else {
-								total = Integer.parseInt(data[0]);
+								total = bungeeMessageData.getAllTimeTotal();
 							}
 						}
 
@@ -125,17 +121,14 @@ public class SpecialRewards {
 		return false;
 	}
 
-	public boolean checkMilestone(VotingPluginUser user, String bungeeTextTotals) {
+	public boolean checkMilestone(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
 		int milestoneCount = user.getMilestoneCount();
-		if (bungeeTextTotals != null) {
-			String[] data = bungeeTextTotals.split("//");
-			if (data.length > 4) {
-				try {
-					milestoneCount = Integer.parseInt(data[5]);
-				} catch (Exception e) {
-					e.printStackTrace();
-					milestoneCount = user.getMilestoneCount();
-				}
+		if (bungeeMessageData != null) {
+			try {
+				milestoneCount = bungeeMessageData.getMilestoneCount();
+			} catch (Exception e) {
+				e.printStackTrace();
+				milestoneCount = user.getMilestoneCount();
 			}
 		}
 		if (plugin.getConfigFile().isPreventRepeatMilestones()) {

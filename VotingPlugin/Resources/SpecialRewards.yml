@@ -49,10 +49,12 @@ VoteParty:
   GiveAllPlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
-  # If true, will give voteparty only once per day
-  OnlyOncePerDay: false
+  # If true, the vote count will reset each week
+  ResetWeekly: false
   # Reset at the end of the month
   ResetMonthly: false
+  # If true, will give voteparty only once per day
+  OnlyOncePerDay: false
   # Reset extra votes
   ResetExtraVotesMonthly: false
   # Count votes from /av vote?
