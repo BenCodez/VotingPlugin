@@ -31,10 +31,14 @@ public class VotingPluginBungeeCommand extends Command {
 				if (args[0].equalsIgnoreCase("status")) {
 					if (bungee.getMethod().equals(BungeeMethod.SOCKETS)) {
 						sender.sendMessage(new TextComponent(
-								"Checking status, waiting for response, check console, only for socket method"));
+								"Checking status, waiting for response, check console, method: sockets"));
+						bungee.status(sender);
+					} else if (bungee.getMethod().equals(BungeeMethod.PLUGINMESSAGING)){
+						sender.sendMessage(new TextComponent(
+								"Checking status, waiting for response, check console, method: plugin messaging"));
 						bungee.status(sender);
 					} else {
-						sender.sendMessage(new TextComponent("Not using socket method, command unavailable"));
+						sender.sendMessage(new TextComponent("Not using socket/pluginmessage method, command unavailable"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("help")) {

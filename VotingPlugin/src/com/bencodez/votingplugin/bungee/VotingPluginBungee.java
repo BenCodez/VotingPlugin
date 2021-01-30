@@ -386,14 +386,23 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			DataOutputStream out = new DataOutputStream(outstream);
 			String subchannel = in.readUTF();
 			int size = in.readInt();
-			out.writeUTF(subchannel);
-			out.writeInt(size);
-			for (int i = 0; i < size; i++) {
-				out.writeUTF(in.readUTF());
-			}
-			for (String send : getProxy().getServers().keySet()) {
-				if (getProxy().getServers().get(send).getPlayers().size() > 0) {
-					getProxy().getServers().get(send).sendData("vp:vp".toLowerCase(), outstream.toByteArray());
+
+			// check for status message returns
+			if (subchannel.equalsIgnoreCase("statusokay")) {
+				String server = in.readUTF();
+				getLogger().info("Status okay for " + server);
+				return;
+			} else {
+				// reforward message
+				out.writeUTF(subchannel);
+				out.writeInt(size);
+				for (int i = 0; i < size; i++) {
+					out.writeUTF(in.readUTF());
+				}
+				for (String send : getProxy().getServers().keySet()) {
+					if (getProxy().getServers().get(send).getPlayers().size() > 0) {
+						getProxy().getServers().get(send).sendData("vp:vp".toLowerCase(), outstream.toByteArray());
+					}
 				}
 			}
 		} catch (Exception e) {
@@ -519,7 +528,22 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 	}
 
 	public void status(CommandSender sender) {
-		sendServerMessage("status");
+		if (method.equals(BungeeMethod.SOCKETS)) {
+			sendServerMessage("status");
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (String s : getProxy().getServers().keySet()) {
+				if (!config.getBlockedServers().contains(s)) {
+					ServerInfo info = getProxy().getServerInfo(s);
+					if (info.getPlayers().isEmpty()) {
+						getLogger().info("No players on server " + s + " to send test status message");
+					} else {
+						// send
+						getLogger().info("Sending request for status message on " + s);
+						sendPluginMessageServer(s, "Status", s);
+					}
+				}
+			}
+		}
 	}
 
 	public void vote(String player, String service, boolean realVote) {

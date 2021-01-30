@@ -149,6 +149,15 @@ public class BungeeHandler {
 					}
 				}
 			});
+			
+			plugin.getPluginMessaging().add(new PluginMessageHandler("Status") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					String server = args.get(0);
+					plugin.getPluginMessaging().sendPluginMessage("statusokay", server);
+
+				}
+			});
 
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
