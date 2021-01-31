@@ -379,6 +379,12 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
 			return;
 		}
+		
+		ev.setCancelled(true);
+		
+		if (!(ev.getSender() instanceof Server))
+			return;
+		
 		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
 		DataInputStream in = new DataInputStream(instream);
 		try {
