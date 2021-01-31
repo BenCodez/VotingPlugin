@@ -36,6 +36,7 @@ import lombok.Getter;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
+import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
@@ -379,6 +380,12 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
 			return;
 		}
+		
+		ev.setCancelled(true);
+		
+		if (!(ev.getSender() instanceof Server))
+			return;
+		
 		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
 		DataInputStream in = new DataInputStream(instream);
 		try {
