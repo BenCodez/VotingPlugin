@@ -128,7 +128,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote delay
 	 */
 	public int getVoteDelay(String siteName) {
-		return getData(siteName).getInt("VoteDelay");
+		return getData(siteName).getInt("VoteDelay", 24);
 	}
 
 	public int getVoteDelayMin(String siteName) {
