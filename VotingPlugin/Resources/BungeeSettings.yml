@@ -28,10 +28,6 @@ BungeeDebug: false
 # If false you need to enable 
 BungeeBroadcast: false
 
-# If true & AllowUnJoined is false (Config.yml) it will remove any invalid players
-# Not fully tested, could cause some trouble in some cases
-RemoveInvalidUsers: false
-
 # What server this is in bungee (must match)
 # Also can be applied to rewards
 Server: PleaseSet
