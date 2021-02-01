@@ -171,7 +171,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			resetTotals(TopVoter.Daily);
-			
+
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCache();
 			}
@@ -259,7 +259,7 @@ public class TopVoterHandler implements Listener {
 				}
 
 			}
-			
+
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCache();
 			}
@@ -337,7 +337,7 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 			resetTotals(TopVoter.Weekly);
-			
+
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCache();
 			}
@@ -402,7 +402,7 @@ public class TopVoterHandler implements Listener {
 		} else if (top.equals(TopVoter.Weekly)) {
 			fileName += "_" + week;
 		}
-		fileName += ".yml";
+		fileName += "_" + System.currentTimeMillis() + ".yml";
 
 		YMLFileHandler file = new YMLFileHandler(plugin, new File(plugin.getDataFolder(), fileName));
 		file.setup();
