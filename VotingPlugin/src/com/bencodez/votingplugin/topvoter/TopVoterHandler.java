@@ -18,6 +18,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
@@ -105,7 +106,9 @@ public class TopVoterHandler implements Listener {
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
 		plugin.update();
-		loadLastMonth();
+		if (event.getTimeType().equals(TimeType.MONTH)) {
+			loadLastMonth();
+		}
 		if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 			plugin.getMysql().clearCache();
 		}
