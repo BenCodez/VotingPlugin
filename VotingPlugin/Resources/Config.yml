@@ -241,6 +241,9 @@ Format:
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   TimeFormat: 'EEE, d MMM yyyy HH:mm'
   
+  # Reward time format for %date% placeholder (Time of giving reward)
+  RewardTimeFormat: 'EEE, d MMM yyyy HH:mm'
+  
   TimeFormats:
     Day: 'Day'
     Days: 'Days'
