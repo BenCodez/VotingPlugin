@@ -409,13 +409,15 @@ public class TopVoterHandler implements Listener {
 
 		YMLFileHandler file = new YMLFileHandler(plugin, new File(plugin.getDataFolder(), fileName));
 		file.setup();
-		ArrayList<String> topVoters = new ArrayList<String>();
-		int count = 1;
-		for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(top).entrySet()) {
-			topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
-			count++;
+		for (TopVoter cTop : TopVoter.values()) {
+			ArrayList<String> topVoters = new ArrayList<String>();
+			int count = 1;
+			for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(cTop).entrySet()) {
+				topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
+				count++;
+			}
+			file.getData().set(cTop.toString(), topVoters);
 		}
-		file.getData().set(top.toString(), topVoters);
 		file.saveData();
 	}
 
