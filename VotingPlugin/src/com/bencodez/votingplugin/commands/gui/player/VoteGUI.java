@@ -11,7 +11,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -121,15 +120,6 @@ public class VoteGUI extends GUIHandler {
 	public void onChest(Player player) {
 		if (this.user == null) {
 			user = UserManager.getInstance().getVotingPluginUser((Player) player);
-		}
-		if ((!player.getName().equals(user.getPlayerName())
-				&& !player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")
-				&& !player.hasPermission("VotingPlugin.Mod"))
-				|| (!player.hasPermission("VotingPlugin.Commands.Vote.GUI")
-						&& !player.hasPermission("VotingPlugin.Player"))) {
-			player.sendMessage(
-					StringParser.getInstance().colorize(VotingPluginMain.plugin.getOptions().getFormatNoPerms()));
-			return;
 		}
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteGUIName());
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
