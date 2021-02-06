@@ -565,6 +565,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 						getLogger().info("Sending request for status message on " + s);
 						sendPluginMessageServer(s, "Status", s);
 					}
+				} else {
+					getLogger().info("Ignoring blocked server " + s);
 				}
 			}
 		}
