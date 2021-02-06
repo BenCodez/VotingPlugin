@@ -24,12 +24,13 @@ LastMonthGUI: false
 CHEST:
   # GUI for /vote gui, /vgui, /votegui
   VoteGUI:
-    # Items will be orders as it is below
+    # Items will be ordered as listed here
+    # You can add items following this format, even set slots
+    # See extra item below. GUI will auto resize to what is needed
     URL:
       # Standard item format, lore is automaticly applied 
       Item:
         Material: 'BOW'
-        Data: 0
         Amount: 1
         Name: '&4URL'
         Lore:
@@ -40,41 +41,45 @@ CHEST:
     Next:
       Item:
         Material: 'COMPASS'
-        Data: 0
         Amount: 1
         Name: '&4Next'
     Last:
       Item:
         Material: 'CLOCK'
-        Data: 0
         Amount: 1
         Name: '&4Last'
     Total:
       Item:
         Material: 'CHEST'
-        Data: 0
         Amount: 1
         Name: '&4Total'
     Top:
       Item:
         Material: 'OAK_SIGN'
-        Data: 0
         Amount: 1
         Name: '&4Top'
     Today:
       Item:
         Material: 'BOOK'
-        Data: 0
         Amount: 1
         Name: '&4Today'
     Shop:
       Item:
         Material: 'DIAMOND'
-        Data: 0
         Amount: 1
         Name: '&4Vote Shop'
         Lore:
         - '&aYou currently have %points% points'
+    # 'ExtraName' below is an identifier, can be whatever
+    # ExtraItem:
+      # Item:
+        # Material: 'DIRT'
+        # Amount: 1
+        # Name: 'Extra item'
+        ## Works on most GUI items
+        # Slot: 10
+        ## Send rewards on click, run commands, check conditions, etc
+        # Rewards: []
         
   # GUI for /vote url, /vote
   VoteURL:
@@ -139,9 +144,10 @@ CHEST:
       Material: 'OAK_SIGN'
       Amount: 1
       # 8 Slots over from the bottom left
+      # Bottom of GUI
       Slot: 7
-    # Number of topvoters to display on page +9
-    # 9 Slots on the botton are used for page buttons
+    # Number of topvoters to display on each GUI page
+    # 9 Slots on the botton are used for page buttons (added on top)
     Size: 27
     # If true, /vote top will show player heads
     UseSkull: true
@@ -258,6 +264,7 @@ CHEST:
     # Identifier
     # Used in placeholders for formats
     # Do not have spaces in the identifier
+    # Change the identifier for each shop item
     Diamond:
       Identifier_Name: 'Diamond'
       # Item

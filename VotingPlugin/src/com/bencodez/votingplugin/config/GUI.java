@@ -143,9 +143,10 @@ public class GUI extends YMLFile {
 	private boolean lastMonthGUI = false;
 
 	private VotingPluginMain plugin;
-	
+
 	public String getCHESTVoteShopPurchase(String identifier) {
-		return getData().getString("CHEST.Shop." + identifier +".PurchaseMessage", plugin.getConfigFile().getFormatShopPurchaseMsg());
+		return getData().getString("CHEST.Shop." + identifier + ".PurchaseMessage",
+				plugin.getConfigFile().getFormatShopPurchaseMsg());
 	}
 
 	public GUI(VotingPluginMain plugin) {
@@ -215,6 +216,10 @@ public class GUI extends YMLFile {
 
 	public String getChestVoteGUISlotCommand(String slot) {
 		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
+	}
+
+	public String getChestVoteGUISlotRewardsPath(String slot) {
+		return "CHEST.VoteGUI." + slot + ".Rewards";
 	}
 
 	/**
