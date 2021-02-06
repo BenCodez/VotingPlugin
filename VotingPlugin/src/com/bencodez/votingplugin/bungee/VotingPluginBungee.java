@@ -40,6 +40,7 @@ import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
+import net.md_5.bungee.api.event.ServerSwitchEvent;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.event.EventHandler;
@@ -87,14 +88,15 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		}
 	}
 
-	public void checkOnlineVotes(ProxiedPlayer player, String uuid) {
+	public void checkOnlineVotes(ProxiedPlayer player, String uuid, String server) {
 		if (player != null && player.isConnected() && cachedOnlineVotes.containsKey(uuid)) {
 			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
 			if (!c.isEmpty()) {
-				String server = getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName();
+				if (server == null) {
+					server = getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName();
+				}
 				if (!config.getBlockedServers().contains(server)) {
 					for (OfflineBungeeVote cache : c) {
-
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText());
@@ -303,7 +305,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					}
 
 					for (String player : cachedOnlineVotes.keySet()) {
-						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player);
+						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
 					}
 				}
 			}, 15l, TimeUnit.SECONDS);
@@ -380,12 +382,12 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
 			return;
 		}
-		
+
 		ev.setCancelled(true);
-		
+
 		if (!(ev.getSender() instanceof Server))
 			return;
-		
+
 		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
 		DataInputStream in = new DataInputStream(instream);
 		try {
@@ -433,7 +435,22 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			@Override
 			public void run() {
 				checkCachedVotes(server);
-				checkOnlineVotes(event.getPlayer(), uuid);
+				checkOnlineVotes(event.getPlayer(), uuid, server);
+			}
+
+		}, 2, TimeUnit.SECONDS);
+	}
+
+	@EventHandler
+	public void onServerConnected(ServerSwitchEvent event) {
+		final String server = event.getPlayer().getServer().getInfo().getName();
+		final String uuid = event.getPlayer().getUniqueId().toString();
+		getProxy().getScheduler().schedule(this, new Runnable() {
+
+			@Override
+			public void run() {
+				checkCachedVotes(server);
+				checkOnlineVotes(event.getPlayer(), uuid, server);
 			}
 
 		}, 2, TimeUnit.SECONDS);
