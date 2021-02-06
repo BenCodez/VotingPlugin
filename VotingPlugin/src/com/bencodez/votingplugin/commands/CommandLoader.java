@@ -1232,24 +1232,28 @@ public class CommandLoader {
 			return;
 		}
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
-			if (cmdHandle.getArgs().length > 0) {
+			int argLength = cmdHandle.getArgs().length;
+			String arg0 = "";
+			if (argLength > 0) {
+				arg0 = cmdHandle.getArgs()[0];
+			}
+			String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+			try {
+				if (perms.length > 1) {
+					// has another perm
+					plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1] + " from /vote" + arg0);
+					Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+					p.getChildren().put(perms[0], true);
+					p.recalculatePermissibles();
+				}
+			} catch (Exception e) {
+				plugin.debug("Failed to set permission for /vote" + arg0);
+			}
+			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
+
 				for (String arg : args) {
 					commands.put("vote" + arg, cmdHandle);
-
-					try {
-						String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
-
-						if (perms.length > 1) {
-							// has another perm
-							plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
-							Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-							p.getChildren().put(perms[0], true);
-							p.recalculatePermissibles();
-						}
-					} catch (Exception e) {
-						plugin.debug("Failed to set permission for /vote" + arg);
-					}
 
 					try {
 						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
@@ -1257,7 +1261,10 @@ public class CommandLoader {
 						plugin.getCommand("vote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
 
-						plugin.getCommand("vote" + arg).setPermission(cmdHandle.getPerm().split(Pattern.quote("|"))[0]);
+						String currentPerm = plugin.getCommand("vote" + arg).getPermission();
+						if (currentPerm == null || currentPerm.length() > perms[0].length()) {
+							plugin.getCommand("vote" + arg).setPermission(perms[0]);
+						}
 
 						for (String str : plugin.getCommand("vote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
@@ -1266,50 +1273,43 @@ public class CommandLoader {
 						plugin.devDebug("Failed to load command and tab completer for /vote" + arg);
 					}
 				}
-
-			} else {
-				try {
-					String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
-
-					if (perms.length > 1) {
-						// has another perm
-						plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
-						Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-						p.getChildren().put(perms[0], true);
-						p.recalculatePermissibles();
-					}
-				} catch (Exception e) {
-					plugin.debug("Failed to set permission for /vote");
-				}
 			}
 		}
 
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
-			if (cmdHandle.getArgs().length > 0) {
+			int argLength = cmdHandle.getArgs().length;
+			String arg0 = "";
+			if (argLength > 0) {
+				arg0 = cmdHandle.getArgs()[0];
+			}
+			String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+			try {
+				if (perms.length > 1) {
+					// has another perm
+					plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1] + " from /adminvote" + arg0);
+					Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
+					p.getChildren().put(perms[0], true);
+					p.recalculatePermissibles();
+				}
+			} catch (Exception e) {
+				plugin.debug("Failed to set permission for /adminvote" + arg0);
+			}
+
+			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 				for (String arg : args) {
 					commands.put("adminvote" + arg, cmdHandle);
-					try {
-						String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
 
-						if (perms.length > 1) {
-							// has another perm
-							plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
-							Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-							p.getChildren().put(perms[0], true);
-							p.recalculatePermissibles();
-						}
-					} catch (Exception e) {
-						plugin.debug("Failed to set permission for /adminvote" + arg);
-					}
 					try {
 						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
 
 						plugin.getCommand("adminvote" + arg)
 								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
 
-						plugin.getCommand("adminvote" + arg)
-								.setPermission(cmdHandle.getPerm().split(Pattern.quote("|"))[0]);
+						String currentPerm = plugin.getCommand("adminvote" + arg).getPermission();
+						if (currentPerm == null || currentPerm.length() > perms[0].length()) {
+							plugin.getCommand("adminvote" + arg).setPermission(perms[0]);
+						}
 
 						for (String str : plugin.getCommand("adminvote" + arg).getAliases()) {
 							commands.put(str, cmdHandle);
@@ -1321,20 +1321,6 @@ public class CommandLoader {
 					}
 				}
 
-			} else {
-				try {
-					String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
-
-					if (perms.length > 1) {
-						// has another perm
-						plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1]);
-						Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-						p.getChildren().put(perms[0], true);
-						p.recalculatePermissibles();
-					}
-				} catch (Exception e) {
-					plugin.debug("Failed to set permission for /vote");
-				}
 			}
 		}
 	}
@@ -1658,6 +1644,16 @@ public class CommandLoader {
 			});
 		}
 
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "URL", "(SiteName)" },
+				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI for VoteSite", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new VoteURLVoteSite(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender),
+						args[1]).open();
+			}
+		});
+
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "URL" },
 				"VotingPlugin.Commands.Vote.URL|" + playerPerm, "Open VoteURL GUI", false) {
 
@@ -1666,15 +1662,6 @@ public class CommandLoader {
 				new VoteURL(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender), true)
 						.open();
 
-			}
-		});
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "URL", "(SiteName)" },
-				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI for VoteSite", false) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				new VoteURLVoteSite(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender),
-						args[1]).open();
 			}
 		});
 
@@ -1777,15 +1764,6 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getVoteCommand().add(new CommandHandler(new String[] { "GUI" },
-				"VotingPlugin.Commands.Vote.GUI|" + playerPerm, "Open VoteGUI", false) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				new VoteGUI(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
-			}
-		});
-
 		plugin.getVoteCommand().add(new CommandHandler(new String[] { "GUI", "(player)" },
 				"VotingPlugin.Commands.Vote.GUI.Other|" + modPerm, "Open VoteGUI", false) {
 
@@ -1798,6 +1776,15 @@ public class CommandLoader {
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
 				}
 
+			}
+		});
+
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "GUI" },
+				"VotingPlugin.Commands.Vote.GUI|" + playerPerm, "Open VoteGUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new VoteGUI(plugin, sender, UserManager.getInstance().getVotingPluginUser((Player) sender)).open();
 			}
 		});
 
