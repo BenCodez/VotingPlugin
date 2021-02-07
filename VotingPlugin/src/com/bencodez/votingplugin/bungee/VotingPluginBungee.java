@@ -308,7 +308,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
 					}
 				}
-			}, 15l, TimeUnit.SECONDS);
+			}, 15l, 30l, TimeUnit.SECONDS);
 
 			getProxy().getScheduler().schedule(this, new Runnable() {
 
