@@ -9,6 +9,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
@@ -68,6 +69,13 @@ public class VotiferEvent implements Listener {
 
 			@Override
 			public void run() {
+
+				if (plugin.getBungeeSettings().isUseBungeecoord()
+						&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+					plugin.getLogger()
+							.severe("Ignoring vote from votifier since pluginmessaging bungee method is enabled");
+					return;
+				}
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
 
 				ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames();
