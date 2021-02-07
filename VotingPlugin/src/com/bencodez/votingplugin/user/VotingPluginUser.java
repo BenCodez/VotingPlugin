@@ -157,7 +157,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
 
-	public void bungeeVote(String service) {
+	public void bungeeVote(String service, BungeeMessageData text) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
@@ -165,6 +165,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
+			voteEvent.setAddTotals(false);
+			voteEvent.setBungeeTextTotals(text);
+			voteEvent.setVotingPluginUser(this);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
@@ -175,14 +178,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void bungeeVoteOnline(String service) {
+	public void bungeeVoteOnline(String service, BungeeMessageData text) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
 					true);
 			voteEvent.setBungee(true);
-			voteEvent.setForceBungee(false);
+			voteEvent.setForceBungee(true);
+			voteEvent.setAddTotals(false);
+			voteEvent.setBungeeTextTotals(text);
+			voteEvent.setVotingPluginUser(this);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override

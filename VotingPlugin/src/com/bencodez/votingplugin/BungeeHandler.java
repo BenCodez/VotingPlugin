@@ -149,7 +149,7 @@ public class BungeeHandler {
 					}
 				}
 			});
-			
+
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Status") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -174,7 +174,7 @@ public class BungeeHandler {
 
 				@Override
 				public void onReceive(String[] data) {
-					if (data.length > 3) {
+					if (data.length > 4) {
 						plugin.extraDebug("BungeeVote from " + data[2] + ", processing");
 						String uuid = data[1];
 						VotingPluginUser user = null;
@@ -186,7 +186,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVote(data[3]);
+						user.bungeeVote(data[3], new BungeeMessageData(data[4]));
 					}
 				}
 			});
@@ -195,7 +195,7 @@ public class BungeeHandler {
 
 				@Override
 				public void onReceive(String[] data) {
-					if (data.length > 3) {
+					if (data.length > 4) {
 						plugin.extraDebug("BungeeVoteOnline from " + data[2] + ", processing");
 						String uuid = data[1];
 						VotingPluginUser user = null;
@@ -207,7 +207,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVoteOnline(data[3]);
+						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]));
 					}
 				}
 			});

@@ -520,11 +520,11 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		}
 	}
 
-	public void sendSocketVote(String name, String service) {
+	public void sendSocketVote(String name, String service, BungeeMessageData text) {
 		String uuid = getUUID(name);
 
 		if (config.getSendVotesToAllServers()) {
-			sendServerMessage("bungeevote", uuid, name, service);
+			sendServerMessage("bungeevote", uuid, name, service, text.toString());
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
@@ -542,7 +542,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				server = config.getFallBack();
 			}
 
-			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service);
+			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service, text.toString());
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
@@ -577,53 +577,53 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			getLogger().info("No name from vote on " + service);
 			return;
 		}
-		if (method.equals(BungeeMethod.SOCKETS)) {
-			sendSocketVote(player, service);
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			String uuid = getUUID(player);
-			if (uuid.isEmpty()) {
-				if (config.getAllowUnJoined()) {
-					UUID u = null;
-					try {
-						u = fetchUUID(player);
-					} catch (Exception e) {
-						if (getConfig().getDebug()) {
-							e.printStackTrace();
-						}
+
+		String uuid = getUUID(player);
+		if (uuid.isEmpty()) {
+			if (config.getAllowUnJoined()) {
+				UUID u = null;
+				try {
+					u = fetchUUID(player);
+				} catch (Exception e) {
+					if (getConfig().getDebug()) {
+						e.printStackTrace();
 					}
-					if (u == null) {
-						debug("Failed to get uuid for " + player);
-						return;
-					}
-					uuid = u.toString();
-				} else {
-					getLogger().info("Ignoring vote from " + player);
+				}
+				if (u == null) {
+					debug("Failed to get uuid for " + player);
 					return;
 				}
+				uuid = u.toString();
+			} else {
+				getLogger().info("Ignoring vote from " + player);
+				return;
 			}
+		}
 
-			player = getProperName(uuid, player);
+		player = getProperName(uuid, player);
 
-			if (!mysql.getUuids().contains(uuid)) {
-				mysql.update(uuid, "PlayerName", player, DataType.STRING);
-			}
+		if (!mysql.getUuids().contains(uuid)) {
+			mysql.update(uuid, "PlayerName", player, DataType.STRING);
+		}
 
-			ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
+		ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
 
-			BungeeMessageData text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
-					mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
-					mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
-					mysqlUpdate(data, uuid, "MilestoneCount", 1));
+		BungeeMessageData text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
+				mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
+				mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
+				mysqlUpdate(data, uuid, "MilestoneCount", 1));
 
-			/*
-			 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "MilestoneCount", 1);
-			 */
+		/*
+		 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
+		 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
+		 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
+		 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
+		 * "MilestoneCount", 1);
+		 */
 
-			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 			if (config.getSendVotesToAllServers()) {
 				for (String s : getProxy().getServers().keySet()) {
@@ -666,8 +666,10 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					debug("Caching online vote for " + player + " on " + service);
 				}
 			}
-
+		} else if (method.equals(BungeeMethod.SOCKETS)) {
+			sendSocketVote(player, service, text);
 		}
+
 	}
 
 }
