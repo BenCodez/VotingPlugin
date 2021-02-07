@@ -71,9 +71,10 @@ public class VotiferEvent implements Listener {
 			public void run() {
 
 				if (plugin.getBungeeSettings().isUseBungeecoord()
-						&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+						&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
+								|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {
 					plugin.getLogger()
-							.severe("Ignoring vote from votifier since pluginmessaging bungee method is enabled");
+							.severe("Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled");
 					return;
 				}
 				String voteSiteName = plugin.getVoteSiteName(voteSite);
