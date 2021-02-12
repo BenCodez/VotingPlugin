@@ -40,7 +40,6 @@ import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
-import net.md_5.bungee.api.event.ServerSwitchEvent;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.event.EventHandler;
@@ -328,7 +327,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 			socketHandler.add(new SocketReceiver() {
 
-				@Override
+	@Override
 				public void onReceive(String[] data) {
 					if (data.length > 1) {
 						if (data.length > 2) {
@@ -366,15 +365,13 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 		}
 
-		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
+	BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
+	metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("bungee_method",()->getConfig().getBungeeMethod().toString()));
 
-		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
-				() -> "" + getConfig().getSendVotesToAllServers()));
+	metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",()->""+getConfig().getSendVotesToAllServers()));
 
-		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
+	getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
 	@EventHandler
@@ -429,21 +426,6 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 	@EventHandler
 	public void onServerConnected(ServerConnectedEvent event) {
 		final String server = event.getServer().getInfo().getName();
-		final String uuid = event.getPlayer().getUniqueId().toString();
-		getProxy().getScheduler().schedule(this, new Runnable() {
-
-			@Override
-			public void run() {
-				checkCachedVotes(server);
-				checkOnlineVotes(event.getPlayer(), uuid, server);
-			}
-
-		}, 2, TimeUnit.SECONDS);
-	}
-
-	@EventHandler
-	public void onServerConnected(ServerSwitchEvent event) {
-		final String server = event.getPlayer().getServer().getInfo().getName();
 		final String uuid = event.getPlayer().getUniqueId().toString();
 		getProxy().getScheduler().schedule(this, new Runnable() {
 
