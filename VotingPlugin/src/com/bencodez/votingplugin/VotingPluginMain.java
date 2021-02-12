@@ -1045,6 +1045,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		setConfigData(configFile.getData());
 		if (bungeeSettings.isUseBungeecoord()) {
 			getOptions().setClearCacheOnJoin(true);
+			getOptions().setPerServerRewards(getBungeeSettings().isPerServerRewards());
 		}
 	}
 
