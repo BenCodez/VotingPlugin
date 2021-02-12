@@ -28,6 +28,12 @@ BungeeDebug: false
 # If false you need to enable 
 BungeeBroadcast: false
 
+# If true, offline rewards will be stored per server, rather than global
+# This shouldn't need to be set unless you get alot of cross server rewards issues
+# You can also specify the server within the rewards
+# Requires server name below to be correct
+PerServerRewards: false
+
 # What server this is in bungee (must match)
 # Also can be applied to rewards
 Server: PleaseSet
