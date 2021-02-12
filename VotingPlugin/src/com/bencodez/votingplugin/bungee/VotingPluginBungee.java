@@ -327,7 +327,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 			socketHandler.add(new SocketReceiver() {
 
-	@Override
+				@Override
 				public void onReceive(String[] data) {
 					if (data.length > 1) {
 						if (data.length > 2) {
@@ -365,13 +365,15 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 		}
 
-	BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
+		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
-	metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("bungee_method",()->getConfig().getBungeeMethod().toString()));
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
 
-	metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",()->""+getConfig().getSendVotesToAllServers()));
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
+				() -> "" + getConfig().getSendVotesToAllServers()));
 
-	getLogger().info("VotingPlugin loaded, using method: " + method.toString());
+		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
 	@EventHandler
