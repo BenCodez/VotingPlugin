@@ -24,6 +24,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "BungeeDebug")
 	@Getter
 	private boolean bungeeDebug = false;
+	
+	@ConfigDataBoolean(path = "VotifierBypass")
+	@Getter
+	private boolean votifierBypass = false;
 
 	@ConfigDataString(path = "BungeeMethod")
 	@Getter
