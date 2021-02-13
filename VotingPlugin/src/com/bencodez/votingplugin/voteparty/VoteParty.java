@@ -72,7 +72,7 @@ public class VoteParty implements Listener {
 			if (event.isCancelled()) {
 				return;
 			}
-			MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
+
 			giveRewards();
 
 			if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired() > 0) {
@@ -174,6 +174,8 @@ public class VoteParty implements Listener {
 	 * Give rewards.
 	 */
 	public void giveRewards() {
+		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
+		
 		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyCommands()) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
