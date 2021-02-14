@@ -236,30 +236,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void checkYMLError() {
-		if (configFile.isFailedToRead() || configVoteSites.isFailedToRead()) {
+		if (configFile.isFailedToRead() || configVoteSites.isFailedToRead() || specialRewardsConfig.isFailedToRead()
+				|| bungeeSettings.isFailedToRead() || gui.isFailedToRead()) {
 			ymlError = true;
-		} else if (!configFile.isFailedToRead() && !configVoteSites.isFailedToRead()) {
+		} else {
 			ymlError = false;
 		}
 
-		if (configFile.isFailedToRead()) {
+		if (ymlError) {
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
-					plugin.getLogger().severe("Failed to load Config.yml");
+					plugin.getLogger().severe("Failed to load a file, check startup log");
 				}
-			}, 10);
-		}
-
-		if (configVoteSites.isFailedToRead()) {
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load VoteSites.yml");
-				}
-
 			}, 10);
 		}
 	}

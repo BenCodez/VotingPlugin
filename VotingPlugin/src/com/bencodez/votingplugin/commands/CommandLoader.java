@@ -750,8 +750,6 @@ public class CommandLoader {
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 				if (plugin.isYmlError()) {
-					sendMessage(sender,
-							"&4" + plugin.getName() + " v" + plugin.getDescription().getVersion() + " reloaded!");
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
 				}
 
