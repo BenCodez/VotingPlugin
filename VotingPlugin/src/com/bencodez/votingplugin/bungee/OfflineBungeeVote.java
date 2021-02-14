@@ -26,4 +26,9 @@ public class OfflineBungeeVote {
 		this.text = text;
 	}
 
+	@Override
+	public String toString() {
+		return "VoteCache:" + playerName + "/" + uuid + "/" + service + "/" + time + "/" + realVote + "/" + text;
+	}
+
 }

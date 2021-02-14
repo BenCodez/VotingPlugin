@@ -70,7 +70,7 @@ VoteParty:
   Commands: []
   # Rewards to give per player
   Rewards: 
-    # Uncomment below for online player rewards only
+    # Uncomment below for online players to be rewarded only
     #RewardType: ONLINE
     Commands:
     - say %player%

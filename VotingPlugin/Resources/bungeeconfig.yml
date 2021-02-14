@@ -38,8 +38,13 @@ BlockedServers:
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
-FallBackServer: factions
+# Applies to PLUGINMESSAGING & when SendVotesToAllServers is true
+# Votes will be forwarded when specific player is online
+WaitForUserOnline: false
 
+# If false, votes will be checked if user is a valid player that has joined to server
+# Works for PLUGINMESSAGING and SOCKETS methods only
+# This requires spigot servers AllowUnJoined to be set to true in Config.yml
 AllowUnJoined: false
 
 # ----------------------------
@@ -49,6 +54,9 @@ AllowUnJoined: false
 # Tell servers to broadcast
 # For socket method
 Broadcast: true
+
+# Server to send vote to if player is offline
+FallBackServer: factions
 
 # Bungee communication, Add this to each spigot server
 # For socket method

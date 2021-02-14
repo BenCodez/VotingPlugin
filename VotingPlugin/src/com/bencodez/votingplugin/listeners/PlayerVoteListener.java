@@ -103,7 +103,7 @@ public class PlayerVoteListener implements Listener {
 		synchronized (object) {
 
 			// vote party
-			plugin.getVoteParty().vote(user, event.isRealVote());
+			plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
 			// broadcast vote if enabled in config
 			if (plugin.getConfigFile().isBroadcastVotesEnabled()
@@ -133,7 +133,7 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// check first vote rewards
-			plugin.getSpecialRewards().checkFirstVote(user);
+			plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
 
 			if (user.isReminded()) {
 				user.setReminded(false);
@@ -162,12 +162,12 @@ public class PlayerVoteListener implements Listener {
 				user.addPoints();
 			}
 
-			user.checkDayVoteStreak();
+			user.checkDayVoteStreak(event.isForceBungee());
 
 			// other rewards
-			plugin.getSpecialRewards().checkAllSites(user);
-			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals());
-			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals());
+			plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
+			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
+			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
 
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {

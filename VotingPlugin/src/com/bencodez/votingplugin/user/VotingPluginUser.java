@@ -88,12 +88,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setMonthVoteStreak(getMonthVoteStreak() + 1);
 	}
 
-	public void addOfflineOtherReward(String reward) {
-		ArrayList<String> offlineOtherRewards = getOfflineOtherRewards();
-		offlineOtherRewards.add(reward);
-		setOfflineOtherRewards(offlineOtherRewards);
-	}
-
 	public void addOfflineVote(String voteSiteName) {
 		ArrayList<String> offlineVotes = getOfflineVotes();
 		offlineVotes.add(voteSiteName);
@@ -336,12 +330,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void checkDayVoteStreak() {
+	public void checkDayVoteStreak(boolean forceBungee) {
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
 					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
 				addDayVoteStreak();
-				plugin.getSpecialRewards().checkVoteStreak(this, "Day");
+				plugin.getSpecialRewards().checkVoteStreak(this, "Day", forceBungee);
 				setDayVoteStreakLastUpdate(System.currentTimeMillis());
 			}
 		}
@@ -507,10 +501,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("MonthVoteStreak", isWaitForCache());
 	}
 
-	public ArrayList<String> getOfflineOtherRewards() {
-		return getUserData().getStringList("OfflineOtherRewards");
-	}
-
 	public ArrayList<String> getOfflineVotes() {
 		return getUserData().getStringList("OfflineVotes");
 	}
@@ -624,57 +614,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 						.withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly)).setOnline(isOnline()).send(this);
 	}
 
-	public void giveOfflineOtherRewards() {
-		// old reward api, will be removed in the future
-		ArrayList<String> offlineRewards = getOfflineOtherRewards();
-		for (String str : offlineRewards) {
-			if (str.equalsIgnoreCase("FirstVote")) {
-				plugin.getSpecialRewards().giveFirstVoteRewards(this, false);
-			} else if (str.equalsIgnoreCase("AllSites")) {
-				plugin.getSpecialRewards().giveAllSitesRewards(this, false);
-			} else if (str.equalsIgnoreCase("VoteParty")) {
-				plugin.getVoteParty().giveReward(this, false);
-			} else if (str.contains("Cumulative")) {
-				String st = str.substring("Cumulative".length());
-				if (StringParser.getInstance().isInt(st)) {
-					int votesRequired = Integer.parseInt(st);
-					if (votesRequired != 0) {
-						if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(votesRequired)) {
-							plugin.getSpecialRewards().giveCumulativeVoteReward(this, false, votesRequired);
-						}
-					}
-				}
-			} else if (str.contains("MileStone")) {
-				String st = str.substring("MileStone".length());
-				if (StringParser.getInstance().isInt(st)) {
-					int votesRequired = Integer.parseInt(st);
-					if (votesRequired > 0) {
-						if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(votesRequired)) {
-							plugin.getSpecialRewards().giveMilestoneVoteReward(this, true, votesRequired);
-						}
-					}
-				}
-			} else if (str.contains("VoteStreak")) {
-				String[] args = str.split("_");
-				if (args.length > 2) {
-					String type = args[1];
-					String st = args[2];
-
-					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, st)) {
-						plugin.getSpecialRewards().giveVoteStreakReward(this, false, type, "" + st, -1);
-					}
-
-				}
-			} else {
-				plugin.debug("Reward handle for " + str + " does not exist!");
-			}
-
-		}
-		if (!offlineRewards.isEmpty()) {
-			setOfflineOtherRewards(new ArrayList<String>());
-		}
-	}
-
 	public void giveWeeklyTopVoterAward(int place, String path) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
@@ -783,8 +722,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
-
-			giveOfflineOtherRewards();
 		}
 	}
 

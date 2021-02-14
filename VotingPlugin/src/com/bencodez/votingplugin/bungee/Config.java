@@ -28,9 +28,13 @@ public class Config {
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
-	
+
+	public boolean getWaitForUserOnline() {
+		return getData().getBoolean("WaitForUserOnline", false);
+	}
+
 	public boolean getAllowUnJoined() {
-		return getData().getBoolean("AllowUnJoined",false);
+		return getData().getBoolean("AllowUnJoined", false);
 	}
 
 	public String getBungeeHost() {

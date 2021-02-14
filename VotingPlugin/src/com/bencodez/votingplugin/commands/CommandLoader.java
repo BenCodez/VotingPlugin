@@ -1055,7 +1055,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteParty().giveRewards();
+						plugin.getVoteParty().giveRewards(plugin.getBungeeSettings().isUseBungeecoord());
 					}
 				});
 
@@ -1091,7 +1091,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[3]));
+						plugin.getSpecialRewards().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[3]),
+								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cMilestone " + args[3] + " forced");
 					}
 				});
@@ -1152,7 +1153,7 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
 							plugin.getSpecialRewards().giveVoteStreakReward(user, user.isOnline(), str, args[4],
-									parseInt(args[4]));
+									parseInt(args[4]), plugin.getBungeeSettings().isUseBungeecoord());
 							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
 						}
 					});
@@ -1165,7 +1166,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]));
+						plugin.getSpecialRewards().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]),
+								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cCumulative " + args[3] + " forced");
 					}
 				});
@@ -1176,7 +1178,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveAllSitesRewards(user, user.isOnline());
+				plugin.getSpecialRewards().giveAllSitesRewards(user, user.isOnline(),
+						plugin.getBungeeSettings().isUseBungeecoord());
 				sendMessage(sender, "&cAllSites forced");
 			}
 		});
@@ -1187,7 +1190,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveFirstVoteRewards(user, user.isOnline());
+				plugin.getSpecialRewards().giveFirstVoteRewards(user, user.isOnline(),
+						plugin.getBungeeSettings().isUseBungeecoord());
 				sendMessage(sender, "&cFirstVote forced");
 			}
 		});

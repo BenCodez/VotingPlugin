@@ -74,17 +74,36 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
 				if (cachedVotes.containsKey(server) && !config.getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
+					ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
 					if (!c.isEmpty()) {
 						for (OfflineBungeeVote cache : c) {
-							sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
-									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-									"" + cache.isRealVote(), cache.getText());
+							boolean toSend = true;
+							if (getConfig().getWaitForUserOnline()) {
+								ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(cache.getUuid()));
+								if (p == null || !p.isConnected()) {
+									toSend = false;
+								} else if (p != null && p.isConnected()
+										&& !p.getServer().getInfo().getName().equals(server)) {
+									toSend = false;
+								}
+
+							}
+							if (toSend) {
+								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
+										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
+										"" + cache.isRealVote(), cache.getText());
+							} else {
+								debug("Not sending vote because user isn't on server " + server + ": "
+										+ cache.toString());
+								newSet.add(cache);
+							}
 						}
-						cachedVotes.put(server, new ArrayList<OfflineBungeeVote>());
+						cachedVotes.put(server, newSet);
 					}
 				}
 			}
 		}
+
 	}
 
 	public void checkOnlineVotes(ProxiedPlayer player, String uuid, String server) {
@@ -613,7 +632,13 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				for (String s : getProxy().getServers().keySet()) {
 					if (!config.getBlockedServers().contains(s)) {
 						ServerInfo info = getProxy().getServerInfo(s);
-						if (info.getPlayers().isEmpty()) {
+						boolean forceCache = false;
+						ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
+						if ((p == null || !p.isConnected()) && getConfig().getWaitForUserOnline()) {
+							forceCache = true;
+							debug("Forcing vote to cache");
+						}
+						if (info.getPlayers().isEmpty() || forceCache) {
 							// cache
 							if (!cachedVotes.containsKey(s)) {
 								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());

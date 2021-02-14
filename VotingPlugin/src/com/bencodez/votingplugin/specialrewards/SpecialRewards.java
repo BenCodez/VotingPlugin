@@ -34,15 +34,16 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkAllSites(VotingPluginUser user) {
+	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes) {
-			giveAllSitesRewards(user, user.isOnline());
+			giveAllSitesRewards(user, user.isOnline(), forceBungee);
 		}
 		return checkAllVotes;
 	}
 
-	public boolean checkCumualativeVotes(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+	public boolean checkCumualativeVotes(VotingPluginUser user, BungeeMessageData bungeeMessageData,
+			boolean forceBungee) {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
 		for (String vote : votes) {
@@ -89,7 +90,7 @@ public class SpecialRewards {
 
 						if (gotCumulative) {
 							gotCumulativeAny = true;
-							giveCumulativeVoteReward(user, user.isOnline(), votesRequired);
+							giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
 							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						} else {
 							plugin.devDebug(user.getPlayerName() + " not able to get cumulative " + votesRequired);
@@ -109,11 +110,11 @@ public class SpecialRewards {
 	 * @param user the user
 	 * @return true, if successful
 	 */
-	public boolean checkFirstVote(VotingPluginUser user) {
+	public boolean checkFirstVote(VotingPluginUser user, boolean forceBungee) {
 		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
-				giveFirstVoteRewards(user, user.isOnline());
+				giveFirstVoteRewards(user, user.isOnline(), forceBungee);
 				return true;
 			}
 
@@ -121,7 +122,7 @@ public class SpecialRewards {
 		return false;
 	}
 
-	public boolean checkMilestone(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+	public boolean checkMilestone(VotingPluginUser user, BungeeMessageData bungeeMessageData, boolean forceBungee) {
 		int milestoneCount = user.getMilestoneCount();
 		if (bungeeMessageData != null) {
 			try {
@@ -168,7 +169,7 @@ public class SpecialRewards {
 
 						int userVotesTotal = milestoneCount;
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
-							giveMilestoneVoteReward(user, user.isOnline(), votesRequired);
+							giveMilestoneVoteReward(user, user.isOnline(), votesRequired, forceBungee);
 							user.setHasGotteMilestone(votesRequired, true);
 							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
@@ -182,7 +183,7 @@ public class SpecialRewards {
 		return gotMilestone;
 	}
 
-	public boolean checkVoteStreak(VotingPluginUser user, String type) {
+	public boolean checkVoteStreak(VotingPluginUser user, String type, boolean forceBungee) {
 		boolean gotReward = false;
 
 		Set<String> streaks = plugin.getSpecialRewardsConfig().getVoteStreakVotes(type);
@@ -209,14 +210,16 @@ public class SpecialRewards {
 						}
 						if (!multiple) {
 							if (curStreak == streakRequired) {
-								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak);
+								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak,
+										forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
-								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak);
+								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak,
+										forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
@@ -238,7 +241,7 @@ public class SpecialRewards {
 	 * @param user   the user
 	 * @param online the online
 	 */
-	public void giveAllSitesRewards(VotingPluginUser user, boolean online) {
+	public void giveAllSitesRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -246,7 +249,8 @@ public class SpecialRewards {
 			return;
 		}
 		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getAllSitesRewardPath(), new RewardOptions().setOnline(online));
+				plugin.getSpecialRewardsConfig().getAllSitesRewardPath(),
+				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
 	/**
@@ -256,7 +260,7 @@ public class SpecialRewards {
 	 * @param online     the online
 	 * @param cumulative the cumulative
 	 */
-	public void giveCumulativeVoteReward(VotingPluginUser user, boolean online, int cumulative) {
+	public void giveCumulativeVoteReward(VotingPluginUser user, boolean online, int cumulative, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.CUMMULATIVE.setAmount(cumulative));
 		Bukkit.getPluginManager().callEvent(event);
@@ -266,8 +270,8 @@ public class SpecialRewards {
 		}
 
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(cumulative)).setOnline(online)
-						.withPlaceHolder("Cumulative", "" + cumulative).send(user);
+				plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(cumulative)).setServer(forceBungee)
+						.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
 
 	/**
@@ -276,7 +280,7 @@ public class SpecialRewards {
 	 * @param user   the user
 	 * @param online the online
 	 */
-	public void giveFirstVoteRewards(VotingPluginUser user, boolean online) {
+	public void giveFirstVoteRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -284,7 +288,8 @@ public class SpecialRewards {
 			return;
 		}
 		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath(), new RewardOptions().setOnline(online));
+				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath(),
+				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
 	/**
@@ -294,7 +299,7 @@ public class SpecialRewards {
 	 * @param online    the online
 	 * @param milestone the milestone
 	 */
-	public void giveMilestoneVoteReward(VotingPluginUser user, boolean online, int milestone) {
+	public void giveMilestoneVoteReward(VotingPluginUser user, boolean online, int milestone, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.MILESTONE.setAmount(milestone));
 		Bukkit.getPluginManager().callEvent(event);
@@ -304,10 +309,11 @@ public class SpecialRewards {
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMilestoneRewardsPath(milestone)).setOnline(online)
-						.withPlaceHolder("Milestone", "" + milestone).send(user);
+						.withPlaceHolder("Milestone", "" + milestone).setServer(forceBungee).send(user);
 	}
 
-	public void giveVoteStreakReward(VotingPluginUser user, boolean online, String type, String string, int votes) {
+	public void giveVoteStreakReward(VotingPluginUser user, boolean online, String type, String string, int votes,
+			boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.VOTESTREAK.setType(type).setAmount(votes));
 		Bukkit.getPluginManager().callEvent(event);
@@ -317,7 +323,8 @@ public class SpecialRewards {
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, string)).setOnline(online)
-						.withPlaceHolder("Type", type).withPlaceHolder("Streak", "" + votes).send(user);
+						.withPlaceHolder("Type", type).setServer(forceBungee).withPlaceHolder("Streak", "" + votes)
+						.send(user);
 	}
 
 }
