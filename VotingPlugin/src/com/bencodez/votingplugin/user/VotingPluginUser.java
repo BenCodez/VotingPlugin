@@ -240,6 +240,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return false;
 	}
 
+	public int getGottenAllSitesDay() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), 0, true);
+		} else {
+			return getData().getInt("AllSitesLast", 0, true);
+		}
+	}
+
+	public void setGottenAllSitesDay(int day) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), day);
+		} else {
+			getData().setInt("AllSitesLast", day);
+		}
+	}
+
 	/**
 	 * Can vote site.
 	 *

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.specialrewards;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Set;
 
@@ -36,6 +37,17 @@ public class SpecialRewards {
 	 */
 	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
+		if (checkAllVotes && plugin.getConfigFile().isExtraAllSitesCheck()) {
+			int currentDay = LocalDateTime.now().getDayOfYear();
+			int day = user.getGottenAllSitesDay();
+			if (currentDay == day) {
+				checkAllVotes = false;
+				plugin.debug("Not giving allsites, already gotten today");
+			} else {
+				user.setGottenAllSitesDay(currentDay);
+			}
+			
+		}
 		if (checkAllVotes) {
 			giveAllSitesRewards(user, user.isOnline(), forceBungee);
 		}

@@ -367,6 +367,9 @@ AddTotals: true
 # If false, items will be given when there is space
 DropOnFullInv: true
 
+# If true, allsites will have an extra check to prevent duplicate allsites from being given
+ExtraAllSitesCheck: false
+
 # Click sound when using gui
 # Set to none for no sound
 ClickSound: 

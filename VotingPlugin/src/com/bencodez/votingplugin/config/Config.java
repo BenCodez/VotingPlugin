@@ -39,6 +39,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
 	@Getter
 	private boolean useVoteGUIMainCommand = false;
+	
+	@ConfigDataBoolean(path = "ExtraAllSitesCheck")
+	@Getter
+	private boolean extraAllSitesCheck = false;
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
