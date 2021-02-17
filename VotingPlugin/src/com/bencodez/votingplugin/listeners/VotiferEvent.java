@@ -11,7 +11,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -93,13 +92,9 @@ public class VotiferEvent implements Listener {
 					plugin.getLogger().warning("VoteSite with service site '" + voteSiteName
 							+ "' does not exist, attempting to generaterate...");
 					plugin.getConfigVoteSites().generateVoteSite(voteSiteName);
-
-					ArrayList<String> services = new ArrayList<String>();
-					for (VoteSite site : plugin.getVoteSites()) {
-						services.add(site.getServiceSite());
-					}
+					
 					plugin.getLogger()
-							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
+							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
 				}
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername,

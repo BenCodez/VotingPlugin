@@ -1045,13 +1045,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		for (VotingPluginUser user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 			for (VoteSite voteSite : plugin.getVoteSites()) {
-				long time = user.getTime(voteSite);
-				if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
-						&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
-						&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
+				if (voteSite.isHidden()) {
+					long time = user.getTime(voteSite);
+					if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
+							&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
+							&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
-					times.put(voteSite, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
-
+						times.put(voteSite,
+								LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+					}
 				}
 			}
 			if (times.keySet().size() > 0) {

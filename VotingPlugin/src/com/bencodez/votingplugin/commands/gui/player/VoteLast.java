@@ -38,7 +38,9 @@ public class VoteLast extends GUIHandler {
 				"%player%", playerName));
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			msg.add(user.voteCommandLastLine(voteSite));
+			if (voteSite.isHidden()) {
+				msg.add(user.voteCommandLastLine(voteSite));
+			}
 		}
 
 		return ArrayUtils.getInstance().colorize(msg);
@@ -59,20 +61,23 @@ public class VoteLast extends GUIHandler {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteLastName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
-					.setLore(user.voteCommandLastLine(site)).setAmountNone(1), 1000, 1000) {
+			if (site.isHidden()) {
+				inv.addButton(inv.getNextSlot(),
+						new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
+								.setLore(user.voteCommandLastLine(site)).setAmountNone(1), 1000, 1000) {
 
-				@Override
-				public void onClick(ClickEvent clickEvent) {
+							@Override
+							public void onClick(ClickEvent clickEvent) {
 
-				}
+							}
 
-				@Override
-				public ItemBuilder onUpdate(Player p) {
-					return site.getItem().setName(site.getDisplayName()).setLore(user.voteCommandLastLine(site))
-							.setAmountNone(1);
-				}
-			});
+							@Override
+							public ItemBuilder onUpdate(Player p) {
+								return site.getItem().setName(site.getDisplayName())
+										.setLore(user.voteCommandLastLine(site)).setAmountNone(1);
+							}
+						});
+			}
 		}
 
 		if (plugin.getGui().getChestVoteLastBackButton()) {

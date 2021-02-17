@@ -42,15 +42,17 @@ public class VoteNext extends GUIHandler {
 				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
+			if (voteSite.isHidden()) {
 
-			String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
+				String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
 
-			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
-					user.voteCommandNextInfo(voteSite));
+				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
+						user.voteCommandNextInfo(voteSite));
 
-			msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
-			msg.add(StringParser.getInstance().colorize(msgLine));
-
+				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%",
+						voteSite.getDisplayName());
+				msg.add(StringParser.getInstance().colorize(msgLine));
+			}
 		}
 		return msg;
 	}

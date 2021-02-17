@@ -15,6 +15,9 @@ VoteSites:
     # Used for sorted list
     # High prority, higher on the list
     Priority: 5
+    
+    # If true, voteside will be hidden from some GUI's, similar to being disabled
+    Hidden: false
           
     # The serviceName from the vote, has to be correct to work correctly
     # Gotten from voting on the site (will be in console/log)

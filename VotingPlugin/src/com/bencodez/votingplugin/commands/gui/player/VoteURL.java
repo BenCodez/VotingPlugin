@@ -175,33 +175,34 @@ public class VoteURL extends GUIHandler {
 		}
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			ItemBuilder builder = getItemVoteSite(voteSite);
+			if (voteSite.isHidden()) {
+				ItemBuilder builder = getItemVoteSite(voteSite);
 
-			inv.addButton(count, new UpdatingBInventoryButton(builder, 1000, 1000) {
+				inv.addButton(count, new UpdatingBInventoryButton(builder, 1000, 1000) {
 
-				@Override
-				public void onClick(ClickEvent event) {
-					Player player = event.getPlayer();
-					if (player != null) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-						user.sendMessage(StringParser.getInstance().replacePlaceHolder(
-								StringParser.getInstance()
-										.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-												plugin.getGui().getChestVoteURLURLText(), "voteurl",
-												voteSite.getVoteURL()), "sitename", voteSite.getDisplayName()),
-								"player", player.getName()));
+					@Override
+					public void onClick(ClickEvent event) {
+						Player player = event.getPlayer();
+						if (player != null) {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+							user.sendMessage(StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
+									.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+											plugin.getGui().getChestVoteURLURLText(), "voteurl", voteSite.getVoteURL()),
+											"sitename", voteSite.getDisplayName()),
+									"player", player.getName()));
+
+						}
 
 					}
 
-				}
+					@Override
+					public ItemBuilder onUpdate(Player player) {
+						return getItemVoteSite(voteSite);
+					}
 
-				@Override
-				public ItemBuilder onUpdate(Player player) {
-					return getItemVoteSite(voteSite);
-				}
-
-			});
-			count++;
+				});
+				count++;
+			}
 		}
 
 		if (plugin.getGui().getChestVoteURLBackButton()) {

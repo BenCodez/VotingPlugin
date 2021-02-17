@@ -35,6 +35,10 @@ public class VoteSite {
 	@Getter
 	@Setter
 	private boolean enabled;
+	
+	@Getter
+	@Setter
+	private boolean hidden;
 
 	@Getter
 	@Setter
@@ -223,6 +227,7 @@ public class VoteSite {
 		giveOffline = plugin.getConfigVoteSites().getVoteSiteGiveOffline(key);
 		waitUntilVoteDelay = plugin.getConfigVoteSites().getWaitUntilVoteDelay(key);
 		timeOffSet = plugin.getConfigVoteSites().getTimeOffSet(key);
+		hidden = plugin.getConfigVoteSites().getVoteSiteHidden(key);
 	}
 
 	public boolean isVaidServiceSite() {
