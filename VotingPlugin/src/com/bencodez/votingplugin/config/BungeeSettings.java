@@ -44,7 +44,7 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "RemoveInvalidUsers")
 	@Getter
 	private boolean removeInvalidUsers = false;
-	
+
 	@ConfigDataBoolean(path = "PerServerRewards")
 	@Getter
 	private boolean perServerRewards = false;

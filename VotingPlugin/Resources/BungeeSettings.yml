@@ -7,10 +7,6 @@
 # Plugin using bungee, requires plugin on bungee server
 UseBungeecord: false
 
-# For pluginmessaging method only
-# Whether to broadcast on cached votes
-BungeeBroadcastAlways: false
-
 # What type of bungee setup
 # Requires restart and set on all servers
 # https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
@@ -26,7 +22,12 @@ BungeeDebug: false
 
 # Get the plugin to broadcast to all servers
 # If false you need to enable 
+# Only use for global rewards (one per network), otherwise you will get double broadcasts
 BungeeBroadcast: false
+
+# For pluginmessaging method only
+# Whether to broadcast on cached votes
+BungeeBroadcastAlways: false
 
 # If true, offline rewards will be stored per server, rather than global
 # This shouldn't need to be set unless you get alot of cross server rewards issues
