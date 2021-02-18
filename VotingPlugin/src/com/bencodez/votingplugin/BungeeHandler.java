@@ -74,7 +74,7 @@ public class BungeeHandler {
 
 					user.clearCache();
 
-					user.bungeeVotePluginMessaging(service, time, text, setTotals);
+					user.bungeeVotePluginMessaging(service, time, text, !setTotals);
 
 					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 						if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -112,7 +112,7 @@ public class BungeeHandler {
 						setTotals = Boolean.valueOf(args.get(7));
 					}
 
-					user.bungeeVotePluginMessaging(service, time, text, setTotals);
+					user.bungeeVotePluginMessaging(service, time, text, !setTotals);
 
 					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 						if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -196,7 +196,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVote(data[3], new BungeeMessageData(data[4]), Boolean.valueOf(data[5]));
+						user.bungeeVote(data[3], new BungeeMessageData(data[4]), !Boolean.valueOf(data[5]));
 					}
 				}
 			});
@@ -217,7 +217,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]), Boolean.valueOf(data[5]));
+						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]), !Boolean.valueOf(data[5]));
 					}
 				}
 			});
