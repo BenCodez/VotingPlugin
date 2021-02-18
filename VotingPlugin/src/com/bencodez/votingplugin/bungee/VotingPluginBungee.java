@@ -91,7 +91,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 							if (toSend) {
 								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-										"" + cache.isRealVote(), cache.getText());
+										"" + cache.isRealVote(), cache.getText(),
+										"" + getConfig().getBungeeManageTotals());
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
@@ -117,7 +118,7 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 					for (OfflineBungeeVote cache : c) {
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-								"" + cache.isRealVote(), cache.getText());
+								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals());
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 				}
@@ -167,9 +168,11 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		if (p != null && p.isConnected()) {
 			return p.getUniqueId().toString();
 		}
-		String str = mysql.getUUID(playerName);
-		if (str != null) {
-			return str;
+		if (mysql != null) {
+			String str = mysql.getUUID(playerName);
+			if (str != null) {
+				return str;
+			}
 		}
 		if (nonVotedPlayersCache != null) {
 			return nonVotedPlayersCache.playerExists(playerName);
@@ -236,32 +239,36 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		config = new Config(this);
 		config.load();
 
-		mysql = new BungeeMySQL("VotingPlugin_Users", config.getData());
+		try {
+			mysql = new BungeeMySQL("VotingPlugin_Users", config.getData());
 
-		// column types
-		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
-		getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
-		getMysql().alterColumnType("Reminded", "VARCHAR(5)");
-		getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-		getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
-		getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
-		getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
-		getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
-		getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
-		getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
-		getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
-		getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
-		getMysql().alterColumnType("Points", "INT DEFAULT '0'");
-		getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
-		getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
-		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+			// column types
+			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
+			getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+			getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
+			getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
+			getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
+			getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+			getMysql().alterColumnType("Points", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
+			getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
@@ -527,7 +534,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 		String uuid = getUUID(name);
 
 		if (config.getSendVotesToAllServers()) {
-			sendServerMessage("bungeevote", uuid, name, service, text.toString());
+			sendServerMessage("bungeevote", uuid, name, service, text.toString(),
+					"" + getConfig().getBungeeManageTotals());
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
@@ -545,7 +553,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				server = config.getFallBack();
 			}
 
-			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service, text.toString());
+			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service, text.toString(),
+					"" + getConfig().getBungeeManageTotals());
 			if (config.getBroadcast()) {
 				sendServerMessage("BungeeBroadcast", service, uuid, name);
 			}
@@ -605,16 +614,23 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 		player = getProperName(uuid, player);
 
-		if (!mysql.getUuids().contains(uuid)) {
-			mysql.update(uuid, "PlayerName", player, DataType.STRING);
+		BungeeMessageData text = null;
+
+		if (getConfig().getBungeeManageTotals()) {
+
+			if (!mysql.getUuids().contains(uuid)) {
+				mysql.update(uuid, "PlayerName", player, DataType.STRING);
+			}
+
+			ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
+
+			text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
+					mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
+					mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
+					mysqlUpdate(data, uuid, "MilestoneCount", 1));
+		} else {
+			text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
 		}
-
-		ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
-
-		BungeeMessageData text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
-				mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
-				mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
-				mysqlUpdate(data, uuid, "MilestoneCount", 1));
 
 		/*
 		 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
@@ -652,7 +668,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 						} else {
 							// send
 							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote, text.toString());
+									Boolean.TRUE.toString(), "" + realVote, text.toString(),
+									"" + getConfig().getBungeeManageTotals());
 						}
 					}
 				}
@@ -661,7 +678,8 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 				if (p != null && p.isConnected()
 						&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
-							"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString());
+							"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
+							"" + getConfig().getBungeeManageTotals());
 				} else {
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());

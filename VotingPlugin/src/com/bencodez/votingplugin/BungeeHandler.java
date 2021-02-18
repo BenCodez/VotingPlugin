@@ -67,9 +67,14 @@ public class BungeeHandler {
 
 					BungeeMessageData text = new BungeeMessageData(args.get(6));
 
+					boolean setTotals = false;
+					if (args.size() > 7) {
+						setTotals = Boolean.valueOf(args.get(7));
+					}
+
 					user.clearCache();
 
-					user.bungeeVotePluginMessaging(service, time, text);
+					user.bungeeVotePluginMessaging(service, time, text, setTotals);
 
 					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 						if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -102,7 +107,12 @@ public class BungeeHandler {
 							player);
 					user.clearCache();
 
-					user.bungeeVotePluginMessaging(service, time, text);
+					boolean setTotals = false;
+					if (args.size() > 7) {
+						setTotals = Boolean.valueOf(args.get(7));
+					}
+
+					user.bungeeVotePluginMessaging(service, time, text, setTotals);
 
 					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 						if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -174,7 +184,7 @@ public class BungeeHandler {
 
 				@Override
 				public void onReceive(String[] data) {
-					if (data.length > 4) {
+					if (data.length > 5) {
 						plugin.extraDebug("BungeeVote from " + data[2] + ", processing");
 						String uuid = data[1];
 						VotingPluginUser user = null;
@@ -186,7 +196,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVote(data[3], new BungeeMessageData(data[4]));
+						user.bungeeVote(data[3], new BungeeMessageData(data[4]), Boolean.valueOf(data[5]));
 					}
 				}
 			});
@@ -195,7 +205,7 @@ public class BungeeHandler {
 
 				@Override
 				public void onReceive(String[] data) {
-					if (data.length > 4) {
+					if (data.length > 5) {
 						plugin.extraDebug("BungeeVoteOnline from " + data[2] + ", processing");
 						String uuid = data[1];
 						VotingPluginUser user = null;
@@ -207,7 +217,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]));
+						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]), Boolean.valueOf(data[5]));
 					}
 				}
 			});

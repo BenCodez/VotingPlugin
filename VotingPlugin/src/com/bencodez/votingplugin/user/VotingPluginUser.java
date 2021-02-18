@@ -151,7 +151,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
 
-	public void bungeeVote(String service, BungeeMessageData text) {
+	public void bungeeVote(String service, BungeeMessageData text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
@@ -159,7 +159,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
-			voteEvent.setAddTotals(false);
+			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -172,7 +172,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void bungeeVoteOnline(String service, BungeeMessageData text) {
+	public void bungeeVoteOnline(String service, BungeeMessageData text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
@@ -180,7 +180,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
-			voteEvent.setAddTotals(false);
+			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -193,7 +193,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text) {
+	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -203,7 +203,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setVotingPluginUser(this);
 			voteEvent.setForceBungee(true);
 			voteEvent.setTime(time);
-			voteEvent.setAddTotals(false);
+			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 

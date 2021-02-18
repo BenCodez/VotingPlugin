@@ -38,17 +38,27 @@ BlockedServers:
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
-# Applies to PLUGINMESSAGING & when SendVotesToAllServers is true
-# Votes will be forwarded when specific player is online
-WaitForUserOnline: false
-
 # If false, votes will be checked if user is a valid player that has joined to server
 # Works for PLUGINMESSAGING and SOCKETS methods only
 # This requires spigot servers AllowUnJoined to be set to true in Config.yml
 AllowUnJoined: false
 
+# If true, bungee will handle adding totals
+# If false, spigot servers will EACH set their own totals
+# If false, AllowUnJoined should false on bungee, spigot servers will handle that
+# Recommened to leave true, setting to false setups are currently unsupported
+BungeeManageTotals: true
+
 # ----------------------------
-# SOCKET METHOD Settings
+# PLUGINMESSAGING Settings
+# ----------------------------
+
+# Applies to PLUGINMESSAGING & when SendVotesToAllServers is true
+# Votes will be forwarded when specific player is online
+WaitForUserOnline: false
+
+# ----------------------------
+# SOCKET Settings, do not touch otherwise
 # ----------------------------
 
 # Tell servers to broadcast

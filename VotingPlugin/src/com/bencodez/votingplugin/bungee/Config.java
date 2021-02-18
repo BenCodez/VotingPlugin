@@ -33,6 +33,10 @@ public class Config {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
+	public boolean getBungeeManageTotals() {
+		return getData().getBoolean("BungeeManageTotals", true);
+	}
+
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);
 	}
