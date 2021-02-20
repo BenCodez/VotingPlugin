@@ -432,6 +432,25 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
 	}
 
+	public int getChestVoteURLAllUrlsButtonSlot() {
+		return getData().getInt("CHEST.VoteURL.AllUrlsButton.Slot", -1);
+	}
+
+	public int getChestVoteURLAllUrlsButtonStartSlot() {
+		return getData().getInt("CHEST.VoteURL.StartSlot", -1);
+	}
+
+	public Set<String> getChestVoteURLExtraItems() {
+		if (getData().isConfigurationSection("CHEST.VoteURL.ExtraItems")) {
+			return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems").getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
+	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
+		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
+	}
+
 	public boolean getChestVoteURLBackButton() {
 		return getData().getBoolean("CHEST.VoteURL.BackButton");
 	}

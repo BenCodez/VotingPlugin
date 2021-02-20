@@ -13,12 +13,14 @@ import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.MessageBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -102,6 +104,10 @@ public class VoteURL extends GUIHandler {
 		if (!builderAll.hasCustomLore()) {
 			builderAll.setLore("&cClick Me");
 		}
+		int slot = plugin.getGui().getChestVoteURLAllUrlsButtonSlot();
+		if (slot >= 0) {
+			builderAll.setSlot(slot);
+		}
 		return builderAll;
 	}
 
@@ -174,9 +180,14 @@ public class VoteURL extends GUIHandler {
 			count++;
 		}
 
+		int startSlot = plugin.getGui().getChestVoteURLAllUrlsButtonStartSlot();
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			if (voteSite.isHidden()) {
 				ItemBuilder builder = getItemVoteSite(voteSite);
+				if (startSlot >= 0) {
+					builder.setSlot(startSlot);
+					startSlot++;
+				}
 
 				inv.addButton(count, new UpdatingBInventoryButton(builder, 1000, 1000) {
 
@@ -203,6 +214,18 @@ public class VoteURL extends GUIHandler {
 				});
 				count++;
 			}
+		}
+
+		for (final String str : plugin.getGui().getChestVoteURLExtraItems()) {
+			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestVoteURLExtraItemsItem(str))) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					new RewardBuilder(plugin.getGui().getData(), "CHEST.VoteURL.ExtraItems." + str + ".Rewards")
+							.setGiveOffline(false).send(clickEvent.getPlayer());
+					;
+				}
+			});
 		}
 
 		if (plugin.getGui().getChestVoteURLBackButton()) {

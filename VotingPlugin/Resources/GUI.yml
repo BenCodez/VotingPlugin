@@ -89,8 +89,12 @@ CHEST:
     SiteName: '&c%Name%'
     SeeURL: '&cClick to see URL'
     NextVote: '&cCan Vote In: %Info%'
+    #Start slot for specific site buttons
+    #StartSlot: 1
     ViewAllUrlsButtonEnabled: true
     AllUrlsButton:
+      #Set slot for AllUrlsButton
+      #Slot: 0
       RequireAllSitesVoted: true
       AlreadyVotedItem:
         Material: 'REDSTONE_BLOCK'
@@ -115,6 +119,14 @@ CHEST:
       Data: 0
       Amount: 1
     URLText: '%VoteUrl%'
+    # Add Extra items
+    # ExtraItems:
+      # Item1:
+        # Material: DIRT
+        # Amount: 1
+        # Slot: 1
+        # Can run commands or effects
+        # Rewards: []
     
   VoteLast:
     Name: 'VoteLast: %player%'
