@@ -29,8 +29,6 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.vexsoftware.votifier.bungee.events.VotifierEvent;
-import com.vexsoftware.votifier.model.Vote;
 
 import lombok.Getter;
 import net.md_5.bungee.api.CommandSender;
@@ -44,7 +42,7 @@ import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.event.EventHandler;
 
-public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.plugin.Listener {
+public class VotingPluginBungee extends Plugin {
 
 	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
 
@@ -235,7 +233,11 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 
 	@Override
 	public void onEnable() {
-		getProxy().getPluginManager().registerListener(this, this);
+		try {
+			getProxy().getPluginManager().registerListener(this, new VoteEventBungee(this));
+		} catch (Exception e) {
+			getLogger().warning("Votifier event failed to enable");
+		}
 		config = new Config(this);
 		config.load();
 
@@ -464,15 +466,6 @@ public class VotingPluginBungee extends Plugin implements net.md_5.bungee.api.pl
 			}
 
 		}, 2, TimeUnit.SECONDS);
-	}
-
-	@EventHandler
-	public void onVote(VotifierEvent event) {
-		Vote vote = event.getVote();
-		getLogger().info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
-
-		vote(vote.getUsername(), vote.getServiceName(), true);
-
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {

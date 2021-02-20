@@ -298,6 +298,9 @@ CHEST:
       #NotBuyable: false
       # Rewards to run if player buys successfully
       Rewards:
+        # Run command on purchase
+        #Commands:
+        #- 'command here'
         Items:
           Diamond:
             Material: 'DIAMOND'
