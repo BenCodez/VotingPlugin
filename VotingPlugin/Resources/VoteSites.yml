@@ -47,6 +47,9 @@ VoteSites:
     # Recommend: false
     VoteDelayDaily: false
     
+    #Offset time for /vote next caculations
+    #TimeOffSet: 0
+    
     # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
     # Setting this to true will execute the reward offline while the player is offline
     # This basiclly disables offline voting if set to true, don't misinterpret this option

@@ -30,6 +30,35 @@ MySQL:
   Prefix: ''
   #UseSSL: true
   #PublicKeyRetrieval: false
+  
+# ---------------------------------------------------------
+# Mysql cache options 
+# Clearing cache forces the plugin to pull from database
+# Not needed unless you are using multiple servers
+# If using a bungee setup most of these options are overriden automatically
+# ---------------------------------------------------------
+
+# Clear cache on update, setting to true reduces update speed
+# Also may require AlwaysUpdate set to true
+ClearCacheOnUpdate: false
+
+# Clear cache on player join always
+ClearCacheOnJoin: false
+
+# Clears cache for the player who voted only
+# Only effects if using mysql
+# Would recommend for some bungee setups
+ClearCacheOnVote: false
+
+# Clear cache when player leaves
+ClearCacheOnLeave: false
+
+ClearCacheOnVoteShopPurchase: true
+
+# --------------------
+# AllowUnJoined options
+# May need to set to true for bungee setup
+# --------------------
 
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data)
@@ -543,29 +572,6 @@ SpamClickTime: 350
 # Message to send when inventory forced closed when spam clicking
 # Uncomment to use
 #SpamClickMessage: '&cDetected spam clicking GUI, closing to prevent exploits'
-
-# ---------------------------------------------------------
-# Mysql cache options 
-# Clearing cache forces the plugin to pull from database
-# Not needed unless you are using multiple servers
-# ---------------------------------------------------------
-
-# Clear cache on update, setting to true reduces update speed
-# Also may require AlwaysUpdate set to true
-ClearCacheOnUpdate: false
-
-# Clear cache on player join always
-ClearCacheOnJoin: false
-
-# Clears cache for the player who voted only
-# Only effects if using mysql
-# Would recommend for some bungee setups
-ClearCacheOnVote: false
-
-# Clear cache when player leaves
-ClearCacheOnLeave: false
-
-ClearCacheOnVoteShopPurchase: true
 
 # ###############################################################
 # Deprecated options, don't recommend using any of these

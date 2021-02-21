@@ -119,13 +119,13 @@ CHEST:
       Data: 0
       Amount: 1
     URLText: '%VoteUrl%'
-    # Add Extra items
+    # #Add Extra items
     # ExtraItems:
       # Item1:
         # Material: DIRT
         # Amount: 1
         # Slot: 1
-        # Can run commands or effects
+        # #Can run commands or effects
         # Rewards: []
     
   VoteLast:

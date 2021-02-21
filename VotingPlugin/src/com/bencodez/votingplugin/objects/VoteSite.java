@@ -35,7 +35,7 @@ public class VoteSite {
 	@Getter
 	@Setter
 	private boolean enabled;
-	
+
 	@Getter
 	@Setter
 	private boolean hidden;

@@ -1045,7 +1045,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		for (VotingPluginUser user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 			for (VoteSite voteSite : plugin.getVoteSites()) {
-				if (voteSite.isHidden()) {
+				if (!voteSite.isHidden()) {
 					long time = user.getTime(voteSite);
 					if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
 							&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))

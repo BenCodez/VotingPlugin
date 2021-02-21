@@ -61,16 +61,18 @@ public class VoteURL extends GUIHandler {
 		if (plugin.getConfigFile().getFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
-				counter++;
-				String voteURL = voteSite.getVoteURL(json);
-				MessageBuilder message = new MessageBuilder(plugin.getConfigFile().getFormatCommandsVoteURLS());
-				message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
-						.replacePlaceholder("SiteName", voteSite.getDisplayName());
-				if (user != null && user.getPlayerName() != null) {
-					message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
-							"" + user.voteCommandNextInfo(voteSite));
+				if (!voteSite.isHidden()) {
+					counter++;
+					String voteURL = voteSite.getVoteURL(json);
+					MessageBuilder message = new MessageBuilder(plugin.getConfigFile().getFormatCommandsVoteURLS());
+					message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
+							.replacePlaceholder("SiteName", voteSite.getDisplayName());
+					if (user != null && user.getPlayerName() != null) {
+						message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
+								"" + user.voteCommandNextInfo(voteSite));
+					}
+					sites.add(message.colorize().getText());
 				}
-				sites.add(message.colorize().getText());
 			}
 		}
 		if (user != null) {
@@ -178,7 +180,7 @@ public class VoteURL extends GUIHandler {
 
 		int startSlot = plugin.getGui().getChestVoteURLAllUrlsButtonStartSlot();
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
-			if (voteSite.isHidden()) {
+			if (!voteSite.isHidden()) {
 				ItemBuilder builder = getItemVoteSite(voteSite);
 				if (startSlot >= 0) {
 					builder.setSlot(startSlot);

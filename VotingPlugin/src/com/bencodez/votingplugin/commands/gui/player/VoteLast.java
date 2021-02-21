@@ -38,7 +38,7 @@ public class VoteLast extends GUIHandler {
 				"%player%", playerName));
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			if (voteSite.isHidden()) {
+			if (!voteSite.isHidden()) {
 				msg.add(user.voteCommandLastLine(voteSite));
 			}
 		}
@@ -61,7 +61,7 @@ public class VoteLast extends GUIHandler {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteLastName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
-			if (site.isHidden()) {
+			if (!site.isHidden()) {
 				inv.addButton(inv.getNextSlot(),
 						new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
 								.setLore(user.voteCommandLastLine(site)).setAmountNone(1), 1000, 1000) {
