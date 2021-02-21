@@ -56,9 +56,6 @@ public class VoteParty implements Listener {
 		}
 	}
 
-	/**
-	 * Check.
-	 */
 	public void check(boolean forceBungee) {
 		if (getTotalVotes() >= getVotesRequired() && ((plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
 				&& plugin.getServerData().isLastVotePartySameDay())
@@ -171,9 +168,6 @@ public class VoteParty implements Listener {
 						.setServer(useBungee).send(user);
 	}
 
-	/**
-	 * Give rewards.
-	 */
 	public void giveRewards(boolean forceBungee) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 

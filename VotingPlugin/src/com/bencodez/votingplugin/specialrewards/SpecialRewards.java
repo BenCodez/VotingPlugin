@@ -29,12 +29,6 @@ public class SpecialRewards {
 		this.plugin = plugin;
 	}
 
-	/**
-	 * Check all sites.
-	 *
-	 * @param user the user
-	 * @return true, if successful
-	 */
 	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes
@@ -117,12 +111,6 @@ public class SpecialRewards {
 		return gotCumulativeAny;
 	}
 
-	/**
-	 * Check first vote.
-	 *
-	 * @param user the user
-	 * @return true, if successful
-	 */
 	public boolean checkFirstVote(VotingPluginUser user, boolean forceBungee) {
 		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
@@ -248,12 +236,6 @@ public class SpecialRewards {
 
 	}
 
-	/**
-	 * Give all sites rewards.
-	 *
-	 * @param user   the user
-	 * @param online the online
-	 */
 	public void giveAllSitesRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
 		Bukkit.getPluginManager().callEvent(event);
@@ -266,13 +248,6 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	/**
-	 * Give cumulative vote reward.
-	 *
-	 * @param user       the user
-	 * @param online     the online
-	 * @param cumulative the cumulative
-	 */
 	public void giveCumulativeVoteReward(VotingPluginUser user, boolean online, int cumulative, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.CUMMULATIVE.setAmount(cumulative));
@@ -287,12 +262,6 @@ public class SpecialRewards {
 						.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
 
-	/**
-	 * Give first vote rewards.
-	 *
-	 * @param user   the user
-	 * @param online the online
-	 */
 	public void giveFirstVoteRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
 		Bukkit.getPluginManager().callEvent(event);
@@ -305,13 +274,6 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	/**
-	 * Give milestone vote reward.
-	 *
-	 * @param user      the user
-	 * @param online    the online
-	 * @param milestone the milestone
-	 */
 	public void giveMilestoneVoteReward(VotingPluginUser user, boolean online, int milestone, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.MILESTONE.setAmount(milestone));
