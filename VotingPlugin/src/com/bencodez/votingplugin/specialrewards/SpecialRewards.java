@@ -37,7 +37,8 @@ public class SpecialRewards {
 	 */
 	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
-		if (checkAllVotes && plugin.getConfigFile().isExtraAllSitesCheck()) {
+		if (checkAllVotes
+				&& (plugin.getConfigFile().isExtraAllSitesCheck() || plugin.getBungeeSettings().isUseBungeecoord())) {
 			int currentDay = LocalDateTime.now().getDayOfYear();
 			int day = user.getGottenAllSitesDay();
 			if (currentDay == day) {
@@ -46,7 +47,7 @@ public class SpecialRewards {
 			} else {
 				user.setGottenAllSitesDay(currentDay);
 			}
-			
+
 		}
 		if (checkAllVotes) {
 			giveAllSitesRewards(user, user.isOnline(), forceBungee);
