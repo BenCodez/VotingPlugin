@@ -475,6 +475,10 @@ public class GUI extends YMLFile {
 	public String getChestVoteURLGUISiteName() {
 		return getData().getString("CHEST.VoteURL.SiteName", "&c%Name%");
 	}
+	
+	public String getChestVoteURLGUISiteNameCanVote() {
+		return getData().getString("CHEST.VoteURL.SiteNameCanVote", "&a%Name%");
+	}
 
 	public String getChestVoteURLName() {
 		return getData().getString("CHEST.VoteURL.Name", "&cVoteURL");

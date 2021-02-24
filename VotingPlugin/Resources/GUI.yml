@@ -87,6 +87,7 @@ CHEST:
     Name: '&cVoteURL'
     BackButton: true
     SiteName: '&c%Name%'
+    SiteNameCanVote: '&a%Name%'
     SeeURL: '&cClick to see URL'
     NextVote: '&cCan Vote In: %Info%'
     #Start slot for specific site buttons

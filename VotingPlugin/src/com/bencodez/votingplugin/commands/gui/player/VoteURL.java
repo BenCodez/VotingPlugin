@@ -115,14 +115,17 @@ public class VoteURL extends GUIHandler {
 
 	private ItemBuilder getItemVoteSite(VoteSite voteSite) {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteURLAlreadyVotedItemSection());
+		
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
+			builder.setName(plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
 		} else {
+			builder.setName(plugin.getGui().getChestVoteURLGUISiteName().replace("%Name%", voteSite.getDisplayName()));
 			builder.addLoreLine(
 					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
 
-		builder.setName(plugin.getGui().getChestVoteURLGUISiteName().replace("%Name%", voteSite.getDisplayName()));
+		
 		return builder;
 	}
 
