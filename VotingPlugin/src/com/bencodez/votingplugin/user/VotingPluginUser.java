@@ -275,13 +275,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			if (!voteSite.isVoteDelayDaily()) {
 				double votedelay = voteSite.getVoteDelay();
+				double voteDelayMin = voteSite.getVoteDelayMin();
 
-				if (votedelay == 0) {
+				if (votedelay == 0 && voteDelayMin == 0) {
 					return false;
 				}
 
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-						.plusMinutes((long) voteSite.getVoteDelayMin());
+				LocalDateTime nextvote = lastVote.plusHours((long) votedelay).plusMinutes((long) voteDelayMin);
 
 				return now.isAfter(nextvote);
 			} else {
