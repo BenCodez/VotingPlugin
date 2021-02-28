@@ -45,6 +45,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholders;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholdersPlayer;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteShop;
 import com.bencodez.votingplugin.commands.gui.player.VoteBest;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
 import com.bencodez.votingplugin.commands.gui.player.VoteHelp;
@@ -356,7 +357,6 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				new AdminVoteHelp(plugin, sender, 1).open();
-				;
 			}
 		});
 
@@ -395,6 +395,15 @@ public class CommandLoader {
 				new AdminVoteHelp(plugin, sender, page).open();
 				;
 
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "EditVoteShop" },
+				"VotingPlugin.Commands.AdminVote.EditVoteShop", "Edit VoteShop", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteVoteShop(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
 

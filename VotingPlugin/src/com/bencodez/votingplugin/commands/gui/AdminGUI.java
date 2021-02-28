@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
+import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
@@ -17,6 +18,7 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueBo
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueList;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
+import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
@@ -24,6 +26,7 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 
@@ -62,6 +65,14 @@ public class AdminGUI {
 				} else {
 					openAdminGUIVoteSites(player);
 				}
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit VoteShop")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteVoteShop(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
 			}
 		});
 

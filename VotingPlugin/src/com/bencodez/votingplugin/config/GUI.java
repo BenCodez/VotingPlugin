@@ -475,7 +475,7 @@ public class GUI extends YMLFile {
 	public String getChestVoteURLGUISiteName() {
 		return getData().getString("CHEST.VoteURL.SiteName", "&c%Name%");
 	}
-	
+
 	public String getChestVoteURLGUISiteNameCanVote() {
 		return getData().getString("CHEST.VoteURL.SiteNameCanVote", "&a%Name%");
 	}
@@ -533,5 +533,26 @@ public class GUI extends YMLFile {
 	public boolean isChestVoteShopRequireConfirmation(String identifier) {
 		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",
 				isChestVoteShopRequireConfirmation());
+	}
+
+	public void createShop(String value) {
+		ConfigurationSection shopData = getData().createSection("CHEST.Shop." + value);
+		shopData.set("Identifier_Name", value);
+		shopData.set("Material", "STONE");
+		shopData.set("Amount", 1);
+		shopData.set("Name", "&cPlaceholder item");
+		shopData.set("Cost", 1);
+		shopData.set("Permission", "");
+		shopData.set("CloseGUI", true);
+		shopData.set("RequireConfirmation", false);
+
+		shopData.set("Rewards.Items.Item1.Material", "STONE");
+		shopData.set("Rewards.Items.Item1.Amount", 1);
+		saveData();
+	}
+
+	public void removeShop(String value) {
+		getData().set("CHEST.Shop." + value, null);
+		saveData();
 	}
 }

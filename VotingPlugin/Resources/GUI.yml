@@ -282,7 +282,6 @@ CHEST:
       Identifier_Name: 'Diamond'
       # Item
       Material: 'DIAMOND'
-      Data: 0
       Amount: 1
       Name: '&4Buy A Diamond'
       # You can set skulls of the player using the following
