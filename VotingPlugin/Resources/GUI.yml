@@ -152,6 +152,8 @@ CHEST:
     Item:
       Name: '&3&l%position%: &3%player%'
       Lore: '&3&lVotes: &3%votes%'
+    # Opens main GUI of the specific player that gets clicked
+    OpenMainGUIOnClick: true
     SwitchItem:
       Name: '&3Switch TopVoter'
       Lore: '&bCurrently: %Top%'
