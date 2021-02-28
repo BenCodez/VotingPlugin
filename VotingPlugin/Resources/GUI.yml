@@ -148,6 +148,7 @@ CHEST:
   VoteTop:
     Name: 'VoteTop %topvoter%'
     BackButton: false
+    # Item of top voter (change material below)
     Item:
       Name: '&3&l%position%: &3%player%'
       Lore: '&3&lVotes: &3%votes%'
@@ -159,8 +160,7 @@ CHEST:
       # 8 Slots over from the bottom left
       # Bottom of GUI
       Slot: 7
-    # Number of topvoters to display on each GUI page
-    # 9 Slots on the botton are used for page buttons (added on top)
+    # Number of topvoters to display on each GUI page, must be a multiple of 9
     Size: 27
     # If true, /vote top will show player heads
     UseSkull: true

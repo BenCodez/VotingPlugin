@@ -368,6 +368,10 @@ public class GUI extends YMLFile {
 		return getData().getString("CHEST.VoteTop.Item.Name", "&3&l%position%: &3%player%");
 	}
 
+	public boolean getChestVoteTopOpenMainGUIOnClick() {
+		return getData().getBoolean("CHEST.VoteTop.OpenMainGUIOnClick", true);
+	}
+
 	public String getChestVoteTopName() {
 		return getData().getString("CHEST.VoteTop.Name", "VoteTop %topvoter%");
 	}
