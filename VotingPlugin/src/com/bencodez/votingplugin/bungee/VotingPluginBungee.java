@@ -90,7 +90,7 @@ public class VotingPluginBungee extends Plugin {
 								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 										"" + cache.isRealVote(), cache.getText(),
-										"" + getConfig().getBungeeManageTotals());
+										"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
@@ -116,7 +116,8 @@ public class VotingPluginBungee extends Plugin {
 					for (OfflineBungeeVote cache : c) {
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals());
+								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
+								"" + BungeeVersion.getPluginMessageVersion());
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 				}
@@ -662,7 +663,7 @@ public class VotingPluginBungee extends Plugin {
 							// send
 							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 									Boolean.TRUE.toString(), "" + realVote, text.toString(),
-									"" + getConfig().getBungeeManageTotals());
+									"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
 						}
 					}
 				}
@@ -672,7 +673,7 @@ public class VotingPluginBungee extends Plugin {
 						&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 							"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
-							"" + getConfig().getBungeeManageTotals());
+							"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
 				} else {
 					if (!cachedOnlineVotes.containsKey(uuid)) {
 						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());

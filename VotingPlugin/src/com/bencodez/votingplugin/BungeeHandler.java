@@ -11,6 +11,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
+import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -55,40 +56,47 @@ public class BungeeHandler {
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Vote") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String player = args.get(0);
-					String uuid = args.get(1);
-					String service = args.get(2);
-					long time = Long.parseLong(args.get(3));
-					plugin.debug("pluginmessaging vote received from " + player + " on " + service);
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
-							player);
+					if (args.size() > 8) {
+						int bungeeVersion = Integer.parseInt(args.get(8));
+						if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
+							plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
+							return;
+						}
 
-					boolean wasOnline = Boolean.valueOf(args.get(4));
+						String player = args.get(0);
+						String uuid = args.get(1);
+						String service = args.get(2);
+						long time = Long.parseLong(args.get(3));
+						plugin.debug("pluginmessaging vote received from " + player + " on " + service);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
+								player);
 
-					BungeeMessageData text = new BungeeMessageData(args.get(6));
+						boolean wasOnline = Boolean.valueOf(args.get(4));
 
-					boolean setTotals = false;
-					if (args.size() > 7) {
-						setTotals = Boolean.valueOf(args.get(7));
-					}
+						BungeeMessageData text = new BungeeMessageData(args.get(6));
 
-					user.clearCache();
+						boolean setTotals = Boolean.valueOf(args.get(7));
 
-					user.bungeeVotePluginMessaging(service, time, text, !setTotals);
+						user.clearCache();
 
-					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
-						if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-							VoteSite site = plugin.getVoteSite(service);
-							if (site != null) {
-								site.broadcastVote(user, false);
-							} else {
-								plugin.getLogger().warning("No votesite for " + service);
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals);
+
+						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
+							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+								VoteSite site = plugin.getVoteSite(service);
+								if (site != null) {
+									site.broadcastVote(user, false);
+								} else {
+									plugin.getLogger().warning("No votesite for " + service);
+								}
 							}
 						}
-					}
 
-					if (args.size() > 4 && Boolean.valueOf(args.get(5))) {
-						plugin.getServerData().addServiceSite(service);
+						if (Boolean.valueOf(args.get(5))) {
+							plugin.getServerData().addServiceSite(service);
+						}
+					} else {
+						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
 					}
 
 				}
@@ -97,36 +105,42 @@ public class BungeeHandler {
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteOnline") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String player = args.get(0);
-					String uuid = args.get(1);
-					String service = args.get(2);
-					long time = Long.parseLong(args.get(3));
-					BungeeMessageData text = new BungeeMessageData(args.get(6));
-					plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
-							player);
-					user.clearCache();
+					if (args.size() > 8) {
+						int bungeeVersion = Integer.parseInt(args.get(8));
+						if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
+							plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
+							return;
+						}
+						String player = args.get(0);
+						String uuid = args.get(1);
+						String service = args.get(2);
+						long time = Long.parseLong(args.get(3));
+						BungeeMessageData text = new BungeeMessageData(args.get(6));
+						plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
+								player);
+						user.clearCache();
 
-					boolean setTotals = false;
-					if (args.size() > 7) {
-						setTotals = Boolean.valueOf(args.get(7));
-					}
+						boolean setTotals = Boolean.valueOf(args.get(7));
 
-					user.bungeeVotePluginMessaging(service, time, text, !setTotals);
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals);
 
-					if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
-						if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-							VoteSite site = plugin.getVoteSite(service);
-							if (site != null) {
-								site.broadcastVote(user, false);
-							} else {
-								plugin.getLogger().warning("No votesite for " + service);
+						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
+							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+								VoteSite site = plugin.getVoteSite(service);
+								if (site != null) {
+									site.broadcastVote(user, false);
+								} else {
+									plugin.getLogger().warning("No votesite for " + service);
+								}
 							}
 						}
-					}
 
-					if (args.size() > 4 && Boolean.valueOf(args.get(5))) {
-						plugin.getServerData().addServiceSite(service);
+						if (Boolean.valueOf(args.get(5))) {
+							plugin.getServerData().addServiceSite(service);
+						}
+					} else {
+						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
 					}
 				}
 			});

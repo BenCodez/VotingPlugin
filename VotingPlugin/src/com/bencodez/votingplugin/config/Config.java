@@ -39,7 +39,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
 	@Getter
 	private boolean useVoteGUIMainCommand = false;
-	
+
 	@ConfigDataBoolean(path = "ExtraAllSitesCheck")
 	@Getter
 	private boolean extraAllSitesCheck = false;
@@ -713,7 +713,7 @@ public class Config extends YMLFile {
 	 * @return the store top voters monthly
 	 */
 	public boolean getStoreTopVotersMonthly() {
-		return getData().getBoolean("StoreTopVoters.Monthly");
+		return getData().getBoolean("StoreTopVoters.Monthly", true);
 	}
 
 	/**
