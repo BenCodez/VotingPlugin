@@ -365,8 +365,8 @@ MaxiumNumberOfTopVotersToLoad: -1
 
 # When top voter awards are given (even if there are none listed) it will store top voters
 # Files will created in TopVoters folder.
+# Monthly top voters are always saved by default now
 StoreTopVoters:
-  Monthly: true
   Weekly: false
   Daily: false
     

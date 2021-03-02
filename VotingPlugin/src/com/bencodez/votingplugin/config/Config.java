@@ -708,15 +708,6 @@ public class Config extends YMLFile {
 	}
 
 	/**
-	 * Gets the store top voters monthly.
-	 *
-	 * @return the store top voters monthly
-	 */
-	public boolean getStoreTopVotersMonthly() {
-		return getData().getBoolean("StoreTopVoters.Monthly", true);
-	}
-
-	/**
 	 * Gets the store top voters weekly.
 	 *
 	 * @return the store top voters weekly

@@ -215,11 +215,10 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 			}
-
-			if (plugin.getConfigFile().getStoreTopVotersMonthly()) {
-				plugin.getLogger().info("Saving TopVoters Monthly");
-				storeTopVoters(TopVoter.Monthly);
-			}
+			
+			
+			plugin.getLogger().info("Saving TopVoters Monthly");
+			storeTopVoters(TopVoter.Monthly);
 
 			try {
 				if (plugin.getSpecialRewardsConfig().isEnableMonthlyAwards()) {
