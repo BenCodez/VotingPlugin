@@ -726,7 +726,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			ArrayList<String> offlineVotes = getOfflineVotes();
 			// plugin.debug(ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
-				sendVoteEffects(true);
+				sendVoteEffects(false);
 				setOfflineVotes(new ArrayList<String>());
 			}
 
