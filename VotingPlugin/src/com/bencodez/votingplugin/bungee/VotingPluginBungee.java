@@ -90,7 +90,8 @@ public class VotingPluginBungee extends Plugin {
 								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 										"" + cache.isRealVote(), cache.getText(),
-										"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
+										"" + getConfig().getBungeeManageTotals(),
+										"" + BungeeVersion.getPluginMessageVersion());
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
@@ -579,116 +580,121 @@ public class VotingPluginBungee extends Plugin {
 	}
 
 	public void vote(String player, String service, boolean realVote) {
-		if (player == null || player.isEmpty()) {
-			getLogger().info("No name from vote on " + service);
-			return;
-		}
-
-		String uuid = getUUID(player);
-		if (uuid.isEmpty()) {
-			if (config.getAllowUnJoined()) {
-				UUID u = null;
-				try {
-					u = fetchUUID(player);
-				} catch (Exception e) {
-					if (getConfig().getDebug()) {
-						e.printStackTrace();
-					}
-				}
-				if (u == null) {
-					debug("Failed to get uuid for " + player);
-					return;
-				}
-				uuid = u.toString();
-			} else {
-				getLogger().info("Ignoring vote from " + player);
+		try {
+			if (player == null || player.isEmpty()) {
+				getLogger().info("No name from vote on " + service);
 				return;
 			}
-		}
 
-		player = getProperName(uuid, player);
-
-		BungeeMessageData text = null;
-
-		if (getConfig().getBungeeManageTotals()) {
-
-			if (!mysql.getUuids().contains(uuid)) {
-				mysql.update(uuid, "PlayerName", player, DataType.STRING);
-			}
-
-			ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
-
-			text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
-					mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
-					mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
-					mysqlUpdate(data, uuid, "MilestoneCount", 1));
-		} else {
-			text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
-		}
-
-		/*
-		 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
-		 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
-		 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
-		 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
-		 * "MilestoneCount", 1);
-		 */
-
-		long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-
-			if (config.getSendVotesToAllServers()) {
-				for (String s : getProxy().getServers().keySet()) {
-					if (!config.getBlockedServers().contains(s)) {
-						ServerInfo info = getProxy().getServerInfo(s);
-						boolean forceCache = false;
-						ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-						if ((p == null || !p.isConnected()) && getConfig().getWaitForUserOnline()) {
-							forceCache = true;
-							debug("Forcing vote to cache");
-						}
-						if (info.getPlayers().isEmpty() || forceCache) {
-							// cache
-							if (!cachedVotes.containsKey(s)) {
-								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
-							}
-							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-							cachedVotes.put(s, list);
-
-							debug("Caching vote for " + player + " on " + service + " for " + s);
-
-						} else {
-							// send
-							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote, text.toString(),
-									"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
+			String uuid = getUUID(player);
+			if (uuid.isEmpty()) {
+				if (config.getAllowUnJoined()) {
+					UUID u = null;
+					try {
+						u = fetchUUID(player);
+					} catch (Exception e) {
+						if (getConfig().getDebug()) {
+							e.printStackTrace();
 						}
 					}
-				}
-			} else {
-				ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-				if (p != null && p.isConnected()
-						&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
-					sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
-							"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
-							"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
+					if (u == null) {
+						debug("Failed to get uuid for " + player);
+						return;
+					}
+					uuid = u.toString();
 				} else {
-					if (!cachedOnlineVotes.containsKey(uuid)) {
-						cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
-					}
-					ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
-					if (list == null) {
-						list = new ArrayList<OfflineBungeeVote>();
-					}
-					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-					cachedOnlineVotes.put(uuid, list);
-					debug("Caching online vote for " + player + " on " + service);
+					getLogger().info("Ignoring vote from " + player);
+					return;
 				}
 			}
-		} else if (method.equals(BungeeMethod.SOCKETS)) {
-			sendSocketVote(player, service, text);
+
+			player = getProperName(uuid, player);
+
+			BungeeMessageData text = null;
+
+			if (getConfig().getBungeeManageTotals()) {
+
+				if (!mysql.getUuids().contains(uuid)) {
+					mysql.update(uuid, "PlayerName", player, DataType.STRING);
+				}
+
+				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
+
+				text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
+						mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
+						mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
+						mysqlUpdate(data, uuid, "MilestoneCount", 1));
+			} else {
+				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
+			}
+
+			/*
+			 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
+			 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
+			 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
+			 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
+			 * "MilestoneCount", 1);
+			 */
+
+			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+
+				if (config.getSendVotesToAllServers()) {
+					for (String s : getProxy().getServers().keySet()) {
+						if (!config.getBlockedServers().contains(s)) {
+							ServerInfo info = getProxy().getServerInfo(s);
+							boolean forceCache = false;
+							ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
+							if ((p == null || !p.isConnected()) && getConfig().getWaitForUserOnline()) {
+								forceCache = true;
+								debug("Forcing vote to cache");
+							}
+							if (info.getPlayers().isEmpty() || forceCache) {
+								// cache
+								if (!cachedVotes.containsKey(s)) {
+									cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
+								}
+								ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
+								list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+								cachedVotes.put(s, list);
+
+								debug("Caching vote for " + player + " on " + service + " for " + s);
+
+							} else {
+								// send
+								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
+										Boolean.TRUE.toString(), "" + realVote, text.toString(),
+										"" + getConfig().getBungeeManageTotals(),
+										"" + BungeeVersion.getPluginMessageVersion());
+							}
+						}
+					}
+				} else {
+					ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
+					if (p != null && p.isConnected()
+							&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
+						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
+								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
+								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
+					} else {
+						if (!cachedOnlineVotes.containsKey(uuid)) {
+							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+						}
+						ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
+						if (list == null) {
+							list = new ArrayList<OfflineBungeeVote>();
+						}
+						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+						cachedOnlineVotes.put(uuid, list);
+						debug("Caching online vote for " + player + " on " + service);
+					}
+				}
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				sendSocketVote(player, service, text);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 	}
