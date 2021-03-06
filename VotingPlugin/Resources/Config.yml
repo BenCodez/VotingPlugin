@@ -375,6 +375,9 @@ StoreTopVoters:
 # Most of these values can be left untouched for most setups
 # ------------------------------------------------
 
+# If true vanished players are treated as if they are offline
+TreatVanishAsOffline: true
+
 # If false, votestreaks will be disabled
 UseVoteStreaks: true
 
