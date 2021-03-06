@@ -100,19 +100,27 @@ public class CommandLoader {
 
 	public BInventoryButton getBackButton(VotingPluginUser user) {
 		ConfigurationSection sec = plugin.getGui().getCHESTBackButton();
+		boolean a = false;
+
 		ItemBuilder item;
 		if (sec != null) {
 			item = new ItemBuilder(sec);
+				a = sec.getBoolean("OpenVoteURL", false);
 		} else {
 			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
 
+		final boolean openVoteURL = a;
 		BInventoryButton b = new BInventoryButton(item) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				new VoteGUI(plugin, event.getWhoClicked(), user)
-						.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+				if (!openVoteURL) {
+					new VoteGUI(plugin, event.getWhoClicked(), user)
+							.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+				} else {
+					new VoteURL(plugin, event.getWhoClicked(), user, true).open();
+				}
 			}
 		};
 
@@ -255,20 +263,22 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetMilestoneCount" },
-				"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm, "Resets milestone count to alltimetotal") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "ResetMilestoneCount" },
+						"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm,
+						"Resets milestone count to alltimetotal") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cStarting to clear milestonecounts...");
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					user.setMilestoneCount(0);
-				}
-				sendMessage(sender, "&cFinished");
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cStarting to clear milestonecounts...");
+						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							user.setMilestoneCount(0);
+						}
+						sendMessage(sender, "&cFinished");
 
-			}
-		});
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "ResyncMilestonesAlreadyGiven" },
@@ -325,18 +335,20 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones", "(player)" },
-				"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm, "Resync Milestones to alltimetotal for player") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "ResyncMilestones", "(player)" },
+						"VotingPlugin.Commands.AdminVote.SetResyncMilestones|" + adminPerm,
+						"Resync Milestones to alltimetotal for player") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-				user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
 
-				sendMessage(sender, "&cResynced milestones for " + args[1]);
+						sendMessage(sender, "&cResynced milestones for " + args[1]);
 
-			}
-		});
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "AddPoints", "(number)" },

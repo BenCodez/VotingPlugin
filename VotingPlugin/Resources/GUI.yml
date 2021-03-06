@@ -266,6 +266,8 @@ CHEST:
     Data: 0
     Amount: 1
     Name: '&8Back to VoteGUI'
+    # If true, clicking back button will open VoteURL
+    OpenVoteURL: false
 
   VoteShopBackButton: true
   VoteShopEnabled: true

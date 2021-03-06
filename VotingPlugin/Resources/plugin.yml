@@ -242,6 +242,8 @@ permissions:
     description: Permission to create sign
   VotingPlugin.Admin.GenerateServiceSite:
     description: Permission for generating votesite message
+  VotingPlugin.Login.RemindVotes:
+    description: Permission to allow timed reminders
   VotingPlugin.Login.RemindVotes.Any:
     description: Remind if player can vote on any website, rather than all
     default: false
