@@ -82,7 +82,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
-			msg.add("%VotingPlugin_" + identifier + "% = "
+			msg.add("VotingPlugin_" + identifier + " = "
 					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
 		}
 
@@ -92,7 +92,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 				identifier += "1";
 			}
 
-			msg.add("%VotingPlugin_" + identifier + "% = "
+			msg.add("VotingPlugin_" + identifier + " = "
 					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
 		}
 		sendMessage(msg);

@@ -43,9 +43,9 @@ public class AdminVotePlaceholders extends GUIHandler {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg = "%VotingPlugin_" + identifier + "% - " + placeholder.getDescription();
+				msg = "VotingPlugin_" + identifier + " - " + placeholder.getDescription();
 			} else {
-				msg = "%VotingPlugin_" + identifier + "%";
+				msg = "VotingPlugin_" + identifier + "";
 			}
 
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
@@ -61,9 +61,9 @@ public class AdminVotePlaceholders extends GUIHandler {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg = "%VotingPlugin_" + identifier + "% - " + placeholder.getDescription();
+				msg = "VotingPlugin_" + identifier + " - " + placeholder.getDescription();
 			} else {
-				msg = "%VotingPlugin_" + identifier + "%";
+				msg = "VotingPlugin_" + identifier + "";
 			}
 
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
@@ -87,9 +87,9 @@ public class AdminVotePlaceholders extends GUIHandler {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg.add("%VotingPlugin_" + identifier + "% - " + placeholder.getDescription());
+				msg.add("VotingPlugin_" + identifier + " - " + placeholder.getDescription());
 			} else {
-				msg.add("%VotingPlugin_" + identifier + "%");
+				msg.add("VotingPlugin_" + identifier + "");
 			}
 		}
 
@@ -99,9 +99,9 @@ public class AdminVotePlaceholders extends GUIHandler {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg.add("%VotingPlugin_" + identifier + "% - " + placeholder.getDescription());
+				msg.add("VotingPlugin_" + identifier + " - " + placeholder.getDescription());
 			} else {
-				msg.add("%VotingPlugin_" + identifier + "%");
+				msg.add("VotingPlugin_" + identifier + "");
 			}
 		}
 
