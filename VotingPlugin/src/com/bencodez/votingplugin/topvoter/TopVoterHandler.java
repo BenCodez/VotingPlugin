@@ -215,8 +215,7 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 			}
-			
-			
+
 			plugin.getLogger().info("Saving TopVoters Monthly");
 			storeTopVoters(TopVoter.Monthly);
 
@@ -252,8 +251,6 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
-			resetTotals(TopVoter.Monthly);
-
 			if (plugin.getSpecialRewardsConfig().getResetMilestonesMonthly()) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
@@ -262,6 +259,8 @@ public class TopVoterHandler implements Listener {
 				}
 
 			}
+
+			resetTotals(TopVoter.Monthly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCache();
