@@ -676,6 +676,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+			if (getOptions().isPerServerRewards()) {
+				getMysql().alterColumnType("OfflineRewards" + getOptions().getServer(), "MEDIUMTEXT");
+			}
 		}
 
 		// Add rewards
