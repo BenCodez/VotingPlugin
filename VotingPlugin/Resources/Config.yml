@@ -378,6 +378,9 @@ StoreTopVoters:
 # If true vanished players are treated as if they are offline
 TreatVanishAsOffline: false
 
+# If true, cooldown check is disabled
+DisableCoolDownCheck: false
+
 # If false, votestreaks will be disabled
 UseVoteStreaks: true
 

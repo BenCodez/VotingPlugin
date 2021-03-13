@@ -33,26 +33,28 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void checkAll() {
-		plugin.getTimer().schedule(new TimerTask() {
+		if (!plugin.getConfigFile().isDisableCoolDownCheck()) {
+			plugin.getTimer().schedule(new TimerTask() {
 
-			@Override
-			public void run() {
-				if (VotingPluginMain.plugin != null) {
-					for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-						if (VotingPluginMain.plugin != null) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-							if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
-								user.checkCoolDownEvents();
+				@Override
+				public void run() {
+					if (VotingPluginMain.plugin != null) {
+						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+							if (VotingPluginMain.plugin != null) {
+								VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+								if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+									user.checkCoolDownEvents();
+								}
+							} else {
+								cancel();
 							}
-						} else {
-							cancel();
 						}
+					} else {
+						cancel();
 					}
-				} else {
-					cancel();
 				}
-			}
-		}, 1000 * 60 * 3);
+			}, 1000 * 60 * 3);
+		}
 
 	}
 

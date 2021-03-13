@@ -230,6 +230,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
 	@Getter
 	private boolean usePrimaryAccountForPlaceholders = false;
+	
+	@ConfigDataBoolean(path = "DisableCoolDownCheck")
+	@Getter
+	private boolean disableCoolDownCheck = false;
 
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
