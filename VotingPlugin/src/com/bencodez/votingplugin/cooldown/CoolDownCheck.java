@@ -53,7 +53,7 @@ public class CoolDownCheck implements Listener {
 						cancel();
 					}
 				}
-			}, 1000 * 60 * 3);
+			}, 1000 * 60 * 5);
 		}
 
 	}

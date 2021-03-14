@@ -97,8 +97,8 @@ public class SpecialRewards {
 
 						if (gotCumulative) {
 							gotCumulativeAny = true;
+							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", current total: " + total);
 							giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
-							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired);
 						} else {
 							plugin.devDebug(user.getPlayerName() + " not able to get cumulative " + votesRequired);
 						}
