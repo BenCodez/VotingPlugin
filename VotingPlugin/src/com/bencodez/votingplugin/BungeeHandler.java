@@ -79,7 +79,7 @@ public class BungeeHandler {
 
 						user.clearCache();
 
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals);
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -122,8 +122,10 @@ public class BungeeHandler {
 						user.clearCache();
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
+						
+						boolean wasOnline = Boolean.valueOf(args.get(4));
 
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals);
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {

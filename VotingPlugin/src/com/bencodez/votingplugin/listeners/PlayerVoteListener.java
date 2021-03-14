@@ -144,7 +144,11 @@ public class PlayerVoteListener implements Listener {
 			if (((user.isOnline() || voteSite.isGiveOffline())
 					&& VotingPluginMain.plugin.getOptions().isProcessRewards()) || event.isBungee()) {
 				user.playerVote(voteSite, true, false, event.isForceBungee());
-				user.sendVoteEffects(true);
+				boolean online = true;
+				if (event.isBungee()) {
+					online = event.isWasOnline();
+				}
+				user.sendVoteEffects(online);
 				user.closeInv();
 			} else {
 				user.addOfflineVote(voteSite.getKey());

@@ -71,6 +71,10 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private VotingPluginUser votingPluginUser;
+	
+	@Getter
+	@Setter
+	private boolean wasOnline;
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
