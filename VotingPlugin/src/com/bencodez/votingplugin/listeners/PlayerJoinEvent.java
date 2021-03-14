@@ -51,6 +51,22 @@ public class PlayerJoinEvent implements Listener {
 
 		boolean data = user.getData().hasData();
 
+		int delay = plugin.getConfigFile().getDelayLoginEvent();
+		if (delay == 0) {
+			login(user, data);
+		} else {
+			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					login(user, data);
+				}
+			}, delay);
+		}
+
+	}
+
+	private void login(VotingPluginUser user, boolean data) {
 		// run remind
 		user.loginMessage();
 

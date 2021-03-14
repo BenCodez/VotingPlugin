@@ -381,6 +381,9 @@ TreatVanishAsOffline: false
 # If true, cooldown check is disabled
 DisableCoolDownCheck: false
 
+# Delays login event, delays vote reminding and more
+DelayLoginEvent: 0
+
 # If false, votestreaks will be disabled
 UseVoteStreaks: true
 

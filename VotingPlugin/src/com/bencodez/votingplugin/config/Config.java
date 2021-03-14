@@ -210,6 +210,10 @@ public class Config extends YMLFile {
 	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
 	@Getter
 	private int MaxiumNumberOfTopVotersToLoad = -1;
+	
+	@ConfigDataInt(path = "DelayLoginEvent")
+	@Getter
+	private int delayLoginEvent = 0;
 
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
