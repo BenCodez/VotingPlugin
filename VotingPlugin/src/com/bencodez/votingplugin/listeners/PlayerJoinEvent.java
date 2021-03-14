@@ -42,31 +42,29 @@ public class PlayerJoinEvent implements Listener {
 				&& VotingPluginMain.plugin.getMysql() == null)) {
 			return;
 		}
-		Player player = event.getPlayer();
-
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-		if (player.isOp() && plugin.isYmlError()) {
-			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
-		}
-
-		boolean data = user.getData().hasData();
 
 		int delay = plugin.getConfigFile().getDelayLoginEvent();
-		if (delay == 0) {
-			login(user, data);
+		if (delay <= 0) {
+			login(event.getPlayer());
 		} else {
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
-					login(user, data);
+					login(event.getPlayer());
 				}
 			}, delay);
 		}
 
 	}
 
-	private void login(VotingPluginUser user, boolean data) {
+	private void login(Player player) {
+		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+		if (player.isOp() && plugin.isYmlError()) {
+			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
+		}
+
+		boolean data = user.getData().hasData();
 		// run remind
 		user.loginMessage();
 

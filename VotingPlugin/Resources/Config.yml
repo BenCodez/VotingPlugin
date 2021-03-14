@@ -382,6 +382,7 @@ TreatVanishAsOffline: false
 DisableCoolDownCheck: false
 
 # Delays login event, delays vote reminding and more
+# In ticks
 DelayLoginEvent: 0
 
 # If false, votestreaks will be disabled
