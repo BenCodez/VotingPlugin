@@ -680,7 +680,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getMysql().alterColumnType("OfflineRewards" + getOptions().getServer(), "MEDIUMTEXT");
 			}
 		}
-
 		// Add rewards
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 

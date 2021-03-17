@@ -33,7 +33,8 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void checkAll() {
-		if (!plugin.getConfigFile().isDisableCoolDownCheck()) {
+		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
 			plugin.getTimer().schedule(new TimerTask() {
 
 				@Override
