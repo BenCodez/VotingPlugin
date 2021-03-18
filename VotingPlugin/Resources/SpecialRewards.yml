@@ -137,6 +137,7 @@ VoteStreak:
     Month: 50
     
 # Reward given when vote cooldown ended
+# Using this is a little memory intensive
 VoteCoolDownEndedReward: []
 
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS

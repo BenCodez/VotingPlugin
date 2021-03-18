@@ -55,6 +55,8 @@ public class CoolDownCheck implements Listener {
 					}
 				}
 			}, 1000 * 60 * 5);
+		} else {
+			plugin.debug("Not enabling cooldown check reward");
 		}
 
 	}
