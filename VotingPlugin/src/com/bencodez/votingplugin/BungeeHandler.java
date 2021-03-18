@@ -67,7 +67,7 @@ public class BungeeHandler {
 						String uuid = args.get(1);
 						String service = args.get(2);
 						long time = Long.parseLong(args.get(3));
-						plugin.debug("pluginmessaging vote received from " + player + " on " + service);
+						plugin.debug("pluginmessaging vote received from " + player + "/" + uuid + " on " + service);
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
 								player);
 
@@ -116,13 +116,14 @@ public class BungeeHandler {
 						String service = args.get(2);
 						long time = Long.parseLong(args.get(3));
 						BungeeMessageData text = new BungeeMessageData(args.get(6));
-						plugin.debug("pluginmessaging voteonline received from " + player + " on " + service);
+						plugin.debug(
+								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
 								player);
 						user.clearCache();
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
-						
+
 						boolean wasOnline = Boolean.valueOf(args.get(4));
 
 						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
