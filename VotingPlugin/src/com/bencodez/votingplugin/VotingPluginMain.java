@@ -40,6 +40,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.javascript.JavascriptPlaceholderRequest;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardPlaceholderHandle;
@@ -588,6 +589,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		registerCommands();
 		checkVotifier();
 		registerEvents();
+		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
 		voteReminding = new VoteReminding(this);
@@ -788,6 +790,255 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
+	public void loadDirectlyDefined() {
+		RewardHandler.getInstance().getDirectlyDefinedRewards().clear();
+		// AllSites reward
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("AllSites") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		// FirstVote
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVote") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getConfigFile().getData();
+			}
+		});
+
+		// vote cooldown ended
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteCoolDownEndedReward") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		// any site rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("AnySiteRewards") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("EverySiteReward") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getConfigVoteSites().getData();
+			}
+		});
+
+		// login rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("LoginRewards") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		// logout rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("LogoutRewards") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		// VoteParty
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteParty.Rewards") {
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+		});
+
+		// Cumulative rewards
+		for (String num : getSpecialRewardsConfig().getCumulativeVotes()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("Cumulative." + num + ".Rewards") {
+
+				@Override
+				public void setData(String path, Object value) {
+					getSpecialRewardsConfig().setValue(path, value);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getSpecialRewardsConfig().getData();
+				}
+			});
+		}
+
+		// Milestones rewards
+		for (String num : getSpecialRewardsConfig().getMilestoneVotes()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("MileStones." + num + ".Rewards") {
+
+				@Override
+				public void setData(String path, Object value) {
+					getSpecialRewardsConfig().setValue(path, value);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getSpecialRewardsConfig().getData();
+				}
+			});
+		}
+
+		// VoteSites
+		for (VoteSite site : plugin.getVoteSites()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".Rewards") {
+
+				@Override
+				public void setData(String path, Object value) {
+					getSpecialRewardsConfig().setValue(path, value);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getConfigVoteSites().getData();
+				}
+			});
+		}
+
+		// vote streaks
+		String[] types = new String[] { "Day", "Week", "Month" };
+		for (String type : types) {
+			for (String str : plugin.getSpecialRewardsConfig().getVoteStreakVotes(type)) {
+				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreak." + type + "." + str + ".Rewards") {
+
+					@Override
+					public void setData(String path, Object value) {
+						getSpecialRewardsConfig().setValue(path, value);
+					}
+
+					@Override
+					public ConfigurationSection getFileData() {
+						return getSpecialRewardsConfig().getData();
+					}
+				});
+			}
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getMonthlyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)) {
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+					});
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getWeeklyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)) {
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+					});
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)) {
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+					});
+		}
+
+	}
+
+	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
+		plugin.debug("Adding directlydefined reward handle: " + directlyDefinedReward.getPath()
+				+ ", isdirectlydefined: " + directlyDefinedReward.isDirectlyDefined());
+		RewardHandler.getInstance().getDirectlyDefinedRewards().add(directlyDefinedReward);
+	}
+
 	/*
 	 * (non-Javadoc)
 	 *
@@ -927,10 +1178,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
+		loadDirectlyDefined();
 		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
 		placeholders.load();
 		coolDownCheck.checkAll();
+
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
