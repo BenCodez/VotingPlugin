@@ -496,17 +496,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates());
 
-				getTimer().schedule(new TimerTask() {
-
-					@Override
-					public void run() {
-						if (plugin != null) {
-							coolDownCheck.checkAll();
-						} else {
-							cancel();
-						}
-					}
-				}, 1000 * 60 * 10, 1000 * 60 * 5);
+				coolDownCheck.load();
 
 				getTimer().schedule(new TimerTask() {
 
@@ -1182,7 +1172,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
 		placeholders.load();
-		coolDownCheck.checkAll();
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 

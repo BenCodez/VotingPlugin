@@ -32,6 +32,10 @@ public class CoolDownCheck implements Listener {
 		this.plugin = plugin;
 	}
 
+	public void load() {
+		checkAll();
+	}
+
 	public void checkAll() {
 		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
 				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
@@ -40,21 +44,28 @@ public class CoolDownCheck implements Listener {
 				@Override
 				public void run() {
 					if (VotingPluginMain.plugin != null) {
-						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							if (VotingPluginMain.plugin != null) {
-								VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-								if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
-									user.checkCoolDownEvents();
+						if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+								.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
+							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+								if (VotingPluginMain.plugin != null) {
+									VotingPluginUser user = UserManager.getInstance()
+											.getVotingPluginUser(new UUID(uuid));
+									if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+										user.checkCoolDownEvents();
+									}
+								} else {
+									cancel();
 								}
-							} else {
-								cancel();
 							}
+						} else {
+							plugin.debug("Not enabling cooldown check reward");
+							cancel();
 						}
 					} else {
 						cancel();
 					}
 				}
-			}, 1000 * 60 * 5);
+			}, 1000 * 60 * 5, 1000 * 60 * 30);
 		} else {
 			plugin.debug("Not enabling cooldown check reward");
 		}
