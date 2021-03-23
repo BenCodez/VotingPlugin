@@ -9,12 +9,16 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
+import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUIButton;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueList;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
+import com.bencodez.advancedcore.api.rewards.RewardHandler;
+import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class AdminVoteVoteShopItem extends GUIHandler {
@@ -112,6 +116,14 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 						setPathData(getKey(), value);
 					}
 				}));
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.DISPENSER, 1).setName("&cRewards")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("CHEST.Shop." + identifier + ".Rewards"));
+			}
+		});
 
 		// implement item reward?
 

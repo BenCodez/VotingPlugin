@@ -42,6 +42,7 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
+import com.bencodez.advancedcore.api.rewards.RewardEditData;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardPlaceholderHandle;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
@@ -686,8 +687,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 					@Override
 					public void setValue(Player player, Number value) {
-						Reward reward = (Reward) getInv().getData("Reward");
-						reward.getConfig().set("Points", value.intValue());
+						RewardEditData reward = (RewardEditData) getInv().getData("Reward");
+						reward.setValue("Points", value.intValue());
 					}
 				})).validator(new RewardInjectValidator() {
 
@@ -814,7 +815,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
+				getConfigFile().setValue(path, value);
 			}
 
 			@Override
@@ -855,7 +856,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
+				getConfigVoteSites().setValue(path, value);
 			}
 
 			@Override
@@ -944,7 +945,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 				@Override
 				public void setData(String path, Object value) {
-					getSpecialRewardsConfig().setValue(path, value);
+					getConfigVoteSites().setValue(path, value);
 				}
 
 				@Override
@@ -1021,12 +1022,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					});
 		}
 
+		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("CHEST.Shop." + identifier + ".Rewards") {
+
+				@Override
+				public void setData(String path, Object value) {
+					getGui().setValue(path, value);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getGui().getData();
+				}
+			});
+		}
+
 	}
 
 	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
-		plugin.debug("Adding directlydefined reward handle: " + directlyDefinedReward.getPath()
-				+ ", isdirectlydefined: " + directlyDefinedReward.isDirectlyDefined());
-		RewardHandler.getInstance().getDirectlyDefinedRewards().add(directlyDefinedReward);
+		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
 	}
 
 	/*
