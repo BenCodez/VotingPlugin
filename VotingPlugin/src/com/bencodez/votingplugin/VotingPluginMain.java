@@ -86,7 +86,6 @@ import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
-import com.vexsoftware.votifier.Votifier;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -223,18 +222,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			votifierLoaded = false;
 		}
-	}
-
-	private boolean checkVotifierLoaded() {
-		try {
-			Class.forName("com.vexsoftware.votifier.Votifier");
-			if (Votifier.getInstance().getVoteReceiver() == null) {
-				return false;
-			}
-		} catch (ClassNotFoundException e) {
-			debug("Using NuVotiifer?");
-		}
-		return true;
 	}
 
 	private void checkYMLError() {
@@ -769,15 +756,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			}, 30l);
 		}
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				if (!checkVotifierLoaded()) {
-					plugin.getLogger().warning("Detected votifier not loaded properly, check startup for details");
-				}
-			}
-		});
 
 	}
 

@@ -21,10 +21,12 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueSt
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
+import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -257,6 +259,15 @@ public class AdminGUI {
 							plugin.reload();
 						}
 					}));
+		} else {
+			inv.addButton(new BInventoryButton(new ItemBuilder(Material.DISPENSER, 1).setName("&cRewards")) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(), RewardHandler.getInstance()
+							.getDirectlyDefined("VoteSites." + voteSite.getKey() + ".Rewards"));
+				}
+			});
 		}
 
 		inv.openInventory(player);
