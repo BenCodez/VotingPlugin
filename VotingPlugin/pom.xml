@@ -299,12 +299,6 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
 		</dependency>
-		<dependency>
-			<groupId>com.velocitypowered</groupId>
-			<artifactId>velocity-api</artifactId>
-			<version>1.1.4</version>
-			<scope>provided</scope>
-		</dependency>
 	</dependencies>
 	<profiles>
 		<profile>
