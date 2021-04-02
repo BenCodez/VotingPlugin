@@ -101,6 +101,7 @@
 				<version>2.4.3</version>
 				<configuration>
 					<shadedArtifactAttached>false</shadedArtifactAttached>
+					<minimizeJar>true</minimizeJar>
 					<relocations>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
@@ -252,6 +253,7 @@
 			<url>https://dl.bintray.com/ichbinjoe/public/</url>
 		</repository>
 	</repositories>
+
 	<dependencies>
 		<!--<dependency> <groupId>com.github.Ben12345rocks</groupId> <artifactId>AdvancedCore</artifactId> 
 			<version>3.0-SNAPSHOT</version> </dependency> -->

@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.commands.gui.admin;
+package com.bencodez.votingplugin.commands.gui.admin.voteshop;
 
 import java.util.ArrayList;
 
@@ -42,6 +42,7 @@ public class AdminVoteVoteShop extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Edit VoteShop");
+		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.DIAMOND).setName("&cEdit existing item")) {
 
 			@Override
@@ -69,15 +70,7 @@ public class AdminVoteVoteShop extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				
-				new ValueRequest().requestString(player, new StringListener() {
-
-					@Override
-					public void onInput(Player player, String value) {
-						plugin.getGui().removeShop(value);
-						plugin.reload();
-					}
-				});
+				new AdminVoteVoteShopItemRemove(plugin, clickEvent.getPlayer()).open();
 			}
 		});
 		inv.openInventory(player);

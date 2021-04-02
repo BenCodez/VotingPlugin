@@ -45,7 +45,10 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholders;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholdersPlayer;
-import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteShop;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
+import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
+import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.commands.gui.player.VoteBest;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
 import com.bencodez.votingplugin.commands.gui.player.VoteHelp;
@@ -105,7 +108,7 @@ public class CommandLoader {
 		ItemBuilder item;
 		if (sec != null) {
 			item = new ItemBuilder(sec);
-				a = sec.getBoolean("OpenVoteURL", false);
+			a = sec.getBoolean("OpenVoteURL", false);
 		} else {
 			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
@@ -425,12 +428,38 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "EditVoteShop" },
-				"VotingPlugin.Commands.AdminVote.EditVoteShop", "Edit VoteShop", false) {
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "VoteShop" },
+				"VotingPlugin.Commands.AdminVote.Edit.VoteShop", "Edit VoteShop", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				new AdminVoteVoteShop(plugin, sender).open(GUIMethod.CHEST);
+			}
+		});
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "MileStones" },
+				"VotingPlugin.Commands.AdminVote.Edit.MileStones", "Edit milestones rewards", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteMilestones(plugin, sender).open(GUIMethod.CHEST);
+			}
+		});
+		
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "Cumulative" },
+				"VotingPlugin.Commands.AdminVote.Edit.Cumulative", "Edit cumulative rewards", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteCumulative(plugin, sender).open(GUIMethod.CHEST);
+			}
+		});
+		
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "VoteParty" },
+				"VotingPlugin.Commands.AdminVote.Edit.VoteParty", "Edit voteparty", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteVoteParty(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
 

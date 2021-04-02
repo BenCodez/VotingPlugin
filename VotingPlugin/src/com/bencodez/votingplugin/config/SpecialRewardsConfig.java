@@ -240,7 +240,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	public boolean getVotePartyResetMontly() {
 		return getData().getBoolean("VoteParty.ResetMonthly");
 	}
-	
+
 	public boolean getVotePartyResetWeekly() {
 		return getData().getBoolean("VoteParty.ResetWeekly");
 	}
@@ -303,5 +303,27 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("SpecialRewards.yml", true);
+	}
+
+	public void setMilestone(int intValue) {
+		getData().set("Milestones." + intValue + ".Enabled", true);
+		getData().set("Milestones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
+		saveData();
+	}
+
+	public void removeMilestone(String votes) {
+		getData().set("MileStones." + votes, null);
+		saveData();
+	}
+
+	public void removeCumulative(String votes) {
+		getData().set("Cumulative." + votes, null);
+		saveData();
+	}
+
+	public void setCumulative(int intValue) {
+		getData().set("Cumulative." + intValue + ".Enabled", true);
+		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player", "&aYou got %cumulative% cumulative votes!");
+		saveData();
 	}
 }

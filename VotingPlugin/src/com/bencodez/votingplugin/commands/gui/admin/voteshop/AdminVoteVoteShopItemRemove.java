@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.commands.gui.admin;
+package com.bencodez.votingplugin.commands.gui.admin.voteshop;
 
 import java.util.ArrayList;
 
@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteConfirmation;
 
 public class AdminVoteVoteShopItemRemove extends GUIHandler {
 
@@ -39,16 +40,31 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Edit VoteShop Remove Item");
-
-		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
+		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
+		
+		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
 			inv.addButton(
 					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier))
 							.addLoreLine("&c&lClick to remove")) {
 
 						@Override
 						public void onClick(ClickEvent clickEvent) {
-							plugin.getGui().removeShop((String) getData("ident"));
-							sendMessage(clickEvent.getPlayer(), "&cRemoved " + (String) (getData("ident")));
+							new AdminVoteConfirmation(plugin, clickEvent.getPlayer(),
+									"Remove shop item " + identifier + "?") {
+
+								@Override
+								public void onDeny(Player p) {
+									new AdminVoteVoteShop(plugin, p).open();
+								}
+
+								@Override
+								public void onConfirm(Player p) {
+									plugin.getGui().removeShop(identifier);
+									p.sendMessage("Removed " + identifier);
+									plugin.reload();
+								}
+							};
+
 						}
 					}.addData("ident", identifier));
 		}

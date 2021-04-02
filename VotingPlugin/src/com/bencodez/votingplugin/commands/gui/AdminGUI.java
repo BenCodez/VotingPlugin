@@ -28,7 +28,10 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteShop;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
+import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
+import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 
@@ -70,11 +73,61 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit VoteShop")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.CHEST, 1).setName("&cEdit VoteShop")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				new AdminVoteVoteShop(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND_BLOCK, 1).setName("&cEdit Milestones")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteMilestones(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.COBBLESTONE, 1).setName("&cEdit Cumulative")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteCumulative(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit VoteParty")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteVoteParty(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+			}
+		});
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit FirstVote reward")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("FirstVote"));
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit AllSites reward")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("AllSites"));
+			}
+		});
+		
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit AnySiteRewards")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("AnySiteRewards"));
 			}
 		});
 
@@ -110,6 +163,7 @@ public class AdminGUI {
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
+			lore.add("VoteDelayMin: " + voteSite.getVoteDelayMin());
 
 			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.getInstance().convert(lore),
 					new ItemStack(Material.STONE)) {
@@ -204,6 +258,17 @@ public class AdminGUI {
 		}));
 
 		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelay", voteSite.getVoteDelay()) {
+
+			@Override
+			public void setValue(Player player, Number num) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
+				String siteName = voteSite.getKey();
+				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
+				plugin.reload();
+			}
+		}));
+		
+		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelayMin", voteSite.getVoteDelay()) {
 
 			@Override
 			public void setValue(Player player, Number num) {

@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.commands.gui.admin;
+package com.bencodez.votingplugin.commands.gui.admin.voteshop;
 
 import java.util.ArrayList;
 
@@ -55,7 +55,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		EditGUI inv = new EditGUI("Edit VoteShop Item: " + identifier);
-
+		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
 		// to add
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueString("Identifier_Name",
 				plugin.getGui().getChestShopIdentifierIdentifierName(identifier)) {
