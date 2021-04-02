@@ -120,4 +120,4 @@ VoteSites:
 # Reward for any site
 # Similar to AnySiteReward
 # This requires the site to be configured in order to get the reward.
-EverySiteReward: []
+EverySiteReward: {}

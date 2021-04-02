@@ -203,7 +203,8 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.DISPENSER, 1).setName("&cRewards")
-				.addLoreLine("&aUse this for per player rewards, also set online only rewards here as well")) {
+				.addLoreLine("&aUse this for per player rewards, also set online only rewards here as well")
+				.addLoreLine("&cTo set rewards to be given to players online only, set RewardType to ONLINE")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {

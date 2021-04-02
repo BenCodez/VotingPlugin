@@ -61,7 +61,7 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 							p.sendMessage("Removed milestone " + votes);
 							plugin.reload();
 						}
-					};
+					}.open();;
 
 				}
 			});

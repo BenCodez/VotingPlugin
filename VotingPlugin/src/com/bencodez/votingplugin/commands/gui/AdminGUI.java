@@ -97,14 +97,14 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit VoteParty")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit VoteParty")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				new AdminVoteVoteParty(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
 			}
 		});
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit FirstVote reward")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit FirstVote reward")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -113,7 +113,7 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit AllSites reward")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AllSites reward")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -122,7 +122,7 @@ public class AdminGUI {
 			}
 		});
 		
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND, 1).setName("&cEdit AnySiteRewards")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AnySiteRewards")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -130,8 +130,17 @@ public class AdminGUI {
 						RewardHandler.getInstance().getDirectlyDefined("AnySiteRewards"));
 			}
 		});
+		
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit EverySiteReward")) {
 
-		buttons.add(new BInventoryButton("&cReload Plugin", new String[] {}, new ItemStack(Material.STONE, 1)) {
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("EverySiteReward"));
+			}
+		});
+
+		buttons.add(new BInventoryButton("&cReload Plugin", new String[] {}, new ItemStack(Material.BUCKET, 1)) {
 
 			@Override
 			public void onClick(ClickEvent event) {

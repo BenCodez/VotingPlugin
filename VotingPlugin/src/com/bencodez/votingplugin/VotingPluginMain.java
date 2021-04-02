@@ -677,7 +677,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						RewardEditData reward = (RewardEditData) getInv().getData("Reward");
 						reward.setValue("Points", value.intValue());
 					}
-				})).validator(new RewardInjectValidator() {
+				}.addLore("Give player voting points"))).validator(new RewardInjectValidator() {
 
 					@Override
 					public void onValidate(Reward reward, RewardInject inject, ConfigurationSection data) {

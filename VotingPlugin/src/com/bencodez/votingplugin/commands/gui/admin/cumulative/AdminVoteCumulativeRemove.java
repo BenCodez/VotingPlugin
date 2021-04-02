@@ -61,7 +61,7 @@ public class AdminVoteCumulativeRemove extends GUIHandler {
 							p.sendMessage("Removed cumulative " + votes);
 							plugin.reload();
 						}
-					};
+					}.open();;
 
 				}
 			});
