@@ -246,6 +246,9 @@ Format:
         - '&3Highest Month Streak: &3&l%BestMonthlyStreak%'
         
       Today:
+        Title:
+        - '&cToday's Votes %page%/%maxpage%'
+        - '&cPlayerName : VoteSite : Time'
         Line: '&6%player% : %VoteSite% : %Time%'
         
       # PlaceHolders:
