@@ -51,15 +51,21 @@ public class VoteToday extends GUIHandler {
 			maxPage++;
 		}
 
-		msg.add("&cToday's Votes " + page + "/" + maxPage);
-		msg.add("&cPlayerName : VoteSite : Time");
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("page", "" + page);
+		placeholders.put("maxpage", "" + maxPage);
+		
+		for (String m : plugin.getConfigFile().getFormatCommandsVoteTodayTitle()) {
+			msg.add(m);
+		}
+		
 		page--;
 
 		for (int i = pagesize * page; (i < voteToday.length) && (i < ((page + 1) * pagesize)); i++) {
 			msg.add(voteToday[i]);
 		}
 
-		return ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
 	}
 
 	@Override

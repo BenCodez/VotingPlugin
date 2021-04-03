@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
+import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
@@ -152,6 +153,11 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteTodayLine = "&6%player% : %VoteSite% : %Time%";
 
+	@ConfigDataListString(path = "Format.Commands.Vote.Today.Title")
+	@Getter
+	private ArrayList<String> formatCommandsVoteTodayTitle = ArrayUtils.getInstance()
+			.convert(new String[] { "&cToday's Votes %page%/%maxpage%", "&cPlayerName : VoteSite : Time" });
+
 	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled")
 	@Getter
 	private String formatCommandsVoteToggleBroadcastDisabled = "&cYou will no longer see vote broadcasts";
@@ -210,7 +216,7 @@ public class Config extends YMLFile {
 	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
 	@Getter
 	private int MaxiumNumberOfTopVotersToLoad = -1;
-	
+
 	@ConfigDataInt(path = "DelayLoginEvent")
 	@Getter
 	private int delayLoginEvent = 0;
@@ -234,7 +240,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
 	@Getter
 	private boolean usePrimaryAccountForPlaceholders = false;
-	
+
 	@ConfigDataBoolean(path = "DisableCoolDownCheck")
 	@Getter
 	private boolean disableCoolDownCheck = false;
