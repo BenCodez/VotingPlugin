@@ -233,12 +233,21 @@ public class VotingPluginBungee extends Plugin {
 		}
 	}
 
+	private boolean votifierEnabled = true;
+
 	@Override
 	public void onEnable() {
 		try {
-			getProxy().getPluginManager().registerListener(this, new VoteEventBungee(this));
-		} catch (Exception e) {
-			getLogger().warning("Votifier event failed to enable");
+			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
+		} catch (ClassNotFoundException e) {
+			votifierEnabled = false;
+			getLogger().warning("Votifier event not found, not loading votifier event");
+		}
+		if (votifierEnabled) {
+			try {
+				getProxy().getPluginManager().registerListener(this, new VoteEventBungee(this));
+			} catch (Exception e) {
+			}
 		}
 		config = new Config(this);
 		config.load();
