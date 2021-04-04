@@ -5,6 +5,9 @@ com.bencodez.votingplugin.commands
 com.bencodez.votingplugin.commands.executers
 com.bencodez.votingplugin.commands.gui
 com.bencodez.votingplugin.commands.gui.admin
+com.bencodez.votingplugin.commands.gui.admin.cumulative
+com.bencodez.votingplugin.commands.gui.admin.milestones
+com.bencodez.votingplugin.commands.gui.admin.voteshop
 com.bencodez.votingplugin.commands.gui.player
 com.bencodez.votingplugin.commands.tabcompleter
 com.bencodez.votingplugin.config
