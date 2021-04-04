@@ -42,7 +42,7 @@ public class AdminVoteCumulativeRemove extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Remove cumulative");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.Cumulative");
-		for (final String votes : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
+		for (final String votes : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
 			inv.addButton(new BInventoryButton(
 					new ItemBuilder(Material.PAPER, 1).setName(votes).addLoreLine("&c&lClick to remove")) {
 
