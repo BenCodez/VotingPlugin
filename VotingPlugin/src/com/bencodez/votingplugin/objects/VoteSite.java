@@ -83,6 +83,10 @@ public class VoteSite {
 	@Getter
 	@Setter
 	private boolean waitUntilVoteDelay;
+	
+	@Getter
+	@Setter
+	private boolean ignoreCanVote;
 
 	public VoteSite(VotingPluginMain plugin, String siteName) {
 		this.plugin = plugin;
@@ -228,6 +232,7 @@ public class VoteSite {
 		waitUntilVoteDelay = plugin.getConfigVoteSites().getWaitUntilVoteDelay(key);
 		timeOffSet = plugin.getConfigVoteSites().getTimeOffSet(key);
 		hidden = plugin.getConfigVoteSites().getVoteSiteHidden(key);
+		ignoreCanVote = plugin.getConfigVoteSites().getVoteSiteIgnoreCanVote(key);
 	}
 
 	public boolean isVaidServiceSite() {

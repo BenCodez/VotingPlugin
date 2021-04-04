@@ -193,7 +193,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals, boolean wasOnline) {
+	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
+			boolean wasOnline) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -233,9 +234,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public boolean canVoteAny() {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			boolean canVote = canVoteSite(voteSite);
-			if (canVote) {
-				return true;
+			if (!voteSite.isIgnoreCanVote()) {
+				boolean canVote = canVoteSite(voteSite);
+				if (canVote) {
+					return true;
+				}
 			}
 		}
 		return false;

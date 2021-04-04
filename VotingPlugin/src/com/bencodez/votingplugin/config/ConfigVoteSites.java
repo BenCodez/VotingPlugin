@@ -148,6 +148,10 @@ public class ConfigVoteSites extends YMLFile {
 	public boolean getVoteSiteHidden(String siteName) {
 		return getData(siteName).getBoolean("Hidden");
 	}
+	
+	public boolean getVoteSiteIgnoreCanVote(String siteName) {
+		return getData(siteName).getBoolean("IgnoreCanVote");
+	}
 
 	/**
 	 * Gets the vote site file.
