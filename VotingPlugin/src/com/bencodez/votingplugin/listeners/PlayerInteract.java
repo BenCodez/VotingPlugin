@@ -39,6 +39,9 @@ public class PlayerInteract implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onPlayerInteract(PlayerInteractEvent event) {
+		if (plugin.getConfigFile().isDisableInteractEvent()) {
+			return;
+		}
 		Player player = event.getPlayer();
 		if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
 			// plugin.debug("Checking for sign click");

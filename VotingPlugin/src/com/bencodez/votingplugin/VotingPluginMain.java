@@ -1118,7 +1118,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
-		pm.registerEvents(new PlayerInteract(this), this);
+		if (!plugin.getConfigFile().isDisableInteractEvent()) {
+			pm.registerEvents(new PlayerInteract(this), this);
+		}
+
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 		/*
 		 * if (!NMSManager.getInstance().isVersion("1.12")) { pm.registerEvents(new

@@ -384,6 +384,9 @@ TreatVanishAsOffline: false
 # If true, cooldown check is disabled
 DisableCoolDownCheck: false
 
+# If true, disable PlayerInteractEvent (for clicking signs and skulls)
+DisableInteractEvent: false
+
 # Delays login event, delays vote reminding and more
 # In ticks
 DelayLoginEvent: 0
