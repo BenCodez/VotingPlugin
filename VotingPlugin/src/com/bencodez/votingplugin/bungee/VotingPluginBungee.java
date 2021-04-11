@@ -279,6 +279,7 @@ public class VotingPluginBungee extends Plugin {
 			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+			getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
