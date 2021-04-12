@@ -98,8 +98,7 @@ public class VoteTopVoter extends GUIHandler {
 				inv.addButton(new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
 						.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
 						.addPlaceholder("player", entry.getKey().getPlayerName())
-						.addPlaceholder("votes", "" + entry.getValue())
-						.parsePlaceholders(entry.getKey().getOfflinePlayer())) {
+						.addPlaceholder("votes", "" + entry.getValue())) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
