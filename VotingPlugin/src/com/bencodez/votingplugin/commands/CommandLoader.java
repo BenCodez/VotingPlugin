@@ -125,7 +125,13 @@ public class CommandLoader {
 					new VoteURL(plugin, event.getWhoClicked(), user, true).open();
 				}
 			}
+			
 		};
+		
+		// set item to end of the GUI
+		if (sec != null && sec.getBoolean("EndOfGUI")) {
+			b.setSlot(-2);
+		}
 
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 			b.dontClose();

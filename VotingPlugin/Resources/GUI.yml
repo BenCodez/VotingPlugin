@@ -268,6 +268,8 @@ CHEST:
     Name: '&8Back to VoteGUI'
     # If true, clicking back button will open VoteURL
     OpenVoteURL: false
+    # If true, backbutton will be the last slot of the GUI
+    EndOfGUI: false
 
   VoteShopBackButton: true
   VoteShopEnabled: true
