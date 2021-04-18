@@ -357,7 +357,7 @@ public class GUI extends YMLFile {
 	}
 
 	public boolean getChestVoteTopBackButton() {
-		return getData().getBoolean("CHEST.VoteToday.BackButton");
+		return getData().getBoolean("CHEST.VoteTop.BackButton");
 	}
 
 	public String getChestVoteTopItemLore() {
