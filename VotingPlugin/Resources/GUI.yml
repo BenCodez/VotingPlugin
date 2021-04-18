@@ -147,7 +147,7 @@ CHEST:
       Amount: 1
   VoteTop:
     Name: 'VoteTop %topvoter%'
-    BackButton: false
+    BackButton: true
     # Item of top voter (change material below)
     Item:
       Name: '&3&l%position%: &3%player%'
