@@ -774,6 +774,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		// FirstVote
@@ -788,6 +798,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
@@ -800,6 +820,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			@Override
 			public ConfigurationSection getFileData() {
 				return getConfigFile().getData();
+			}
+
+			@Override
+			public void save() {
+				getConfigFile().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getConfigFile().saveData();
 			}
 		});
 
@@ -815,6 +845,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		// any site rewards
@@ -829,6 +869,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("EverySiteReward") {
@@ -841,6 +891,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			@Override
 			public ConfigurationSection getFileData() {
 				return getConfigVoteSites().getData();
+			}
+
+			@Override
+			public void save() {
+				getConfigVoteSites().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getConfigVoteSites().createSection(key);
 			}
 		});
 
@@ -856,6 +916,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		// logout rewards
@@ -869,6 +939,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			@Override
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
 			}
 		});
 
@@ -884,6 +964,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public ConfigurationSection getFileData() {
 				return getSpecialRewardsConfig().getData();
 			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
 		});
 
 		// Cumulative rewards
@@ -898,6 +988,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				@Override
 				public ConfigurationSection getFileData() {
 					return getSpecialRewardsConfig().getData();
+				}
+
+				@Override
+				public void save() {
+					getSpecialRewardsConfig().saveData();
+				}
+
+				@Override
+				public void createSection(String key) {
+					getSpecialRewardsConfig().createSection(key);
 				}
 			});
 		}
@@ -915,6 +1015,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				public ConfigurationSection getFileData() {
 					return getSpecialRewardsConfig().getData();
 				}
+
+				@Override
+				public void save() {
+					getSpecialRewardsConfig().saveData();
+				}
+
+				@Override
+				public void createSection(String key) {
+					getSpecialRewardsConfig().createSection(key);
+				}
 			});
 		}
 
@@ -930,6 +1040,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				@Override
 				public ConfigurationSection getFileData() {
 					return getConfigVoteSites().getData();
+				}
+
+				@Override
+				public void save() {
+					getConfigVoteSites().saveData();
+				}
+
+				@Override
+				public void createSection(String key) {
+					getConfigVoteSites().createSection(key);
 				}
 			});
 		}
@@ -949,6 +1069,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					public ConfigurationSection getFileData() {
 						return getSpecialRewardsConfig().getData();
 					}
+
+					@Override
+					public void save() {
+						getSpecialRewardsConfig().saveData();
+					}
+
+					@Override
+					public void createSection(String key) {
+						getSpecialRewardsConfig().createSection(key);
+					}
 				});
 			}
 		}
@@ -966,6 +1096,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						public ConfigurationSection getFileData() {
 							return getSpecialRewardsConfig().getData();
 						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
+						}
 					});
 		}
 
@@ -981,6 +1121,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						@Override
 						public ConfigurationSection getFileData() {
 							return getSpecialRewardsConfig().getData();
+						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
 						}
 					});
 		}
@@ -998,6 +1148,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						public ConfigurationSection getFileData() {
 							return getSpecialRewardsConfig().getData();
 						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
+						}
 					});
 		}
 
@@ -1012,6 +1172,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				@Override
 				public ConfigurationSection getFileData() {
 					return getGui().getData();
+				}
+
+				@Override
+				public void save() {
+					getGui().saveData();
+				}
+
+				@Override
+				public void createSection(String key) {
+					getGui().createSection(key);
 				}
 			});
 		}
