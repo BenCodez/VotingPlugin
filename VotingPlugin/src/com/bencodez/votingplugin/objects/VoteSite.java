@@ -105,6 +105,9 @@ public class VoteSite {
 	 * @param checkBungee check bungee broadcast
 	 */
 	public void broadcastVote(VotingPluginUser user, boolean checkBungee) {
+		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
+			return;
+		}
 		if (!user.isVanished()) {
 			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
 					&& plugin.getBungeeSettings().isUseBungeecoord()) {

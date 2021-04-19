@@ -54,6 +54,7 @@ import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
 import com.bencodez.votingplugin.commands.executers.CommandVote;
@@ -717,6 +718,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
+		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
+			broadcastHandler = new BroadcastHandler(plugin, plugin.getConfigFile().getFormatAlternateBroadcastDelay());
+			plugin.debug("Using alternate broadcast method");
+		}
+
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (getProfile().equals("dev")) {
 			plugin.getLogger().warning("Using dev build, this is not a stable build, use at your own risk");
@@ -759,6 +765,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 	}
+
+	@Getter
+	private BroadcastHandler broadcastHandler;
 
 	public void loadDirectlyDefined() {
 		RewardHandler.getInstance().getDirectlyDefinedRewards().clear();
@@ -1331,6 +1340,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		bungeeSettings.reloadData();
 		checkYMLError();
+
+		if (broadcastHandler != null) {
+			broadcastHandler.schelude(getConfigFile().getFormatAlternateBroadcastDelay());
+		}
 
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();

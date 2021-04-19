@@ -132,7 +132,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
 	private boolean formatCommandsVoteForceLinks = true;
-	
+
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter
 	private boolean disableInteractEvent = false;
@@ -140,6 +140,18 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted")
 	@Getter
 	private String formatCommandsVoteLastLastVoted = "%times% ago";
+
+	@ConfigDataString(path = "Format.AlternateBroadcast.Broadcast")
+	@Getter
+	private String formatAlternateBroadcastBroadcast = "&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote";
+
+	@ConfigDataInt(path = "Format.AlternateBroadcast.Delay")
+	@Getter
+	private int formatAlternateBroadcastDelay = 30;
+
+	@ConfigDataBoolean(path = "Format.AlternateBroadcast.Enabled")
+	@Getter
+	private boolean formatAlternateBroadcastEnabled = false;
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
 	@Getter

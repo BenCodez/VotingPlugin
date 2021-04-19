@@ -137,6 +137,13 @@ Format:
   # Broadcast only when player is online
   BroadcastWhenOnline: false
   
+  # Broadcast every x number of minutes with number of players that voted
+  AlternateBroadcast:
+    Enabled: false
+    Broadcast: '&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote'
+    # Delay in minutes
+    Delay: 30
+  
   Commands:
     # Format for /vote
     # %num% = the number of the site, for a numbered list
