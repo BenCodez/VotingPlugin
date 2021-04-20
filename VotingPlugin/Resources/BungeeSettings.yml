@@ -35,6 +35,10 @@ BungeeBroadcastAlways: false
 # Requires server name below to be correct
 PerServerRewards: false
 
+# If true, plugin will trigger VotifierEvent
+# Should allow some compability with other plugins
+TriggerVotifierEvent: false
+
 # What server this is in bungee (must match)
 # Also can be applied to rewards
 Server: PleaseSet

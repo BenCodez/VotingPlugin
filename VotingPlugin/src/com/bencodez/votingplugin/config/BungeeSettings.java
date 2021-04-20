@@ -29,6 +29,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean votifierBypass = false;
 
+	@ConfigDataBoolean(path = "TriggerVotifierEvent")
+	@Getter
+	private boolean triggerVotifierEvent = false;
+
 	@ConfigDataString(path = "BungeeMethod")
 	@Getter
 	private String bungeeMethod = "PLUGINMESSAGING";

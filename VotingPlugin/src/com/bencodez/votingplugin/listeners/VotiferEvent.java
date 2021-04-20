@@ -44,6 +44,10 @@ public class VotiferEvent implements Listener {
 		final String voteSite = vote.getServiceName();
 		final String IP = vote.getAddress();
 		final String voteUsername = vote.getUsername().trim();
+		if (IP.equals("VotingPlugin")) {
+			// ignore own plugin calls of event
+			return;
+		}
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
