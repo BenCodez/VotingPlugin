@@ -586,6 +586,9 @@ UseVaultPermissions: false
 # - PERMISSION
 DisabledCommands: []
 
+# Enable Geyser prefix support
+GeyserPrefixSupport: false
+
 # Enable to true for extra player checks
 ExtraBackgroundUpdate: false
 
