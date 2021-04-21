@@ -17,8 +17,6 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-import com.vexsoftware.votifier.model.Vote;
-import com.vexsoftware.votifier.model.VotifierEvent;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -68,10 +66,7 @@ public class PlayerVoteListener implements Listener {
 					+ event.getBungeeTextTotals());
 
 			if (plugin.getBungeeSettings().isTriggerVotifierEvent()) {
-				plugin.debug("Triggering vote event");
-				VotifierEvent e = new VotifierEvent(
-						new Vote(event.getServiceSite(), event.getPlayer(), "VotingPlugin", "" + event.getTime()));
-				plugin.getServer().getPluginManager().callEvent(e);
+				new BungeeVotifierEvent().send(plugin, event);
 			}
 		}
 
