@@ -1689,7 +1689,7 @@ public class CommandLoader {
 										if (user.removePoints(points)) {
 
 											RewardHandler.getInstance().giveReward(user,
-													plugin.getConfigFile().getData(),
+													plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
