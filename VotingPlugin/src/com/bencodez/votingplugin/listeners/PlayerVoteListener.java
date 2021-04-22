@@ -116,6 +116,8 @@ public class PlayerVoteListener implements Listener {
 					voteSite.broadcastVote(user);
 				}
 			}
+			
+			plugin.getBroadcastHandler().onVote(playerName);
 
 			// update last vote time
 			if (event.getTime() != 0) {
