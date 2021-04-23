@@ -588,6 +588,7 @@ DisabledCommands: []
 
 # Enable Geyser prefix support
 GeyserPrefixSupport: false
+GeyserPrefix: '*'
 
 # Enable to true for extra player checks
 ExtraBackgroundUpdate: false
