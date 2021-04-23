@@ -69,7 +69,7 @@ public class AdminVoteHelp extends GUIHandler {
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
 			if (requirePerms && sender.hasPermission(cmdHandle.getPerm())) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
-			} else {
+			} else if (!requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			}
 		}

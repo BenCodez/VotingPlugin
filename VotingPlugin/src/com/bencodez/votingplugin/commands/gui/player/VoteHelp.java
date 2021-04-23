@@ -41,7 +41,7 @@ public class VoteHelp extends GUIHandler {
 			if (requirePerms && sender.hasPermission(cmdHandle.getPerm())) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
 						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
-			} else {
+			} else if (!requirePerms) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
 			}
 		}
