@@ -38,12 +38,10 @@ public class VoteHelp extends GUIHandler {
 		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
-			if (requirePerms && cmdHandle.hasPerm(sender)) {
+			if (!requirePerms || cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
 						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
-			} else if (!requirePerms) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote"));
-			}
+			} 
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
 		unsortedList.addAll(unsorted.keySet());

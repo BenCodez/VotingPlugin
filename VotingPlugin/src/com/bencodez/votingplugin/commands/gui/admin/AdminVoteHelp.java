@@ -67,9 +67,7 @@ public class AdminVoteHelp extends GUIHandler {
 		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
-			if (requirePerms && cmdHandle.hasPerm(sender)) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
-			} else if (!requirePerms) {
+			if (!requirePerms || cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			}
 		}
