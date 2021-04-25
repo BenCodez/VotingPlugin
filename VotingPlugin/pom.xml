@@ -228,14 +228,7 @@
 			<id>spigot-repo</id>
 			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
 		</repository>
-		<repository>
-			<id>jitpack.io</id>
-			<url>https://jitpack.io</url>
-			<snapshots>
-				<enabled>true</enabled>
-				<updatePolicy>always</updatePolicy>
-			</snapshots>
-		</repository>
+
 		<repository>
 			<id>maven-central</id>
 			<url>https://oss.sonatype.org/content/groups/public</url>
@@ -318,6 +311,16 @@
 					<version>master-SNAPSHOT</version>
 				</dependency>
 			</dependencies>
+			<repositories>
+				<repository>
+					<id>jitpack.io</id>
+					<url>https://jitpack.io</url>
+					<snapshots>
+						<enabled>true</enabled>
+						<updatePolicy>always</updatePolicy>
+					</snapshots>
+				</repository>
+			</repositories>
 		</profile>
 		<profile>
 			<id>prod2</id>

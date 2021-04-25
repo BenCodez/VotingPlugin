@@ -440,7 +440,15 @@ public class VotingPluginBungee extends Plugin {
 				String server = in.readUTF();
 				getLogger().info("Status okay for " + server);
 				return;
+			} else if (subchannel.equalsIgnoreCase("login")) {
+				String player = in.readUTF();
+				ProxiedPlayer p = getProxy().getPlayer(player);
+				String server = p.getServer().getInfo().getName();
+				checkCachedVotes(server);
+				checkOnlineVotes(p, p.getUniqueId().toString(), server);
+				return;
 			} else {
+
 				// reforward message
 				out.writeUTF(subchannel);
 				out.writeInt(size);
