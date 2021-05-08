@@ -1,9 +1,12 @@
 package com.bencodez.votingplugin;
 
+import org.bukkit.entity.Player;
+
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInject;
 import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VotingPluginHooks {
 	private static VotingPluginHooks instance = new VotingPluginHooks();
@@ -26,6 +29,12 @@ public class VotingPluginHooks {
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
+	}
+
+	public void backgroundUpdate(Player player) {
+		VotingPluginUser user = getUserManager().getVotingPluginUser(player);
+		user.offVote();
+		user.checkOfflineRewards();
 	}
 
 }
