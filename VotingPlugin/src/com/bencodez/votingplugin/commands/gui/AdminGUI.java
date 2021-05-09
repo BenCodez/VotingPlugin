@@ -28,6 +28,7 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteBungeeSettings;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
@@ -121,7 +122,7 @@ public class AdminGUI {
 						RewardHandler.getInstance().getDirectlyDefined("AllSites"));
 			}
 		});
-		
+
 		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AnySiteRewards")) {
 
 			@Override
@@ -130,13 +131,21 @@ public class AdminGUI {
 						RewardHandler.getInstance().getDirectlyDefined("AnySiteRewards"));
 			}
 		});
-		
+
 		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit EverySiteReward")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
 						RewardHandler.getInstance().getDirectlyDefined("EverySiteReward"));
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.GRASS_BLOCK).setName("&cEdit BungeeSettings.yml")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteBungeeSettings(plugin, clickEvent.getPlayer()).open();
 			}
 		});
 
@@ -276,7 +285,7 @@ public class AdminGUI {
 				plugin.reload();
 			}
 		}));
-		
+
 		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelayMin", voteSite.getVoteDelay()) {
 
 			@Override
