@@ -531,7 +531,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the points
 	 */
 	public int getPoints() {
-		return getUserData().getInt("Points", isWaitForCache());
+		return getUserData().getInt(getPointsPath(), isWaitForCache());
 	}
 
 	public java.util.UUID getPrimaryAccount() {
@@ -897,13 +897,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setStringList("OfflineVotes", offlineVotes);
 	}
 
+	public String getPointsPath() {
+		if (plugin.getBungeeSettings().isPerServerPoints()) {
+			return plugin.getBungeeSettings().getServer() + "_Points";
+		} else {
+			return "Points";
+		}
+	}
+
 	/**
 	 * Sets the points.
 	 *
 	 * @param value the new points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt("Points", value, !plugin.getBungeeSettings().isUseBungeecoord());
+		getUserData().setInt(getPointsPath(), value, !plugin.getBungeeSettings().isUseBungeecoord());
 	}
 
 	public void setPrimaryAccount(java.util.UUID uuid) {

@@ -35,6 +35,10 @@ BungeeBroadcastAlways: false
 # Requires server name below to be correct
 PerServerRewards: false
 
+# If true, points will be given on a per server level
+# Points will be added when server gets vote from bungee
+PerServerPoints: false
+
 # If true, plugin will trigger VotifierEvent
 # Should allow some compability with other plugins
 TriggerVotifierEvent: false

@@ -53,6 +53,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean perServerRewards = false;
 
+	@ConfigDataBoolean(path = "PerServerPoints")
+	@Getter
+	private boolean perServerPoints = false;
+
 	@ConfigDataString(path = "Server")
 	@Getter
 	private String server = "PleaseSet";

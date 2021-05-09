@@ -80,6 +80,9 @@ public class BungeeHandler {
 						user.clearCache();
 
 						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
@@ -121,6 +124,10 @@ public class BungeeHandler {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
 								player);
 						user.clearCache();
+
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
@@ -213,6 +220,10 @@ public class BungeeHandler {
 
 						user.clearCache();
 
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
+
 						user.bungeeVote(data[3], new BungeeMessageData(data[4]), !Boolean.valueOf(data[5]));
 					}
 				}
@@ -233,6 +244,10 @@ public class BungeeHandler {
 						}
 
 						user.clearCache();
+
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
 
 						user.bungeeVoteOnline(data[3], new BungeeMessageData(data[4]), !Boolean.valueOf(data[5]));
 					}
