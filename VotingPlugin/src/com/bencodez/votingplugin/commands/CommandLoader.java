@@ -126,9 +126,9 @@ public class CommandLoader {
 					new VoteURL(plugin, event.getWhoClicked(), user, true).open();
 				}
 			}
-			
+
 		};
-		
+
 		// set item to end of the GUI
 		if (sec != null && sec.getBoolean("EndOfGUI")) {
 			b.setSlot(-2);
@@ -434,7 +434,7 @@ public class CommandLoader {
 
 			}
 		});
-		
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "BungeeSettings" },
 				"VotingPlugin.Commands.AdminVote.Edit.BungeeSettings", "Edit BungeeSettings.yml", false) {
 
@@ -460,7 +460,7 @@ public class CommandLoader {
 				new AdminVoteMilestones(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
-		
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "Cumulative" },
 				"VotingPlugin.Commands.AdminVote.Edit.Cumulative", "Edit cumulative rewards", false) {
 
@@ -469,7 +469,7 @@ public class CommandLoader {
 				new AdminVoteCumulative(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
-		
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Edit", "VoteParty" },
 				"VotingPlugin.Commands.AdminVote.Edit.VoteParty", "Edit voteparty", false) {
 
@@ -815,6 +815,31 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "All" },
+				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cTriggering vote for all voting sites...");
+				for (VoteSite site : plugin.getVoteSites()) {
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
+					if (voteEvent.getVoteSite() != null) {
+						if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+							sendMessage(sender,
+									"&cPossible issue with service site, has the server gotten the vote from "
+											+ voteEvent.getServiceSite() + "?");
+						}
+					}
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
+
+				if (plugin.isYmlError()) {
+					sendMessage(sender, "&3Detected yml error, please check server log for details");
+				}
+
+			}
+		});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "(Sitename)" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
@@ -829,6 +854,31 @@ public class CommandLoader {
 					}
 				}
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+				if (plugin.isYmlError()) {
+					sendMessage(sender, "&3Detected yml error, please check server log for details");
+				}
+
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "All" },
+				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cTriggering vote for all voting sites...");
+				for (VoteSite site : plugin.getVoteSites()) {
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
+					if (voteEvent.getVoteSite() != null) {
+						if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+							sendMessage(sender,
+									"&cPossible issue with service site, has the server gotten the vote from "
+											+ voteEvent.getServiceSite() + "?");
+						}
+					}
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
 
 				if (plugin.isYmlError()) {
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
@@ -1698,8 +1748,7 @@ public class CommandLoader {
 										placeholders.put("limit", "" + limit);
 										if (user.removePoints(points)) {
 
-											RewardHandler.getInstance().giveReward(user,
-													plugin.getGui().getData(),
+											RewardHandler.getInstance().giveReward(user, plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
