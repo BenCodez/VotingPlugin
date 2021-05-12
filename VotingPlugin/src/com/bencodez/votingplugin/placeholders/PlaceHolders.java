@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.placeholders;
 
 import java.text.NumberFormat;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -569,5 +571,43 @@ public class PlaceHolders {
 				return Integer.toString(total);
 			}
 		}.withDescription("Global daily total"));
+
+		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("TimeUntilDayReset") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				LocalDateTime now = LocalDateTime.now();
+				LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0);
+				LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0)
+						.withMinute(0);
+
+				String timeMsg = "%hours% Hours %minutes% Minutes";
+				Duration dur = null;
+				if (!now.isBefore(offsetoclocktoday)) {
+					dur = Duration.between(now, offsetoclocktomorrow);
+
+				} else {
+					dur = Duration.between(now, offsetoclocktoday);
+				}
+				int diffHours = (int) (dur.getSeconds() / (60 * 60));
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
+
+				if (diffHours < 0) {
+					diffHours = diffHours * -1;
+				}
+				if (diffHours >= 24) {
+					diffHours = diffHours - 24;
+				}
+				if (diffMinutes < 0) {
+					diffMinutes = diffMinutes * -1;
+				}
+
+				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
+						Long.toString(diffMinutes));
+				return timeMsg;
+
+			}
+		}.withDescription("Time until plugin time day changes"));
 	}
 }
