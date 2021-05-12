@@ -720,9 +720,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 
-		VotingPluginMain.plugin.extraDebug("Checking offline vote site votes");
 		Player player = getPlayer();
 		if (player != null) {
+			VotingPluginMain.plugin.extraDebug("Checking offline vote site votes for " + player.getName());
+
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
 			if (isTopVoterIgnore() != topVoterIngorePerm) {
 				setTopVoterIgnore(topVoterIngorePerm);

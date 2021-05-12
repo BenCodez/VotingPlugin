@@ -186,14 +186,20 @@ public class VoteParty implements Listener {
 			plugin.debug("Trying to give all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				giveReward(user, forceBungee);
+				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayers() || user.isOnline()) {
+					giveReward(user, forceBungee);
+				}
+				
 			}
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
 			plugin.debug(ArrayUtils.getInstance().makeStringList(getVotedUsers()));
 			for (String uuid : getVotedUsers()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-				giveReward(user, forceBungee);
+				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayers() || user.isOnline()) {
+					giveReward(user, forceBungee);
+				}
+				
 			}
 		}
 		reset(false);

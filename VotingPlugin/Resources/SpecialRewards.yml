@@ -47,6 +47,9 @@ VoteParty:
   # recieve the reward
   # If false, only players who voted get rewards
   GiveAllPlayers: false
+  # If true, give online players the vote party reward
+  # Can also use RewardType: ONLINE if you wanted
+  GiveOnlinePlayers: false
   # If true, the vote count will reset each day
   ResetEachDay: false
   # If true, the vote count will reset each week
