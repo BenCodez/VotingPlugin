@@ -1107,7 +1107,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
-		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getFormatCommandsVoteLastLine(),
+		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteLastLine(),
 				placeholders);
 	}
 
