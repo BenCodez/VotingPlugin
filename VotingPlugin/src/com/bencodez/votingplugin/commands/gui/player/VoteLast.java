@@ -64,7 +64,7 @@ public class VoteLast extends GUIHandler {
 			if (!site.isHidden()) {
 				inv.addButton(inv.getNextSlot(),
 						new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
-								.setLore(user.voteCommandLastLine(site)).setAmountNone(1), 1000, 1000) {
+								.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1), 1000, 1000) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {

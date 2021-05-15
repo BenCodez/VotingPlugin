@@ -132,6 +132,10 @@ CHEST:
   VoteLast:
     Name: 'VoteLast: %player%'
     BackButton: true
+    # Lines for each vote site
+    # %time% = time, using timeformat below
+    # %timesince% = time since vote
+    Line: '&6%timeSince%'
   VoteNext:
     Name: 'VoteNext: %player%'
     BackButton: true

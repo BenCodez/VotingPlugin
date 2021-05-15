@@ -267,6 +267,10 @@ public class GUI extends YMLFile {
 	public String getChestVoteLastName() {
 		return getData().getString("CHEST.VoteLast.Name", "VoteLast: %player%");
 	}
+	
+	public String getChestVoteLastLine() {
+		return getData().getString("CHEST.VoteLast.Line", "&6%timeSince%");
+	}
 
 	public boolean getChestVoteNextBackButton() {
 		return getData().getBoolean("CHEST.VoteNext.BackButton");

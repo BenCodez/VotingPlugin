@@ -1097,6 +1097,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return StringParser.getInstance().replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),
 				placeholders);
 	}
+	
+	public String voteCommandLastGUILine(VoteSite voteSite) {
+		String timeString = voteCommandLastDate(voteSite);
+		String timeSince = voteCommandLastDuration(voteSite);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getFormatCommandsVoteLastLine(),
+				placeholders);
+	}
 
 	public String voteCommandNextInfo(VoteSite voteSite) {
 		String info = new String();
