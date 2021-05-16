@@ -74,7 +74,7 @@ public class VoteLast extends GUIHandler {
 							@Override
 							public ItemBuilder onUpdate(Player p) {
 								return site.getItem().setName(site.getDisplayName())
-										.setLore(user.voteCommandLastLine(site)).setAmountNone(1);
+										.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1);
 							}
 						});
 			}
