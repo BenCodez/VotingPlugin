@@ -321,7 +321,7 @@ public class VotingPluginBungee extends Plugin {
 			try {
 				for (String player : voteCacheFile.getPlayers()) {
 					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
-					for (String num : voteCacheFile.getServerVotes(player)) {
+					for (String num : voteCacheFile.getOnlineVotes(player)) {
 						Configuration data = voteCacheFile.getOnlineVotes(player, num);
 						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
 								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
