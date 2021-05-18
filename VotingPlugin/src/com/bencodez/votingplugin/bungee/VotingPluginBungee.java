@@ -485,7 +485,7 @@ public class VotingPluginBungee extends Plugin {
 				checkOnlineVotes(event.getPlayer(), uuid, server);
 			}
 
-		}, 4, TimeUnit.SECONDS);
+		}, 3, TimeUnit.SECONDS);
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
