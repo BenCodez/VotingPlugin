@@ -63,29 +63,27 @@ public class SpecialRewards {
 						boolean gotCumulative = false;
 						int total = 0;
 						boolean useBungeeTotalNum = bungeeMessageData != null;
-						if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameDay(votesRequired)) {
-							if (!useBungeeTotalNum) {
-								total = user.getTotal(TopVoter.Daily);
-							} else {
-								total = bungeeMessageData.getDailyTotal();
-							}
-						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameWeek(votesRequired)) {
-							if (!useBungeeTotalNum) {
-								total = user.getTotal(TopVoter.Weekly);
-							} else {
-								total = bungeeMessageData.getWeeklyTotal();
-							}
-						} else if (plugin.getSpecialRewardsConfig().getCumulativeVotesInSameMonth(votesRequired)) {
-							if (!useBungeeTotalNum) {
-								total = user.getTotal(TopVoter.Monthly);
-							} else {
-								total = bungeeMessageData.getMonthTotal();
-							}
+						String totalToUse = plugin.getSpecialRewardsConfig().getCumulativeVotesTotal(votesRequired);
+						TopVoter top = TopVoter.getTopVoter(totalToUse);
+						if (!useBungeeTotalNum) {
+							total = user.getTotal(top);
 						} else {
-							if (!useBungeeTotalNum) {
-								total = user.getTotal(TopVoter.AllTime);
-							} else {
+							switch (top) {
+							case AllTime:
 								total = bungeeMessageData.getAllTimeTotal();
+								break;
+							case Daily:
+								total = bungeeMessageData.getDailyTotal();
+								break;
+							case Monthly:
+								total = bungeeMessageData.getMonthTotal();
+								break;
+							case Weekly:
+								total = bungeeMessageData.getWeeklyTotal();
+								break;
+							default:
+								break;
+
 							}
 						}
 
@@ -97,7 +95,8 @@ public class SpecialRewards {
 
 						if (gotCumulative) {
 							gotCumulativeAny = true;
-							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", current total: " + total);
+							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", current total: "
+									+ total);
 							giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
 						} else {
 							plugin.devDebug(user.getPlayerName() + " not able to get cumulative " + votesRequired);

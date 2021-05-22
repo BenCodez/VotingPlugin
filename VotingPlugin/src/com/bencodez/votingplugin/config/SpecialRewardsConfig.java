@@ -10,6 +10,7 @@ import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataDouble;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
 
@@ -42,7 +43,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
-	
+
 	@ConfigDataBoolean(path = "VoteParty.GiveOnlinePlayers")
 	@Getter
 	private boolean votePartyGiveOnlinePlayers = false;
@@ -106,16 +107,33 @@ public class SpecialRewardsConfig extends YMLFile {
 	 * @param cumulative the cumulative
 	 * @return the cumulative votes in same day
 	 */
+	@Deprecated
 	public boolean getCumulativeVotesInSameDay(int cumulative) {
 		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
 	}
 
+	@Deprecated
 	public boolean getCumulativeVotesInSameMonth(int cumulative) {
 		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
 	}
 
+	@Deprecated
 	public boolean getCumulativeVotesInSameWeek(int cumulative) {
 		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
+	}
+
+	public String getCumulativeVotesTotal(int cumulative) {
+		String str = getData().getString("Cumulative." + cumulative + ".TotalToUse", "");
+		if (str.isEmpty()) {
+			if (getCumulativeVotesInSameMonth(cumulative)) {
+				return TopVoter.Monthly.toString();
+			} else if (getCumulativeVotesInSameWeek(cumulative)) {
+				return TopVoter.Weekly.toString();
+			} else if (getCumulativeVotesInSameDay(cumulative)) {
+				return TopVoter.Daily.toString();
+			}
+		}
+		return TopVoter.AllTime.toString();
 	}
 
 	public String getDailyAwardRewardsPath(String path) {
@@ -327,7 +345,8 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	public void setCumulative(int intValue) {
 		getData().set("Cumulative." + intValue + ".Enabled", true);
-		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player", "&aYou got %cumulative% cumulative votes!");
+		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player",
+				"&aYou got %cumulative% cumulative votes!");
 		saveData();
 	}
 }
