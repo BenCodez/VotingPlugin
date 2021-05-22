@@ -345,6 +345,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	public void setCumulative(int intValue) {
 		getData().set("Cumulative." + intValue + ".Enabled", true);
+		getData().set("Cumulative." + intValue + ".TotalToUse", "AllTime");
 		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player",
 				"&aYou got %cumulative% cumulative votes!");
 		saveData();

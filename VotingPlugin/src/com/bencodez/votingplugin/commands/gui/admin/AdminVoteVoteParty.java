@@ -121,6 +121,15 @@ public class AdminVoteVoteParty extends GUIHandler {
 			}
 		}));
 
+		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("GiveOnlinePlayers",
+				plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayers()) {
+
+			@Override
+			public void setValue(Player player, boolean name) {
+				setPathData(getKey(), name);
+			}
+		}));
+
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
 				new EditGUIValueBoolean("ResetEachDay", plugin.getSpecialRewardsConfig().getVotePartyResetEachDay()) {
 
