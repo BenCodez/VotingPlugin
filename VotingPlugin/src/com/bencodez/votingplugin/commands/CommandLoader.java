@@ -861,6 +861,15 @@ public class CommandLoader {
 
 			}
 		});
+		
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote" },
+				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Manual vote syntax") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&aUse /av vote (player) (site)");
+			}
+		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "All" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
