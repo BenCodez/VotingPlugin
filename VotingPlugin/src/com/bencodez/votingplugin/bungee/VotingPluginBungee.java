@@ -640,7 +640,8 @@ public class VotingPluginBungee extends Plugin {
 
 				text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
 						mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
-						mysqlUpdate(data, uuid, "DailyTotal", 1), mysqlUpdate(data, uuid, "Points", 1),
+						mysqlUpdate(data, uuid, "DailyTotal", 1),
+						mysqlUpdate(data, uuid, "Points", getConfig().getPointsOnVote()),
 						mysqlUpdate(data, uuid, "MilestoneCount", 1));
 			} else {
 				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);

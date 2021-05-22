@@ -32,6 +32,10 @@ public class Config {
 	public boolean getWaitForUserOnline() {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
+	
+	public int getPointsOnVote() {
+		return getData().getInt("PointsOnVote", 1);
+	}
 
 	public boolean getBungeeManageTotals() {
 		return getData().getBoolean("BungeeManageTotals", true);

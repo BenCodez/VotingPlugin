@@ -43,6 +43,8 @@ BungeeMethod: PLUGINMESSAGING
 # This requires spigot servers AllowUnJoined to be set to true in Config.yml
 AllowUnJoined: false
 
+PointsOnVote: 1
+
 # If true, bungee will handle adding totals
 # If false, spigot servers will EACH set their own totals
 # If false, AllowUnJoined should false on bungee, spigot servers will handle that
