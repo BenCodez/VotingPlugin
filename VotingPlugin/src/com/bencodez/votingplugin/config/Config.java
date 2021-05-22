@@ -33,6 +33,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean addTotals = true;
 
+	@ConfigDataBoolean(path = "AlwaysWaitForCachePlaceholders")
+	@Getter
+	private boolean alwaysWaitForCachePlaceholders = false;
+
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;

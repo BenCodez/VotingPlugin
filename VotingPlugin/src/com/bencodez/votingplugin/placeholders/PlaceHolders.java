@@ -52,14 +52,11 @@ public class PlaceHolders {
 		}
 
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
-		if (Bukkit.isPrimaryThread()) {
+		if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
 			user.setWaitForCache(false);
 		}
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 			user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
-			if (Bukkit.isPrimaryThread()) {
-				user.setWaitForCache(false);
-			}
 		}
 
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {

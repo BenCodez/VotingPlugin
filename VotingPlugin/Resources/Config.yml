@@ -452,6 +452,11 @@ PreventRepeatMilestones: false
 # Mainly to be used for alts and such
 UsePrimaryAccountForPlaceholders: false
 
+# Always force placeholders to return value if the value isn't cached
+# This should prevent server from crashing when pulling placeholders on main thread
+# Only affects placeholderapi placeholders
+AlwaysWaitForCachePlaceholders: false
+
 # If true, permissions will be handled differently
 MultiplePermissionsCheck: false
 
