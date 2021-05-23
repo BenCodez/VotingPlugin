@@ -413,6 +413,18 @@ public class VotingPluginBungee extends Plugin {
 		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
 				() -> "" + getConfig().getSendVotesToAllServers()));
 
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
+
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("bungeemanagetotals",
+				() -> "" + getConfig().getBungeeManageTotals()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
+
 		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
 	}
 
