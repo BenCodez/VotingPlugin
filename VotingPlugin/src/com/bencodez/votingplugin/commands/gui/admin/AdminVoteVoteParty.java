@@ -121,8 +121,8 @@ public class AdminVoteVoteParty extends GUIHandler {
 			}
 		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("GiveOnlinePlayers",
-				plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayers()) {
+		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("GiveOnlinePlayersOnly",
+				plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {

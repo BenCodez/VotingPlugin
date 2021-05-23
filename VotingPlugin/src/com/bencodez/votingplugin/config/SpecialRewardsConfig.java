@@ -44,9 +44,9 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
 
-	@ConfigDataBoolean(path = "VoteParty.GiveOnlinePlayers")
+	@ConfigDataBoolean(path = "VoteParty.GiveOnlinePlayersOnly")
 	@Getter
-	private boolean votePartyGiveOnlinePlayers = false;
+	private boolean votePartyGiveOnlinePlayersOnly = false;
 
 	@ConfigDataBoolean(path = "VoteParty.ResetCount")
 	@Getter
