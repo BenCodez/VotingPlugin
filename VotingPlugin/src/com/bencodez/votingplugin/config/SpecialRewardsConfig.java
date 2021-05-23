@@ -40,10 +40,6 @@ public class SpecialRewardsConfig extends YMLFile {
 	/** The plugin. */
 	private VotingPluginMain plugin;
 
-	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
-	@Getter
-	private boolean votePartyResetExtraVotesMonthly = false;
-
 	@ConfigDataBoolean(path = "VoteParty.GiveOnlinePlayersOnly")
 	@Getter
 	private boolean votePartyGiveOnlinePlayersOnly = false;
@@ -51,6 +47,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "VoteParty.ResetCount")
 	@Getter
 	private boolean votePartyResetCount = true;
+
+	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
+	@Getter
+	private boolean votePartyResetExtraVotesMonthly = false;
 
 	@Getter
 	private String votePartyRewardsPath = "VoteParty.Rewards";
@@ -251,12 +251,12 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
 	}
 
-	public boolean getVotePartyResetEachDay() {
-		return getData().getBoolean("VoteParty.ResetEachDay");
-	}
-
 	public boolean getVotePartyOnlyOncePerDay() {
 		return getData().getBoolean("VoteParty.OnlyOncePerDay");
+	}
+
+	public boolean getVotePartyResetEachDay() {
+		return getData().getBoolean("VoteParty.ResetEachDay");
 	}
 
 	public boolean getVotePartyResetMontly() {
@@ -327,9 +327,8 @@ public class SpecialRewardsConfig extends YMLFile {
 		plugin.saveResource("SpecialRewards.yml", true);
 	}
 
-	public void setMilestone(int intValue) {
-		getData().set("Milestones." + intValue + ".Enabled", true);
-		getData().set("Milestones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
+	public void removeCumulative(String votes) {
+		getData().set("Cumulative." + votes, null);
 		saveData();
 	}
 
@@ -338,16 +337,17 @@ public class SpecialRewardsConfig extends YMLFile {
 		saveData();
 	}
 
-	public void removeCumulative(String votes) {
-		getData().set("Cumulative." + votes, null);
-		saveData();
-	}
-
 	public void setCumulative(int intValue) {
 		getData().set("Cumulative." + intValue + ".Enabled", true);
 		getData().set("Cumulative." + intValue + ".TotalToUse", "AllTime");
 		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player",
 				"&aYou got %cumulative% cumulative votes!");
+		saveData();
+	}
+
+	public void setMilestone(int intValue) {
+		getData().set("Milestones." + intValue + ".Enabled", true);
+		getData().set("Milestones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
 		saveData();
 	}
 }

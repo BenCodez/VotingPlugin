@@ -61,14 +61,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	@Deprecated
-	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, String playerName) {
-		super(plugin, uuid, playerName);
+	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, boolean loadName) {
+		super(plugin, uuid, loadName);
 		this.plugin = plugin;
 	}
 
 	@Deprecated
-	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, boolean loadName) {
-		super(plugin, uuid, loadName);
+	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, String playerName) {
+		super(plugin, uuid, playerName);
 		this.plugin = plugin;
 	}
 
@@ -244,22 +244,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return false;
 	}
 
-	public int getGottenAllSitesDay() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), 0, true);
-		} else {
-			return getData().getInt("AllSitesLast", 0, true);
-		}
-	}
-
-	public void setGottenAllSitesDay(int day) {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), day);
-		} else {
-			getData().setInt("AllSitesLast", day);
-		}
-	}
-
 	/**
 	 * Can vote site.
 	 *
@@ -411,6 +395,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getUserData().getBoolean("DisableBroadcast");
 	}
 
+	public int getGottenAllSitesDay() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), 0, true);
+		} else {
+			return getData().getInt("AllSitesLast", 0, true);
+		}
+	}
+
 	public HashMap<String, Boolean> getHasGottenMilestone() {
 		HashMap<String, Boolean> hasGottenMilestone = new HashMap<String, Boolean>();
 		ArrayList<String> milestoneList = getUserData().getStringList("GottenMileStones");
@@ -532,6 +524,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getPoints() {
 		return getUserData().getInt(getPointsPath(), isWaitForCache());
+	}
+
+	public String getPointsPath() {
+		if (plugin.getBungeeSettings().isPerServerPoints()) {
+			return plugin.getBungeeSettings().getServer() + "_Points";
+		} else {
+			return "Points";
+		}
 	}
 
 	public java.util.UUID getPrimaryAccount() {
@@ -819,6 +819,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setBoolean("DisableBroadcast", value);
 	}
 
+	public void setGottenAllSitesDay(int day) {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), day);
+		} else {
+			getData().setInt("AllSitesLast", day);
+		}
+	}
+
 	public void setHasGotteMilestone(int votesRequired, boolean b) {
 		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
 		hasGottenMilestone.put("" + votesRequired, b);
@@ -896,14 +904,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setOfflineVotes(ArrayList<String> offlineVotes) {
 		getUserData().setStringList("OfflineVotes", offlineVotes);
-	}
-
-	public String getPointsPath() {
-		if (plugin.getBungeeSettings().isPerServerPoints()) {
-			return plugin.getBungeeSettings().getServer() + "_Points";
-		} else {
-			return "Points";
-		}
 	}
 
 	/**
@@ -1085,6 +1085,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return plugin.getConfigFile().getFormatCommandsVoteLastNeverVoted();
 	}
 
+	public String voteCommandLastGUILine(VoteSite voteSite) {
+		String timeString = voteCommandLastDate(voteSite);
+		String timeSince = voteCommandLastDuration(voteSite);
+
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("time", timeString);
+		placeholders.put("SiteName", voteSite.getDisplayName());
+		placeholders.put("timesince", timeSince);
+
+		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteLastLine(), placeholders);
+	}
+
 	public String voteCommandLastLine(VoteSite voteSite) {
 		String timeString = voteCommandLastDate(voteSite);
 		String timeSince = voteCommandLastDuration(voteSite);
@@ -1095,19 +1107,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		placeholders.put("timesince", timeSince);
 
 		return StringParser.getInstance().replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),
-				placeholders);
-	}
-	
-	public String voteCommandLastGUILine(VoteSite voteSite) {
-		String timeString = voteCommandLastDate(voteSite);
-		String timeSince = voteCommandLastDuration(voteSite);
-
-		HashMap<String, String> placeholders = new HashMap<String, String>();
-		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayName());
-		placeholders.put("timesince", timeSince);
-
-		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteLastLine(),
 				placeholders);
 	}
 

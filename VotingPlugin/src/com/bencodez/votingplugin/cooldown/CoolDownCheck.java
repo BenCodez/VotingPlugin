@@ -32,10 +32,6 @@ public class CoolDownCheck implements Listener {
 		this.plugin = plugin;
 	}
 
-	public void load() {
-		checkAll();
-	}
-
 	public void checkAll() {
 		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
 				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
@@ -70,6 +66,10 @@ public class CoolDownCheck implements Listener {
 			plugin.debug("Not enabling cooldown check reward");
 		}
 
+	}
+
+	public void load() {
+		checkAll();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

@@ -107,6 +107,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
 
 	@Getter
+	private BroadcastHandler broadcastHandler;
+
+	@Getter
 	private BungeeHandler bungeeHandler;
 
 	@Getter
@@ -198,6 +201,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
+
+	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
+		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
+	}
 
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
@@ -466,6 +473,434 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 		return false;
+	}
+
+	public void loadDirectlyDefined() {
+		RewardHandler.getInstance().getDirectlyDefinedRewards().clear();
+		// AllSites reward
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("AllSites") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		// FirstVote
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVote") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
+
+			@Override
+			public void createSection(String key) {
+				getConfigFile().saveData();
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getConfigFile().getData();
+			}
+
+			@Override
+			public void save() {
+				getConfigFile().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getConfigFile().setValue(path, value);
+			}
+		});
+
+		// vote cooldown ended
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteCoolDownEndedReward") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		// any site rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("AnySiteRewards") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("EverySiteReward") {
+
+			@Override
+			public void createSection(String key) {
+				getConfigVoteSites().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getConfigVoteSites().getData();
+			}
+
+			@Override
+			public void save() {
+				getConfigVoteSites().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getConfigVoteSites().setValue(path, value);
+			}
+		});
+
+		// login rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("LoginRewards") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		// logout rewards
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("LogoutRewards") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		// VoteParty
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteParty.Rewards") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
+		// Cumulative rewards
+		for (String num : getSpecialRewardsConfig().getCumulativeVotes()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("Cumulative." + num + ".Rewards") {
+
+				@Override
+				public void createSection(String key) {
+					getSpecialRewardsConfig().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getSpecialRewardsConfig().getData();
+				}
+
+				@Override
+				public void save() {
+					getSpecialRewardsConfig().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					getSpecialRewardsConfig().setValue(path, value);
+				}
+			});
+		}
+
+		// Milestones rewards
+		for (String num : getSpecialRewardsConfig().getMilestoneVotes()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("MileStones." + num + ".Rewards") {
+
+				@Override
+				public void createSection(String key) {
+					getSpecialRewardsConfig().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getSpecialRewardsConfig().getData();
+				}
+
+				@Override
+				public void save() {
+					getSpecialRewardsConfig().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					getSpecialRewardsConfig().setValue(path, value);
+				}
+			});
+		}
+
+		// VoteSites
+		for (VoteSite site : plugin.getVoteSites()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".Rewards") {
+
+				@Override
+				public void createSection(String key) {
+					getConfigVoteSites().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getConfigVoteSites().getData();
+				}
+
+				@Override
+				public void save() {
+					getConfigVoteSites().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					getConfigVoteSites().setValue(path, value);
+				}
+			});
+		}
+
+		// vote streaks
+		String[] types = new String[] { "Day", "Week", "Month" };
+		for (String type : types) {
+			for (String str : plugin.getSpecialRewardsConfig().getVoteStreakVotes(type)) {
+				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreak." + type + "." + str + ".Rewards") {
+
+					@Override
+					public void createSection(String key) {
+						getSpecialRewardsConfig().createSection(key);
+					}
+
+					@Override
+					public ConfigurationSection getFileData() {
+						return getSpecialRewardsConfig().getData();
+					}
+
+					@Override
+					public void save() {
+						getSpecialRewardsConfig().saveData();
+					}
+
+					@Override
+					public void setData(String path, Object value) {
+						getSpecialRewardsConfig().setValue(path, value);
+					}
+				});
+			}
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getMonthlyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)) {
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+					});
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getWeeklyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)) {
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+					});
+		}
+
+		for (String path : plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()) {
+			addDirectlyDefinedRewards(
+					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)) {
+
+						@Override
+						public void createSection(String key) {
+							getSpecialRewardsConfig().createSection(key);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return getSpecialRewardsConfig().getData();
+						}
+
+						@Override
+						public void save() {
+							getSpecialRewardsConfig().saveData();
+						}
+
+						@Override
+						public void setData(String path, Object value) {
+							getSpecialRewardsConfig().setValue(path, value);
+						}
+					});
+		}
+
+		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("CHEST.Shop." + identifier + ".Rewards") {
+
+				@Override
+				public void createSection(String key) {
+					getGui().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getGui().getData();
+				}
+
+				@Override
+				public void save() {
+					getGui().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					getGui().setValue(path, value);
+				}
+			});
+		}
+
 	}
 
 	private void loadTimer() {
@@ -764,441 +1199,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}, 30l);
 		}
 
-	}
-
-	@Getter
-	private BroadcastHandler broadcastHandler;
-
-	public void loadDirectlyDefined() {
-		RewardHandler.getInstance().getDirectlyDefinedRewards().clear();
-		// AllSites reward
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("AllSites") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		// FirstVote
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVote") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getConfigFile().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getConfigFile().getData();
-			}
-
-			@Override
-			public void save() {
-				getConfigFile().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getConfigFile().saveData();
-			}
-		});
-
-		// vote cooldown ended
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteCoolDownEndedReward") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		// any site rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("AnySiteRewards") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("EverySiteReward") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getConfigVoteSites().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getConfigVoteSites().getData();
-			}
-
-			@Override
-			public void save() {
-				getConfigVoteSites().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getConfigVoteSites().createSection(key);
-			}
-		});
-
-		// login rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("LoginRewards") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		// logout rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("LogoutRewards") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		// VoteParty
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteParty.Rewards") {
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-		});
-
-		// Cumulative rewards
-		for (String num : getSpecialRewardsConfig().getCumulativeVotes()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("Cumulative." + num + ".Rewards") {
-
-				@Override
-				public void setData(String path, Object value) {
-					getSpecialRewardsConfig().setValue(path, value);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getSpecialRewardsConfig().getData();
-				}
-
-				@Override
-				public void save() {
-					getSpecialRewardsConfig().saveData();
-				}
-
-				@Override
-				public void createSection(String key) {
-					getSpecialRewardsConfig().createSection(key);
-				}
-			});
-		}
-
-		// Milestones rewards
-		for (String num : getSpecialRewardsConfig().getMilestoneVotes()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("MileStones." + num + ".Rewards") {
-
-				@Override
-				public void setData(String path, Object value) {
-					getSpecialRewardsConfig().setValue(path, value);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getSpecialRewardsConfig().getData();
-				}
-
-				@Override
-				public void save() {
-					getSpecialRewardsConfig().saveData();
-				}
-
-				@Override
-				public void createSection(String key) {
-					getSpecialRewardsConfig().createSection(key);
-				}
-			});
-		}
-
-		// VoteSites
-		for (VoteSite site : plugin.getVoteSites()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".Rewards") {
-
-				@Override
-				public void setData(String path, Object value) {
-					getConfigVoteSites().setValue(path, value);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getConfigVoteSites().getData();
-				}
-
-				@Override
-				public void save() {
-					getConfigVoteSites().saveData();
-				}
-
-				@Override
-				public void createSection(String key) {
-					getConfigVoteSites().createSection(key);
-				}
-			});
-		}
-
-		// vote streaks
-		String[] types = new String[] { "Day", "Week", "Month" };
-		for (String type : types) {
-			for (String str : plugin.getSpecialRewardsConfig().getVoteStreakVotes(type)) {
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreak." + type + "." + str + ".Rewards") {
-
-					@Override
-					public void setData(String path, Object value) {
-						getSpecialRewardsConfig().setValue(path, value);
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getSpecialRewardsConfig().getData();
-					}
-
-					@Override
-					public void save() {
-						getSpecialRewardsConfig().saveData();
-					}
-
-					@Override
-					public void createSection(String key) {
-						getSpecialRewardsConfig().createSection(key);
-					}
-				});
-			}
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getMonthlyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)) {
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-					});
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getWeeklyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)) {
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-					});
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)) {
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-					});
-		}
-
-		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("CHEST.Shop." + identifier + ".Rewards") {
-
-				@Override
-				public void setData(String path, Object value) {
-					getGui().setValue(path, value);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getGui().getData();
-				}
-
-				@Override
-				public void save() {
-					getGui().saveData();
-				}
-
-				@Override
-				public void createSection(String key) {
-					getGui().createSection(key);
-				}
-			});
-		}
-
-	}
-
-	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
-		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
 	}
 
 	/*

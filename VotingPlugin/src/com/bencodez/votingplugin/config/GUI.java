@@ -144,14 +144,25 @@ public class GUI extends YMLFile {
 
 	private VotingPluginMain plugin;
 
-	public String getCHESTVoteShopPurchase(String identifier) {
-		return getData().getString("CHEST.Shop." + identifier + ".PurchaseMessage",
-				plugin.getConfigFile().getFormatShopPurchaseMsg());
-	}
-
 	public GUI(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
 		this.plugin = plugin;
+	}
+
+	public void createShop(String value) {
+		ConfigurationSection shopData = getData().createSection("CHEST.Shop." + value);
+		shopData.set("Identifier_Name", value);
+		shopData.set("Material", "STONE");
+		shopData.set("Amount", 1);
+		shopData.set("Name", "&cPlaceholder item");
+		shopData.set("Cost", 1);
+		shopData.set("Permission", "");
+		shopData.set("CloseGUI", true);
+		shopData.set("RequireConfirmation", false);
+
+		shopData.set("Rewards.Items.Item1.Material", "STONE");
+		shopData.set("Rewards.Items.Item1.Amount", 1);
+		saveData();
 	}
 
 	public ConfigurationSection getCHESTBackButton() {
@@ -218,10 +229,6 @@ public class GUI extends YMLFile {
 		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
 	}
 
-	public String getChestVoteGUISlotRewardsPath(String slot) {
-		return "CHEST.VoteGUI." + slot + ".Rewards";
-	}
-
 	/**
 	 * Gets the vote GUI slot lore.
 	 *
@@ -231,6 +238,10 @@ public class GUI extends YMLFile {
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
 		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
+	}
+
+	public String getChestVoteGUISlotRewardsPath(String slot) {
+		return "CHEST.VoteGUI." + slot + ".Rewards";
 	}
 
 	/**
@@ -264,12 +275,12 @@ public class GUI extends YMLFile {
 		return getData().getBoolean("CHEST.VoteLast.BackButton");
 	}
 
-	public String getChestVoteLastName() {
-		return getData().getString("CHEST.VoteLast.Name", "VoteLast: %player%");
-	}
-	
 	public String getChestVoteLastLine() {
 		return getData().getString("CHEST.VoteLast.Line", "&6%timeSince%");
+	}
+
+	public String getChestVoteLastName() {
+		return getData().getString("CHEST.VoteLast.Name", "VoteLast: %player%");
 	}
 
 	public boolean getChestVoteNextBackButton() {
@@ -306,6 +317,11 @@ public class GUI extends YMLFile {
 
 	public String getChestVoteShopPermission(String ident) {
 		return getData().getString("CHEST.Shop." + ident + ".Permission", "");
+	}
+
+	public String getCHESTVoteShopPurchase(String identifier) {
+		return getData().getString("CHEST.Shop." + identifier + ".PurchaseMessage",
+				plugin.getConfigFile().getFormatShopPurchaseMsg());
 	}
 
 	public boolean getChestVoteShopResetDaily(String shop) {
@@ -372,12 +388,12 @@ public class GUI extends YMLFile {
 		return getData().getString("CHEST.VoteTop.Item.Name", "&3&l%position%: &3%player%");
 	}
 
-	public boolean getChestVoteTopOpenMainGUIOnClick() {
-		return getData().getBoolean("CHEST.VoteTop.OpenMainGUIOnClick", true);
-	}
-
 	public String getChestVoteTopName() {
 		return getData().getString("CHEST.VoteTop.Name", "VoteTop %topvoter%");
+	}
+
+	public boolean getChestVoteTopOpenMainGUIOnClick() {
+		return getData().getBoolean("CHEST.VoteTop.OpenMainGUIOnClick", true);
 	}
 
 	public int getChestVoteTopSize() {
@@ -428,6 +444,14 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteTotal.WeekTotal.Item");
 	}
 
+	public int getChestVoteURLAllUrlsButtonSlot() {
+		return getData().getInt("CHEST.VoteURL.AllUrlsButton.Slot", -1);
+	}
+
+	public int getChestVoteURLAllUrlsButtonStartSlot() {
+		return getData().getInt("CHEST.VoteURL.StartSlot", -1);
+	}
+
 	public ConfigurationSection getChestVoteURLAlreadyVotedAllUrlsButtonItemSection() {
 		if (getData().isConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
 			return getData().getConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem");
@@ -438,25 +462,6 @@ public class GUI extends YMLFile {
 
 	public ConfigurationSection getChestVoteURLAlreadyVotedItemSection() {
 		return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
-	}
-
-	public int getChestVoteURLAllUrlsButtonSlot() {
-		return getData().getInt("CHEST.VoteURL.AllUrlsButton.Slot", -1);
-	}
-
-	public int getChestVoteURLAllUrlsButtonStartSlot() {
-		return getData().getInt("CHEST.VoteURL.StartSlot", -1);
-	}
-
-	public Set<String> getChestVoteURLExtraItems() {
-		if (getData().isConfigurationSection("CHEST.VoteURL.ExtraItems")) {
-			return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems").getKeys(false);
-		}
-		return new HashSet<String>();
-	}
-
-	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
-		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
 	}
 
 	public boolean getChestVoteURLBackButton() {
@@ -473,6 +478,17 @@ public class GUI extends YMLFile {
 
 	public ConfigurationSection getChestVoteURLCanVoteItemSection() {
 		return getData().getConfigurationSection("CHEST.VoteURL.CanVoteItem");
+	}
+
+	public Set<String> getChestVoteURLExtraItems() {
+		if (getData().isConfigurationSection("CHEST.VoteURL.ExtraItems")) {
+			return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems").getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
+	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
+		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
 	}
 
 	/**
@@ -528,6 +544,11 @@ public class GUI extends YMLFile {
 		return getData().getBoolean("CHEST.VoteURL.ViewAllUrlsButtonEnabled");
 	}
 
+	public boolean isChestVoteShopRequireConfirmation(String identifier) {
+		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",
+				isChestVoteShopRequireConfirmation());
+	}
+
 	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
@@ -536,27 +557,6 @@ public class GUI extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("GUI.yml", true);
-	}
-
-	public boolean isChestVoteShopRequireConfirmation(String identifier) {
-		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",
-				isChestVoteShopRequireConfirmation());
-	}
-
-	public void createShop(String value) {
-		ConfigurationSection shopData = getData().createSection("CHEST.Shop." + value);
-		shopData.set("Identifier_Name", value);
-		shopData.set("Material", "STONE");
-		shopData.set("Amount", 1);
-		shopData.set("Name", "&cPlaceholder item");
-		shopData.set("Cost", 1);
-		shopData.set("Permission", "");
-		shopData.set("CloseGUI", true);
-		shopData.set("RequireConfirmation", false);
-
-		shopData.set("Rewards.Items.Item1.Material", "STONE");
-		shopData.set("Rewards.Items.Item1.Amount", 1);
-		saveData();
 	}
 
 	public void removeShop(String value) {

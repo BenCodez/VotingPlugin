@@ -29,18 +29,6 @@ public class NonVotedPlayersCache {
 		getData().set("NonVotedPlayers." + playerName + ".LastTime", System.currentTimeMillis());
 	}
 
-	public String playerExists(String playerName) {
-		if (getData().getSection("NonVotedPlayers").getKeys().contains(playerName)) {
-			return getData().getString("NonVotedPlayers." + playerName + ".UUID", "");
-		}
-		return "";
-	}
-
-	private void remove(String player) {
-		bungee.debug("Removing nonvotedplayer: " + player);
-		getData().set("NonVotedPlayers." + player, null);
-	}
-
 	public void check() {
 		for (String player : getData().getSection("NonVotedPlayers").getKeys()) {
 			long time = getData().getLong("NonVotedPlayers." + player + ".LastTime", 0);
@@ -80,6 +68,18 @@ public class NonVotedPlayersCache {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public String playerExists(String playerName) {
+		if (getData().getSection("NonVotedPlayers").getKeys().contains(playerName)) {
+			return getData().getString("NonVotedPlayers." + playerName + ".UUID", "");
+		}
+		return "";
+	}
+
+	private void remove(String player) {
+		bungee.debug("Removing nonvotedplayer: " + player);
+		getData().set("NonVotedPlayers." + player, null);
 	}
 
 	public void save() {

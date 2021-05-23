@@ -71,7 +71,9 @@ public class AdminVoteMilestones extends GUIHandler {
 										RewardHandler.getInstance()
 												.getDirectlyDefined("MileStones." + value.intValue() + ".Rewards"));
 							}
-						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY).request(clickEvent.getPlayer());;
+						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
+								.request(clickEvent.getPlayer());
+						;
 					}
 				});
 

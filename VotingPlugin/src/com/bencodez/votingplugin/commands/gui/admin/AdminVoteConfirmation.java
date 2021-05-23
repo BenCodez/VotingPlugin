@@ -40,10 +40,6 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 
 	}
 
-	public abstract void onConfirm(Player p);
-
-	public abstract void onDeny(Player p);
-
 	@Override
 	public void onChest(Player player) {
 		BInventory inv = new BInventory(title);
@@ -63,6 +59,10 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 		});
 		inv.openInventory(player);
 	}
+
+	public abstract void onConfirm(Player p);
+
+	public abstract void onDeny(Player p);
 
 	@Override
 	public void open() {

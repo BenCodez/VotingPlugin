@@ -25,14 +25,6 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean bungeeDebug = false;
 
-	@ConfigDataBoolean(path = "VotifierBypass")
-	@Getter
-	private boolean votifierBypass = false;
-
-	@ConfigDataBoolean(path = "TriggerVotifierEvent")
-	@Getter
-	private boolean triggerVotifierEvent = false;
-
 	@ConfigDataString(path = "BungeeMethod")
 	@Getter
 	private String bungeeMethod = "PLUGINMESSAGING";
@@ -45,17 +37,17 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private int bungeeServerPort = 1297;
 
-	@ConfigDataBoolean(path = "RemoveInvalidUsers")
+	@ConfigDataBoolean(path = "PerServerPoints")
 	@Getter
-	private boolean removeInvalidUsers = false;
+	private boolean perServerPoints = false;
 
 	@ConfigDataBoolean(path = "PerServerRewards")
 	@Getter
 	private boolean perServerRewards = false;
 
-	@ConfigDataBoolean(path = "PerServerPoints")
+	@ConfigDataBoolean(path = "RemoveInvalidUsers")
 	@Getter
-	private boolean perServerPoints = false;
+	private boolean removeInvalidUsers = false;
 
 	@ConfigDataString(path = "Server")
 	@Getter
@@ -69,9 +61,17 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private int spigotServerPort = 1298;
 
+	@ConfigDataBoolean(path = "TriggerVotifierEvent")
+	@Getter
+	private boolean triggerVotifierEvent = false;
+
 	@ConfigDataBoolean(path = "UseBungeecord", secondPath = "UseBungeecoord")
 	@Getter
 	private boolean useBungeecoord = false;
+
+	@ConfigDataBoolean(path = "VotifierBypass")
+	@Getter
+	private boolean votifierBypass = false;
 
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));

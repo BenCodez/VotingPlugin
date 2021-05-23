@@ -40,7 +40,7 @@ public class AdminVoteVoteShopItems extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Edit VoteShop Items");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
-		
+
 		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
 			inv.addButton(
 					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier))) {

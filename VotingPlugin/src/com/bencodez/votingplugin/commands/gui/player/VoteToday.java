@@ -54,11 +54,11 @@ public class VoteToday extends GUIHandler {
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("page", "" + page);
 		placeholders.put("maxpage", "" + maxPage);
-		
+
 		for (String m : plugin.getConfigFile().getFormatCommandsVoteTodayTitle()) {
 			msg.add(m);
 		}
-		
+
 		page--;
 
 		for (int i = pagesize * page; (i < voteToday.length) && (i < ((page + 1) * pagesize)); i++) {

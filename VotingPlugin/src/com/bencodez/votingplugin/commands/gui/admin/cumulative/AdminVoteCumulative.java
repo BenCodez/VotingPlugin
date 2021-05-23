@@ -48,30 +48,34 @@ public class AdminVoteCumulative extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Edit Cumulative");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.Cumulative");
-		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&cEdit existing cumulative rewards")) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				ArrayList<Integer> nums = new ArrayList<Integer>();
-				for (String num : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
-					if (StringParser.getInstance().isInt(num)) {
-						nums.add(Integer.parseInt(num));
-					}
-				}
-				Number[] options = new Number[nums.size()];
-				for (int i = 0; i < nums.size(); i++) {
-					options[i] = nums.get(i);
-				}
-				new ValueRequestBuilder(new NumberListener() {
+		inv.addButton(
+				new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&cEdit existing cumulative rewards")) {
 
 					@Override
-					public void onInput(Player player, Number value) {
-						RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-								RewardHandler.getInstance().getDirectlyDefined("Cumulative." + value.intValue() + ".Rewards"));
+					public void onClick(ClickEvent clickEvent) {
+						ArrayList<Integer> nums = new ArrayList<Integer>();
+						for (String num : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
+							if (StringParser.getInstance().isInt(num)) {
+								nums.add(Integer.parseInt(num));
+							}
+						}
+						Number[] options = new Number[nums.size()];
+						for (int i = 0; i < nums.size(); i++) {
+							options[i] = nums.get(i);
+						}
+						new ValueRequestBuilder(new NumberListener() {
+
+							@Override
+							public void onInput(Player player, Number value) {
+								RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+										RewardHandler.getInstance()
+												.getDirectlyDefined("Cumulative." + value.intValue() + ".Rewards"));
+							}
+						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
+								.request(clickEvent.getPlayer());
+						;
 					}
-				}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY).request(clickEvent.getPlayer());;
-			}
-		});
+				});
 
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&aAdd cumulative reward")) {
 

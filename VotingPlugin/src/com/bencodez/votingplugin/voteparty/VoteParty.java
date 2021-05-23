@@ -189,7 +189,7 @@ public class VoteParty implements Listener {
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
-				
+
 			}
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
@@ -199,7 +199,7 @@ public class VoteParty implements Listener {
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
-				
+
 			}
 		}
 		reset(false);
@@ -213,13 +213,6 @@ public class VoteParty implements Listener {
 	}
 
 	@EventHandler
-	public void onWeekChange(WeekChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyResetWeekly()) {
-			reset(true);
-		}
-	}
-
-	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().getVotePartyResetMontly()) {
 			reset(true);
@@ -227,6 +220,13 @@ public class VoteParty implements Listener {
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
 			plugin.getServerData().setVotePartyExtraRequired(0);
+		}
+	}
+
+	@EventHandler
+	public void onWeekChange(WeekChangeEvent event) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyResetWeekly()) {
+			reset(true);
 		}
 	}
 

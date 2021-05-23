@@ -137,6 +137,14 @@ public class ServerData {
 		return getData().getInt("VotePartyExtraRequired", 0);
 	}
 
+	public boolean isLastVotePartySameDay() {
+		int num = getData().getInt("LastVoteParty", 0);
+		if (num != plugin.getTimeChecker().getTime().getDayOfYear()) {
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Next sign number.
 	 *
@@ -233,23 +241,15 @@ public class ServerData {
 		saveData();
 	}
 
+	public void updateLastVoteParty() {
+		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
+		saveData();
+	}
+
 	/**
 	 * Update values.
 	 */
 	public void updateValues() {
 		setVersion();
-	}
-
-	public boolean isLastVotePartySameDay() {
-		int num = getData().getInt("LastVoteParty", 0);
-		if (num != plugin.getTimeChecker().getTime().getDayOfYear()) {
-			return true;
-		}
-		return false;
-	}
-
-	public void updateLastVoteParty() {
-		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
-		saveData();
 	}
 }

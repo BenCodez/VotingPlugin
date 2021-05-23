@@ -144,14 +144,6 @@ public class ConfigVoteSites extends YMLFile {
 	public boolean getVoteSiteEnabled(String siteName) {
 		return getData(siteName).getBoolean("Enabled");
 	}
-	
-	public boolean getVoteSiteHidden(String siteName) {
-		return getData(siteName).getBoolean("Hidden");
-	}
-	
-	public boolean getVoteSiteIgnoreCanVote(String siteName) {
-		return getData(siteName).getBoolean("IgnoreCanVote");
-	}
 
 	/**
 	 * Gets the vote site file.
@@ -176,6 +168,14 @@ public class ConfigVoteSites extends YMLFile {
 
 	public boolean getVoteSiteGiveOffline(String site) {
 		return getData(site).getBoolean("ForceOffline", getData(site).getBoolean("GiveOffline"));
+	}
+
+	public boolean getVoteSiteHidden(String siteName) {
+		return getData(siteName).getBoolean("Hidden");
+	}
+
+	public boolean getVoteSiteIgnoreCanVote(String siteName) {
+		return getData(siteName).getBoolean("IgnoreCanVote");
 	}
 
 	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {

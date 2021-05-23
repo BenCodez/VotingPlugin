@@ -21,6 +21,10 @@ public class Config {
 		this.bungee = bungee;
 	}
 
+	public boolean getAllowUnJoined() {
+		return getData().getBoolean("AllowUnJoined", false);
+	}
+
 	public List<String> getBlockedServers() {
 		return getData().getStringList("BlockedServers");
 	}
@@ -29,24 +33,12 @@ public class Config {
 		return getData().getBoolean("Broadcast", false);
 	}
 
-	public boolean getWaitForUserOnline() {
-		return getData().getBoolean("WaitForUserOnline", false);
-	}
-	
-	public int getPointsOnVote() {
-		return getData().getInt("PointsOnVote", 1);
+	public String getBungeeHost() {
+		return getData().getString("BungeeServer.Host", "");
 	}
 
 	public boolean getBungeeManageTotals() {
 		return getData().getBoolean("BungeeManageTotals", true);
-	}
-
-	public boolean getAllowUnJoined() {
-		return getData().getBoolean("AllowUnJoined", false);
-	}
-
-	public String getBungeeHost() {
-		return getData().getString("BungeeServer.Host", "");
 	}
 
 	public String getBungeeMethod() {
@@ -65,6 +57,10 @@ public class Config {
 		return getData().getString("FallBackServer", "");
 	}
 
+	public int getPointsOnVote() {
+		return getData().getInt("PointsOnVote", 1);
+	}
+
 	public boolean getSendVotesToAllServers() {
 		return getData().getBoolean("SendVotesToAllServers");
 	}
@@ -75,6 +71,10 @@ public class Config {
 
 	public Collection<String> getSpigotServers() {
 		return getData().getSection("SpigotServers").getKeys();
+	}
+
+	public boolean getWaitForUserOnline() {
+		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
 	public void load() {

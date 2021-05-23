@@ -15,32 +15,13 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
 
 public class BroadcastHandler {
-	ConcurrentLinkedQueue<String> votedPlayers = new ConcurrentLinkedQueue<String>();
-	private Timer timer;
 	private VotingPluginMain plugin;
+	private Timer timer;
+	ConcurrentLinkedQueue<String> votedPlayers = new ConcurrentLinkedQueue<String>();
 
 	public BroadcastHandler(VotingPluginMain plugin, int delay) {
 		this.plugin = plugin;
 		schelude(delay);
-	}
-
-	public void schelude(int delay) {
-		if (timer != null) {
-			timer.cancel();
-		} else {
-			timer = new Timer();
-		}
-		timer.schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-				check();
-			}
-		}, 1000 * 60, 1000 * 60 * delay);
-	}
-
-	public void onVote(String player) {
-		votedPlayers.add(player);
 	}
 
 	public void check() {
@@ -63,5 +44,24 @@ public class BroadcastHandler {
 
 			MiscUtils.getInstance().broadcast(bc, players);
 		}
+	}
+
+	public void onVote(String player) {
+		votedPlayers.add(player);
+	}
+
+	public void schelude(int delay) {
+		if (timer != null) {
+			timer.cancel();
+		} else {
+			timer = new Timer();
+		}
+		timer.schedule(new TimerTask() {
+
+			@Override
+			public void run() {
+				check();
+			}
+		}, 1000 * 60, 1000 * 60 * delay);
 	}
 }

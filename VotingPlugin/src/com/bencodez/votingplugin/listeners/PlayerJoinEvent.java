@@ -31,6 +31,24 @@ public class PlayerJoinEvent implements Listener {
 		PlayerJoinEvent.plugin = plugin;
 	}
 
+	private void login(Player player) {
+		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+		if (player.isOp() && plugin.isYmlError()) {
+			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
+		}
+
+		boolean data = user.getData().hasData();
+		// run remind
+		user.loginMessage();
+
+		if (data) {
+			// give offline vote (if they voted offline)
+			user.offVote();
+		}
+
+		user.loginRewards();
+	}
+
 	/**
 	 * On player login.
 	 *
@@ -56,24 +74,6 @@ public class PlayerJoinEvent implements Listener {
 			}, delay);
 		}
 
-	}
-
-	private void login(Player player) {
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-		if (player.isOp() && plugin.isYmlError()) {
-			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
-		}
-
-		boolean data = user.getData().hasData();
-		// run remind
-		user.loginMessage();
-
-		if (data) {
-			// give offline vote (if they voted offline)
-			user.offVote();
-		}
-
-		user.loginRewards();
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

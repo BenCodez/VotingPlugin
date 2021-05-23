@@ -9,8 +9,8 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUIButton;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueList;
@@ -23,8 +23,8 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 public class AdminVoteVoteShopItem extends GUIHandler {
 
-	private VotingPluginMain plugin;
 	private String identifier;
+	private VotingPluginMain plugin;
 
 	public AdminVoteVoteShopItem(VotingPluginMain plugin, CommandSender player, String identifier) {
 		super(player);
@@ -44,12 +44,6 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 	@Override
 	public void onChat(CommandSender sender) {
 
-	}
-
-	private void setPathData(String path, Object value) {
-		plugin.getGui().getData().set("CHEST.Shop." + identifier + "." + path, value);
-		plugin.getGui().saveData();
-		plugin.reload();
 	}
 
 	@Override
@@ -133,6 +127,12 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
+	}
+
+	private void setPathData(String path, Object value) {
+		plugin.getGui().getData().set("CHEST.Shop." + identifier + "." + path, value);
+		plugin.getGui().saveData();
+		plugin.reload();
 	}
 
 }

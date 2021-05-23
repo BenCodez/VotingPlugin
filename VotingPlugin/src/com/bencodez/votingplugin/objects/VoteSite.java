@@ -38,11 +38,15 @@ public class VoteSite {
 
 	@Getter
 	@Setter
+	private boolean giveOffline;
+
+	@Getter
+	@Setter
 	private boolean hidden;
 
 	@Getter
 	@Setter
-	private boolean giveOffline;
+	private boolean ignoreCanVote;
 
 	@Setter
 	private ConfigurationSection item;
@@ -83,10 +87,6 @@ public class VoteSite {
 	@Getter
 	@Setter
 	private boolean waitUntilVoteDelay;
-	
-	@Getter
-	@Setter
-	private boolean ignoreCanVote;
 
 	public VoteSite(VotingPluginMain plugin, String siteName) {
 		this.plugin = plugin;

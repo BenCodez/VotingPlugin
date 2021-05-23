@@ -61,11 +61,13 @@ public class VotingPluginBungee extends Plugin {
 	@Getter
 	private BungeeMySQL mysql;
 
+	private NonVotedPlayersCache nonVotedPlayersCache;
+
 	private SocketHandler socketHandler;
 
 	private VoteCache voteCacheFile;
 
-	private NonVotedPlayersCache nonVotedPlayersCache;
+	private boolean votifierEnabled = true;
 
 	public void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -232,8 +234,6 @@ public class VotingPluginBungee extends Plugin {
 			nonVotedPlayersCache.save();
 		}
 	}
-
-	private boolean votifierEnabled = true;
 
 	@Override
 	public void onEnable() {
@@ -417,6 +417,13 @@ public class VotingPluginBungee extends Plugin {
 	}
 
 	@EventHandler
+	public void onLogin(PostLoginEvent event) {
+		if (nonVotedPlayersCache != null) {
+			nonVotedPlayersCache.addPlayer(event.getPlayer());
+		}
+	}
+
+	@EventHandler
 	public void onPluginMessage(PluginMessageEvent ev) {
 		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
 			return;
@@ -424,8 +431,9 @@ public class VotingPluginBungee extends Plugin {
 
 		ev.setCancelled(true);
 
-		if (!(ev.getSender() instanceof Server))
+		if (!(ev.getSender() instanceof Server)) {
 			return;
+		}
 
 		ByteArrayInputStream instream = new ByteArrayInputStream(ev.getData());
 		DataInputStream in = new DataInputStream(instream);
@@ -463,13 +471,6 @@ public class VotingPluginBungee extends Plugin {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-		}
-	}
-
-	@EventHandler
-	public void onLogin(PostLoginEvent event) {
-		if (nonVotedPlayersCache != null) {
-			nonVotedPlayersCache.addPlayer(event.getPlayer());
 		}
 	}
 

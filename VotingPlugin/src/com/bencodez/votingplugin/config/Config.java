@@ -33,21 +33,9 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean addTotals = true;
 
-	@ConfigDataBoolean(path = "AlwaysWaitForCachePlaceholders")
-	@Getter
-	private boolean alwaysWaitForCachePlaceholders = false;
-
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;
-
-	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
-	@Getter
-	private boolean useVoteGUIMainCommand = false;
-
-	@ConfigDataBoolean(path = "ExtraAllSitesCheck")
-	@Getter
-	private boolean extraAllSitesCheck = false;
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
@@ -72,6 +60,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
 	private boolean alwaysUpdate = false;
+
+	@ConfigDataBoolean(path = "AlwaysWaitForCachePlaceholders")
+	@Getter
+	private boolean alwaysWaitForCachePlaceholders = false;
 
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
@@ -109,9 +101,17 @@ public class Config extends YMLFile {
 	@Getter
 	private int delayBetweenUpdates = 3;
 
+	@ConfigDataInt(path = "DelayLoginEvent")
+	@Getter
+	private int delayLoginEvent = 0;
+
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;
+
+	@ConfigDataBoolean(path = "DisableCoolDownCheck")
+	@Getter
+	private boolean disableCoolDownCheck = false;
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
@@ -121,6 +121,10 @@ public class Config extends YMLFile {
 	@Getter
 	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
 
+	@ConfigDataBoolean(path = "DisableInteractEvent")
+	@Getter
+	private boolean disableInteractEvent = false;
+
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
@@ -129,21 +133,13 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean disableUpdateChecking = false;
 
+	@ConfigDataBoolean(path = "ExtraAllSitesCheck")
+	@Getter
+	private boolean extraAllSitesCheck = false;
+
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
-
-	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
-	@Getter
-	private boolean formatCommandsVoteForceLinks = true;
-
-	@ConfigDataBoolean(path = "DisableInteractEvent")
-	@Getter
-	private boolean disableInteractEvent = false;
-
-	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted")
-	@Getter
-	private String formatCommandsVoteLastLastVoted = "%times% ago";
 
 	@ConfigDataString(path = "Format.AlternateBroadcast.Broadcast")
 	@Getter
@@ -156,6 +152,14 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Format.AlternateBroadcast.Enabled")
 	@Getter
 	private boolean formatAlternateBroadcastEnabled = false;
+
+	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
+	@Getter
+	private boolean formatCommandsVoteForceLinks = true;
+
+	@ConfigDataString(path = "Format.Commands.Vote.Last.LastVoted")
+	@Getter
+	private String formatCommandsVoteLastLastVoted = "%times% ago";
 
 	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
 	@Getter
@@ -237,10 +241,6 @@ public class Config extends YMLFile {
 	@Getter
 	private int MaxiumNumberOfTopVotersToLoad = -1;
 
-	@ConfigDataInt(path = "DelayLoginEvent")
-	@Getter
-	private int delayLoginEvent = 0;
-
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
 	private boolean overrideVersionDisable = false;
@@ -253,6 +253,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean updateWithPlayersOnlineOnly = false;
 
+	@ConfigDataBoolean(path = "UseHighestTotals")
+	@Getter
+	private boolean useHighestTotals = true;
+
 	@ConfigDataBoolean(path = "UseJavascriptPlaceholders")
 	@Getter
 	private boolean useJavascriptPlaceholders = false;
@@ -261,9 +265,13 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean usePrimaryAccountForPlaceholders = false;
 
-	@ConfigDataBoolean(path = "DisableCoolDownCheck")
+	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
 	@Getter
-	private boolean disableCoolDownCheck = false;
+	private boolean useVoteGUIMainCommand = false;
+
+	@ConfigDataBoolean(path = "UseVoteStreaks")
+	@Getter
+	private boolean useVoteStreaks = true;
 
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
@@ -680,14 +688,6 @@ public class Config extends YMLFile {
 	public boolean getLoadTopVoterAllTime() {
 		return getData().getBoolean("LoadTopVoter.AllTime", true);
 	}
-
-	@ConfigDataBoolean(path = "UseVoteStreaks")
-	@Getter
-	private boolean useVoteStreaks = true;
-
-	@ConfigDataBoolean(path = "UseHighestTotals")
-	@Getter
-	private boolean useHighestTotals = true;
 
 	public boolean getLoadTopVoterDaily() {
 		return getData().getBoolean("LoadTopVoter.Daily", false);

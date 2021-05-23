@@ -36,12 +36,6 @@ public class AdminVoteBungeeSettings extends GUIHandler {
 
 	}
 
-	private void setPathData(String path, Object value) {
-		plugin.getBungeeSettings().getData().set(path, value);
-		plugin.getBungeeSettings().saveData();
-		plugin.reload();
-	}
-
 	@Override
 	public void onChest(Player player) {
 		EditGUI inv = new EditGUI("Edit BungeeSettings");
@@ -133,6 +127,12 @@ public class AdminVoteBungeeSettings extends GUIHandler {
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
+	}
+
+	private void setPathData(String path, Object value) {
+		plugin.getBungeeSettings().getData().set(path, value);
+		plugin.getBungeeSettings().saveData();
+		plugin.reload();
 	}
 
 }

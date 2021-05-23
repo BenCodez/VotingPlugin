@@ -28,6 +28,22 @@ public enum TopVoter {
 		return new TopVoter[] { TopVoter.Daily, TopVoter.Weekly, TopVoter.Monthly };
 	}
 
+	public String getColumnName() {
+		switch (this) {
+		case AllTime:
+			return "AllTimeTotal";
+		case Daily:
+			return "DailyTotal";
+		case Monthly:
+			return "MonthTotal";
+		case Weekly:
+			return "WeeklyTotal";
+		default:
+			return null;
+
+		}
+	}
+
 	public String getName() {
 		if (this.equals(TopVoter.Monthly)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterMonthly();
@@ -90,21 +106,5 @@ public enum TopVoter {
 			}
 		}
 		return TopVoter.AllTime;
-	}
-
-	public String getColumnName() {
-		switch (this) {
-		case AllTime:
-			return "AllTimeTotal";
-		case Daily:
-			return "DailyTotal";
-		case Monthly:
-			return "MonthTotal";
-		case Weekly:
-			return "WeeklyTotal";
-		default:
-			return null;
-		
-		}
 	}
 }

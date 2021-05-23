@@ -51,17 +51,18 @@ public class AdminVoteCumulativeRemove extends GUIHandler {
 					new AdminVoteConfirmation(plugin, clickEvent.getPlayer(), "Remove cumulative " + votes + "?") {
 
 						@Override
-						public void onDeny(Player p) {
-							new AdminVoteCumulative(plugin, p);
-						}
-
-						@Override
 						public void onConfirm(Player p) {
 							plugin.getSpecialRewardsConfig().removeCumulative(votes);
 							p.sendMessage("Removed cumulative " + votes);
 							plugin.reload();
 						}
-					}.open();;
+
+						@Override
+						public void onDeny(Player p) {
+							new AdminVoteCumulative(plugin, p);
+						}
+					}.open();
+					;
 
 				}
 			});

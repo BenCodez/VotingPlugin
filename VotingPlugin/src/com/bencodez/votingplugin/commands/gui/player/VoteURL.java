@@ -13,8 +13,8 @@ import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.MessageBuilder;
@@ -115,17 +115,17 @@ public class VoteURL extends GUIHandler {
 
 	private ItemBuilder getItemVoteSite(VoteSite voteSite) {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteURLAlreadyVotedItemSection());
-		
+
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
-			builder.setName(plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
+			builder.setName(
+					plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
 		} else {
 			builder.setName(plugin.getGui().getChestVoteURLGUISiteName().replace("%Name%", voteSite.getDisplayName()));
 			builder.addLoreLine(
 					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
 
-		
 		return builder;
 	}
 

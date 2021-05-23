@@ -12,15 +12,25 @@ public class BungeeMessageData {
 	@Getter
 	private int allTimeTotal = 0;
 	@Getter
-	private int monthTotal = 0;
-	@Getter
-	private int weeklyTotal = 0;
-	@Getter
 	private int dailyTotal = 0;
+	@Getter
+	private int milestoneCount = 0;
+	@Getter
+	private int monthTotal = 0;
 	@Getter
 	private int points = 0;
 	@Getter
-	private int milestoneCount = 0;
+	private int weeklyTotal = 0;
+
+	public BungeeMessageData(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
+			int milestoneCount) {
+		this.allTimeTotal = allTimeTotal;
+		this.monthTotal = monthTotal;
+		this.weeklyTotal = weeklyTotal;
+		this.dailyTotal = dailyTotal;
+		this.points = points;
+		this.milestoneCount = milestoneCount;
+	}
 
 	public BungeeMessageData(String str) {
 		String[] data = str.split(Pattern.quote("//"));
@@ -38,16 +48,6 @@ public class BungeeMessageData {
 	public String toString() {
 		return allTimeTotal + "//" + monthTotal + "//" + weeklyTotal + "//" + dailyTotal + "//" + points + "//"
 				+ milestoneCount;
-	}
-
-	public BungeeMessageData(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
-			int milestoneCount) {
-		this.allTimeTotal = allTimeTotal;
-		this.monthTotal = monthTotal;
-		this.weeklyTotal = weeklyTotal;
-		this.dailyTotal = dailyTotal;
-		this.points = points;
-		this.milestoneCount = milestoneCount;
 	}
 
 }

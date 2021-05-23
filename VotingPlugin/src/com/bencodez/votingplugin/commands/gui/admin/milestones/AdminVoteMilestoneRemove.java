@@ -51,17 +51,18 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 					new AdminVoteConfirmation(plugin, clickEvent.getPlayer(), "Remove milestone " + votes + "?") {
 
 						@Override
-						public void onDeny(Player p) {
-							new AdminVoteMilestones(plugin, p);
-						}
-
-						@Override
 						public void onConfirm(Player p) {
 							plugin.getSpecialRewardsConfig().removeMilestone(votes);
 							p.sendMessage("Removed milestone " + votes);
 							plugin.reload();
 						}
-					}.open();;
+
+						@Override
+						public void onDeny(Player p) {
+							new AdminVoteMilestones(plugin, p);
+						}
+					}.open();
+					;
 
 				}
 			});

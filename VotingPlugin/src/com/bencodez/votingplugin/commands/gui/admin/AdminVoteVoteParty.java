@@ -46,12 +46,6 @@ public class AdminVoteVoteParty extends GUIHandler {
 
 	}
 
-	private void setPathData(String path, Object value) {
-		plugin.getSpecialRewardsConfig().getData().set("VoteParty." + path, value);
-		plugin.getSpecialRewardsConfig().saveData();
-		plugin.reload();
-	}
-
 	@Override
 	public void onChest(Player player) {
 		EditGUI inv = new EditGUI("Edit VoteParty");
@@ -121,8 +115,8 @@ public class AdminVoteVoteParty extends GUIHandler {
 			}
 		}));
 
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("GiveOnlinePlayersOnly",
-				plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
+		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean(
+				"GiveOnlinePlayersOnly", plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {
@@ -230,6 +224,12 @@ public class AdminVoteVoteParty extends GUIHandler {
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
+	}
+
+	private void setPathData(String path, Object value) {
+		plugin.getSpecialRewardsConfig().getData().set("VoteParty." + path, value);
+		plugin.getSpecialRewardsConfig().saveData();
+		plugin.reload();
 	}
 
 }

@@ -41,7 +41,7 @@ public class VoteHelp extends GUIHandler {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {
 				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
 						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
-			} 
+			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
 		unsortedList.addAll(unsorted.keySet());

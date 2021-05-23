@@ -121,7 +121,7 @@ public class VoteGUI extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		if (this.user == null) {
-			user = UserManager.getInstance().getVotingPluginUser((Player) player);
+			user = UserManager.getInstance().getVotingPluginUser(player);
 		}
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteGUIName());
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {

@@ -861,7 +861,7 @@ public class CommandLoader {
 
 			}
 		});
-		
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Manual vote syntax") {
 

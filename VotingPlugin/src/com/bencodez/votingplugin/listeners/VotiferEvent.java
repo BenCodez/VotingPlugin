@@ -96,9 +96,9 @@ public class VotiferEvent implements Listener {
 					plugin.getLogger().warning("VoteSite with service site '" + voteSiteName
 							+ "' does not exist, attempting to generaterate...");
 					plugin.getConfigVoteSites().generateVoteSite(voteSiteName);
-					
-					plugin.getLogger()
-							.info("Current known service sites: " + ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
+
+					plugin.getLogger().info("Current known service sites: "
+							+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
 				}
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName), voteUsername,

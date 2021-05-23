@@ -23,18 +23,18 @@ public class VotingPluginHooks {
 		RewardHandler.getInstance().addInjectedReward(inject);
 	}
 
+	public void backgroundUpdate(Player player) {
+		VotingPluginUser user = getUserManager().getVotingPluginUser(player);
+		user.offVote();
+		user.checkOfflineRewards();
+	}
+
 	public VotingPluginMain getMainClass() {
 		return VotingPluginMain.plugin;
 	}
 
 	public UserManager getUserManager() {
 		return UserManager.getInstance();
-	}
-
-	public void backgroundUpdate(Player player) {
-		VotingPluginUser user = getUserManager().getVotingPluginUser(player);
-		user.offVote();
-		user.checkOfflineRewards();
 	}
 
 }
