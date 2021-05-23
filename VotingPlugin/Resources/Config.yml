@@ -600,7 +600,7 @@ ExtraBackgroundUpdate: false
 
 # This will prevent spam clicking GUI's to prevent exploits
 # Number is time in between clicking in milliseconds
-SpamClickTime: 350
+SpamClickTime: 150
 # Message to send when inventory forced closed when spam clicking
 # Uncomment to use
 #SpamClickMessage: '&cDetected spam clicking GUI, closing to prevent exploits'
