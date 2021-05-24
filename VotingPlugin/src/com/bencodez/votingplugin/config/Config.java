@@ -349,6 +349,10 @@ public class Config extends YMLFile {
 	public String getFormatCommandsVoteHelpLine() {
 		return getData().getString("Format.Commands.Vote.Help.Line", "&6%Command% - &6%HelpMessage%");
 	}
+	
+	public String getFormatCommandsVoteHelpHoverColor() {
+		return getData().getString("Format.Commands.Vote.Help.HoverColor", "AQUA");
+	}
 
 	/**
 	 * Gets the commands vote help require permission.

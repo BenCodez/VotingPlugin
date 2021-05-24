@@ -13,6 +13,7 @@ import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.TextComponent;
 
 public class VoteHelp extends GUIHandler {
@@ -37,10 +38,19 @@ public class VoteHelp extends GUIHandler {
 
 		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
 
+		String colorStr = plugin.getConfigFile().getFormatCommandsVoteHelpHoverColor();
+		ChatColor hoverColor = null;
+		try {
+			hoverColor = ChatColor.of(colorStr);
+		} catch (Exception e) {
+			plugin.getLogger().warning("Failed to get color for hover help message");
+			e.printStackTrace();
+			hoverColor = ChatColor.AQUA;
+		}
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
-						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote",
+						plugin.getConfigFile().getFormatCommandsVoteHelpLine(), hoverColor));
 			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<String>();
