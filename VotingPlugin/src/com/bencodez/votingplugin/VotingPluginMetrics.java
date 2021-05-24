@@ -239,44 +239,45 @@ public class VotingPluginMetrics {
 				}
 			}
 		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcast") {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcast") {
 
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isBungeeBroadcast();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcastalways") {
+				@Override
+				public String getValue() {
+					return "" + plugin.getBungeeSettings().isBungeeBroadcast();
+				}
+			});
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcastalways") {
 
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isBungeeBroadcastAlways();
-			}
-		});
+				@Override
+				public String getValue() {
+					return "" + plugin.getBungeeSettings().isBungeeBroadcastAlways();
+				}
+			});
 
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("perserverrewards") {
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("perserverrewards") {
 
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isPerServerRewards();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("perserverpoints") {
+				@Override
+				public String getValue() {
+					return "" + plugin.getBungeeSettings().isPerServerRewards();
+				}
+			});
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("perserverpoints") {
 
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isPerServerPoints();
-			}
-		});
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("triggervotifierevent") {
+				@Override
+				public String getValue() {
+					return "" + plugin.getBungeeSettings().isPerServerPoints();
+				}
+			});
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("triggervotifierevent") {
 
-			@Override
-			public String getValue() {
-				return "" + plugin.getBungeeSettings().isTriggerVotifierEvent();
-			}
-		});
+				@Override
+				public String getValue() {
+					return "" + plugin.getBungeeSettings().isTriggerVotifierEvent();
+				}
+			});
+		}
 
-		
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("geyserprefixsupport") {
 
 			@Override
@@ -284,7 +285,7 @@ public class VotingPluginMetrics {
 				return "" + plugin.getOptions().isGeyserPrefixSupport();
 			}
 		});
-		
+
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("using_dev_build") {
 
 			@Override
