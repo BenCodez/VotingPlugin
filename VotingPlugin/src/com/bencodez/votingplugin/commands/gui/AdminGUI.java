@@ -141,7 +141,7 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.GRASS_BLOCK).setName("&cEdit BungeeSettings.yml")) {
+		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
