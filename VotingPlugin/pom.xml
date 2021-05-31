@@ -375,7 +375,7 @@
 		<profile>
 			<id>dev-withmysqldriver</id>
 			<properties>
-				<build.profile.id>dev</build.profile.id>
+				<build.profile.id>dev-withmysqldriver</build.profile.id>
 			</properties>
 			<dependencies>
 				<dependency>
