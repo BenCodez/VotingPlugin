@@ -2,7 +2,7 @@ package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
 
-import org.spongepowered.configurate.serialize.SerializationException;
+import org.apache.commons.lang.SerializationException;
 
 import com.velocitypowered.api.proxy.Player;
 
@@ -22,12 +22,8 @@ public class NonVotedPlayersCache extends VelocityYMLFile {
 	}
 
 	private void addPlayer(String uuid, String playerName) {
-		try {
-			getNode("NonVotedPlayers", playerName, "UUID").set(uuid);
-			getNode("NonVotedPlayers", playerName, "LastTime").set(System.currentTimeMillis());
-		} catch (SerializationException e) {
-			e.printStackTrace();
-		}
+			getNode("NonVotedPlayers", playerName, "UUID").setValue(uuid);
+			getNode("NonVotedPlayers", playerName, "LastTime").setValue(System.currentTimeMillis());
 		save();
 	}
 
@@ -51,7 +47,7 @@ public class NonVotedPlayersCache extends VelocityYMLFile {
 	}
 
 	public String playerExists(String playerName) {
-		if (!getNode("NonVotedPlayers", playerName).empty()) {
+		if (!getNode("NonVotedPlayers", playerName).isEmpty()) {
 			return getNode("NonVotedPlayers", playerName, "UUID").getString("");
 		}
 		return "";
@@ -60,7 +56,7 @@ public class NonVotedPlayersCache extends VelocityYMLFile {
 	private void remove(String player) {
 		plugin.debug("Removing nonvotedplayer: " + player);
 		try {
-			getNode("NonVotedPlayers", player).set(null);
+			getNode("NonVotedPlayers", player).setValue(null);
 		} catch (SerializationException e) {
 			e.printStackTrace();
 		}

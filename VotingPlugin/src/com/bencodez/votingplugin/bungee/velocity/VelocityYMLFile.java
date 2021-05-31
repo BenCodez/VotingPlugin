@@ -1,32 +1,44 @@
 package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.spongepowered.configurate.ConfigurateException;
-import org.spongepowered.configurate.ConfigurationNode;
-import org.spongepowered.configurate.serialize.SerializationException;
-import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+import com.google.common.reflect.TypeToken;
 
-import io.leangen.geantyref.TypeToken;
 import lombok.Getter;
+import ninja.leaping.configurate.ConfigurationNode;
+import ninja.leaping.configurate.objectmapping.ObjectMappingException;
+import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
 public class VelocityYMLFile {
 	@Getter
 	private File file;
 	@Getter
 	private ConfigurationNode conf;
-	private YamlConfigurationLoader loader;
+	private YAMLConfigurationLoader loader;
 
 	public VelocityYMLFile(File file) {
+
 		this.file = file;
-		loader = YamlConfigurationLoader.builder().file(file).build();
+		if (!file.exists()) {
+			try {
+				System.out.println(file.toString());
+				file.createNewFile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		loader = YAMLConfigurationLoader.builder().setPath(file.toPath()).build();
+
 		try {
 			conf = loader.load();
-		} catch (ConfigurateException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
 	}
 
 	public ConfigurationNode getData() {
@@ -34,13 +46,13 @@ public class VelocityYMLFile {
 	}
 
 	public ConfigurationNode getNode(Object... path) {
-		return getData().node(path);
+		return getData().getNode(path);
 	}
 
 	public List<String> getStringList(ConfigurationNode node, ArrayList<String> def) {
 		try {
-			return node.getList(TypeToken.get(String.class), def);
-		} catch (SerializationException e) {
+			return node.getList(TypeToken.of(String.class), def);
+		} catch (ObjectMappingException e) {
 			e.printStackTrace();
 			return def;
 		}
@@ -57,11 +69,11 @@ public class VelocityYMLFile {
 	public int getInt(ConfigurationNode node, int def) {
 		return node.getInt(def);
 	}
-	
+
 	public ArrayList<String> getKeys(ConfigurationNode node) {
 		ArrayList<String> keys = new ArrayList<String>();
-		for (ConfigurationNode key : node.childrenList()) {
-			keys.add(key.key().toString());
+		for (ConfigurationNode key : node.getChildrenList()) {
+			keys.add(key.getKey().toString());
 		}
 		return keys;
 	}
@@ -69,7 +81,7 @@ public class VelocityYMLFile {
 	public void save() {
 		try {
 			loader.save(conf);
-		} catch (ConfigurateException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}

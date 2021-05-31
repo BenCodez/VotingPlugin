@@ -3,10 +3,9 @@ package com.bencodez.votingplugin.bungee.velocity;
 import java.io.File;
 import java.util.Collection;
 
-import org.spongepowered.configurate.ConfigurationNode;
-import org.spongepowered.configurate.serialize.SerializationException;
-
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+
+import ninja.leaping.configurate.ConfigurationNode;
 
 public class VoteCache extends VelocityYMLFile {
 
@@ -16,41 +15,33 @@ public class VoteCache extends VelocityYMLFile {
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
 		String[] path = new String[] { "VoteCache", server, "" + num };
-		try {
-			getNode(path, "Name").set(voteData.getPlayerName());
-			getNode(path, "Service").set(voteData.getService());
-			getNode(path, "UUID").set(voteData.getUuid());
-			getNode(path, "Time").set(voteData.getTime());
-			getNode(path, "Real").set(voteData.isRealVote());
-			getNode(path, "Text").set(voteData.getText());
-		} catch (SerializationException e) {
-			e.printStackTrace();
-		}
+
+		getNode(path, "Name").setValue(voteData.getPlayerName());
+		getNode(path, "Service").setValue(voteData.getService());
+		getNode(path, "UUID").setValue(voteData.getUuid());
+		getNode(path, "Time").setValue(voteData.getTime());
+		getNode(path, "Real").setValue(voteData.isRealVote());
+		getNode(path, "Text").setValue(voteData.getText());
+
 		save();
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
 		String[] path = new String[] { "OnlineCache", player, "" + num };
-		try {
-			getNode(path, "Name").set(voteData.getPlayerName());
-			getNode(path, "Service").set(voteData.getService());
-			getNode(path, "UUID").set(voteData.getUuid());
-			getNode(path, "Time").set(voteData.getTime());
-			getNode(path, "Real").set(voteData.isRealVote());
-			getNode(path, "Text").set(voteData.getText());
-		} catch (SerializationException e) {
-			e.printStackTrace();
-		}
+
+		getNode(path, "Name").setValue(voteData.getPlayerName());
+		getNode(path, "Service").setValue(voteData.getService());
+		getNode(path, "UUID").setValue(voteData.getUuid());
+		getNode(path, "Time").setValue(voteData.getTime());
+		getNode(path, "Real").setValue(voteData.isRealVote());
+		getNode(path, "Text").setValue(voteData.getText());
+
 		save();
 	}
 
 	public void clearData() {
-		try {
-			getNode("VoteCache").set(null);
-			getNode("OnlineCache").set(null);
-		} catch (SerializationException e) {
-			e.printStackTrace();
-		}
+		getNode("VoteCache").setValue(null);
+		getNode("OnlineCache").setValue(null);
 		save();
 	}
 

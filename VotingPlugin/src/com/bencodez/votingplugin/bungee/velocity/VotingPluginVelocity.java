@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
-import org.spongepowered.configurate.ConfigurationNode;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
@@ -48,11 +47,14 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
+import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
+import ninja.leaping.configurate.ConfigurationNode;
 
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
@@ -64,7 +66,7 @@ public class VotingPluginVelocity {
 
 	@Getter
 	private Config config;
-	private VotingPluginChannelIdentifier ident = new VotingPluginChannelIdentifier();
+	private static final ChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("vp", "vp");
 	@Getter
 	private BungeeMethod method;
 	@Getter
@@ -150,9 +152,9 @@ public class VotingPluginVelocity {
 
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
-		File configFile = new File(dataDirectory.toFile(), "VotingPlugin" + File.separator + "bungeeconfig.yml");
+		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
 		config = new Config(configFile);
-		server.getChannelRegistrar().register(ident);
+		server.getChannelRegistrar().register(CHANNEL);
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 		mysql = new BungeeMySQL("VotingPlugin_Users", config);
 
@@ -160,11 +162,9 @@ public class VotingPluginVelocity {
 			// this.getProxy().registerChannel("vp:vp");
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			voteCacheFile = new VoteCache(
-					new File(dataDirectory.toFile(), "VotingPlugin" + File.separator + "votecache.yml"));
+			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
 			nonVotedPlayersCache = new NonVotedPlayersCache(
-					new File(dataDirectory.toFile(), "VotingPlugin" + File.separator + "nonvotedplayerscache.yml"),
-					this);
+					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
 
 			try {
 				for (String serverToCheck : voteCacheFile.getServers()) {
@@ -172,9 +172,10 @@ public class VotingPluginVelocity {
 					for (String num : voteCacheFile.getServerVotes(serverToCheck)) {
 						ConfigurationNode data = voteCacheFile.getServerVotes(serverToCheck, num);
 
-						vote.add(new OfflineBungeeVote(data.node("Name").getString(), data.node("UUID").getString(),
-								data.node("Service").getString(), data.node("Time").getLong(),
-								data.node("Real").getBoolean(), data.node("TEXT").getString()));
+						vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
+								data.getNode("UUID").getString(), data.getNode("Service").getString(),
+								data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
+								data.getNode("TEXT").getString()));
 					}
 					cachedVotes.put(server.getServer(serverToCheck).get(), vote);
 				}
@@ -187,9 +188,10 @@ public class VotingPluginVelocity {
 					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
 					for (String num : voteCacheFile.getOnlineVotes(player)) {
 						ConfigurationNode data = voteCacheFile.getOnlineVotes(player, num);
-						vote.add(new OfflineBungeeVote(data.node("Name").getString(), data.node("UUID").getString(),
-								data.node("Service").getString(), data.node("Time").getLong(),
-								data.node("Real").getBoolean(), data.node("TEXT").getString()));
+						vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
+								data.getNode("UUID").getString(), data.getNode("Service").getString(),
+								data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
+								data.getNode("TEXT").getString()));
 					}
 					cachedOnlineVotes.put(player, vote);
 				}
@@ -256,8 +258,8 @@ public class VotingPluginVelocity {
 			for (String s : config.getSpigotServers()) {
 				if (!l.contains(s)) {
 					ConfigurationNode d = config.getSpigotServerConfiguration(s);
-					clientHandles.put(s, new ClientHandler(d.node("Host").getString(""), d.node("Port").getInt(1298),
-							encryptionHandler, config.getDebug()));
+					clientHandles.put(s, new ClientHandler(d.getNode("Host").getString(""),
+							d.getNode("Port").getInt(1298), encryptionHandler, config.getDebug()));
 				}
 			}
 		}
@@ -296,7 +298,7 @@ public class VotingPluginVelocity {
 
 	@Subscribe
 	public void onPluginMessagingReceived(PluginMessageEvent event) {
-		if (event.getIdentifier().equals("vp:vp")) {
+		if (event.getIdentifier().getId().equals(CHANNEL.getId())) {
 			ByteArrayInputStream instream = new ByteArrayInputStream(event.getData());
 			DataInputStream in = new DataInputStream(instream);
 			try {
@@ -327,7 +329,7 @@ public class VotingPluginVelocity {
 					for (RegisteredServer send : server.getAllServers()) {
 
 						if (send.getPlayersConnected().size() > 0) {
-							send.sendPluginMessage(ident, outstream.toByteArray());
+							send.sendPluginMessage(CHANNEL, outstream.toByteArray());
 						}
 					}
 				}
@@ -455,7 +457,7 @@ public class VotingPluginVelocity {
 				out.writeUTF(message);
 			}
 			if (s.getPlayersConnected().size() > 0) {
-				s.sendPluginMessage(ident, byteOutStream.toByteArray());
+				s.sendPluginMessage(CHANNEL, byteOutStream.toByteArray());
 			}
 			out.close();
 		} catch (Exception e) {

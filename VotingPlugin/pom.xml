@@ -148,6 +148,16 @@
 								</excludes>
 							</artifactSet>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<filters>
+								<filter>
+									<artifact>*:*</artifact>
+									<excludes>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+									</excludes>
+								</filter>
+							</filters>
 						</configuration>
 					</execution>
 				</executions>
@@ -294,11 +304,6 @@
 			<artifactId>velocity-api</artifactId>
 			<version>1.1.5</version>
 			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.spongepowered</groupId>
-			<artifactId>configurate-yaml</artifactId>
-			<version>4.0.0</version>
 		</dependency>
 	</dependencies>
 	<profiles>

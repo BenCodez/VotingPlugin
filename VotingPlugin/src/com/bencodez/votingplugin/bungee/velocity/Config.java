@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.spongepowered.configurate.ConfigurationNode;
+import ninja.leaping.configurate.ConfigurationNode;
 
 public class Config extends VelocityYMLFile {
 
@@ -67,8 +67,8 @@ public class Config extends VelocityYMLFile {
 
 	public Collection<String> getSpigotServers() {
 		ArrayList<String> list = new ArrayList<String>();
-		for (ConfigurationNode conf : getNode("SpigotServers").childrenList()) {
-			list.add(conf.key().toString());
+		for (ConfigurationNode conf : getNode("SpigotServers").getChildrenList()) {
+			list.add(conf.getKey().toString());
 		}
 		return list;
 	}
