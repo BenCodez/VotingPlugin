@@ -37,6 +37,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.inject.Inject;
+import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
@@ -61,6 +62,7 @@ import ninja.leaping.configurate.ConfigurationNode;
 public class VotingPluginVelocity {
 
 	private final ProxyServer server;
+	@Getter
 	private final Logger logger;
 	private final Path dataDirectory;
 
@@ -150,13 +152,43 @@ public class VotingPluginVelocity {
 		this.dataDirectory = dataDirectory;
 	}
 
+	public void reload() {
+		config.reload();
+	}
+
+	public void status() {
+		if (method.equals(BungeeMethod.SOCKETS)) {
+			sendServerMessage("status");
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (RegisteredServer s : server.getAllServers()) {
+				if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+					if (s.getPlayersConnected().size() == 0) {
+						getLogger().info("No players on server " + s + " to send test status message");
+					} else {
+						// send
+						getLogger().info("Sending request for status message on " + s);
+						sendPluginMessageServer(s, "Status", s.getServerInfo().getName());
+					}
+				} else {
+					getLogger().info("Ignoring blocked server " + s);
+				}
+			}
+		}
+	}
+
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
 		config = new Config(configFile);
 		server.getChannelRegistrar().register(CHANNEL);
 		method = BungeeMethod.getByName(config.getBungeeMethod());
-		mysql = new BungeeMySQL("VotingPlugin_Users", config);
+		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config);
+
+		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")
+				// Specify other aliases (optional)
+				.aliases("vpb").build();
+
+		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			// this.getProxy().registerChannel("vp:vp");
@@ -463,7 +495,7 @@ public class VotingPluginVelocity {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		debug("Sending plugin message " + server + " " + channel + " "
+		debug("Sending plugin message " + s.getServerInfo().getName() + " " + channel + " "
 				+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
 
 	}

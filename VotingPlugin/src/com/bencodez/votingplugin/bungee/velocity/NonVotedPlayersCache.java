@@ -2,8 +2,6 @@ package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
 
-import org.apache.commons.lang.SerializationException;
-
 import com.velocitypowered.api.proxy.Player;
 
 public class NonVotedPlayersCache extends VelocityYMLFile {
@@ -22,8 +20,8 @@ public class NonVotedPlayersCache extends VelocityYMLFile {
 	}
 
 	private void addPlayer(String uuid, String playerName) {
-			getNode("NonVotedPlayers", playerName, "UUID").setValue(uuid);
-			getNode("NonVotedPlayers", playerName, "LastTime").setValue(System.currentTimeMillis());
+		getNode("NonVotedPlayers", playerName, "UUID").setValue(uuid);
+		getNode("NonVotedPlayers", playerName, "LastTime").setValue(System.currentTimeMillis());
 		save();
 	}
 
@@ -55,11 +53,9 @@ public class NonVotedPlayersCache extends VelocityYMLFile {
 
 	private void remove(String player) {
 		plugin.debug("Removing nonvotedplayer: " + player);
-		try {
-			getNode("NonVotedPlayers", player).setValue(null);
-		} catch (SerializationException e) {
-			e.printStackTrace();
-		}
+
+		getNode("NonVotedPlayers", player).setValue(null);
+
 		save();
 	}
 

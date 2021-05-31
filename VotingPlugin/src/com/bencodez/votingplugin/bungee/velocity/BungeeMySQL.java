@@ -38,7 +38,7 @@ public class BungeeMySQL {
 
 	private Set<String> uuids = Collections.synchronizedSet(new HashSet<String>());
 
-	public BungeeMySQL(String tableName, Config config) {
+	public BungeeMySQL(VotingPluginVelocity plugin, String tableName, Config config) {
 		String tablePrefix = config.getString(config.getNode("Prefix"), "");
 		String hostName = config.getString(config.getNode("Host"), "");
 		int port = config.getInt(config.getNode("Port"), 0);
@@ -53,16 +53,28 @@ public class BungeeMySQL {
 		}
 		boolean useSSL = config.getBoolean(config.getNode("UseSSL"), false);
 		boolean publicKeyRetrieval = config.getBoolean(config.getNode("PublicKeyRetrieval"), false);
-		String name = config.getString(config.getNode("Name"), "");
+		name = config.getString(config.getNode("Name"), "");
 		if (!name.isEmpty()) {
-			tableName = name;
+			name = tableName;
 		}
 
-		name = tableName;
 		if (tablePrefix != null) {
 			name = tablePrefix + tableName;
 		}
-		mysql = new com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL(maxThreads);
+		mysql = new com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL(maxThreads) {
+
+			@Override
+			public void severe(String string) {
+				plugin.getLogger().error(string);
+			}
+
+			@Override
+			public void debug(SQLException e) {
+				if (plugin.getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
+		};
 		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str, publicKeyRetrieval)) {
 
 		}

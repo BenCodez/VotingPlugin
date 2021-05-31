@@ -40,7 +40,7 @@ public class BungeeMySQL {
 
 	private Set<String> uuids = Collections.synchronizedSet(new HashSet<String>());
 
-	public BungeeMySQL(String tableName, Configuration section) {
+	public BungeeMySQL(VotingPluginBungee bungee, String tableName, Configuration section) {
 		String tablePrefix = section.getString("Prefix");
 		String hostName = section.getString("Host");
 		int port = section.getInt("Port");
@@ -63,7 +63,20 @@ public class BungeeMySQL {
 		if (tablePrefix != null) {
 			name = tablePrefix + tableName;
 		}
-		mysql = new com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL(maxThreads);
+		mysql = new com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL(maxThreads) {
+
+			@Override
+			public void severe(String string) {
+				bungee.getLogger().severe(string);
+			}
+
+			@Override
+			public void debug(SQLException e) {
+				if (bungee.getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
+		};
 		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str, publicKeyRetrieval)) {
 
 		}

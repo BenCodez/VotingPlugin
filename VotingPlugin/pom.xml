@@ -102,6 +102,14 @@
 				<configuration>
 					<shadedArtifactAttached>false</shadedArtifactAttached>
 					<minimizeJar>true</minimizeJar>
+					<filters>
+						<filter>
+							<artifact>mysql-connector-java</artifact>
+							<includes>
+								<include>**</include>
+							</includes>
+						</filter>
+					</filters>
 					<relocations>
 						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
 							other plugins -->
@@ -304,6 +312,12 @@
 			<artifactId>velocity-api</artifactId>
 			<version>1.1.5</version>
 			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.25</version>
+			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 	<profiles>

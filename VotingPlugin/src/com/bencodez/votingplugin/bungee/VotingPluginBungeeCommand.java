@@ -46,7 +46,7 @@ public class VotingPluginBungeeCommand extends Command {
 					TextComponent[] msg = new TextComponent[3];
 					msg[0] = new TextComponent("&avotingpluginbungee reload - Reload plugin");
 					msg[1] = new TextComponent("&avotingpluginbungee vote (player) (servicesite) - Send bungee vote");
-					msg[2] = new TextComponent("&avotingplugin status - Check socket connection status");
+					msg[2] = new TextComponent("&avotingpluginbungee status - Check socket connection status");
 					sender.sendMessage(msg);
 				}
 			}

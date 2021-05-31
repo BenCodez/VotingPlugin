@@ -77,6 +77,16 @@ public class VelocityYMLFile {
 		}
 		return keys;
 	}
+	
+	public void reload() {
+		loader = YAMLConfigurationLoader.builder().setPath(file.toPath()).build();
+
+		try {
+			conf = loader.load();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
 	public void save() {
 		try {

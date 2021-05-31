@@ -253,7 +253,7 @@ public class VotingPluginBungee extends Plugin {
 		config.load();
 
 		try {
-			mysql = new BungeeMySQL("VotingPlugin_Users", config.getData());
+			mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData());
 
 			// column types
 			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
