@@ -259,14 +259,6 @@
 			<id>velocity</id>
 			<url>https://nexus.velocitypowered.com/repository/maven-public/</url>
 		</repository>
-		<repository>
-			<id>bintray-repo</id>
-			<url>https://dl.bintray.com/ichbinjoe/public/</url>
-		</repository>
-		<repository>
-			<id>jitpack</id>
-			<url>https://jitpack.io</url>
-		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -290,8 +282,9 @@
 		<dependency>
 			<groupId>com.vexsoftware</groupId>
 			<artifactId>nuvotifier-universal</artifactId>
-			<version>2.6.0</version>
-			<scope>provided</scope>
+			<version>2.7.2</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/Jars/nuvotifier.jar</systemPath>
 		</dependency>
 		<dependency>
 			<groupId>com.tchristofferson</groupId>
@@ -389,6 +382,12 @@
 					<groupId>mysql</groupId>
 					<artifactId>mysql-connector-java</artifactId>
 					<version>8.0.25</version>
+					<scope>compile</scope>
+				</dependency>
+				<dependency>
+					<groupId>com.bencodez</groupId>
+					<artifactId>AdvancedCore</artifactId>
+					<version>LATEST</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
