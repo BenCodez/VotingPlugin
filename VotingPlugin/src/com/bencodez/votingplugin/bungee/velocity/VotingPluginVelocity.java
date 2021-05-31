@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
@@ -65,6 +66,8 @@ public class VotingPluginVelocity {
 	@Getter
 	private final Logger logger;
 	private final Path dataDirectory;
+
+	private final Metrics.Factory metricsFactory;
 
 	@Getter
 	private Config config;
@@ -146,10 +149,12 @@ public class VotingPluginVelocity {
 	}
 
 	@Inject
-	public VotingPluginVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
+	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
+			@DataDirectory Path dataDirectory) {
 		this.server = server;
 		this.logger = logger;
 		this.dataDirectory = dataDirectory;
+		this.metricsFactory = metricsFactory;
 	}
 
 	public void reload() {
@@ -295,6 +300,9 @@ public class VotingPluginVelocity {
 				}
 			}
 		}
+
+		@SuppressWarnings("unused")
+		Metrics metrics = metricsFactory.make(this, 11547);
 
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString());
 	}

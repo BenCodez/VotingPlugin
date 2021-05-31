@@ -290,7 +290,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String getValue() {
-				return "" + plugin.getProfile().equals("dev");
+				return "" + plugin.getProfile().contains("dev");
 			}
 		});
 	}

@@ -263,6 +263,10 @@
 			<id>bintray-repo</id>
 			<url>https://dl.bintray.com/ichbinjoe/public/</url>
 		</repository>
+		<repository>
+			<id>jitpack</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -314,9 +318,9 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
-			<version>8.0.25</version>
+			<groupId>org.bstats</groupId>
+			<artifactId>bstats-velocity</artifactId>
+			<version>2.2.1</version>
 			<scope>compile</scope>
 		</dependency>
 	</dependencies>
@@ -371,6 +375,20 @@
 					<groupId>com.bencodez</groupId>
 					<artifactId>AdvancedCore</artifactId>
 					<version>LATEST</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>dev-withmysqldriver</id>
+			<properties>
+				<build.profile.id>dev</build.profile.id>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>mysql</groupId>
+					<artifactId>mysql-connector-java</artifactId>
+					<version>8.0.25</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
