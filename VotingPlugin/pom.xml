@@ -139,6 +139,11 @@
 							<pattern>xyz.upperlevel.spigot.book</pattern>
 							<shadedPattern>${project.groupId}.votingplugin.upperlevel.book</shadedPattern>
 						</relocation>
+						<relocation>
+							<pattern>org.bstats</pattern>
+							<!-- Replace this with your package! -->
+							<shadedPattern>${project.groupId}.votingplugin.bstats</shadedPattern>
+						</relocation>
 					</relocations>
 				</configuration>
 				<executions>
