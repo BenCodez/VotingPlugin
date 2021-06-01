@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -20,6 +21,7 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.bstats.charts.SimplePie;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
@@ -184,6 +186,15 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
+		if (!configFile.exists()) {
+			try {
+				configFile.createNewFile();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			// first time starting plugin
+			// toadd default config values
+		}
 		config = new Config(configFile);
 		server.getChannelRegistrar().register(CHANNEL);
 		method = BungeeMethod.getByName(config.getBungeeMethod());
@@ -303,6 +314,18 @@ public class VotingPluginVelocity {
 
 		@SuppressWarnings("unused")
 		Metrics metrics = metricsFactory.make(this, 11547);
+
+		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
+
+		metrics.addCustomChart(new SimplePie("sendtoallservers", () -> "" + getConfig().getSendVotesToAllServers()));
+
+		metrics.addCustomChart(new SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
+
+		metrics.addCustomChart(new SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
+
+		metrics.addCustomChart(new SimplePie("bungeemanagetotals", () -> "" + getConfig().getBungeeManageTotals()));
+
+		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString());
 	}
