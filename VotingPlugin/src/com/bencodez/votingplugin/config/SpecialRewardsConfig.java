@@ -133,7 +133,7 @@ public class SpecialRewardsConfig extends YMLFile {
 				return TopVoter.Daily.toString();
 			}
 		}
-		return TopVoter.AllTime.toString();
+		return str;
 	}
 
 	public String getDailyAwardRewardsPath(String path) {
