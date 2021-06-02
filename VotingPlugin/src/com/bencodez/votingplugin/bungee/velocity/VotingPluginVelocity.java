@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -159,8 +160,44 @@ public class VotingPluginVelocity {
 		this.metricsFactory = metricsFactory;
 	}
 
-	public void reload() {
+	private void loadMysql() {
+		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config);
+		// column types
+		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+		getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
+		getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+		getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
+		getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
+		getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
+		getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("Points", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+	}
+
+	public void reload(boolean loadMySQL) {
 		config.reload();
+		if (loadMySQL) {
+			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
+				loadMysql();
+			} else {
+				logger.error("MySQL settings not set in bungeeconfig.yml");
+			}
+		}
 	}
 
 	public void status() {
@@ -192,13 +229,35 @@ public class VotingPluginVelocity {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			// first time starting plugin
-			// toadd default config values
+
+			InputStream toCopyStream = VotingPluginVelocity.class.getClassLoader()
+					.getResourceAsStream("bungeeconfig.yml");
+
+			try (FileOutputStream fos = new FileOutputStream(configFile)) {
+				byte[] buf = new byte[2048];
+				int r;
+				while (-1 != (r = toCopyStream.read(buf))) {
+					fos.write(buf, 0, r);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		config = new Config(configFile);
 		server.getChannelRegistrar().register(CHANNEL);
 		method = BungeeMethod.getByName(config.getBungeeMethod());
-		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config);
+		boolean mysqlLoaded = true;
+		try {
+			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
+				loadMysql();
+			} else {
+				mysqlLoaded = false;
+				logger.error("MySQL settings not set in bungeeconfig.yml");
+			}
+		} catch (Exception e) {
+			mysqlLoaded = false;
+			e.printStackTrace();
+		}
 
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")
 				// Specify other aliases (optional)
@@ -206,113 +265,114 @@ public class VotingPluginVelocity {
 
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
-		if (method.equals(BungeeMethod.MYSQL)) {
-			// this.getProxy().registerChannel("vp:vp");
+		if (mysqlLoaded) {
+			if (method.equals(BungeeMethod.MYSQL)) {
+				// this.getProxy().registerChannel("vp:vp");
 
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
-			nonVotedPlayersCache = new NonVotedPlayersCache(
-					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
+			} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+				voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
+				nonVotedPlayersCache = new NonVotedPlayersCache(
+						new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
 
-			try {
-				for (String serverToCheck : voteCacheFile.getServers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
-					for (String num : voteCacheFile.getServerVotes(serverToCheck)) {
-						ConfigurationNode data = voteCacheFile.getServerVotes(serverToCheck, num);
+				try {
+					for (String serverToCheck : voteCacheFile.getServers()) {
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						for (String num : voteCacheFile.getServerVotes(serverToCheck)) {
+							ConfigurationNode data = voteCacheFile.getServerVotes(serverToCheck, num);
 
-						vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
-								data.getNode("UUID").getString(), data.getNode("Service").getString(),
-								data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
-								data.getNode("TEXT").getString()));
+							vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
+									data.getNode("UUID").getString(), data.getNode("Service").getString(),
+									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
+									data.getNode("TEXT").getString()));
+						}
+						cachedVotes.put(server.getServer(serverToCheck).get(), vote);
 					}
-					cachedVotes.put(server.getServer(serverToCheck).get(), vote);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 
-			try {
-				for (String player : voteCacheFile.getPlayers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
-					for (String num : voteCacheFile.getOnlineVotes(player)) {
-						ConfigurationNode data = voteCacheFile.getOnlineVotes(player, num);
-						vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
-								data.getNode("UUID").getString(), data.getNode("Service").getString(),
-								data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
-								data.getNode("TEXT").getString()));
+				try {
+					for (String player : voteCacheFile.getPlayers()) {
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						for (String num : voteCacheFile.getOnlineVotes(player)) {
+							ConfigurationNode data = voteCacheFile.getOnlineVotes(player, num);
+							vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
+									data.getNode("UUID").getString(), data.getNode("Service").getString(),
+									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
+									data.getNode("TEXT").getString()));
+						}
+						cachedOnlineVotes.put(player, vote);
 					}
-					cachedOnlineVotes.put(player, vote);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			voteCacheFile.clearData();
-
-			server.getScheduler().buildTask(this, () -> {
-				for (RegisteredServer server : cachedVotes.keySet()) {
-					checkCachedVotes(server);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 
-				for (String player : cachedOnlineVotes.keySet()) {
-					checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
-				}
-			}).delay(15L, TimeUnit.SECONDS).repeat(30l, TimeUnit.SECONDS).schedule();
+				voteCacheFile.clearData();
 
-			server.getScheduler().buildTask(this, () -> {
-				if (nonVotedPlayersCache != null) {
-					debug("Checking nonvotedplayerscache.yml...");
-					nonVotedPlayersCache.check();
-				}
-			}).delay(1L, TimeUnit.MINUTES).repeat(60l, TimeUnit.MINUTES).schedule();
-		} else if (method.equals(BungeeMethod.SOCKETS)) {
-			encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
+				server.getScheduler().buildTask(this, () -> {
+					for (RegisteredServer server : cachedVotes.keySet()) {
+						checkCachedVotes(server);
+					}
 
-			socketHandler = new SocketHandler(
-					server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
-					config.getBungeeHost(), config.getBungeePort(), encryptionHandler, config.getDebug());
+					for (String player : cachedOnlineVotes.keySet()) {
+						checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
+					}
+				}).delay(15L, TimeUnit.SECONDS).repeat(30l, TimeUnit.SECONDS).schedule();
 
-			socketHandler.add(new SocketReceiver() {
+				server.getScheduler().buildTask(this, () -> {
+					if (nonVotedPlayersCache != null) {
+						debug("Checking nonvotedplayerscache.yml...");
+						nonVotedPlayersCache.check();
+					}
+				}).delay(1L, TimeUnit.MINUTES).repeat(60l, TimeUnit.MINUTES).schedule();
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
 
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 1) {
-						if (data.length > 2) {
-							if (data[0].equalsIgnoreCase("Broadcast")) {
-								sendServerMessage(data);
+				socketHandler = new SocketHandler(
+						server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
+						config.getBungeeHost(), config.getBungeePort(), encryptionHandler, config.getDebug());
+
+				socketHandler.add(new SocketReceiver() {
+
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 1) {
+							if (data.length > 2) {
+								if (data[0].equalsIgnoreCase("Broadcast")) {
+									sendServerMessage(data);
+								}
 							}
 						}
+
 					}
+				});
 
-				}
-			});
+				socketHandler.add(new SocketReceiver() {
 
-			socketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 1) {
-						if (data[0].equalsIgnoreCase("StatusOkay")) {
-							String server = data[1];
-							logger.info("Voting communicaton okay with " + server);
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 1) {
+							if (data[0].equalsIgnoreCase("StatusOkay")) {
+								String server = data[1];
+								logger.info("Voting communicaton okay with " + server);
+							}
 						}
+
 					}
+				});
 
-				}
-			});
-
-			clientHandles = new HashMap<String, ClientHandler>();
-			List<String> l = config.getBlockedServers();
-			for (String s : config.getSpigotServers()) {
-				if (!l.contains(s)) {
-					ConfigurationNode d = config.getSpigotServerConfiguration(s);
-					clientHandles.put(s, new ClientHandler(d.getNode("Host").getString(""),
-							d.getNode("Port").getInt(1298), encryptionHandler, config.getDebug()));
+				clientHandles = new HashMap<String, ClientHandler>();
+				List<String> l = config.getBlockedServers();
+				for (String s : config.getSpigotServers()) {
+					if (!l.contains(s)) {
+						ConfigurationNode d = config.getSpigotServerConfiguration(s);
+						clientHandles.put(s, new ClientHandler(d.getNode("Host").getString(""),
+								d.getNode("Port").getInt(1298), encryptionHandler, config.getDebug()));
+					}
 				}
 			}
 		}
 
-		@SuppressWarnings("unused")
 		Metrics metrics = metricsFactory.make(this, 11547);
 
 		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));

@@ -235,6 +235,36 @@ public class VotingPluginBungee extends Plugin {
 		}
 	}
 
+	private void loadMysql() {
+		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData());
+
+		// column types
+		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+		getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
+		getMysql().alterColumnType("Reminded", "VARCHAR(5)");
+		getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
+		getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
+		getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
+		getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+		getMysql().alterColumnType("Points", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
+		getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+	}
+
 	@Override
 	public void onEnable() {
 		try {
@@ -252,39 +282,20 @@ public class VotingPluginBungee extends Plugin {
 		config = new Config(this);
 		config.load();
 
-		try {
-			mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData());
+		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
-			// column types
-			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
-			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
-			getMysql().alterColumnType("Reminded", "VARCHAR(5)");
-			getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-			getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
-			getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
-			getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("Points", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
-			getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+		boolean mysqlLoaded = true;
+		try {
+			if (!config.getData().getString("Host", "").isEmpty()) {
+				loadMysql();
+			} else {
+				mysqlLoaded = false;
+				getLogger().severe("MySQL settings not set in bungeeconfig.yml");
+			}
 		} catch (Exception e) {
+			mysqlLoaded = false;
 			e.printStackTrace();
 		}
-
-		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 		if (method == null) {
@@ -293,114 +304,116 @@ public class VotingPluginBungee extends Plugin {
 
 		this.getProxy().registerChannel("vp:vp");
 
-		if (method.equals(BungeeMethod.MYSQL)) {
-			// this.getProxy().registerChannel("vp:vp");
+		if (mysqlLoaded) {
+			if (method.equals(BungeeMethod.MYSQL)) {
+				// this.getProxy().registerChannel("vp:vp");
 
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			voteCacheFile = new VoteCache(this);
-			voteCacheFile.load();
+			} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+				voteCacheFile = new VoteCache(this);
+				voteCacheFile.load();
 
-			nonVotedPlayersCache = new NonVotedPlayersCache(this);
-			nonVotedPlayersCache.load();
+				nonVotedPlayersCache = new NonVotedPlayersCache(this);
+				nonVotedPlayersCache.load();
 
-			try {
-				for (String server : voteCacheFile.getServers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
-					for (String num : voteCacheFile.getServerVotes(server)) {
-						Configuration data = voteCacheFile.getServerVotes(server, num);
-						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
-								data.getString("Text")));
+				try {
+					for (String server : voteCacheFile.getServers()) {
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						for (String num : voteCacheFile.getServerVotes(server)) {
+							Configuration data = voteCacheFile.getServerVotes(server, num);
+							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
+									data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
+									data.getString("Text")));
+						}
+						cachedVotes.put(server, vote);
 					}
-					cachedVotes.put(server, vote);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 
-			try {
-				for (String player : voteCacheFile.getPlayers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
-					for (String num : voteCacheFile.getOnlineVotes(player)) {
-						Configuration data = voteCacheFile.getOnlineVotes(player, num);
-						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
-								data.getString("Text")));
+				try {
+					for (String player : voteCacheFile.getPlayers()) {
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						for (String num : voteCacheFile.getOnlineVotes(player)) {
+							Configuration data = voteCacheFile.getOnlineVotes(player, num);
+							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
+									data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
+									data.getString("Text")));
+						}
+						cachedOnlineVotes.put(player, vote);
 					}
-					cachedOnlineVotes.put(player, vote);
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 
-			voteCacheFile.clearData();
+				voteCacheFile.clearData();
 
-			getProxy().getScheduler().schedule(this, new Runnable() {
+				getProxy().getScheduler().schedule(this, new Runnable() {
 
-				@Override
-				public void run() {
-					for (String server : cachedVotes.keySet()) {
-						checkCachedVotes(server);
+					@Override
+					public void run() {
+						for (String server : cachedVotes.keySet()) {
+							checkCachedVotes(server);
+						}
+
+						for (String player : cachedOnlineVotes.keySet()) {
+							checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
+						}
 					}
+				}, 15l, 30l, TimeUnit.SECONDS);
 
-					for (String player : cachedOnlineVotes.keySet()) {
-						checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
+				getProxy().getScheduler().schedule(this, new Runnable() {
+
+					@Override
+					public void run() {
+						if (nonVotedPlayersCache != null) {
+							debug("Checking nonvotedplayers.yml...");
+							nonVotedPlayersCache.check();
+						}
 					}
-				}
-			}, 15l, 30l, TimeUnit.SECONDS);
+				}, 1l, 60l, TimeUnit.MINUTES);
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
-			getProxy().getScheduler().schedule(this, new Runnable() {
+				socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(),
+						config.getBungeePort(), encryptionHandler, config.getDebug());
 
-				@Override
-				public void run() {
-					if (nonVotedPlayersCache != null) {
-						debug("Checking nonvotedplayers.yml...");
-						nonVotedPlayersCache.check();
-					}
-				}
-			}, 1l, 60l, TimeUnit.MINUTES);
-		} else if (method.equals(BungeeMethod.SOCKETS)) {
-			encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
+				socketHandler.add(new SocketReceiver() {
 
-			socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(),
-					config.getBungeePort(), encryptionHandler, config.getDebug());
-
-			socketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 1) {
-						if (data.length > 2) {
-							if (data[0].equalsIgnoreCase("Broadcast")) {
-								sendServerMessage(data);
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 1) {
+							if (data.length > 2) {
+								if (data[0].equalsIgnoreCase("Broadcast")) {
+									sendServerMessage(data);
+								}
 							}
 						}
+
 					}
+				});
 
-				}
-			});
+				socketHandler.add(new SocketReceiver() {
 
-			socketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 1) {
-						if (data[0].equalsIgnoreCase("StatusOkay")) {
-							String server = data[1];
-							getLogger().info("Voting communicaton okay with " + server);
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 1) {
+							if (data[0].equalsIgnoreCase("StatusOkay")) {
+								String server = data[1];
+								getLogger().info("Voting communicaton okay with " + server);
+							}
 						}
+
 					}
+				});
 
-				}
-			});
-
-			clientHandles = new HashMap<String, ClientHandler>();
-			List<String> l = config.getBlockedServers();
-			for (String s : config.getSpigotServers()) {
-				if (!l.contains(s)) {
-					Configuration d = config.getSpigotServerConfiguration(s);
-					clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298),
-							encryptionHandler, config.getDebug()));
+				clientHandles = new HashMap<String, ClientHandler>();
+				List<String> l = config.getBlockedServers();
+				for (String s : config.getSpigotServers()) {
+					if (!l.contains(s)) {
+						Configuration d = config.getSpigotServerConfiguration(s);
+						clientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1298),
+								encryptionHandler, config.getDebug()));
+					}
 				}
 			}
 		}
@@ -519,8 +532,19 @@ public class VotingPluginBungee extends Plugin {
 		return new UUID(mostSigBits, leastSigBits);
 	}
 
-	public void reload() {
+	public void reload(boolean loadMysql) {
 		config.load();
+		if (loadMysql) {
+			try {
+				if (!config.getData().getString("Host", "").isEmpty()) {
+					loadMysql();
+				} else {
+					getLogger().severe("MySQL settings not set in bungeeconfig.yml");
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {

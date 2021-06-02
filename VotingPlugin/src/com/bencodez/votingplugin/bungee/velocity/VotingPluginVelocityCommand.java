@@ -22,8 +22,12 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 
 		if (args.length > 0) {
 			if (args[0].equalsIgnoreCase("reload")) {
-				plugin.reload();
+				plugin.reload(false);
 				source.sendMessage(Component.text("Reloading VotingPluginBungee").color(NamedTextColor.AQUA));
+			}
+			if (args[0].equalsIgnoreCase("reloadmysql")) {
+				plugin.reload(true);
+				source.sendMessage(Component.text("Reloading VotingPluginBungee MySQL").color(NamedTextColor.AQUA));
 			}
 			if (args[0].equalsIgnoreCase("vote")) {
 				if (args.length >= 2) {
@@ -50,10 +54,11 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 				}
 			}
 			if (args[0].equalsIgnoreCase("help")) {
-				String[] msg = new String[3];
+				String[] msg = new String[4];
 				msg[0] = "votingpluginbungee reload - Reload plugin";
-				msg[1] = "votingpluginbungee vote (player) (servicesite) - Send bungee vote";
-				msg[2] = "votingpluginbungee status - Check socket connection status";
+				msg[1] = "votingpluginbungee reloadmysql - Reload plugin including mysql";
+				msg[2] = "votingpluginbungee vote (player) (servicesite) - Send bungee vote";
+				msg[3] = "votingpluginbungee status - Check socket connection status";
 				for (String m : msg) {
 					source.sendMessage(Component.text(m).color(NamedTextColor.AQUA));
 				}

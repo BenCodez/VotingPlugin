@@ -17,41 +17,46 @@ public class VotingPluginBungeeCommand extends Command {
 		if (sender.hasPermission("votingplugin.admin")) {
 			if (args.length > 0) {
 				if (args[0].equalsIgnoreCase("reload")) {
-					bungee.reload();
-					sender.sendMessage(new TextComponent("Reloading VotingPluginBungee"));
+					bungee.reload(false);
+					sender.sendMessage(new TextComponent("&aReloading VotingPluginBungee"));
+				}
+				if (args[0].equalsIgnoreCase("reloadmysql")) {
+					bungee.reload(true);
+					sender.sendMessage(new TextComponent("&aReloading VotingPluginBungee with MySQL"));
 				}
 				if (args[0].equalsIgnoreCase("vote")) {
 					if (args.length >= 2) {
 						String user = args[1];
 						String site = args[2];
 						bungee.vote(user, site, false);
-						sender.sendMessage(new TextComponent("Sending vote"));
+						sender.sendMessage(new TextComponent("&aSending vote"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {
 					if (bungee.getMethod().equals(BungeeMethod.SOCKETS)) {
 						sender.sendMessage(new TextComponent(
-								"Checking status, waiting for response, check console, method: sockets"));
+								"&aChecking status, waiting for response, check console, method: sockets"));
 						bungee.status(sender);
 					} else if (bungee.getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 						sender.sendMessage(new TextComponent(
-								"Checking status, waiting for response, check console, method: plugin messaging"));
+								"&aChecking status, waiting for response, check console, method: plugin messaging"));
 						bungee.status(sender);
 					} else {
 						sender.sendMessage(
-								new TextComponent("Not using socket/pluginmessage method, command unavailable"));
+								new TextComponent("&aNot using socket/pluginmessage method, command unavailable"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("help")) {
-					TextComponent[] msg = new TextComponent[3];
+					TextComponent[] msg = new TextComponent[4];
 					msg[0] = new TextComponent("&avotingpluginbungee reload - Reload plugin");
-					msg[1] = new TextComponent("&avotingpluginbungee vote (player) (servicesite) - Send bungee vote");
-					msg[2] = new TextComponent("&avotingpluginbungee status - Check socket connection status");
+					msg[1] = new TextComponent("&avotingpluginbungee reloadmysql - Reload plugin including mysql");
+					msg[2] = new TextComponent("&avotingpluginbungee vote (player) (servicesite) - Send bungee vote");
+					msg[3] = new TextComponent("&avotingpluginbungee status - Check socket connection status");
 					sender.sendMessage(msg);
 				}
 			}
 		} else {
-			sender.sendMessage(new TextComponent("You do not have permission to do this!"));
+			sender.sendMessage(new TextComponent("&cYou do not have permission to do this!"));
 		}
 	}
 }
