@@ -1370,6 +1370,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		specialRewardsConfig = new SpecialRewardsConfig(this);
 		specialRewardsConfig.setup();
+		
+		debug("Monthly rewards: " + specialRewardsConfig.isEnableMonthlyAwards());
 		// specialRewardsConfig.loadValues();
 
 		bungeeSettings = new BungeeSettings(this);
