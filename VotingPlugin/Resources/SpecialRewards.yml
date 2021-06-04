@@ -1,8 +1,8 @@
-# To disable reward set value to []
+# To disable reward set value to {}
 # or remove entirely
 # Eg:
-# FirstVote: [] (All in one line)
-# Rewards will be given if there is a reward to give
+# FirstVote: {} (All in one line)
+# Rewards will be given if there is a reward to give, otherwise they will be ignored
 
 # First vote rewards
 FirstVote: 
