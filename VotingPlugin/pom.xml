@@ -371,25 +371,5 @@
 				</dependency>
 			</dependencies>
 		</profile>
-		<profile>
-			<id>dev-withmysqldriver</id>
-			<properties>
-				<build.profile.id>dev-withmysqldriver</build.profile.id>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>mysql</groupId>
-					<artifactId>mysql-connector-java</artifactId>
-					<version>8.0.25</version>
-					<scope>compile</scope>
-				</dependency>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>AdvancedCore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
 	</profiles>
 </project>
