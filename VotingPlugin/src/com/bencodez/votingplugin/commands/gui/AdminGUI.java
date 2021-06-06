@@ -113,6 +113,14 @@ public class AdminGUI {
 						RewardHandler.getInstance().getDirectlyDefined("FirstVote"));
 			}
 		});
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit FirstVoteToday reward")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("FirstVoteToday"));
+			}
+		});
 
 		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AllSites reward")) {
 

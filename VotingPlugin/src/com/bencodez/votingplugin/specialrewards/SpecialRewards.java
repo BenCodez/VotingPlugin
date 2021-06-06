@@ -123,6 +123,18 @@ public class SpecialRewards {
 		return false;
 	}
 
+	public boolean checkFirstVoteToday(VotingPluginUser user, boolean forceBungee) {
+		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
+			if (!user.hasGottenFirstVoteToday()) {
+				giveFirstVoteTodayRewards(user, user.isOnline(), forceBungee);
+				return true;
+			}
+
+		}
+		return false;
+	}
+
 	public boolean checkMilestone(VotingPluginUser user, BungeeMessageData bungeeMessageData, boolean forceBungee) {
 		int milestoneCount = user.getMilestoneCount();
 		if (bungeeMessageData != null) {
@@ -271,6 +283,18 @@ public class SpecialRewards {
 		}
 		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath(),
+				new RewardOptions().setServer(forceBungee).setOnline(online));
+	}
+
+	public void giveFirstVoteTodayRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTETODAY);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
+		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getFirstVoteTodayRewardsPath(),
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 

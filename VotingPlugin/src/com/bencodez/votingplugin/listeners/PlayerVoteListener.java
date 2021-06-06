@@ -142,6 +142,7 @@ public class PlayerVoteListener implements Listener {
 
 			// check first vote rewards
 			plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
+			plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
 
 			if (user.isReminded()) {
 				user.setReminded(false);

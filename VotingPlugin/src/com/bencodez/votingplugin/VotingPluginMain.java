@@ -524,6 +524,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getSpecialRewardsConfig().setValue(path, value);
 			}
 		});
+		
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVoteToday") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
 
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
 

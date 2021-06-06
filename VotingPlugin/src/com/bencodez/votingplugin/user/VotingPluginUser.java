@@ -654,6 +654,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getTotal(TopVoter.AllTime) != 0;
 	}
 
+	public boolean hasGottenFirstVoteToday() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()
+				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+			return getTotal(TopVoter.Daily) > 1;
+		}
+		return getTotal(TopVoter.Daily) != 0;
+	}
+
 	/**
 	 * Checks for gotten milestone.
 	 *

@@ -8,6 +8,8 @@
 FirstVote: 
   Messages:
     Player: '&aYou voted for your first time!'
+    
+FirstVoteToday: {}
 
 # All vote rewards
 # Reward for voting on all sites in one day

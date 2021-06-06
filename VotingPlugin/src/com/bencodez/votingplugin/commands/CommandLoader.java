@@ -1335,6 +1335,18 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ForceFirstVoteToday" },
+				"VotingPlugin.Commands.AdminVote.ForceFirstVoteToday|" + adminPerm, "Force a firstvotetoday reward") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				plugin.getSpecialRewards().giveFirstVoteTodayRewards(user, user.isOnline(),
+						plugin.getBungeeSettings().isUseBungeecoord());
+				sendMessage(sender, "&cFirstVoteToday forced");
+			}
+		});
+
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Placeholders", "(player)" },
 						"VotingPlugin.Commands.AdminVote.Placeholders.Players|" + adminPerm,
