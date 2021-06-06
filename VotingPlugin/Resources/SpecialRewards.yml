@@ -9,6 +9,7 @@ FirstVote:
   Messages:
     Player: '&aYou voted for your first time!'
     
+# First vote of the day reward
 FirstVoteToday: {}
 
 # All vote rewards

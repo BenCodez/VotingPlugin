@@ -52,6 +52,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataString(path = "Server")
 	@Getter
 	private String server = "PleaseSet";
+	
+	public String getServerNameStorage() {
+		return getServer().replace("-", "_");
+	}
 
 	@ConfigDataString(path = "SpigotServer.Host")
 	@Getter

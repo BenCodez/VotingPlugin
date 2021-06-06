@@ -397,7 +397,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getGottenAllSitesDay() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), 0, true);
+			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage(), 0, true);
 		} else {
 			return getData().getInt("AllSitesLast", 0, true);
 		}
@@ -528,7 +528,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public String getPointsPath() {
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
-			return plugin.getBungeeSettings().getServer() + "_Points";
+			return plugin.getBungeeSettings().getServerNameStorage() + "_Points";
 		} else {
 			return "Points";
 		}
@@ -829,7 +829,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setGottenAllSitesDay(int day) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServer(), day);
+			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage(), day);
 		} else {
 			getData().setInt("AllSitesLast", day);
 		}
