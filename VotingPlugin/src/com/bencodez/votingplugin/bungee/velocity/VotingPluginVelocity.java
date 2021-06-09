@@ -223,6 +223,7 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
+		configFile.mkdirs();
 		if (!configFile.exists()) {
 			try {
 				configFile.createNewFile();
