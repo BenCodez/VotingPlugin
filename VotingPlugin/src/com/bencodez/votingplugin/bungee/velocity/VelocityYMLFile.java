@@ -24,7 +24,7 @@ public class VelocityYMLFile {
 		this.file = file;
 		if (!file.exists()) {
 			try {
-				System.out.println(file.toString());
+				file.getParentFile().mkdirs();
 				file.createNewFile();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
