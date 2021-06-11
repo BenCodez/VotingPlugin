@@ -251,6 +251,7 @@ public class SignHandler {
 					}
 
 				} catch (Exception ex) {
+					plugin.debug("Failed to update sign at " + getLocation().toString());
 					VotingPluginMain.plugin.debug(ex);
 				}
 			}
