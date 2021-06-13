@@ -87,7 +87,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataInt(path = "ConvertAmount")
 	@Getter
-	private int convertAmount = 250;
+	private int convertAmount = 150;
 
 	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
 	@Getter

@@ -10,6 +10,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -47,6 +48,11 @@ public class PlayerJoinEvent implements Listener {
 		}
 
 		user.loginRewards();
+
+		if (plugin.getBungeeSettings().isUseBungeecoord()
+				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+			plugin.getPluginMessaging().sendPluginMessage("Login", user.getPlayerName(), user.getUUID());
+		}
 	}
 
 	/**
