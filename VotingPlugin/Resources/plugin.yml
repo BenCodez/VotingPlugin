@@ -6,6 +6,8 @@ website: https://www.spigotmc.org/resources/votingplugin.15358/
 author: BenCodez
 softdepend: [MVdWPlaceholders, Votifier, VotifierPlus, NuVotifier, CMI, Vault, PlaceholderAPI, ProtocolLib, MVdWPlaceholderAPI, AuthMe]
 api-version: 1.13
+libraries:
+  - org.openjdk.nashorn:nashorn-core:15.2
 commands:
   vote:
     description: Vote command
