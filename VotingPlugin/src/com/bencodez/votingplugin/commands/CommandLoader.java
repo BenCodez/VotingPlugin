@@ -1,7 +1,5 @@
 package com.bencodez.votingplugin.commands;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,7 +68,6 @@ import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-import com.tchristofferson.configupdater.ConfigUpdater;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -941,26 +938,6 @@ public class CommandLoader {
 						VotingPluginMain.plugin.getOptions().setDebug(DebugLevel.INFO);
 					}
 				});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Config", "Update" },
-				"VotingPlugin.Commands.AdminVote.Config.Edit|" + adminPerm, "Updates config with missing values") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				ArrayList<String> ignoreSections = new ArrayList<String>();
-				ignoreSections.add("VoteReminding");
-
-				File file = new File(plugin.getDataFolder(), "Config.yml");
-				try {
-					ConfigUpdater.update(plugin, "Config.yml", file, ignoreSections);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				plugin.getConfigFile().reloadData();
-				plugin.getConfigFile().loadValues();
-				sendMessage(sender, "&cUpdated config with new values");
-			}
-		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Config", "TempExtraDebug" },

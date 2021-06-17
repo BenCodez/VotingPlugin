@@ -292,11 +292,6 @@
 			<systemPath>${project.basedir}/Jars/nuvotifier.jar</systemPath>
 		</dependency>
 		<dependency>
-			<groupId>com.tchristofferson</groupId>
-			<artifactId>ConfigUpdater</artifactId>
-			<version>1.1-SNAPSHOT</version>
-		</dependency>
-		<dependency>
 			<groupId>be.maximvdw</groupId>
 			<artifactId>MVdWPlaceholderAPI</artifactId>
 			<version>LATEST</version>
