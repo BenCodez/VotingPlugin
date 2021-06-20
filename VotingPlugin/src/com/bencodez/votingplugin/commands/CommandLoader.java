@@ -45,6 +45,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholders;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholdersPlayer;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
@@ -857,6 +858,15 @@ public class CommandLoader {
 					sendMessage(sender, "&3Detected yml error, please check server log for details");
 				}
 
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", },
+				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote via GUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteVotePlayer(plugin, sender, args[1]).open();
 			}
 		});
 
