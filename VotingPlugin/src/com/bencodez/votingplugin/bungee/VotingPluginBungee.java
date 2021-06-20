@@ -438,7 +438,8 @@ public class VotingPluginBungee extends Plugin {
 		metrics.addCustomChart(
 				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
-		getLogger().info("VotingPlugin loaded, using method: " + method.toString());
+		getLogger().info("VotingPlugin loaded, using method: " + method.toString() + ", PluginMessagingVersion: "
+				+ BungeeVersion.getPluginMessageVersion());
 	}
 
 	@EventHandler
@@ -668,6 +669,11 @@ public class VotingPluginBungee extends Plugin {
 			BungeeMessageData text = null;
 
 			if (getConfig().getBungeeManageTotals()) {
+
+				if (mysql == null) {
+					getLogger().severe("Mysql is not loaded correctly, stopping vote processing");
+					return;
+				}
 
 				if (!mysql.getUuids().contains(uuid)) {
 					mysql.update(uuid, "PlayerName", player, DataType.STRING);

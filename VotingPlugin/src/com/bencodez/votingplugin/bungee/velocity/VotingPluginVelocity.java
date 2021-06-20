@@ -388,7 +388,8 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
-		logger.info("VotingPlugin velocity loaded, method: " + method.toString());
+		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
+				+ BungeeVersion.getPluginMessageVersion());
 	}
 
 	@Subscribe
@@ -626,6 +627,11 @@ public class VotingPluginVelocity {
 			BungeeMessageData text = null;
 
 			if (getConfig().getBungeeManageTotals()) {
+
+				if (mysql == null) {
+					logger.error("Mysql is not loaded correctly, stopping vote processing");
+					return;
+				}
 
 				if (!mysql.getUuids().contains(uuid)) {
 					mysql.update(uuid, "PlayerName", player, DataType.STRING);
