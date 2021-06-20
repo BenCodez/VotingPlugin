@@ -69,6 +69,9 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the data
 	 */
 	public ConfigurationSection getData(String siteName) {
+		if (!getData().isConfigurationSection("VoteSites." + siteName)) {
+			plugin.getLogger().warning("VoteSites." + siteName + " is not a configuration section");
+		}
 		return getData().getConfigurationSection("VoteSites." + siteName);
 	}
 
@@ -235,11 +238,14 @@ public class ConfigVoteSites extends YMLFile {
 
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
 			// plugin.getLogger().info(siteNames.get(i));
-			if (!getVoteSiteEnabled(siteNames.get(i)) || siteNames.get(i).equalsIgnoreCase("null")
+			if (!getData().isConfigurationSection("VoteSites." + siteNames.get(i))) {
+				plugin.getLogger()
+						.warning("VoteSites." + siteNames.get(i) + " is not a configuration section, please remove");
+				siteNames.remove(i);
+			} else if (siteNames.get(i).equalsIgnoreCase("null") || !getVoteSiteEnabled(siteNames.get(i))
 					|| !siteCheck(siteNames.get(i))) {
 				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
-
 			}
 
 		}
