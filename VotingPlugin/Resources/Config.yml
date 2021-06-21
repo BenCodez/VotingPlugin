@@ -96,10 +96,8 @@ VoteReminding:
   RemindDelay: 30
 
   # Run reward files on remind
-  # By default, the reward file will be created for you
   # and have the default message
-  # Edit the message at AdvancedCore/Rewards/Remind.yml (or any other reward listed)
-  # Can add titles and more in the reward file
+  # Can add titles and more in the reward
   Rewards:
     Messages:
       Player: '&aRemember to vote!'
