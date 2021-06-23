@@ -53,6 +53,7 @@ public class BroadcastHandler {
 	public void schelude(int delay) {
 		if (timer != null) {
 			timer.cancel();
+			timer = new Timer();
 		} else {
 			timer = new Timer();
 		}
