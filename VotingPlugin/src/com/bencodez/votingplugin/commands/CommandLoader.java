@@ -746,6 +746,47 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetVoteStreak", "DAY", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Day|" + adminPerm, "Set votestreak for player") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						UserManager.getInstance().getVotingPluginUser(args[1])
+								.setDayVoteStreak(Integer.parseInt(args[4]));
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cSet votestreak day for '" + args[1] + "' to " + args[4]));
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetVoteStreak", "WEEK", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Week|" + adminPerm,
+						"Set votestreak for player") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						UserManager.getInstance().getVotingPluginUser(args[1])
+								.setWeekVoteStreak(Integer.parseInt(args[4]));
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "SetVoteStreak", "MONTH", "(number)" },
+						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Month|" + adminPerm,
+						"Set votestreak for player") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						UserManager.getInstance().getVotingPluginUser(args[1])
+								.setMonthVoteStreak(Integer.parseInt(args[4]));
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
+					}
+				});
+
 		for (final TopVoter top : TopVoter.values()) {
 			plugin.getAdminVoteCommand()
 					.add(new CommandHandler(new String[] { "User", "(player)", "SetTotal", top.toString(), "(number)" },
@@ -1188,7 +1229,7 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "VotePartyExtraRequired", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.VoteParty.SetExtraRequired|" + adminPerm,
-						"Force a voteparty reward, resets vote count") {
+						"Set VotePartyExtraRequired value") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
