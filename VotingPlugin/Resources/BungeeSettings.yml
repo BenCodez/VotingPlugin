@@ -9,7 +9,7 @@ UseBungeecord: false
 
 # What type of bungee setup
 # Requires restart and set on all servers
-# https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
+# https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # SOCKETS
 # PLUGINMESSAGING
