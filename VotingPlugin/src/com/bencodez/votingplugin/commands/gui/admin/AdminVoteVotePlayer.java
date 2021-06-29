@@ -41,7 +41,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		EditGUI inv = new EditGUI("Trigger player vote for player " + playerName);
+		EditGUI inv = new EditGUI("Trigger vote for " + playerName);
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Vote|VotingPlugin.Admin");
 
 		for (VoteSite site : plugin.getVoteSites()) {
