@@ -751,6 +751,9 @@ public class VotingPluginBungee extends Plugin {
 						cachedOnlineVotes.put(uuid, list);
 						debug("Caching online vote for " + player + " on " + service);
 					}
+					for (String s : getProxy().getServers().keySet()) {
+						sendPluginMessageServer(s, "VoteUpdate", player);
+					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				sendSocketVote(player, service, text);

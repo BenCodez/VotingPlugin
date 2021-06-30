@@ -708,6 +708,10 @@ public class VotingPluginVelocity {
 						cachedOnlineVotes.put(uuid, list);
 						debug("Caching online vote for " + player + " on " + service);
 					}
+
+					for (RegisteredServer s : server.getAllServers()) {
+						sendPluginMessageServer(s, "VoteUpdate", player);
+					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				sendSocketVote(player, service, text);
