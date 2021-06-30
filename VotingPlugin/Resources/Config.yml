@@ -30,6 +30,8 @@ MySQL:
   Prefix: ''
   #UseSSL: true
   #PublicKeyRetrieval: false
+  #Additional info on connection string
+  #Line: ''
   
 # ---------------------------------------------------------
 # Mysql cache options 
