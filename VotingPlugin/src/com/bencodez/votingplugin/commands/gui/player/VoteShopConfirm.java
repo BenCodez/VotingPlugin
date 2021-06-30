@@ -49,6 +49,7 @@ public class VoteShopConfirm extends GUIHandler {
 	public void onChest(Player player) {
 		PlayerUtils.getInstance().setPlayerMeta(player, "ident", identifier);
 		BInventory inv = new BInventory(plugin.getGui().getChestShopConfirmPurchaseTitle());
+		inv.dontClose();
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopConfirmPurchaseYesItem())) {
 
 			@Override
