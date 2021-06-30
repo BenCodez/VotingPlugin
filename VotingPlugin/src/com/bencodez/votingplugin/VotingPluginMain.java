@@ -386,7 +386,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return voteSite;
 			}
 		}
-		if (configFile.isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames().contains(siteName)) {
+		if (configFile.isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames(false).contains(siteName)) {
 			configVoteSites.generateVoteSite(siteName);
 			return new VoteSite(plugin, siteName.replace(".", "_"));
 		}
@@ -401,7 +401,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String... urls) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames();
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(true);
 		for (String url : urls) {
 			if (url == null) {
 				return null;
@@ -431,7 +431,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public String getVoteSiteServiceSite(String name) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames();
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(true);
 		if (name == null) {
 			return null;
 		}
@@ -524,7 +524,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getSpecialRewardsConfig().setValue(path, value);
 			}
 		});
-		
+
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVoteToday") {
 
 			@Override

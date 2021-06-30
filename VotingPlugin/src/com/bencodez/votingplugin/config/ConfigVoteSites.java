@@ -192,7 +192,7 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public ArrayList<VoteSite> getVoteSitesLoad() {
 		ArrayList<VoteSite> voteSites = new ArrayList<VoteSite>();
-		ArrayList<String> voteSiteNames = getVoteSitesNames();
+		ArrayList<String> voteSiteNames = getVoteSitesNames(true);
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
 				if (getVoteSiteEnabled(site) && !site.equalsIgnoreCase("null")) {
@@ -230,7 +230,7 @@ public class ConfigVoteSites extends YMLFile {
 	 *
 	 * @return the vote sites names
 	 */
-	public ArrayList<String> getVoteSitesNames() {
+	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
 		ArrayList<String> siteNames = new ArrayList<String>();
 		if (getData().isConfigurationSection("VoteSites")) {
 			siteNames = ArrayUtils.getInstance().convert(getData().getConfigurationSection("VoteSites").getKeys(false));
@@ -242,8 +242,8 @@ public class ConfigVoteSites extends YMLFile {
 				plugin.getLogger()
 						.warning("VoteSites." + siteNames.get(i) + " is not a configuration section, please remove");
 				siteNames.remove(i);
-			} else if (siteNames.get(i).equalsIgnoreCase("null") || !getVoteSiteEnabled(siteNames.get(i))
-					|| !siteCheck(siteNames.get(i))) {
+			} else if (siteNames.get(i).equalsIgnoreCase("null")
+					|| (!getVoteSiteEnabled(siteNames.get(i)) && checkEnabled) || !siteCheck(siteNames.get(i))) {
 				// plugin.getLogger().info("Removed: " + siteNames.get(i));
 				siteNames.remove(i);
 			}

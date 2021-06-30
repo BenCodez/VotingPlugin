@@ -87,6 +87,11 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 
+		if (!voteSite.isEnabled()) {
+			plugin.debug("Votesite: " + voteSite.getKey() + " is not enabled");
+			return;
+		}
+
 		VotingPluginUser user = null;
 		if (event.getVotingPluginUser() != null) {
 			user = event.getVotingPluginUser();
