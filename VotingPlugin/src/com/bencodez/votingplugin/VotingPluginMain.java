@@ -401,7 +401,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @return the vote site name
 	 */
 	public String getVoteSiteName(String... urls) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(true);
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(false);
 		for (String url : urls) {
 			if (url == null) {
 				return null;
