@@ -41,8 +41,8 @@ public class ConfigVoteSites extends YMLFile {
 		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
 			String org = siteName;
 			siteName = siteName.replace(".", "_");
-			plugin.getLogger().warning("VoteSite " + siteName
-					+ " does not exist, creating one, set AutoCreateVoteSites to false to prevent this");
+			plugin.getLogger().warning("VoteSite " + siteName + " does not exist with the servicesite '" + org
+					+ "', creating one, set AutoCreateVoteSites to false to prevent this");
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");

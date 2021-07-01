@@ -94,7 +94,6 @@ VoteReminding:
   RemindOnLogin: true
 
   # Delay to remind votes in minutes
-  # Only works if above is false
   RemindDelay: 30
 
   # Run reward files on remind
