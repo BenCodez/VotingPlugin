@@ -76,6 +76,10 @@ public class SignHandler {
 		playerName = "";
 	}
 
+	public boolean noNameAvailable() {
+		return playerName.equalsIgnoreCase("No Player") || playerName.equals("");
+	}
+
 	@SuppressWarnings("deprecation")
 	private boolean checkSkull(Block block) {
 		if (block.getState() instanceof Skull) {
@@ -91,7 +95,7 @@ public class SignHandler {
 	 * Check skulls.
 	 */
 	public void checkSkulls() {
-		if (playerName.equalsIgnoreCase("No Player") || playerName.equals("")) {
+		if (noNameAvailable()) {
 			return;
 		}
 		if (skullLocation != null) {

@@ -1,5 +1,8 @@
 package com.bencodez.votingplugin.votereminding;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -21,6 +24,8 @@ public class VoteReminding {
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
+
+	private Timer timer;
 
 	/**
 	 * Check remind.
@@ -58,16 +63,24 @@ public class VoteReminding {
 	 * Load remind checking.
 	 */
 	public void loadRemindChecking() {
-		Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, new Runnable() {
+		if (timer != null) {
+			timer.cancel();
+		}
+		if (plugin.getConfigFile().getVoteRemindingRemindDelay() > 0) {
+			timer = new Timer();
+			timer.schedule(new TimerTask() {
 
-			@Override
-			public void run() {
-				for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-					checkRemind(user);
+				@Override
+				public void run() {
+					if (plugin != null) {
+						for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+							checkRemind(user);
+						}
+					}
 				}
-			}
-		}, 10, plugin.getConfigFile().getVoteRemindingRemindDelay() * 20 * 60);
+			}, 1000 * 30, plugin.getConfigFile().getVoteRemindingRemindDelay() * 1000 * 60);
+		}
 	}
 
 	/**

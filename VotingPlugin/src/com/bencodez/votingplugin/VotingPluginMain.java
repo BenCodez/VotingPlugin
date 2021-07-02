@@ -1375,6 +1375,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		getOptions().setServer(bungeeSettings.getServer());
 		placeholders.load();
 
+		voteReminding.loadRemindChecking();
+		
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override

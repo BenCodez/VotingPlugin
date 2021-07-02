@@ -76,29 +76,31 @@ AllowUnJoinedCheckServer: true
 
 # Configuration for VoteReminding
 # By default this should be all setup to work
-# as long as vote delays are done properly
+# as long as vote delays are done properly in votesites.yml
 VoteReminding:
   # Enable vote reminding
   # This will remind player when he can vote on all sites
   # Requires VoteDelays to be setup properly
   # Use /vote next to see when you can be reminded
   # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
+  # To remind if any votesite is available (rather than all) use the permission "VotingPlugin.Login.RemindVotes.Any"
   Enabled: true
 
+  # Will remind player on login if he can vote
+  RemindOnLogin: true
+  
   # Whether or not to remind only once when the player can vote
   # Does not apply to login reminds.
   RemindOnlyOnce: true
 
-  # Will remind player on login if he can vote
-  # Ignores value above
-  RemindOnLogin: true
-
   # Delay to remind votes in minutes
+  # Set to -1 to disable
   RemindDelay: 30
 
-  # Run reward files on remind
+  # Run rewards
   # and have the default message
   # Can add titles and more in the reward
+  # This can also be edited via /av gui
   Rewards:
     Messages:
       Player: '&aRemember to vote!'
