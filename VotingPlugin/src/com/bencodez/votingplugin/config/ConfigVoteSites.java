@@ -225,11 +225,6 @@ public class ConfigVoteSites extends YMLFile {
 		return voteSites;
 	}
 
-	/**
-	 * Gets the vote sites names.
-	 *
-	 * @return the vote sites names
-	 */
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
 		ArrayList<String> siteNames = new ArrayList<String>();
 		if (getData().isConfigurationSection("VoteSites")) {
