@@ -180,50 +180,6 @@
 					</execution>
 				</executions>
 			</plugin>
-			<!-- <plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>2.10.4</version>
-				<executions>
-					<execution>
-						<id>attach-javadocs</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-						<phase>deploy</phase>
-						<configuration>
-							<sourcepath>${project.basedir}/target/delombok</sourcepath>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin> 
-			<plugin>
-				<groupId>com.github.github</groupId>
-				<artifactId>site-maven-plugin</artifactId>
-				<version>0.12</version>
-				<executions>
-					<execution>
-						<id>javadoc</id>
-						<goals>
-							<goal>site</goal>
-						</goals>
-						<phase>deploy</phase>
-						<configuration>
-							<message>Maven javadoc for ${project.version}</message>
-							<noJekyll>true</noJekyll>
-							<outputDirectory>${project.build.directory}/apidocs
-							</outputDirectory>
-							<branch>refs/heads/gh-pages</branch>
-							<includes>
-								<include>**/*</include>
-							</includes>
-							<repositoryName>VotingPlugin</repositoryName>
-							<repositoryOwner>BenCodez</repositoryOwner>
-							<server>github</server>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>-->
 			<plugin>
 				<artifactId>maven-resources-plugin</artifactId>
 				<version>3.1.0</version>
@@ -388,6 +344,23 @@
 				<plugins>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<version>2.10.4</version>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+								<phase>deploy</phase>
+								<configuration>
+									<sourcepath>${project.basedir}/target/delombok</sourcepath>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-deploy-plugin</artifactId>
 						<version>3.0.0-M1</version>
 						<configuration>
@@ -412,6 +385,33 @@
 							<nexusUrl>http://51.161.110.19:8081/nexus/</nexusUrl>
 							<skipStaging>true</skipStaging>
 						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>com.github.github</groupId>
+						<artifactId>site-maven-plugin</artifactId>
+						<version>0.12</version>
+						<executions>
+							<execution>
+								<id>javadoc</id>
+								<goals>
+									<goal>site</goal>
+								</goals>
+								<phase>deploy</phase>
+								<configuration>
+									<message>Maven javadoc for ${project.version}</message>
+									<noJekyll>true</noJekyll>
+									<outputDirectory>${project.build.directory}/apidocs
+									</outputDirectory>
+									<branch>refs/heads/gh-pages</branch>
+									<includes>
+										<include>**/*</include>
+									</includes>
+									<repositoryName>VotingPlugin</repositoryName>
+									<repositoryOwner>BenCodez</repositoryOwner>
+									<server>github</server>
+								</configuration>
+							</execution>
+						</executions>
 					</plugin>
 				</plugins>
 			</build>
