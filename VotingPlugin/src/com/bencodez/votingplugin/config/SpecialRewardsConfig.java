@@ -36,7 +36,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@Getter
 	private String firstVoteRewardsPath = "FirstVote";
-	
+
 	@Getter
 	private String firstVoteTodayRewardsPath = "FirstVoteToday";
 

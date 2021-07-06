@@ -1376,7 +1376,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		placeholders.load();
 
 		voteReminding.loadRemindChecking();
-		
+
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override

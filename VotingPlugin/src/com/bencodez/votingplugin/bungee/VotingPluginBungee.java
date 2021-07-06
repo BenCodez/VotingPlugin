@@ -205,36 +205,6 @@ public class VotingPluginBungee extends Plugin {
 		return 0;
 	}
 
-	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
-		int num = getValue(cols, column) + toAdd;
-		debug("Setting " + column + " to " + num + " for " + uuid);
-		mysql.update(uuid, column, num, DataType.INTEGER);
-		return num;
-	}
-
-	@Override
-	public void onDisable() {
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
-				String server = entry.getKey();
-				int num = 0;
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					voteCacheFile.addVote(server, num, voteData);
-					num++;
-				}
-			}
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
-				String name = entry.getKey();
-				int num = 0;
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					voteCacheFile.addVoteOnline(name, num, voteData);
-					num++;
-				}
-			}
-			nonVotedPlayersCache.save();
-		}
-	}
-
 	private void loadMysql() {
 		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData());
 
@@ -263,6 +233,36 @@ public class VotingPluginBungee extends Plugin {
 		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
 		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+	}
+
+	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
+		int num = getValue(cols, column) + toAdd;
+		debug("Setting " + column + " to " + num + " for " + uuid);
+		mysql.update(uuid, column, num, DataType.INTEGER);
+		return num;
+	}
+
+	@Override
+	public void onDisable() {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+				String server = entry.getKey();
+				int num = 0;
+				for (OfflineBungeeVote voteData : entry.getValue()) {
+					voteCacheFile.addVote(server, num, voteData);
+					num++;
+				}
+			}
+			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+				String name = entry.getKey();
+				int num = 0;
+				for (OfflineBungeeVote voteData : entry.getValue()) {
+					voteCacheFile.addVoteOnline(name, num, voteData);
+					num++;
+				}
+			}
+			nonVotedPlayersCache.save();
+		}
 	}
 
 	@Override

@@ -52,10 +52,6 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataString(path = "Server")
 	@Getter
 	private String server = "PleaseSet";
-	
-	public String getServerNameStorage() {
-		return getServer().replace("-", "_");
-	}
 
 	@ConfigDataString(path = "SpigotServer.Host")
 	@Getter
@@ -79,6 +75,10 @@ public class BungeeSettings extends YMLFile {
 
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
+	}
+
+	public String getServerNameStorage() {
+		return getServer().replace("-", "_");
 	}
 
 	@Override

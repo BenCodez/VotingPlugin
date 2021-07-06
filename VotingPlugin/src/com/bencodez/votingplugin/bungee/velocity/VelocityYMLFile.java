@@ -14,9 +14,9 @@ import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
 public class VelocityYMLFile {
 	@Getter
-	private File file;
-	@Getter
 	private ConfigurationNode conf;
+	@Getter
+	private File file;
 	private YAMLConfigurationLoader loader;
 
 	public VelocityYMLFile(File file) {
@@ -41,29 +41,12 @@ public class VelocityYMLFile {
 
 	}
 
-	public ConfigurationNode getData() {
-		return conf;
-	}
-
-	public ConfigurationNode getNode(Object... path) {
-		return getData().getNode(path);
-	}
-
-	public List<String> getStringList(ConfigurationNode node, ArrayList<String> def) {
-		try {
-			return node.getList(TypeToken.of(String.class), def);
-		} catch (ObjectMappingException e) {
-			e.printStackTrace();
-			return def;
-		}
-	}
-
-	public String getString(ConfigurationNode node, String def) {
-		return node.getString(def);
-	}
-
 	public boolean getBoolean(ConfigurationNode node, boolean def) {
 		return node.getBoolean(def);
+	}
+
+	public ConfigurationNode getData() {
+		return conf;
 	}
 
 	public int getInt(ConfigurationNode node, int def) {
@@ -77,7 +60,24 @@ public class VelocityYMLFile {
 		}
 		return keys;
 	}
-	
+
+	public ConfigurationNode getNode(Object... path) {
+		return getData().getNode(path);
+	}
+
+	public String getString(ConfigurationNode node, String def) {
+		return node.getString(def);
+	}
+
+	public List<String> getStringList(ConfigurationNode node, ArrayList<String> def) {
+		try {
+			return node.getList(TypeToken.of(String.class), def);
+		} catch (ObjectMappingException e) {
+			e.printStackTrace();
+			return def;
+		}
+	}
+
 	public void reload() {
 		loader = YAMLConfigurationLoader.builder().setPath(file.toPath()).build();
 

@@ -64,15 +64,15 @@ public class BungeeMySQL {
 		mysql = new com.bencodez.advancedcore.api.user.userstorage.mysql.api.MySQL(maxThreads) {
 
 			@Override
-			public void severe(String string) {
-				plugin.getLogger().error(string);
-			}
-
-			@Override
 			public void debug(SQLException e) {
 				if (plugin.getConfig().getDebug()) {
 					e.printStackTrace();
 				}
+			}
+
+			@Override
+			public void severe(String string) {
+				plugin.getLogger().error(string);
 			}
 		};
 		if (!mysql.connect(hostName, "" + port, user, pass, database, useSSL, lifeTime, str, publicKeyRetrieval)) {

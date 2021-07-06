@@ -13,6 +13,10 @@ public class Config extends VelocityYMLFile {
 		super(file);
 	}
 
+	public boolean getAllowUnJoined() {
+		return getBoolean(getNode("AllowUnJoined"), false);
+	}
+
 	public List<String> getBlockedServers() {
 		return getStringList(getNode("BlockedServers"), new ArrayList<String>());
 	}
@@ -21,20 +25,12 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("Broadcast"), false);
 	}
 
-	public boolean getWaitForUserOnline() {
-		return getBoolean(getNode("WaitForUserOnline"), false);
+	public String getBungeeHost() {
+		return getString(getNode("BungeeServer", "Host"), "");
 	}
 
 	public boolean getBungeeManageTotals() {
 		return getBoolean(getNode("BungeeManageTotals"), true);
-	}
-
-	public boolean getAllowUnJoined() {
-		return getBoolean(getNode("AllowUnJoined"), false);
-	}
-
-	public String getBungeeHost() {
-		return getString(getNode("BungeeServer", "Host"), "");
 	}
 
 	public String getBungeeMethod() {
@@ -53,16 +49,24 @@ public class Config extends VelocityYMLFile {
 		return getString(getNode("FallBackServer"), "");
 	}
 
+	public long getLong(ConfigurationNode node, long def) {
+		return node.getLong(def);
+	}
+
+	public ConfigurationNode getMysqlNode() {
+		return getNode("MySQL");
+	}
+
+	public int getPointsOnVote() {
+		return getInt(getNode("PointsOnVote"), 1);
+	}
+
 	public boolean getSendVotesToAllServers() {
 		return getBoolean(getNode("SendVotesToAllServers"), true);
 	}
 
 	public ConfigurationNode getSpigotServerConfiguration(String s) {
 		return getNode("SpigotServers", s);
-	}
-
-	public int getPointsOnVote() {
-		return getInt(getNode("PointsOnVote"), 1);
 	}
 
 	public Collection<String> getSpigotServers() {
@@ -73,11 +77,7 @@ public class Config extends VelocityYMLFile {
 		return list;
 	}
 
-	public ConfigurationNode getMysqlNode() {
-		return getNode("MySQL");
-	}
-
-	public long getLong(ConfigurationNode node, long def) {
-		return node.getLong(def);
+	public boolean getWaitForUserOnline() {
+		return getBoolean(getNode("WaitForUserOnline"), false);
 	}
 }

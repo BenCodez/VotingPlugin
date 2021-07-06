@@ -16,8 +16,8 @@ import com.bencodez.votingplugin.objects.VoteSite;
 
 public class AdminVoteVotePlayer extends GUIHandler {
 
-	private VotingPluginMain plugin;
 	private String playerName;
+	private VotingPluginMain plugin;
 
 	public AdminVoteVotePlayer(VotingPluginMain plugin, CommandSender player, String playerName) {
 		super(player);

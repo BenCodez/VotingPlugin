@@ -21,11 +21,11 @@ public class VoteReminding {
 	/** The plugin. */
 	private VotingPluginMain plugin;
 
+	private Timer timer;
+
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
-
-	private Timer timer;
 
 	/**
 	 * Check remind.
