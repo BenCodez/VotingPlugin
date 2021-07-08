@@ -190,9 +190,11 @@ public class VotingPluginVelocity {
 	}
 
 	public String getProperName(String uuid, String currentName) {
-		Player p = server.getPlayer(UUID.fromString(uuid)).get();
-		if (p != null && p.isActive()) {
-			return p.getUsername();
+		if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
+			Player p = server.getPlayer(UUID.fromString(uuid)).get();
+			if (p != null && p.isActive()) {
+				return p.getUsername();
+			}
 		}
 		return currentName;
 	}
