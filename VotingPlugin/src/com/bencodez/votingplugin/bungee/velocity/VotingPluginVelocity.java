@@ -713,7 +713,10 @@ public class VotingPluginVelocity {
 					for (RegisteredServer s : server.getAllServers()) {
 						if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 							boolean forceCache = false;
-							Player p = server.getPlayer(UUID.fromString(uuid)).get();
+							Player p = null;
+							if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
+								p = server.getPlayer(UUID.fromString(uuid)).get();
+							}
 							if ((p == null || !p.isActive()) && getConfig().getWaitForUserOnline()) {
 								forceCache = true;
 								debug("Forcing vote to cache");
