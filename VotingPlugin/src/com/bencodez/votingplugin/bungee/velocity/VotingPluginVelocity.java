@@ -198,9 +198,11 @@ public class VotingPluginVelocity {
 	}
 
 	public String getUUID(String playerName) {
-		Player p = server.getPlayer(playerName).get();
-		if (p != null && p.isActive()) {
-			return p.getUniqueId().toString();
+		if (server.getPlayer(playerName).isPresent()) {
+			Player p = server.getPlayer(playerName).get();
+			if (p != null && p.isActive()) {
+				return p.getUniqueId().toString();
+			}
 		}
 		if (mysql != null) {
 			String str = mysql.getUUID(playerName);
