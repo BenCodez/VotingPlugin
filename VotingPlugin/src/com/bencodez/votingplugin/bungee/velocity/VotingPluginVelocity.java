@@ -518,6 +518,7 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onVotifierEvent(VotifierEvent event) {
 		Vote vote = event.getVote();
+		logger.info("Vote received " + vote.getUsername() + " from service site " + vote.getServiceName());
 		vote(vote.getUsername(), vote.getServiceName(), true);
 	}
 
