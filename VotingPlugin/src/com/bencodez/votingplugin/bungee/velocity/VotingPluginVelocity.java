@@ -662,7 +662,7 @@ public class VotingPluginVelocity {
 					}
 					uuid = u.toString();
 				} else {
-					logger.info("Ignoring vote from " + player);
+					logger.info("Ignoring vote from " + player + " since player hasn't joined before");
 					return;
 				}
 			}

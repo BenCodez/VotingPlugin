@@ -659,7 +659,7 @@ public class VotingPluginBungee extends Plugin {
 					}
 					uuid = u.toString();
 				} else {
-					getLogger().info("Ignoring vote from " + player);
+					getLogger().info("Ignoring vote from " + player + " since player hasn't joined before");
 					return;
 				}
 			}
