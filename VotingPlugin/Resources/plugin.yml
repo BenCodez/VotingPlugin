@@ -247,7 +247,7 @@ permissions:
     description: Permission for generating votesite message
   VotingPlugin.Login.RemindVotes:
     description: Permission to allow timed reminders
-  VotingPlugin.Login.RemindVotes.Any:
-    description: Remind if player can vote on any website, rather than all
+  VotingPlugin.Login.RemindVotes.All:
+    description: Remind if player can vote on all votesites, rather than any
     default: false
   

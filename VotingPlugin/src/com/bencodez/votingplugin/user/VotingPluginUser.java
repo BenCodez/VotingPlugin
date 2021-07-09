@@ -1269,4 +1269,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
 	}
 
+	public int getSitesNotVotedOn() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSites()) {
+			if (!site.isHidden()) {
+				if (canVoteSite(site)) {
+					amount++;
+				}
+			}
+		}
+		return amount;
+	}
+
 }

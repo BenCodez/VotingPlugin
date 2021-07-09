@@ -37,7 +37,7 @@ public class VoteReminding {
 
 		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
 				|| PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Player")) {
-			if (user.canVoteAll() || (user.canVoteAny() && user.hasPermission("VotingPlugin.Login.RemindVotes.Any"))) {
+			if (user.canVoteAny() || (user.canVoteAll() && user.hasPermission("VotingPlugin.Login.RemindVotes.All"))) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
 					if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
@@ -56,7 +56,7 @@ public class VoteReminding {
 
 	private void giveReward(VotingPluginUser user) {
 		new RewardBuilder(plugin.getConfigFile().getData(), plugin.getConfigFile().getVoteRemindingRewardsPath())
-				.setGiveOffline(false).send(user);
+				.withPlaceHolder("sitesavailable", "" + user.getSitesNotVotedOn()).setGiveOffline(false).send(user);
 	}
 
 	/**

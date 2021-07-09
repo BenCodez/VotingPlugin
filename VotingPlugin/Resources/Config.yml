@@ -103,7 +103,7 @@ VoteReminding:
   # This can also be edited via /av gui
   Rewards:
     Messages:
-      Player: '&aRemember to vote!'
+      Player: '&aYou have %sitesavailable% to vote on still!'
     Title:
       Enabled: false
       Title: '&cRemember to vote!'

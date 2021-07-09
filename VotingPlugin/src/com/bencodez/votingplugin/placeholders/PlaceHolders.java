@@ -250,6 +250,14 @@ public class PlaceHolders {
 			}
 		}.withDescription("Return true/false if player can vote on all sites"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("CanVoteSites") {
+
+			@Override
+			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				return "" + user.getSitesNotVotedOn();
+			}
+		}.withDescription("Return number of votesites available"));
+
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Next_AnySite") {
 
 			@Override
