@@ -12,11 +12,10 @@ import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
+import com.bencodez.advancedcore.xyz.upperlevel.spigot.book.BookUtil;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-
-import xyz.upperlevel.spigot.book.BookUtil;
 
 public class AdminVotePlaceholdersPlayer extends GUIHandler {
 

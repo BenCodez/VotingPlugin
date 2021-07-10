@@ -104,14 +104,10 @@
 						</filter>
 					</filters>
 					<relocations>
-						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
-							other plugins -->
 						<relocation>
 							<pattern>com.bencodez.advancedcore</pattern>
 							<shadedPattern>${project.groupId}.votingplugin.advancedcore</shadedPattern>
 						</relocation>
-						<!-- Lets relocate the shaded API so we dont cause any conflicts with 
-							other plugins -->
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
 							<shadedPattern>${project.groupId}.votingplugin</shadedPattern>
@@ -127,10 +123,6 @@
 						<relocation>
 							<pattern>com.zaxxer.hikari</pattern>
 							<shadedPattern>${project.groupId}.votingplugin.hikari</shadedPattern>
-						</relocation>
-						<relocation>
-							<pattern>xyz.upperlevel.spigot.book</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.upperlevel.book</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.bstats</pattern>
@@ -220,6 +212,12 @@
 	</repositories>
 	<dependencies>
 		<dependency>
+			<groupId>com.bencodez</groupId>
+			<artifactId>advancedcore</artifactId>
+			<version>LATEST</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
 			<version>1.17.1-R0.1-SNAPSHOT</version>
@@ -265,81 +263,6 @@
 		</dependency>
 	</dependencies>
 	<profiles>
-		<profile>
-			<id>prod</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<properties>
-				<build.profile.id>prod</build.profile.id>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.github.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>master-SNAPSHOT</version>
-				</dependency>
-			</dependencies>
-			<repositories>
-				<repository>
-					<id>jitpack.io</id>
-					<url>https://jitpack.io</url>
-					<snapshots>
-						<enabled>true</enabled>
-						<updatePolicy>always</updatePolicy>
-					</snapshots>
-				</repository>
-			</repositories>
-			<distributionManagement>
-				<repository>
-					<id>internal.repo</id>
-					<name>Temporary Staging Repository</name>
-					<url>file://${project.build.directory}/mvn-repo</url>
-				</repository>
-			</distributionManagement>
-		</profile>
-		<profile>
-			<id>prod2</id>
-			<properties>
-				<build.profile.id>prod2</build.profile.id>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-			<distributionManagement>
-				<repository>
-					<id>internal.repo</id>
-					<name>Temporary Staging Repository</name>
-					<url>file://${project.build.directory}/mvn-repo</url>
-				</repository>
-			</distributionManagement>
-		</profile>
-		<profile>
-			<id>dev</id>
-			<properties>
-				<build.profile.id>dev</build.profile.id>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-			<distributionManagement>
-				<repository>
-					<id>internal.repo</id>
-					<name>Temporary Staging Repository</name>
-					<url>file://${project.build.directory}/mvn-repo</url>
-				</repository>
-			</distributionManagement>
-		</profile>
 		<profile>
 			<id>deploy</id>
 			<properties>

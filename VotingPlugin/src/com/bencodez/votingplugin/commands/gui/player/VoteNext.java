@@ -15,11 +15,10 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.xyz.upperlevel.spigot.book.BookUtil;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-
-import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteNext extends GUIHandler {
 
