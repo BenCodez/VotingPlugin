@@ -1195,7 +1195,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!site.hasRewards() && !hasRewards) {
 				issues = false;
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
-						+ ". See https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards on how to add rewards");
+						+ ". See https://github.com/BenCodez/AdvancedCore/wiki/Rewards on how to add rewards");
 			}
 
 			boolean contains = false;
@@ -1250,7 +1250,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteSites();
 
-		setJenkinsSite("ben12345rocks.com");
+		setJenkinsSite("bencodez.com");
 		updateAdvancedCoreHook();
 
 	}
