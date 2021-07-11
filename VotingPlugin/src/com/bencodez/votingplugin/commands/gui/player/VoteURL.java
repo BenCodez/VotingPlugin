@@ -21,12 +21,13 @@ import com.bencodez.advancedcore.api.messages.MessageBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.xyz.upperlevel.spigot.book.BookUtil;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+
+import xyz.upperlevel.spigot.book.BookUtil;
 
 public class VoteURL extends GUIHandler {
 
