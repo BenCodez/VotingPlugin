@@ -215,12 +215,6 @@
 	</repositories>
 	<dependencies>
 		<dependency>
-			<groupId>com.bencodez</groupId>
-			<artifactId>advancedcore</artifactId>
-			<version>LATEST</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
 			<version>1.17.1-R0.1-SNAPSHOT</version>
