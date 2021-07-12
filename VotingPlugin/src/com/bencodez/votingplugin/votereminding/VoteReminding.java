@@ -37,7 +37,7 @@ public class VoteReminding {
 
 		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
 				|| PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Player")) {
-			if (user.canVoteAny() || (user.canVoteAll() && user.hasPermission("VotingPlugin.Login.RemindVotes.All"))) {
+			if (shouldRemind(user)) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {
 					if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
@@ -103,13 +103,21 @@ public class VoteReminding {
 		}
 	}
 
+	public boolean shouldRemind(VotingPluginUser user) {
+		boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
+		if (user.canVoteAny() && !hasPermAll) {
+			return true;
+		} else {
+			return user.canVoteAll() && hasPermAll;
+		}
+	}
+
 	public void runRemindLogin(VotingPluginUser user) {
 		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
-			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || (user.canVoteAny()
-					|| (user.canVoteAll() && user.hasPermission("VotingPlugin.Login.RemindVotes.All"))))
+			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))
 					&& user.shouldBeReminded()) {
 				giveReward(user);
 				if (user.getData().hasData()) {
