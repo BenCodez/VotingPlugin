@@ -32,20 +32,15 @@ public class VoteReminding {
 	 * @param user the user
 	 */
 	public void checkRemind(VotingPluginUser user) {
-		String playerName = user.getPlayerName();
-
 		if (user.hasPermission("VotingPlugin.Login.RemindVotes") || user.hasPermission("VotingPlugin.Player")) {
 			if (shouldRemind(user)) {
-				Player player = Bukkit.getPlayer(playerName);
-				if (player != null) {
-					if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
-						runRemind(user);
-					} else if (!user.isReminded()) {
-						runRemind(user);
-						user.setReminded(true);
-					}
+				if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
+					runRemind(user);
+					user.setReminded(true);
+				} else if (!user.isReminded()) {
+					runRemind(user);
+					user.setReminded(true);
 				}
-
 			}
 
 		}
