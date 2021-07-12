@@ -221,7 +221,15 @@ commands:
   adminvoteRunCMD:
     description: Command Alias
     aliases: avRunCMD
-    
+  adminvoteuseruuidremove:
+    description: Command Alias
+    aliases: avuseruuidremove
+  adminvoteedit:
+    description: Command Alias
+    aliases: avedit
+  adminvoteResetMilestoneCount:
+    description: Command Alias
+    aliases: avResetMilestoneCount
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
