@@ -36,10 +36,8 @@ public class VoteReminding {
 			if (shouldRemind(user)) {
 				if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
 					runRemind(user);
-					user.setReminded(true);
 				} else if (!user.isReminded()) {
 					runRemind(user);
-					user.setReminded(true);
 				}
 			}
 
@@ -85,13 +83,12 @@ public class VoteReminding {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
-			if (user.canVoteAll() && user.shouldBeReminded()) {
+			giveReward(user);
+			if (user.getData().hasData()) {
 				user.setReminded(true);
-				giveReward(user);
-
-				plugin.debug(user.getPlayerName() + " was reminded!");
-
 			}
+
+			plugin.debug(user.getPlayerName() + " was reminded!");
 		}
 	}
 
