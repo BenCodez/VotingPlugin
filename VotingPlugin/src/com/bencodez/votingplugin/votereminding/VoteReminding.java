@@ -104,11 +104,15 @@ public class VoteReminding {
 	}
 
 	public boolean shouldRemind(VotingPluginUser user) {
-		boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
-		if (user.canVoteAny() && !hasPermAll) {
-			return true;
+		if (user.shouldBeReminded()) {
+			boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
+			if (hasPermAll) {
+				return user.canVoteAll();
+			} else {
+				return user.canVoteAny();
+			}
 		} else {
-			return user.canVoteAll() && hasPermAll;
+			return false;
 		}
 	}
 
@@ -117,8 +121,7 @@ public class VoteReminding {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
-			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))
-					&& user.shouldBeReminded()) {
+			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
 				giveReward(user);
 				if (user.getData().hasData()) {
 					user.setReminded(true);
