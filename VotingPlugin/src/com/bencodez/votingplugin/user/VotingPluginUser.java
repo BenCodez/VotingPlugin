@@ -224,9 +224,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public boolean canVoteAll() {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			boolean canVote = canVoteSite(voteSite);
-			if (!canVote) {
-				return false;
+			if (!voteSite.isHidden()) {
+				boolean canVote = canVoteSite(voteSite);
+				if (!canVote) {
+					return false;
+				}
 			}
 		}
 		return true;
@@ -234,7 +236,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public boolean canVoteAny() {
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			if (!voteSite.isIgnoreCanVote()) {
+			if (!voteSite.isIgnoreCanVote() && !voteSite.isHidden()) {
 				boolean canVote = canVoteSite(voteSite);
 				if (canVote) {
 					return true;

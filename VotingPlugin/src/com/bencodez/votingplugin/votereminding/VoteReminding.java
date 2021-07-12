@@ -42,7 +42,6 @@ public class VoteReminding {
 				if (player != null) {
 					if (!plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
 						runRemind(user);
-						user.setReminded(true);
 					} else if (!user.isReminded()) {
 						runRemind(user);
 						user.setReminded(true);
