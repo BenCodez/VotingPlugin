@@ -6,7 +6,6 @@ import java.util.TimerTask;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -35,8 +34,7 @@ public class VoteReminding {
 	public void checkRemind(VotingPluginUser user) {
 		String playerName = user.getPlayerName();
 
-		if (PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Login.RemindVotes")
-				|| PlayerUtils.getInstance().hasServerPermission(playerName, "VotingPlugin.Player")) {
+		if (user.hasPermission("VotingPlugin.Login.RemindVotes") || user.hasPermission("VotingPlugin.Player")) {
 			if (shouldRemind(user)) {
 				Player player = Bukkit.getPlayer(playerName);
 				if (player != null) {

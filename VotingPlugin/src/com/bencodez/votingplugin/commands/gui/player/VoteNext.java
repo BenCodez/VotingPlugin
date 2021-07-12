@@ -43,7 +43,6 @@ public class VoteNext extends GUIHandler {
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			if (!voteSite.isHidden()) {
-
 				String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
 
 				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
@@ -63,12 +62,14 @@ public class VoteNext extends GUIHandler {
 
 		// add colors/config options
 		for (VoteSite site : plugin.getVoteSites()) {
-			Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
-			nextLayout.replaceTextComponent("[Json]",
-					BookUtil.TextBuilder.of(book.colorize(site.getDisplayName()))
-							.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
-							.onHover(BookUtil.HoverAction.showText(user.voteCommandNextInfo(site))).build());
-			book.addLayout(nextLayout);
+			if (!site.isHidden()) {
+				Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+				nextLayout.replaceTextComponent("[Json]",
+						BookUtil.TextBuilder.of(book.colorize(site.getDisplayName()))
+								.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
+								.onHover(BookUtil.HoverAction.showText(user.voteCommandNextInfo(site))).build());
+				book.addLayout(nextLayout);
+			}
 		}
 		book.addLine();
 
@@ -85,20 +86,24 @@ public class VoteNext extends GUIHandler {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteNextName());
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
-			inv.addButton(inv.getNextSlot(), new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
-					.setLore(user.voteCommandNextInfo(site)).setAmountNone(1), 1000, 1000) {
+			if (!site.isHidden()) {
+				inv.addButton(inv.getNextSlot(),
+						new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
+								.setLore(user.voteCommandNextInfo(site)).setAmountNone(1), 1000, 1000) {
 
-				@Override
-				public void onClick(ClickEvent clickEvent) {
+							@Override
+							public void onClick(ClickEvent clickEvent) {
 
-				}
+							}
 
-				@Override
-				public ItemBuilder onUpdate(Player player) {
-					return site.getItem().setName(site.getDisplayName()).setLore(user.voteCommandNextInfo(site))
-							.setAmountNone(1).addPlaceholder("player", user.getPlayerName());
-				}
-			});
+							@Override
+							public ItemBuilder onUpdate(Player player) {
+								return site.getItem().setName(site.getDisplayName())
+										.setLore(user.voteCommandNextInfo(site)).setAmountNone(1)
+										.addPlaceholder("player", user.getPlayerName());
+							}
+						});
+			}
 		}
 
 		if (plugin.getGui().getChestVoteNextBackButton()) {
