@@ -31,7 +31,6 @@ import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.UUID;
-import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
@@ -723,28 +722,6 @@ public class CommandLoader {
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "ConvertFromData", "(userstorage)" },
-						"VotingPlugin.Commands.AdminVote.ConvertFromData",
-						"Convert from selected user storage to current user storage") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						if (sender instanceof Player) {
-							sender.sendMessage(StringParser.getInstance().colorize("&cThis can not be done ingame"));
-							return;
-						}
-						try {
-							sender.sendMessage("Starting to convert");
-							UserStorage prevStorage = UserStorage.valueOf(args[1].toUpperCase());
-							plugin.convertDataStorage(prevStorage, VotingPluginMain.plugin.getStorageType());
-							sender.sendMessage("Finished converting!");
-						} catch (Exception ex) {
-							ex.printStackTrace();
-						}
-					}
-				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "SetVoteStreak", "DAY", "(number)" },

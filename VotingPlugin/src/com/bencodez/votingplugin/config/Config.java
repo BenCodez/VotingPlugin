@@ -85,14 +85,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean clearCacheOnVoteShopPurchase = true;
 
-	@ConfigDataInt(path = "ConvertAmount")
-	@Getter
-	private int convertAmount = 150;
-
-	@ConfigDataInt(path = "ConvertDelay", defaultValue = 30000)
-	@Getter
-	private int convertDelay;
-
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;

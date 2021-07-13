@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimerTask;
 import java.util.zip.ZipEntry;
@@ -249,77 +248,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			}, 10);
 		}
-	}
-
-	public void convertDataStorage(UserStorage from, UserStorage to) {
-		if (from == null || to == null) {
-			throw new RuntimeException("Invalid Storage Method");
-		}
-		UserStorage cur = getStorageType();
-		getOptions().setStorageType(from);
-		if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
-			getMysql().clearCache();
-		}
-		ArrayList<String> uuids = new ArrayList<String>(UserManager.getInstance().getAllUUIDs());
-
-		while (uuids.size() > 0) {
-			HashMap<VotingPluginUser, HashMap<String, String>> data = new HashMap<VotingPluginUser, HashMap<String, String>>();
-			getOptions().setStorageType(from);
-			loadUserAPI(getOptions().getStorageType());
-			// setStorageType(to);
-
-			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
-				getMysql().clearCache();
-			}
-
-			ArrayList<String> converted = new ArrayList<String>();
-			int i = 0;
-			while (i < configFile.getConvertAmount() && i < uuids.size()) {
-				String uuid = uuids.get(i);
-				try {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-
-					HashMap<String, String> values = new HashMap<String, String>();
-					for (String key : user.getData().getKeys()) {
-						String value = user.getData().getValue(key);
-						if (value != null && !value.isEmpty() && !value.equalsIgnoreCase("null")) {
-							values.put(key, value);
-						}
-					}
-					i++;
-					converted.add(uuid);
-					data.put(user, values);
-					debug("[Convert] Added " + uuid);
-				} catch (Exception e) {
-					debug(e);
-					plugin.getLogger().warning("Exception occoured for '" + uuid + "': " + e.getMessage()
-							+ ", turn debug on to see full stack traces");
-				}
-			}
-
-			try {
-				wait(configFile.getConvertDelay());
-			} catch (Exception e) {
-			}
-
-			uuids.removeAll(converted);
-
-			plugin.getLogger().info("Finished getting data from " + from.toString() + " Converting " + data.size()
-					+ " users, " + uuids.size() + " left to convert");
-
-			getOptions().setStorageType(to);
-			loadUserAPI(getOptions().getStorageType());
-			if (getStorageType().equals(UserStorage.MYSQL) && getMysql() != null) {
-				getMysql().clearCache();
-			}
-
-			writeConvertData(data);
-		}
-
-		getOptions().setStorageType(cur);
-		reload();
-
-		plugin.getLogger().info("Finished convertting");
 	}
 
 	public ArrayList<VotingPluginUser> convertSet(Set<VotingPluginUser> set) {
@@ -1195,7 +1123,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!site.hasRewards() && !hasRewards) {
 				issues = false;
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
-						+ ". See https://github.com/BenCodez/AdvancedCore/wiki/Rewards on how to add rewards");
+						+ ". See https://github.com/BenCodez/VotingPlugin/wiki/Rewards on how to add rewards");
 			}
 
 			boolean contains = false;
@@ -1217,7 +1145,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				@Override
 				public void run() {
 					plugin.getLogger().warning(
-							"Detected an issue with voting sites, check the server startup log for more details");
+							"Detected an issue with voting sites, check the server startup log for more details: https://github.com/BenCodez/VotingPlugin/wiki/Votifier-Troubleshooting");
 				}
 			}, 30l);
 		}
@@ -1508,32 +1436,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		}
 		plugin.debug("Updated VoteToday");
-	}
-
-	private void writeConvertData(HashMap<VotingPluginUser, HashMap<String, String>> data) {
-		boolean checkInt = getStorageType().equals(UserStorage.MYSQL);
-		for (Entry<VotingPluginUser, HashMap<String, String>> entry : data.entrySet()) {
-			try {
-				for (Entry<String, String> values : entry.getValue().entrySet()) {
-					String value = values.getValue();
-					if (value != null && !value.equalsIgnoreCase("null")) {
-						if (checkInt) {
-							if (StringParser.getInstance().isInt(value)) {
-								entry.getKey().getData().setInt(values.getKey(), Integer.parseInt(value));
-							} else {
-								entry.getKey().getData().setString(values.getKey(), value);
-							}
-						} else {
-							entry.getKey().getData().setString(values.getKey(), value);
-						}
-					}
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				plugin.getLogger()
-						.warning("Exception occoured for '" + entry.getKey().getUUID() + "': " + e.getMessage());
-			}
-		}
 	}
 
 }
