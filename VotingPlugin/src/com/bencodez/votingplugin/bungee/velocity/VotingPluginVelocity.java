@@ -113,7 +113,10 @@ public class VotingPluginVelocity {
 					for (OfflineBungeeVote cache : c) {
 						boolean toSend = true;
 						if (getConfig().getWaitForUserOnline()) {
-							Player p = server.getPlayer(UUID.fromString(cache.getUuid())).get();
+							Player p = null;
+							if (server.getPlayer(UUID.fromString(cache.getUuid())).isPresent()) {
+								p = server.getPlayer(UUID.fromString(cache.getUuid())).get();
+							}
 							if (p == null || !p.isActive()) {
 								toSend = false;
 							} else if (p != null && p.isActive() && !p.getCurrentServer().get().getServerInfo()

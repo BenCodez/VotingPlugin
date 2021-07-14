@@ -579,10 +579,11 @@ WaitUntilLoggedIn: true
 
 # Preload skulls to improve performance
 # If false, skulls will be cached as they are used
+# assuming loadskulls is enabled
 PreloadSkulls: false
 
 # Setting to false disables saving skulls in a cache to improve speeds
-# Will reduce ram usage if disabled
+# Will reduce ram usage (very little) if disabled, but slow GUI speeds when using skulls
 LoadSkulls: true
 
 # Use vault for permission checks
