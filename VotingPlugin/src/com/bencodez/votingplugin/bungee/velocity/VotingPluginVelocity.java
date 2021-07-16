@@ -766,7 +766,7 @@ public class VotingPluginVelocity {
 					}
 
 					for (RegisteredServer s : server.getAllServers()) {
-						sendPluginMessageServer(s, "VoteUpdate", player);
+						sendPluginMessageServer(s, "VoteUpdate", uuid);
 					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
