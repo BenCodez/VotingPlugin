@@ -506,6 +506,16 @@ public class VotingPluginVelocity {
 			}
 		}
 
+		try {
+			getVersionFile();
+			if (versionFile != null) {
+				versionFile.delete();
+				versionFile.getParentFile().delete();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 		Metrics metrics = metricsFactory.make(this, 11547);
 
 		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
@@ -520,15 +530,8 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
-		try {
-			getVersionFile();
-			if (versionFile != null) {
-				versionFile.delete();
-				versionFile.getParentFile().delete();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		metrics.addCustomChart(new SimplePie("plugin_version", () -> "" + version));
+
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
 				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
 	}
