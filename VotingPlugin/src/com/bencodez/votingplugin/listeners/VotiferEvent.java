@@ -80,12 +80,12 @@ public class VotiferEvent implements Listener {
 							"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods");
 					return;
 				}
-				String voteSiteName = plugin.getVoteSiteName(false, voteSite);
+				String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite);
 
 				ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
 				boolean createSite = false;
 				if (sites != null) {
-					if (!sites.contains(voteSiteName)) {
+					if (!sites.contains(voteSiteNameStr)) {
 						createSite = true;
 					}
 				} else {
@@ -93,15 +93,17 @@ public class VotiferEvent implements Listener {
 				}
 
 				if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
-					plugin.getLogger().warning("VoteSite with service site '" + voteSiteName
+					plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
 							+ "' does not exist, attempting to generaterate...");
-					plugin.getConfigVoteSites().generateVoteSite(voteSiteName);
+					plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
 
 					plugin.getLogger().info("Current known service sites: "
 							+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
 				}
 
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, false), voteUsername,
+				String voteSiteName = plugin.getVoteSiteName(true, voteSite);
+
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true), voteUsername,
 						voteSite, true);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 

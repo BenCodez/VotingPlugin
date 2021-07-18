@@ -71,6 +71,10 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		VoteSite voteSite = event.getVoteSite();
+		
+		if (voteSite == null) {
+			voteSite = plugin.getVoteSite(plugin.getVoteSiteName(true, event.getServiceSite()), true);
+		}
 
 		// check valid service sites
 		if (voteSite == null) {
