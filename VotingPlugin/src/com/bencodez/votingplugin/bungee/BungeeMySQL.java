@@ -84,7 +84,10 @@ public class BungeeMySQL {
 			Query q = new Query(mysql, "USE " + database + ";");
 			q.executeUpdateAsync();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			bungee.getLogger().severe("Failed to send use database query: " + database + " Error: " + e.getMessage());
+			if (bungee.getConfig().getDebug()) {
+				e.printStackTrace();
+			}
 		}
 		String sql = "CREATE TABLE IF NOT EXISTS " + getName() + " (";
 		sql += "uuid VARCHAR(37),";

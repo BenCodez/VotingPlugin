@@ -82,6 +82,10 @@ public class BungeeMySQL {
 			Query q = new Query(mysql, "USE " + database + ";");
 			q.executeUpdateAsync();
 		} catch (SQLException e) {
+			plugin.getLogger().error("Failed to send use database query: " + database + " Error: " + e.getMessage());
+			if (plugin.getConfig().getDebug()) {
+				e.printStackTrace();
+			}
 			e.printStackTrace();
 		}
 		String sql = "CREATE TABLE IF NOT EXISTS " + getName() + " (";
