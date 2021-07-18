@@ -7,12 +7,15 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Path;
+import java.security.CodeSource;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -21,6 +24,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.bstats.charts.SimplePie;
 import org.bstats.velocity.Metrics;
@@ -60,6 +65,7 @@ import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
 import ninja.leaping.configurate.ConfigurationNode;
+import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
@@ -514,8 +520,66 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
+		try {
+			getVersionFile();
+			if (versionFile != null) {
+				versionFile.delete();
+				versionFile.getParentFile().delete();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
-				+ BungeeVersion.getPluginMessageVersion());
+				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
+	}
+
+	private String version = "";
+	private File versionFile;
+
+	private void getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("votingpluginversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								versionFile = new File(dataDirectory.toFile(),
+										"tmp" + File.separator + "votingpluginversion.yml");
+								if (!versionFile.exists()) {
+									versionFile.getParentFile().mkdirs();
+									versionFile.createNewFile();
+								}
+								FileWriter fileWriter = new FileWriter(versionFile);
+
+								int charVal;
+								while ((charVal = defConfigStream.read()) != -1) {
+									fileWriter.append((char) charVal);
+								}
+
+								fileWriter.close();
+								YAMLConfigurationLoader loader = YAMLConfigurationLoader.builder().setFile(versionFile)
+										.build();
+								defConfigStream.close();
+								ConfigurationNode node = loader.load();
+								if (node != null) {
+									version = node.getNode("version").getString("");
+								}
+								return;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Subscribe
