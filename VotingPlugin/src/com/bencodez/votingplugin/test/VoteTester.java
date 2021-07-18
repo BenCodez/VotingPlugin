@@ -52,7 +52,7 @@ public class VoteTester {
 		ArrayList<Long> timesPerVote = new ArrayList<Long>();
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site), name,
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site, false), name,
 					plugin.getVoteSiteServiceSite(site), false);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			long start2 = System.currentTimeMillis();

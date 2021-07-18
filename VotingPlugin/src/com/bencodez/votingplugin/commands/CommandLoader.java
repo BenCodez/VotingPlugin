@@ -407,7 +407,7 @@ public class CommandLoader {
 							for (String serviceSite : serviceSites) {
 								boolean hasSite = plugin.hasVoteSite(serviceSite);
 								if (hasSite) {
-									String siteName = plugin.getVoteSiteName(serviceSite);
+									String siteName = plugin.getVoteSiteName(true, serviceSite);
 									sendMessage(sender, serviceSite + " : Current site = " + siteName);
 								} else {
 									sendMessage(sender, serviceSite
@@ -651,7 +651,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
-					new AdminGUI(plugin).openAdminGUIVoteSiteSite((Player) sender, plugin.getVoteSite(args[1]));
+					new AdminGUI(plugin).openAdminGUIVoteSiteSite((Player) sender, plugin.getVoteSite(args[1], false));
 				} else {
 					sender.sendMessage("Must be a player to do this");
 				}
@@ -862,7 +862,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2]), args[1], args[2], false);
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1], args[2],
+						false);
 				sendMessage(sender, "&cTriggering vote...");
 				if (voteEvent.getVoteSite() != null) {
 					if (!voteEvent.getVoteSite().isVaidServiceSite()) {
@@ -928,8 +929,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[3]), args[1], args[3],
-								false);
+						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[3], true), args[1],
+								args[3], false);
 						sendMessage(sender, "&cTriggering vote...");
 						if (voteEvent.getVoteSite() != null) {
 							if (!voteEvent.getVoteSite().isVaidServiceSite()) {
@@ -984,7 +985,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(args[1]);
+						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						String serviceSite = args[3];
 						plugin.getConfigVoteSites().setServiceSite(voteSite, serviceSite);
 						sender.sendMessage(StringParser.getInstance()
@@ -998,7 +999,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(args[1]);
+						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						String url = args[3];
 						plugin.getConfigVoteSites().setVoteURL(voteSite, url);
 						sender.sendMessage(StringParser.getInstance()
@@ -1012,7 +1013,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(args[1]);
+						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int value = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setPriority(voteSite, value);
 						sender.sendMessage(StringParser.getInstance()
@@ -1027,7 +1028,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(args[1]);
+						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int delay = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setVoteDelay(voteSite, delay);
 						sender.sendMessage(StringParser.getInstance()
@@ -1083,7 +1084,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(args[1]);
+						String voteSite = plugin.getVoteSiteName(false, args[1]);
 						boolean value = Boolean.parseBoolean(args[3]);
 
 						plugin.getConfigVoteSites().setEnabled(voteSite, value);
@@ -1518,7 +1519,7 @@ public class CommandLoader {
 													@Override
 													public void onInput(Player player, String value) {
 														PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-																plugin.getVoteSite(value),
+																plugin.getVoteSite(value, true),
 																UserGUI.getInstance().getCurrentPlayer(player),
 																plugin.getVoteSiteServiceSite(value), false);
 														plugin.getServer().getPluginManager().callEvent(voteEvent);

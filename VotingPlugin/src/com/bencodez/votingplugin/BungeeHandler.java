@@ -86,7 +86,7 @@ public class BungeeHandler {
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSite(service);
+								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
 									site.broadcastVote(user, false);
 								} else {
@@ -137,7 +137,7 @@ public class BungeeHandler {
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSite(service);
+								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
 									site.broadcastVote(user, false);
 								} else {
@@ -175,7 +175,7 @@ public class BungeeHandler {
 					String uuid = args.get(0);
 					String service = args.get(1);
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					VoteSite site = plugin.getVoteSite(service);
+					VoteSite site = plugin.getVoteSite(service, true);
 					if (site != null) {
 						site.broadcastVote(user, false);
 					} else {
@@ -259,7 +259,7 @@ public class BungeeHandler {
 				@Override
 				public void onReceive(String[] data) {
 					if (data.length > 2) {
-						VoteSite site = plugin.getVoteSite(data[1]);
+						VoteSite site = plugin.getVoteSite(data[1], true);
 						String p = data[3];
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 						if (site != null) {

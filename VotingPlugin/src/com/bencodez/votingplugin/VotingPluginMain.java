@@ -307,8 +307,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @param site the site name
 	 * @return the vote site
 	 */
-	public VoteSite getVoteSite(String site) {
-		String siteName = getVoteSiteName(site);
+	public VoteSite getVoteSite(String site, boolean checkEnabled) {
+		String siteName = getVoteSiteName(checkEnabled, site);
 		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return voteSite;
@@ -328,8 +328,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @param urls the url
 	 * @return the vote site name
 	 */
-	public String getVoteSiteName(String... urls) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(false);
+	public String getVoteSiteName(boolean checkEnabled, String... urls) {
+		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
 		for (String url : urls) {
 			if (url == null) {
 				return null;
@@ -385,7 +385,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public boolean hasVoteSite(String site) {
-		String siteName = getVoteSiteName(site);
+		String siteName = getVoteSiteName(false, site);
 		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
 				return true;

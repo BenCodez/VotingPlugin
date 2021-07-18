@@ -51,7 +51,7 @@ public class VoteURLVoteSite extends GUIHandler {
 			player.sendMessage("Not a valid votesite");
 			return;
 		}
-		VoteSite site = plugin.getVoteSite(voteSite);
+		VoteSite site = plugin.getVoteSite(voteSite, true);
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLSiteName());
 		inv.addPlaceholder("site", site.getDisplayName());
 		inv.setMeta(player, "VoteSite", site);

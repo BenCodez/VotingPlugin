@@ -155,7 +155,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
@@ -176,7 +176,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
@@ -198,7 +198,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service), getPlayerName(), service,
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
 			voteEvent.setBungee(true);
 			voteEvent.setVotingPluginUser(this);
@@ -444,7 +444,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		for (String str : LastVotesCheckList) {
 			String[] data = str.split("//");
 			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0]);
+				VoteSite site = plugin.getVoteSite(data[0], true);
 				if (site != null) {
 					Boolean value = Boolean.FALSE;
 					try {
@@ -469,7 +469,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
 			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0]);
+				VoteSite site = plugin.getVoteSite(data[0], true);
 				if (site != null) {
 					long time = 0;
 					try {
@@ -748,7 +748,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			for (int i = 0; i < offlineVotes.size(); i++) {
 				if (plugin.hasVoteSite(offlineVotes.get(i))) {
 					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
-					playerVote(plugin.getVoteSite(offlineVotes.get(i)), false, true, false);
+					playerVote(plugin.getVoteSite(offlineVotes.get(i), true), false, true, false);
 				} else {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
