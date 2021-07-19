@@ -10,7 +10,7 @@ import com.vexsoftware.votifier.model.VotifierEvent;
 public class BungeeVotifierEvent {
 	public void send(VotingPluginMain plugin, PlayerVoteEvent event) {
 		plugin.debug("Triggering vote event");
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -19,6 +19,5 @@ public class BungeeVotifierEvent {
 				plugin.getServer().getPluginManager().callEvent(e);
 			}
 		});
-
 	}
 }
