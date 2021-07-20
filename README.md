@@ -8,7 +8,7 @@ https://www.spigotmc.org/resources/votingplugin.15358/
 
 ## License
 ### Creative Commons Arttribution 3.0 Unported
-https://github.com/Ben12345rocks/VotingPlugin/blob/master/VotingPlugin/Resources/LICENSE.txt
+https://github.com/BenCodez/VotingPlugin/blob/master/VotingPlugin/Resources/LICENSE.txt
 
 ### Maven:
 
