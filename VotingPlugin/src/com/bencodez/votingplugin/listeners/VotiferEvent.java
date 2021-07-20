@@ -41,7 +41,11 @@ public class VotiferEvent implements Listener {
 	public void onVotiferEvent(VotifierEvent event) {
 
 		Vote vote = event.getVote();
-		final String voteSite = vote.getServiceName();
+		String str = vote.getServiceName();
+		if (str.isEmpty()) {
+			str = "Empty";
+		}
+		final String voteSite = str;
 		final String IP = vote.getAddress();
 		final String voteUsername = vote.getUsername().trim();
 		if (IP.equals("VotingPlugin")) {

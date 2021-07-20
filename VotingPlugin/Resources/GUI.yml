@@ -12,6 +12,7 @@ GUIMethod:
   Last: CHEST #BOOK not available (future update?)
   Next: CHEST 
   Total: CHEST #BOOK not available (future update?)
+  # GUI for /vote
   URL: CHEST
   Best: CHEST #BOOK not available (future update?)
   Streak: CHEST #BOOK not available (future update?)
@@ -119,6 +120,7 @@ CHEST:
       Material: 'EMERALD_BLOCK'
       Data: 0
       Amount: 1
+    # URL when clicking item in /vote (GUI version)
     URLText: '%VoteUrl%'
     # #Add Extra items
     # ExtraItems:
