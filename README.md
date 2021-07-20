@@ -39,6 +39,5 @@ https://github.com/Ben12345rocks/VotingPlugin/blob/master/VotingPlugin/Resources
   
   Versions:  
   LATEST - latest stable release  
-  BRANCH-SNAPHSOT - unstable builds  
  
     
