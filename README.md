@@ -13,6 +13,19 @@ https://github.com/Ben12345rocks/VotingPlugin/blob/master/VotingPlugin/Resources
 ### Maven:
 
     <repository>
+	    <id>BenCodez Repo</id>
+	    <url>https://nexus.bencodez.com</url>
+    </repository>
+
+    <dependency>
+        <groupId>com.bencodez</groupId>
+	    <artifactId>votingplugin</artifactId>
+	    <version>LATEST</version>
+	    <scope>provided</scope>
+    </dependency>
+
+    BACKUP/OLD WAY
+    <repository>
         <id>jitpack.io</id>
         <url>https://jitpack.io</url>
     </repository>
