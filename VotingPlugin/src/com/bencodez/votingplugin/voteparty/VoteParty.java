@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.voteparty;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -16,7 +17,6 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
 import com.bencodez.votingplugin.user.UserManager;
@@ -185,7 +185,7 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
@@ -195,7 +195,7 @@ public class VoteParty implements Listener {
 			plugin.debug("Trying to give all voted players vote party");
 			plugin.debug(ArrayUtils.getInstance().makeStringList(getVotedUsers()));
 			for (String uuid : getVotedUsers()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
@@ -240,7 +240,7 @@ public class VoteParty implements Listener {
 		}
 		setVotedUsers(new ArrayList<String>());
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}

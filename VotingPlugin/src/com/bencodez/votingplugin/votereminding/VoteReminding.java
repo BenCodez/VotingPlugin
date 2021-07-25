@@ -67,6 +67,8 @@ public class VoteReminding {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 							checkRemind(user);
 						}
+					} else {
+						cancel();
 					}
 				}
 			}, 1000 * 30, plugin.getConfigFile().getVoteRemindingRemindDelay() * 1000 * 60);
@@ -84,7 +86,7 @@ public class VoteReminding {
 				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 			}
 			giveReward(user);
-			if (user.getData().hasData()) {
+			if (user.getData().hasData() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
 				user.setReminded(true);
 			}
 

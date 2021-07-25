@@ -71,7 +71,7 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		VoteSite voteSite = event.getVoteSite();
-		
+
 		if (voteSite == null) {
 			voteSite = plugin.getVoteSite(plugin.getVoteSiteName(true, event.getServiceSite()), true);
 		}
@@ -153,7 +153,7 @@ public class PlayerVoteListener implements Listener {
 			plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
 			plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
 
-			if (user.isReminded()) {
+			if (user.isReminded() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
 				user.setReminded(false);
 			}
 

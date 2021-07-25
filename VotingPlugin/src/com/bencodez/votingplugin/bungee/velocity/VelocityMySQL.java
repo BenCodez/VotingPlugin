@@ -12,11 +12,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.queries.Query;
-import com.bencodez.advancedcore.api.user.userstorage.sql.Column;
-import com.bencodez.advancedcore.api.user.userstorage.sql.DataType;
 
-public class BungeeMySQL {
+public class VelocityMySQL {
 	private List<String> columns = Collections.synchronizedList(new ArrayList<String>());
 
 	private List<String> intColumns = new ArrayList<String>();
@@ -38,7 +38,7 @@ public class BungeeMySQL {
 
 	private Set<String> uuids = Collections.synchronizedSet(new HashSet<String>());
 
-	public BungeeMySQL(VotingPluginVelocity plugin, String tableName, Config config) {
+	public VelocityMySQL(VotingPluginVelocity plugin, String tableName, Config config) {
 		String tablePrefix = config.getString(config.getNode("Prefix"), "");
 		String hostName = config.getString(config.getNode("Host"), "");
 		int port = config.getInt(config.getNode("Port"), 0);
@@ -415,7 +415,7 @@ public class BungeeMySQL {
 		columns = getColumnsQueury();
 	}
 
-	public void update(String index, List<Column> cols, boolean queue) {
+	public void update(String index, List<Column> cols) {
 		for (Column col : cols) {
 			checkColumn(col.getName(), col.getDataType());
 		}
@@ -428,9 +428,9 @@ public class BungeeMySQL {
 					Column col = cols.get(i);
 					if (i == cols.size() - 1) {
 						if (col.getDataType().equals(DataType.STRING)) {
-							query += col.getName() + "='" + col.getValue().toString() + "';";
+							query += col.getName() + "='" + col.getValue().toString() + "'";
 						} else {
-							query += col.getName() + "=" + col.getValue().toString() + ";";
+							query += col.getName() + "=" + col.getValue().toString();
 						}
 					} else {
 						if (col.getDataType().equals(DataType.STRING)) {

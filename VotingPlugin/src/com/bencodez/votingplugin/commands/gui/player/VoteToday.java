@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.UUID;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -17,7 +18,6 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -108,7 +108,7 @@ public class VoteToday extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}

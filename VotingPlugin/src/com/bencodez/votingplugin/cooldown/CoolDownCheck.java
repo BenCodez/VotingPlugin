@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.cooldown;
 
 import java.util.TimerTask;
+import java.util.UUID;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,7 +10,6 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.user.UserManager;
@@ -45,7 +45,7 @@ public class CoolDownCheck implements Listener {
 							for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 								if (VotingPluginMain.plugin != null) {
 									VotingPluginUser user = UserManager.getInstance()
-											.getVotingPluginUser(new UUID(uuid));
+											.getVotingPluginUser(UUID.fromString(uuid));
 									if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
 										user.checkCoolDownEvents();
 									}

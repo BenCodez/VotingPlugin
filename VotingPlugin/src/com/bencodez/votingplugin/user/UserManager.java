@@ -1,11 +1,14 @@
 package com.bencodez.votingplugin.user;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.user.UUID;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class UserManager {
@@ -24,7 +27,39 @@ public class UserManager {
 	}
 
 	public UserManager() {
-		super();
+	}
+
+	public void addCachingKeys() {
+		UserDataManager manager = com.bencodez.advancedcore.api.user.UserManager.getInstance().getDataManager();
+		manager.addKey(new UserDataKeyString("TopVoterIgnore").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
+		manager.addKey(new UserDataKeyString("LastVotes"));
+		manager.addKey(new UserDataKeyString("LastVoteCoolDownCheck"));
+		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyInt("MilestoneCount"));
+		manager.addKey(new UserDataKeyInt("MonthTotal"));
+		manager.addKey(new UserDataKeyInt("AllTimeTotal"));
+		manager.addKey(new UserDataKeyInt("DailyTotal"));
+		manager.addKey(new UserDataKeyInt("WeeklyTotal"));
+		manager.addKey(new UserDataKeyInt("Points"));
+		manager.addKey(new UserDataKeyInt("DayVoteStreak"));
+		manager.addKey(new UserDataKeyInt("BestDayVoteStreak"));
+		manager.addKey(new UserDataKeyString("DayVoteStreakLastUpdate").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyString("GottenMileStones").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyString("Reminded").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyString("DisableBroadcast").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyInt("WeekVoteStreak"));
+		manager.addKey(new UserDataKeyInt("BestWeekVoteStreak"));
+		manager.addKey(new UserDataKeyInt("MonthVoteStreak"));
+		manager.addKey(new UserDataKeyInt("HighestDailyTotal"));
+		manager.addKey(new UserDataKeyInt("HighestMonthlyTotal"));
+		manager.addKey(new UserDataKeyInt("HighestWeeklyTotal"));
+		manager.addKey(new UserDataKeyInt("LastMonthTotal"));
+		manager.addKey(new UserDataKeyInt("BestMonthVoteStreak"));
+		if (plugin.getOptions().isPerServerRewards()) {
+			manager.addKey(new UserDataKeyString("OfflineRewards" + plugin.getOptions().getServer())
+					.setColumnType("MEDIUMTEXT"));
+		}
 	}
 
 	public ArrayList<String> getAllUUIDs() {
@@ -35,13 +70,9 @@ public class UserManager {
 		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
 	}
 
-	public VotingPluginUser getVotingPluginUser(java.util.UUID uuid) {
-		return getVotingPluginUser(new UUID(uuid.toString()));
-	}
-
 	@SuppressWarnings("deprecation")
-	public VotingPluginUser getVotingPluginUser(java.util.UUID uuid, String playerName) {
-		return new VotingPluginUser(plugin, new UUID(uuid.toString()), playerName);
+	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
+		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 
 	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
@@ -61,5 +92,10 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid) {
 		return new VotingPluginUser(plugin, uuid);
+	}
+
+	@SuppressWarnings("deprecation")
+	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
+		return new VotingPluginUser(plugin, uuid, loadName);
 	}
 }

@@ -4,6 +4,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
@@ -30,7 +31,6 @@ import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
@@ -262,7 +262,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cStarting...");
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
 				}
 				sendMessage(sender, "&cFinished");
@@ -279,7 +279,8 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting to clear milestonecounts...");
 						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							VotingPluginUser user = UserManager.getInstance()
+									.getVotingPluginUser(UUID.fromString(uuid));
 							user.setMilestoneCount(0);
 						}
 						sendMessage(sender, "&cFinished");
@@ -305,7 +306,8 @@ public class CommandLoader {
 							}
 						}
 						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							VotingPluginUser user = UserManager.getInstance()
+									.getVotingPluginUser(UUID.fromString(uuid));
 							int milestoneCount = user.getMilestoneCount();
 							for (int num : nums) {
 								if (milestoneCount >= num) {
@@ -334,7 +336,8 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
 						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+							VotingPluginUser user = UserManager.getInstance()
+									.getVotingPluginUser(UUID.fromString(uuid));
 							user.setPoints(0);
 						}
 						sendMessage(sender, "&cFinished");
@@ -677,7 +680,7 @@ public class CommandLoader {
 				try {
 					sender.sendMessage(ChatColor.GREEN + "PlayerName of player " + ChatColor.DARK_GREEN + args[1]
 							+ ChatColor.GREEN + " is: " + PlayerUtils.getInstance().getPlayerName(
-									UserManager.getInstance().getVotingPluginUser(new UUID(args[1])), args[1]));
+									UserManager.getInstance().getVotingPluginUser(UUID.fromString(args[1])), args[1]));
 				} catch (IllegalArgumentException e) {
 					sendMessage(sender, "&cInvalid uuid");
 				}
@@ -697,15 +700,15 @@ public class CommandLoader {
 				}
 
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.clearTotals();
 				}
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ClearOfflineRewards" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineRewards|" + adminPerm, "Reset offline votes/rewards") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ClearOfflineVoteRewards" },
+				"VotingPlugin.Commands.AdminVote.ClearOfflineVoteRewards|" + adminPerm, "Reset offline votes/rewards") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -716,10 +719,10 @@ public class CommandLoader {
 				}
 
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
-					user.clearOfflineRewards();
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					user.clearOfflineVotes();
 				}
-				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
+				sender.sendMessage(StringParser.getInstance().colorize("&cCleared offline votes/rewards"));
 			}
 		});
 
@@ -1149,7 +1152,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.setOfflineVotes(new ArrayList<String>());
 				}
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared"));
@@ -2055,7 +2058,7 @@ public class CommandLoader {
 				int all = 0;
 
 				for (String uuid : uuids) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					daily += user.getTotal(TopVoter.Daily);
 					weekly += user.getTotal(TopVoter.Weekly);
 					month += user.getTotal(TopVoter.Monthly);

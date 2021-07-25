@@ -12,9 +12,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.queries.Query;
-import com.bencodez.advancedcore.api.user.userstorage.sql.Column;
-import com.bencodez.advancedcore.api.user.userstorage.sql.DataType;
 
 import net.md_5.bungee.config.Configuration;
 
@@ -416,7 +416,7 @@ public class BungeeMySQL {
 		columns = getColumnsQueury();
 	}
 
-	public void update(String index, List<Column> cols, boolean queue) {
+	public void update(String index, List<Column> cols) {
 		for (Column col : cols) {
 			checkColumn(col.getName(), col.getDataType());
 		}
@@ -429,9 +429,9 @@ public class BungeeMySQL {
 					Column col = cols.get(i);
 					if (i == cols.size() - 1) {
 						if (col.getDataType().equals(DataType.STRING)) {
-							query += col.getName() + "='" + col.getValue().toString() + "';";
+							query += col.getName() + "='" + col.getValue().toString() + "'";
 						} else {
-							query += col.getName() + "=" + col.getValue().toString() + ";";
+							query += col.getName() + "=" + col.getValue().toString();
 						}
 					} else {
 						if (col.getDataType().equals(DataType.STRING)) {

@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -24,7 +25,6 @@ import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -88,7 +88,7 @@ public class TopVoterHandler implements Listener {
 
 			LinkedHashMap<VotingPluginUser, Integer> totals = new LinkedHashMap<VotingPluginUser, Integer>();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				int total = user.getLastMonthTotal();
 				if (total > 0) {
 					totals.put(user, total);
@@ -110,15 +110,16 @@ public class TopVoterHandler implements Listener {
 			loadLastMonth();
 		}
 		if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-			plugin.getMysql().clearCache();
+			plugin.getMysql().clearCacheBasic();
 		}
+		plugin.getUserManager().getDataManager().clearCache();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
 						if (user.getDayVoteStreak() != 0) {
@@ -176,8 +177,9 @@ public class TopVoterHandler implements Listener {
 			resetTotals(TopVoter.Daily);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-				plugin.getMysql().clearCache();
+				plugin.getMysql().clearCacheBasic();
 			}
+			plugin.getUserManager().getDataManager().clearCache();
 		}
 	}
 
@@ -185,7 +187,7 @@ public class TopVoterHandler implements Listener {
 	public void onMonthChange(MonthChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 						user.setMonthVoteStreak(0);
@@ -253,7 +255,7 @@ public class TopVoterHandler implements Listener {
 
 			if (plugin.getSpecialRewardsConfig().getResetMilestonesMonthly()) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 					user.setMilestoneCount(0);
 					user.setHasGottenMilestone(new HashMap<String, Boolean>());
 				}
@@ -263,8 +265,9 @@ public class TopVoterHandler implements Listener {
 			resetTotals(TopVoter.Monthly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-				plugin.getMysql().clearCache();
+				plugin.getMysql().clearCacheBasic();
 			}
+			plugin.getUserManager().getDataManager().clearCache();
 		}
 	}
 
@@ -278,7 +281,7 @@ public class TopVoterHandler implements Listener {
 	public void onWeekChange(WeekChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 						user.setWeekVoteStreak(0);
@@ -342,8 +345,9 @@ public class TopVoterHandler implements Listener {
 			resetTotals(TopVoter.Weekly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-				plugin.getMysql().clearCache();
+				plugin.getMysql().clearCacheBasic();
 			}
+			plugin.getUserManager().getDataManager().clearCache();
 		}
 	}
 
@@ -354,7 +358,7 @@ public class TopVoterHandler implements Listener {
 	public void resetTotals(TopVoter topVoter) {
 		if (!plugin.getStorageType().equals(UserStorage.MYSQL)) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(new UUID(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (user.getTotal(topVoter) != 0) {
 					user.resetTotals(topVoter);
 				}

@@ -56,7 +56,7 @@ public class PlaceHolders {
 			user.setWaitForCache(false);
 			if (!user.isCached()) {
 				user.loadCache();
-				return "";
+				return "..";
 			}
 		}
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {

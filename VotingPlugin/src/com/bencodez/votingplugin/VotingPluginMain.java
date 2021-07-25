@@ -14,8 +14,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimerTask;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -49,7 +51,6 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationS
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.updater.Updater;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
@@ -1178,6 +1179,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteSites();
 
+		UserManager.getInstance().addCachingKeys();
+
 		setJenkinsSite("bencodez.com");
 		updateAdvancedCoreHook();
 
@@ -1353,11 +1356,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							if (getMysql() == null) {
 								plugin.debug("MySQL not loaded yet");
 								return;
-							} else if (configFile.isClearCacheOnUpdate() || bungeeSettings.isUseBungeecoord()) {
-								getMysql().clearCache();
-							} else {
-								getMysql().clearCacheBasic();
 							}
+							getMysql().clearCacheBasic();
+						}
+
+						if (configFile.isClearCacheOnUpdate() || bungeeSettings.isUseBungeecoord()) {
+							plugin.getUserManager().getDataManager().clearCache();
 						}
 
 						plugin.debug("Starting background task");
@@ -1368,7 +1372,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
 									VotingPluginUser user = UserManager.getInstance()
-											.getVotingPluginUser(new UUID(uuid));
+											.getVotingPluginUser(UUID.fromString(uuid), false);
+									user.dontCache();
+									user.tempCache();
 									users.add(user);
 									// extraDebug("Loading " + uuid);
 									// java.lang.Thread.sleep(5000);
@@ -1388,6 +1394,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 									user.offVote();
 								}
+							}
+							
+							for (VotingPluginUser user : users) {
+								user.clearTempCache();
 							}
 							time1 = ((System.currentTimeMillis() - time) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
@@ -1409,6 +1419,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		setConfigData(configFile.getData());
 		if (bungeeSettings.isUseBungeecoord()) {
 			getOptions().setClearCacheOnJoin(true);
+			getOptions().setClearCacheOnLeave(true);
 			getOptions().setPerServerRewards(getBungeeSettings().isPerServerRewards());
 		}
 	}
@@ -1418,14 +1429,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		for (VotingPluginUser user : users) {
 			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-			for (VoteSite voteSite : plugin.getVoteSites()) {
-				if (!voteSite.isHidden()) {
-					long time = user.getTime(voteSite);
+
+			for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
+				if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
+					long time = entry.getValue();
 					if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
 							&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
 							&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
 
-						times.put(voteSite,
+						times.put(entry.getKey(),
 								LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
 					}
 				}

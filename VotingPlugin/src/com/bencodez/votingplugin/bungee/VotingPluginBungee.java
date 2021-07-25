@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
-import com.bencodez.advancedcore.api.user.userstorage.sql.Column;
-import com.bencodez.advancedcore.api.user.userstorage.sql.DataType;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
@@ -182,7 +182,7 @@ public class VotingPluginBungee extends Plugin {
 		return "";
 	}
 
-	private int getValue(ArrayList<Column> cols, String column) {
+	private int getValue(ArrayList<Column> cols, String column, int toAdd) {
 		for (Column d : cols) {
 			if (d.getName().equalsIgnoreCase(column)) {
 
@@ -199,10 +199,10 @@ public class VotingPluginBungee extends Plugin {
 					} catch (Exception e) {
 					}
 				}
-				return num;
+				return num + toAdd;
 			}
 		}
-		return 0;
+		return toAdd;
 	}
 
 	private void loadMysql() {
@@ -235,12 +235,12 @@ public class VotingPluginBungee extends Plugin {
 		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
 	}
 
-	private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column, int toAdd) {
-		int num = getValue(cols, column) + toAdd;
-		debug("Setting " + column + " to " + num + " for " + uuid);
-		mysql.update(uuid, column, num, DataType.INTEGER);
-		return num;
-	}
+	/*
+	 * private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column,
+	 * int toAdd) { int num = getValue(cols, column) + toAdd; debug("Setting " +
+	 * column + " to " + num + " for " + uuid); mysql.update(uuid, column, num,
+	 * DataType.INTEGER); return int; }
+	 */
 
 	@Override
 	public void onDisable() {
@@ -476,6 +476,7 @@ public class VotingPluginBungee extends Plugin {
 				return;
 			} else if (subchannel.equalsIgnoreCase("login")) {
 				String player = in.readUTF();
+				debug("Login: " + player);
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				String server = p.getServer().getInfo().getName();
 				checkCachedVotes(server);
@@ -681,11 +682,21 @@ public class VotingPluginBungee extends Plugin {
 
 				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
 
-				text = new BungeeMessageData(mysqlUpdate(data, uuid, "AllTimeTotal", 1),
-						mysqlUpdate(data, uuid, "MonthTotal", 1), mysqlUpdate(data, uuid, "WeeklyTotal", 1),
-						mysqlUpdate(data, uuid, "DailyTotal", 1),
-						mysqlUpdate(data, uuid, "Points", getConfig().getPointsOnVote()),
-						mysqlUpdate(data, uuid, "MilestoneCount", 1));
+				int allTimeTotal = getValue(data, "AllTimeTotal", 1);
+				int monthTotal = getValue(data, "MonthTotal", 1);
+				int weeklyTotal = getValue(data, "WeeklyTotal", 1);
+				int dailyTotal = getValue(data, "DailyTotal", 1);
+				int points = getValue(data, "Points", getConfig().getPointsOnVote());
+				int milestoneCount = getValue(data, "MilestoneCount", 1);
+				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount);
+				ArrayList<Column> update = new ArrayList<Column>();
+				update.add(new Column("AllTimeTotal", allTimeTotal, DataType.INTEGER));
+				update.add(new Column("MonthTotal", monthTotal, DataType.INTEGER));
+				update.add(new Column("WeeklyTotal", weeklyTotal, DataType.INTEGER));
+				update.add(new Column("DailyTotal", dailyTotal, DataType.INTEGER));
+				update.add(new Column("Points", points, DataType.INTEGER));
+				update.add(new Column("MilestoneCount", milestoneCount, DataType.INTEGER));
+				mysql.update(uuid, update);
 			} else {
 				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
 			}

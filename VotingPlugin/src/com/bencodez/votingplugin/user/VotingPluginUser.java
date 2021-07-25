@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -23,7 +24,6 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.api.user.UUID;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -347,7 +347,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	public void clearOfflineRewards() {
+	public void clearOfflineVotes() {
 		setOfflineVotes(new ArrayList<String>());
 		setOfflineRewards(new ArrayList<String>());
 		setOfflineOtherRewards(new ArrayList<String>());
@@ -361,32 +361,32 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	@Deprecated
 	public int getAllTimeTotal() {
-		return getUserData().getInt("AllTimeTotal");
+		return getUserData().getInt("AllTimeTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getBestDayVoteStreak() {
-		return getData().getInt("BestDayVoteStreak", isWaitForCache());
+		return getData().getInt("BestDayVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	public int getBestMonthVoteStreak() {
-		return getData().getInt("BestMonthVoteStreak", isWaitForCache());
+		return getData().getInt("BestMonthVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	public int getBestWeekVoteStreak() {
-		return getData().getInt("BestWeekVoteStreak", isWaitForCache());
+		return getData().getInt("BestWeekVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	@Deprecated
 	public int getDailyTotal() {
-		return getUserData().getInt("DailyTotal", isWaitForCache());
+		return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getDayVoteStreak() {
-		return getData().getInt("DayVoteStreak", isWaitForCache());
+		return getData().getInt("DayVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate", isWaitForCache());
+		String str = getData().getString("DayVoteStreakLastUpdate", isCacheData(), isWaitForCache());
 		if (str.isEmpty()) {
 			return 0;
 		}
@@ -394,7 +394,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public boolean getDisableBroadcast() {
-		return getUserData().getBoolean("DisableBroadcast");
+		return getUserData().getBoolean("DisableBroadcast", isCacheData(), isWaitForCache());
 	}
 
 	public int getGottenAllSitesDay() {
@@ -419,15 +419,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getHighestDailyTotal() {
-		return getData().getInt("HighestDailyTotal", isWaitForCache());
+		return getData().getInt("HighestDailyTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getHighestMonthlyTotal() {
-		return getData().getInt("HighestMonthlyTotal", isWaitForCache());
+		return getData().getInt("HighestMonthlyTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getHighestWeeklyTotal() {
-		return getData().getInt("HighestWeeklyTotal", isWaitForCache());
+		return getData().getInt("HighestWeeklyTotal", isCacheData(), isWaitForCache());
 	}
 
 	public boolean getLastCoolDownCheck(VoteSite site) {
@@ -460,7 +460,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getLastMonthTotal() {
-		return getData().getInt("LastMonthTotal", isWaitForCache());
+		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
 	}
 
 	public HashMap<VoteSite, Long> getLastVotes() {
@@ -503,20 +503,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount", getAllTimeTotal(), isWaitForCache());
+		return getData().getInt("MilestoneCount", getAllTimeTotal(), isCacheData(), isWaitForCache());
 	}
 
 	@Deprecated
 	public int getMonthTotal() {
-		return getData().getInt("MonthTotal");
+		return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getMonthVoteStreak() {
-		return getData().getInt("MonthVoteStreak", isWaitForCache());
+		return getData().getInt("MonthVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	public ArrayList<String> getOfflineVotes() {
-		return getUserData().getStringList("OfflineVotes");
+		return getUserData().getStringList("OfflineVotes", isCacheData(), isWaitForCache());
 	}
 
 	/**
@@ -525,7 +525,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the points
 	 */
 	public int getPoints() {
-		return getUserData().getInt(getPointsPath(), isWaitForCache());
+		return getUserData().getInt(getPointsPath(), isCacheData(), isWaitForCache());
 	}
 
 	public String getPointsPath() {
@@ -537,7 +537,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public java.util.UUID getPrimaryAccount() {
-		String s = getData().getString("PrimaryAccount", true);
+		String s = getData().getString("PrimaryAccount", isCacheData(), isWaitForCache());
 		if (s != null && !s.isEmpty()) {
 			return java.util.UUID.fromString(s);
 		}
@@ -571,13 +571,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public int getTotal(TopVoter top) {
 		switch (top) {
 		case AllTime:
-			return getUserData().getInt("AllTimeTotal", isWaitForCache());
+			return getUserData().getInt("AllTimeTotal", isCacheData(), isWaitForCache());
 		case Daily:
-			return getUserData().getInt("DailyTotal", isWaitForCache());
+			return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
 		case Monthly:
-			return getData().getInt("MonthTotal", isWaitForCache());
+			return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
 		case Weekly:
-			return getUserData().getInt("WeeklyTotal", isWaitForCache());
+			return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
 		default:
 			break;
 		}
@@ -585,20 +585,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getVotePartyVotes() {
-		return getUserData().getInt("VotePartyVotes", isWaitForCache());
+		return getUserData().getInt("VotePartyVotes",isCacheData(), isWaitForCache());
 	}
 
 	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier, isWaitForCache());
+		return getData().getInt("VoteShopLimit" + identifier, isCacheData(), isWaitForCache());
 	}
 
 	@Deprecated
 	public int getWeeklyTotal() {
-		return getUserData().getInt("WeeklyTotal");
+		return getUserData().getInt("WeeklyTotal",isCacheData(), isWaitForCache());
 	}
 
 	public int getWeekVoteStreak() {
-		return getData().getInt("WeekVoteStreak", isWaitForCache());
+		return getData().getInt("WeekVoteStreak", isCacheData(), isWaitForCache());
 	}
 
 	public void giveDailyTopVoterAward(int place, String path) {
