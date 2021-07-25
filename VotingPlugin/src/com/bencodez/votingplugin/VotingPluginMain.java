@@ -1019,36 +1019,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			mvdwPlaceholders.loadMVdWPlaceholders();
 		}
 
-		// set columns
-		if (getStorageType().equals(UserStorage.MYSQL) && configFile.isAlterColumns()) {
-			getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
-			getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
-			getMysql().alterColumnType("Reminded", "VARCHAR(5)");
-			getMysql().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-			getMysql().alterColumnType("LastOnline", "VARCHAR(20)");
-			getMysql().alterColumnType("PlayerName", "VARCHAR(30)");
-			getMysql().alterColumnType("DailyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
-			getMysql().alterColumnType("Points", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
-			getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
-			getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
-			getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
-			if (getOptions().isPerServerRewards()) {
-				getMysql().alterColumnType("OfflineRewards" + getOptions().getServer(), "MEDIUMTEXT");
-			}
-		}
 		// Add rewards
 		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
 

@@ -45,10 +45,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean allowVotePointTransfers = false;
 
-	@ConfigDataBoolean(path = "AlterColumns")
-	@Getter
-	private boolean alterColumns = true;
-
 	@ConfigDataBoolean(path = "AlternateUUIDLookup")
 	@Getter
 	private boolean alternateUUIDLookup = false;
