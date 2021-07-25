@@ -41,7 +41,11 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
-		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
+		return getPlaceHolder(p, identifier, true);
+	}
+
+	public String getPlaceHolder(OfflinePlayer p, String identifier, boolean javascript) {
+		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
@@ -81,7 +85,7 @@ public class PlaceHolders {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
-		return getPlaceHolder((OfflinePlayer) p, identifier);
+		return getPlaceHolder((OfflinePlayer) p, identifier, false);
 	}
 
 	public void load() {

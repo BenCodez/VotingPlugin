@@ -1346,8 +1346,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									user.dontCache();
 									user.tempCache();
 									users.add(user);
-									// extraDebug("Loading " + uuid);
-									// java.lang.Thread.sleep(5000);
 								}
 							}
 							update = false;
