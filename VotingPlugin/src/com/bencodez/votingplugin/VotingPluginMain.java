@@ -1330,10 +1330,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							getMysql().clearCacheBasic();
 						}
 
-						if (configFile.isClearCacheOnUpdate() || bungeeSettings.isUseBungeecoord()) {
-							plugin.getUserManager().getDataManager().clearCache();
-						}
-
 						plugin.debug("Starting background task");
 						long time = System.currentTimeMillis();
 						try {
@@ -1345,6 +1341,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 											.getVotingPluginUser(UUID.fromString(uuid), false);
 									user.dontCache();
 									user.tempCache();
+									user.getUserData().updateCacheWithTemp();
 									users.add(user);
 								}
 							}
@@ -1386,8 +1383,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		allowDownloadingFromSpigot(15358);
 		setConfigData(configFile.getData());
 		if (bungeeSettings.isUseBungeecoord()) {
-			getOptions().setClearCacheOnJoin(true);
-			getOptions().setClearCacheOnLeave(true);
 			getOptions().setPerServerRewards(getBungeeSettings().isPerServerRewards());
 		}
 	}

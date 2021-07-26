@@ -32,30 +32,6 @@ MySQL:
   #PublicKeyRetrieval: false
   #Additional info on connection string
   #Line: ''
-  
-# ---------------------------------------------------------
-# Mysql cache options 
-# Clearing cache forces the plugin to pull from database
-# Not needed unless you are using multiple servers
-# If using a bungee setup most of these options are overriden automatically
-# ---------------------------------------------------------
-
-# Clear cache on update, setting to true reduces update speed
-# Also may require AlwaysUpdate set to true
-ClearCacheOnUpdate: false
-
-# Clear cache on player join always
-ClearCacheOnJoin: false
-
-# Clears cache for the player who voted only
-# Only effects if using mysql
-# Would recommend for some bungee setups
-ClearCacheOnVote: false
-
-# Clear cache when player leaves
-ClearCacheOnLeave: false
-
-ClearCacheOnVoteShopPurchase: true
 
 # --------------------
 # AllowUnJoined options

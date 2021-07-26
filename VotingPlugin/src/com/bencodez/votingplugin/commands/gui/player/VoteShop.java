@@ -85,10 +85,8 @@ public class VoteShop extends GUIHandler {
 							Player player = event.getWhoClicked();
 
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-							if (plugin.getConfigFile().isClearCacheOnVoteShopPurchase()
-									|| plugin.getBungeeSettings().isUseBungeecoord()) {
-								user.clearCache();
-							}
+							user.clearCache();
+
 							String identifier = (String) getData("identifier");
 							int limit = (int) getData("Limit");
 							int points = plugin.getGui().getChestShopIdentifierCost(identifier);

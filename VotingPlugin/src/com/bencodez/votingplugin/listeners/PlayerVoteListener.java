@@ -103,9 +103,8 @@ public class PlayerVoteListener implements Listener {
 			user = UserManager.getInstance().getVotingPluginUser(playerName);
 		}
 
-		if (plugin.getConfigFile().isClearCacheOnVote() || plugin.getBungeeSettings().isUseBungeecoord()) {
-			user.clearCache();
-		}
+		user.clearCache();
+
 		user.updateName(true);
 
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {

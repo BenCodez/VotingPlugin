@@ -54,6 +54,7 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				user.clearCache();
 				int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 				int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
 				HashMap<String, String> placeholders = new HashMap<String, String>();

@@ -69,18 +69,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean broadcastVotesEnabled = true;
 
-	@ConfigDataBoolean(path = "clearCacheOnUpdate")
-	@Getter
-	private boolean clearCacheOnUpdate = false;
-
-	@ConfigDataBoolean(path = "ClearCacheOnVote")
-	@Getter
-	private boolean clearCacheOnVote = false;
-
-	@ConfigDataBoolean(path = "ClearCacheOnVoteShopPurchase")
-	@Getter
-	private boolean clearCacheOnVoteShopPurchase = true;
-
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;
