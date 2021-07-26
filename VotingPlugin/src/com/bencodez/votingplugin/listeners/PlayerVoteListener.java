@@ -199,8 +199,7 @@ public class PlayerVoteListener implements Listener {
 						@Override
 						public void run() {
 							if (Bukkit.getOnlinePlayers().size() > 0) {
-								plugin.getPluginMessaging().sendPluginMessage(
-										PlayerUtils.getInstance().getRandomOnlinePlayer(), "VoteUpdate", uuid);
+								plugin.getPluginMessaging().sendPluginMessage("VoteUpdate", uuid);
 							}
 						}
 					}, 40);

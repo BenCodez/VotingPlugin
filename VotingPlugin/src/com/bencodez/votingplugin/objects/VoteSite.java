@@ -13,7 +13,6 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -119,8 +118,7 @@ public class VoteSite {
 					String service = getServiceSite();
 
 					if (Bukkit.getOnlinePlayers().size() > 0) {
-						plugin.getPluginMessaging().sendPluginMessage(PlayerUtils.getInstance().getRandomOnlinePlayer(),
-								"VoteBroadcast", uuid, service);
+						plugin.getPluginMessaging().sendPluginMessage("VoteBroadcast", uuid, service);
 					}
 				}
 

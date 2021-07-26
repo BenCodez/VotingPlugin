@@ -38,11 +38,12 @@ import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
+import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.event.EventHandler;
 
-public class VotingPluginBungee extends Plugin {
+public class VotingPluginBungee extends Plugin implements Listener {
 
 	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
 
@@ -276,6 +277,7 @@ public class VotingPluginBungee extends Plugin {
 		if (votifierEnabled) {
 			try {
 				getProxy().getPluginManager().registerListener(this, new VoteEventBungee(this));
+				getProxy().getPluginManager().registerListener(this, this);
 			} catch (Exception e) {
 			}
 		}
@@ -458,6 +460,7 @@ public class VotingPluginBungee extends Plugin {
 		ev.setCancelled(true);
 
 		if (!(ev.getSender() instanceof Server)) {
+			debug("Ignore plugin message");
 			return;
 		}
 
@@ -468,6 +471,8 @@ public class VotingPluginBungee extends Plugin {
 			DataOutputStream out = new DataOutputStream(outstream);
 			String subchannel = in.readUTF();
 			int size = in.readInt();
+			
+			debug("Received plugin message, processing...");
 
 			// check for status message returns
 			if (subchannel.equalsIgnoreCase("statusokay")) {
