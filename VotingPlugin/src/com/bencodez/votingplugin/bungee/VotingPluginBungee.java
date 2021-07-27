@@ -471,7 +471,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			DataOutputStream out = new DataOutputStream(outstream);
 			String subchannel = in.readUTF();
 			int size = in.readInt();
-			
+
 			debug("Received plugin message, processing...");
 
 			// check for status message returns
@@ -483,9 +483,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				String player = in.readUTF();
 				debug("Login: " + player);
 				ProxiedPlayer p = getProxy().getPlayer(player);
-				String server = p.getServer().getInfo().getName();
-				checkCachedVotes(server);
-				checkOnlineVotes(p, p.getUniqueId().toString(), server);
+				if (p != null && p.isConnected()) {
+					String server = p.getServer().getInfo().getName();
+					checkCachedVotes(server);
+					checkOnlineVotes(p, p.getUniqueId().toString(), server);
+				}
 				return;
 			} else {
 
