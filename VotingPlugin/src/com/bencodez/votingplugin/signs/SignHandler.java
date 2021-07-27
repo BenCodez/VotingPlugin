@@ -79,9 +79,11 @@ public class SignHandler {
 	@SuppressWarnings("deprecation")
 	private boolean checkSkull(Block block) {
 		if (block.getState() instanceof Skull) {
-			Skull skull = (Skull) block.getState();
-			skull.setOwner(playerName);
-			skull.update();
+			if (!playerName.equals("No Player")) {
+				Skull skull = (Skull) block.getState();
+				skull.setOwner(playerName);
+				skull.update();
+			}
 			return true;
 		}
 		return false;

@@ -120,6 +120,7 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.cache();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
 						if (user.getDayVoteStreak() != 0) {
@@ -138,6 +139,7 @@ public class TopVoterHandler implements Listener {
 						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
+				user.clearCache();
 			}
 
 			if (plugin.getConfigFile().getStoreTopVotersDaily()) {
@@ -188,6 +190,7 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.cache();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 						user.setMonthVoteStreak(0);
@@ -216,6 +219,7 @@ public class TopVoterHandler implements Listener {
 						user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
 					}
 				}
+				user.clearCache();
 			}
 
 			plugin.getLogger().info("Saving TopVoters Monthly");
@@ -282,6 +286,7 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.cache();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
 					if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 						user.setWeekVoteStreak(0);
@@ -307,6 +312,7 @@ public class TopVoterHandler implements Listener {
 						user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
 					}
 				}
+				user.clearCache();
 			}
 
 			if (plugin.getConfigFile().getStoreTopVotersWeekly()) {

@@ -81,7 +81,7 @@ public class Signs {
 			}
 		}
 
-		plugin.debug("Signs updated");
+		plugin.debug(getSigns().size() + " Signs updated");
 	}
 
 }
