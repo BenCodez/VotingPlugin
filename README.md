@@ -14,7 +14,7 @@ https://github.com/BenCodez/VotingPlugin/blob/master/VotingPlugin/Resources/LICE
 
     <repository>
 	    <id>BenCodez Repo</id>
-	    <url>https://nexus.bencodez.com</url>
+	    <url>https://nexus.bencodez.com/repository/maven-public/</url>
     </repository>
 
     <dependency>
