@@ -286,7 +286,7 @@
 		<profile>
 			<id>prod2</id>
 			<properties>
-				<build.profile.id>prod</build.profile.id>
+				<build.profile.id>prod2</build.profile.id>
 			</properties>
 			<distributionManagement>
 				<repository>
@@ -295,24 +295,19 @@
 					<url>file://${project.build.directory}/mvn-repo</url>
 				</repository>
 			</distributionManagement>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<repositories>
-				<repository>
-					<id>jitpack.io</id>
-					<url>https://jitpack.io</url>
-				</repository>
-			</repositories>
 			<dependencies>
 				<dependency>
-					<groupId>com.github.bencodez</groupId>
+					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>master-SNAPSHOT</version>
+					<version>LATEST</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
 		</profile>
+		<!-- <profile> <id>dev</id> <properties> <build.profile.id>dev</build.profile.id> 
+			</properties> <dependencies> <dependency> <groupId>com.bencodez</groupId> 
+			<artifactId>advancedcore</artifactId> <version>LATEST</version> <scope>compile</scope> 
+			</dependency> </dependencies> </profile> -->
 		<profile>
 			<id>dev</id>
 			<properties>
@@ -326,6 +321,60 @@
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
+			<distributionManagement>
+				<repository>
+					<id>nexus</id>
+					<url>https://nexus.bencodez.com/repository/maven-snapshots</url>
+				</repository>
+			</distributionManagement>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<version>2.10.4</version>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+								<phase>deploy</phase>
+								<configuration>
+									<sourcepath>${project.basedir}/target/delombok</sourcepath>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-deploy-plugin</artifactId>
+						<version>3.0.0-M1</version>
+						<configuration>
+							<skip>true</skip>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.sonatype.plugins</groupId>
+						<artifactId>nexus-staging-maven-plugin</artifactId>
+						<version>1.5.1</version>
+						<executions>
+							<execution>
+								<id>default-deploy</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>deploy</goal>
+								</goals>
+							</execution>
+						</executions>
+						<configuration>
+							<serverId>nexus</serverId>
+							<nexusUrl>https://nexus.bencodez.com/nexus/</nexusUrl>
+							<skipStaging>true</skipStaging>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
 		</profile>
 		<profile>
 			<id>deploy</id>
