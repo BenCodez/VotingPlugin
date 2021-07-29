@@ -210,7 +210,7 @@
 		</repository>
 		<repository>
 			<id>bencodez repo</id>
-			<url>https://nexus.bencodez.com/repository/maven-releases/</url>
+			<url>https://nexus.bencodez.com/repository/maven-public/</url>
 		</repository>
 	</repositories>
 	<dependencies>

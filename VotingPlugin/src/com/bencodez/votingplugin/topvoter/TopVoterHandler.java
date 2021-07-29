@@ -118,6 +118,7 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
+			long startTime = System.currentTimeMillis();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				user.cache();
@@ -182,11 +183,15 @@ public class TopVoterHandler implements Listener {
 				plugin.getMysql().clearCacheBasic();
 			}
 			plugin.getUserManager().getDataManager().clearCache();
+
+			long now = ((System.currentTimeMillis() - startTime) / 1000);
+			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
 		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
+		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
@@ -272,6 +277,8 @@ public class TopVoterHandler implements Listener {
 				plugin.getMysql().clearCacheBasic();
 			}
 			plugin.getUserManager().getDataManager().clearCache();
+			long now = ((System.currentTimeMillis() - startTime) / 1000);
+			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
 		}
 	}
 
@@ -283,6 +290,7 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
+		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
@@ -354,6 +362,9 @@ public class TopVoterHandler implements Listener {
 				plugin.getMysql().clearCacheBasic();
 			}
 			plugin.getUserManager().getDataManager().clearCache();
+
+			long now = ((System.currentTimeMillis() - startTime) / 1000);
+			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
 		}
 	}
 
