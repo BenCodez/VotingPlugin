@@ -1415,6 +1415,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
+							plugin.debug("Current cached users: " + plugin.getUserManager().getDataManager().getUserDataCache().size());
 						} catch (Exception ex) {
 							plugin.getLogger().info("Looks like something went wrong");
 							ex.printStackTrace();
