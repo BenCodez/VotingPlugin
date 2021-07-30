@@ -1392,6 +1392,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										}
 									}
 									user.clearTempCache();
+									user = null;
 								}
 							}
 							update = false;
