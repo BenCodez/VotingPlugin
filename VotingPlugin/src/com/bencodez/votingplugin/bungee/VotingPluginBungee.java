@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -21,8 +22,10 @@ import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
-import com.bencodez.advancedcore.api.user.userstorage.DataType;
+import com.bencodez.advancedcore.bungeeapi.mysql.BungeeMySQL;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
@@ -207,7 +210,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	private void loadMysql() {
-		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData());
+		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData()) {
+
+			@Override
+			public void debug(SQLException e) {
+				if (config.getDebug()) {
+					e.printStackTrace();
+				}
+			}
+		};
 
 		// column types
 		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
@@ -684,10 +695,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 
 				if (!mysql.getUuids().contains(uuid)) {
-					mysql.update(uuid, "PlayerName", player, DataType.STRING);
+					mysql.update(uuid, "PlayerName", new DataValueString(player));
 				}
 
-				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", uuid, DataType.STRING));
+				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", new DataValueString(uuid)));
 
 				int allTimeTotal = getValue(data, "AllTimeTotal", 1);
 				int monthTotal = getValue(data, "MonthTotal", 1);
@@ -697,12 +708,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				int milestoneCount = getValue(data, "MilestoneCount", 1);
 				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount);
 				ArrayList<Column> update = new ArrayList<Column>();
-				update.add(new Column("AllTimeTotal", allTimeTotal, DataType.INTEGER));
-				update.add(new Column("MonthTotal", monthTotal, DataType.INTEGER));
-				update.add(new Column("WeeklyTotal", weeklyTotal, DataType.INTEGER));
-				update.add(new Column("DailyTotal", dailyTotal, DataType.INTEGER));
-				update.add(new Column("Points", points, DataType.INTEGER));
-				update.add(new Column("MilestoneCount", milestoneCount, DataType.INTEGER));
+				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
+				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
+				update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
+				update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
+				update.add(new Column("Points", new DataValueInt(points)));
+				update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
 				mysql.update(uuid, update);
 			} else {
 				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);

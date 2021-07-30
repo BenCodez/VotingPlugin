@@ -21,6 +21,7 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -84,7 +85,7 @@ public class VoteToday extends GUIHandler {
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
-		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
+		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
@@ -103,12 +104,12 @@ public class VoteToday extends GUIHandler {
 				item.setName(StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
 						"player", user.getPlayerName()));
 				item.setLore(msg);
-				final String uuid = user.getUUID();
+				final UUID uuid = user.getUuid();
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}
@@ -129,7 +130,7 @@ public class VoteToday extends GUIHandler {
 
 	public String[] voteToday() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
+		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
@@ -150,7 +151,7 @@ public class VoteToday extends GUIHandler {
 
 	public String[] voteTodayGUI() {
 		ArrayList<String> msg = new ArrayList<String>();
-		for (VotingPluginUser user : plugin.getVoteToday().keySet()) {
+		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
 			LocalDateTime mostRecent = null;
 			VoteSite mostRecentSite = null;

@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.bungee.velocity;
 import java.io.File;
 import java.util.Collection;
 
+import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
 
 import ninja.leaping.configurate.ConfigurationNode;

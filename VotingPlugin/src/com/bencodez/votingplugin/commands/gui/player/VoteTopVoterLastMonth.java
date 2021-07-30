@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTopVoterLastMonth extends GUIHandler {
@@ -44,7 +45,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		Set<Entry<VotingPluginUser, Integer>> users = null;
+		Set<Entry<TopVoterPlayer, Integer>> users = null;
 
 		users = plugin.getLastMonthTopVoter().entrySet();
 
@@ -55,7 +56,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 		}
 
 		int pos = 1;
-		for (Entry<VotingPluginUser, Integer> entry : users) {
+		for (Entry<TopVoterPlayer, Integer> entry : users) {
 			ItemBuilder playerItem;
 
 			if (plugin.getGui().isChestVoteTopUseSkull()) {

@@ -16,7 +16,7 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -187,7 +187,7 @@ public class SignHandler {
 			lines.add(line3);
 			lines.add(line4);
 
-			ArrayList<VotingPluginUser> users = null;
+			ArrayList<TopVoterPlayer> users = null;
 			if (data.equalsIgnoreCase("all")) {
 				users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
 			} else if (data.equalsIgnoreCase("monthly")) {
@@ -199,7 +199,7 @@ public class SignHandler {
 			}
 
 			if (users != null && users.size() >= position) {
-				VotingPluginUser user = users.get(position - 1);
+				TopVoterPlayer user = users.get(position - 1);
 				playerName = user.getPlayerName();
 
 				votes = 0;

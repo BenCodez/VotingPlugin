@@ -51,7 +51,7 @@ public class TopVoterHandler implements Listener {
 
 	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VotingPluginUser> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
+		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine().replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
@@ -86,12 +86,12 @@ public class TopVoterHandler implements Listener {
 		if (plugin.getGui().isLastMonthGUI()) {
 			plugin.getLastMonthTopVoter().clear();
 
-			LinkedHashMap<VotingPluginUser, Integer> totals = new LinkedHashMap<VotingPluginUser, Integer>();
+			LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<TopVoterPlayer, Integer>();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				int total = user.getLastMonthTotal();
 				if (total > 0) {
-					totals.put(user, total);
+					totals.put(user.getTopVoterPlayer(), total);
 				}
 			}
 
@@ -135,11 +135,6 @@ public class TopVoterHandler implements Listener {
 						user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
 					}
 				}
-				for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-					if (plugin.getGui().getChestVoteShopResetDaily(shopIdent)) {
-						user.setVoteShopIdentifierLimit(shopIdent, 0);
-					}
-				}
 				user.clearCache();
 			}
 
@@ -177,6 +172,12 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
+			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
+				if (plugin.getGui().getChestVoteShopResetDaily(shopIdent)) {
+					resetVoteShopLimit(shopIdent);
+				}
+			}
+
 			resetTotals(TopVoter.Daily);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
@@ -208,12 +209,6 @@ public class TopVoterHandler implements Listener {
 							plugin.getSpecialRewards().checkVoteStreak(user, "Month",
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-					}
-				}
-
-				for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-					if (plugin.getGui().getChestVoteShopResetMonthly(shopIdent)) {
-						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
 
@@ -263,14 +258,15 @@ public class TopVoterHandler implements Listener {
 			}
 
 			if (plugin.getSpecialRewardsConfig().getResetMilestonesMonthly()) {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.setMilestoneCount(0);
-					user.setHasGottenMilestone(new HashMap<String, Boolean>());
-				}
+				resetMilestoneCount();
 
 			}
 
+			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
+				if (plugin.getGui().getChestVoteShopResetMonthly(shopIdent)) {
+					resetVoteShopLimit(shopIdent);
+				}
+			}
 			resetTotals(TopVoter.Monthly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
@@ -306,12 +302,6 @@ public class TopVoterHandler implements Listener {
 							plugin.getSpecialRewards().checkVoteStreak(user, "Week",
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-					}
-				}
-
-				for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-					if (plugin.getGui().getChestVoteShopResetWeekly(shopIdent)) {
-						user.setVoteShopIdentifierLimit(shopIdent, 0);
 					}
 				}
 
@@ -356,6 +346,12 @@ public class TopVoterHandler implements Listener {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+
+			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
+				if (plugin.getGui().getChestVoteShopResetWeekly(shopIdent)) {
+					resetVoteShopLimit(shopIdent);
+				}
+			}
 			resetTotals(TopVoter.Weekly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
@@ -372,29 +368,56 @@ public class TopVoterHandler implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
+	public void resetMilestoneCount() {
+		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
+			plugin.getSQLiteUserTable().wipeColumnData("MilestoneCount");
+		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			plugin.getMysql().wipeColumnData("MilestoneCount");
+		} else {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.setMilestoneCount(0);
+			}
+		}
+	}
+
+	public void resetVoteShopLimit(String shopIdent) {
+		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
+			plugin.getSQLiteUserTable().wipeColumnData("VoteShopLimit" + shopIdent);
+		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			plugin.getMysql().wipeColumnData("VoteShopLimit" + shopIdent);
+		} else {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.setVoteShopIdentifierLimit(shopIdent, 0);
+			}
+		}
+	}
+
 	public void resetTotals(TopVoter topVoter) {
-		if (!plugin.getStorageType().equals(UserStorage.MYSQL)) {
+		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
+			plugin.getSQLiteUserTable().wipeColumnData(topVoter.getColumnName());
+		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			plugin.getMysql().wipeColumnData(topVoter.getColumnName());
+		} else {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				if (user.getTotal(topVoter) != 0) {
 					user.resetTotals(topVoter);
 				}
 			}
-		} else {
-			plugin.getMysql().wipeColumnData(topVoter.getColumnName());
 		}
 	}
 
-	public LinkedHashMap<VotingPluginUser, Integer> sortByValues(
-			LinkedHashMap<VotingPluginUser, Integer> topVoterAllTime, final boolean order) {
+	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,
+			final boolean order) {
 
-		List<Entry<VotingPluginUser, Integer>> list = new LinkedList<Entry<VotingPluginUser, Integer>>(
-				topVoterAllTime.entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(map.entrySet());
 
 		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<VotingPluginUser, Integer>>() {
+		Collections.sort(list, new Comparator<Entry<TopVoterPlayer, Integer>>() {
 			@Override
-			public int compare(Entry<VotingPluginUser, Integer> o1, Entry<VotingPluginUser, Integer> o2) {
+			public int compare(Entry<TopVoterPlayer, Integer> o1, Entry<TopVoterPlayer, Integer> o2) {
 				if (order) {
 					return o1.getValue().compareTo(o2.getValue());
 				} else {
@@ -405,8 +428,8 @@ public class TopVoterHandler implements Listener {
 		});
 
 		// Maintaining insertion order with the help of LinkedList
-		LinkedHashMap<VotingPluginUser, Integer> sortedMap = new LinkedHashMap<VotingPluginUser, Integer>();
-		for (Entry<VotingPluginUser, Integer> entry : list) {
+		LinkedHashMap<TopVoterPlayer, Integer> sortedMap = new LinkedHashMap<TopVoterPlayer, Integer>();
+		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
 
@@ -433,7 +456,7 @@ public class TopVoterHandler implements Listener {
 		for (TopVoter cTop : TopVoter.values()) {
 			ArrayList<String> topVoters = new ArrayList<String>();
 			int count = 1;
-			for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(cTop).entrySet()) {
+			for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(cTop).entrySet()) {
 				topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 				count++;
 			}
@@ -453,7 +476,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -492,7 +515,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -531,7 +554,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -566,10 +589,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersAllTime() {
 		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<VotingPluginUser, Integer>> list = new LinkedList<Entry<VotingPluginUser, Integer>>(
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(
 				plugin.getTopVoter(TopVoter.AllTime).entrySet());
 		int i = 0;
-		for (Entry<VotingPluginUser, Integer> entry : list) {
+		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
 			try {
@@ -595,7 +618,7 @@ public class TopVoterHandler implements Listener {
 
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<VotingPluginUser> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
+		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
@@ -619,10 +642,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersMonthly() {
 		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<VotingPluginUser, Integer>> list = new LinkedList<Entry<VotingPluginUser, Integer>>(
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(
 				plugin.getTopVoter(TopVoter.Monthly).entrySet());
 		int i = 0;
-		for (Entry<VotingPluginUser, Integer> entry : list) {
+		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
 			try {
@@ -651,7 +674,7 @@ public class TopVoterHandler implements Listener {
 		ArrayList<String> msg = new ArrayList<String>();
 		ArrayList<String> topVoters = new ArrayList<String>();
 		int count = 1;
-		for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -679,46 +702,26 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.getInstance().convert(msg);
 	}
 
-	public synchronized void updateTopVoters(ArrayList<VotingPluginUser> users1) {
-		ArrayList<VotingPluginUser> users = new ArrayList<VotingPluginUser>();
-		ArrayList<String> blackList = getTopVoterBlackList();
-		for (VotingPluginUser user : users1) {
-			if (!blackList.contains(user.getPlayerName())) {
-				if ((!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore())
-						&& !user.isBanned()) {
-					users.add(user);
-				}
-			}
-		}
+	public synchronized void updateTopVoters(
+			LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter) {
 
-		plugin.debug("Number of users to check top voter: " + users.size());
-
-		for (TopVoter top : TopVoter.values()) {
-			if (plugin.getConfigFile().getLoadTopVoter(top)) {
-				LinkedHashMap<VotingPluginUser, Integer> map = new LinkedHashMap<VotingPluginUser, Integer>();
-
-				for (VotingPluginUser user : users) {
-					int total = user.getTotal(top);
-					if (total > 0) {
-						map.put(user, total);
+		int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
+		for (Entry<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> entry : tempTopVoter.entrySet()) {
+			LinkedHashMap<TopVoterPlayer, Integer> map = entry.getValue();
+			map = sortByValues(map, false);
+			if (limitSize > 0) {
+				ArrayList<TopVoterPlayer> listKeys = new ArrayList<TopVoterPlayer>(map.keySet());
+				if (listKeys.size() > limitSize) {
+					for (int i = listKeys.size() - 1; i >= 0 && i >= limitSize; i--) {
+						map.remove(listKeys.get(i));
 					}
 				}
 
-				map = sortByValues(map, false);
-				int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
-				if (limitSize > 0) {
-					ArrayList<VotingPluginUser> listKeys = new ArrayList<VotingPluginUser>(map.keySet());
-					if (listKeys.size() > limitSize) {
-						for (int i = listKeys.size() - 1; i >= 0 && i >= limitSize; i--) {
-							map.remove(listKeys.get(i));
-						}
-					}
-
-				}
-				plugin.getTopVoter(top).clear();
-				plugin.getTopVoter().put(top, map);
-				plugin.debug(top.toString() + " TopVoter loaded");
 			}
+			tempTopVoter.put(entry.getKey(), map);
+			plugin.setTopVoter(tempTopVoter);
+			plugin.debug(entry.getKey().getName() + " TopVoter loaded, number of players " + map.size());
+
 		}
 
 		plugin.debug("Updated TopVoter");

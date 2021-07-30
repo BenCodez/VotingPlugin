@@ -17,6 +17,7 @@ import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -320,8 +321,8 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
-					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
+					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
 						return "" + num;
 					}
 					num++;
@@ -336,9 +337,9 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 					if (num == number) {
-						return "" + entry.getKey().getTotal(TopVoter.AllTime);
+						return "" + entry.getValue().intValue();
 					}
 					num++;
 				}
@@ -352,7 +353,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -367,8 +368,8 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
-					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
+					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
 						return "" + num;
 					}
 					num++;
@@ -383,7 +384,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -399,9 +400,9 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 					if (num == number) {
-						return "" + entry.getKey().getTotal(TopVoter.Monthly);
+						return "" + entry.getValue().intValue();
 					}
 					num++;
 				}
@@ -414,8 +415,8 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
-					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
 						return "" + num;
 					}
 					num++;
@@ -430,7 +431,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -446,9 +447,9 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 					if (num == number) {
-						return "" + entry.getKey().getTotal(TopVoter.Weekly);
+						return "" + entry.getValue().intValue();
 					}
 					num++;
 				}
@@ -461,8 +462,8 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
-					if (entry.getKey().getUUID().equals(p.getUniqueId().toString())) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
+					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
 						return "" + num;
 					}
 					num++;
@@ -477,7 +478,7 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 					if (num == number) {
 						return entry.getKey().getPlayerName();
 					}
@@ -501,9 +502,9 @@ public class PlaceHolders {
 			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
-				for (Entry<VotingPluginUser, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 					if (num == number) {
-						return "" + entry.getKey().getTotal(TopVoter.Daily);
+						return "" + entry.getValue().intValue();
 					}
 					num++;
 				}

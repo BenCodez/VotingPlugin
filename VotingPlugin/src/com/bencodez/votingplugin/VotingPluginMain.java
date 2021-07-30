@@ -82,6 +82,7 @@ import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -134,7 +135,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private GUI gui;
 
 	@Getter
-	private LinkedHashMap<VotingPluginUser, Integer> lastMonthTopVoter;
+	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoter;
 
 	@Getter
 	private MVdWPlaceholders mvdwPlaceholders;
@@ -162,7 +163,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private String time = "";
 
 	@Getter
-	private LinkedHashMap<TopVoter, LinkedHashMap<VotingPluginUser, Integer>> topVoter;
+	@Setter
+	private LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoter;
 
 	@Getter
 	private TopVoterHandler topVoterHandler;
@@ -195,7 +197,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private List<VoteSite> voteSites;
 
 	@Getter
-	private LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>> voteToday;
+	@Setter
+	private LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	private boolean votifierLoaded = true;
 
@@ -251,8 +254,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	public ArrayList<VotingPluginUser> convertSet(Set<VotingPluginUser> set) {
-		return new ArrayList<VotingPluginUser>(set);
+	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
+		return new ArrayList<TopVoterPlayer>(set);
 	}
 
 	@Override
@@ -260,7 +263,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return configFile.getData();
 	}
 
-	public LinkedHashMap<VotingPluginUser, Integer> getTopVoter(TopVoter top) {
+	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoter(TopVoter top) {
 		return topVoter.get(top);
 	}
 
@@ -972,7 +975,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 
 		topVoterHandler = new TopVoterHandler(this);
-		lastMonthTopVoter = new LinkedHashMap<VotingPluginUser, Integer>();
+		lastMonthTopVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
@@ -981,11 +984,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug("Loaded last month top voters");
 			}
 		});
-		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<VotingPluginUser, Integer>>();
+		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
 		for (TopVoter top : TopVoter.values()) {
-			topVoter.put(top, new LinkedHashMap<VotingPluginUser, Integer>());
+			topVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
 		}
-		voteToday = new LinkedHashMap<VotingPluginUser, HashMap<VoteSite, LocalDateTime>>();
+		voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		new AdminGUI(this).loadHook();
@@ -1331,8 +1334,22 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						}
 
 						plugin.debug("Starting background task");
-						long time = System.currentTimeMillis();
 						try {
+							long startTime = System.currentTimeMillis();
+
+							LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
+							LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
+
+							ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
+							for (TopVoter top : TopVoter.values()) {
+								if (plugin.getConfigFile().getLoadTopVoter(top)) {
+									topVotersToCheck.add(top);
+									tempTopVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
+								}
+							}
+							boolean topVoterIgnorePermissionUse = plugin.getConfigFile().getTopVoterIgnorePermission();
+							ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
+
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 							ArrayList<VotingPluginUser> users = new ArrayList<VotingPluginUser>();
 							for (String uuid : uuids) {
@@ -1342,29 +1359,60 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									user.dontCache();
 									user.tempCache();
 									user.getUserData().updateCacheWithTemp();
-									users.add(user);
+									if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
+										users.add(user);
+
+										if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
+											for (TopVoter top : topVotersToCheck) {
+												int total = user.getTotal(top);
+												if (total > 0) {
+													tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
+												}
+											}
+										}
+
+										HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+										for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
+											if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
+												long time = entry.getValue();
+												if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance()
+														.getDayFromMili(time))
+														&& (LocalDateTime.now().getMonthValue() == MiscUtils
+																.getInstance().getMonthFromMili(time))
+														&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
+																.getYearFromMili(time))) {
+
+													times.put(entry.getKey(), LocalDateTime.ofInstant(
+															Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+												}
+											}
+										}
+										if (times.keySet().size() > 0) {
+											voteToday.put(user.getTopVoterPlayer(), times);
+										}
+									}
+									user.clearTempCache();
 								}
 							}
 							update = false;
-							long time1 = ((System.currentTimeMillis() - time) / 1000);
+							long time1 = ((System.currentTimeMillis() - startTime) / 1000);
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
 									+ " users");
-							topVoterHandler.updateTopVoters(users);
-							updateVoteToday(users);
+							time1 = System.currentTimeMillis();
+							topVoterHandler.updateTopVoters(tempTopVoter);
+							setVoteToday(voteToday);
 							serverData.updateValues();
 							getSigns().updateSigns();
 
 							if (!configFile.isExtraBackgroundUpdate()) {
 								for (Player player : Bukkit.getOnlinePlayers()) {
 									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+									user.cache();
 									user.offVote();
 								}
 							}
-							
-							for (VotingPluginUser user : users) {
-								user.clearTempCache();
-							}
-							time1 = ((System.currentTimeMillis() - time) / 1000);
+
+							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
 						} catch (Exception ex) {
 							plugin.getLogger().info("Looks like something went wrong");
@@ -1385,32 +1433,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (bungeeSettings.isUseBungeecoord()) {
 			getOptions().setPerServerRewards(getBungeeSettings().isPerServerRewards());
 		}
-	}
-
-	public void updateVoteToday(ArrayList<VotingPluginUser> users) {
-		plugin.getVoteToday().clear();
-
-		for (VotingPluginUser user : users) {
-			HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-
-			for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-				if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
-					long time = entry.getValue();
-					if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance().getDayFromMili(time))
-							&& (LocalDateTime.now().getMonthValue() == MiscUtils.getInstance().getMonthFromMili(time))
-							&& (LocalDateTime.now().getYear() == MiscUtils.getInstance().getYearFromMili(time))) {
-
-						times.put(entry.getKey(),
-								LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault()));
-					}
-				}
-			}
-			if (times.keySet().size() > 0) {
-				plugin.getVoteToday().put(user, times);
-			}
-
-		}
-		plugin.debug("Updated VoteToday");
 	}
 
 }

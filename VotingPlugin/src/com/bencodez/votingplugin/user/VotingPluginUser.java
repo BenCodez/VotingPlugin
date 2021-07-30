@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
+import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -1281,6 +1282,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 		}
 		return amount;
+	}
+
+	public TopVoterPlayer getTopVoterPlayer() {
+		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName());
 	}
 
 }

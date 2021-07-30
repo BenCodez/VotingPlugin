@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
+
 import ninja.leaping.configurate.ConfigurationNode;
 
 public class Config extends VelocityYMLFile {
@@ -47,10 +49,6 @@ public class Config extends VelocityYMLFile {
 
 	public String getFallBack() {
 		return getString(getNode("FallBackServer"), "");
-	}
-
-	public long getLong(ConfigurationNode node, long def) {
-		return node.getLong(def);
 	}
 
 	public ConfigurationNode getMysqlNode() {

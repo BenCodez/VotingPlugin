@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
 
+import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 import com.velocitypowered.api.proxy.Player;
 
 public class NonVotedPlayersCache extends VelocityYMLFile {
