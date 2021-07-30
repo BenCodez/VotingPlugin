@@ -351,7 +351,7 @@ LoadTopVoter:
   
 # Maxium number of players to show on top voter
 # Set to -1 for no limit
-MaxiumNumberOfTopVotersToLoad: -1
+MaxiumNumberOfTopVotersToLoad: 1000
 
 # When top voter awards are given (even if there are none listed) it will store top voters
 # Files will created in TopVoters folder.
