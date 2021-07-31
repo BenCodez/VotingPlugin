@@ -50,6 +50,7 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationSection;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
+import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.logger.Logger;
@@ -1411,8 +1412,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
-							plugin.debug("Current cached users: "
-									+ plugin.getUserManager().getDataManager().getUserDataCache().size());
+							plugin.extraDebug("Current cached users: "
+									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
+							checkFirstTimeLoaded();
 						} catch (Exception ex) {
 							plugin.getLogger().info("Looks like something went wrong");
 							ex.printStackTrace();
@@ -1423,6 +1425,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			}
 		}
+	}
+
+	private boolean firstTimeLoaded = false;
+
+	public void checkFirstTimeLoaded() {
+		if (!firstTimeLoaded) {
+			int maxToLoad = 200;
+			for (TopVoter top : topVoter.keySet()) {
+				int num = 1;
+				Set<TopVoterPlayer> players = topVoter.get(top).keySet();
+				for (TopVoterPlayer p : players) {
+					if (num <= maxToLoad) {
+						SkullHandler.getInstance().loadSkull(p.getPlayerName());
+					}
+					num++;
+				}
+			}
+		}
+		firstTimeLoaded = true;
 	}
 
 	public void updateAdvancedCoreHook() {
