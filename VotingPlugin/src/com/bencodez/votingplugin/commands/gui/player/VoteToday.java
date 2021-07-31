@@ -32,7 +32,7 @@ public class VoteToday extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteToday(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, int page) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 		this.page = page;

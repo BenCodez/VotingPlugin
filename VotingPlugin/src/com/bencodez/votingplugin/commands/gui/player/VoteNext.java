@@ -27,7 +27,7 @@ public class VoteNext extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteNext(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 	}

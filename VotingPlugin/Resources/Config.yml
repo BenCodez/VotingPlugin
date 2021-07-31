@@ -553,7 +553,8 @@ LoadCommandAliases: true
 # Requires AuthMe
 WaitUntilLoggedIn: true
 
-# Preload skulls to improve performance
+# Preload skulls to improve performance for vote top
+# when using skulls as the item to display players
 # If false, skulls will be cached as they are used
 # assuming loadskulls is enabled
 PreloadSkulls: false

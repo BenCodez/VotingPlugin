@@ -19,12 +19,11 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTotal extends GUIHandler {
 
-	@SuppressWarnings("unused")
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
 	public VoteTotal(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 	}

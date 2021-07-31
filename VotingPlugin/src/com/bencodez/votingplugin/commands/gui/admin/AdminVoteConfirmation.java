@@ -21,7 +21,7 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 	private String title;
 
 	public AdminVoteConfirmation(VotingPluginMain plugin, CommandSender player, String title) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.title = title;
 	}

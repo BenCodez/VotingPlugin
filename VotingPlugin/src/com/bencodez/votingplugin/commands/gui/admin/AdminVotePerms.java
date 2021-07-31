@@ -22,13 +22,13 @@ public class AdminVotePerms extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.page = page;
 	}
 
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page, String playerName) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.page = page;
 		this.playerName = playerName;

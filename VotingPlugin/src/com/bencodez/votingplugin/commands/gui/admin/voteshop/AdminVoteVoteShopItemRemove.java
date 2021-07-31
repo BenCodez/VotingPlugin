@@ -19,7 +19,7 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteVoteShopItemRemove(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 

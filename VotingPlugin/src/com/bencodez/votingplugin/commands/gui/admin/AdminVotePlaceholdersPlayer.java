@@ -20,12 +20,11 @@ import xyz.upperlevel.spigot.book.BookUtil;
 
 public class AdminVotePlaceholdersPlayer extends GUIHandler {
 
-	@SuppressWarnings("unused")
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
 	public AdminVotePlaceholdersPlayer(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 	}

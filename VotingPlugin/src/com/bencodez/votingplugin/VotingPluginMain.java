@@ -1311,12 +1311,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		checkYMLError();
 
 		plugin.debug("Loaded Files");
-
 	}
 
-	/**
-	 * Update.
-	 */
 	public void update() {
 		if (update || configFile.isAlwaysUpdate()) {
 			if (!updateStarted && plugin != null) {
@@ -1398,7 +1394,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							update = false;
 							long time1 = ((System.currentTimeMillis() - startTime) / 1000);
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
-									+ " users");
+									+ " users, " + plugin.getStorageType().toString());
 							time1 = System.currentTimeMillis();
 							topVoterHandler.updateTopVoters(tempTopVoter);
 							setVoteToday(voteToday);
@@ -1415,7 +1411,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
-							plugin.debug("Current cached users: " + plugin.getUserManager().getDataManager().getUserDataCache().size());
+							plugin.debug("Current cached users: "
+									+ plugin.getUserManager().getDataManager().getUserDataCache().size());
 						} catch (Exception ex) {
 							plugin.getLogger().info("Looks like something went wrong");
 							ex.printStackTrace();

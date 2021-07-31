@@ -25,7 +25,7 @@ public class VoteShop extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteShop(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 	}

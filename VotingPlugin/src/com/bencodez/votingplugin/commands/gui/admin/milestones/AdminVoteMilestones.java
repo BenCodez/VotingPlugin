@@ -26,7 +26,7 @@ public class AdminVoteMilestones extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteMilestones(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 

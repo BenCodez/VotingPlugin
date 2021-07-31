@@ -18,7 +18,7 @@ public class AdminVoteVoteShopItems extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteVoteShopItems(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 

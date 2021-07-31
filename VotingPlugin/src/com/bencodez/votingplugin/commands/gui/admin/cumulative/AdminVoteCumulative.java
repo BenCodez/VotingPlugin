@@ -26,7 +26,7 @@ public class AdminVoteCumulative extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteCumulative(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 

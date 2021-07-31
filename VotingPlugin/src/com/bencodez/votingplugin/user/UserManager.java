@@ -30,7 +30,7 @@ public class UserManager {
 	}
 
 	public void addCachingKeys() {
-		UserDataManager manager = com.bencodez.advancedcore.api.user.UserManager.getInstance().getDataManager();
+		UserDataManager manager = plugin.getUserManager().getDataManager();
 		manager.addKey(new UserDataKeyString("TopVoterIgnore").setColumnType("VARCHAR(5)"));
 		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
 		manager.addKey(new UserDataKeyString("LastVotes"));
@@ -63,7 +63,7 @@ public class UserManager {
 	}
 
 	public ArrayList<String> getAllUUIDs() {
-		return com.bencodez.advancedcore.api.user.UserManager.getInstance().getAllUUIDs();
+		return plugin.getUserManager().getAllUUIDs();
 	}
 
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
@@ -85,8 +85,7 @@ public class UserManager {
 
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(String playerName) {
-		return new VotingPluginUser(plugin,
-				com.bencodez.advancedcore.api.user.UserManager.getInstance().getProperName(playerName));
+		return new VotingPluginUser(plugin, plugin.getUserManager().getProperName(playerName));
 	}
 
 	@SuppressWarnings("deprecation")

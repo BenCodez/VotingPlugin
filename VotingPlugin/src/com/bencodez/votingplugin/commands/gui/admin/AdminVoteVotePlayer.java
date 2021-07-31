@@ -20,7 +20,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteVotePlayer(VotingPluginMain plugin, CommandSender player, String playerName) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.playerName = playerName;
 	}

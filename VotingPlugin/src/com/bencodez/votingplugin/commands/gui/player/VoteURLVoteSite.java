@@ -24,7 +24,7 @@ public class VoteURLVoteSite extends GUIHandler {
 	private String voteSite;
 
 	public VoteURLVoteSite(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String voteSite) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 		this.voteSite = voteSite;

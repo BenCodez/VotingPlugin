@@ -1833,7 +1833,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteLast(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -1875,7 +1875,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteNext(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -1889,7 +1889,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
 					String msg = plugin.getConfigFile().getFormatCommandVotePoints()
 							.replace("%Player%", user.getPlayerName()).replace("%Points%", "" + user.getPoints());
@@ -1932,7 +1932,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteGUI(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -2084,7 +2084,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteTotal(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -2117,7 +2117,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteBest(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -2140,7 +2140,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+				if (plugin.getUserManager().userExist(args[1])) {
 					new VoteStreak(plugin, sender, UserManager.getInstance().getVotingPluginUser(args[1])).open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
@@ -2158,7 +2158,7 @@ public class CommandLoader {
 					if (plugin.getConfigFile().isAllowVotePointTransfers()) {
 						VotingPluginUser cPlayer = UserManager.getInstance().getVotingPluginUser((Player) sender);
 
-						if (com.bencodez.advancedcore.api.user.UserManager.getInstance().userExist(args[1])) {
+						if (plugin.getUserManager().userExist(args[1])) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
 							int pointsToGive = Integer.parseInt(args[2]);
 							if (pointsToGive > 0) {

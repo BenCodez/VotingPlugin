@@ -26,7 +26,7 @@ public class VoteShopConfirm extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String identifier) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 		this.identifier = identifier;

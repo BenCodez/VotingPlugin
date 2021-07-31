@@ -36,7 +36,7 @@ public class VoteURL extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteURL(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, boolean json) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 		this.json = json;

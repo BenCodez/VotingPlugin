@@ -30,7 +30,7 @@ public class VoteTopVoter extends GUIHandler {
 	private VotingPluginUser user;
 
 	public VoteTopVoter(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, TopVoter top, int page) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
 		this.top = top;

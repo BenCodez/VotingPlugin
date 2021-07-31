@@ -21,7 +21,7 @@ public class AdminVoteHelp extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.page = page;
 	}

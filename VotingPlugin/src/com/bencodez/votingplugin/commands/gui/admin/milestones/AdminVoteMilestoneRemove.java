@@ -20,7 +20,7 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteMilestoneRemove(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 

@@ -22,7 +22,7 @@ public class VoteHelp extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public VoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 		this.page = page;
 	}

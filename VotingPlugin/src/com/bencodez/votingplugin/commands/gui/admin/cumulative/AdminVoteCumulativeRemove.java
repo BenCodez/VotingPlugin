@@ -20,7 +20,7 @@ public class AdminVoteCumulativeRemove extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	public AdminVoteCumulativeRemove(VotingPluginMain plugin, CommandSender player) {
-		super(player);
+		super(plugin, player);
 		this.plugin = plugin;
 	}
 
