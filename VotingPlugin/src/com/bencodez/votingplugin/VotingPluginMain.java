@@ -1408,6 +1408,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								}
 							}
 
+							tempTopVoter = null;
+
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							plugin.debug("Background task finished in " + time1 + " seconds");
 							plugin.extraDebug("Current cached users: "

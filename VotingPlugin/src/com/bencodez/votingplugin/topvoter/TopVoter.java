@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public enum TopVoter {
-	AllTime, Daily, Monthly, Weekly;
+	AllTime, Monthly, Weekly, Daily;
 
 	public static TopVoter getDefault() {
 		TopVoter top = getTopVoter(VotingPluginMain.plugin.getConfigFile().getVoteTopDefault());

@@ -388,7 +388,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public long getDayVoteStreakLastUpdate() {
 		String str = getData().getString("DayVoteStreakLastUpdate", isCacheData(), isWaitForCache());
-		if (str.isEmpty()) {
+		if (str == null || str.isEmpty()) {
 			return 0;
 		}
 		return Long.parseLong(str);
@@ -586,7 +586,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getVotePartyVotes() {
-		return getUserData().getInt("VotePartyVotes",isCacheData(), isWaitForCache());
+		return getUserData().getInt("VotePartyVotes", isCacheData(), isWaitForCache());
 	}
 
 	public int getVoteShopIdentifierLimit(String identifier) {
@@ -595,7 +595,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	@Deprecated
 	public int getWeeklyTotal() {
-		return getUserData().getInt("WeeklyTotal",isCacheData(), isWaitForCache());
+		return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
 	}
 
 	public int getWeekVoteStreak() {

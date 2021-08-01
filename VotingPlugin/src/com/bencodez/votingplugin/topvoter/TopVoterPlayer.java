@@ -5,6 +5,8 @@ import java.util.UUID;
 import org.bukkit.inventory.ItemStack;
 
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -24,5 +26,9 @@ public class TopVoterPlayer {
 	
 	public ItemStack getPlayerHead() {
 		return PlayerUtils.getInstance().getPlayerSkull(getPlayerName(), false);
+	}
+
+	public VotingPluginUser getUser() {
+		return UserManager.getInstance().getVotingPluginUser(getUuid(), getPlayerName());
 	}
 }
