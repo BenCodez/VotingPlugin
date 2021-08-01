@@ -1348,7 +1348,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
 
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-							ArrayList<VotingPluginUser> users = new ArrayList<VotingPluginUser>();
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
 									VotingPluginUser user = UserManager.getInstance()
@@ -1357,7 +1356,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									user.tempCache();
 									user.getUserData().updateCacheWithTemp();
 									if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
-										users.add(user);
 
 										if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
 											for (TopVoter top : topVotersToCheck) {
@@ -1394,7 +1392,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							}
 							update = false;
 							long time1 = ((System.currentTimeMillis() - startTime) / 1000);
-							plugin.debug("Finished loading player data in " + time1 + " seconds, " + users.size()
+							plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
 									+ " users, " + plugin.getStorageType().toString());
 							time1 = System.currentTimeMillis();
 							topVoterHandler.updateTopVoters(tempTopVoter);
