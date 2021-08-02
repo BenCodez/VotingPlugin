@@ -578,6 +578,7 @@ GeyserPrefixSupport: false
 GeyserPrefix: '*'
 
 # Enable to true for extra player checks
+# Recommend leaving this to false
 ExtraBackgroundUpdate: false
 
 # This will prevent spam clicking GUI's to prevent exploits

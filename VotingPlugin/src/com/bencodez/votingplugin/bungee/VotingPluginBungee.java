@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
@@ -190,16 +191,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		for (Column d : cols) {
 			if (d.getName().equalsIgnoreCase(column)) {
 
-				Object value = d.getValue();
+				DataValue value = d.getValue();
 				int num = 0;
-				if (value instanceof Integer) {
+				if (value.isInt()) {
+					num = value.getInt();
+				} else if (value.isString()) {
 					try {
-						num = (int) value;
-					} catch (ClassCastException | NullPointerException ex) {
-					}
-				} else if (value instanceof String) {
-					try {
-						num = Integer.parseInt((String) value);
+						num = Integer.parseInt(value.getString());
 					} catch (Exception e) {
 					}
 				}
