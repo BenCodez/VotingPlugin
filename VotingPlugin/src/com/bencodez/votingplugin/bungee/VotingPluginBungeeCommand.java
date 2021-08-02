@@ -29,7 +29,7 @@ public class VotingPluginBungeeCommand extends Command {
 						String user = args[1];
 						String site = args[2];
 						bungee.vote(user, site, false);
-						sender.sendMessage(new TextComponent("&aSending vote"));
+						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {

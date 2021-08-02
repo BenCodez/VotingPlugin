@@ -712,6 +712,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
 				update.add(new Column("Points", new DataValueInt(points)));
 				update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
+				debug("Setting totals " + text.toString());
 				mysql.update(uuid, update);
 			} else {
 				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
