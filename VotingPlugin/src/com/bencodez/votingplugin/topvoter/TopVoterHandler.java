@@ -85,10 +85,10 @@ public class TopVoterHandler implements Listener {
 	public void loadLastMonth() {
 		if (plugin.getGui().isLastMonthGUI()) {
 			plugin.getLastMonthTopVoter().clear();
-
 			LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<TopVoterPlayer, Integer>();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.dontCache();
 				int total = user.getLastMonthTotal();
 				if (total > 0) {
 					totals.put(user.getTopVoterPlayer(), total);

@@ -205,6 +205,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
+	
+	@Getter
+	private UserManager votingPluginUserManager;
 
 	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
@@ -383,10 +386,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		return name;
 
-	}
-
-	public UserManager getVotingPluginUserManager() {
-		return UserManager.getInstance();
 	}
 
 	public boolean hasVoteSite(String site) {
@@ -1153,7 +1152,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteSites();
 
-		UserManager.getInstance().addCachingKeys();
+		votingPluginUserManager = UserManager.getInstance();
+		votingPluginUserManager.addCachingKeys();
 
 		setJenkinsSite("bencodez.com");
 		updateAdvancedCoreHook();
