@@ -388,7 +388,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public long getDayVoteStreakLastUpdate() {
 		String str = getData().getString("DayVoteStreakLastUpdate", isCacheData(), isWaitForCache());
-		if (str == null || str.isEmpty()) {
+		if (str == null || str.isEmpty() || str.equals("null")) {
 			return 0;
 		}
 		return Long.parseLong(str);

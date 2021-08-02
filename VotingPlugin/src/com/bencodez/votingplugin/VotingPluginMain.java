@@ -1431,15 +1431,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void checkFirstTimeLoaded() {
 		if (!firstTimeLoaded) {
-			int maxToLoad = 200;
-			for (TopVoter top : topVoter.keySet()) {
-				int num = 1;
-				Set<TopVoterPlayer> players = topVoter.get(top).keySet();
-				for (TopVoterPlayer p : players) {
-					if (num <= maxToLoad) {
-						SkullHandler.getInstance().loadSkull(p.getPlayerName());
+			if (getGui().isChestVoteTopUseSkull()) {
+				int maxToLoad = 200;
+				for (TopVoter top : topVoter.keySet()) {
+					int num = 1;
+					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
+					for (TopVoterPlayer p : players) {
+						if (num <= maxToLoad) {
+							SkullHandler.getInstance().loadSkull(p.getPlayerName());
+						}
+						num++;
 					}
-					num++;
 				}
 			}
 		}
