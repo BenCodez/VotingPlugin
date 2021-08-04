@@ -188,6 +188,14 @@ public class VotingPluginMetrics {
 				}
 			}
 		}));
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+				return "" + total;
+			}
+		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage", new Callable<String>() {
 
 			@Override
@@ -293,6 +301,23 @@ public class VotingPluginMetrics {
 			@Override
 			public String call() throws Exception {
 				return "" + plugin.getProfile().contains("dev");
+			}
+		}));
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("votepointtransfering", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return "" + plugin.getConfigFile().isAllowVotePointTransfers();
+			}
+		}));
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("votecooldown_check_enabled", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return "" + (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+						.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward"));
 			}
 		}));
 	}
