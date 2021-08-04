@@ -2157,9 +2157,11 @@ public class CommandLoader {
 				public void execute(CommandSender sender, String[] args) {
 					if (plugin.getConfigFile().isAllowVotePointTransfers()) {
 						VotingPluginUser cPlayer = UserManager.getInstance().getVotingPluginUser((Player) sender);
+						cPlayer.cache();
 
 						if (plugin.getUserManager().userExist(args[1])) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							user.dontCache();
 							int pointsToGive = Integer.parseInt(args[2]);
 							if (pointsToGive > 0) {
 								if (cPlayer.getPoints() >= pointsToGive) {

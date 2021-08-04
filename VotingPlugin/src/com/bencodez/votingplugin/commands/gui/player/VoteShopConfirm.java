@@ -62,6 +62,8 @@ public class VoteShopConfirm extends GUIHandler {
 				placeholders.put("points", "" + points);
 				placeholders.put("limit", "" + limit);
 				if (user.removePoints(points)) {
+					plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
+							+ identifier + " for " + points);
 
 					RewardHandler.getInstance().giveReward(user, plugin.getGui().getData(),
 							plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
