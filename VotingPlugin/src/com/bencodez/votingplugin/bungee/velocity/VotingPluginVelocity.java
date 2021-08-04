@@ -358,6 +358,7 @@ public class VotingPluginVelocity {
 			}
 			nonVotedPlayersCache.save();
 		}
+		logger.info("VotingPlugin disabled");
 	}
 
 	@Subscribe

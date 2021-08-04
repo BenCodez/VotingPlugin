@@ -272,6 +272,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 			nonVotedPlayersCache.save();
+			getLogger().info("VotingPlugin disabled");
 		}
 	}
 
