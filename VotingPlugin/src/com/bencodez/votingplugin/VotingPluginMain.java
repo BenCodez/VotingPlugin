@@ -205,7 +205,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
-	
+
 	@Getter
 	private UserManager votingPluginUserManager;
 
@@ -1330,8 +1330,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							getMysql().clearCacheBasic();
 						}
 
-						plugin.debug("Starting background task");
+						plugin.debug("Starting background task, current cached users: "
+								+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 						try {
+							boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
 							long startTime = System.currentTimeMillis();
 
 							LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
@@ -1386,6 +1388,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 											voteToday.put(user.getTopVoterPlayer(), times);
 										}
 									}
+									if (!extraBackgroundUpdate) {
+										if (user.isOnline()) {
+											user.offVote();
+										}
+									}
 									user.clearTempCache();
 									user = null;
 								}
@@ -1399,14 +1406,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							setVoteToday(voteToday);
 							serverData.updateValues();
 							getSigns().updateSigns();
-
-							if (!configFile.isExtraBackgroundUpdate()) {
-								for (Player player : Bukkit.getOnlinePlayers()) {
-									VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-									user.cache();
-									user.offVote();
-								}
-							}
 
 							tempTopVoter = null;
 

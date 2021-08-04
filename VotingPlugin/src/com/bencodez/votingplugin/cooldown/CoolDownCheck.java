@@ -46,10 +46,15 @@ public class CoolDownCheck implements Listener {
 								if (VotingPluginMain.plugin != null) {
 									VotingPluginUser user = UserManager.getInstance()
 											.getVotingPluginUser(UUID.fromString(uuid));
-									user.dontCache();
+
 									if (user.getUserData().hasData() && user.hasLoggedOnBefore()) {
+										user.tempCache();
+										user.getUserData().updateCacheWithTemp();
+										user.dontCache();
 										user.checkCoolDownEvents();
+										user.clearCache();
 									}
+
 								} else {
 									cancel();
 								}
