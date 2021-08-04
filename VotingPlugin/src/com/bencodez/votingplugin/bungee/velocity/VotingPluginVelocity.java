@@ -340,6 +340,7 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onProxyDisable(ProxyShutdownEvent event) {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			logger.info("VotingPlugin saving vote cache: " + cachedVotes.size() + "/" + cachedOnlineVotes.size());
 			for (Entry<RegisteredServer, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
 				RegisteredServer server = entry.getKey();
 				int num = 0;
@@ -356,8 +357,10 @@ public class VotingPluginVelocity {
 					num++;
 				}
 			}
-			nonVotedPlayersCache.save();
+			
+			voteCacheFile.save();
 		}
+		nonVotedPlayersCache.save();
 		logger.info("VotingPlugin disabled");
 	}
 

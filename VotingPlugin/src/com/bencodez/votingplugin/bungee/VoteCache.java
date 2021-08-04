@@ -26,7 +26,6 @@ public class VoteCache {
 		section.set("Time", voteData.getTime());
 		section.set("Real", voteData.isRealVote());
 		section.set("Text", voteData.getText());
-		save();
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
@@ -37,7 +36,6 @@ public class VoteCache {
 		section.set("Time", voteData.getTime());
 		section.set("Real", voteData.isRealVote());
 		section.set("Text", voteData.getText());
-		save();
 	}
 
 	public void clearData() {

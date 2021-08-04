@@ -255,6 +255,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	@Override
 	public void onDisable() {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			getLogger().info("VotingPlugin saving vote cache: " + cachedVotes.size() + "/" + cachedOnlineVotes.size());
 			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
 				String server = entry.getKey();
 				int num = 0;
@@ -271,9 +272,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					num++;
 				}
 			}
-			nonVotedPlayersCache.save();
-			getLogger().info("VotingPlugin disabled");
+			voteCacheFile.save();
 		}
+		nonVotedPlayersCache.save();
+		getLogger().info("VotingPlugin disabled");
 	}
 
 	@Override

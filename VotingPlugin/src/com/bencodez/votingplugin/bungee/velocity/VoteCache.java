@@ -23,8 +23,6 @@ public class VoteCache extends VelocityYMLFile {
 		getNode(path, "Time").setValue(voteData.getTime());
 		getNode(path, "Real").setValue(voteData.isRealVote());
 		getNode(path, "Text").setValue(voteData.getText());
-
-		save();
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
@@ -36,8 +34,6 @@ public class VoteCache extends VelocityYMLFile {
 		getNode(path, "Time").setValue(voteData.getTime());
 		getNode(path, "Real").setValue(voteData.isRealVote());
 		getNode(path, "Text").setValue(voteData.getText());
-
-		save();
 	}
 
 	public void clearData() {
