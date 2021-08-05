@@ -103,7 +103,8 @@ public class PlayerVoteListener implements Listener {
 			user = UserManager.getInstance().getVotingPluginUser(playerName);
 		}
 
-		user.clearCache();
+		// reupdate cache
+		user.cache();
 
 		user.updateName(true);
 
