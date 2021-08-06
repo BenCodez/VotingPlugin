@@ -24,11 +24,11 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
-import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -70,6 +70,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	@Deprecated
 	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, String playerName) {
 		super(plugin, uuid, playerName);
+		this.plugin = plugin;
+	}
+
+	public VotingPluginUser(VotingPluginMain plugin, AdvancedCoreUser user) {
+		super(plugin, user);
 		this.plugin = plugin;
 	}
 
@@ -324,17 +329,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		return true;
-	}
-
-	public void checkCoolDownEvents() {
-		for (VoteSite site : plugin.getVoteSites()) {
-			if (canVoteSite(site) != getLastCoolDownCheck(site)) {
-				plugin.debug(getPlayerName() + " vote cooldown ended: " + site.getKey());
-				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(this, site);
-				plugin.getServer().getPluginManager().callEvent(event);
-				setLastVoteCoolDownCheck(true, site);
-			}
-		}
 	}
 
 	public void checkDayVoteStreak(boolean forceBungee) {
@@ -1223,7 +1217,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public long voteNextDurationTime(VoteSite voteSite) {
 		long time = getTime(voteSite);
 		LocalDateTime now = plugin.getTimeChecker().getTime();
-		;
+
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
 				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
 
@@ -1286,6 +1280,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public TopVoterPlayer getTopVoterPlayer() {
 		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName());
+	}
+
+	public long getNextTimeAllSitesAvailable() {
+		long longest = 0;
+		for (VoteSite site : plugin.getVoteSites()) {
+			long seconds = voteNextDurationTime(site);
+			if (seconds > longest) {
+				longest = seconds;
+			}
+		}
+
+		return longest;
 	}
 
 }

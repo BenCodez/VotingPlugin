@@ -109,16 +109,18 @@ public class VoteReminding {
 
 	public void runRemindLogin(VotingPluginUser user) {
 		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
-			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
-			}
-			if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
-				giveReward(user);
-				if (user.getData().hasData()) {
-					user.setReminded(true);
+			if (user.hasPermission("VotingPlugin.Login.RemindVotes") || user.hasPermission("VotingPlugin.Player")) {
+				if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
+					user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 				}
-				plugin.debug(user.getPlayerName() + " was reminded!");
+				if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
+					giveReward(user);
+					if (user.getData().hasData()) {
+						user.setReminded(true);
+					}
+					plugin.debug(user.getPlayerName() + " was reminded!");
 
+				}
 			}
 		}
 	}

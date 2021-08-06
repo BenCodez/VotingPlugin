@@ -67,7 +67,7 @@ public class UserManager {
 	}
 
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
-		return getVotingPluginUser(java.util.UUID.fromString(user.getUUID()));
+		return new VotingPluginUser(plugin, user);
 	}
 
 	@SuppressWarnings("deprecation")

@@ -875,8 +875,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates());
 
-				coolDownCheck.load();
-
 				getTimer().schedule(new TimerTask() {
 
 					@Override
@@ -965,6 +963,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteReminding.loadRemindChecking();
 		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
+		
+		coolDownCheck.load();
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 

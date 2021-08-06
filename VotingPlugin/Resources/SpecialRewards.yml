@@ -145,7 +145,7 @@ VoteStreak:
     Week: 50
     Month: 50
     
-# Reward given when vote cooldown ended
+# Reward given when all votesites are available to vote on
 # Using this is a little memory intensive
 # This might be removed in the future depending on used this is
 VoteCoolDownEndedReward: []
