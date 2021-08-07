@@ -844,8 +844,8 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
 						user.setHasGottenMilestone(new HashMap<String, Boolean>());
-						sender.sendMessage(StringParser.getInstance()
-								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
 					}
 				});
 
