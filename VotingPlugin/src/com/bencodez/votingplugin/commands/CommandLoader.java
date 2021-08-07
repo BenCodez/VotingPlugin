@@ -835,6 +835,20 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "ClearGottenMilestones" },
+						"VotingPlugin.Commands.AdminVote.ClearGottenMilestones|" + adminPerm,
+						"Clears received milestones") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.setHasGottenMilestone(new HashMap<String, Boolean>());
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", "All" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
