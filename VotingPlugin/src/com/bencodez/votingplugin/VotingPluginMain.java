@@ -964,7 +964,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
 		
+		coolDownCheck.checkEnabled();
 		coolDownCheck.load();
+		
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -1281,6 +1283,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		placeholders.load();
 
 		voteReminding.loadRemindChecking();
+		coolDownCheck.checkEnabled();
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 

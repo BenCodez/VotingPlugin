@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.cooldown;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -16,19 +18,12 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class VoteReminding.
- */
 public class CoolDownCheck implements Listener {
 
 	private VotingPluginMain plugin;
 
-	/**
-	 * Instantiates a new vote reminding.
-	 *
-	 * @param plugin the plugin
-	 */
+	private Set<UUID> uuids = new HashSet<UUID>();
+
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		this.timer = new Timer();
@@ -36,15 +31,38 @@ public class CoolDownCheck implements Listener {
 
 	private Timer timer;
 
+	private boolean cooldownCheckEnabled = false;
+
+	public void checkEnabled() {
+		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
+			cooldownCheckEnabled = true;
+		} else {
+			cooldownCheckEnabled = false;
+		}
+	}
+
 	public void check(UUID uuid) {
 		check(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
 	}
 
+	public void vote(VotingPluginUser user) {
+		if (cooldownCheckEnabled) {
+			UUID uuid = UUID.fromString(user.getUUID());
+			if (!uuids.contains(uuid)) {
+				schedule(user);
+			}
+		}
+	}
+
 	public void check(VotingPluginUser user) {
-		if (user.canVoteAll()) {
+		boolean coolDownCheck = user.getCoolDownCheck();
+		if (user.canVoteAll() && coolDownCheck) {
+			user.setCoolDownCheck(false);
 			PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
 			plugin.getServer().getPluginManager().callEvent(event);
-		} else {
+			uuids.remove(UUID.fromString(user.getUUID()));
+		} else if (!coolDownCheck) {
 			schedule(user);
 		}
 
@@ -54,20 +72,21 @@ public class CoolDownCheck implements Listener {
 		final UUID uuid = UUID.fromString(user.getUUID());
 		long time = user.getNextTimeAllSitesAvailable();
 		if (time > 0) {
+			user.setCoolDownCheck(true);
+			uuids.add(uuid);
 			timer.schedule(new TimerTask() {
 
 				@Override
 				public void run() {
 					check(uuid);
 				}
-			}, time * 1000);
+			}, time * 1000 + 1500);
 		}
 
 	}
 
 	public void load() {
-		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
-				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
+		if (cooldownCheckEnabled) {
 			plugin.addUserStartup(new UserStartup() {
 
 				@Override

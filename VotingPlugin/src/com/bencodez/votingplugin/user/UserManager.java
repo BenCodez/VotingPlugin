@@ -34,7 +34,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyString("TopVoterIgnore").setColumnType("VARCHAR(5)"));
 		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
 		manager.addKey(new UserDataKeyString("LastVotes"));
-		manager.addKey(new UserDataKeyString("LastVoteCoolDownCheck"));
+		manager.addKey(new UserDataKeyString("CoolDownCheck").setColumnType("VARCHAR(5)"));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
 		manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));

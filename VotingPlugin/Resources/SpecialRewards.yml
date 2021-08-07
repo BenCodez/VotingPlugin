@@ -146,8 +146,9 @@ VoteStreak:
     Month: 50
     
 # Reward given when all votesites are available to vote on
-# Using this is a little memory intensive
-# This might be removed in the future depending on used this is
+# Don't use this unless you really need it
+# Little performance intensive
+# Recommend add RewardType: ONLINE for it to only work online
 VoteCoolDownEndedReward: []
 
 # ONLY USE THIS FOR TITLES/SOUNDS AND OTHER EFFECTS

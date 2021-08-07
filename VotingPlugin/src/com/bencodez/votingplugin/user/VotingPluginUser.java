@@ -425,35 +425,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("HighestWeeklyTotal", isCacheData(), isWaitForCache());
 	}
 
-	public boolean getLastCoolDownCheck(VoteSite site) {
-		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
-		if (array.containsKey(site)) {
-			return array.get(site).booleanValue();
-		}
-		return true;
-	}
-
-	public HashMap<VoteSite, Boolean> getLastCoolDownCheckArray() {
-		HashMap<VoteSite, Boolean> lastVotesCheck = new HashMap<VoteSite, Boolean>();
-		ArrayList<String> LastVotesCheckList = getUserData().getStringList("LastVoteCoolDownCheck");
-		for (String str : LastVotesCheckList) {
-			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0], true);
-				if (site != null) {
-					Boolean value = Boolean.FALSE;
-					try {
-						value = Boolean.valueOf(data[1]);
-					} catch (NumberFormatException e) {
-						plugin.debug("Not value: " + data[1]);
-					}
-					lastVotesCheck.put(site, value);
-				}
-			}
-		}
-		return lastVotesCheck;
-	}
-
 	public int getLastMonthTotal() {
 		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
 	}
@@ -859,23 +830,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getData().setInt("HighestWeeklyTotal", total);
 	}
 
-	public void setLastCoolDownCheckArray(HashMap<VoteSite, Boolean> lastVotesCheck) {
-		ArrayList<String> data = new ArrayList<String>();
-		for (Entry<VoteSite, Boolean> entry : lastVotesCheck.entrySet()) {
-			String str = entry.getKey().getKey() + "//" + entry.getValue().booleanValue();
-			data.add(str);
-		}
-		getUserData().setStringList("LastVoteCoolDownCheck", data);
-	}
-
 	public void setLastMonthTotal(int total) {
 		getData().setInt("LastMonthTotal", total);
-	}
-
-	public void setLastVoteCoolDownCheck(boolean lastDelay, VoteSite voteSite) {
-		HashMap<VoteSite, Boolean> array = getLastCoolDownCheckArray();
-		array.put(voteSite, Boolean.valueOf(lastDelay));
-		setLastCoolDownCheckArray(array);
 	}
 
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
@@ -889,6 +845,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setMilestoneCount(int value) {
 		getData().setInt("MilestoneCount", value);
+	}
+
+	public String getCoolDownCheckPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServer();
+		} else {
+			return "CoolDownCheck";
+		}
+	}
+
+	public void setCoolDownCheck(boolean coolDownCheck) {
+		getData().setBoolean(getCoolDownCheckPath(), coolDownCheck);
+	}
+
+	public boolean getCoolDownCheck() {
+		return getData().getBoolean(getCoolDownCheckPath(), isCacheData(), isWaitForCache());
 	}
 
 	@Deprecated

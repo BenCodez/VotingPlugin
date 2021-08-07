@@ -136,7 +136,7 @@ public class PlayerVoteListener implements Listener {
 			} else {
 				user.setTime(voteSite);
 			}
-			user.setLastVoteCoolDownCheck(false, voteSite);
+			plugin.getCoolDownCheck().vote(user);
 
 			// try logging to file
 			if (plugin.getConfigFile().isLogVotesToFile()) {
