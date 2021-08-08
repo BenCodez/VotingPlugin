@@ -120,7 +120,8 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			long startTime = System.currentTimeMillis();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				user.dontCache();
 				user.tempCache();
 				user.getUserData().updateCacheWithTemp();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
@@ -200,7 +201,8 @@ public class TopVoterHandler implements Listener {
 			plugin.getLogger().info("Saving TopVoters Monthly");
 			storeTopVoters(TopVoter.Monthly);
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				user.dontCache();
 				user.tempCache();
 				user.getUserData().updateCacheWithTemp();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {
@@ -293,7 +295,8 @@ public class TopVoterHandler implements Listener {
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				user.dontCache();
 				user.tempCache();
 				user.getUserData().updateCacheWithTemp();
 				if (plugin.getConfigFile().isUseVoteStreaks()) {

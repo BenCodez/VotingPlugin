@@ -205,6 +205,9 @@ public class PlayerVoteListener implements Listener {
 					}, 40);
 				}
 			}
+			if (!user.isOnline()) {
+				user.clearCache();
+			}
 		}
 
 		plugin.setUpdate(true);
