@@ -186,6 +186,7 @@ public class VoteParty implements Listener {
 			plugin.debug("Trying to give all players vote party");
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.dontCache();
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
@@ -196,6 +197,7 @@ public class VoteParty implements Listener {
 			plugin.debug(ArrayUtils.getInstance().makeStringList(getVotedUsers()));
 			for (String uuid : getVotedUsers()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.dontCache();
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
@@ -241,6 +243,7 @@ public class VoteParty implements Listener {
 		setVotedUsers(new ArrayList<String>());
 		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+			user.dontCache();
 			if (user.getVotePartyVotes() != 0) {
 				user.setVotePartyVotes(0);
 			}
