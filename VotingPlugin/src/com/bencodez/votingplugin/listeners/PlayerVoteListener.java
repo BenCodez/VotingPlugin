@@ -104,7 +104,7 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		// reupdate cache
-		user.cache();
+		user.clearCache();
 
 		user.updateName(true);
 
