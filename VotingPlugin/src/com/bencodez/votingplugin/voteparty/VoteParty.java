@@ -17,6 +17,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
 import com.bencodez.votingplugin.user.UserManager;
@@ -236,18 +237,25 @@ public class VoteParty implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
+	public void resetVotePartyCount() {
+		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
+			plugin.getSQLiteUserTable().wipeColumnData("VotePartyVotes");
+		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+			plugin.getMysql().wipeColumnData("VotePartyVotes");
+		} else {
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+				user.setVotePartyVotes(0);
+			}
+		}
+	}
+
 	public void reset(boolean override) {
 		if (override) {
 			setTotalVotes(0);
 		}
 		setVotedUsers(new ArrayList<String>());
-		for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-			user.dontCache();
-			if (user.getVotePartyVotes() != 0) {
-				user.setVotePartyVotes(0);
-			}
-		}
+		resetVotePartyCount();
 
 	}
 
