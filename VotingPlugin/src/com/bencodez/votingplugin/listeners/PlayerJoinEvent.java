@@ -95,6 +95,7 @@ public class PlayerJoinEvent implements Listener {
 				VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
 
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
+				user.dontCache();
 				user.logoutRewards();
 			}
 		});

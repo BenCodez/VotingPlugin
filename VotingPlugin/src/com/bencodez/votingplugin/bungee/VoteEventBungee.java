@@ -14,15 +14,21 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 
 	@EventHandler
 	public void onVote(VotifierEvent event) {
-		Vote vote = event.getVote();
-		String serviceSite = vote.getServiceName();
-		plugin.getLogger().info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
-		
-		if (serviceSite.isEmpty()) {
-			serviceSite = "Empty";
-		}
+		plugin.getProxy().getScheduler().runAsync(plugin, new Runnable() {
 
-		plugin.vote(vote.getUsername(), serviceSite, true);
+			@Override
+			public void run() {
+				Vote vote = event.getVote();
+				String serviceSite = vote.getServiceName();
+				plugin.getLogger().info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
+
+				if (serviceSite.isEmpty()) {
+					serviceSite = "Empty";
+				}
+
+				plugin.vote(vote.getUsername(), serviceSite, true);
+			}
+		});
 
 	}
 }

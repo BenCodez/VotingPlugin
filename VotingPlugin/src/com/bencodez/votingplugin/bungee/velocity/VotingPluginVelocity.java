@@ -357,7 +357,7 @@ public class VotingPluginVelocity {
 					num++;
 				}
 			}
-			
+
 			voteCacheFile.save();
 		}
 		nonVotedPlayersCache.save();
@@ -599,13 +599,20 @@ public class VotingPluginVelocity {
 
 	@Subscribe
 	public void onVotifierEvent(VotifierEvent event) {
-		Vote vote = event.getVote();
-		String serviceSite = vote.getServiceName();
-		logger.info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
-		if (serviceSite.isEmpty()) {
-			serviceSite = "Empty";
-		}
-		vote(vote.getUsername(), serviceSite, true);
+		server.getScheduler().buildTask(this, new Runnable() {
+
+			@Override
+			public void run() {
+				Vote vote = event.getVote();
+				String serviceSite = vote.getServiceName();
+				logger.info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
+				if (serviceSite.isEmpty()) {
+					serviceSite = "Empty";
+				}
+				vote(vote.getUsername(), serviceSite, true);
+			}
+		});
+
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
@@ -729,7 +736,7 @@ public class VotingPluginVelocity {
 		}
 	}
 
-	public void vote(String player, String service, boolean realVote) {
+	public synchronized void vote(String player, String service, boolean realVote) {
 		try {
 			if (player == null || player.isEmpty()) {
 				logger.info("No name from vote on " + service);

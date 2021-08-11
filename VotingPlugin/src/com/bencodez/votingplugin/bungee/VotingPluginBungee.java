@@ -655,7 +655,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public void vote(String player, String service, boolean realVote) {
+	public synchronized void vote(String player, String service, boolean realVote) {
 		try {
 			if (player == null || player.isEmpty()) {
 				getLogger().info("No name from vote on " + service);
