@@ -26,6 +26,7 @@ import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -379,44 +380,15 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void resetMilestoneCount() {
-		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
-			plugin.getSQLiteUserTable().wipeColumnData("MilestoneCount");
-		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-			plugin.getMysql().wipeColumnData("MilestoneCount");
-		} else {
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-				user.setMilestoneCount(0);
-			}
-		}
+		plugin.getUserManager().removeAllKeyValues("MilestoneCount", DataType.INTEGER);
 	}
 
 	public void resetVoteShopLimit(String shopIdent) {
-		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
-			plugin.getSQLiteUserTable().wipeColumnData("VoteShopLimit" + shopIdent);
-		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-			plugin.getMysql().wipeColumnData("VoteShopLimit" + shopIdent);
-		} else {
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-				user.setVoteShopIdentifierLimit(shopIdent, 0);
-			}
-		}
+		plugin.getUserManager().removeAllKeyValues("VoteShopLimit" + shopIdent, DataType.INTEGER);
 	}
 
 	public void resetTotals(TopVoter topVoter) {
-		if (plugin.getStorageType().equals(UserStorage.SQLITE)) {
-			plugin.getSQLiteUserTable().wipeColumnData(topVoter.getColumnName());
-		} else if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-			plugin.getMysql().wipeColumnData(topVoter.getColumnName());
-		} else {
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-				if (user.getTotal(topVoter) != 0) {
-					user.resetTotals(topVoter);
-				}
-			}
-		}
+		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,
