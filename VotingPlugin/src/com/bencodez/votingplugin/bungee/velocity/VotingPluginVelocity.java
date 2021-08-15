@@ -593,7 +593,7 @@ public class VotingPluginVelocity {
 								ConfigurationNode node = loader.load();
 								if (node != null) {
 									version = node.getNode("version").getString("");
-									buildNumber = node.getNode("buildnumer").getString("NOTSET");
+									buildNumber = node.getNode("buildnumber").getString("NOTSET");
 								}
 								return;
 							}
