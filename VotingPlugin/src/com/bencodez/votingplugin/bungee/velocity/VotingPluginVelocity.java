@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
@@ -64,7 +66,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
@@ -104,6 +105,8 @@ public class VotingPluginVelocity {
 
 	private VoteCache voteCacheFile;
 
+	private Timer timer;
+
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
 			@DataDirectory Path dataDirectory) {
@@ -111,6 +114,7 @@ public class VotingPluginVelocity {
 		this.logger = logger;
 		this.dataDirectory = dataDirectory;
 		this.metricsFactory = metricsFactory;
+		timer = new Timer();
 	}
 
 	public void checkCachedVotes(RegisteredServer serverToCheck) {
@@ -599,19 +603,20 @@ public class VotingPluginVelocity {
 
 	@Subscribe
 	public void onVotifierEvent(VotifierEvent event) {
-		server.getScheduler().buildTask(this, new Runnable() {
+		final String serviceSiteVote = event.getVote().getServiceName();
+		final String name = event.getVote().getUsername();
+		timer.schedule(new TimerTask() {
 
 			@Override
 			public void run() {
-				Vote vote = event.getVote();
-				String serviceSite = vote.getServiceName();
-				logger.info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
+				String serviceSite = serviceSiteVote;
+				logger.info("Vote received " + name + " from service site " + serviceSite);
 				if (serviceSite.isEmpty()) {
 					serviceSite = "Empty";
 				}
-				vote(vote.getUsername(), serviceSite, true);
+				vote(name, serviceSite, true);
 			}
-		}).schedule();
+		}, 0);
 
 	}
 
