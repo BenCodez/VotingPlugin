@@ -611,7 +611,7 @@ public class VotingPluginVelocity {
 				}
 				vote(vote.getUsername(), serviceSite, true);
 			}
-		});
+		}).schedule();
 
 	}
 
