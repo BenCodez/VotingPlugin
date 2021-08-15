@@ -550,10 +550,14 @@ public class VotingPluginVelocity {
 
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
 				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
+		if (!buildNumber.equals("NOTSET")) {
+			logger.info("Detected using dev build number: " + buildNumber);
+		}
 	}
 
 	private String version = "";
 	private File versionFile;
+	private String buildNumber = "NOTSET";
 
 	private void getVersionFile() {
 		try {
@@ -589,6 +593,7 @@ public class VotingPluginVelocity {
 								ConfigurationNode node = loader.load();
 								if (node != null) {
 									version = node.getNode("version").getString("");
+									buildNumber = node.getNode("buildnumer").getString("NOTSET");
 								}
 								return;
 							}

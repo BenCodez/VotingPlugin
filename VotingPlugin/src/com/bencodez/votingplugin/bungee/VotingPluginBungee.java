@@ -8,8 +8,10 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.CodeSource;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -19,6 +21,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
@@ -45,6 +49,7 @@ import net.md_5.bungee.api.event.ServerConnectedEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
+import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.event.EventHandler;
 
 public class VotingPluginBungee extends Plugin implements Listener {
@@ -245,12 +250,45 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
 	}
 
-	/*
-	 * private int mysqlUpdate(ArrayList<Column> cols, String uuid, String column,
-	 * int toAdd) { int num = getValue(cols, column) + toAdd; debug("Setting " +
-	 * column + " to " + num + " for " + uuid); mysql.update(uuid, column, num,
-	 * DataType.INTEGER); return int; }
-	 */
+	private String buildNumber = "NOTSET";
+
+	public void loadVersionFile() {
+		Configuration conf = getVersionFile();
+		if (conf != null) {
+			buildNumber = conf.get("buildnumber", "NOTSET");
+		}
+	}
+
+	private Configuration getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("votingpluginversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								Configuration conf = ConfigurationProvider
+										.getProvider(net.md_5.bungee.config.YamlConfiguration.class)
+										.load(defConfigStream);
+
+								defConfigStream.close();
+								return conf;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
 
 	@Override
 	public void onDisable() {
@@ -452,8 +490,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		metrics.addCustomChart(
 				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
+		loadVersionFile();
+
 		getLogger().info("VotingPlugin loaded, using method: " + method.toString() + ", PluginMessagingVersion: "
 				+ BungeeVersion.getPluginMessageVersion());
+		if (!buildNumber.equals("NOTSET")) {
+			getLogger().info("Detected using dev build number: " + buildNumber);
+		}
 	}
 
 	@EventHandler

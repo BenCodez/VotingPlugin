@@ -147,6 +147,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private String profile = "";
 
 	@Getter
+	private String buildNumber = "NOTSET";
+
+	@Getter
 	private ServerData serverData;
 
 	@Getter
@@ -884,6 +887,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (conf != null) {
 			time = conf.getString("time", "");
 			profile = conf.getString("profile", "");
+			buildNumber = conf.getString("buildnumber", "NOTSET");
 		}
 	}
 
@@ -1073,7 +1077,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (getProfile().contains("dev")) {
-			plugin.getLogger().warning("Using dev build, this is not a stable build, use at your own risk");
+			plugin.getLogger().warning(
+					"Using dev build, this is not a stable build, use at your own risk. Build number: " + buildNumber);
 		}
 
 		boolean hasRewards = RewardHandler.getInstance().hasRewards(getConfigVoteSites().getData(),
