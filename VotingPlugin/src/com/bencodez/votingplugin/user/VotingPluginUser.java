@@ -345,7 +345,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void clearOfflineVotes() {
 		setOfflineVotes(new ArrayList<String>());
 		setOfflineRewards(new ArrayList<String>());
-		setOfflineOtherRewards(new ArrayList<String>());
 	}
 
 	public void clearTotals() {
@@ -873,10 +872,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (getBestMonthVoteStreak() < streak) {
 			setBestMonthVoteStreak(streak);
 		}
-	}
-
-	public void setOfflineOtherRewards(ArrayList<String> offlineOtherRewards) {
-		getUserData().setStringList("OfflineOtherRewards", offlineOtherRewards);
 	}
 
 	public void setOfflineVotes(ArrayList<String> offlineVotes) {

@@ -31,6 +31,7 @@ import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
@@ -263,9 +264,10 @@ public class CommandLoader {
 				sendMessage(sender, "&cStarting...");
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					user.dontCache();
 					user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
 				}
-				sendMessage(sender, "&cFinished");
+				sendMessage(sender, "&cFinished sync milestonecount with all time total");
 
 			}
 		});
@@ -278,11 +280,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting to clear milestonecounts...");
-						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance()
-									.getVotingPluginUser(UUID.fromString(uuid));
-							user.setMilestoneCount(0);
-						}
+						plugin.getTopVoterHandler().resetMilestoneCount();
 						sendMessage(sender, "&cFinished");
 
 					}
@@ -308,6 +306,7 @@ public class CommandLoader {
 						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 							VotingPluginUser user = UserManager.getInstance()
 									.getVotingPluginUser(UUID.fromString(uuid));
+							user.dontCache();
 							int milestoneCount = user.getMilestoneCount();
 							for (int num : nums) {
 								if (milestoneCount >= num) {
@@ -335,11 +334,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
-						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance()
-									.getVotingPluginUser(UUID.fromString(uuid));
-							user.setPoints(0);
-						}
+						plugin.getUserManager().removeAllKeyValues("Points", DataType.INTEGER);
+						plugin.getUserManager().getDataManager().clearCache();
 						sendMessage(sender, "&cFinished");
 
 					}
@@ -699,10 +695,10 @@ public class CommandLoader {
 					return;
 				}
 
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.clearTotals();
+				for (TopVoter top : TopVoter.values()) {
+					plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
 				}
+				plugin.getUserManager().getDataManager().clearCache();
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
@@ -717,11 +713,10 @@ public class CommandLoader {
 							StringParser.getInstance().colorize("&cThis command can not be done from ingame"));
 					return;
 				}
-
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.clearOfflineVotes();
-				}
+				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
+				plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(),
+						DataType.STRING);
+				plugin.getUserManager().getDataManager().clearCache();
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared offline votes/rewards"));
 			}
 		});
@@ -1165,11 +1160,9 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.setOfflineVotes(new ArrayList<String>());
-				}
-				sender.sendMessage(StringParser.getInstance().colorize("&cCleared"));
+				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
+				plugin.getUserManager().getDataManager().clearCache();
+				sender.sendMessage(StringParser.getInstance().colorize("&cOffline votes Cleared"));
 			}
 		});
 
@@ -2073,6 +2066,7 @@ public class CommandLoader {
 
 				for (String uuid : uuids) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					user.dontCache();
 					daily += user.getTotal(TopVoter.Daily);
 					weekly += user.getTotal(TopVoter.Weekly);
 					month += user.getTotal(TopVoter.Monthly);

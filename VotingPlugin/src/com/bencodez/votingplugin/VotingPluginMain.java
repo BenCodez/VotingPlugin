@@ -52,7 +52,6 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.updater.Updater;
-import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
@@ -963,10 +962,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteReminding.loadRemindChecking();
 		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
-		
+
 		coolDownCheck.checkEnabled();
 		coolDownCheck.load();
-		
 
 		Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
@@ -1325,13 +1323,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					update = false;
 
 					synchronized (plugin) {
-						if (getStorageType().equals(UserStorage.MYSQL)) {
-							if (getMysql() == null) {
-								plugin.debug("MySQL not loaded yet");
-								return;
-							}
-							getMysql().clearCacheBasic();
-						}
+						getUserManager().getDataManager().clearCacheBasic();
 
 						plugin.debug("Starting background task, current cached users: "
 								+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
@@ -1353,6 +1345,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
 
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+							int currentDay = LocalDateTime.now().getDayOfMonth();
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
 									VotingPluginUser user = UserManager.getInstance()
@@ -1375,8 +1368,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
 											if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
 												long time = entry.getValue();
-												if ((LocalDateTime.now().getDayOfMonth() == MiscUtils.getInstance()
-														.getDayFromMili(time))
+												if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
 														&& (LocalDateTime.now().getMonthValue() == MiscUtils
 																.getInstance().getMonthFromMili(time))
 														&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
@@ -1405,6 +1397,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
 									+ " users, " + plugin.getStorageType().toString());
 							time1 = System.currentTimeMillis();
+
 							topVoterHandler.updateTopVoters(tempTopVoter);
 							setVoteToday(voteToday);
 							serverData.updateValues();
@@ -1413,7 +1406,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							tempTopVoter = null;
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
-							plugin.debug("Background task finished in " + time1 + " seconds");
+							long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
+							plugin.debug("Background task finished. Final processing took " + time1
+									+ " seconds. Total time: " + totalTime + " seconds");
 							plugin.extraDebug("Current cached users: "
 									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 							checkFirstTimeLoaded();

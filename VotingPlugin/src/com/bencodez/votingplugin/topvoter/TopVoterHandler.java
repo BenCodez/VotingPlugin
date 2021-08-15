@@ -266,7 +266,7 @@ public class TopVoterHandler implements Listener {
 
 			if (plugin.getSpecialRewardsConfig().getResetMilestonesMonthly()) {
 				resetMilestoneCount();
-
+				resetGottenMilestones();
 			}
 
 			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
@@ -381,6 +381,10 @@ public class TopVoterHandler implements Listener {
 
 	public void resetMilestoneCount() {
 		plugin.getUserManager().removeAllKeyValues("MilestoneCount", DataType.INTEGER);
+	}
+
+	public void resetGottenMilestones() {
+		plugin.getUserManager().removeAllKeyValues("GottenMileStones", DataType.STRING);
 	}
 
 	public void resetVoteShopLimit(String shopIdent) {
