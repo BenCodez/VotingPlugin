@@ -209,10 +209,6 @@
 			<id>velocity</id>
 			<url>https://nexus.velocitypowered.com/repository/maven-public/</url>
 		</repository>
-		<repository>
-			<id>bencodez repo</id>
-			<url>https://nexus.bencodez.com/repository/maven-public/</url>
-		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -296,6 +292,12 @@
 					<url>file://${project.build.directory}/mvn-repo</url>
 				</repository>
 			</distributionManagement>
+			<repositories>
+				<repository>
+					<id>bencodez repo</id>
+					<url>https://nexus.bencodez.com/repository/maven-public/</url>
+				</repository>
+			</repositories>
 			<dependencies>
 				<dependency>
 					<groupId>com.bencodez</groupId>
