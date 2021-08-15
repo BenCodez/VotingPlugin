@@ -237,6 +237,10 @@ public class VoteParty implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
+	public void resetVotePartyCount() {
+		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+	}
+
 	public void reset(boolean override) {
 		if (override) {
 			setTotalVotes(0);
@@ -244,10 +248,6 @@ public class VoteParty implements Listener {
 		setVotedUsers(new ArrayList<String>());
 		resetVotePartyCount();
 
-	}
-
-	public void resetVotePartyCount() {
-		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
 	}
 
 	/**

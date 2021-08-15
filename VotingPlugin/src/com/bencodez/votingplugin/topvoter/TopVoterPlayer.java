@@ -14,16 +14,16 @@ import lombok.Setter;
 public class TopVoterPlayer {
 	@Getter
 	@Setter
-	private String playerName;
+	private UUID uuid;
 	@Getter
 	@Setter
-	private UUID uuid;
+	private String playerName;
 
 	public TopVoterPlayer(UUID uuid, String playerName) {
 		this.uuid = uuid;
 		this.playerName = playerName;
 	}
-
+	
 	public ItemStack getPlayerHead() {
 		return PlayerUtils.getInstance().getPlayerSkull(getPlayerName(), false);
 	}

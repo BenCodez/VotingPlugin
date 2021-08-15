@@ -379,20 +379,20 @@ public class TopVoterHandler implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	public void resetGottenMilestones() {
-		plugin.getUserManager().removeAllKeyValues("GottenMileStones", DataType.STRING);
-	}
-
 	public void resetMilestoneCount() {
 		plugin.getUserManager().removeAllKeyValues("MilestoneCount", DataType.INTEGER);
 	}
 
-	public void resetTotals(TopVoter topVoter) {
-		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
+	public void resetGottenMilestones() {
+		plugin.getUserManager().removeAllKeyValues("GottenMileStones", DataType.STRING);
 	}
 
 	public void resetVoteShopLimit(String shopIdent) {
 		plugin.getUserManager().removeAllKeyValues("VoteShopLimit" + shopIdent, DataType.INTEGER);
+	}
+
+	public void resetTotals(TopVoter topVoter) {
+		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,

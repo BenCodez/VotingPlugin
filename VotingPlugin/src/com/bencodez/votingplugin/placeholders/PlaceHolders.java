@@ -86,7 +86,7 @@ public class PlaceHolders {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
-		return getPlaceHolder(p, identifier, false);
+		return getPlaceHolder((OfflinePlayer) p, identifier, false);
 	}
 
 	public void load() {

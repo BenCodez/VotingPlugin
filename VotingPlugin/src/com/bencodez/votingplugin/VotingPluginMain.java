@@ -131,8 +131,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private CoolDownCheck coolDownCheck;
 
-	private boolean firstTimeLoaded = false;
-
 	@Getter
 	private GUI gui;
 
@@ -205,10 +203,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private boolean votifierLoaded = true;
 
 	@Getter
-	private UserManager votingPluginUserManager;
+	private boolean ymlError = false;
 
 	@Getter
-	private boolean ymlError = false;
+	private UserManager votingPluginUserManager;
 
 	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
@@ -221,25 +219,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			user.offVote();
 			user.checkOfflineRewards();
 		}
-	}
-
-	public void checkFirstTimeLoaded() {
-		if (!firstTimeLoaded) {
-			if (getGui().isChestVoteTopUseSkull()) {
-				int maxToLoad = 200;
-				for (TopVoter top : topVoter.keySet()) {
-					int num = 1;
-					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
-					for (TopVoterPlayer p : players) {
-						if (num <= maxToLoad) {
-							SkullHandler.getInstance().loadSkull(p.getPlayerName());
-						}
-						num++;
-					}
-				}
-			}
-		}
-		firstTimeLoaded = true;
 	}
 
 	/**
@@ -395,7 +374,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			for (String siteName : sites) {
 				String URL = getConfigVoteSites().getServiceSite(siteName);
 				if (URL != null) {
-					if (URL.equalsIgnoreCase(name) || name.equalsIgnoreCase(siteName)) {
+					if (URL.equalsIgnoreCase(name)) {
+						return URL;
+					}
+					if (name.equalsIgnoreCase(siteName)) {
 						return URL;
 					}
 				}
@@ -1440,6 +1422,27 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			}
 		}
+	}
+
+	private boolean firstTimeLoaded = false;
+
+	public void checkFirstTimeLoaded() {
+		if (!firstTimeLoaded) {
+			if (getGui().isChestVoteTopUseSkull()) {
+				int maxToLoad = 200;
+				for (TopVoter top : topVoter.keySet()) {
+					int num = 1;
+					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
+					for (TopVoterPlayer p : players) {
+						if (num <= maxToLoad) {
+							SkullHandler.getInstance().loadSkull(p.getPlayerName());
+						}
+						num++;
+					}
+				}
+			}
+		}
+		firstTimeLoaded = true;
 	}
 
 	public void updateAdvancedCoreHook() {

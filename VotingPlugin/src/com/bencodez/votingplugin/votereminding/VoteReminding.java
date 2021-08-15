@@ -94,6 +94,19 @@ public class VoteReminding {
 		}
 	}
 
+	public boolean shouldRemind(VotingPluginUser user) {
+		if (user.shouldBeReminded()) {
+			boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
+			if (hasPermAll) {
+				return user.canVoteAll();
+			} else {
+				return user.canVoteAny();
+			}
+		} else {
+			return false;
+		}
+	}
+
 	public void runRemindLogin(VotingPluginUser user) {
 		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
 			if (user.hasPermission("VotingPlugin.Login.RemindVotes") || user.hasPermission("VotingPlugin.Player")) {
@@ -109,19 +122,6 @@ public class VoteReminding {
 
 				}
 			}
-		}
-	}
-
-	public boolean shouldRemind(VotingPluginUser user) {
-		if (user.shouldBeReminded()) {
-			boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
-			if (hasPermAll) {
-				return user.canVoteAll();
-			} else {
-				return user.canVoteAny();
-			}
-		} else {
-			return false;
 		}
 	}
 }
