@@ -268,6 +268,26 @@
 			<activation>
 				<activeByDefault>true</activeByDefault>
 			</activation>
+			<repositories>
+				<repository>
+					<id>jitpack.io</id>
+					<url>https://jitpack.io</url>
+				</repository>
+			</repositories>
+			<dependencies>
+				<dependency>
+					<groupId>com.github.bencodez</groupId>
+					<artifactId>advancedcore</artifactId>
+					<version>master-SNAPSHOT</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>prod2</id>
+			<properties>
+				<build.profile.id>prod2</build.profile.id>
+			</properties>
 			<distributionManagement>
 				<repository>
 					<id>internal.repo</id>
