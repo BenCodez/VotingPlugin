@@ -20,7 +20,11 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class CoolDownCheck implements Listener {
 
+	private boolean cooldownCheckEnabled = false;
+
 	private VotingPluginMain plugin;
+
+	private Timer timer;
 
 	private Set<UUID> uuids = new HashSet<UUID>();
 
@@ -29,30 +33,8 @@ public class CoolDownCheck implements Listener {
 		this.timer = new Timer();
 	}
 
-	private Timer timer;
-
-	private boolean cooldownCheckEnabled = false;
-
-	public void checkEnabled() {
-		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
-				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
-			cooldownCheckEnabled = true;
-		} else {
-			cooldownCheckEnabled = false;
-		}
-	}
-
 	public void check(UUID uuid) {
 		check(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
-	}
-
-	public void vote(VotingPluginUser user) {
-		if (cooldownCheckEnabled) {
-			UUID uuid = UUID.fromString(user.getUUID());
-			if (!uuids.contains(uuid)) {
-				schedule(user);
-			}
-		}
 	}
 
 	public void check(VotingPluginUser user) {
@@ -66,6 +48,44 @@ public class CoolDownCheck implements Listener {
 			schedule(user);
 		}
 
+	}
+
+	public void checkEnabled() {
+		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
+			cooldownCheckEnabled = true;
+		} else {
+			cooldownCheckEnabled = false;
+		}
+	}
+
+	public void load() {
+		if (cooldownCheckEnabled) {
+			plugin.addUserStartup(new UserStartup() {
+
+				@Override
+				public void onFinish() {
+
+				}
+
+				@Override
+				public void onStart() {
+
+				}
+
+				@Override
+				public void onStartUp(AdvancedCoreUser advancedcoreUser) {
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
+					check(user);
+				}
+			});
+		}
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
+		RewardHandler.getInstance().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
+				"VoteCoolDownEndedReward", new RewardOptions());
 	}
 
 	public void schedule(VotingPluginUser user) {
@@ -85,32 +105,12 @@ public class CoolDownCheck implements Listener {
 
 	}
 
-	public void load() {
+	public void vote(VotingPluginUser user) {
 		if (cooldownCheckEnabled) {
-			plugin.addUserStartup(new UserStartup() {
-
-				@Override
-				public void onStartUp(AdvancedCoreUser advancedcoreUser) {
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
-					check(user);
-				}
-
-				@Override
-				public void onStart() {
-
-				}
-
-				@Override
-				public void onFinish() {
-
-				}
-			});
+			UUID uuid = UUID.fromString(user.getUUID());
+			if (!uuids.contains(uuid)) {
+				schedule(user);
+			}
 		}
-	}
-
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		RewardHandler.getInstance().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
-				"VoteCoolDownEndedReward", new RewardOptions());
 	}
 }

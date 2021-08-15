@@ -102,6 +102,10 @@ public class VotingPluginVelocity {
 
 	private SocketHandler socketHandler;
 
+	private String version = "";
+
+	private File versionFile;
+
 	private VoteCache voteCacheFile;
 
 	@Inject
@@ -251,19 +255,65 @@ public class VotingPluginVelocity {
 		return toAdd;
 	}
 
+	private void getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("votingpluginversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								versionFile = new File(dataDirectory.toFile(),
+										"tmp" + File.separator + "votingpluginversion.yml");
+								if (!versionFile.exists()) {
+									versionFile.getParentFile().mkdirs();
+									versionFile.createNewFile();
+								}
+								FileWriter fileWriter = new FileWriter(versionFile);
+
+								int charVal;
+								while ((charVal = defConfigStream.read()) != -1) {
+									fileWriter.append((char) charVal);
+								}
+
+								fileWriter.close();
+								YAMLConfigurationLoader loader = YAMLConfigurationLoader.builder().setFile(versionFile)
+										.build();
+								defConfigStream.close();
+								ConfigurationNode node = loader.load();
+								if (node != null) {
+									version = node.getNode("version").getString("");
+								}
+								return;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	private void loadMysql() {
 		mysql = new VelocityMySQL("VotingPlugin_Users", config) {
-
-			@Override
-			public void severe(String str) {
-				getLogger().error(str);
-			}
 
 			@Override
 			public void debug(SQLException e) {
 				if (config.getDebug()) {
 					e.printStackTrace();
 				}
+			}
+
+			@Override
+			public void severe(String str) {
+				getLogger().error(str);
 			}
 		};
 		// column types
@@ -546,55 +596,6 @@ public class VotingPluginVelocity {
 
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
 				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
-	}
-
-	private String version = "";
-	private File versionFile;
-
-	private void getVersionFile() {
-		try {
-			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
-			if (src != null) {
-				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
-				while (true) {
-					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								versionFile = new File(dataDirectory.toFile(),
-										"tmp" + File.separator + "votingpluginversion.yml");
-								if (!versionFile.exists()) {
-									versionFile.getParentFile().mkdirs();
-									versionFile.createNewFile();
-								}
-								FileWriter fileWriter = new FileWriter(versionFile);
-
-								int charVal;
-								while ((charVal = defConfigStream.read()) != -1) {
-									fileWriter.append((char) charVal);
-								}
-
-								fileWriter.close();
-								YAMLConfigurationLoader loader = YAMLConfigurationLoader.builder().setFile(versionFile)
-										.build();
-								defConfigStream.close();
-								ConfigurationNode node = loader.load();
-								if (node != null) {
-									version = node.getNode("version").getString("");
-								}
-								return;
-							}
-						}
-					}
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 
 	@Subscribe

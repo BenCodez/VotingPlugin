@@ -65,6 +65,10 @@ public class UserManager {
 		}
 	}
 
+	public ArrayList<String> getAllUUIDs() {
+		return plugin.getUserManager().getAllUUIDs();
+	}
+
 	public String getGottenAllSitesDayPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
@@ -72,17 +76,8 @@ public class UserManager {
 		return "AllSitesLast";
 	}
 
-	public ArrayList<String> getAllUUIDs() {
-		return plugin.getUserManager().getAllUUIDs();
-	}
-
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
 		return new VotingPluginUser(plugin, user);
-	}
-
-	@SuppressWarnings("deprecation")
-	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
-		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 
 	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
@@ -106,5 +101,10 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
 		return new VotingPluginUser(plugin, uuid, loadName);
+	}
+
+	@SuppressWarnings("deprecation")
+	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
+		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 }

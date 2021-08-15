@@ -37,10 +37,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean allowUnjoined = false;
 
-	@ConfigDataBoolean(path = "PreloadSkulls")
-	@Getter
-	private boolean preloadSkulls = false;
-
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
@@ -224,6 +220,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
 	private boolean overrideVersionDisable = false;
+
+	@ConfigDataBoolean(path = "PreloadSkulls")
+	@Getter
+	private boolean preloadSkulls = false;
 
 	@ConfigDataBoolean(path = "PreventRepeatMilestones")
 	@Getter
