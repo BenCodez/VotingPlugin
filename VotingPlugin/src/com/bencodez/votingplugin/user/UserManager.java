@@ -60,6 +60,16 @@ public class UserManager {
 			manager.addKey(new UserDataKeyString("OfflineRewards" + plugin.getOptions().getServer())
 					.setColumnType("MEDIUMTEXT"));
 		}
+		if (plugin.getConfigFile().isExtraAllSitesCheck()) {
+			manager.addKey(new UserDataKeyInt(getGottenAllSitesDayPath()));
+		}
+	}
+
+	public String getGottenAllSitesDayPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
+		}
+		return "AllSitesLast";
 	}
 
 	public ArrayList<String> getAllUUIDs() {

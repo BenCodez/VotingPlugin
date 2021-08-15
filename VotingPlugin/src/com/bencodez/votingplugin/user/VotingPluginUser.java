@@ -392,11 +392,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public int getGottenAllSitesDay() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return getData().getInt("AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage(), 0, true);
-		} else {
-			return getData().getInt("AllSitesLast", 0, true);
-		}
+		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), 0, isWaitForCache());
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
@@ -795,11 +791,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void setGottenAllSitesDay(int day) {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			getData().setInt("AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage(), day);
-		} else {
-			getData().setInt("AllSitesLast", day);
-		}
+		getData().setInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), day);
 	}
 
 	public void setHasGotteMilestone(int votesRequired, boolean b) {
