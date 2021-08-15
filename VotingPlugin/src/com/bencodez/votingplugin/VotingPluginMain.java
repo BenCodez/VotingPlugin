@@ -308,12 +308,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return null;
 	}
 
-	/**
-	 * Gets the vote site.
-	 *
-	 * @param site the site name
-	 * @return the vote site
-	 */
 	public VoteSite getVoteSite(String site, boolean checkEnabled) {
 		String siteName = getVoteSiteName(checkEnabled, site);
 		for (VoteSite voteSite : getVoteSites()) {
@@ -329,12 +323,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	/**
-	 * Gets the vote site name.
-	 *
-	 * @param urls the url
-	 * @return the vote site name
-	 */
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
 		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
 		for (String url : urls) {
