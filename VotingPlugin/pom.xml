@@ -237,15 +237,13 @@
 			<groupId>com.vexsoftware</groupId>
 			<artifactId>nuvotifier-universal</artifactId>
 			<version>2.7.2</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/nuvotifier.jar</systemPath>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>be.maximvdw</groupId>
-			<artifactId>MVdWPlaceholderAPI</artifactId>
-			<version>LATEST</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/Jars/MVdWPlaceholderAPI.jar</systemPath>
+			<artifactId>mvdwplaceholderapi</artifactId>
+			<version>3.1.1</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.velocitypowered</groupId>
