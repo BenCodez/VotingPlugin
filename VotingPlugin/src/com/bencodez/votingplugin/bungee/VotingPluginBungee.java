@@ -490,6 +490,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		metrics.addCustomChart(
 				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
+		if (!buildNumber.equals("NOTSET")) {
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
+		}
+
 		loadVersionFile();
 
 		getLogger().info("VotingPlugin loaded, using method: " + method.toString() + ", PluginMessagingVersion: "

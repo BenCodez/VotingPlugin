@@ -548,6 +548,10 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("plugin_version", () -> "" + version));
 
+		if (!buildNumber.equals("NOTSET")) {
+			metrics.addCustomChart(new SimplePie("dev_build_number", () -> "" + buildNumber));
+		}
+
 		logger.info("VotingPlugin velocity loaded, method: " + method.toString() + ", PluginMessagingVersion: "
 				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
 		if (!buildNumber.equals("NOTSET")) {

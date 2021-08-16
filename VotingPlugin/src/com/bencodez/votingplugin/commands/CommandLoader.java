@@ -622,6 +622,9 @@ public class CommandLoader {
 
 				sendMessage(sender,
 						"Using AdvancedCore " + plugin.getVersion() + "' built on '" + plugin.getBuildTime());
+				if (!plugin.getAdvancedCoreBuildNumber().equals("NOTSET")) {
+					sendMessage(sender, "AdvancedCore Jenkins build number: " + plugin.getAdvancedCoreBuildNumber());
+				}
 				if (!plugin.getBuildNumber().equals("NOTSET")) {
 					sendMessage(sender, "Using votingplugin jenkins build: " + plugin.getBuildNumber());
 				}

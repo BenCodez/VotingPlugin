@@ -320,5 +320,15 @@ public class VotingPluginMetrics {
 						.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward"));
 			}
 		}));
+
+		if (!plugin.getBuildNumber().equals("NOTSET")) {
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("dev_build_number", new Callable<String>() {
+
+				@Override
+				public String call() throws Exception {
+					return "" + plugin.getBuildNumber();
+				}
+			}));
+		}
 	}
 }
