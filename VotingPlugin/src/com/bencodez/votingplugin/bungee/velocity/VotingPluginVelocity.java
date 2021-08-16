@@ -365,6 +365,9 @@ public class VotingPluginVelocity {
 			voteCacheFile.save();
 		}
 		nonVotedPlayersCache.save();
+		if (mysql != null) {
+			mysql.shutDown();
+		}
 		logger.info("VotingPlugin disabled");
 	}
 
