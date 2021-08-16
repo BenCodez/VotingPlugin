@@ -25,7 +25,7 @@ Debug: false
 # If false, will send to online server only
 SendVotesToAllServers: true
 # List of servers the plugin won't send the vote to
-# Uses names from bungeecoord config if not using SOCKETS method
+# Uses names from bungeecoord config, only needed for non SOCKETS setup
 BlockedServers:
 - hub
 
@@ -43,6 +43,7 @@ BungeeMethod: PLUGINMESSAGING
 # This requires spigot servers AllowUnJoined to be set to true in Config.yml
 AllowUnJoined: false
 
+# Points to give on vote
 PointsOnVote: 1
 
 # If true, bungee will handle adding totals
@@ -55,7 +56,7 @@ BungeeManageTotals: true
 # PLUGINMESSAGING Settings
 # ----------------------------
 
-# Applies to PLUGINMESSAGING & when SendVotesToAllServers is true
+# Applies to PLUGINMESSAGING only
 # Votes will be forwarded when specific player is online
 WaitForUserOnline: false
 
