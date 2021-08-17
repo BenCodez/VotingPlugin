@@ -57,10 +57,8 @@ public class CheckUpdate {
 		final Updater.UpdateResult result = plugin.getUpdater().getResult();
 		switch (result) {
 		case UPDATE_AVAILABLE: {
-			plugin.getLogger()
-					.info(plugin.getName() + " has an update available! Your Version: "
-							+ plugin.getDescription().getVersion() + " New Version: " + plugin.getUpdater().getVersion()
-							+ " Use /av download to get the latest update!");
+			plugin.getLogger().info(plugin.getName() + " has an update available! Your Version: "
+					+ plugin.getDescription().getVersion() + " New Version: " + plugin.getUpdater().getVersion());
 			break;
 		}
 		default: {
