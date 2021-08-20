@@ -316,9 +316,13 @@ public class VotingPluginVelocity {
 				} else if (subchannel.equalsIgnoreCase("login")) {
 					String player = in.readUTF();
 					debug("Login: " + player);
-					Player p = server.getPlayer(player).get();
-					checkCachedVotes(p.getCurrentServer().get().getServer());
-					checkOnlineVotes(p, p.getUniqueId().toString(), p.getCurrentServer().get().getServer());
+					if (server.getPlayer(player).isPresent()) {
+						Player p = server.getPlayer(player).get();
+						if (p.getCurrentServer().isPresent()) {
+							checkCachedVotes(p.getCurrentServer().get().getServer());
+							checkOnlineVotes(p, p.getUniqueId().toString(), p.getCurrentServer().get().getServer());
+						}
+					}
 					return;
 				} else {
 
