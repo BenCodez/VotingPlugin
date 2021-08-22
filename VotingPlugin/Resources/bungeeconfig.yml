@@ -31,7 +31,7 @@ BlockedServers:
 
 # What type of bungee setup
 # Requires restart and set on all servers
-# https://github.com/Ben12345rocks/VotingPlugin/wiki/Bungeecoord-Setups
+# https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # SOCKETS 
 # PLUGINMESSAGING 
@@ -53,6 +53,7 @@ PointsOnVote: 1
 BungeeManageTotals: true
 
 # Tell servers to broadcast
+# Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true
 
 # ----------------------------
@@ -64,7 +65,8 @@ Broadcast: true
 WaitForUserOnline: false
 
 # ----------------------------
-# SOCKET Settings, do not touch otherwise
+# SOCKET Settings
+# ONLY for SOCKET method
 # ----------------------------
 
 # Server to send vote to if player is offline
