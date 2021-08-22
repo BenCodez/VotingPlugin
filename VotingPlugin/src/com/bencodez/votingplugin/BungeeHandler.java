@@ -83,7 +83,7 @@ public class BungeeHandler {
 
 						boolean broadcast = true;
 
-						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
+						if (!plugin.getBungeeSettings().isBungeeBroadcast()&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
 								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
@@ -140,7 +140,7 @@ public class BungeeHandler {
 
 						boolean broadcast = true;
 
-						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
+						if (!plugin.getBungeeSettings().isBungeeBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
 							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
 								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
