@@ -52,6 +52,9 @@ PointsOnVote: 1
 # Recommened to leave true, setting to false setups are currently unsupported
 BungeeManageTotals: true
 
+# Tell servers to broadcast
+Broadcast: true
+
 # ----------------------------
 # PLUGINMESSAGING Settings
 # ----------------------------
@@ -63,10 +66,6 @@ WaitForUserOnline: false
 # ----------------------------
 # SOCKET Settings, do not touch otherwise
 # ----------------------------
-
-# Tell servers to broadcast
-# For socket method
-Broadcast: true
 
 # Server to send vote to if player is offline
 FallBackServer: factions

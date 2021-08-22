@@ -865,6 +865,9 @@ public class VotingPluginVelocity {
 										"" + getConfig().getBungeeManageTotals(),
 										"" + BungeeVersion.getPluginMessageVersion());
 							}
+							if (config.getBroadcast()) {
+								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							}
 						}
 					}
 				} else {
@@ -889,6 +892,9 @@ public class VotingPluginVelocity {
 
 					for (RegisteredServer s : server.getAllServers()) {
 						sendPluginMessageServer(s, "VoteUpdate", uuid);
+						if (config.getBroadcast()) {
+							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+						}
 					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {

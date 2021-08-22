@@ -80,9 +80,9 @@ public class BungeeHandler {
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
 						user.clearCache();
-						
+
 						boolean broadcast = true;
-						
+
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
 								VoteSite site = plugin.getVoteSite(service, true);
@@ -99,8 +99,6 @@ public class BungeeHandler {
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
-
-						
 
 						if (Boolean.valueOf(args.get(5))) {
 							plugin.getServerData().addServiceSite(service);
@@ -185,14 +183,17 @@ public class BungeeHandler {
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteBroadcast") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String uuid = args.get(0);
-					String service = args.get(1);
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					VoteSite site = plugin.getVoteSite(service, true);
-					if (site != null) {
-						site.broadcastVote(user, false);
-					} else {
-						plugin.getLogger().warning("No votesite for " + service);
+					if (args.size() > 2) {
+						String uuid = args.get(0);
+						String service = args.get(2);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
+								args.get(1));
+						VoteSite site = plugin.getVoteSite(service, true);
+						if (site != null) {
+							site.broadcastVote(user, false);
+						} else {
+							plugin.getLogger().warning("No votesite for " + service);
+						}
 					}
 				}
 			});

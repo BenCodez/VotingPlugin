@@ -813,6 +813,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 										"" + getConfig().getBungeeManageTotals(),
 										"" + BungeeVersion.getPluginMessageVersion());
 							}
+							if (config.getBroadcast()) {
+								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							}
 						}
 					}
 				} else {
@@ -836,6 +839,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 					for (String s : getProxy().getServers().keySet()) {
 						sendPluginMessageServer(s, "VoteUpdate", uuid);
+						if (config.getBroadcast()) {
+							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+						}
 					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {

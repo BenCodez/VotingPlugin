@@ -73,6 +73,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean votifierBypass = false;
 
+	@ConfigDataBoolean(path = "DisableBroadcast")
+	@Getter
+	private boolean disableBroadcast = false;
+
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
 	}

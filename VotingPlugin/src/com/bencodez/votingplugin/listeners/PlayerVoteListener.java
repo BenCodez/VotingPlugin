@@ -118,7 +118,7 @@ public class PlayerVoteListener implements Listener {
 			// vote party
 			plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
-			if (event.isBroadcast()) {
+			if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast() ) {
 				// broadcast vote if enabled in config
 				if (plugin.getConfigFile().isBroadcastVotesEnabled()
 						&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {

@@ -720,7 +720,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
 		if (plugin.getConfigFile().getFormatBroadcastWhenOnline() && plugin.getConfigFile().isBroadcastVotesEnabled()
-				&& broadcast) {
+				&& broadcast && !plugin.getBungeeSettings().isDisableBroadcast()) {
 			voteSite.broadcastVote(this);
 		}
 		voteSite.giveRewards(this, online, bungee);

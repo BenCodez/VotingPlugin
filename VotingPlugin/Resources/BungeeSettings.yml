@@ -29,6 +29,10 @@ BungeeBroadcast: false
 # Whether to broadcast on cached votes
 BungeeBroadcastAlways: false
 
+# If true, the server won't broadcast votes
+# To be used in conjuction with Broadcast setting on bungee
+DisableBroadcast: false
+
 # If true, offline rewards will be stored per server, rather than global
 # This shouldn't need to be set unless you get alot of cross server rewards issues
 # You can also specify the server within the rewards
