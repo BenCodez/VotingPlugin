@@ -80,22 +80,27 @@ public class BungeeHandler {
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
 						user.clearCache();
-
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
-						if (plugin.getBungeeSettings().isPerServerPoints()) {
-							user.addPoints(plugin.getConfigFile().getPointsOnVote());
-						}
-
+						
+						boolean broadcast = true;
+						
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
 								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
 									site.broadcastVote(user, false);
+									broadcast = false;
 								} else {
 									plugin.getLogger().warning("No votesite for " + service);
 								}
 							}
 						}
+
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast);
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
+
+						
 
 						if (Boolean.valueOf(args.get(5))) {
 							plugin.getServerData().addServiceSite(service);
@@ -135,17 +140,23 @@ public class BungeeHandler {
 
 						boolean wasOnline = Boolean.valueOf(args.get(4));
 
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline);
+						boolean broadcast = true;
 
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()) {
 							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
 								VoteSite site = plugin.getVoteSite(service, true);
 								if (site != null) {
 									site.broadcastVote(user, false);
+									broadcast = false;
 								} else {
 									plugin.getLogger().warning("No votesite for " + service);
 								}
 							}
+						}
+
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast);
+						if (plugin.getBungeeSettings().isPerServerPoints()) {
+							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
 
 						if (Boolean.valueOf(args.get(5))) {

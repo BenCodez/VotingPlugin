@@ -76,6 +76,10 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean wasOnline;
 
+	@Getter
+	@Setter
+	private boolean broadcast = true;
+
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
 		this.player = voteUsername;

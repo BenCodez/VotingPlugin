@@ -200,7 +200,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
-			boolean wasOnline) {
+			boolean wasOnline, boolean broadcast) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -213,6 +213,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setWasOnline(wasOnline);
+			voteEvent.setBroadcast(broadcast);
 			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
