@@ -2003,7 +2003,7 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					new VoteTopVoter(plugin, sender, null, top, 1).open(GUIMethod.CHAT);
+					new VoteTopVoter(plugin, sender, null, top, 1).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 				}
 			});
 
@@ -2013,7 +2013,7 @@ public class CommandLoader {
 				@Override
 				public void execute(CommandSender sender, String[] args) {
 					int page = Integer.parseInt(args[2]);
-					new VoteTopVoter(plugin, sender, null, top, page).open(GUIMethod.CHAT);
+					new VoteTopVoter(plugin, sender, null, top, page).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 				}
 			});
 		}
@@ -2025,7 +2025,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
 
-				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page).open(GUIMethod.CHAT);
+				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 			}
 		});
 
