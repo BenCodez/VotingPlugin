@@ -79,7 +79,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private boolean votifierEnabled = true;
 
-	public void checkCachedVotes(String server) {
+	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
 				if (cachedVotes.containsKey(server) && !config.getBlockedServers().contains(server)) {
@@ -118,7 +118,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
-	public void checkOnlineVotes(ProxiedPlayer player, String uuid, String server) {
+	public synchronized void checkOnlineVotes(ProxiedPlayer player, String uuid, String server) {
 		if (player != null && player.isConnected() && cachedOnlineVotes.containsKey(uuid)) {
 			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
 			if (!c.isEmpty()) {

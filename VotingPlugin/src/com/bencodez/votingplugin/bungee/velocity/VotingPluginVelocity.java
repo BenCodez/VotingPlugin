@@ -117,7 +117,7 @@ public class VotingPluginVelocity {
 		timer = new Timer();
 	}
 
-	public void checkCachedVotes(RegisteredServer serverToCheck) {
+	public synchronized void checkCachedVotes(RegisteredServer serverToCheck) {
 		if (!serverToCheck.getPlayersConnected().isEmpty()) {
 			if (cachedVotes.containsKey(serverToCheck)
 					&& !config.getBlockedServers().contains(serverToCheck.getServerInfo().getName())) {
@@ -157,7 +157,7 @@ public class VotingPluginVelocity {
 
 	}
 
-	public void checkOnlineVotes(Player player, String uuid, RegisteredServer serverToCheck) {
+	public synchronized void checkOnlineVotes(Player player, String uuid, RegisteredServer serverToCheck) {
 		if (player != null && player.isActive() && cachedOnlineVotes.containsKey(uuid)) {
 			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
 			if (!c.isEmpty()) {
