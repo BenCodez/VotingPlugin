@@ -319,8 +319,17 @@ public class VotingPluginVelocity {
 					if (server.getPlayer(player).isPresent()) {
 						Player p = server.getPlayer(player).get();
 						if (p.getCurrentServer().isPresent()) {
-							checkCachedVotes(p.getCurrentServer().get().getServer());
-							checkOnlineVotes(p, p.getUniqueId().toString(), p.getCurrentServer().get().getServer());
+							final RegisteredServer server = p.getCurrentServer().get().getServer();
+							final Player p1 = p;
+							timer.schedule(new TimerTask() {
+
+								@Override
+								public void run() {
+									checkCachedVotes(server);
+									checkOnlineVotes(p1, p.getUniqueId().toString(), server);
+								}
+							}, 0);
+
 						}
 					}
 					return;

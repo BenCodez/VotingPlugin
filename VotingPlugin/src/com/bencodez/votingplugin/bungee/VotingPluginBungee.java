@@ -45,7 +45,6 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.event.PostLoginEvent;
-import net.md_5.bungee.api.event.ServerConnectedEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
@@ -547,9 +546,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				if (p != null && p.isConnected()) {
 					if (p.getServer() != null && p.getServer().getInfo() != null) {
-						String server = p.getServer().getInfo().getName();
-						checkCachedVotes(server);
-						checkOnlineVotes(p, p.getUniqueId().toString(), server);
+						final String server = p.getServer().getInfo().getName();
+						final ProxiedPlayer proixedPlayer = p;
+						getProxy().getScheduler().runAsync(this, new Runnable() {
+
+							@Override
+							public void run() {
+								checkCachedVotes(server);
+								checkOnlineVotes(proixedPlayer, proixedPlayer.getUniqueId().toString(), server);
+							}
+						});
 					}
 				}
 				return;
@@ -570,21 +576,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	@EventHandler
-	public void onServerConnected(ServerConnectedEvent event) {
-		final String server = event.getServer().getInfo().getName();
-		final String uuid = event.getPlayer().getUniqueId().toString();
-		getProxy().getScheduler().schedule(this, new Runnable() {
-
-			@Override
-			public void run() {
-				checkCachedVotes(server);
-				checkOnlineVotes(event.getPlayer(), uuid, server);
-			}
-
-		}, 3, TimeUnit.SECONDS);
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
