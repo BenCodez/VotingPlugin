@@ -81,7 +81,7 @@ public class VotiferEvent implements Listener {
 						&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
 								|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {
 					plugin.getLogger().severe(
-							"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods");
+							"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
 					return;
 				}
 				String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite);

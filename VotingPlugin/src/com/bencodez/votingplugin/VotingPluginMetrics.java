@@ -188,14 +188,28 @@ public class VotingPluginMetrics {
 				}
 			}
 		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users", new Callable<String>() {
 
-			@Override
-			public String call() throws Exception {
-				int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
-				return "" + total;
-			}
-		}));
+		int users = UserManager.getInstance().getAllUUIDs().size();
+		if (users > 1000) {
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users_in_thousands", new Callable<String>() {
+
+				@Override
+				public String call() throws Exception {
+					int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+					return "" + total;
+				}
+			}));
+		}
+		if (users > 10000) {
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users_in_thousands_plus_10", new Callable<String>() {
+
+				@Override
+				public String call() throws Exception {
+					int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+					return "" + total;
+				}
+			}));
+		}
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage", new Callable<String>() {
 
 			@Override
