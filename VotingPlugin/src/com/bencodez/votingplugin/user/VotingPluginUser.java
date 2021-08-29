@@ -159,7 +159,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void bungeeVote(String service, BungeeMessageData text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			VotingPluginMain.plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
+			plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
@@ -180,7 +180,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void bungeeVoteOnline(String service, BungeeMessageData text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			VotingPluginMain.plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
+			plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
@@ -202,7 +202,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
 			boolean wasOnline, boolean broadcast) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			VotingPluginMain.plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
+			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
 					true);
@@ -268,7 +268,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			LocalDateTime now = plugin.getTimeChecker().getTime();
 			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-					.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
+					.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
 				double votedelay = voteSite.getVoteDelay();
@@ -687,14 +687,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Off vote.
 	 */
 	public void offVote() {
-		if (!VotingPluginMain.plugin.getOptions().isProcessRewards()) {
-			VotingPluginMain.plugin.debug("Processing rewards is disabled");
+		if (!plugin.getOptions().isProcessRewards()) {
+			plugin.debug("Processing rewards is disabled");
 			return;
 		}
 
 		Player player = getPlayer();
 		if (player != null) {
-			VotingPluginMain.plugin.extraDebug("Checking offline vote site votes for " + player.getName());
+			plugin.extraDebug("Checking offline vote site votes for " + player.getName());
 
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
 			if (isTopVoterIgnore() != topVoterIngorePerm) {
@@ -1082,7 +1082,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		LocalDateTime now = plugin.getTimeChecker().getTime();
 
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
+				.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
@@ -1179,7 +1179,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		LocalDateTime now = plugin.getTimeChecker().getTime();
 
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(VotingPluginMain.plugin.getOptions().getTimeHourOffSet());
+				.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
 			double votedelay = voteSite.getVoteDelay();
