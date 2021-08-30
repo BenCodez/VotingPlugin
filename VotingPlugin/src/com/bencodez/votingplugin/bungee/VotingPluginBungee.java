@@ -102,7 +102,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 										"" + cache.isRealVote(), cache.getText(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion());
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
@@ -129,7 +129,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-								"" + BungeeVersion.getPluginMessageVersion());
+								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 				}
@@ -802,7 +802,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 										Boolean.TRUE.toString(), "" + realVote, text.toString(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion());
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
 							}
 							if (config.getBroadcast()) {
 								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
@@ -815,7 +815,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
-								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion());
+								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
+								"" + config.getBroadcast());
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
 							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());

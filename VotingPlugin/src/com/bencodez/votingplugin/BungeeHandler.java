@@ -82,17 +82,27 @@ public class BungeeHandler {
 						user.clearCache();
 
 						boolean broadcast = true;
+						boolean bungeeBroadcast = false;
 
-						if (!plugin.getBungeeSettings().isBungeeBroadcast()&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSite(service, true);
-								if (site != null) {
-									site.broadcastVote(user, false);
-									broadcast = false;
-								} else {
-									plugin.getLogger().warning("No votesite for " + service);
+						if (args.size() > 9) {
+							bungeeBroadcast = Boolean.valueOf(args.get(9));
+						}
+
+						if (!bungeeBroadcast) {
+							if (!plugin.getBungeeSettings().isBungeeBroadcast()
+									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
+								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+									VoteSite site = plugin.getVoteSite(service, true);
+									if (site != null) {
+										site.broadcastVote(user, false);
+										broadcast = false;
+									} else {
+										plugin.getLogger().warning("No votesite for " + service);
+									}
 								}
 							}
+						} else {
+							broadcast = false;
 						}
 
 						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast);
@@ -139,17 +149,28 @@ public class BungeeHandler {
 						boolean wasOnline = Boolean.valueOf(args.get(4));
 
 						boolean broadcast = true;
+						boolean bungeeBroadcast = false;
 
-						if (!plugin.getBungeeSettings().isBungeeBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
-							if (Boolean.valueOf(args.get(4)) || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSite(service, true);
-								if (site != null) {
-									site.broadcastVote(user, false);
-									broadcast = false;
-								} else {
-									plugin.getLogger().warning("No votesite for " + service);
+						if (args.size() > 9) {
+							bungeeBroadcast = Boolean.valueOf(args.get(9));
+						}
+
+						if (!bungeeBroadcast) {
+							if (!plugin.getBungeeSettings().isBungeeBroadcast()
+									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
+								if (Boolean.valueOf(args.get(4))
+										|| plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+									VoteSite site = plugin.getVoteSite(service, true);
+									if (site != null) {
+										site.broadcastVote(user, false);
+										broadcast = false;
+									} else {
+										plugin.getLogger().warning("No votesite for " + service);
+									}
 								}
 							}
+						} else {
+							broadcast = false;
 						}
 
 						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast);
