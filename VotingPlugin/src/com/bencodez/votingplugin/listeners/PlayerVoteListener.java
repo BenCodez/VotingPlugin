@@ -103,18 +103,17 @@ public class PlayerVoteListener implements Listener {
 			user = UserManager.getInstance().getVotingPluginUser(playerName);
 		}
 
-		// reupdate cache
-		user.clearCache();
-		user.cache();
-
-		user.updateName(true);
-
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
 			plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
 			return;
 		}
 
 		synchronized (object) {
+			// reupdate cache
+			user.clearCache();
+			user.cache();
+
+			user.updateName(true);
 
 			// vote party
 			plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
