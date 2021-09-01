@@ -306,12 +306,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			long time = user.getTime(voteSite);
-			if (time != 0) {
-				months.add(MiscUtils.getInstance().getMonthFromMili(time));
-				days.add(MiscUtils.getInstance().getDayFromMili(time));
-			} else {
-				return false;
+			if (voteSite.isEnabled() && !voteSite.isHidden()) {
+				long time = user.getTime(voteSite);
+				if (time != 0) {
+					months.add(MiscUtils.getInstance().getMonthFromMili(time));
+					days.add(MiscUtils.getInstance().getDayFromMili(time));
+				} else {
+					return false;
+				}
 			}
 		}
 
