@@ -51,7 +51,11 @@ public class VoteShop extends GUIHandler {
 			return;
 		}
 
+		if (this.user == null) {
+			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		}
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteShopName());
+		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.dontClose();
 
 		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
@@ -68,7 +72,6 @@ public class VoteShop extends GUIHandler {
 
 			boolean limitPass = true;
 			if (limit > 0) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 				if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
 					limitPass = false;
 				}
