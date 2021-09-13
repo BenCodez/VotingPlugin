@@ -187,6 +187,8 @@ public class SpecialRewards {
 							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
 						}
+					} else {
+						plugin.debug("Milestone " + votesRequired + " not enabled or has no rewards");
 					}
 				}
 			} else {
