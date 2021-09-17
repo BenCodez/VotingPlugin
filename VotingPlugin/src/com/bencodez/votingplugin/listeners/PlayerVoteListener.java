@@ -118,7 +118,7 @@ public class PlayerVoteListener implements Listener {
 			// vote party
 			plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
-			if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast() ) {
+			if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
 				// broadcast vote if enabled in config
 				if (plugin.getConfigFile().isBroadcastVotesEnabled()
 						&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
@@ -169,7 +169,9 @@ public class PlayerVoteListener implements Listener {
 				}
 				user.playerVote(voteSite, online, false, event.isForceBungee());
 				user.sendVoteEffects(online);
-				user.closeInv();
+				if (plugin.getConfigFile().isCloseInventoryOnVote()) {
+					user.closeInv();
+				}
 			} else {
 				user.addOfflineVote(voteSite.getKey());
 				plugin.debug(

@@ -117,6 +117,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean extraAllSitesCheck = false;
 
+	@ConfigDataBoolean(path = "CloseInventoryOnVote")
+	@Getter
+	private boolean closeInventoryOnVote = true;
+
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
