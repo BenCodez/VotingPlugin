@@ -270,7 +270,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoter(TopVoter top) {
-		return topVoter.get(top);
+		LinkedHashMap<TopVoterPlayer, Integer> top1 = topVoter.get(top);
+		if (top1 == null) {
+			top1 = new LinkedHashMap<TopVoterPlayer, Integer>();
+		}
+		return top1;
 	}
 
 	/**
