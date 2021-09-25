@@ -79,8 +79,8 @@ CHEST:
         # Name: 'Extra item'
         ## Works on most GUI items
         # Slot: 10
-        ## Send rewards on click, run commands, check conditions, etc
-        # Rewards: []
+      ## Send rewards on click, run commands, check conditions, etc
+      # Rewards: []
         
   # GUI for /vote url, /vote
   VoteURL:

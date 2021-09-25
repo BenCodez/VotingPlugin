@@ -74,8 +74,8 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					VotingPluginUser user = (VotingPluginUser) getData("User");
-					new VoteGUI(plugin, player, user)
+					TopVoterPlayer user = (TopVoterPlayer) getData("User");
+					new VoteGUI(plugin, player, user.getUser())
 							.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 				}
 			}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));

@@ -104,8 +104,8 @@ public class VoteTopVoter extends GUIHandler {
 					@Override
 					public void onClick(ClickEvent clickEvent) {
 						if (plugin.getGui().getChestVoteTopOpenMainGUIOnClick()) {
-							VotingPluginUser user = (VotingPluginUser) getData("User");
-							new VoteGUI(plugin, player, user)
+							TopVoterPlayer user = (TopVoterPlayer) getData("User");
+							new VoteGUI(plugin, player, user.getUser())
 									.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 						} else {
 							getInv().forceClose(clickEvent.getPlayer());
