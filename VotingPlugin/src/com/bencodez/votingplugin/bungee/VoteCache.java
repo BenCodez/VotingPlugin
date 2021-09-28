@@ -18,6 +18,30 @@ public class VoteCache {
 		this.bungee = bungee;
 	}
 
+	public int getVotePartyCurrentVotes() {
+		return getData().getInt("VoteParty.CurrentVotes", 0);
+	}
+
+	public int getVotePartyInreaseVotesRequired() {
+		return getData().getInt("VoteParty.IncreaseVotes", 0);
+	}
+
+	public void setVotePartyCurrentVotes(int amount) {
+		getData().set("VoteParty.CurrentVotes", amount);
+	}
+
+	public void setVotePartyInreaseVotesRequired(int amount) {
+		getData().set("VoteParty.IncreaseVotes", amount);
+	}
+
+	public void setVotePartyCache(String server, int amount) {
+		getData().set("VoteParty.Cache." + server, amount);
+	}
+
+	public int getVotePartyCache(String server) {
+		return getData().getInt("VoteParty.Cache." + server, 0);
+	}
+
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
 		Configuration section = getData().getSection("VoteCache." + server + "." + num);
 		section.set("Name", voteData.getPlayerName());

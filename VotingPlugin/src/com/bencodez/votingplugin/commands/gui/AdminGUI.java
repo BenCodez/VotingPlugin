@@ -149,6 +149,15 @@ public class AdminGUI {
 			}
 		});
 
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit BungeeVotePartyRewards")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						RewardHandler.getInstance().getDirectlyDefined("BungeeVotePartyRewards"));
+			}
+		});
+
 		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml")) {
 
 			@Override

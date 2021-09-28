@@ -39,7 +39,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import lombok.Getter;
+import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.CommandSender;
+import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
@@ -472,6 +474,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 		}
 
+		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+				+ voteCacheFile.getVotePartyInreaseVotesRequired();
+		votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
+
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
 		metrics.addCustomChart(
@@ -598,6 +604,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	public void reload(boolean loadMysql) {
 		config.load();
+		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+				+ voteCacheFile.getVotePartyInreaseVotesRequired();
 		if (loadMysql) {
 			try {
 				if (!config.getData().getString("Host", "").isEmpty()) {
@@ -764,13 +772,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
 			}
 
-			/*
-			 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "MilestoneCount", 1);
-			 */
+			addVoteParty();
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -843,6 +845,65 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			e.printStackTrace();
 		}
 
+	}
+
+	private int votePartyVotes = 0;
+	private int currentVotePartyVotesRequired = 0;
+
+	public void addCurrentVotePartyVotes(int amount) {
+		votePartyVotes += amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
+
+	public void addVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
+			addCurrentVotePartyVotes(1);
+
+			if (votePartyVotes >= currentVotePartyVotesRequired) {
+				debug("Vote party reached");
+				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
+
+				currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
+				voteCacheFile.setVotePartyInreaseVotesRequired(voteCacheFile.getVotePartyInreaseVotesRequired()
+						+ getConfig().getVotePartyIncreaseVotesRequired());
+
+				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
+					getProxy().broadcast(new TextComponent(
+							ChatColor.translateAlternateColorCodes('&', getConfig().getVotePartyBroadcast())));
+				}
+
+				for (String command : getConfig().getVotePartyBungeeCommands()) {
+					getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command);
+				}
+
+				if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+					if (getConfig().getVotePartySendToAllServers()) {
+						for (Entry<String, ServerInfo> entry : getProxy().getServers().entrySet()) {
+							sendVoteParty(entry.getKey(), entry.getValue());
+						}
+					} else {
+						for (String server : getConfig().getVotePartyServersToSend()) {
+							ServerInfo serverInfo = getProxy().getServerInfo(server);
+							if (serverInfo != null) {
+								sendVoteParty(server, serverInfo);
+							}
+						}
+					}
+				}
+			}
+			voteCacheFile.save();
+		}
+	}
+
+	public void sendVoteParty(String server, ServerInfo serverInfo) {
+		if (!serverInfo.getPlayers().isEmpty()) {
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+				sendPluginMessageServer(server, "VotePartyBungee");
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				sendServerMessageServer(server, "VotePartyBungee");
+			}
+		}
 	}
 
 }

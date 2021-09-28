@@ -14,6 +14,30 @@ public class VoteCache extends VelocityYMLFile {
 		super(file);
 	}
 
+	public int getVotePartyCurrentVotes() {
+		return getInt(getNode("VoteParty").getNode("CurrentVotes"), 0);
+	}
+
+	public int getVotePartyInreaseVotesRequired() {
+		return getInt(getNode("VoteParty").getNode("IncreaseVotes"), 0);
+	}
+
+	public void setVotePartyCurrentVotes(int amount) {
+		getNode("VoteParty").getNode("CurrentVotes").setValue(amount);
+	}
+
+	public void setVotePartyInreaseVotesRequired(int amount) {
+		getNode("VoteParty").getNode("IncreaseVotes").setValue(amount);
+	}
+
+	public void setVotePartyCache(String server, int amount) {
+		getNode("VoteParty").getNode("Cache").getNode(server).setValue(amount);
+	}
+
+	public int getVotePartyCache(String server) {
+		return getNode("VoteParty").getNode("Cache").getNode(server).getInt(0);
+	}
+
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
 		String[] path = new String[] { "VoteCache", server, "" + num };
 

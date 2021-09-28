@@ -77,6 +77,34 @@ public class Config {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
+	public boolean getVotePartyEnabled() {
+		return getData().getBoolean("VoteParty.Enabled", false);
+	}
+
+	public boolean getVotePartySendToAllServers() {
+		return getData().getBoolean("VoteParty.SendToAllServers", true);
+	}
+
+	public int getVotePartyVotesRequired() {
+		return getData().getInt("VoteParty.VotesRequired", 100);
+	}
+
+	public int getVotePartyIncreaseVotesRequired() {
+		return getData().getInt("VoteParty.IncreaseVotesRequired", 0);
+	}
+
+	public String getVotePartyBroadcast() {
+		return getData().getString("VoteParty.Broadcast", "");
+	}
+
+	public List<String> getVotePartyServersToSend() {
+		return getData().getStringList("VoteParty.ServersToSend");
+	}
+
+	public List<String> getVotePartyBungeeCommands() {
+		return getData().getStringList("VoteParty.BungeeCommands");
+	}
+
 	public void load() {
 		if (!bungee.getDataFolder().exists()) {
 			bungee.getDataFolder().mkdir();

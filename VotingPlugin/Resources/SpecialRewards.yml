@@ -168,6 +168,11 @@ LogoutRewards: {}
 
 EnableMonthlyAwards: true
 
+# TopVoter Placeholders:
+#%place% - place in topvoter
+#%topvoter% - topvoter type
+#%votes% - current total votes related to top voter
+
 # Rewards to give
 MonthlyAwards:
   # Position. 1 is first in top voter, 2 is second, etc...

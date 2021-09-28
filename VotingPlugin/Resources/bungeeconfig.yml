@@ -56,6 +56,23 @@ BungeeManageTotals: true
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true
 
+VoteParty:
+  # If enabled, will trigger vote party reward 
+  # in BungeeSettings.yml under BungeeVotePartyReward
+  # Only runs rewards for online players
+  Enabled: false
+  # Votes required
+  VotesRequired: 100
+  # Increase amount required on each vote party
+  IncreaseVotesRequired: 0
+  # If false, will only send to servers listed below
+  SendToAllServers: true
+  # Servers to send to, if above is false
+  ServersToSend: []
+  BungeeCommands: []
+  Broadcast: '&aVote party has been reaced!'
+  
+
 # ----------------------------
 # PLUGINMESSAGING Settings
 # ----------------------------

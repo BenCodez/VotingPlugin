@@ -4,7 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.UUID;
 
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
@@ -228,6 +232,15 @@ public class BungeeHandler {
 				}
 			});
 
+			plugin.getPluginMessaging().add(new PluginMessageHandler("VotePartyBungee") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					for (Player p : Bukkit.getOnlinePlayers()) {
+						new RewardBuilder(plugin.getBungeeSettings().getData(), "BungeeVotePartyRewards").send(p);
+					}
+				}
+			});
+
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
 
@@ -323,6 +336,16 @@ public class BungeeHandler {
 				@Override
 				public void onReceive(String[] data) {
 					plugin.setUpdate(true);
+				}
+			});
+
+			socketHandler.add(new SocketReceiver("VotePartyBungee") {
+
+				@Override
+				public void onReceive(String[] data) {
+					for (Player p : Bukkit.getOnlinePlayers()) {
+						new RewardBuilder(plugin.getBungeeSettings().getData(), "BungeeVotePartyRewards").send(p);
+					}
 				}
 			});
 

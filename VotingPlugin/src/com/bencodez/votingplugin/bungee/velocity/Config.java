@@ -63,6 +63,38 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("SendVotesToAllServers"), true);
 	}
 
+	public boolean getVotePartyEnabled() {
+		return getBoolean(getVotePartyNode().getNode("Enabled"), false);
+	}
+
+	public ConfigurationNode getVotePartyNode() {
+		return getNode("VoteParty");
+	}
+
+	public boolean getVotePartySendToAllServers() {
+		return getBoolean(getVotePartyNode().getNode("SendToAllServers"), false);
+	}
+
+	public int getVotePartyVotesRequired() {
+		return getInt(getVotePartyNode().getNode("VotesRequired"), 100);
+	}
+
+	public int getVotePartyIncreaseVotesRequired() {
+		return getInt(getVotePartyNode().getNode("IncreaseVotesRequired"), 0);
+	}
+
+	public String getVotePartyBroadcast() {
+		return getString(getVotePartyNode().getNode("Broadcast"), "");
+	}
+
+	public List<String> getVotePartyServersToSend() {
+		return getStringList(getVotePartyNode().getNode("ServersToSend"), new ArrayList<String>());
+	}
+
+	public List<String> getVotePartyBungeeCommands() {
+		return getStringList(getVotePartyNode().getNode("BungeeCommands"), new ArrayList<String>());
+	}
+
 	public ConfigurationNode getSpigotServerConfiguration(String s) {
 		return getNode("SpigotServers", s);
 	}

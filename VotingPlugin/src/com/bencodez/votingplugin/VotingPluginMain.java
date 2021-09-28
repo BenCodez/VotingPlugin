@@ -850,6 +850,28 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("BungeeVotePartyRewards") {
+
+			@Override
+			public void createSection(String key) {
+				getBungeeSettings().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getBungeeSettings().getData();
+			}
+
+			@Override
+			public void save() {
+				getBungeeSettings().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getBungeeSettings().setValue(path, value);
+			}
+		});
 	}
 
 	private void loadTimer() {

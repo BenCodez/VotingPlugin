@@ -69,6 +69,8 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
+import net.kyori.text.TextComponent;
+import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
@@ -538,6 +540,10 @@ public class VotingPluginVelocity {
 			}
 		}
 
+		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+				+ voteCacheFile.getVotePartyInreaseVotesRequired();
+		votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
+
 		try {
 			getVersionFile();
 			if (versionFile != null) {
@@ -671,6 +677,8 @@ public class VotingPluginVelocity {
 
 	public void reload(boolean loadMySQL) {
 		config.reload();
+		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+				+ voteCacheFile.getVotePartyInreaseVotesRequired();
 		if (loadMySQL) {
 			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
 				loadMysql();
@@ -912,6 +920,69 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	private int votePartyVotes = 0;
+	private int currentVotePartyVotesRequired = 0;
+
+	public void addCurrentVotePartyVotes(int amount) {
+		votePartyVotes += amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
+
+	@SuppressWarnings("deprecation")
+	private TextComponent color(String text) {
+		return LegacyComponentSerializer.INSTANCE.deserialize(text, '&');
+	}
+
+	@SuppressWarnings("deprecation")
+	public void addVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
+			addCurrentVotePartyVotes(1);
+
+			if (votePartyVotes >= currentVotePartyVotesRequired) {
+				debug("Current vote party total: " + votePartyVotes);
+				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
+
+				currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
+				voteCacheFile.setVotePartyInreaseVotesRequired(voteCacheFile.getVotePartyInreaseVotesRequired()
+						+ getConfig().getVotePartyIncreaseVotesRequired());
+
+				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
+					server.broadcast(color(getConfig().getVotePartyBroadcast()));
+				}
+
+				for (String command : getConfig().getVotePartyBungeeCommands()) {
+					server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command);
+				}
+
+				if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+					if (getConfig().getVotePartySendToAllServers()) {
+						for (RegisteredServer server : server.getAllServers()) {
+							sendVoteParty(server);
+						}
+					} else {
+						for (String server : getConfig().getVotePartyServersToSend()) {
+							if (this.server.getServer(server).isPresent()) {
+								sendVoteParty(this.server.getServer(server).get());
+							}
+						}
+					}
+				}
+			}
+			voteCacheFile.save();
+		}
+	}
+
+	public void sendVoteParty(RegisteredServer server) {
+		if (!server.getPlayersConnected().isEmpty()) {
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+				sendPluginMessageServer(server, "VotePartyBungee");
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				sendServerMessageServer(server.getServerInfo().getName(), "VotePartyBungee");
+			}
 		}
 	}
 }

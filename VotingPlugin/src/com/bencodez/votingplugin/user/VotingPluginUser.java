@@ -572,27 +572,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 						.setOnline(isOnline()).send(this);
 	}
 
-	/*
-	 * public Integer hasLastCumulative(int votesRequired) { HashMap<Integer,
-	 * Integer> lastCumative = getLastCumulatives(); if
-	 * (lastCumative.containsKey(votesRequired)) { return
-	 * lastCumative.get(votesRequired); } return 0; } public HashMap<Integer,
-	 * Integer> getLastCumulatives() { HashMap<Integer, Integer> lastCumulative =
-	 * new HashMap<Integer, Integer>(); ArrayList<String> milestoneList =
-	 * getUserData().getStringList("LastCumulative"); for (String str :
-	 * milestoneList) { String[] data = str.split("//"); if (data.length > 1) { try
-	 * { lastCumulative.put(Integer.parseInt(data[0]), Integer.parseInt(data[1])); }
-	 * catch (Exception e) { e.printStackTrace(); } } } return lastCumulative; }
-	 * public void setLastCumulatives(HashMap<Integer, Integer> lastCumulative) {
-	 * ArrayList<String> data = new ArrayList<String>(); for (Entry<Integer,
-	 * Integer> entry : lastCumulative.entrySet()) { String str = entry.getKey() +
-	 * "//" + entry.getValue(); data.add(str); }
-	 * getUserData().setStringList("LastCumulative", data); } public void
-	 * setLastCumulative(int votesRequired, int value) { HashMap<Integer, Integer>
-	 * lastCumulative = getLastCumulatives(); lastCumulative.put(votesRequired,
-	 * value); setLastCumulatives(lastCumulative); }
-	 */
-
 	public void giveMonthlyTopVoterAward(int place, String path) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)

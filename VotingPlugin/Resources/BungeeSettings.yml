@@ -51,6 +51,12 @@ TriggerVotifierEvent: false
 # Also can be applied to rewards
 Server: PleaseSet
 
+# Rewards from bungee vote party
+# Gives to only players only
+# Use regular voteparty rewards otherwise
+# Can edit via /av gui
+BungeeVotePartyRewards: {}
+
 # -----------------------------
 # For socket setup below only
 # -----------------------------
