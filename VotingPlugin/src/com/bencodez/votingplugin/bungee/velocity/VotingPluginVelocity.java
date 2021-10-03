@@ -888,7 +888,10 @@ public class VotingPluginVelocity {
 						}
 					}
 				} else {
-					Player p = server.getPlayer(UUID.fromString(uuid)).get();
+					Player p = null;
+					if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
+						p = server.getPlayer(UUID.fromString(uuid)).get();
+					}
 					if (p != null && p.isActive() && !config.getBlockedServers()
 							.contains(p.getCurrentServer().get().getServerInfo().getName())) {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
