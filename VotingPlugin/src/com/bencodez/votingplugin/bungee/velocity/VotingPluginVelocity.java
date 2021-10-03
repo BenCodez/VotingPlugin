@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
@@ -480,7 +481,9 @@ public class VotingPluginVelocity {
 					}
 
 					for (String player : cachedOnlineVotes.keySet()) {
-						checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
+						if (server.getPlayer(UUID.fromString(player)).isPresent()) {
+							checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
+						}
 					}
 				}).delay(15L, TimeUnit.SECONDS).repeat(30l, TimeUnit.SECONDS).schedule();
 
@@ -946,8 +949,13 @@ public class VotingPluginVelocity {
 						+ getConfig().getVotePartyIncreaseVotesRequired());
 
 				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
-					// to finish implementing
-					//server.broadcast(getConfig().getVotePartyBroadcast());
+					for (RegisteredServer server : getVotePartyServers()) {
+						if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+							sendPluginMessageServer(server, "VotePartyBroadcast", config.getVotePartyBroadcast());
+						} else if (method.equals(BungeeMethod.SOCKETS)) {
+							sendServerMessageServer(server.getServerInfo().getName(), config.getVotePartyBroadcast());
+						}
+					}
 				}
 
 				for (String command : getConfig().getVotePartyBungeeCommands()) {
@@ -955,21 +963,26 @@ public class VotingPluginVelocity {
 				}
 
 				if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-					if (getConfig().getVotePartySendToAllServers()) {
-						for (RegisteredServer server : server.getAllServers()) {
-							sendVoteParty(server);
-						}
-					} else {
-						for (String server : getConfig().getVotePartyServersToSend()) {
-							if (this.server.getServer(server).isPresent()) {
-								sendVoteParty(this.server.getServer(server).get());
-							}
-						}
+					for (RegisteredServer server : getVotePartyServers()) {
+						sendVoteParty(server);
 					}
 				}
 			}
 			voteCacheFile.save();
 		}
+	}
+
+	public Collection<RegisteredServer> getVotePartyServers() {
+		if (getConfig().getVotePartySendToAllServers()) {
+			return server.getAllServers();
+		}
+		Collection<RegisteredServer> list = new ArrayList<RegisteredServer>();
+		for (String server : getConfig().getVotePartyServersToSend()) {
+			if (this.server.getServer(server).isPresent()) {
+				list.add(this.server.getServer(server).get());
+			}
+		}
+		return list;
 	}
 
 	public void sendVoteParty(RegisteredServer server) {
