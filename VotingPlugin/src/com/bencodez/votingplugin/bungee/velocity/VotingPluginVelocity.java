@@ -69,8 +69,6 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
-import net.kyori.text.TextComponent;
-import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
@@ -935,12 +933,6 @@ public class VotingPluginVelocity {
 		debug("Current vote party total: " + votePartyVotes);
 	}
 
-	@SuppressWarnings("deprecation")
-	private TextComponent color(String text) {
-		return LegacyComponentSerializer.INSTANCE.deserialize(text, '&');
-	}
-
-	@SuppressWarnings("deprecation")
 	public void addVoteParty() {
 		if (getConfig().getVotePartyEnabled()) {
 			addCurrentVotePartyVotes(1);
@@ -954,7 +946,8 @@ public class VotingPluginVelocity {
 						+ getConfig().getVotePartyIncreaseVotesRequired());
 
 				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
-					server.broadcast(color(getConfig().getVotePartyBroadcast()));
+					// to finish implementing
+					//server.broadcast(getConfig().getVotePartyBroadcast());
 				}
 
 				for (String command : getConfig().getVotePartyBungeeCommands()) {
