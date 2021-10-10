@@ -375,9 +375,8 @@ public class VotingPluginVelocity {
 					num++;
 				}
 			}
-
-			voteCacheFile.save();
 		}
+		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
 			mysql.shutDown();
@@ -432,14 +431,10 @@ public class VotingPluginVelocity {
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
 		if (mysqlLoaded) {
-			if (method.equals(BungeeMethod.MYSQL)) {
-				// this.getProxy().registerChannel("vp:vp");
-
-			} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-				voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
-				nonVotedPlayersCache = new NonVotedPlayersCache(
-						new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
-
+			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
+			nonVotedPlayersCache = new NonVotedPlayersCache(
+					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 				try {
 					for (String serverToCheck : voteCacheFile.getServers()) {
 						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();

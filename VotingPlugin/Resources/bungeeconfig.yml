@@ -67,10 +67,12 @@ VoteParty:
   IncreaseVotesRequired: 0
   # If false, will only send to servers listed below
   SendToAllServers: true
-  # Servers to send to, if above is false
+  # Servers to send to, if SendToAllServers is false
   ServersToSend: []
+  # List of commands to run on bungee server
+  # Set spigot commands in BungeeSettings.yml
   BungeeCommands: []
-  Broadcast: '&aVote party has been reaced!'
+  Broadcast: '&aVote party has been reached!'
   
 
 # ----------------------------

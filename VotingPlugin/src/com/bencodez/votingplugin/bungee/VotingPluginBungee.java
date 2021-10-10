@@ -311,8 +311,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					num++;
 				}
 			}
-			voteCacheFile.save();
 		}
+		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
 			mysql.shutdown();
@@ -361,15 +361,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		this.getProxy().registerChannel("vp:vp");
 
 		if (mysqlLoaded) {
-			if (method.equals(BungeeMethod.MYSQL)) {
-				// this.getProxy().registerChannel("vp:vp");
+			voteCacheFile = new VoteCache(this);
+			voteCacheFile.load();
 
-			} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-				voteCacheFile = new VoteCache(this);
-				voteCacheFile.load();
-
-				nonVotedPlayersCache = new NonVotedPlayersCache(this);
-				nonVotedPlayersCache.load();
+			nonVotedPlayersCache = new NonVotedPlayersCache(this);
+			nonVotedPlayersCache.load();
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				try {
 					for (String server : voteCacheFile.getServers()) {
