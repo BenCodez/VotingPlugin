@@ -62,7 +62,7 @@ public class VoteReminding {
 
 				@Override
 				public void run() {
-					if (plugin != null) {
+					if (plugin != null && plugin.isEnabled()) {
 						for (Player player : Bukkit.getServer().getOnlinePlayers()) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
 							checkRemind(user);

@@ -11,10 +11,6 @@ Username: ''
 Password: ''
 # Max number of connections
 MaxConnections: 1
-# Maxium size of caching mysql
-# -1 for no limit
-# Affecting this value may affect performance
-MaxSize: -1
 # Table name prefix, for use with mutliple servers
 Prefix: ''
 #UseSSL: true
