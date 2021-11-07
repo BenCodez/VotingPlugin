@@ -34,6 +34,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean enableWeeklyAwards = false;
 
+	@ConfigDataBoolean(path = "OnlyOneCumulative")
+	@Getter
+	private boolean onlyOneCumulative = false;
+
 	@Getter
 	private String firstVoteRewardsPath = "FirstVote";
 

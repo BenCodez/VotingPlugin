@@ -94,10 +94,14 @@ public class SpecialRewards {
 						}
 
 						if (gotCumulative) {
-							gotCumulativeAny = true;
-							plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", total: "
-									+ top.toString() + ", current total: " + total);
-							giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
+							if (!plugin.getSpecialRewardsConfig().isOnlyOneCumulative() || !gotCumulativeAny) {
+								gotCumulativeAny = true;
+								plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", total: "
+										+ top.toString() + ", current total: " + total);
+								giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
+							} else {
+								plugin.debug("Already got one cumulative");
+							}
 						} else {
 							plugin.devDebug(user.getPlayerName() + " not able to get cumulative " + votesRequired
 									+ ", total required: " + top.toString() + ", current player total: " + total);

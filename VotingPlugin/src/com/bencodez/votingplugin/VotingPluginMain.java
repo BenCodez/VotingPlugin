@@ -1116,7 +1116,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!site.hasRewards() && !hasRewards) {
 				issues = false;
 				plugin.getLogger().warning("No rewards detected for the site: " + site.getKey()
-						+ ". See https://github.com/BenCodez/VotingPlugin/wiki/Rewards on how to add rewards");
+						+ ". See https://github.com/BenCodez/VotingPlugin/wiki/Rewards");
 			}
 
 			boolean contains = false;
