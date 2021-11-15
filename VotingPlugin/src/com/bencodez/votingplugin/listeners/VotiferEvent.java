@@ -2,7 +2,6 @@ package com.bencodez.votingplugin.listeners;
 
 import java.util.ArrayList;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -52,7 +51,7 @@ public class VotiferEvent implements Listener {
 			// ignore own plugin calls of event
 			return;
 		}
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		VoteThread.getInstance().run(new Runnable() {
 
 			@Override
 			public void run() {
@@ -72,11 +71,10 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		VoteThread.getInstance().run(new Runnable() {
 
 			@Override
 			public void run() {
-
 				if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
 						&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
 								|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {
