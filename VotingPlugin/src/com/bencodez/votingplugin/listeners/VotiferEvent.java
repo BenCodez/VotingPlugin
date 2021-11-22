@@ -52,13 +52,6 @@ public class VotiferEvent implements Listener {
 			// ignore own plugin calls of event
 			return;
 		}
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				plugin.getServerData().addServiceSite(voteSite);
-			}
-		});
 
 		if (voteUsername.length() == 0) {
 			plugin.getLogger().warning("No name from vote on " + voteSite);
@@ -76,6 +69,7 @@ public class VotiferEvent implements Listener {
 
 			@Override
 			public void run() {
+				plugin.getServerData().addServiceSite(voteSite);
 				if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
 						&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
 								|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {

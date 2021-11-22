@@ -8,7 +8,7 @@ softdepend: [MVdWPlaceholders, Votifier, VotifierPlus, NuVotifier, CMI, Vault, P
 loadbefore: [MCPerks]
 api-version: 1.13
 libraries:
-  - org.openjdk.nashorn:nashorn-core:15.2
+  - org.openjdk.nashorn:nashorn-core:15.3
 commands:
   vote:
     description: Vote command
