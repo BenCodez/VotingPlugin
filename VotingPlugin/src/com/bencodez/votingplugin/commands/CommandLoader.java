@@ -318,6 +318,16 @@ public class CommandLoader {
 														+ user.getMilestoneCount());
 										user.setHasGotteMilestone(num, true);
 									}
+								} else {
+									if (user.hasGottenMilestone(num)) {
+										sendMessage(sender,
+												"&cMilestone " + num + " for " + user.getPlayerName()
+														+ " already given when it shouldn't be, Current AllTimeTotal: "
+														+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
+														+ user.getMilestoneCount());
+										user.setHasGotteMilestone(num, false);
+									}
+
 								}
 							}
 						}
@@ -2003,7 +2013,8 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					new VoteTopVoter(plugin, sender, null, top, 1).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
+					new VoteTopVoter(plugin, sender, null, top, 1)
+							.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 				}
 			});
 
@@ -2013,7 +2024,8 @@ public class CommandLoader {
 				@Override
 				public void execute(CommandSender sender, String[] args) {
 					int page = Integer.parseInt(args[2]);
-					new VoteTopVoter(plugin, sender, null, top, page).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
+					new VoteTopVoter(plugin, sender, null, top, page)
+							.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 				}
 			});
 		}
@@ -2025,7 +2037,8 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
 
-				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
+				new VoteTopVoter(plugin, sender, null, TopVoter.getDefault(), page)
+						.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodTopVoter().toUpperCase()));
 			}
 		});
 
