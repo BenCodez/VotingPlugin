@@ -58,7 +58,7 @@ public class BungeeHandler {
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			plugin.registerBungeeChannels("vp:vp");
 
-			plugin.getPluginMessaging().setDebug(true);
+			plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Vote") {
 				@Override
