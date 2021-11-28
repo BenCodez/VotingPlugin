@@ -40,7 +40,7 @@ DisableBroadcast: false
 PerServerRewards: false
 
 # If true, milestones work per server
-# Please note totals still since, but milestones can be claimed on each server
+# Please note totals still sync, but milestones can be claimed on each server
 # Needs to be set across all needed servers
 PerServerMilestones: false
 
