@@ -96,6 +96,15 @@ public class AdminVoteBungeeSettings extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(
+				new EditGUIValueBoolean("PerServerMilestones", plugin.getBungeeSettings().isPerServerMilestones()) {
+
+					@Override
+					public void setValue(Player player, boolean value) {
+						setPathData(getKey(), value);
+					}
+				}));
+
+		inv.addButton(new EditGUIButton(
 				new EditGUIValueBoolean("PerServerPoints", plugin.getBungeeSettings().isPerServerPoints()) {
 
 					@Override

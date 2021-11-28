@@ -400,7 +400,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
 		HashMap<String, Boolean> hasGottenMilestone = new HashMap<String, Boolean>();
-		ArrayList<String> milestoneList = getUserData().getStringList("GottenMileStones");
+		ArrayList<String> milestoneList = getUserData().getStringList(getGottenMilestonesPath());
 		for (String str : milestoneList) {
 			String[] data = str.split("//");
 			if (data.length > 1) {
@@ -788,7 +788,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			String str = entry.getKey() + "//" + entry.getValue().booleanValue();
 			data.add(str);
 		}
-		getUserData().setStringList("GottenMileStones", data);
+		getUserData().setStringList(getGottenMilestonesPath(), data);
+	}
+
+	public String getGottenMilestonesPath() {
+		if (plugin.getBungeeSettings().isPerServerMilestones()) {
+			return plugin.getOptions().getServer() + "_" + "GottenMilestones";
+		}
+		return "GottenMileStones";
 	}
 
 	public void setHighestDailyTotal(int total) {
