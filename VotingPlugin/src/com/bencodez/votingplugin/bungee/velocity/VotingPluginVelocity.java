@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
@@ -51,7 +52,6 @@ import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
@@ -199,7 +199,7 @@ public class VotingPluginVelocity {
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
 
 		// Parse JSON response and get UUID
-		JsonElement element = new JsonParser().parse(bufferedReader);
+		JsonElement element = JsonParser.parseReader(bufferedReader);
 		JsonObject object = element.getAsJsonObject();
 		String uuidAsString = object.get("id").getAsString();
 

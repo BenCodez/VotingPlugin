@@ -26,6 +26,7 @@ import java.util.zip.ZipInputStream;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
@@ -36,7 +37,6 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -160,7 +160,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
 
 		// Parse JSON response and get UUID
-		JsonElement element = new JsonParser().parse(bufferedReader);
+		JsonElement element = JsonParser.parseReader(bufferedReader);
 		JsonObject object = element.getAsJsonObject();
 		String uuidAsString = object.get("id").getAsString();
 
