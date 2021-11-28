@@ -780,6 +780,7 @@ public class VotingPluginVelocity {
 			String uuid = getUUID(player);
 			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
+					debug("Fetching UUID online, since allowunjoined is enabled");
 					UUID u = null;
 					try {
 						u = fetchUUID(player);

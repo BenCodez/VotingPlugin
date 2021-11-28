@@ -179,18 +179,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	public String getUUID(String playerName) {
 		ProxiedPlayer p = getProxy().getPlayer(playerName);
 		if (p != null && p.isConnected()) {
-			debug("Got UUID from online player");
 			return p.getUniqueId().toString();
 		}
 		if (mysql != null) {
 			String str = mysql.getUUID(playerName);
 			if (str != null) {
-				debug("Got UUID from MySQL");
 				return str;
 			}
 		}
 		if (nonVotedPlayersCache != null) {
-			debug("Got UUID from nonvotedplayerscache");
 			return nonVotedPlayersCache.playerExists(playerName);
 		}
 		return "";
