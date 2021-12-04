@@ -529,7 +529,9 @@ public class VotingPluginVelocity {
 				for (String s : config.getSpigotServers()) {
 					if (!l.contains(s)) {
 						ConfigurationNode d = config.getSpigotServerConfiguration(s);
-						clientHandles.put(s, new ClientHandler(d.getNode("Host").getString(""),
+						debug("Adding client handle " + s + " " + d.getNode("Host").getString("0.0.0.0") + ":"
+								+ d.getNode("Port").getInt(1298));
+						clientHandles.put(s, new ClientHandler(d.getNode("Host").getString("0.0.0.0"),
 								d.getNode("Port").getInt(1298), encryptionHandler, config.getDebug()));
 					}
 				}
