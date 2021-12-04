@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 
 import ninja.leaping.configurate.ConfigurationNode;
@@ -99,12 +101,8 @@ public class Config extends VelocityYMLFile {
 		return getNode("SpigotServers", s);
 	}
 
-	public Collection<String> getSpigotServers() {
-		ArrayList<String> list = new ArrayList<String>();
-		for (ConfigurationNode conf : getNode("SpigotServers").getChildrenList()) {
-			list.add(conf.getKey().toString());
-		}
-		return list;
+	public @NonNull Collection<? extends ConfigurationNode> getSpigotServers() {
+		return getNode("SpigotServers").getChildrenMap().values();
 	}
 
 	public boolean getWaitForUserOnline() {
