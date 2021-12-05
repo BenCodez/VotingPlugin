@@ -204,6 +204,7 @@ CHEST:
         Amount: 1
   VoteBest:
     Name: 'VoteBest: %player%'
+    BackButton: true
     DayBest:
       Item:
         Material: 'CLOCK'

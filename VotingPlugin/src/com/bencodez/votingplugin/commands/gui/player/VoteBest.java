@@ -87,6 +87,10 @@ public class VoteBest extends GUIHandler {
 			}
 		});
 
+		if (plugin.getGui().isChestVoteBestBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
+		}
+
 		inv.openInventory(player);
 	}
 

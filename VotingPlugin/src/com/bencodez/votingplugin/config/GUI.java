@@ -73,6 +73,10 @@ public class GUI extends YMLFile {
 	@ConfigDataBoolean(path = "CHEST.VoteShopRequireConfirmation")
 	@Getter
 	private boolean chestVoteShopRequireConfirmation = false;
+	
+	@ConfigDataBoolean(path = "CHEST.VoteBest.BackButton")
+	@Getter
+	private boolean chestVoteBestBackButton = true;
 
 	@ConfigDataString(path = "CHEST.VoteToday.IconTitle")
 	@Getter
