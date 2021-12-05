@@ -33,4 +33,11 @@ public class RedisBungee implements Listener {
 	public boolean isOnline(ProxiedPlayer p) {
 		return RedisBungeeAPI.getRedisBungeeApi().isPlayerOnline(p.getUniqueId());
 	}
+
+	public void destroy() {
+		if (!enabled) {
+			return;
+		}
+		plugin.getProxy().getPluginManager().unregisterListener(this);
+	}
 }

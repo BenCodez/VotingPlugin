@@ -171,6 +171,10 @@ public class VoteGUI extends GUIHandler {
 							new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
 						} else if (slot.equalsIgnoreCase("lastmonth")) {
 							new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
+						} else if (slot.equalsIgnoreCase("best")) {
+							new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
+						} else if (slot.equalsIgnoreCase("streak")) {
+							new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
 						}
 					}
 

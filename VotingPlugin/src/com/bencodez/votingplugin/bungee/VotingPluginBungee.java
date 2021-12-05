@@ -320,6 +320,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (mysql != null) {
 			mysql.shutdown();
 		}
+		if (redis != null) {
+			redis.destroy();
+		}
 		getLogger().info("VotingPlugin disabled");
 	}
 
