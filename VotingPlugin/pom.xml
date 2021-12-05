@@ -213,8 +213,17 @@
 			<id>bencodez repo</id>
 			<url>https://nexus.bencodez.com/repository/maven-public/</url>
 		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 	<dependencies>
+		<dependency>
+			<groupId>com.github.limework</groupId>
+			<artifactId>redisbungee</artifactId>
+			<version>0.6.5</version>
+		</dependency>
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>

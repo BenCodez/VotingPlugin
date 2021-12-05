@@ -80,6 +80,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private boolean votifierEnabled = true;
 
+	@Getter
+	private RedisBungee redis;
+
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
@@ -335,6 +338,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} catch (Exception e) {
 			}
 		}
+
+		try {
+			redis = new RedisBungee(this);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		config = new Config(this);
 		config.load();
 
@@ -515,6 +524,35 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	public boolean isOnline(ProxiedPlayer p) {
+		if (p != null) {
+			if (redis != null && redis.isEnabled()) {
+				return redis.isOnline(p);
+			} else {
+				return p.isConnected();
+			}
+		}
+
+		return false;
+	}
+
+	public void login(ProxiedPlayer p) {
+		if (p != null && p.isConnected()) {
+			if (p.getServer() != null && p.getServer().getInfo() != null) {
+				final String server = p.getServer().getInfo().getName();
+				final ProxiedPlayer proixedPlayer = p;
+				getProxy().getScheduler().runAsync(this, new Runnable() {
+
+					@Override
+					public void run() {
+						checkCachedVotes(server);
+						checkOnlineVotes(proixedPlayer, proixedPlayer.getUniqueId().toString(), server);
+					}
+				});
+			}
+		}
+	}
+
 	@EventHandler
 	public void onPluginMessage(PluginMessageEvent ev) {
 		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
@@ -547,20 +585,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				String player = in.readUTF();
 				debug("Login: " + player);
 				ProxiedPlayer p = getProxy().getPlayer(player);
-				if (p != null && p.isConnected()) {
-					if (p.getServer() != null && p.getServer().getInfo() != null) {
-						final String server = p.getServer().getInfo().getName();
-						final ProxiedPlayer proixedPlayer = p;
-						getProxy().getScheduler().runAsync(this, new Runnable() {
-
-							@Override
-							public void run() {
-								checkCachedVotes(server);
-								checkOnlineVotes(proixedPlayer, proixedPlayer.getUniqueId().toString(), server);
-							}
-						});
-					}
-				}
+				login(p);
 				return;
 			} else {
 
@@ -811,8 +836,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 				} else {
 					ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-					if (p != null && p.isConnected()
-							&& !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
+					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
