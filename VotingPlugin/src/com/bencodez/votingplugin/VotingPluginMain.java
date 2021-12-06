@@ -1215,8 +1215,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
+		getCommand("adminvote").setPermission("VotingPlugin.Commands.AdminVote");
 		getCommand("av").setExecutor(new CommandAdminVote(this));
 		getCommand("av").setTabCompleter(new AdminVoteTabCompleter());
+		getCommand("av").setPermission("VotingPlugin.Commands.AdminVote");
 
 		Permission perm = Bukkit.getPluginManager().getPermission("VotingPlugin.Player");
 		if (perm != null) {

@@ -1509,7 +1509,6 @@ public class CommandLoader {
 
 					}
 				}
-
 			}
 		}
 	}
