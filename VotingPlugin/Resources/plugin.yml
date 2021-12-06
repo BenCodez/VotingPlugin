@@ -88,9 +88,6 @@ commands:
   adminvoteperms:
     description: Command Alias
     aliases: avperms
-  adminvoteDownload:
-    description: Command Alias
-    aliases: avdownload
   adminvotereload:
     description: Command Alias
     aliases: avreload
