@@ -33,6 +33,10 @@ public class Config {
 		return getData().getBoolean("Broadcast", false);
 	}
 
+	public boolean getRedisSupport() {
+		return getData().getBoolean("RedisSupport", false);
+	}
+
 	public String getBungeeHost() {
 		return getData().getString("BungeeServer.Host", "");
 	}
