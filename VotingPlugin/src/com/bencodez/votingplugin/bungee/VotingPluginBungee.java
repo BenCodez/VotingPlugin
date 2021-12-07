@@ -342,13 +342,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 		}
 
+		config = new Config(this);
+		config.load();
+
 		try {
 			redis = new RedisBungee(this);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		config = new Config(this);
-		config.load();
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
