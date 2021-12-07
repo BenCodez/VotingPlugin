@@ -346,7 +346,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		config.load();
 
 		try {
-			redis = new RedisBungee(this);
+			redis = new RedisBungee(this).load();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
