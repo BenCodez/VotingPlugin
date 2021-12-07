@@ -48,6 +48,10 @@ PointsOnVote: 1
 # Recommened to leave true, setting to false setups are currently unsupported
 BungeeManageTotals: true
 
+# Support for redis
+# expiremental
+RedisSupport: false
+
 # Tell servers to broadcast
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true

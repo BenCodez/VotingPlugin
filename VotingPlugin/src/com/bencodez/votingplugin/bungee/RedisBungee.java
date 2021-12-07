@@ -15,8 +15,7 @@ public class RedisBungee implements Listener {
 
 	public RedisBungee(VotingPluginBungee plugin) {
 		this.plugin = plugin;
-		if (plugin.getProxy().getPluginManager().getPlugin("RedisBungee") != null
-				&& RedisBungeeAPI.getRedisBungeeApi() != null) {
+		if (plugin.getConfig().getRedisSupport()) {
 			plugin.getProxy().getPluginManager().registerListener(plugin, this);
 			plugin.getLogger().info("Loaded expiremental redis support");
 			enabled = true;
