@@ -522,9 +522,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@EventHandler
 	public void onLogin(PostLoginEvent event) {
-		if (nonVotedPlayersCache != null) {
-			nonVotedPlayersCache.addPlayer(event.getPlayer());
-		}
+		getProxy().getScheduler().runAsync(this, new Runnable() {
+
+			@Override
+			public void run() {
+				if (nonVotedPlayersCache != null) {
+					nonVotedPlayersCache.addPlayer(event.getPlayer());
+				}
+			}
+		});
+
 	}
 
 	public boolean isOnline(ProxiedPlayer p) {
