@@ -15,17 +15,14 @@ public class RedisBungee implements Listener {
 
 	public RedisBungee(VotingPluginBungee plugin) {
 		this.plugin = plugin;
-	}
-
-	public RedisBungee load() {
-		if (plugin.getConfig().getRedisSupport()) {
+		if (plugin.getProxy().getPluginManager().getPlugin("RedisBungee") != null
+				&& RedisBungeeAPI.getRedisBungeeApi() != null) {
 			plugin.getProxy().getPluginManager().registerListener(plugin, this);
-			plugin.getProxy().getLogger().info("Loaded expiremental redis support");
+			plugin.getLogger().info("Loaded expiremental redis support");
 			enabled = true;
 		} else {
 			enabled = false;
 		}
-		return this;
 	}
 
 	@EventHandler
