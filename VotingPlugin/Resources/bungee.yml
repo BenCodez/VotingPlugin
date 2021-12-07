@@ -2,3 +2,5 @@ name: ${project.name}
 version: ${project.version}
 main: com.bencodez.votingplugin.bungee.VotingPluginBungee
 author: BenCodez
+softDepends:
+- RedisBungee

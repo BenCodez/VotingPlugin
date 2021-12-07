@@ -127,6 +127,9 @@ commands:
   adminvoteConvertFromData:
     description: Command Alias
     aliases: avConvertFromData
+  adminvoteConvertToData:
+    description: Command Alias
+    aliases: avConvertFromData
   adminvoteClearTotal:
     description: Command Alias
   adminvoteBackgroundUpdate:
