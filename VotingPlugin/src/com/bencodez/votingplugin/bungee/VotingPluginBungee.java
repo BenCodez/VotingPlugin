@@ -548,7 +548,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public void login(ProxiedPlayer p) {
-		if (p != null && p.isConnected()) {
+		if (isOnline(p)) {
 			if (p.getServer() != null && p.getServer().getInfo() != null) {
 				final String server = p.getServer().getInfo().getName();
 				final ProxiedPlayer proixedPlayer = p;

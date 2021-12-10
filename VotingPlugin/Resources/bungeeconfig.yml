@@ -49,7 +49,7 @@ PointsOnVote: 1
 BungeeManageTotals: true
 
 # Support for redis
-# expiremental
+# experimental
 RedisSupport: false
 
 # Tell servers to broadcast
