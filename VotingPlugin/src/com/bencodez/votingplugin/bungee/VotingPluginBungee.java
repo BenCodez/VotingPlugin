@@ -94,7 +94,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
 								ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(cache.getUuid()));
-								if (p == null || !p.isConnected()) {
+								if (isOnline(p)) {
 									toSend = false;
 								} else if (p != null && p.isConnected()
 										&& !p.getServer().getInfo().getName().equals(server)) {
@@ -123,7 +123,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public synchronized void checkOnlineVotes(ProxiedPlayer player, String uuid, String server) {
-		if (player != null && player.isConnected() && cachedOnlineVotes.containsKey(uuid)) {
+		if (isOnline(player) && cachedOnlineVotes.containsKey(uuid)) {
 			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
 			if (!c.isEmpty()) {
 				if (server == null) {
@@ -818,7 +818,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							ServerInfo info = getProxy().getServerInfo(s);
 							boolean forceCache = false;
 							ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-							if ((p == null || !p.isConnected()) && getConfig().getWaitForUserOnline()) {
+							if (!isOnline(p) && getConfig().getWaitForUserOnline()) {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
