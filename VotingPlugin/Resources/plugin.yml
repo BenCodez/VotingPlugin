@@ -141,9 +141,9 @@ commands:
   adminvoteServiceSites:
     description: Command Alias
     aliases: avServiceSites
-  adminvoteSetVotePartyCount:
+  adminvoteVoteParty:
     description: Command Alias
-    aliases: avSetVotePartyCount
+    aliases: avVoteParty
   adminvoteChoices:
     description: Command Alias
     aliases: avChoices
@@ -200,9 +200,6 @@ commands:
   adminvoteDownloadJenkins:
     description: Command Alias
     aliases: avDownloadJenkins
-  adminvoteForceVoteParty:
-    description: Command Alias
-    aliases: avForceVoteParty
   adminvoteSetRequestMethod:
     description: Command Alias
     aliases: avSetRequestMethod
@@ -215,9 +212,6 @@ commands:
   adminvoteResetPoints:
     description: Command Alias
     aliases: avResetPoints
-  adminvoteVotePartyExtraRequired:
-    description: Command Alias
-    aliases: avVotePartyExtraRequired
   adminvoteRunCMD:
     description: Command Alias
     aliases: avRunCMD
