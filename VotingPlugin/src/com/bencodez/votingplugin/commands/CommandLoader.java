@@ -1222,8 +1222,8 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "ForceVoteParty" },
-						"VotingPlugin.Commands.AdminVote.ForceVoteParty|" + adminPerm,
+				.add(new CommandHandler(new String[] { "VoteParty", "Force" },
+						"VotingPlugin.Commands.AdminVote.VoteParty.Force|" + adminPerm,
 						"Force a voteparty reward, resets vote count") {
 
 					@Override
@@ -1232,8 +1232,34 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "VoteParty", "SetVoteCount", "(Number)" },
+				"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Set voteparty count") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				int num = Integer.parseInt(args[2]);
+				if (num == 0) {
+					plugin.getVoteParty().reset(true);
+					sendMessage(sender, "&cVoteparty totals have been set to 0 and all been reset");
+				} else {
+					plugin.getVoteParty().setTotalVotes(num);
+					sendMessage(sender, "&cVoteparty total votes has been set to " + args[2]);
+				}
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "VoteParty", "AddVoteCount", "(Number)" },
+				"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Add voteparty count") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				int num = plugin.getVoteParty().getTotalVotes() + Integer.parseInt(args[2]);
+				plugin.getVoteParty().setTotalVotes(num);
+				sendMessage(sender, "&cVoteparty total votes has been set to " + num);
+			}
+		});
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "VotePartyExtraRequired", "(Number)" },
+				.add(new CommandHandler(new String[] { "VoteParty", "SetExtraRequired", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.VoteParty.SetExtraRequired|" + adminPerm,
 						"Set VotePartyExtraRequired value") {
 
