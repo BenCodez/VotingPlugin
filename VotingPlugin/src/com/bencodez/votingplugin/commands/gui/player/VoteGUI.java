@@ -128,6 +128,12 @@ public class VoteGUI extends GUIHandler {
 			inv.dontClose();
 		}
 
+		if (player.getUniqueId().toString().equals(user.getUUID())) {
+			inv.requirePermission("VotingPlugin.Commands.Vote.GUI");
+		} else {
+			inv.requirePermission("VotingPlugin.Commands.Vote.GUI.Other");
+		}
+
 		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.addPlaceholder("player", user.getPlayerName());
 		inv.addPlaceholder("top", plugin.getConfigFile().getVoteTopDefault());
