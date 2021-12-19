@@ -65,15 +65,5 @@ BungeeVotePartyRewards: {}
 # -----------------------------
 # For socket setup below only
 # -----------------------------
-
-# Bungee communication, add bungee host/port here
-# For socket method
-BungeeServer:
-  Host: '127.0.0.1'
-  Port: 1297
-  
-# Bungee communication, add this to bungee server
-# For socket method
-SpigotServer:
-  Host: '127.0.0.1'
-  Port: 1298
+# Options available here:
+# https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS

@@ -87,22 +87,5 @@ WaitForUserOnline: false
 # SOCKET Settings
 # ONLY for SOCKET method
 # ----------------------------
-
-# Server to send vote to if player is offline
-FallBackServer: factions
-
-# Bungee communication, Add this to each spigot server
-# For socket method
-BungeeServer:
-  Host: '127.0.0.1'
-  Port: 1297
-  
-# Bungee communication, add each spigot server here
-# For socket method
-SpigotServers:
-  lobby:
-    Host: '127.0.0.1'
-    Port: 1298
-  factions:
-    Host: '127.0.0.1'
-    Port: 1999
+# Options available here:
+# https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
