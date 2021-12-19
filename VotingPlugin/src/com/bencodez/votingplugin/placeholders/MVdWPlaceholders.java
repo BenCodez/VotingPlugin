@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.placeholders;
 
 import org.bukkit.Bukkit;
 
+import com.bencodez.advancedcore.api.placeholder.NonPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -46,7 +47,7 @@ public class MVdWPlaceholders {
 											&& user.hasPrimaryAccount()) {
 										user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 									}
-									return place.placeholderRequest(event.getOfflinePlayer(), user,
+									return place.placeholderRequest(user,
 											event.getPlaceholder().substring("VotingPlugin_".length()));
 								}
 
@@ -55,7 +56,7 @@ public class MVdWPlaceholders {
 
 			}
 
-			for (final PlaceHolder<VotingPluginUser> place : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+			for (final NonPlaceHolder<VotingPluginUser> place : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(VotingPluginMain.plugin, "VotingPlugin_" + str,
@@ -63,7 +64,7 @@ public class MVdWPlaceholders {
 
 								@Override
 								public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
-									return place.placeholderRequest(event.getOfflinePlayer(), null,
+									return place.placeholderRequest(
 											event.getPlaceholder().substring("VotingPlugin_".length()));
 								}
 

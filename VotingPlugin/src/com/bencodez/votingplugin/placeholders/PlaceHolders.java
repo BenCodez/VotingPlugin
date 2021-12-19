@@ -7,13 +7,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.placeholder.NonPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataChanged;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -30,7 +35,7 @@ import lombok.Getter;
 public class PlaceHolders {
 
 	@Getter
-	private ArrayList<PlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
+	private ArrayList<NonPlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<NonPlaceHolder<VotingPluginUser>>();
 
 	@Getter
 	private ArrayList<PlaceHolder<VotingPluginUser>> placeholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
@@ -41,6 +46,8 @@ public class PlaceHolders {
 		this.plugin = plugin;
 	}
 
+	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
+
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		return getPlaceHolder(p, identifier, true);
 	}
@@ -50,28 +57,41 @@ public class PlaceHolders {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
-				return placeholder.placeholderRequest(p, null, identifier);
+				return placeholder.placeholderRequest(identifier);
 			}
 		}
 
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
-		if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
-			user.setWaitForCache(false);
-			if (!user.isCached()) {
-				user.loadCache();
-				return "..";
+		if (!cachedPlaceholders.contains(identifier)) {
+			if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
+				user.setWaitForCache(false);
+				if (!user.isCached()) {
+					user.loadCache();
+					return "..";
+				}
 			}
 		}
-		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-			user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()) {
+			if (user.hasPrimaryAccount()) {
+				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+			}
 		}
 
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			try {
 				if (placeholder.matches(identifier)) {
-					return placeholder.placeholderRequest(p, user, identifier);
+					if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
+						ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
+						if (cache.containsKey(p.getUniqueId())) {
+							return cache.get(p.getUniqueId());
+						} else {
+							return "....";
+						}
+					} else {
+						return placeholder.placeholderRequest(user, identifier);
+					}
 				}
 			} catch (Exception e) {
 				plugin.debug(e);
@@ -97,54 +117,54 @@ public class PlaceHolders {
 		placeholders.add(new PlaceHolder<VotingPluginUser>("total") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getTotal(TopVoter.Monthly));
 			}
-		}.withDescription("Month total"));
+		}.withDescription("Month total").updateDataKey("MonthTotal"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("alltimetotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getTotal(TopVoter.AllTime));
 			}
-		}.withDescription("Alltime total"));
+		}.withDescription("Alltime total").updateDataKey("AllTimeTotal"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("lastmonthtotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getLastMonthTotal());
 			}
-		}.withDescription("Last month total"));
+		}.withDescription("Last month total").updateDataKey("LastMonthTotal"));
 
 		// end of older placeholders
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("DisableBroadcast") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getDisableBroadcast();
 			}
-		}.withDescription("Returns true/false if user has broadcast disabled"));
+		}.withDescription("Returns true/false if user has broadcast disabled").updateDataKey("DisableBroadcast"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("MilestoneCount") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getMilestoneCount();
 			}
-		}.withDescription("User milestonecount"));
+		}.withDescription("User milestonecount").updateDataKey("MilestoneCount"));
 
 		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
 			if (plugin.getGui().getChestShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {
 
 					@Override
-					public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String ident) {
+					public String placeholderRequest(VotingPluginUser user, String ident) {
 						return "" + user.getVoteShopIdentifierLimit(identifier);
 					}
-				}.withDescription("User voteshop limit for " + identifier));
+				}.withDescription("User voteshop limit for " + identifier).updateDataKey("VoteShopLimit" + identifier));
 			}
 		}
 
@@ -152,121 +172,121 @@ public class PlaceHolders {
 			placeholders.add(new PlaceHolder<VotingPluginUser>("Total_" + top.toString()) {
 
 				@Override
-				public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				public String placeholderRequest(VotingPluginUser user, String identifier) {
 					return Integer.toString(user.getTotal(top));
 				}
-			}.withDescription("User total for " + top.getName()));
+			}.withDescription("User total for " + top.getName()).updateDataKey(top.getColumnName()));
 		}
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestDailyTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getHighestDailyTotal());
 			}
-		}.withDescription("Best daily total"));
+		}.withDescription("Best daily total").updateDataKey("HighestDailyTotal"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestWeeklyTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getHighestWeeklyTotal());
 			}
-		}.withDescription("Best weekly total"));
+		}.withDescription("Best weekly total").updateDataKey("HighestWeeklyTotal"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestMonthlyTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getHighestMonthlyTotal());
 			}
-		}.withDescription("Best monthly total"));
+		}.withDescription("Best monthly total").updateDataKey("HighestMonthlyTotal"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("DailyVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getDayVoteStreak());
 			}
-		}.withDescription("Current daily votestreak"));
+		}.withDescription("Current daily votestreak").updateDataKey("DayVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("WeeklyVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getWeekVoteStreak());
 			}
-		}.withDescription("Current weekly votestreak"));
+		}.withDescription("Current weekly votestreak").updateDataKey("WeekVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("MonthVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getMonthVoteStreak());
 			}
-		}.withDescription("Current month votestreak"));
+		}.withDescription("Current month votestreak").updateDataKey("MonthVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestDailyVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getBestDayVoteStreak());
 			}
-		}.withDescription("Best daily votestreak"));
+		}.withDescription("Best daily votestreak").updateDataKey("BestDayVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestWeeklyVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getBestWeekVoteStreak());
 			}
-		}.withDescription("Best weekly votestreak"));
+		}.withDescription("Best weekly votestreak").updateDataKey("BestWeekVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestMonthVoteStreak") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getBestMonthVoteStreak());
 			}
-		}.withDescription("Best month votestreak"));
+		}.withDescription("Best month votestreak").updateDataKey("BestMonthVoteStreak"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Points") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Integer.toString(user.getPoints());
 			}
-		}.withDescription("User points"));
+		}.withDescription("User points").updateDataKey("Points"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Points_Format") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
 				return numberFormat.format(user.getPoints());
 			}
-		}.withDescription("User points"));
+		}.withDescription("User points").updateDataKey("Points"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("CanVote") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return Boolean.toString(user.canVoteAll());
 			}
-		}.withDescription("Return true/false if player can vote on all sites"));
+		}.withDescription("Return true/false if player can vote on all sites").updateDataKey("LastVotes"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("CanVoteSites") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getSitesNotVotedOn();
 			}
-		}.withDescription("Return number of votesites available"));
+		}.withDescription("Return number of votesites available").updateDataKey("LastVotes"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Next_AnySite") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				if (user.canVoteAny()) {
 					return plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
 				}
@@ -290,39 +310,40 @@ public class PlaceHolders {
 
 				return "Error";
 			}
-		}.withDescription("How long until user can vote on anysite"));
+		}.withDescription("How long until user can vote on anysite").updateDataKey("LastVotes"));
 
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			placeholders.add(new PlaceHolder<VotingPluginUser>("Next_" + voteSite.getKey()) {
 
 				@Override
-				public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				public String placeholderRequest(VotingPluginUser user, String identifier) {
 					return user.voteCommandNextInfo(voteSite);
 				}
-			}.withDescription("How long until user can vote on " + voteSite.getKey()));
+			}.withDescription("How long until user can vote on " + voteSite.getKey()).updateDataKey("LastVotes"));
 			placeholders.add(new PlaceHolder<VotingPluginUser>("Last_" + voteSite.getKey()) {
 
 				@Override
-				public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				public String placeholderRequest(VotingPluginUser user, String identifier) {
 					return user.voteCommandLastDuration(voteSite);
 				}
-			}.withDescription("How long ago user voted on " + voteSite.getKey()));
+			}.withDescription("How long ago user voted on " + voteSite.getKey()).updateDataKey("LastVotes"));
 			placeholders.add(new PlaceHolder<VotingPluginUser>("CanVote_" + voteSite.getKey()) {
 
 				@Override
-				public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+				public String placeholderRequest(VotingPluginUser user, String identifier) {
 					return "" + user.canVoteSite(voteSite);
 				}
-			}.withDescription("Whether or not player can vote on " + voteSite.getKey()));
+			}.withDescription("Whether or not player can vote on " + voteSite.getKey()).updateDataKey("LastVotes"));
 		}
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_All_Position") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				int num = 1;
+				UUID toMatch = UUID.fromString(user.getUUID());
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
-					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
+					if (entry.getKey().getUuid().equals(toMatch)) {
 						return "" + num;
 					}
 					num++;
@@ -331,10 +352,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_AllVotes_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
@@ -347,10 +368,10 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_All_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_All_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
@@ -366,10 +387,11 @@ public class PlaceHolders {
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Month_Position") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				int num = 1;
+				UUID toMatch = UUID.fromString(user.getUUID());
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
-					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
+					if (entry.getKey().getUuid().equals(toMatch)) {
 						return "" + num;
 					}
 					num++;
@@ -378,10 +400,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Month_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Month_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
@@ -394,10 +416,10 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at position in top voter"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_MonthVotes_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_MonthVotes_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
@@ -413,10 +435,11 @@ public class PlaceHolders {
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Week_Position") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				int num = 1;
+				UUID toMatch = UUID.fromString(user.getUUID());
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
-					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
+					if (entry.getKey().getUuid().equals(toMatch)) {
 						return "" + num;
 					}
 					num++;
@@ -425,10 +448,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Week_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Week_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
@@ -441,10 +464,10 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_WeekVotes_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_WeekVotes_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
@@ -460,10 +483,11 @@ public class PlaceHolders {
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Daily_Position") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				int num = 1;
+				UUID toMatch = UUID.fromString(user.getUUID());
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
-					if (entry.getKey().getUuid().equals(p.getUniqueId())) {
+					if (entry.getKey().getUuid().equals(toMatch)) {
 						return "" + num;
 					}
 					num++;
@@ -472,10 +496,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Daily_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Daily_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
@@ -491,15 +515,15 @@ public class PlaceHolders {
 		placeholders.add(new PlaceHolder<VotingPluginUser>("VotePartyContributedVotes") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getVotePartyVotes();
 			}
-		}.useStartsWith().withDescription("See vote party placeholders contributed"));
+		}.useStartsWith().withDescription("See vote party placeholders contributed").updateDataKey("VotePartyVotes"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_DailyVotes_") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_DailyVotes_") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
@@ -514,34 +538,34 @@ public class PlaceHolders {
 
 		// non players
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("VotePartyVotesCurrent") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesCurrent") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				return Integer.toString(plugin.getVoteParty().getTotalVotes());
 			}
 		}.withDescription("Current amount of voteparty votes"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("VotePartyVotesNeeded") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesNeeded") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				return Integer.toString(plugin.getVoteParty().getNeededVotes());
 			}
 		}.withDescription("Voteparty votes needed"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("VotePartyVotesRequired") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesRequired") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				return Integer.toString(plugin.getVoteParty().getVotesRequired());
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("GlobalMonthTotal") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalMonthTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int total = 0;
 				for (int num : VotingPluginMain.plugin.getTopVoter(TopVoter.Monthly).values()) {
 					total += num;
@@ -550,10 +574,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global month total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("GlobalAllTimeTotal") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalAllTimeTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int total = 0;
 				for (int num : VotingPluginMain.plugin.getTopVoter(TopVoter.AllTime).values()) {
 					total += num;
@@ -562,10 +586,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global alltime total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("GlobalWeeklyTotal") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalWeeklyTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int total = 0;
 				for (int num : VotingPluginMain.plugin.getTopVoter(TopVoter.Weekly).values()) {
 					total += num;
@@ -574,10 +598,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global weekly total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("GlobalDailyTotal") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalDailyTotal") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				int total = 0;
 				for (int num : VotingPluginMain.plugin.getTopVoter(TopVoter.Daily).values()) {
 					total += num;
@@ -586,10 +610,10 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global daily total"));
 
-		nonPlayerPlaceholders.add(new PlaceHolder<VotingPluginUser>("TimeUntilDayReset") {
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("TimeUntilDayReset") {
 
 			@Override
-			public String placeholderRequest(OfflinePlayer p, VotingPluginUser user, String identifier) {
+			public String placeholderRequest(String identifier) {
 				LocalDateTime now = LocalDateTime.now();
 				LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0);
 				LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0)
@@ -623,5 +647,116 @@ public class PlaceHolders {
 
 			}
 		}.withDescription("Time until plugin time day changes"));
+
+		for (String toCache : plugin.getConfigFile().getCachedPlaceholders()) {
+			if (toCache.startsWith("VotingPlugin")) {
+				toCache = toCache.substring("VotingPlugin_".length());
+			}
+			for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+				if (placeholder.isUseStartsWith()) {
+					if (toCache.startsWith(placeholder.getIdentifier())) {
+						placeholder.setUseCache(true, toCache);
+						cachedPlaceholders.add(toCache);
+						plugin.extraDebug("Caching placeholder " + toCache);
+					}
+				} else {
+					if (placeholder.getIdentifier().equalsIgnoreCase(toCache)) {
+						placeholder.setUseCache(true, toCache);
+						cachedPlaceholders.add(toCache);
+						plugin.extraDebug("Caching placeholder " + toCache);
+					}
+				}
+			}
+
+			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+				if (placeholder.isUseStartsWith()) {
+					if (toCache.startsWith(placeholder.getIdentifier())) {
+						placeholder.setUseCache(true, toCache);
+						cachedPlaceholders.add(toCache);
+						plugin.extraDebug("Caching placeholder " + toCache);
+					}
+				} else {
+					if (placeholder.getIdentifier().equalsIgnoreCase(toCache)) {
+						placeholder.setUseCache(true, toCache);
+						cachedPlaceholders.add(toCache);
+						plugin.extraDebug("Caching placeholder " + toCache);
+					}
+				}
+			}
+		}
+
+		plugin.getUserManager().getUserDataChange().add(new UserDataChanged() {
+
+			@Override
+			public void onChange(AdvancedCoreUser user, String... keys) {
+				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+					if (placeholder.isUsesCache()) {
+						for (String key : keys) {
+							if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
+								VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
+								for (String ident : placeholder.getCache().keySet()) {
+									placeholder.getCache().get(ident).put(vpUser.getJavaUUID(),
+											placeholder.placeholderRequest(vpUser, ident));
+									plugin.devDebug("Updated cache for " + vpUser.getUUID() + " on " + key);
+
+								}
+
+							}
+						}
+					}
+				}
+			}
+		});
+	}
+
+	public void onVotePartyUpdate() {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+			if (placeholder.isUsesCache()) {
+				if (placeholder.getIdentifier().startsWith("VoteParty")) {
+					for (String ident : placeholder.getCache().keySet()) {
+						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+					}
+				}
+			}
+		}
+	}
+
+	public void onUpdate(VotingPluginUser user) {
+		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+			if (placeholder.isUsesCache()) {
+				if (!placeholder.getIdentifier().startsWith("Top_")) {
+					for (String ident : placeholder.getCache().keySet()) {
+						placeholder.getCache().get(ident).put(user.getJavaUUID(),
+								placeholder.placeholderRequest(user, ident));
+					}
+				}
+			}
+		}
+	}
+
+	public void onUpdate() {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+			if (placeholder.isUsesCache()) {
+				for (String ident : placeholder.getCache().keySet()) {
+					placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+				}
+			}
+		}
+
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+			if (placeholder.isUsesCache()) {
+				if (placeholder.getIdentifier().startsWith("Top_") || placeholder.getUpdateDataKey().isEmpty()) {
+					for (String uuidStr : uuids) {
+						for (String ident : placeholder.getCache().keySet()) {
+							VotingPluginUser user = UserManager.getInstance()
+									.getVotingPluginUser(UUID.fromString(uuidStr));
+							placeholder.getCache().get(ident).put(user.getJavaUUID(),
+									placeholder.placeholderRequest(user, ident));
+						}
+					}
+				}
+			}
+		}
 	}
 }

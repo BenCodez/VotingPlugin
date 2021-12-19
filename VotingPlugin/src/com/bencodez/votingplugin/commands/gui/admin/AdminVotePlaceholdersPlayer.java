@@ -11,6 +11,7 @@ import com.bencodez.advancedcore.api.bookgui.BookWrapper;
 import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
+import com.bencodez.advancedcore.api.placeholder.NonPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -43,7 +44,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
-			String value = placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier);
+			String value = placeholder.placeholderRequest(user, identifier);
 			String msg = identifier + " = " + value;
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(msg).color(ChatColor.AQUA)
@@ -51,13 +52,13 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			book.addLayout(layout);
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
-			String value = placeholder.placeholderRequest(user.getOfflinePlayer(), user, identifier);
+			String value = placeholder.placeholderRequest(identifier);
 			String msg = identifier + " = " + value;
 
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
@@ -81,18 +82,16 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
-			msg.add("VotingPlugin_" + identifier + " = "
-					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
+			msg.add("VotingPlugin_" + identifier + " = " + placeholder.placeholderRequest(placeholderUser, identifier));
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
 
-			msg.add("VotingPlugin_" + identifier + " = "
-					+ placeholder.placeholderRequest(user.getOfflinePlayer(), placeholderUser, identifier));
+			msg.add("VotingPlugin_" + identifier + " = " + placeholder.placeholderRequest(identifier));
 		}
 		sendMessage(msg);
 	}

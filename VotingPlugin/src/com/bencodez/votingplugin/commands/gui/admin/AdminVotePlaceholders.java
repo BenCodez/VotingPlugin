@@ -11,6 +11,7 @@ import com.bencodez.advancedcore.api.bookgui.BookWrapper;
 import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
+import com.bencodez.advancedcore.api.placeholder.NonPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -53,7 +54,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 			book.addLayout(layout);
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String msg = "";
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
@@ -92,7 +93,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 			}
 		}
 
-		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String identifier = placeholder.getIdentifier();
 			if (identifier.endsWith("_")) {
 				identifier += "#";

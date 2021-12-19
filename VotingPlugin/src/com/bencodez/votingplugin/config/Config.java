@@ -100,6 +100,10 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "DisabledDefaultPermissions")
 	@Getter
 	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
+	
+	@ConfigDataListString(path = "CachedPlaceholders")
+	@Getter
+	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
 
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter

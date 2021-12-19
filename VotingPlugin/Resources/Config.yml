@@ -438,6 +438,15 @@ UsePrimaryAccountForPlaceholders: false
 # Only affects placeholderapi placeholders
 AlwaysWaitForCachePlaceholders: false
 
+# Set which placeholders to cache at all times
+# Use for placeholders to are pulled constantly or on the main thread
+# Mainly aimed for scoreboards
+# Will use additional memory
+# Depending on usuage you may need to set 
+# AlwaysWaitForCachePlaceholders to true
+CachedPlaceholders: []
+#- VotingPlugin_Total_AllTime
+
 # If true, permissions will be handled differently
 MultiplePermissionsCheck: false
 

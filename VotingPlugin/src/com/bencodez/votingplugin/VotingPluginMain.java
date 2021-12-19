@@ -1299,7 +1299,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadDirectlyDefined();
 		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
-		placeholders.load();
+		if (userStorage) {
+			placeholders.load();
+		}
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
@@ -1409,6 +1411,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 											user.offVote();
 										}
 									}
+									plugin.getPlaceholders().onUpdate(user);
 									user.clearTempCache();
 									user = null;
 								}
@@ -1425,6 +1428,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							getSigns().updateSigns();
 
 							tempTopVoter = null;
+
+							placeholders.onUpdate();
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
