@@ -28,6 +28,10 @@ public class RedisBungee implements Listener {
 	public void PlayerJoinedNetworkEvent(PlayerJoinedNetworkEvent event) {
 		plugin.login(plugin.getProxy().getPlayer(event.getUuid()));
 	}
+	
+	public boolean hasRedis() {
+		return RedisBungeeAPI.getRedisBungeeApi() != null;
+	}
 
 	public boolean isOnline(ProxiedPlayer p) {
 		return RedisBungeeAPI.getRedisBungeeApi().isPlayerOnline(p.getUniqueId());
