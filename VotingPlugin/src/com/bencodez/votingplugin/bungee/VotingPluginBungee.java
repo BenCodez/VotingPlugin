@@ -773,6 +773,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			BungeeMessageData text = null;
 
+			addVoteParty();
+
 			if (getConfig().getBungeeManageTotals()) {
 
 				if (mysql == null) {
@@ -792,7 +794,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				int dailyTotal = getValue(data, "DailyTotal", 1);
 				int points = getValue(data, "Points", getConfig().getPointsOnVote());
 				int milestoneCount = getValue(data, "MilestoneCount", 1);
-				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount);
+				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount,
+						votePartyVotes, currentVotePartyVotesRequired);
 				ArrayList<Column> update = new ArrayList<Column>();
 				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
@@ -803,10 +806,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				debug("Setting totals " + text.toString());
 				mysql.update(uuid, update);
 			} else {
-				text = new BungeeMessageData(0, 0, 0, 0, 0, 0);
+				text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
 			}
-
-			addVoteParty();
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -865,7 +866,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						debug("Caching online vote for " + player + " on " + service);
 					}
 					for (String s : getProxy().getServers().keySet()) {
-						sendPluginMessageServer(s, "VoteUpdate", uuid);
+						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
+								"" + currentVotePartyVotesRequired);
 						if (config.getBroadcast()) {
 							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}

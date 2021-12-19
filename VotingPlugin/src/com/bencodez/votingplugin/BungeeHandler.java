@@ -35,6 +35,12 @@ public class BungeeHandler {
 	private VotingPluginMain plugin;
 
 	@Getter
+	private int bungeeVotePartyCurrent = 0;
+
+	@Getter
+	private int bungeeVotePartyRequired = 0;
+
+	@Getter
 	private SocketHandler socketHandler;
 
 	public BungeeHandler(VotingPluginMain plugin) {
@@ -44,6 +50,9 @@ public class BungeeHandler {
 	public void close() {
 		socketHandler.closeConnection();
 		clientHandler.stopConnection();
+		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+
 	}
 
 	public void load() {
@@ -57,6 +66,9 @@ public class BungeeHandler {
 			plugin.registerBungeeChannels("vp:vp");
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			plugin.registerBungeeChannels("vp:vp");
+
+			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
+			bungeeVotePartyRequired = plugin.getServerData().getBungeeVotePartyRequired();
 
 			plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
 
@@ -81,6 +93,10 @@ public class BungeeHandler {
 						boolean wasOnline = Boolean.valueOf(args.get(4));
 
 						BungeeMessageData text = new BungeeMessageData(args.get(6));
+
+						bungeeVotePartyCurrent = text.getVotePartyCurrent();
+						bungeeVotePartyRequired = text.getVotePartyRequired();
+						plugin.getPlaceholders().onBungeeVotePartyUpdate();
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
@@ -139,6 +155,11 @@ public class BungeeHandler {
 						String service = args.get(2);
 						long time = Long.parseLong(args.get(3));
 						BungeeMessageData text = new BungeeMessageData(args.get(6));
+
+						bungeeVotePartyCurrent = text.getVotePartyCurrent();
+						bungeeVotePartyRequired = text.getVotePartyRequired();
+						plugin.getPlaceholders().onBungeeVotePartyUpdate();
+
 						plugin.debug(
 								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
@@ -201,6 +222,11 @@ public class BungeeHandler {
 					user.clearCache();
 
 					user.offVote();
+
+					if (args.size() > 2) {
+						bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
+						bungeeVotePartyRequired = Integer.parseInt(args.get(2));
+					}
 
 					plugin.setUpdate(true);
 				}

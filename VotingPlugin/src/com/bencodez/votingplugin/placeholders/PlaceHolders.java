@@ -562,6 +562,40 @@ public class PlaceHolders {
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesCurrent") {
+
+			@Override
+			public String placeholderRequest(String identifier) {
+				if (plugin.getBungeeHandler() != null) {
+					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyCurrent());
+				}
+				return "" + 0;
+			}
+		}.withDescription("Current amount of bungee voteparty votes"));
+
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesNeeded") {
+
+			@Override
+			public String placeholderRequest(String identifier) {
+				if (plugin.getBungeeHandler() != null) {
+					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired()
+							- plugin.getBungeeHandler().getBungeeVotePartyCurrent());
+				}
+				return "" + 0;
+			}
+		}.withDescription("Voteparty bungee votes needed"));
+
+		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesRequired") {
+
+			@Override
+			public String placeholderRequest(String identifier) {
+				if (plugin.getBungeeHandler() != null) {
+					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired());
+				}
+				return "" + 0;
+			}
+		}.withDescription("Amount of votes needed for bungee  voteparty"));
+
 		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalMonthTotal") {
 
 			@Override
@@ -713,6 +747,18 @@ public class PlaceHolders {
 		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				if (placeholder.getIdentifier().startsWith("VoteParty")) {
+					for (String ident : placeholder.getCache().keySet()) {
+						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+					}
+				}
+			}
+		}
+	}
+	
+	public void onBungeeVotePartyUpdate() {
+		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+			if (placeholder.isUsesCache()) {
+				if (placeholder.getIdentifier().startsWith("BungeeVoteParty")) {
 					for (String ident : placeholder.getCache().keySet()) {
 						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
 					}

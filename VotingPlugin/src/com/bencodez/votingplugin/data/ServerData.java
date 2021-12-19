@@ -246,6 +246,24 @@ public class ServerData {
 		saveData();
 	}
 
+	public int getBungeeVotePartyCurrent() {
+		return getData().getInt("BungeeVotePartyCurrent");
+	}
+
+	public int getBungeeVotePartyRequired() {
+		return getData().getInt("BungeeVotePartyRequired");
+	}
+
+	public void setBungeeVotePartyCurrent(int current) {
+		getData().set("BungeeVotePartyCurrent", current);
+		saveData();
+	}
+
+	public void setBungeeVotePartyRequired(int required) {
+		getData().set("BungeeVotePartyRequired", required);
+		saveData();
+	}
+
 	/**
 	 * Update values.
 	 */
