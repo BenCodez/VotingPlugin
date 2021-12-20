@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.bungee;
 
 import com.imaginarycode.minecraft.redisbungee.RedisBungeeAPI;
+import com.imaginarycode.minecraft.redisbungee.events.PlayerChangedServerNetworkEvent;
 import com.imaginarycode.minecraft.redisbungee.events.PlayerJoinedNetworkEvent;
 
 import lombok.Getter;
@@ -25,12 +26,13 @@ public class RedisBungee implements Listener {
 	}
 
 	@EventHandler
-	public void PlayerJoinedNetworkEvent(PlayerJoinedNetworkEvent event) {
+	public void playerJoinedNetworkEvent(PlayerJoinedNetworkEvent event) {
 		plugin.login(plugin.getProxy().getPlayer(event.getUuid()));
 	}
-	
-	public boolean hasRedis() {
-		return RedisBungeeAPI.getRedisBungeeApi() != null;
+
+	@EventHandler
+	public void playerChangedServerNetworkEventt(PlayerChangedServerNetworkEvent event) {
+		plugin.login(plugin.getProxy().getPlayer(event.getUuid()));
 	}
 
 	public boolean isOnline(ProxiedPlayer p) {

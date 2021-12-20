@@ -537,7 +537,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	public boolean isOnline(ProxiedPlayer p) {
 		if (p != null) {
-			if (redis != null && redis.isEnabled() && redis.hasRedis()) {
+			if (redis != null && redis.isEnabled()) {
 				return redis.isOnline(p);
 			} else {
 				return p.isConnected();
