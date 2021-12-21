@@ -441,10 +441,11 @@ AlwaysWaitForCachePlaceholders: false
 # Set which placeholders to cache at all times
 # Use for placeholders to are pulled constantly or on the main thread
 # Mainly aimed for scoreboards
-# Will use additional memory
+# Will use additional memory, but not a lot
 # Still in early stages, please report bugs
+# Please remove VotingPlugin_ from the placeholder listed here
 CachedPlaceholders: []
-#- VotingPlugin_Total_AllTime
+#- Total_AllTime
 
 # If true, permissions will be handled differently
 MultiplePermissionsCheck: false

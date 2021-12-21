@@ -15,7 +15,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.placeholder.NonPlaceHolder;
+import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataChanged;
@@ -35,7 +35,7 @@ import lombok.Getter;
 public class PlaceHolders {
 
 	@Getter
-	private ArrayList<NonPlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<NonPlaceHolder<VotingPluginUser>>();
+	private ArrayList<NonPlayerPlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<NonPlayerPlaceHolder<VotingPluginUser>>();
 
 	@Getter
 	private ArrayList<PlaceHolder<VotingPluginUser>> placeholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
@@ -57,7 +57,7 @@ public class PlaceHolders {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
-		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
 				return placeholder.placeholderRequest(identifier);
 			}
@@ -352,7 +352,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -368,7 +368,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user votes at position in top voter"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_All_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_All_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -400,7 +400,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Month_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_Month_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -416,7 +416,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at position in top voter"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_MonthVotes_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_MonthVotes_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -448,7 +448,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Week_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_Week_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -464,7 +464,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("Get user at postion in top voter"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_WeekVotes_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_WeekVotes_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -496,7 +496,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_Daily_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_Daily_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -520,7 +520,7 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("See vote party placeholders contributed").updateDataKey("VotePartyVotes"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("Top_DailyVotes_") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_DailyVotes_") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -538,7 +538,7 @@ public class PlaceHolders {
 
 		// non players
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesCurrent") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("VotePartyVotesCurrent") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -546,7 +546,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current amount of voteparty votes"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesNeeded") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("VotePartyVotesNeeded") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -554,7 +554,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Voteparty votes needed"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("VotePartyVotesRequired") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("VotePartyVotesRequired") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -562,7 +562,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesCurrent") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesCurrent") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -573,7 +573,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current amount of bungee voteparty votes"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesNeeded") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesNeeded") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -585,7 +585,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Voteparty bungee votes needed"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesRequired") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("BungeeVotePartyVotesRequired") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -596,7 +596,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Amount of votes needed for bungee  voteparty"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalMonthTotal") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("GlobalMonthTotal") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -608,7 +608,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global month total"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalAllTimeTotal") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("GlobalAllTimeTotal") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -620,7 +620,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global alltime total"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalWeeklyTotal") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("GlobalWeeklyTotal") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -632,7 +632,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global weekly total"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("GlobalDailyTotal") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("GlobalDailyTotal") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -644,7 +644,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Global daily total"));
 
-		nonPlayerPlaceholders.add(new NonPlaceHolder<VotingPluginUser>("TimeUntilDayReset") {
+		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("TimeUntilDayReset") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
@@ -686,7 +686,7 @@ public class PlaceHolders {
 			if (toCache.startsWith("VotingPlugin")) {
 				toCache = toCache.substring("VotingPlugin_".length());
 			}
-			for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 				if (placeholder.isUseStartsWith()) {
 					if (toCache.startsWith(placeholder.getIdentifier())) {
 						placeholder.setUseCache(true, toCache);
@@ -744,7 +744,7 @@ public class PlaceHolders {
 	}
 
 	public void onVotePartyUpdate() {
-		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				if (placeholder.getIdentifier().startsWith("VoteParty")) {
 					for (String ident : placeholder.getCache().keySet()) {
@@ -756,7 +756,7 @@ public class PlaceHolders {
 	}
 	
 	public void onBungeeVotePartyUpdate() {
-		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				if (placeholder.getIdentifier().startsWith("BungeeVoteParty")) {
 					for (String ident : placeholder.getCache().keySet()) {
@@ -781,7 +781,7 @@ public class PlaceHolders {
 	}
 
 	public void onUpdate() {
-		for (NonPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				for (String ident : placeholder.getCache().keySet()) {
 					placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
