@@ -28,6 +28,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -50,6 +51,7 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.bungee.TimeHandle;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.inject.Inject;
@@ -107,6 +109,9 @@ public class VotingPluginVelocity {
 	private VoteCache voteCacheFile;
 
 	private Timer timer;
+
+	@Getter
+	private TimeHandle timeHandle;
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -334,6 +339,14 @@ public class VotingPluginVelocity {
 						}
 					}
 					return;
+				} else if (subchannel.equalsIgnoreCase("timeupdate")) {
+					String str = in.readUTF();
+					String[] data = str.split(Pattern.quote("//"));
+					if (data.length == 3) {
+						timeHandle.setMonth(data[0]);
+						timeHandle.setDay(Integer.parseInt(data[1]));
+						timeHandle.setWeek(Integer.parseInt(data[2]));
+					}
 				} else {
 
 					// reforward message
@@ -376,6 +389,7 @@ public class VotingPluginVelocity {
 				}
 			}
 		}
+		timeHandle.save();
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
@@ -434,6 +448,18 @@ public class VotingPluginVelocity {
 			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
 			nonVotedPlayersCache = new NonVotedPlayersCache(
 					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
+
+			timeHandle = new TimeHandle(voteCacheFile.getNode("Time", "Month").getString(""),
+					voteCacheFile.getNode("Time", "Day").getInt(), voteCacheFile.getNode("Time", "Week").getInt()) {
+
+				@Override
+				public void save() {
+					voteCacheFile.getNode("Time", "Month").setValue(timeHandle.getMonth());
+					voteCacheFile.getNode("Time", "Day").setValue(timeHandle.getDay());
+					voteCacheFile.getNode("Time", "Week").setValue(timeHandle.getWeek());
+				}
+			};
+
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 				try {
 					for (String serverToCheck : voteCacheFile.getServers()) {

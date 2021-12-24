@@ -6,10 +6,13 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
@@ -23,7 +26,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 
-public class BungeeHandler {
+public class BungeeHandler implements Listener {
 	@Getter
 	private ClientHandler clientHandler;
 
@@ -52,7 +55,14 @@ public class BungeeHandler {
 		clientHandler.stopConnection();
 		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+	}
 
+	@EventHandler
+	public void onDateChange(DateChangedEvent event) {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			plugin.getPluginMessaging().sendPluginMessage("timeupdate", plugin.getServerDataFile().getPrevMonth() + "//"
+					+ plugin.getServerDataFile().getPrevDay() + "//" + plugin.getServerDataFile().getPrevWeekDay());
+		}
 	}
 
 	public void load() {

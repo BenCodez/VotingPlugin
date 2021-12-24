@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -82,6 +83,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
 	private RedisBungee redis;
+
+	@Getter
+	private TimeHandle timeHandle;
 
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -315,6 +319,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 		}
+		timeHandle.save();
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
@@ -379,6 +384,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();
+
+			timeHandle = new TimeHandle(voteCacheFile.getData().getString("Time.Month", ""),
+					voteCacheFile.getData().getInt("Time.Day"), voteCacheFile.getData().getInt("Time.Week")) {
+
+				@Override
+				public void save() {
+					voteCacheFile.getData().set("Time.Month", timeHandle.getMonth());
+					voteCacheFile.getData().set("Time.Day", timeHandle.getDay());
+					voteCacheFile.getData().set("Time.Week", timeHandle.getWeek());
+				}
+			};
+
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				try {
@@ -598,8 +615,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				login(p);
 				return;
+			} else if (subchannel.equalsIgnoreCase("timeupdate")) {
+				String str = in.readUTF();
+				String[] data = str.split(Pattern.quote("//"));
+				if (data.length == 3) {
+					timeHandle.setMonth(data[0]);
+					timeHandle.setDay(Integer.parseInt(data[1]));
+					timeHandle.setWeek(Integer.parseInt(data[2]));
+				}
 			} else {
-
 				// reforward message
 				out.writeUTF(subchannel);
 				out.writeInt(size);
