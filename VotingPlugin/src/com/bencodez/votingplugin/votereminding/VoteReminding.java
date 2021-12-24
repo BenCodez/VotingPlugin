@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.votereminding;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -10,6 +12,8 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+
+import lombok.Getter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -21,6 +25,9 @@ public class VoteReminding {
 	private VotingPluginMain plugin;
 
 	private Timer timer;
+
+	@Getter
+	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<UUID, Boolean>();
 
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -95,6 +102,11 @@ public class VoteReminding {
 	}
 
 	public boolean shouldRemind(VotingPluginUser user) {
+		if (remindersEnabled.containsKey(user.getJavaUUID())) {
+			if (!remindersEnabled.get(user.getJavaUUID()).booleanValue()) {
+				return false;
+			}
+		}
 		if (user.shouldBeReminded()) {
 			boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
 			if (hasPermAll) {

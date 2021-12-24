@@ -100,7 +100,7 @@ public class Config extends YMLFile {
 	@ConfigDataListString(path = "DisabledDefaultPermissions")
 	@Getter
 	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
-	
+
 	@ConfigDataListString(path = "CachedPlaceholders")
 	@Getter
 	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
@@ -177,6 +177,14 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Enabled")
 	@Getter
 	private String formatCommandsVoteToggleBroadcastEnabled = "&cYou will now see vote broadcasts";
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleReminders.Disabled")
+	@Getter
+	private String formatCommandsVoteToggleRemindersDisabled = "&cVote reminders disabled";
+
+	@ConfigDataString(path = "Format.Commands.Vote.ToggleReminders.Enabled")
+	@Getter
+	private String formatCommandsVoteToggleRemindersEnabled = "&cVote reminders enabled";
 
 	@Getter
 	private int formatPageSize = 10;

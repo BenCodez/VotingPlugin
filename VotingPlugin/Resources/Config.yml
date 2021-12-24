@@ -248,6 +248,10 @@ Format:
       ToggleBroadcasts:
         Enabled: '&cYou will now see vote broadcasts'
         Disabled: '&cYou will no longer see vote broadcasts'
+        
+      ToggleReminders:
+        Enabled: '&cVote reminders enabled'
+        Disabled: '&cVote reminders disabled'
   
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc

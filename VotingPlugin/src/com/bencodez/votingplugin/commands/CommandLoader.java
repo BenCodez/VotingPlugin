@@ -1759,6 +1759,26 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getVoteCommand().add(new CommandHandler(new String[] { "ToggleReminders" },
+				"VotingPlugin.Commands.Vote.ToggleReminders", "Enable/disable vote reminders", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				Player p = (Player) sender;
+				boolean value = false;
+				if (plugin.getVoteReminding().getRemindersEnabled().containsKey(p.getUniqueId())) {
+					value = !plugin.getVoteReminding().getRemindersEnabled().get(p.getUniqueId());
+				}
+				plugin.getVoteReminding().getRemindersEnabled().put(p.getUniqueId(), value);
+
+				if (value) {
+					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersEnabled());
+				} else {
+					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersDisabled());
+				}
+			}
+		});
+
 		if (plugin.getGui().getChestVoteShopEnabled()) {
 			plugin.getVoteCommand().add(new CommandHandler(new String[] { "Shop" },
 					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
