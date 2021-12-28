@@ -27,6 +27,7 @@ MySQL:
   Prefix: ''
   #UseSSL: true
   #PublicKeyRetrieval: false
+  #MaxLifeTime: -1
   #Additional info on connection string
   #Line: ''
 
@@ -576,6 +577,11 @@ PreloadSkulls: false
 # Setting to false disables saving skulls in a cache to improve speeds
 # Will reduce ram usage (very little) if disabled, but slow GUI speeds when using skulls
 LoadSkulls: true
+
+# Limit number of users to load in a second
+# Effects background tasks mainly
+# set to -1 to disable (default value)
+#PlayerDataLoadLimit: 500
 
 # Use vault for permission checks
 # May not work on some plugins

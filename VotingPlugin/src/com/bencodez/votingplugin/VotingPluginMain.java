@@ -1350,6 +1350,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 						plugin.debug("Starting background task, current cached users: "
 								+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
+
+						int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
 						try {
 							boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
 							long startTime = System.currentTimeMillis();
@@ -1369,6 +1371,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 							int currentDay = LocalDateTime.now().getDayOfMonth();
+							int currentDataLoad = 0;
 							for (String uuid : uuids) {
 								if (uuid != null && !uuid.isEmpty()) {
 									VotingPluginUser user = UserManager.getInstance()
@@ -1414,12 +1417,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									plugin.getPlaceholders().onUpdate(user);
 									user.clearTempCache();
 									user = null;
+									if (dataLoadLimit > 0) {
+										currentDataLoad++;
+										if (currentDataLoad >= dataLoadLimit) {
+											currentDataLoad -= dataLoadLimit;
+											Thread.sleep(1000);
+										}
+									}
 								}
 							}
 							update = false;
 							long time1 = ((System.currentTimeMillis() - startTime) / 1000);
 							plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
-									+ " users, " + plugin.getStorageType().toString());
+									+ " users, " + plugin.getStorageType().toString() + ", data load limit: "
+									+ dataLoadLimit);
 							time1 = System.currentTimeMillis();
 
 							topVoterHandler.updateTopVoters(tempTopVoter);

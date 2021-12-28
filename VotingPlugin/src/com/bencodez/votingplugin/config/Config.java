@@ -44,6 +44,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
+	
+	@ConfigDataInt(path = "PlayerDataLoadLimit")
+	@Getter
+	private int playerDataLoadLimit = -1;
 
 	@ConfigDataBoolean(path = "AllowVotePointTransfers")
 	@Getter
