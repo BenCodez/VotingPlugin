@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -186,13 +187,23 @@ public class VoteParty implements Listener {
 
 		if (plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+			ArrayList<String> alreadyGotten = new ArrayList<String>();
+			for (Player p : Bukkit.getOnlinePlayers()) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 				user.dontCache();
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);
 				}
-
+				alreadyGotten.add(p.getUniqueId().toString());
+			}
+			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+				if (!alreadyGotten.contains(uuid)) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					user.dontCache();
+					if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+						giveReward(user, forceBungee);
+					}
+				}
 			}
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
