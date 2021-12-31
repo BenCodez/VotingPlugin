@@ -29,11 +29,11 @@ public class VoteBest extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 		msg.add(plugin.getConfigFile().getFormatCommandsVoteBestTitle());
 		msg.addAll(plugin.getConfigFile().getFormatCommandsVoteBestLines());
 
-		HashMap<String, String> placeholders = new HashMap<String, String>();
+		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("HighestDailyTotal", "" + user.getHighestDailyTotal());
 		placeholders.put("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal());
 		placeholders.put("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal());

@@ -52,7 +52,7 @@ public class VoteURL extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {
-		ArrayList<String> sites = new ArrayList<String>();
+		ArrayList<String> sites = new ArrayList<>();
 
 		List<String> title = plugin.getConfigFile().getFormatCommandsVoteText();
 		if (title != null) {
@@ -76,7 +76,7 @@ public class VoteURL extends GUIHandler {
 			}
 		}
 		if (user != null) {
-			HashMap<String, String> phs = new HashMap<String, String>();
+			HashMap<String, String> phs = new HashMap<>();
 			phs.put("DailyTotal", "" + user.getTotal(TopVoter.Daily));
 			phs.put("WeekTotal", "" + user.getTotal(TopVoter.Weekly));
 			phs.put("MonthTotal", "" + user.getTotal(TopVoter.Monthly));
@@ -223,7 +223,7 @@ public class VoteURL extends GUIHandler {
 				public void onClick(ClickEvent clickEvent) {
 					new RewardBuilder(plugin.getGui().getData(), "CHEST.VoteURL.ExtraItems." + str + ".Rewards")
 							.setGiveOffline(false).send(clickEvent.getPlayer());
-					;
+
 				}
 			});
 		}

@@ -23,7 +23,7 @@ public class TopVoterPlayer {
 		this.uuid = uuid;
 		this.playerName = playerName;
 	}
-	
+
 	public ItemStack getPlayerHead() {
 		return PlayerUtils.getInstance().getPlayerSkull(getPlayerName(), false);
 	}

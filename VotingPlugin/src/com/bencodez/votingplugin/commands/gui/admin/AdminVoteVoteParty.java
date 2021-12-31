@@ -93,7 +93,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}, new Number[] { 0, 10, 50, 100 })
 						.currentValue("" + plugin.getServerData().getVotePartyExtraRequired()).allowCustomOption(true)
 						.request(clickEvent.getPlayer());
-				;
+
 			}
 		});
 

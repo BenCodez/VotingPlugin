@@ -129,7 +129,7 @@ public class VoteSite {
 					return;
 				}
 				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatBroadCastMsg());
-				HashMap<String, String> placeholders = new HashMap<String, String>();
+				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
 						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
@@ -137,7 +137,7 @@ public class VoteSite {
 				placeholders.put("servicesite", getServiceSite());
 				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
-				ArrayList<Player> players = new ArrayList<Player>();
+				ArrayList<Player> players = new ArrayList<>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
 						players.add(p);

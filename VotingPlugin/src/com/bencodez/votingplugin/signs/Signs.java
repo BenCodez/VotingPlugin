@@ -22,7 +22,7 @@ public class Signs {
 
 	public Signs(VotingPluginMain plugin) {
 		this.plugin = plugin;
-		this.signs = new ArrayList<SignHandler>();
+		this.signs = new ArrayList<>();
 	}
 
 	/**

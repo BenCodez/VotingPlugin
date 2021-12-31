@@ -30,7 +30,7 @@ public class VoteLast extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 
 		String playerName = user.getPlayerName();
 

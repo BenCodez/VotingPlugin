@@ -22,7 +22,7 @@ public class CoolDownCheck implements Listener {
 
 	private VotingPluginMain plugin;
 
-	private Set<UUID> uuids = new HashSet<UUID>();
+	private Set<UUID> uuids = new HashSet<>();
 
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;

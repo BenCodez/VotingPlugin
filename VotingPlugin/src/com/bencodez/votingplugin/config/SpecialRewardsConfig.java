@@ -102,9 +102,9 @@ public class SpecialRewardsConfig extends YMLFile {
 			if (set != null) {
 				return set;
 			}
-			return new HashSet<String>();
+			return new HashSet<>();
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
@@ -156,7 +156,7 @@ public class SpecialRewardsConfig extends YMLFile {
 		try {
 			return getData().getConfigurationSection("DailyAwards").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 
 		}
 	}
@@ -192,9 +192,9 @@ public class SpecialRewardsConfig extends YMLFile {
 			if (set != null) {
 				return set;
 			}
-			return new HashSet<String>();
+			return new HashSet<>();
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
@@ -211,7 +211,7 @@ public class SpecialRewardsConfig extends YMLFile {
 		try {
 			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
@@ -301,9 +301,9 @@ public class SpecialRewardsConfig extends YMLFile {
 			if (set != null) {
 				return set;
 			}
-			return new HashSet<String>();
+			return new HashSet<>();
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
@@ -320,7 +320,7 @@ public class SpecialRewardsConfig extends YMLFile {
 		try {
 			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 

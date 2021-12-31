@@ -108,7 +108,7 @@ public class VoteShop extends GUIHandler {
 
 								if (limitPass) {
 									if (!plugin.getGui().isChestVoteShopRequireConfirmation(identifier)) {
-										HashMap<String, String> placeholders = new HashMap<String, String>();
+										HashMap<String, String> placeholders = new HashMap<>();
 										placeholders.put("identifier",
 												plugin.getGui().getChestShopIdentifierIdentifierName(identifier));
 										placeholders.put("points", "" + points);
@@ -134,7 +134,7 @@ public class VoteShop extends GUIHandler {
 										}
 									} else {
 										new VoteShopConfirm(plugin, player, user, identifier).open(GUIMethod.CHEST);
-										;
+
 									}
 								} else {
 									user.sendMessage(plugin.getGui().getChestVoteShopLimitReached());

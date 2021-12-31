@@ -51,7 +51,7 @@ public class TopVoterHandler implements Listener {
 	 */
 
 	public String[] getTopVotersWeekly() {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine().replace("%num%", "" + (i + 1))
@@ -64,7 +64,7 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private HashMap<Integer, String> handlePlaces(Set<String> places) {
-		HashMap<Integer, String> place = new HashMap<Integer, String>();
+		HashMap<Integer, String> place = new HashMap<>();
 		for (String p : places) {
 			String[] data = p.split("-");
 			try {
@@ -86,7 +86,7 @@ public class TopVoterHandler implements Listener {
 	public void loadLastMonth() {
 		if (plugin.getGui().isLastMonthGUI()) {
 			plugin.getLastMonthTopVoter().clear();
-			LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<TopVoterPlayer, Integer>();
+			LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<>();
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
 				user.dontCache();
@@ -398,7 +398,7 @@ public class TopVoterHandler implements Listener {
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,
 			final boolean order) {
 
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(map.entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(map.entrySet());
 
 		// Sorting the list based on values
 		Collections.sort(list, new Comparator<Entry<TopVoterPlayer, Integer>>() {
@@ -414,7 +414,7 @@ public class TopVoterHandler implements Listener {
 		});
 
 		// Maintaining insertion order with the help of LinkedList
-		LinkedHashMap<TopVoterPlayer, Integer> sortedMap = new LinkedHashMap<TopVoterPlayer, Integer>();
+		LinkedHashMap<TopVoterPlayer, Integer> sortedMap = new LinkedHashMap<>();
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
@@ -442,7 +442,7 @@ public class TopVoterHandler implements Listener {
 		file.header("Saving top voters for " + top.toString() + ", file also contains other top voter info as backup");
 		for (TopVoter cTop : TopVoter.values()) {
 			if (plugin.getTopVoter().containsKey(cTop)) {
-				ArrayList<String> topVoters = new ArrayList<String>();
+				ArrayList<String> topVoters = new ArrayList<>();
 				int count = 1;
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(cTop).entrySet()) {
 					topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
@@ -462,8 +462,8 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVoterAllTime(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
 		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
@@ -501,8 +501,8 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVoterDaily(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
 		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
@@ -540,8 +540,8 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVoterMonthly(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
 		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
@@ -577,8 +577,8 @@ public class TopVoterHandler implements Listener {
 	 * @return the string[]
 	 */
 	public String[] topVotersAllTime() {
-		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(
+		ArrayList<String> msg = new ArrayList<>();
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(
 				plugin.getTopVoter(TopVoter.AllTime).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
@@ -606,7 +606,7 @@ public class TopVoterHandler implements Listener {
 	 */
 
 	public String[] topVotersDaily() {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%";
@@ -630,8 +630,8 @@ public class TopVoterHandler implements Listener {
 	 * @return the string[]
 	 */
 	public String[] topVotersMonthly() {
-		ArrayList<String> msg = new ArrayList<String>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<Entry<TopVoterPlayer, Integer>>(
+		ArrayList<String> msg = new ArrayList<>();
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(
 				plugin.getTopVoter(TopVoter.Monthly).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
@@ -660,8 +660,8 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVoterWeekly(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<String> msg = new ArrayList<String>();
-		ArrayList<String> topVoters = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
 		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandVoteTopLine();
@@ -699,7 +699,7 @@ public class TopVoterHandler implements Listener {
 			LinkedHashMap<TopVoterPlayer, Integer> map = entry.getValue();
 			map = sortByValues(map, false);
 			if (limitSize > 0) {
-				ArrayList<TopVoterPlayer> listKeys = new ArrayList<TopVoterPlayer>(map.keySet());
+				ArrayList<TopVoterPlayer> listKeys = new ArrayList<>(map.keySet());
 				if (listKeys.size() > limitSize) {
 					for (int i = listKeys.size() - 1; i >= 0 && i >= limitSize; i--) {
 						map.remove(listKeys.get(i));

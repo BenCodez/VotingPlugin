@@ -191,7 +191,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote sites load
 	 */
 	public ArrayList<VoteSite> getVoteSitesLoad() {
-		ArrayList<VoteSite> voteSites = new ArrayList<VoteSite>();
+		ArrayList<VoteSite> voteSites = new ArrayList<>();
 		ArrayList<String> voteSiteNames = getVoteSitesNames(true);
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
@@ -226,7 +226,7 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
-		ArrayList<String> siteNames = new ArrayList<String>();
+		ArrayList<String> siteNames = new ArrayList<>();
 		if (getData().isConfigurationSection("VoteSites")) {
 			siteNames = ArrayUtils.getInstance().convert(getData().getConfigurationSection("VoteSites").getKeys(false));
 		}

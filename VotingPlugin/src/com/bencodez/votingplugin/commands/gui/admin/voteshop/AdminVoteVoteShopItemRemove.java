@@ -64,7 +64,7 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 									new AdminVoteVoteShop(plugin, p).open();
 								}
 							}.open();
-							;
+
 
 						}
 					}.addData("ident", identifier));

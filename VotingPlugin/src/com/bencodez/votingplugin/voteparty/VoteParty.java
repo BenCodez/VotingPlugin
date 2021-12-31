@@ -51,7 +51,7 @@ public class VoteParty implements Listener {
 		String uuid = user.getUUID();
 		ArrayList<String> voted = getVotedUsers();
 		if (voted == null) {
-			voted = new ArrayList<String>();
+			voted = new ArrayList<>();
 		}
 		if (!voted.contains(uuid)) {
 			voted.add(uuid);
@@ -98,7 +98,7 @@ public class VoteParty implements Listener {
 			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
 			int neededVotes = votesRequired - votes;
-			HashMap<String, String> placeholders = new HashMap<String, String>();
+			HashMap<String, String> placeholders = new HashMap<>();
 			placeholders.put("votesrequired", "" + votesRequired);
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
@@ -141,7 +141,7 @@ public class VoteParty implements Listener {
 		if (list != null) {
 			return list;
 		}
-		return new ArrayList<String>();
+		return new ArrayList<>();
 	}
 
 	public int getVotesRequired() {
@@ -187,7 +187,7 @@ public class VoteParty implements Listener {
 
 		if (plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
-			ArrayList<String> alreadyGotten = new ArrayList<String>();
+			ArrayList<String> alreadyGotten = new ArrayList<>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 				user.dontCache();

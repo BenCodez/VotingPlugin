@@ -22,7 +22,7 @@ public class VoteTester {
 
 	public void testRewards(int amount, String name, String rewardName) {
 		long time1 = System.currentTimeMillis();
-		ArrayList<Long> timesPerReward = new ArrayList<Long>();
+		ArrayList<Long> timesPerReward = new ArrayList<>();
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(name);
 		Reward reward = RewardHandler.getInstance().getReward(rewardName);
 		int rewardsGiven = 0;
@@ -49,7 +49,7 @@ public class VoteTester {
 
 	public void testVotes(int amount, String name, String site) {
 		long time1 = System.currentTimeMillis();
-		ArrayList<Long> timesPerVote = new ArrayList<Long>();
+		ArrayList<Long> timesPerVote = new ArrayList<>();
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site, false), name,

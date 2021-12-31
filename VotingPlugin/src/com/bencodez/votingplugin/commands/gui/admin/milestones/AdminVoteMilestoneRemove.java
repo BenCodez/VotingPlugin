@@ -62,7 +62,7 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 							new AdminVoteMilestones(plugin, p);
 						}
 					}.open();
-					;
+
 
 				}
 			});

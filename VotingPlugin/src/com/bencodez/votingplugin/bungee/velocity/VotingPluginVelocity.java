@@ -80,8 +80,8 @@ import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 public class VotingPluginVelocity {
 
 	private static final ChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("vp", "vp");
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
-	private HashMap<RegisteredServer, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<RegisteredServer, ArrayList<OfflineBungeeVote>>();
+	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<>();
+	private HashMap<RegisteredServer, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 
@@ -128,7 +128,7 @@ public class VotingPluginVelocity {
 			if (cachedVotes.containsKey(serverToCheck)
 					&& !config.getBlockedServers().contains(serverToCheck.getServerInfo().getName())) {
 				ArrayList<OfflineBungeeVote> c = cachedVotes.get(serverToCheck);
-				ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
+				ArrayList<OfflineBungeeVote> newSet = new ArrayList<>();
 				if (!c.isEmpty()) {
 					for (OfflineBungeeVote cache : c) {
 						boolean toSend = true;
@@ -463,7 +463,7 @@ public class VotingPluginVelocity {
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 				try {
 					for (String serverToCheck : voteCacheFile.getServers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getServerVotes(serverToCheck)) {
 							ConfigurationNode data = voteCacheFile.getServerVotes(serverToCheck, num);
 
@@ -480,7 +480,7 @@ public class VotingPluginVelocity {
 
 				try {
 					for (String player : voteCacheFile.getPlayers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getOnlineVotes(player)) {
 							ConfigurationNode data = voteCacheFile.getOnlineVotes(player, num);
 							vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
@@ -550,7 +550,7 @@ public class VotingPluginVelocity {
 					}
 				});
 
-				clientHandles = new HashMap<String, ClientHandler>();
+				clientHandles = new HashMap<>();
 				List<String> l = config.getBlockedServers();
 				for (ConfigurationNode d : config.getSpigotServers()) {
 					String s = d.getKey().toString();
@@ -853,7 +853,7 @@ public class VotingPluginVelocity {
 				int milestoneCount = getValue(data, "MilestoneCount", 1);
 				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount,
 						votePartyVotes, currentVotePartyVotesRequired);
-				ArrayList<Column> update = new ArrayList<Column>();
+				ArrayList<Column> update = new ArrayList<>();
 				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
 				update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
@@ -930,7 +930,7 @@ public class VotingPluginVelocity {
 						}
 						ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
 						if (list == null) {
-							list = new ArrayList<OfflineBungeeVote>();
+							list = new ArrayList<>();
 						}
 						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 						cachedOnlineVotes.put(uuid, list);
@@ -1002,7 +1002,7 @@ public class VotingPluginVelocity {
 		if (getConfig().getVotePartySendToAllServers()) {
 			return server.getAllServers();
 		}
-		Collection<RegisteredServer> list = new ArrayList<RegisteredServer>();
+		Collection<RegisteredServer> list = new ArrayList<>();
 		for (String server : getConfig().getVotePartyServersToSend()) {
 			if (this.server.getServer(server).isPresent()) {
 				list.add(this.server.getServer(server).get());

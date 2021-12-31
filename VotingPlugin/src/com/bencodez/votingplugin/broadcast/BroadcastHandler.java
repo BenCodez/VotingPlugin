@@ -17,7 +17,7 @@ import com.bencodez.votingplugin.user.UserManager;
 public class BroadcastHandler {
 	private VotingPluginMain plugin;
 	private Timer timer;
-	ConcurrentLinkedQueue<String> votedPlayers = new ConcurrentLinkedQueue<String>();
+	ConcurrentLinkedQueue<String> votedPlayers = new ConcurrentLinkedQueue<>();
 
 	public BroadcastHandler(VotingPluginMain plugin, int delay) {
 		this.plugin = plugin;
@@ -32,10 +32,10 @@ public class BroadcastHandler {
 			}
 			String bc = StringParser.getInstance()
 					.colorize(plugin.getConfigFile().getFormatAlternateBroadcastBroadcast());
-			HashMap<String, String> placeholders = new HashMap<String, String>();
+			HashMap<String, String> placeholders = new HashMap<>();
 			placeholders.put("numberofplayers", "" + size);
 			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
-			ArrayList<Player> players = new ArrayList<Player>();
+			ArrayList<Player> players = new ArrayList<>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
 					players.add(p);

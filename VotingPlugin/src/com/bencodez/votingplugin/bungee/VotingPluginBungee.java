@@ -56,9 +56,9 @@ import net.md_5.bungee.event.EventHandler;
 
 public class VotingPluginBungee extends Plugin implements Listener {
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<>();
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 
@@ -92,7 +92,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
 				if (cachedVotes.containsKey(server) && !config.getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
-					ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
+					ArrayList<OfflineBungeeVote> newSet = new ArrayList<>();
 					if (!c.isEmpty()) {
 						for (OfflineBungeeVote cache : c) {
 							boolean toSend = true;
@@ -400,7 +400,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				try {
 					for (String server : voteCacheFile.getServers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getServerVotes(server)) {
 							Configuration data = voteCacheFile.getServerVotes(server, num);
 							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
@@ -415,7 +415,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				try {
 					for (String player : voteCacheFile.getPlayers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getOnlineVotes(player)) {
 							Configuration data = voteCacheFile.getOnlineVotes(player, num);
 							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
@@ -489,7 +489,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 				});
 
-				clientHandles = new HashMap<String, ClientHandler>();
+				clientHandles = new HashMap<>();
 				List<String> l = config.getBlockedServers();
 				for (String s : config.getSpigotServers()) {
 					if (!l.contains(s)) {
@@ -820,7 +820,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				int milestoneCount = getValue(data, "MilestoneCount", 1);
 				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount,
 						votePartyVotes, currentVotePartyVotesRequired);
-				ArrayList<Column> update = new ArrayList<Column>();
+				ArrayList<Column> update = new ArrayList<>();
 				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
 				update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
@@ -883,7 +883,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 						ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
 						if (list == null) {
-							list = new ArrayList<OfflineBungeeVote>();
+							list = new ArrayList<>();
 						}
 						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 						cachedOnlineVotes.put(uuid, list);

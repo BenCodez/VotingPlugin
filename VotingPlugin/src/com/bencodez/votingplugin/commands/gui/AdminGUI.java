@@ -50,7 +50,7 @@ public class AdminGUI {
 	 * @return ArrayList of buttons
 	 */
 	public ArrayList<BInventoryButton> adminGUIButtons() {
-		ArrayList<BInventoryButton> buttons = new ArrayList<BInventoryButton>();
+		ArrayList<BInventoryButton> buttons = new ArrayList<>();
 		buttons.add(new BInventoryButton("&cVoteSites",
 				new String[] { "&cOnly enabled sites are listed in this section", "&cMiddle Click to create" },
 				new ItemStack(Material.STONE)) {
@@ -192,7 +192,7 @@ public class AdminGUI {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			ArrayList<String> lore = new ArrayList<String>();
+			ArrayList<String> lore = new ArrayList<>();
 			lore.add("Priority: " + voteSite.getPriority());
 			lore.add("Name: " + voteSite.getDisplayName());
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
@@ -230,7 +230,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				ArrayList<String> playerNames = new ArrayList<String>();
+				ArrayList<String> playerNames = new ArrayList<>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					playerNames.add(p.getName());
 				}

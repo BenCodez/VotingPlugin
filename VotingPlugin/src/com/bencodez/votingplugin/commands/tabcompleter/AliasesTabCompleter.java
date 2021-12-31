@@ -39,7 +39,7 @@ public class AliasesTabCompleter implements TabCompleter {
 	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] argsIn) {
-		ArrayList<String> msgArray = new ArrayList<String>();
+		ArrayList<String> msgArray = new ArrayList<>();
 		msgArray.add("");
 		for (String arg : argsIn) {
 			msgArray.add(arg);
@@ -47,11 +47,11 @@ public class AliasesTabCompleter implements TabCompleter {
 
 		String[] args = ArrayUtils.getInstance().convert(msgArray);
 
-		ArrayList<String> tab = new ArrayList<String>();
+		ArrayList<String> tab = new ArrayList<>();
 
-		Set<String> cmds = new HashSet<String>();
+		Set<String> cmds = new HashSet<>();
 
-		ArrayList<CommandHandler> cmdHandlers = new ArrayList<CommandHandler>();
+		ArrayList<CommandHandler> cmdHandlers = new ArrayList<>();
 
 		if (adminCommand) {
 			cmdHandlers.addAll(plugin.getAdminVoteCommand());

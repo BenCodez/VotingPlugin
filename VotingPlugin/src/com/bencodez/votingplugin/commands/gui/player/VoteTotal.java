@@ -30,7 +30,7 @@ public class VoteTotal extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 
 		int daily = user.getTotal(TopVoter.Daily);
 		int weekly = user.getTotal(TopVoter.Weekly);
