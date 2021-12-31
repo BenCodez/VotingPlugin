@@ -73,7 +73,7 @@ public class AdminVoteCumulative extends GUIHandler {
 							}
 						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
 								.request(clickEvent.getPlayer());
-						;
+
 					}
 				});
 

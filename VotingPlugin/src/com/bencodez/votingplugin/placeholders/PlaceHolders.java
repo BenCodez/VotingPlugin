@@ -106,7 +106,7 @@ public class PlaceHolders {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
-		return getPlaceHolder((OfflinePlayer) p, identifier, false);
+		return getPlaceHolder(p, identifier, false);
 	}
 
 	public void load() {
@@ -754,7 +754,7 @@ public class PlaceHolders {
 			}
 		}
 	}
-	
+
 	public void onBungeeVotePartyUpdate() {
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {

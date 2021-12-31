@@ -93,7 +93,7 @@ public class VoteShopConfirm extends GUIHandler {
 				if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
 					event.getButton().getInv().closeInv(player, null);
 				} else {
-					new VoteShop(plugin, event.getPlayer(), user).open();;
+					new VoteShop(plugin, event.getPlayer(), user).open();
 				}
 			}
 		});

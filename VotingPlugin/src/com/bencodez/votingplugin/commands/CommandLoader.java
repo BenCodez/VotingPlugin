@@ -438,7 +438,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
 				new AdminVoteHelp(plugin, sender, page).open();
-				;
+
 
 			}
 		});
@@ -1406,7 +1406,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						new AdminVotePlaceholdersPlayer(plugin, sender,
 								UserManager.getInstance().getVotingPluginUser(args[1])).open();
-						;
+
 					}
 				});
 

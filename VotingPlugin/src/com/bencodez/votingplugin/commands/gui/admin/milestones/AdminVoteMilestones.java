@@ -73,7 +73,7 @@ public class AdminVoteMilestones extends GUIHandler {
 							}
 						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
 								.request(clickEvent.getPlayer());
-						;
+
 					}
 				});
 

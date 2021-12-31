@@ -223,7 +223,7 @@ public class VoteURL extends GUIHandler {
 				public void onClick(ClickEvent clickEvent) {
 					new RewardBuilder(plugin.getGui().getData(), "CHEST.VoteURL.ExtraItems." + str + ".Rewards")
 							.setGiveOffline(false).send(clickEvent.getPlayer());
-					;
+
 				}
 			});
 		}
