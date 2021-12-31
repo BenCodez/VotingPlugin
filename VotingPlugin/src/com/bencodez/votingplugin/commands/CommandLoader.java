@@ -294,7 +294,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
-						ArrayList<Integer> nums = new ArrayList<>();
+						ArrayList<Integer> nums = new ArrayList<Integer>();
 
 						for (String str : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 							try {
@@ -438,7 +438,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
 				new AdminVoteHelp(plugin, sender, page).open();
-
+				;
 
 			}
 		});
@@ -1406,7 +1406,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						new AdminVotePlaceholdersPlayer(plugin, sender,
 								UserManager.getInstance().getVotingPluginUser(args[1])).open();
-
+						;
 					}
 				});
 
@@ -1432,7 +1432,7 @@ public class CommandLoader {
 	 * Load aliases.
 	 */
 	public void loadAliases() {
-		commands = new HashMap<>();
+		commands = new HashMap<String, CommandHandler>();
 		if (!plugin.getConfigFile().isLoadCommandAliases()) {
 			return;
 		}
@@ -1551,7 +1551,7 @@ public class CommandLoader {
 									@Override
 									public void onClick(ClickEvent clickEvent) {
 										Player player = clickEvent.getPlayer();
-										ArrayList<String> voteSites = new ArrayList<>();
+										ArrayList<String> voteSites = new ArrayList<String>();
 										for (VoteSite voteSite : plugin.getVoteSites()) {
 											voteSites.add(voteSite.getKey());
 										}
@@ -1653,7 +1653,7 @@ public class CommandLoader {
 	 * Load tab complete.
 	 */
 	public void loadTabComplete() {
-		ArrayList<String> sites = new ArrayList<>();
+		ArrayList<String> sites = new ArrayList<String>();
 		for (VoteSite site : plugin.getVoteSites()) {
 			sites.add(site.getKey());
 		}
@@ -1662,7 +1662,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> sites = new ArrayList<>();
+				ArrayList<String> sites = new ArrayList<String>();
 				for (VoteSite site : plugin.getVoteSites()) {
 					sites.add(site.getKey());
 				}
@@ -1674,7 +1674,7 @@ public class CommandLoader {
 			}
 		});
 
-		ArrayList<String> topVoter = new ArrayList<>();
+		ArrayList<String> topVoter = new ArrayList<String>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.add(top.toString());
 		}
@@ -1683,7 +1683,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> topVoter = new ArrayList<>();
+				ArrayList<String> topVoter = new ArrayList<String>();
 				for (TopVoter top : TopVoter.values()) {
 					topVoter.add(top.toString());
 				}
@@ -1700,7 +1700,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> sites = new ArrayList<>();
+				ArrayList<String> sites = new ArrayList<String>();
 				for (String str : plugin.getGui().getChestShopIdentifiers()) {
 					sites.add(str);
 				}
@@ -1833,7 +1833,7 @@ public class CommandLoader {
 								if (identifier != null) {
 
 									if (limitPass) {
-										HashMap<String, String> placeholders = new HashMap<>();
+										HashMap<String, String> placeholders = new HashMap<String, String>();
 										placeholders.put("identifier", identifier);
 										placeholders.put("points", "" + points);
 										placeholders.put("limit", "" + limit);
@@ -2111,7 +2111,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				ArrayList<String> msg = new ArrayList<>();
+				ArrayList<String> msg = new ArrayList<String>();
 
 				ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 

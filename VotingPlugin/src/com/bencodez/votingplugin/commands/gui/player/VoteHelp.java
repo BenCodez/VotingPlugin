@@ -33,8 +33,8 @@ public class VoteHelp extends GUIHandler {
 	}
 
 	public ArrayList<TextComponent> helpText(CommandSender sender) {
-		ArrayList<TextComponent> msg = new ArrayList<>();
-		HashMap<String, TextComponent> unsorted = new HashMap<>();
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
 		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
 
@@ -53,7 +53,7 @@ public class VoteHelp extends GUIHandler {
 						plugin.getConfigFile().getFormatCommandsVoteHelpLine(), hoverColor));
 			}
 		}
-		ArrayList<String> unsortedList = new ArrayList<>();
+		ArrayList<String> unsortedList = new ArrayList<String>();
 		unsortedList.addAll(unsorted.keySet());
 		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
 		for (String cmd : unsortedList) {
@@ -85,7 +85,7 @@ public class VoteHelp extends GUIHandler {
 
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<TextComponent> msg = new ArrayList<>();
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		ArrayList<TextComponent> text = helpText(sender);
 
 		int maxPage = text.size() / pagesize;

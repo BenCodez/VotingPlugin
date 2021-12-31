@@ -32,9 +32,9 @@ public class AdminVoteTabCompleter implements TabCompleter {
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
-		List<String> tab = new ArrayList<>();
+		List<String> tab = new ArrayList<String>();
 
-		Set<String> cmds = new HashSet<>();
+		Set<String> cmds = new HashSet<String>();
 
 		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getAdminVoteCommand(), sender, args,
 				args.length - 1));

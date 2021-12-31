@@ -44,7 +44,7 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "PerServerMilestones")
 	@Getter
 	private boolean perServerMilestones = false;
-
+	
 	@ConfigDataBoolean(path = "PerServerRewards")
 	@Getter
 	private boolean perServerRewards = false;

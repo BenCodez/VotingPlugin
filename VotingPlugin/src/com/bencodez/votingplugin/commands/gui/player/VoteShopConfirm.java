@@ -57,7 +57,7 @@ public class VoteShopConfirm extends GUIHandler {
 				user.clearCache();
 				int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 				int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
-				HashMap<String, String> placeholders = new HashMap<>();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("identifier", identifier);
 				placeholders.put("points", "" + points);
 				placeholders.put("limit", "" + limit);
@@ -93,7 +93,7 @@ public class VoteShopConfirm extends GUIHandler {
 				if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
 					event.getButton().getInv().closeInv(player, null);
 				} else {
-					new VoteShop(plugin, event.getPlayer(), user).open();
+					new VoteShop(plugin, event.getPlayer(), user).open();;
 				}
 			}
 		});

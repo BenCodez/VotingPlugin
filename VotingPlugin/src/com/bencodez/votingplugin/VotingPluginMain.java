@@ -105,7 +105,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private ArrayList<CommandHandler> adminVoteCommand;
 
 	@Getter
-	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<>();
+	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
 
 	@Getter
 	private BroadcastHandler broadcastHandler;
@@ -261,7 +261,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
-		return new ArrayList<>(set);
+		return new ArrayList<TopVoterPlayer>(set);
 	}
 
 	@Override
@@ -272,7 +272,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoter(TopVoter top) {
 		LinkedHashMap<TopVoterPlayer, Integer> top1 = topVoter.get(top);
 		if (top1 == null) {
-			top1 = new LinkedHashMap<>();
+			top1 = new LinkedHashMap<TopVoterPlayer, Integer>();
 		}
 		return top1;
 	}
@@ -369,7 +369,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			for (String siteName : sites) {
 				String URL = getConfigVoteSites().getServiceSite(siteName);
 				if (URL != null) {
-					if (URL.equalsIgnoreCase(name) || name.equalsIgnoreCase(siteName)) {
+					if (URL.equalsIgnoreCase(name)) {
+						return URL;
+					}
+					if (name.equalsIgnoreCase(siteName)) {
 						return URL;
 					}
 				}
@@ -990,7 +993,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 
 		topVoterHandler = new TopVoterHandler(this);
-		lastMonthTopVoter = new LinkedHashMap<>();
+		lastMonthTopVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
@@ -999,11 +1002,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug("Loaded last month top voters");
 			}
 		});
-		topVoter = new LinkedHashMap<>();
+		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
 		}
-		voteToday = new LinkedHashMap<>();
+		voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		new AdminGUI(this).loadHook();
@@ -1353,10 +1356,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
 							long startTime = System.currentTimeMillis();
 
-							LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<>();
-							LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<>();
+							LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
+							LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
 
-							ArrayList<TopVoter> topVotersToCheck = new ArrayList<>();
+							ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
 							for (TopVoter top : TopVoter.values()) {
 								if (plugin.getConfigFile().getLoadTopVoter(top)) {
 									topVotersToCheck.add(top);
@@ -1387,7 +1390,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 											}
 										}
 
-										HashMap<VoteSite, LocalDateTime> times = new HashMap<>();
+										HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
 										for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
 											if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
 												long time = entry.getValue();

@@ -49,7 +49,7 @@ public class AdminVoteVoteShopItems extends GUIHandler {
 						public void onClick(ClickEvent clickEvent) {
 							new AdminVoteVoteShopItem(plugin, clickEvent.getPlayer(), (String) getData("ident"))
 									.open(GUIMethod.CHEST);
-
+							;
 						}
 					}.addData("ident", identifier));
 		}

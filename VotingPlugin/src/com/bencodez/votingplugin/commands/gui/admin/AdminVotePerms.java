@@ -40,7 +40,7 @@ public class AdminVotePerms extends GUIHandler {
 	}
 
 	public String[] listPerms(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 
 		for (CommandHandler handle : plugin.getVoteCommand()) {
 			if (sender instanceof Player) {
@@ -100,7 +100,7 @@ public class AdminVotePerms extends GUIHandler {
 			maxPage++;
 		}
 
-		ArrayList<String> text = new ArrayList<>();
+		ArrayList<String> text = new ArrayList<String>();
 
 		text.add("&c&lCommand : Permissions " + page + "/" + maxPage);
 
@@ -115,10 +115,10 @@ public class AdminVotePerms extends GUIHandler {
 
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {
 		Player p = Bukkit.getPlayer(player);
-		ArrayList<String> text = new ArrayList<>();
+		ArrayList<String> text = new ArrayList<String>();
 		if (p != null) {
 
-			ArrayList<String> msg = new ArrayList<>();
+			ArrayList<String> msg = new ArrayList<String>();
 
 			for (CommandHandler handle : plugin.getVoteCommand()) {
 				if (handle.hasPerm(p)) {
@@ -180,7 +180,7 @@ public class AdminVotePerms extends GUIHandler {
 	}
 
 	public String[] listPermsDev(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("Command");
 		msg.add("  Permissions (seperated by |");
 		msg.add("  Help messasge");

@@ -27,7 +27,7 @@ public class VoteReminding {
 	private Timer timer;
 
 	@Getter
-	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<>();
+	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<UUID, Boolean>();
 
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;

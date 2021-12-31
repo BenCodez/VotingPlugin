@@ -46,7 +46,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			}
 			String value = placeholder.placeholderRequest(user, identifier);
 			String msg = identifier + " = " + value;
-			Layout layout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(msg).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(value)).build());
 			book.addLayout(layout);
@@ -61,7 +61,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			String value = placeholder.placeholderRequest(identifier);
 			String msg = identifier + " = " + value;
 
-			Layout layout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(msg).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(value)).build());
 			book.addLayout(layout);
@@ -71,7 +71,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
 		VotingPluginUser placeholderUser = user;
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {

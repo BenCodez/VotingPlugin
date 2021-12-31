@@ -57,7 +57,7 @@ public enum TopVoter {
 	}
 
 	public TopVoter next() {
-		ArrayList<TopVoter> list = new ArrayList<>();
+		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
 		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
 			list.add(TopVoter.AllTime);
 		}
@@ -83,7 +83,7 @@ public enum TopVoter {
 	}
 
 	public TopVoter prev() {
-		ArrayList<TopVoter> list = new ArrayList<>();
+		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
 		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
 			list.add(TopVoter.AllTime);
 		}

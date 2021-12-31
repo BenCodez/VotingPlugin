@@ -51,7 +51,7 @@ public class VoteTopVoter extends GUIHandler {
 		default:
 			break;
 		}
-		return new ArrayList<>();
+		return new ArrayList<String>();
 	}
 
 	@Override

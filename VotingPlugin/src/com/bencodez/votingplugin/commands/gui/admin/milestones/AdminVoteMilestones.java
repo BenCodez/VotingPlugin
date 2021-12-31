@@ -53,7 +53,7 @@ public class AdminVoteMilestones extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						ArrayList<Integer> nums = new ArrayList<>();
+						ArrayList<Integer> nums = new ArrayList<Integer>();
 						for (String num : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 							if (StringParser.getInstance().isInt(num)) {
 								nums.add(Integer.parseInt(num));
@@ -73,7 +73,7 @@ public class AdminVoteMilestones extends GUIHandler {
 							}
 						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
 								.request(clickEvent.getPlayer());
-
+						;
 					}
 				});
 

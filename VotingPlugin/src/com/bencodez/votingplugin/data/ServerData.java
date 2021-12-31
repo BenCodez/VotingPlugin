@@ -114,7 +114,7 @@ public class ServerData {
 		try {
 			return getData().getConfigurationSection("Signs").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<>();
+			return new HashSet<String>();
 		}
 	}
 

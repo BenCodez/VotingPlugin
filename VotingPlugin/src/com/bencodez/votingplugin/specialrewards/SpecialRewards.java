@@ -150,7 +150,7 @@ public class SpecialRewards {
 			}
 		}
 		if (plugin.getConfigFile().isPreventRepeatMilestones()) {
-			ArrayList<Integer> nums = new ArrayList<>();
+			ArrayList<Integer> nums = new ArrayList<Integer>();
 
 			for (String str : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 				try {

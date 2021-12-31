@@ -48,7 +48,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 				msg = "VotingPlugin_" + identifier + "";
 			}
 
-			Layout layout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(identifier).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(msg)).build());
 			book.addLayout(layout);
@@ -66,7 +66,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 				msg = "VotingPlugin_" + identifier + "";
 			}
 
-			Layout layout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
+			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 			layout.replaceTextComponent("[Json]", BookUtil.TextBuilder.of(identifier).color(ChatColor.AQUA)
 					.onHover(BookUtil.HoverAction.showText(msg)).build());
 			book.addLayout(layout);
@@ -79,7 +79,7 @@ public class AdminVotePlaceholders extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier();

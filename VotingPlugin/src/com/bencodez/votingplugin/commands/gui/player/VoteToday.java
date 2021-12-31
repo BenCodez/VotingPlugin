@@ -44,7 +44,7 @@ public class VoteToday extends GUIHandler {
 		if (page < 1) {
 			page = 1;
 		}
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		String[] voteToday = voteToday();
 
 		int maxPage = voteToday.length / pagesize;
@@ -52,7 +52,7 @@ public class VoteToday extends GUIHandler {
 			maxPage++;
 		}
 
-		HashMap<String, String> placeholders = new HashMap<>();
+		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("page", "" + page);
 		placeholders.put("maxpage", "" + maxPage);
 
@@ -91,7 +91,7 @@ public class VoteToday extends GUIHandler {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
 				String msg = plugin.getGui().getChestVoteTodayLine();
-				HashMap<String, String> placeholders = new HashMap<>();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("VoteSite", voteSite.getDisplayName());
 				placeholders.put("Time", timeString);
 				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
@@ -129,13 +129,13 @@ public class VoteToday extends GUIHandler {
 	}
 
 	public String[] voteToday() {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				HashMap<String, String> placeholders = new HashMap<>();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
 				placeholders.put("time", timeString);
@@ -150,7 +150,7 @@ public class VoteToday extends GUIHandler {
 	}
 
 	public String[] voteTodayGUI() {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
 			LocalDateTime mostRecent = null;
@@ -164,7 +164,7 @@ public class VoteToday extends GUIHandler {
 			if (mostRecent != null) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
 				String timeString = mostRecent.format(formatter);
-				HashMap<String, String> placeholders = new HashMap<>();
+				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
 				placeholders.put("time", timeString);

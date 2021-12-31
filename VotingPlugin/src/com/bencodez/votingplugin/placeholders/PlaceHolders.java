@@ -35,10 +35,10 @@ import lombok.Getter;
 public class PlaceHolders {
 
 	@Getter
-	private ArrayList<NonPlayerPlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<>();
+	private ArrayList<NonPlayerPlaceHolder<VotingPluginUser>> nonPlayerPlaceholders = new ArrayList<NonPlayerPlaceHolder<VotingPluginUser>>();
 
 	@Getter
-	private ArrayList<PlaceHolder<VotingPluginUser>> placeholders = new ArrayList<>();
+	private ArrayList<PlaceHolder<VotingPluginUser>> placeholders = new ArrayList<PlaceHolder<VotingPluginUser>>();
 
 	private VotingPluginMain plugin;
 
@@ -46,7 +46,7 @@ public class PlaceHolders {
 		this.plugin = plugin;
 	}
 
-	private ArrayList<String> cachedPlaceholders = new ArrayList<>();
+	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		return getPlaceHolder(p, identifier, true);
@@ -106,7 +106,7 @@ public class PlaceHolders {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
-		return getPlaceHolder(p, identifier, false);
+		return getPlaceHolder((OfflinePlayer) p, identifier, false);
 	}
 
 	public void load() {
@@ -291,7 +291,7 @@ public class PlaceHolders {
 					return plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
 				}
 				long smallest = -1;
-				HashMap<Long, VoteSite> times = new HashMap<>();
+				HashMap<Long, VoteSite> times = new HashMap<Long, VoteSite>();
 				for (VoteSite site : plugin.getVoteSites()) {
 					long t = user.voteNextDurationTime(site);
 					if (smallest == -1) {
@@ -754,7 +754,7 @@ public class PlaceHolders {
 			}
 		}
 	}
-
+	
 	public void onBungeeVotePartyUpdate() {
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {

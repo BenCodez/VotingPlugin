@@ -44,7 +44,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
-
+	
 	@ConfigDataInt(path = "PlayerDataLoadLimit")
 	@Getter
 	private int playerDataLoadLimit = -1;
@@ -99,15 +99,15 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
-	private ArrayList<String> disabledCommands = new ArrayList<>();
+	private ArrayList<String> disabledCommands = new ArrayList<String>();
 
 	@ConfigDataListString(path = "DisabledDefaultPermissions")
 	@Getter
-	private ArrayList<String> disabledDefaultPermissions = new ArrayList<>();
+	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
 
 	@ConfigDataListString(path = "CachedPlaceholders")
 	@Getter
-	private ArrayList<String> cachedPlaceholders = new ArrayList<>();
+	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
 
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter
@@ -275,7 +275,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
-	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<>();
+	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
 
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
@@ -294,7 +294,7 @@ public class Config extends YMLFile {
 	public Set<String> getCustomCommands() {
 		Set<String> str = getData().getConfigurationSection("CustomCommands").getKeys(false);
 		if (str == null) {
-			str = new HashSet<>();
+			str = new HashSet<String>();
 		}
 		return str;
 	}
@@ -442,7 +442,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteParty() {
-		ArrayList<String> msg = new ArrayList<>();
+		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Party", msg);
 
@@ -464,7 +464,7 @@ public class Config extends YMLFile {
 	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteText() {
-		ArrayList<String> str = new ArrayList<>();
+		ArrayList<String> str = new ArrayList<String>();
 		str.add("&4&lVote for our server!");
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
 	}

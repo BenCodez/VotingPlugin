@@ -73,7 +73,7 @@ public class GUI extends YMLFile {
 	@ConfigDataBoolean(path = "CHEST.VoteShopRequireConfirmation")
 	@Getter
 	private boolean chestVoteShopRequireConfirmation = false;
-
+	
 	@ConfigDataBoolean(path = "CHEST.VoteBest.BackButton")
 	@Getter
 	private boolean chestVoteBestBackButton = true;
@@ -195,7 +195,7 @@ public class GUI extends YMLFile {
 		if (shop != null) {
 			return shop.getKeys(false);
 		}
-		return new HashSet<>();
+		return new HashSet<String>();
 	}
 
 	public ConfigurationSection getChestShopIdentifierSection(String identifier) {
@@ -257,7 +257,7 @@ public class GUI extends YMLFile {
 		try {
 			return getData().getConfigurationSection("CHEST.VoteGUI").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<>();
+			return new HashSet<String>();
 		}
 	}
 
@@ -488,7 +488,7 @@ public class GUI extends YMLFile {
 		if (getData().isConfigurationSection("CHEST.VoteURL.ExtraItems")) {
 			return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems").getKeys(false);
 		}
-		return new HashSet<>();
+		return new HashSet<String>();
 	}
 
 	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {

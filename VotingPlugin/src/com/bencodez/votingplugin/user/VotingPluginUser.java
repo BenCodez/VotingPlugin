@@ -302,8 +302,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public boolean checkAllVotes() {
 		VotingPluginUser user = this;
 
-		ArrayList<Integer> months = new ArrayList<>();
-		ArrayList<Integer> days = new ArrayList<>();
+		ArrayList<Integer> months = new ArrayList<Integer>();
+		ArrayList<Integer> days = new ArrayList<Integer>();
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			if (voteSite.isEnabled() && !voteSite.isHidden()) {
@@ -318,15 +318,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		// check months
-		for (Integer month : months) {
-			if (!months.get(0).equals(month)) {
+		for (int i = 0; i < months.size(); i++) {
+			if (!months.get(0).equals(months.get(i))) {
 				return false;
 			}
 		}
 
 		// check days
-		for (Integer day : days) {
-			if (!days.get(0).equals(day)) {
+		for (int i = 0; i < days.size(); i++) {
+			if (!days.get(0).equals(days.get(i))) {
 				return false;
 			}
 		}
@@ -399,7 +399,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
-		HashMap<String, Boolean> hasGottenMilestone = new HashMap<>();
+		HashMap<String, Boolean> hasGottenMilestone = new HashMap<String, Boolean>();
 		ArrayList<String> milestoneList = getUserData().getStringList(getGottenMilestonesPath());
 		for (String str : milestoneList) {
 			String[] data = str.split("//");
@@ -428,7 +428,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public HashMap<VoteSite, Long> getLastVotes() {
-		HashMap<VoteSite, Long> lastVotes = new HashMap<>();
+		HashMap<VoteSite, Long> lastVotes = new HashMap<VoteSite, Long>();
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
@@ -455,7 +455,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the last vote times sorted
 	 */
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
-		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<>();
+		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
 
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			times.put(voteSite, getTime(voteSite));
@@ -688,12 +688,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				setOfflineVotes(new ArrayList<String>());
 			}
 
-			for (String offlineVote : offlineVotes) {
-				if (plugin.hasVoteSite(offlineVote)) {
-					plugin.debug("Giving offline site reward: " + offlineVote);
-					playerVote(plugin.getVoteSite(offlineVote, true), false, true, false);
+			for (int i = 0; i < offlineVotes.size(); i++) {
+				if (plugin.hasVoteSite(offlineVotes.get(i))) {
+					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
+					playerVote(plugin.getVoteSite(offlineVotes.get(i), true), false, true, false);
 				} else {
-					plugin.debug("Site doesn't exist: " + offlineVote);
+					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
 		}
@@ -783,7 +783,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
-		ArrayList<String> data = new ArrayList<>();
+		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<String, Boolean> entry : hasGottenMilestone.entrySet()) {
 			String str = entry.getKey() + "//" + entry.getValue().booleanValue();
 			data.add(str);
@@ -815,7 +815,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
-		ArrayList<String> data = new ArrayList<>();
+		ArrayList<String> data = new ArrayList<String>();
 		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
 			String str = entry.getKey().getKey() + "//" + entry.getValue().longValue();
 			data.add(str);
@@ -1042,7 +1042,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		String timeString = voteCommandLastDate(voteSite);
 		String timeSince = voteCommandLastDuration(voteSite);
 
-		HashMap<String, String> placeholders = new HashMap<>();
+		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("time", timeString);
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
@@ -1054,7 +1054,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		String timeString = voteCommandLastDate(voteSite);
 		String timeSince = voteCommandLastDuration(voteSite);
 
-		HashMap<String, String> placeholders = new HashMap<>();
+		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("time", timeString);
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
