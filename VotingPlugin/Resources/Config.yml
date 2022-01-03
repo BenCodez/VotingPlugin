@@ -77,7 +77,7 @@ VoteReminding:
   # This can also be edited via /av gui
   Rewards:
     Messages:
-      Player: '&aYou have %sitesavailable% to vote on still!'
+      Player: '&aYou have %sitesavailable% sites to vote on still!'
     Title:
       Enabled: false
       Title: '&cRemember to vote!'
@@ -446,6 +446,7 @@ AlwaysWaitForCachePlaceholders: false
 # Set which placeholders to cache at all times
 # Use for placeholders to are pulled constantly or on the main thread
 # Mainly aimed for scoreboards
+# Placeholders may auto cache in certain conditions
 # Will use additional memory, but not a lot
 # Still in early stages, please report bugs
 # Please remove VotingPlugin_ from the placeholder listed here

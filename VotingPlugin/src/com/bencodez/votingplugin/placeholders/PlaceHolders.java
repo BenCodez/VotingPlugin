@@ -5,10 +5,13 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -48,6 +51,8 @@ public class PlaceHolders {
 
 	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
 
+	private ConcurrentLinkedQueue<String> placeholdersToSetCacheOn = new ConcurrentLinkedQueue<String>();
+
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		return getPlaceHolder(p, identifier, true);
 	}
@@ -69,6 +74,7 @@ public class PlaceHolders {
 				user.setWaitForCache(false);
 				if (!user.isCached()) {
 					user.loadCache();
+					placeholdersToSetCacheOn.add(identifier);
 					return "..";
 				}
 			}
@@ -682,7 +688,11 @@ public class PlaceHolders {
 			}
 		}.withDescription("Time until plugin time day changes"));
 
-		for (String toCache : plugin.getConfigFile().getCachedPlaceholders()) {
+		Set<String> placeholdersSet = new HashSet<String>();
+		placeholdersSet.addAll(plugin.getConfigFile().getCachedPlaceholders());
+		placeholdersSet.addAll(plugin.getServerData().getAutoCachedPlaceholder());
+
+		for (String toCache : placeholdersSet) {
 			if (toCache.startsWith("VotingPlugin")) {
 				toCache = toCache.substring("VotingPlugin_".length());
 			}
@@ -770,7 +780,8 @@ public class PlaceHolders {
 	public void onUpdate(VotingPluginUser user) {
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			if (placeholder.isUsesCache()) {
-				if (!placeholder.getIdentifier().startsWith("Top_")) {
+				if (!placeholder.getIdentifier().startsWith("Top_") || placeholder.getCache().isEmpty()
+						|| placeholder.getUpdateDataKey().isEmpty()) {
 					for (String ident : placeholder.getCache().keySet()) {
 						placeholder.getCache().get(ident).put(user.getJavaUUID(),
 								placeholder.placeholderRequest(user, ident));
@@ -781,6 +792,27 @@ public class PlaceHolders {
 	}
 
 	public void onUpdate() {
+		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+		while (!placeholdersToSetCacheOn.isEmpty()) {
+			String toCache = placeholdersToSetCacheOn.poll();
+			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+				if (placeholder.matches(toCache)) {
+					placeholder.setUseCache(true, toCache);
+					cachedPlaceholders.add(toCache);
+					plugin.getServerData().addAutoCachedPlaceholder(toCache);
+					plugin.debug("Auto caching placeholder: " + toCache);
+				}
+			}
+			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+				if (placeholder.matches(toCache)) {
+					placeholder.setUseCache(true, toCache);
+					cachedPlaceholders.add(toCache);
+					plugin.getServerData().addAutoCachedPlaceholder(toCache);
+					plugin.debug("Auto caching placeholder: " + toCache);
+				}
+			}
+
+		}
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				for (String ident : placeholder.getCache().keySet()) {
@@ -788,15 +820,13 @@ public class PlaceHolders {
 				}
 			}
 		}
-
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-			if (placeholder.isUsesCache()) {
-				if (placeholder.getIdentifier().startsWith("Top_") || placeholder.getUpdateDataKey().isEmpty()) {
-					for (String uuidStr : uuids) {
+		for (String uuid : uuids) {
+			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+			user.dontCache();
+			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+				if (placeholder.isUsesCache()) {
+					if (placeholder.getIdentifier().startsWith("Top_")) {
 						for (String ident : placeholder.getCache().keySet()) {
-							VotingPluginUser user = UserManager.getInstance()
-									.getVotingPluginUser(UUID.fromString(uuidStr));
 							placeholder.getCache().get(ident).put(user.getJavaUUID(),
 									placeholder.placeholderRequest(user, ident));
 						}
@@ -804,5 +834,6 @@ public class PlaceHolders {
 				}
 			}
 		}
+
 	}
 }

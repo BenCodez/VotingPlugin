@@ -1350,6 +1350,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 						plugin.debug("Starting background task, current cached users: "
 								+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
+						
+						placeholders.onUpdate();
 
 						int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
 						try {
@@ -1440,7 +1442,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 							tempTopVoter = null;
 
-							placeholders.onUpdate();
+							
 
 							time1 = ((System.currentTimeMillis() - time1) / 1000);
 							long totalTime = ((System.currentTimeMillis() - startTime) / 1000);

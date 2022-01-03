@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.data;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -22,6 +23,23 @@ public class ServerData {
 
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
+	}
+
+	public void addAutoCachedPlaceholder(String placeholder) {
+		List<String> p = getAutoCachedPlaceholder();
+		if (!p.contains(placeholder)) {
+			p.add(placeholder);
+			setAutoCachedPlaceholder(p);
+		}
+	}
+
+	public void setAutoCachedPlaceholder(List<String> placeholders) {
+		getData().set("AutoCachePlaceholders", placeholders);
+		saveData();
+	}
+
+	public List<String> getAutoCachedPlaceholder() {
+		return getData().getStringList("AutoCachePlaceholders");
 	}
 
 	public synchronized void addServiceSite(String site) {
