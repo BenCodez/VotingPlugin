@@ -74,7 +74,9 @@ public class PlaceHolders {
 				user.setWaitForCache(false);
 				if (!user.isCached()) {
 					user.loadCache();
-					placeholdersToSetCacheOn.add(identifier);
+					if (plugin.getConfigFile().isAutoCachePlaceholders()) {
+						placeholdersToSetCacheOn.add(identifier);
+					}
 					return "..";
 				}
 			}
@@ -690,7 +692,9 @@ public class PlaceHolders {
 
 		Set<String> placeholdersSet = new HashSet<String>();
 		placeholdersSet.addAll(plugin.getConfigFile().getCachedPlaceholders());
-		placeholdersSet.addAll(plugin.getServerData().getAutoCachedPlaceholder());
+		if (plugin.getConfigFile().isAutoCachePlaceholders()) {
+			placeholdersSet.addAll(plugin.getServerData().getAutoCachedPlaceholder());
+		}
 
 		for (String toCache : placeholdersSet) {
 			if (toCache.startsWith("VotingPlugin")) {

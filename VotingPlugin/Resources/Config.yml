@@ -443,6 +443,9 @@ UsePrimaryAccountForPlaceholders: false
 # Only affects placeholderapi placeholders
 AlwaysWaitForCachePlaceholders: false
 
+# Enable auto caching placeholders
+AutoCachePlaceholders: true
+
 # Set which placeholders to cache at all times
 # Use for placeholders to are pulled constantly or on the main thread
 # Mainly aimed for scoreboards
