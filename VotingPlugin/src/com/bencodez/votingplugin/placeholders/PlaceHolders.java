@@ -64,7 +64,10 @@ public class PlaceHolders {
 
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.matches(identifier)) {
-				return placeholder.placeholderRequest(identifier);
+				String str = placeholder.placeholderRequest(identifier);
+				if (str != null) {
+					return str;
+				}
 			}
 		}
 
@@ -380,6 +383,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
+				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+					return null;
+				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
@@ -412,6 +418,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
+				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+					return null;
+				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
@@ -460,6 +469,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
+				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+					return null;
+				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
@@ -508,6 +520,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
+				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+					return null;
+				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
