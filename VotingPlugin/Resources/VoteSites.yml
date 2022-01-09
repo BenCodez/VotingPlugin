@@ -26,7 +26,7 @@ VoteSites:
     ServiceSite: 'PlanetMinecraft.com'
 
     # vote url for /vote
-    # Format for this can be set in Format.yml
+    # Format for this can be set in Config.yml
     # Do not include colors here
     # If you need to force a url set the url as this:
     # VoteURL: '[Text="ANY TEXT TO CLICK ON HERE",url="URLHERE"]'
@@ -62,7 +62,7 @@ VoteSites:
       Amount: 1
 
     # Rewards to give
-    # https://github.com/Ben12345rocks/AdvancedCore/wiki/Rewards
+    # https://github.com/BenCodez/AdvancedCore/wiki/Rewards
     Rewards:
       # Execute console commands
       Commands:
