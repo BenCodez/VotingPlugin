@@ -835,7 +835,11 @@ public class PlaceHolders {
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 			if (placeholder.isUsesCache()) {
 				for (String ident : placeholder.getCache().keySet()) {
-					placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+					if (ident != null) {
+						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+					} else {
+						plugin.debug("ident null: " + placeholder.getIdentifier());
+					}
 				}
 			}
 		}
@@ -846,8 +850,12 @@ public class PlaceHolders {
 				if (placeholder.isUsesCache()) {
 					if (placeholder.getIdentifier().startsWith("Top_")) {
 						for (String ident : placeholder.getCache().keySet()) {
-							placeholder.getCache().get(ident).put(user.getJavaUUID(),
-									placeholder.placeholderRequest(user, ident));
+							if (ident != null) {
+								placeholder.getCache().get(ident).put(user.getJavaUUID(),
+										placeholder.placeholderRequest(user, ident));
+							} else {
+								plugin.debug("ident null: " + placeholder.getIdentifier());
+							}
 						}
 					}
 				}
