@@ -836,7 +836,10 @@ public class PlaceHolders {
 			if (placeholder.isUsesCache()) {
 				for (String ident : placeholder.getCache().keySet()) {
 					if (ident != null) {
-						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
+						String str = placeholder.placeholderRequest(ident);
+						if (str != null) {
+							placeholder.getCache().put(ident, str);
+						}
 					} else {
 						plugin.debug("ident null: " + placeholder.getIdentifier());
 					}
