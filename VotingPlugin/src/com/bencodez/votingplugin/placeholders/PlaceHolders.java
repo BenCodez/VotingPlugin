@@ -62,11 +62,13 @@ public class PlaceHolders {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
-		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
-			if (placeholder.matches(identifier)) {
-				String str = placeholder.placeholderRequest(identifier);
-				if (str != null) {
-					return str;
+		if (!identifier.endsWith("Position")) {
+			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+				if (placeholder.matches(identifier)) {
+					String str = placeholder.placeholderRequest(identifier);
+					if (str != null) {
+						return str;
+					}
 				}
 			}
 		}
