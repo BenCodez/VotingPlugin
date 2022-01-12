@@ -73,6 +73,9 @@ public class PlaceHolders {
 			}
 		}
 
+		if (p == null) {
+			return "no player";
+		}
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 		if (!cachedPlaceholders.contains(identifier)) {
 			if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
