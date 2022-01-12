@@ -13,6 +13,7 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
+import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.UserManager;
@@ -213,6 +214,10 @@ public class PlayerVoteListener implements Listener {
 				user.clearCache();
 			}
 		}
+
+		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
+				event.isForceBungee());
+		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
 		plugin.setUpdate(true);
 	}
