@@ -58,7 +58,7 @@ public class PlaceHolders {
 	}
 
 	public String getPlaceHolder(OfflinePlayer p, String identifier, boolean javascript) {
-		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript) {
+		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
 
