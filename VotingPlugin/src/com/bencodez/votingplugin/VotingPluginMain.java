@@ -1346,114 +1346,117 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					update = false;
 
 					synchronized (plugin) {
-						getUserManager().getDataManager().clearCacheBasic();
+						if (plugin != null && plugin.isEnabled()) {
+							getUserManager().getDataManager().clearCacheBasic();
 
-						plugin.debug("Starting background task, current cached users: "
-								+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-						
-						placeholders.onUpdate();
-
-						int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
-						try {
-							boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
-							long startTime = System.currentTimeMillis();
-
-							LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
-							LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
-
-							ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
-							for (TopVoter top : TopVoter.values()) {
-								if (plugin.getConfigFile().getLoadTopVoter(top)) {
-									topVotersToCheck.add(top);
-									tempTopVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
-								}
-							}
-							boolean topVoterIgnorePermissionUse = plugin.getConfigFile().getTopVoterIgnorePermission();
-							ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
-
-							ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-							int currentDay = LocalDateTime.now().getDayOfMonth();
-							int currentDataLoad = 0;
-							for (String uuid : uuids) {
-								if (uuid != null && !uuid.isEmpty()) {
-									VotingPluginUser user = UserManager.getInstance()
-											.getVotingPluginUser(UUID.fromString(uuid), false);
-									user.dontCache();
-									user.tempCache();
-									user.getUserData().updateCacheWithTemp();
-									if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
-
-										if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
-											for (TopVoter top : topVotersToCheck) {
-												int total = user.getTotal(top);
-												if (total > 0) {
-													tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
-												}
-											}
-										}
-
-										HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-										for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-											if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
-												long time = entry.getValue();
-												if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
-														&& (LocalDateTime.now().getMonthValue() == MiscUtils
-																.getInstance().getMonthFromMili(time))
-														&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
-																.getYearFromMili(time))) {
-
-													times.put(entry.getKey(), LocalDateTime.ofInstant(
-															Instant.ofEpochMilli(time), ZoneId.systemDefault()));
-												}
-											}
-										}
-										if (times.keySet().size() > 0) {
-											voteToday.put(user.getTopVoterPlayer(), times);
-										}
-									}
-									if (!extraBackgroundUpdate) {
-										if (user.isOnline()) {
-											user.offVote();
-										}
-									}
-									plugin.getPlaceholders().onUpdate(user);
-									user.clearTempCache();
-									user = null;
-									if (dataLoadLimit > 0) {
-										currentDataLoad++;
-										if (currentDataLoad >= dataLoadLimit) {
-											currentDataLoad -= dataLoadLimit;
-											Thread.sleep(1000);
-										}
-									}
-								}
-							}
-							update = false;
-							long time1 = ((System.currentTimeMillis() - startTime) / 1000);
-							plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
-									+ " users, " + plugin.getStorageType().toString() + ", data load limit: "
-									+ dataLoadLimit);
-							time1 = System.currentTimeMillis();
-
-							topVoterHandler.updateTopVoters(tempTopVoter);
-							setVoteToday(voteToday);
-							serverData.updateValues();
-							getSigns().updateSigns();
-
-							tempTopVoter = null;
-
-							
-
-							time1 = ((System.currentTimeMillis() - time1) / 1000);
-							long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
-							plugin.debug("Background task finished. Final processing took " + time1
-									+ " seconds. Total time: " + totalTime + " seconds");
-							plugin.extraDebug("Current cached users: "
+							plugin.debug("Starting background task, current cached users: "
 									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-							checkFirstTimeLoaded();
-						} catch (Exception ex) {
-							plugin.getLogger().info("Looks like something went wrong");
-							ex.printStackTrace();
+
+							placeholders.onUpdate();
+
+							int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
+							try {
+								boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
+								long startTime = System.currentTimeMillis();
+
+								LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
+								LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
+
+								ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
+								for (TopVoter top : TopVoter.values()) {
+									if (plugin.getConfigFile().getLoadTopVoter(top)) {
+										topVotersToCheck.add(top);
+										tempTopVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
+									}
+								}
+								boolean topVoterIgnorePermissionUse = plugin.getConfigFile()
+										.getTopVoterIgnorePermission();
+								ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
+
+								ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+								int currentDay = LocalDateTime.now().getDayOfMonth();
+								int currentDataLoad = 0;
+								for (String uuid : uuids) {
+									if (uuid != null && !uuid.isEmpty()) {
+										VotingPluginUser user = UserManager.getInstance()
+												.getVotingPluginUser(UUID.fromString(uuid), false);
+										user.dontCache();
+										user.tempCache();
+										user.getUserData().updateCacheWithTemp();
+										if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
+
+											if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
+												for (TopVoter top : topVotersToCheck) {
+													int total = user.getTotal(top);
+													if (total > 0) {
+														tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
+													}
+												}
+											}
+
+											HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+											for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
+												if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
+													long time = entry.getValue();
+													if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
+															&& (LocalDateTime.now().getMonthValue() == MiscUtils
+																	.getInstance().getMonthFromMili(time))
+															&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
+																	.getYearFromMili(time))) {
+
+														times.put(entry.getKey(), LocalDateTime.ofInstant(
+																Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+													}
+												}
+											}
+											if (times.keySet().size() > 0) {
+												voteToday.put(user.getTopVoterPlayer(), times);
+											}
+										}
+										if (!extraBackgroundUpdate) {
+											if (user.isOnline()) {
+												user.offVote();
+											}
+										}
+										plugin.getPlaceholders().onUpdate(user);
+										user.clearTempCache();
+										user = null;
+										if (dataLoadLimit > 0) {
+											currentDataLoad++;
+											if (currentDataLoad >= dataLoadLimit) {
+												currentDataLoad -= dataLoadLimit;
+												Thread.sleep(1000);
+											}
+										}
+									}
+								}
+								update = false;
+								long time1 = ((System.currentTimeMillis() - startTime) / 1000);
+								plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
+										+ " users, " + plugin.getStorageType().toString() + ", data load limit: "
+										+ dataLoadLimit);
+								time1 = System.currentTimeMillis();
+
+								topVoterHandler.updateTopVoters(tempTopVoter);
+								setVoteToday(voteToday);
+								serverData.updateValues();
+								getSigns().updateSigns();
+
+								tempTopVoter = null;
+
+								time1 = ((System.currentTimeMillis() - time1) / 1000);
+								long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
+								plugin.debug("Background task finished. Final processing took " + time1
+										+ " seconds. Total time: " + totalTime + " seconds");
+								plugin.extraDebug("Current cached users: "
+										+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
+								checkFirstTimeLoaded();
+							} catch (Exception ex) {
+								if (plugin != null) {
+									plugin.getLogger().info("Looks like something went wrong");
+								}
+								ex.printStackTrace();
+							}
 						}
 					}
 
