@@ -45,6 +45,9 @@ public class PlayerVoteListener implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
+		if (!plugin.isEnabled()) {
+			return;
+		}
 		String playerName = event.getPlayer();
 		if (!PlayerUtils.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!plugin.getConfigFile().isAllowUnjoined()) {
@@ -110,6 +113,9 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		synchronized (object) {
+			if (!plugin.isEnabled()) {
+				return;
+			}
 			// reupdate cache
 			user.clearCache();
 			user.cache();
