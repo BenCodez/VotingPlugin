@@ -265,6 +265,11 @@
 			<version>2.2.1</version>
 			<scope>compile</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.github.LeonMangler</groupId>
+			<artifactId>SuperVanish</artifactId>
+			<version>6.2.6-4</version>
+		</dependency>
 	</dependencies>
 	<profiles>
 		<profile>

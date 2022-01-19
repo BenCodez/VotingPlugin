@@ -21,7 +21,7 @@ import com.bencodez.votingplugin.user.UserManager;
 public class PlayerInteract implements Listener {
 
 	/** The plugin. */
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new player interact.
@@ -29,7 +29,7 @@ public class PlayerInteract implements Listener {
 	 * @param plugin the plugin
 	 */
 	public PlayerInteract(VotingPluginMain plugin) {
-		PlayerInteract.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**

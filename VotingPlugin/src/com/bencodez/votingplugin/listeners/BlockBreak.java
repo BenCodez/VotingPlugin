@@ -18,7 +18,7 @@ import com.bencodez.votingplugin.signs.SignHandler;
 public class BlockBreak implements Listener {
 
 	/** The plugin. */
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new block break.
@@ -26,7 +26,7 @@ public class BlockBreak implements Listener {
 	 * @param plugin the plugin
 	 */
 	public BlockBreak(VotingPluginMain plugin) {
-		BlockBreak.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**

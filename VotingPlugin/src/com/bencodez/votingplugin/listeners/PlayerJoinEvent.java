@@ -21,7 +21,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 public class PlayerJoinEvent implements Listener {
 
 	/** The plugin. */
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new player join event.
@@ -29,7 +29,7 @@ public class PlayerJoinEvent implements Listener {
 	 * @param plugin the plugin
 	 */
 	public PlayerJoinEvent(VotingPluginMain plugin) {
-		PlayerJoinEvent.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	private void login(Player player) {

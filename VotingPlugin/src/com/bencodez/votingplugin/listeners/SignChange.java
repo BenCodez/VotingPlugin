@@ -16,7 +16,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 public class SignChange implements Listener {
 
 	/** The plugin. */
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new sign change.
@@ -24,7 +24,7 @@ public class SignChange implements Listener {
 	 * @param plugin the plugin
 	 */
 	public SignChange(VotingPluginMain plugin) {
-		SignChange.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**

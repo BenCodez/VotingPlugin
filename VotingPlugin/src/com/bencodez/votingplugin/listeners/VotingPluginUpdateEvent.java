@@ -14,7 +14,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 public class VotingPluginUpdateEvent implements Listener {
 
 	/** The plugin. */
-	private static VotingPluginMain plugin;
+	private VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new advanced core update event.
@@ -22,7 +22,7 @@ public class VotingPluginUpdateEvent implements Listener {
 	 * @param plugin the plugin
 	 */
 	public VotingPluginUpdateEvent(VotingPluginMain plugin) {
-		VotingPluginUpdateEvent.plugin = plugin;
+		this.plugin = plugin;
 	}
 
 	/**
