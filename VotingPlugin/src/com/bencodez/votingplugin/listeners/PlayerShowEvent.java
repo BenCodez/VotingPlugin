@@ -47,6 +47,8 @@ public class PlayerShowEvent implements Listener {
 					if (data) {
 						// give offline vote (if they voted offline)
 						user.offVote();
+						user.checkOfflineRewards();
+						user.setLastOnline(System.currentTimeMillis());
 					}
 
 					user.loginRewards();
