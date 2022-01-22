@@ -35,6 +35,7 @@ public class PlayerShowEvent implements Listener {
 			@Override
 			public void run() {
 				if (p != null && p.isOnline()) {
+					plugin.debug("Vanish login: " + p.getName());
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 					if (p.isOp() && plugin.isYmlError()) {
 						user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
