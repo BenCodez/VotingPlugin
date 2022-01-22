@@ -1261,10 +1261,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(coolDownCheck, this);
 
 		try {
-			Class.forName("de.myzelyam.api.vanish.PostPlayerShowEvent");
 			pm.registerEvents(new PlayerShowEvent(this), this);
 		} catch (Exception e) {
-
+			plugin.debug("PlayerPostShowEvent not loaded");
 		}
 
 		plugin.debug("Loaded Events");
