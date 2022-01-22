@@ -11,9 +11,9 @@ import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-import de.myzelyam.api.vanish.PostPlayerShowEvent;
+import de.myzelyam.api.vanish.PlayerShowEvent;
 
-public class PlayerShowEvent implements Listener {
+public class PlayerShow implements Listener {
 
 	/** The plugin. */
 	private VotingPluginMain plugin;
@@ -23,13 +23,14 @@ public class PlayerShowEvent implements Listener {
 	 *
 	 * @param plugin the plugin
 	 */
-	public PlayerShowEvent(VotingPluginMain plugin) {
+	public PlayerShow(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
-	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-	public void onPlayerLogin(PostPlayerShowEvent event) {
+	@EventHandler(priority = EventPriority.MONITOR)
+	public void onPlayerShow(PlayerShowEvent event) {
 		Player p = event.getPlayer();
+		plugin.debug("Vanish login: " + p.getName());
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override

@@ -71,7 +71,7 @@ import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
-import com.bencodez.votingplugin.listeners.PlayerShowEvent;
+import com.bencodez.votingplugin.listeners.PlayerShow;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
@@ -1261,9 +1261,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(coolDownCheck, this);
 
 		try {
-			pm.registerEvents(new PlayerShowEvent(this), this);
-		} catch (Exception e) {
-			plugin.debug("PlayerPostShowEvent not loaded");
+			Class.forName("de.myzelyam.api.vanish.PostPlayerShowEvent");
+			pm.registerEvents(new PlayerShow(this), this);
+			plugin.debug("Loaded PostPlayerShowEvent");
+		} catch (ClassNotFoundException e) {
+			plugin.debug("Not loading PostPlayerShowEvent");
 		}
 
 		plugin.debug("Loaded Events");
