@@ -335,7 +335,7 @@ public class TopVoterHandler implements Listener {
 					int lastTotal = -1;
 					@SuppressWarnings("unchecked")
 					LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
-							.getTopVoter(TopVoter.Monthly).clone();
+							.getTopVoter(TopVoter.Weekly).clone();
 					for (Entry<TopVoterPlayer, Integer> entry : clone.entrySet()) {
 						VotingPluginUser user = entry.getKey().getUser();
 						user.dontCache();
