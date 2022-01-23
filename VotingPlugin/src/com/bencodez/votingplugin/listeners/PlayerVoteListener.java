@@ -150,8 +150,7 @@ public class PlayerVoteListener implements Listener {
 			// try logging to file
 			if (plugin.getConfigFile().isLogVotesToFile()) {
 				try {
-					VotingPluginMain.plugin.logVote(
-							LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(), playerName,
+					plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(), playerName,
 							voteSite.getKey());
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -167,9 +166,8 @@ public class PlayerVoteListener implements Listener {
 			}
 
 			// check if player has voted on all sites in one day
-
-			if (((user.isOnline() || voteSite.isGiveOffline())
-					&& VotingPluginMain.plugin.getOptions().isProcessRewards()) || event.isBungee()) {
+			if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
+					|| event.isBungee()) {
 				boolean online = true;
 				if (event.isBungee()) {
 					online = event.isWasOnline();
