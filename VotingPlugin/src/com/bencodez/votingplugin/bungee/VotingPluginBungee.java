@@ -153,6 +153,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public UUID fetchUUID(String playerName) throws Exception {
+		if (playerName == null || playerName.equalsIgnoreCase("null")) {
+			return null;
+		}
 		// Get response from Mojang API
 		URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + playerName);
 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
