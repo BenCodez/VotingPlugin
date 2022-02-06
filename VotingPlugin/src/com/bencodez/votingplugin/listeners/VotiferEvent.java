@@ -82,7 +82,7 @@ public class VotiferEvent implements Listener {
 				ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
 				boolean createSite = false;
 				if (sites != null) {
-					if (!sites.contains(voteSiteNameStr)) {
+					if (!ArrayUtils.getInstance().containsIgnoreCase(sites, voteSiteNameStr)) {
 						createSite = true;
 					}
 				} else {
