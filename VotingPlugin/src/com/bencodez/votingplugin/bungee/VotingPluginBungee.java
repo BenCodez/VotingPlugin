@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -86,6 +87,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
 	private TimeHandle timeHandle;
+
+	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
 
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -191,6 +194,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (p != null && p.isConnected()) {
 			return p.getUniqueId().toString();
 		}
+		
+		for (Entry<UUID,String> entry : uuidPlayerNameCache.entrySet()) {
+			if (entry.getValue().equalsIgnoreCase(playerName)) {
+				return entry.getKey().toString();
+			}
+		}
+		
 		if (mysql != null) {
 			String str = mysql.getUUID(playerName);
 			if (str != null) {
@@ -382,6 +392,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		this.getProxy().registerChannel("vp:vp");
 
 		if (mysqlLoaded) {
+			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
+			
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
@@ -809,6 +821,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					return;
 				}
 
+				// one time query to insert player
 				if (!mysql.getUuids().contains(uuid)) {
 					mysql.update(uuid, "PlayerName", new DataValueString(player));
 				}

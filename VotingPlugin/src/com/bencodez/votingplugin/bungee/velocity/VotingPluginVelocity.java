@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -112,6 +113,8 @@ public class VotingPluginVelocity {
 
 	@Getter
 	private TimeHandle timeHandle;
+
+	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -227,6 +230,11 @@ public class VotingPluginVelocity {
 			Player p = server.getPlayer(playerName).get();
 			if (p != null && p.isActive()) {
 				return p.getUniqueId().toString();
+			}
+		}
+		for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
+			if (entry.getValue().equalsIgnoreCase(playerName)) {
+				return entry.getKey().toString();
 			}
 		}
 		if (mysql != null) {
@@ -445,6 +453,8 @@ public class VotingPluginVelocity {
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
 		if (mysqlLoaded) {
+			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
+
 			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
 			nonVotedPlayersCache = new NonVotedPlayersCache(
 					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
