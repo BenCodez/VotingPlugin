@@ -444,7 +444,8 @@ UsePrimaryAccountForPlaceholders: false
 AlwaysWaitForCachePlaceholders: false
 
 # Enable auto caching placeholders
-AutoCachePlaceholders: true
+# Generally this works well, but if you need to cache placeholders manually set them below
+AutoCachePlaceholders: false
 
 # Set which placeholders to cache at all times
 # Use for placeholders to are pulled constantly or on the main thread

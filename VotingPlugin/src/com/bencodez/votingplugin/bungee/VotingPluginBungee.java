@@ -194,13 +194,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (p != null && p.isConnected()) {
 			return p.getUniqueId().toString();
 		}
-		
-		for (Entry<UUID,String> entry : uuidPlayerNameCache.entrySet()) {
+
+		for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
 			if (entry.getValue().equalsIgnoreCase(playerName)) {
 				return entry.getKey().toString();
 			}
 		}
-		
+
 		if (mysql != null) {
 			String str = mysql.getUUID(playerName);
 			if (str != null) {
@@ -393,7 +393,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		if (mysqlLoaded) {
 			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
-			
+
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
