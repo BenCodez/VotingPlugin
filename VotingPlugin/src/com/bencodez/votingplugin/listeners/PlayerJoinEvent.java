@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.listeners;
 
-import org.bukkit.Bukkit;
+import java.util.TimerTask;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -71,7 +72,7 @@ public class PlayerJoinEvent implements Listener {
 		if (delay <= 0) {
 			login(event.getPlayer());
 		} else {
-			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+			plugin.getLoginTimer().schedule(new TimerTask() {
 
 				@Override
 				public void run() {
@@ -88,7 +89,7 @@ public class PlayerJoinEvent implements Listener {
 			return;
 		}
 		final java.util.UUID uuid = event.getPlayer().getUniqueId();
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		plugin.getLoginTimer().schedule(new TimerTask() {
 
 			@Override
 			public void run() {
@@ -98,7 +99,7 @@ public class PlayerJoinEvent implements Listener {
 				user.dontCache();
 				user.logoutRewards();
 			}
-		});
+		}, 0);
 
 	}
 }
