@@ -353,8 +353,8 @@ public class SpecialRewardsConfig extends YMLFile {
 	}
 
 	public void setMilestone(int intValue) {
-		getData().set("Milestones." + intValue + ".Enabled", true);
-		getData().set("Milestones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
+		getData().set("MileStones." + intValue + ".Enabled", true);
+		getData().set("MileStones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
 		saveData();
 	}
 }
