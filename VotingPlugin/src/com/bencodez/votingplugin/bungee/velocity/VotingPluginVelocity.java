@@ -397,7 +397,9 @@ public class VotingPluginVelocity {
 				}
 			}
 		}
-		timeHandle.save();
+		if (timeHandle != null) {
+			timeHandle.save();
+		}
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
