@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
@@ -207,6 +208,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
+	
+	@Getter
+	private Timer voteTimer = new Timer();
 
 	@Getter
 	private UserManager votingPluginUserManager;
