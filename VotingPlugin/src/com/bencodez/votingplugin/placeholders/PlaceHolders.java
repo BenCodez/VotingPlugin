@@ -111,7 +111,7 @@ public class PlaceHolders {
 				}
 			} catch (Exception e) {
 				plugin.debug(e);
-				return "...";
+				return "Error";
 			}
 		}
 
