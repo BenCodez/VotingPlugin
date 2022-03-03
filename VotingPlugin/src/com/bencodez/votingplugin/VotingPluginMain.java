@@ -1367,6 +1367,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 								ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
 								for (TopVoter top : TopVoter.values()) {
+									if (plugin == null) {
+										return;
+									}
 									if (plugin.getConfigFile().getLoadTopVoter(top)) {
 										topVotersToCheck.add(top);
 										tempTopVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
