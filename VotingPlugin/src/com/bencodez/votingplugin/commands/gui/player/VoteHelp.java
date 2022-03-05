@@ -11,6 +11,7 @@ import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import net.md_5.bungee.api.ChatColor;
@@ -63,6 +64,28 @@ public class VoteHelp extends GUIHandler {
 		return msg;
 	}
 
+	public ArrayList<TextComponent> helpTextLegacy(CommandSender sender) {
+		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
+
+		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
+
+		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
+			if (!requirePerms || cmdHandle.hasPerm(sender)) {
+				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
+						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
+			}
+		}
+		ArrayList<String> unsortedList = new ArrayList<String>();
+		unsortedList.addAll(unsorted.keySet());
+		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
+		for (String cmd : unsortedList) {
+			msg.add(unsorted.get(cmd));
+		}
+
+		return msg;
+	}
+
 	@Override
 	public void onBook(Player player) {
 
@@ -86,7 +109,12 @@ public class VoteHelp extends GUIHandler {
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		ArrayList<TextComponent> text = helpText(sender);
+		ArrayList<TextComponent> text = new ArrayList<TextComponent>();
+		if (NMSManager.getInstance().isVersion("1.12")) {
+			text = helpTextLegacy(sender);
+		} else {
+			text = helpText(sender);
+		}
 
 		int maxPage = text.size() / pagesize;
 		if ((text.size() % pagesize) != 0) {
