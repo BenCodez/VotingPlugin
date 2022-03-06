@@ -86,7 +86,7 @@ public class VoteTopVoter extends GUIHandler {
 
 			int pos = 1;
 			for (Entry<TopVoterPlayer, Integer> entry : users) {
-				ItemBuilder playerItem;
+				ItemBuilder playerItem = new ItemBuilder(Material.PAPER);
 
 				if (plugin.getGui().isChestVoteTopUseSkull()) {
 					playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
