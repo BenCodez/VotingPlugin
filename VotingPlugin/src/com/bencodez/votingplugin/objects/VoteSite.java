@@ -108,6 +108,11 @@ public class VoteSite {
 			return;
 		}
 		if (!user.isVanished()) {
+			String playerName = user.getPlayerName();
+			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
+				plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
+				return;
+			}
 			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
 					&& plugin.getBungeeSettings().isUseBungeecoord()) {
 				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS)) {
@@ -123,11 +128,6 @@ public class VoteSite {
 				}
 
 			} else {
-				String playerName = user.getPlayerName();
-				if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
-					plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
-					return;
-				}
 				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatBroadCastMsg());
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", playerName);
