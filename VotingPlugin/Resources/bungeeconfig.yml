@@ -15,6 +15,8 @@ MaxConnections: 1
 Prefix: ''
 #UseSSL: true
 #PublicKeyRetrieval: false
+#Attempt to use mariadb driver
+#UseMariaDB: false
 
 Debug: false
 # Have a reward on each server

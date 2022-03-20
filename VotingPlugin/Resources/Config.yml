@@ -30,6 +30,8 @@ MySQL:
   #MaxLifeTime: -1
   #Additional info on connection string
   #Line: ''
+  #Attempt to use mariadb driver
+  #UseMariaDB: false
 
 # --------------------
 # AllowUnJoined options
