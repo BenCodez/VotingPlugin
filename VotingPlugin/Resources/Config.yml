@@ -415,6 +415,10 @@ ClickSound:
 # case sensitive
 VotingBroadcastBlacklist: []
 
+# Playernames to not be broadcasted when broadcast comes from reward file
+# case sensitive
+BroadcastBlacklist: []
+
 # When enabled, javascript will be parsed on placeholders (from placeholderapi)
 # allows more fancy placeholders with math for example
 UseJavascriptPlaceholders: false
