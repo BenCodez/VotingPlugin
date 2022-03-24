@@ -373,12 +373,13 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.clearCache();
+						user.cache();
+						int newTotal = 0;
 						synchronized (pointLock) {
-							user.addPoints(Integer.parseInt(args[3]));
+							newTotal = user.addPoints(Integer.parseInt(args[3]));
 						}
 						sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
-								+ " points" + ", " + args[1] + " now has " + user.getPoints() + " points"));
+								+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
 					}
 				});
 
@@ -389,7 +390,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.clearCache();
+						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
 						sender.sendMessage(StringParser.getInstance().colorize("&cRemoved " + args[3] + " points from "
 								+ args[1] + ", " + args[1] + " now has " + user.getPoints() + " points"));
@@ -438,7 +439,6 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				int page = Integer.parseInt(args[1]);
 				new AdminVoteHelp(plugin, sender, page).open();
-
 
 			}
 		});
@@ -1828,7 +1828,7 @@ public class CommandLoader {
 
 						if (!plugin.getGui().getChestVoteShopNotBuyable(identifier)) {
 							if (hasPerm) {
-								user.clearCache();
+								user.cache();
 								int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 								if (identifier != null) {
 
