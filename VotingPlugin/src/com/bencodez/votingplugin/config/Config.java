@@ -43,7 +43,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "AutoCachePlaceholders")
 	@Getter
-	private boolean autoCachePlaceholders = true;
+	private boolean autoCachePlaceholders = false;
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
