@@ -116,7 +116,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the value
 	 * @return current total points
 	 */
-	public int addPoints(int value) {
+	public synchronized int addPoints(int value) {
 		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
 		Bukkit.getPluginManager().callEvent(event);
 
