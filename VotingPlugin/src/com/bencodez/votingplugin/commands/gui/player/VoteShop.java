@@ -65,7 +65,11 @@ public class VoteShop extends GUIHandler {
 			if (perm.isEmpty()) {
 				hasPerm = true;
 			} else {
-				hasPerm = player.hasPermission(perm);
+				if (perm.startsWith("!")) {
+					hasPerm = !player.hasPermission(perm.substring(1));
+				} else {
+					hasPerm = player.hasPermission(perm);
+				}
 			}
 
 			int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
