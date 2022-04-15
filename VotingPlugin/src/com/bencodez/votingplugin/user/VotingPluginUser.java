@@ -691,14 +691,66 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				setOfflineVotes(new ArrayList<String>());
 			}
 
+			boolean offlineBroadcast = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
+
+			if (offlineBroadcast) {
+				offlineBroadcast(this, true, offlineVotes.size());
+			}
+
 			for (int i = 0; i < offlineVotes.size(); i++) {
 				if (plugin.hasVoteSite(offlineVotes.get(i))) {
 					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
-					playerVote(plugin.getVoteSite(offlineVotes.get(i), true), false, true, false);
+					playerVote(plugin.getVoteSite(offlineVotes.get(i), true), false, !offlineBroadcast, false);
 				} else {
 					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
 				}
 			}
+		}
+	}
+
+	public void offlineBroadcast(VotingPluginUser user, boolean checkBungee, int numberOfVotes) {
+		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
+			return;
+		}
+		if (!user.isVanished()) {
+			String playerName = user.getPlayerName();
+			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
+				plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
+				return;
+			}
+			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
+					&& plugin.getBungeeSettings().isUseBungeecoord()) {
+				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS)) {
+					plugin.getBungeeHandler().sendData("BroadcastOffline", "" + numberOfVotes, user.getPlayerName());
+				} else if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)
+						|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+					String uuid = user.getUUID();
+
+					if (Bukkit.getOnlinePlayers().size() > 0) {
+						plugin.getPluginMessaging().sendPluginMessage("VoteBroadcastOffline", uuid, "" + numberOfVotes);
+					}
+				}
+
+			} else {
+				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatOfflineBroadcast());
+				HashMap<String, String> placeholders = new HashMap<String, String>();
+				placeholders.put("player", playerName);
+				placeholders.put("nickname",
+						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
+				placeholders.put("numberofvotes", "" + numberOfVotes);
+				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
+				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
+				ArrayList<Player> players = new ArrayList<Player>();
+				for (Player p : Bukkit.getOnlinePlayers()) {
+					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+						players.add(p);
+					}
+				}
+
+				MiscUtils.getInstance().broadcast(bc, players);
+			}
+		} else {
+			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
 		}
 	}
 

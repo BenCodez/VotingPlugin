@@ -260,6 +260,19 @@ public class BungeeHandler implements Listener {
 				}
 			});
 
+			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteBroadcastOffline") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					if (args.size() > 2) {
+						String uuid = args.get(0);
+						String votes = args.get(2);
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
+								args.get(1));
+						user.offlineBroadcast(user, false, Integer.parseInt(votes));
+					}
+				}
+			});
+
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Status") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -347,7 +360,37 @@ public class BungeeHandler implements Listener {
 				}
 			});
 
+			socketHandler.add(new SocketReceiver("BroadcastOffline") {
+
+				@Override
+				public void onReceive(String[] data) {
+					if (data.length > 2) {
+						String votes = data[0];
+						String p = data[1];
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
+						user.offlineBroadcast(user, false, Integer.parseInt(votes));
+					}
+				}
+			});
+
 			socketHandler.add(new SocketReceiver("BungeeBroadcast") {
+
+				@Override
+				public void onReceive(String[] data) {
+					if (data.length > 2) {
+						VoteSite site = plugin.getVoteSite(data[1], true);
+						String p = data[3];
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
+						if (site != null) {
+							site.broadcastVote(user, false);
+						} else {
+							plugin.getLogger().warning("No votesite for " + data[1]);
+						}
+					}
+				}
+			});
+
+			socketHandler.add(new SocketReceiver("Broadcast") {
 
 				@Override
 				public void onReceive(String[] data) {

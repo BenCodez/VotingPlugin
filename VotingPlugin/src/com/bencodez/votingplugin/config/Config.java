@@ -149,6 +149,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean formatAlternateBroadcastEnabled = false;
 
+	@ConfigDataBoolean(path = "Format.OnlyOneOfflineBroadcast")
+	@Getter
+	private boolean formatOnlyOneOfflineBroadcast = false;
+
+	@ConfigDataString(path = "Format.OfflineBroadcast")
+	@Getter
+	private String formatOfflineBroadcast = "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %numberofvotes% times!";
+
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
 	private boolean formatCommandsVoteForceLinks = true;

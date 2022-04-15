@@ -110,6 +110,9 @@ Format:
   # Broadcast vote message
   # Set to an empty message to disable
   BroadcastMsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
+  # If true uses broadcast setting below for offline votes
+  OnlyOneOfflineBroadcast: false
+  OfflineBroadcast: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %numberofvotes% times!'
   
   # Broadcast only when player is online
   BroadcastWhenOnline: false
