@@ -208,7 +208,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
-	
+
 	@Getter
 	private Timer voteTimer = new Timer();
 
@@ -1049,7 +1049,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			@Override
 			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					int num, HashMap<String, String> placeholders) {
-				UserManager.getInstance().getVotingPluginUser(user).addPoints(num);
+				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
+				user.dontCache();
+				vpUser.addPoints(num);
 				return null;
 			}
 		}.synchronize().addEditButton(
@@ -1355,8 +1357,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							plugin.debug("Starting background task, current cached users: "
 									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 
-							placeholders.onUpdate();
-
 							int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
 							try {
 								boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
@@ -1444,6 +1444,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								time1 = System.currentTimeMillis();
 
 								topVoterHandler.updateTopVoters(tempTopVoter);
+								placeholders.onUpdate();
 								setVoteToday(voteToday);
 								serverData.updateValues();
 								getSigns().updateSigns();
