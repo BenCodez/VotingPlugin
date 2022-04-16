@@ -12,7 +12,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -184,9 +183,9 @@ public class VoteGUI extends GUIHandler {
 						}
 					}
 
-					if (RewardHandler.getInstance().hasRewards(plugin.getGui().getData(),
+					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(),
 							plugin.getGui().getChestVoteGUISlotRewardsPath(slot))) {
-						RewardHandler.getInstance().giveReward(UserManager.getInstance().getVotingPluginUser(player),
+						plugin.getRewardHandler().giveReward(UserManager.getInstance().getVotingPluginUser(player),
 								plugin.getGui().getData(), plugin.getGui().getChestVoteGUISlotRewardsPath(slot),
 								new RewardOptions().addPlaceholder("identifier", slot));
 					}

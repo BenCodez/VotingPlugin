@@ -21,7 +21,6 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueSt
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
@@ -110,7 +109,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("FirstVote"));
+						plugin.getRewardHandler().getDirectlyDefined("FirstVote"));
 			}
 		});
 		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit FirstVoteToday reward")) {
@@ -118,7 +117,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("FirstVoteToday"));
+						plugin.getRewardHandler().getDirectlyDefined("FirstVoteToday"));
 			}
 		});
 
@@ -127,7 +126,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("AllSites"));
+						plugin.getRewardHandler().getDirectlyDefined("AllSites"));
 			}
 		});
 
@@ -136,7 +135,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("AnySiteRewards"));
+						plugin.getRewardHandler().getDirectlyDefined("AnySiteRewards"));
 			}
 		});
 
@@ -145,7 +144,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("EverySiteReward"));
+						plugin.getRewardHandler().getDirectlyDefined("EverySiteReward"));
 			}
 		});
 
@@ -154,7 +153,7 @@ public class AdminGUI {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("BungeeVotePartyRewards"));
+						plugin.getRewardHandler().getDirectlyDefined("BungeeVotePartyRewards"));
 			}
 		});
 
@@ -364,7 +363,7 @@ public class AdminGUI {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(), RewardHandler.getInstance()
+					RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(), plugin.getRewardHandler()
 							.getDirectlyDefined("VoteSites." + voteSite.getKey() + ".Rewards"));
 				}
 			});

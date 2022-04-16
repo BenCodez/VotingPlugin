@@ -17,7 +17,6 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueLi
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
@@ -212,7 +211,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						RewardHandler.getInstance().getDirectlyDefined("VoteParty.Rewards"));
+						plugin.getRewardHandler().getDirectlyDefined("VoteParty.Rewards"));
 			}
 		});
 

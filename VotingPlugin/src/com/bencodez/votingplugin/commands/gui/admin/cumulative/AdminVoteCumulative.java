@@ -13,7 +13,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
@@ -68,7 +67,7 @@ public class AdminVoteCumulative extends GUIHandler {
 							@Override
 							public void onInput(Player player, Number value) {
 								RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-										RewardHandler.getInstance()
+										plugin.getRewardHandler()
 												.getDirectlyDefined("Cumulative." + value.intValue() + ".Rewards"));
 							}
 						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)

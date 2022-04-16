@@ -10,7 +10,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserStartup;
@@ -34,7 +33,7 @@ public class CoolDownCheck implements Listener {
 	private boolean cooldownCheckEnabled = false;
 
 	public void checkEnabled() {
-		if (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+		if (!plugin.getConfigFile().isDisableCoolDownCheck() && plugin.getRewardHandler()
 				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
 			cooldownCheckEnabled = true;
 		} else {
@@ -110,7 +109,7 @@ public class CoolDownCheck implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		RewardHandler.getInstance().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
+		plugin.getRewardHandler().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
 				"VoteCoolDownEndedReward", new RewardOptions());
 	}
 }

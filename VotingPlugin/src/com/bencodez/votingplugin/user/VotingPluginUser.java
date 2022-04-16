@@ -22,7 +22,6 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -786,7 +785,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param online the online
 	 */
 	public void sendVoteEffects(boolean online) {
-		RewardHandler.getInstance().giveReward(this, plugin.getSpecialRewardsConfig().getData(),
+		plugin.getRewardHandler().giveReward(this, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getAnySiteRewardsPath(), new RewardOptions().setOnline(online));
 	}
 

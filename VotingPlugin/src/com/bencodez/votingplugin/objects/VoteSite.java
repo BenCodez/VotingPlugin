@@ -14,7 +14,6 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.user.UserManager;
@@ -209,7 +208,7 @@ public class VoteSite {
 	}
 
 	public boolean hasRewards() {
-		return RewardHandler.getInstance().hasRewards(plugin.getConfigVoteSites().getData(),
+		return plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 				plugin.getConfigVoteSites().getRewardsPath(key));
 	}
 

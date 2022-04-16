@@ -3,7 +3,6 @@ package com.bencodez.votingplugin.test;
 import java.util.ArrayList;
 
 import com.bencodez.advancedcore.api.rewards.Reward;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -24,13 +23,13 @@ public class VoteTester {
 		long time1 = System.currentTimeMillis();
 		ArrayList<Long> timesPerReward = new ArrayList<Long>();
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(name);
-		Reward reward = RewardHandler.getInstance().getReward(rewardName);
+		Reward reward = plugin.getRewardHandler().getReward(rewardName);
 		int rewardsGiven = 0;
 		for (int i = 0; i < amount; i++) {
 			long start1 = System.currentTimeMillis();
 			if (reward.canGiveReward(user, new RewardOptions())) {
 				rewardsGiven++;
-				RewardHandler.getInstance().giveReward(user, reward, new RewardOptions().setIgnoreRequirements(true));
+				plugin.getRewardHandler().giveReward(user, reward, new RewardOptions().setIgnoreRequirements(true));
 			}
 			long start2 = System.currentTimeMillis();
 			timesPerReward.add(start2 - start1);

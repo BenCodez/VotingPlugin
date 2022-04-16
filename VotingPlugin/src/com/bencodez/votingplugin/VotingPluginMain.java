@@ -45,7 +45,6 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardEditData;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardPlaceholderHandle;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationSection;
@@ -216,7 +215,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private UserManager votingPluginUserManager;
 
 	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
-		RewardHandler.getInstance().addDirectlyDefined(directlyDefinedReward);
+		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
 	}
 
 	public void basicBungeeUpdate() {
@@ -405,7 +404,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public void loadDirectlyDefined() {
-		RewardHandler.getInstance().getDirectlyDefinedRewards().clear();
+		getRewardHandler().getDirectlyDefinedRewards().clear();
 		// AllSites reward
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("AllSites") {
 
@@ -1044,7 +1043,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		// Add rewards
-		RewardHandler.getInstance().addInjectedReward(new RewardInjectInt("Points", 0) {
+		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
 
 			@Override
 			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
@@ -1072,7 +1071,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 				}));
 
-		RewardHandler.getInstance().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
+		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
 
 			@Override
 			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
@@ -1091,7 +1090,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 
 		for (final TopVoter top : TopVoter.values()) {
-			RewardHandler.getInstance().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
+			getRewardHandler().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
 
 				@Override
 				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
@@ -1112,7 +1111,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					"Using dev build, this is not a stable build, use at your own risk. Build number: " + buildNumber);
 		}
 
-		boolean hasRewards = RewardHandler.getInstance().hasRewards(getConfigVoteSites().getData(),
+		boolean hasRewards = getRewardHandler().hasRewards(getConfigVoteSites().getData(),
 				getConfigVoteSites().getEverySiteRewardPath());
 
 		boolean issues = true;

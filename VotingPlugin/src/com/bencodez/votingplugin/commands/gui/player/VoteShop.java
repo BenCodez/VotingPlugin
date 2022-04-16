@@ -13,7 +13,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.UserManager;
@@ -121,7 +120,7 @@ public class VoteShop extends GUIHandler {
 											plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/"
 													+ user.getUUID() + " bought " + identifier + " for " + points);
 
-											RewardHandler.getInstance().giveReward(user, plugin.getGui().getData(),
+											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 

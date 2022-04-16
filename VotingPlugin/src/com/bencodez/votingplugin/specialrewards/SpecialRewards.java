@@ -8,7 +8,6 @@ import org.bukkit.Bukkit;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
@@ -58,7 +57,7 @@ public class SpecialRewards {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(votesRequired)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(votesRequired))) {
 						boolean gotCumulative = false;
 						int total = 0;
@@ -116,7 +115,7 @@ public class SpecialRewards {
 	}
 
 	public boolean checkFirstVote(VotingPluginUser user, boolean forceBungee) {
-		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
 				giveFirstVoteRewards(user, user.isOnline(), forceBungee);
@@ -128,7 +127,7 @@ public class SpecialRewards {
 	}
 
 	public boolean checkFirstVoteToday(VotingPluginUser user, boolean forceBungee) {
-		if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVoteToday()) {
 				giveFirstVoteTodayRewards(user, user.isOnline(), forceBungee);
@@ -181,7 +180,7 @@ public class SpecialRewards {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(votesRequired)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getMilestoneRewardsPath(votesRequired))) {
 
 						int userVotesTotal = milestoneCount;
@@ -217,7 +216,7 @@ public class SpecialRewards {
 				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, streak)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, "" + streak))) {
 						int curStreak = 0;
 						if (type.equalsIgnoreCase("day")) {
@@ -261,7 +260,7 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+		plugin.getRewardHandler().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getAllSitesRewardPath(),
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
@@ -287,7 +286,7 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+		plugin.getRewardHandler().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath(),
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
@@ -299,7 +298,7 @@ public class SpecialRewards {
 		if (event.isCancelled()) {
 			return;
 		}
-		RewardHandler.getInstance().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+		plugin.getRewardHandler().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteTodayRewardsPath(),
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}

@@ -3,7 +3,6 @@ package com.bencodez.votingplugin;
 import java.util.concurrent.Callable;
 
 import com.bencodez.advancedcore.api.metrics.BStatsMetrics;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.votingplugin.user.UserManager;
 
 public class VotingPluginMetrics {
@@ -15,7 +14,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 					return "True";
 				} else {
@@ -27,7 +26,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				if (RewardHandler.getInstance().hasRewards(plugin.getConfigVoteSites().getData(),
+				if (plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 						plugin.getConfigVoteSites().getEverySiteRewardPath())) {
 					return "True";
 				} else {
@@ -39,7 +38,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getAllSitesRewardPath())) {
 					return "True";
 				} else {
@@ -94,7 +93,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				if (RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getAnySiteRewardsPath())) {
 					return "True";
 				} else {
@@ -109,7 +108,7 @@ public class VotingPluginMetrics {
 				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Day")) {
 
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Day", s)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Day", s))) {
 						return "True";
 					}
@@ -126,7 +125,7 @@ public class VotingPluginMetrics {
 				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Week")) {
 
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Week", s)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Week", s))) {
 						return "True";
 					}
@@ -143,7 +142,7 @@ public class VotingPluginMetrics {
 				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Month")) {
 
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Month", s)
-							&& RewardHandler.getInstance().hasRewards(plugin.getSpecialRewardsConfig().getData(),
+							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Month", s))) {
 						return "True";
 					}
@@ -163,7 +162,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				return "" + RewardHandler.getInstance().getRewards().size();
+				return "" + plugin.getRewardHandler().getRewards().size();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("autocreatevotesites", new Callable<String>() {
@@ -201,14 +200,15 @@ public class VotingPluginMetrics {
 			}));
 		}
 		if (users > 10000) {
-			metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users_in_thousands_plus_10", new Callable<String>() {
+			metrics.addCustomChart(
+					new BStatsMetrics.SimplePie("number_of_users_in_thousands_plus_10", new Callable<String>() {
 
-				@Override
-				public String call() throws Exception {
-					int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
-					return "" + total;
-				}
-			}));
+						@Override
+						public String call() throws Exception {
+							int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+							return "" + total;
+						}
+					}));
 		}
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage", new Callable<String>() {
 
@@ -330,7 +330,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				return "" + (!plugin.getConfigFile().isDisableCoolDownCheck() && RewardHandler.getInstance()
+				return "" + (!plugin.getConfigFile().isDisableCoolDownCheck() && plugin.getRewardHandler()
 						.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward"));
 			}
 		}));

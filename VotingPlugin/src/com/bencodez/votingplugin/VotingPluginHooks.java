@@ -2,7 +2,6 @@ package com.bencodez.votingplugin;
 
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInject;
 import com.bencodez.votingplugin.user.UserManager;
@@ -16,11 +15,11 @@ public class VotingPluginHooks {
 	}
 
 	public void addCustomRequirement(RequirementInject inject) {
-		RewardHandler.getInstance().addInjectedRequirements(inject);
+		getMainClass().getRewardHandler().addInjectedRequirements(inject);
 	}
 
 	public void addCustomReward(RewardInject inject) {
-		RewardHandler.getInstance().addInjectedReward(inject);
+		getMainClass().getRewardHandler().addInjectedReward(inject);
 	}
 
 	public void backgroundUpdate(Player player) {

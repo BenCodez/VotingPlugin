@@ -28,7 +28,6 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
-import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
@@ -1267,7 +1266,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						RewardHandler.getInstance().giveReward(user, plugin.getConfigFile().getData(),
+						plugin.getRewardHandler().giveReward(user, plugin.getConfigFile().getData(),
 								plugin.getGui().getChestShopIdentifierRewardsPath(args[3]), new RewardOptions());
 						sendMessage(sender, "&cVoteShop " + args[3] + " forced");
 					}
@@ -1839,7 +1838,7 @@ public class CommandLoader {
 										placeholders.put("limit", "" + limit);
 										if (user.removePoints(points)) {
 
-											RewardHandler.getInstance().giveReward(user, plugin.getGui().getData(),
+											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
