@@ -85,21 +85,19 @@ public class PlayerJoinEvent implements Listener {
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerQuit(PlayerQuitEvent event) {
-		if (plugin.getConfigFile().isDisableAdvancedTab()) {
-			return;
+		if (plugin != null && plugin.isEnabled()) {
+			final java.util.UUID uuid = event.getPlayer().getUniqueId();
+			plugin.getLoginTimer().schedule(new TimerTask() {
+
+				@Override
+				public void run() {
+					VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
+
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
+					user.dontCache();
+					user.logoutRewards();
+				}
+			}, 0);
 		}
-		final java.util.UUID uuid = event.getPlayer().getUniqueId();
-		plugin.getLoginTimer().schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-				VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
-
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
-				user.dontCache();
-				user.logoutRewards();
-			}
-		}, 0);
-
 	}
 }
