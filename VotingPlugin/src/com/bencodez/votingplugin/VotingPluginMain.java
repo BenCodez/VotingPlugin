@@ -1049,7 +1049,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					int num, HashMap<String, String> placeholders) {
 				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
-				user.dontCache();
 				vpUser.addPoints(num);
 				return null;
 			}
