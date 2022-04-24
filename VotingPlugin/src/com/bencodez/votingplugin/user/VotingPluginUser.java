@@ -684,7 +684,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				setTopVoterIgnore(topVoterIngorePerm);
 			}
 			ArrayList<String> offlineVotes = getOfflineVotes();
-			//plugin.debug("Offvotes: " + ArrayUtils.getInstance().makeStringList(offlineVotes));
+			// plugin.debug("Offvotes: " +
+			// ArrayUtils.getInstance().makeStringList(offlineVotes));
 			if (offlineVotes.size() > 0) {
 				sendVoteEffects(false);
 				setOfflineVotes(new ArrayList<String>());
@@ -692,7 +693,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			boolean offlineBroadcast = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
 
-			if (offlineBroadcast) {
+			if (offlineBroadcast && offlineVotes.size() > 0) {
 				offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
 			}
 
