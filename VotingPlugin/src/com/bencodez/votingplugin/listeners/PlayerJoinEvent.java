@@ -8,7 +8,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -63,8 +62,7 @@ public class PlayerJoinEvent implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
-		if (event.getPlayer() == null || plugin != null
-				|| (plugin.getStorageType().equals(UserStorage.MYSQL) && plugin.getMysql() == null)) {
+		if (event.getPlayer() == null || !plugin.isMySQLOkay()) {
 			return;
 		}
 
