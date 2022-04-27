@@ -514,11 +514,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 				}
 			}
+			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+					+ voteCacheFile.getVotePartyInreaseVotesRequired();
+			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 		}
-
-		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
-				+ voteCacheFile.getVotePartyInreaseVotesRequired();
-		votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
