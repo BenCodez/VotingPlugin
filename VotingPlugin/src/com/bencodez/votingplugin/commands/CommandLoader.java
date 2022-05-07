@@ -2010,7 +2010,7 @@ public class CommandLoader {
 			}
 		});
 
-		if (plugin.getGui().isLastMonthGUI()) {
+		if (plugin.getGui().isLastMonthGUI() || plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
 			plugin.getVoteCommand()
 					.add(new CommandHandler(new String[] { "LastMonthTop" },
 							"VotingPlugin.Commands.Vote.LastMonthTop|" + playerPerm,

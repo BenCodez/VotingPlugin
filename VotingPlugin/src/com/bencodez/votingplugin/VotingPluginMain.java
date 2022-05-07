@@ -1049,10 +1049,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					int num, HashMap<String, String> placeholders) {
 				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
-				vpUser.addPoints(num);
-				return null;
+				vpUser.cache();
+				String str = "" + vpUser.addPoints(num);
+				debug("Setting points to " + str);
+				return str;
 			}
-		}.synchronize().addEditButton(
+		}.synchronize().postReward().asPlaceholder("newpoints").addEditButton(
 				new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
 
 					@Override
