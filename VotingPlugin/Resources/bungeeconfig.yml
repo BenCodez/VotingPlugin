@@ -12,6 +12,7 @@ Password: ''
 # Max number of connections
 MaxConnections: 1
 # Table name prefix, for use with mutliple servers
+# Don't use with PLUGINMESSAGING bungee setup
 Prefix: ''
 #UseSSL: true
 #PublicKeyRetrieval: false
