@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.config;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.bencodez.advancedcore.api.yml.YMLFile;
@@ -89,6 +90,10 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	public String getCumulativeRewardsPath(int cumulative) {
 		return "Cumulative." + cumulative + ".Rewards";
+	}
+
+	public List<Integer> getCumulativeBlackList(int cumulative) {
+		return getData().getIntegerList("Cumulative." + cumulative + ".BlackList");
 	}
 
 	/**

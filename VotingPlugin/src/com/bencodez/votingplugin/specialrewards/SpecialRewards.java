@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.specialrewards;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -86,9 +87,20 @@ public class SpecialRewards {
 							}
 						}
 
+						List<Integer> blackList = plugin.getSpecialRewardsConfig()
+								.getCumulativeBlackList(votesRequired);
+						boolean blackListed = false;
+						for (Integer num : blackList) {
+							if (num.intValue() == total) {
+								blackListed = true;
+							}
+						}
+
 						if (total != 0 && total >= votesRequired) {
-							if ((total % votesRequired) == 0) {
+							if ((total % votesRequired) == 0 && !blackListed) {
 								gotCumulative = true;
+								plugin.extraDebug("Not giving cumulative " + votesRequired + " to "
+										+ user.getPlayerName() + " due to blacklist");
 							}
 						}
 

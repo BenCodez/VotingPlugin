@@ -42,6 +42,9 @@ Cumulative:
     # Weekly
     # Daily
     TotalToUse: AllTime
+    # Blacklist recurring votes
+    #BlackList:
+    #- 40
     Rewards: 
       Messages:
         Player: '&aYou got %cumulative% cumulative votes!'
