@@ -93,14 +93,20 @@ public class SpecialRewards {
 						for (Integer num : blackList) {
 							if (num.intValue() == total) {
 								blackListed = true;
+								plugin.extraDebug("Not giving cumulative " + votesRequired + " to "
+										+ user.getPlayerName() + " due to blacklist");
 							}
 						}
 
-						if (total != 0 && total >= votesRequired) {
-							if ((total % votesRequired) == 0 && !blackListed) {
+						if (plugin.getSpecialRewardsConfig().getCumulativeRecurring(votesRequired)) {
+							if (total != 0 && total >= votesRequired) {
+								if ((total % votesRequired) == 0 && !blackListed) {
+									gotCumulative = true;
+								}
+							}
+						} else {
+							if (total == votesRequired) {
 								gotCumulative = true;
-								plugin.extraDebug("Not giving cumulative " + votesRequired + " to "
-										+ user.getPlayerName() + " due to blacklist");
 							}
 						}
 

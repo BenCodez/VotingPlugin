@@ -96,6 +96,10 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getIntegerList("Cumulative." + cumulative + ".BlackList");
 	}
 
+	public boolean getCumulativeRecurring(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Recurring", true);
+	}
+
 	/**
 	 * Gets the cumulative votes.
 	 *
