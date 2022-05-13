@@ -766,7 +766,7 @@ public class PlaceHolders {
 								for (String ident : placeholder.getCache().keySet()) {
 									placeholder.getCache().get(ident).put(vpUser.getJavaUUID(),
 											placeholder.placeholderRequest(vpUser, ident));
-									plugin.devDebug("Updated cache for " + vpUser.getUUID() + " on " + key);
+									plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID() + " on " + key);
 
 								}
 

@@ -920,7 +920,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the new points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt(getPointsPath(), value, !plugin.getBungeeSettings().isUseBungeecoord());
+		getUserData().setInt(getPointsPath(), value, false);
 	}
 
 	public void setPrimaryAccount(java.util.UUID uuid) {
