@@ -18,11 +18,11 @@ public class VotingPluginBungeeCommand extends Command {
 			if (args.length > 0) {
 				if (args[0].equalsIgnoreCase("reload")) {
 					bungee.reload(false);
-					sender.sendMessage(new TextComponent("&aReloading VotingPluginBungee"));
+					sender.sendMessage(new TextComponent("Reloading VotingPluginBungee"));
 				}
 				if (args[0].equalsIgnoreCase("reloadmysql")) {
 					bungee.reload(true);
-					sender.sendMessage(new TextComponent("&aReloading VotingPluginBungee with MySQL"));
+					sender.sendMessage(new TextComponent("Reloading VotingPluginBungee with MySQL"));
 				}
 				if (args[0].equalsIgnoreCase("vote")) {
 					if (args.length >= 2) {
