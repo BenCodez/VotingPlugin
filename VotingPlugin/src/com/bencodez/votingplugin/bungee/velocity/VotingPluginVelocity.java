@@ -531,7 +531,13 @@ public class VotingPluginVelocity {
 
 				socketHandler = new SocketHandler(
 						server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
-						config.getBungeeHost(), config.getBungeePort(), encryptionHandler, config.getDebug());
+						config.getBungeeHost(), config.getBungeePort(), encryptionHandler, config.getDebug()) {
+
+					@Override
+					public void log(String str) {
+						getLogger().info(str);
+					}
+				};
 
 				socketHandler.add(new SocketReceiver() {
 

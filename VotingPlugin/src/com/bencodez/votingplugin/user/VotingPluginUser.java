@@ -170,13 +170,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
 
@@ -191,13 +185,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
 
@@ -216,13 +204,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
-			Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
 

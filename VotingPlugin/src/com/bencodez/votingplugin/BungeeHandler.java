@@ -308,7 +308,13 @@ public class BungeeHandler implements Listener {
 
 			socketHandler = new SocketHandler(plugin.getVersion(), plugin.getBungeeSettings().getSpigotServerHost(),
 					plugin.getBungeeSettings().getSpigotServerPort(), encryptionHandler,
-					plugin.getBungeeSettings().isBungeeDebug());
+					plugin.getBungeeSettings().isBungeeDebug()) {
+
+				@Override
+				public void log(String str) {
+					plugin.getLogger().info(str);
+				}
+			};
 
 			socketHandler.add(new SocketReceiver("bungeevote") {
 

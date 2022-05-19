@@ -473,7 +473,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 
 				socketHandler = new SocketHandler(getDescription().getVersion(), config.getBungeeHost(),
-						config.getBungeePort(), encryptionHandler, config.getDebug());
+						config.getBungeePort(), encryptionHandler, config.getDebug()) {
+
+					@Override
+					public void log(String str) {
+						getLogger().info(str);
+					}
+				};
 
 				socketHandler.add(new SocketReceiver() {
 
@@ -862,6 +868,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
+							if (config.getBroadcast()) {
+								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							}
 							if (info.getPlayers().isEmpty() || forceCache) {
 								// cache
 								if (!cachedVotes.containsKey(s)) {
@@ -880,9 +889,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 										"" + getConfig().getBungeeManageTotals(),
 										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
 							}
-							if (config.getBroadcast()) {
-								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
-							}
+
 						}
 					}
 				} else {
@@ -905,11 +912,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						debug("Caching online vote for " + player + " on " + service);
 					}
 					for (String s : getProxy().getServers().keySet()) {
-						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired);
 						if (config.getBroadcast()) {
 							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
+						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
+								"" + currentVotePartyVotesRequired);
+
 					}
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
