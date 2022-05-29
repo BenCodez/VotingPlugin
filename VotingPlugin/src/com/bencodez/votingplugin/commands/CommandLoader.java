@@ -927,7 +927,7 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "All" },
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(PlayerExact)", "ForceVote", "All" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
 			@Override
@@ -953,7 +953,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "(Sitename)" },
+				.add(new CommandHandler(new String[] { "User", "(PlayerExact)", "ForceVote", "(Sitename)" },
 						"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
 					@Override
