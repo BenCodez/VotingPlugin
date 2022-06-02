@@ -89,10 +89,6 @@ public class Config extends YMLFile {
 	@Getter
 	private int delayBetweenUpdates = 3;
 
-	@ConfigDataInt(path = "DelayLoginEvent")
-	@Getter
-	private int delayLoginEvent = 0;
-
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
 	private boolean disableAdvancedTab = false;

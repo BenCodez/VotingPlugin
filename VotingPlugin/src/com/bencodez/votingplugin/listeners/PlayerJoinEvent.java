@@ -66,18 +66,7 @@ public class PlayerJoinEvent implements Listener {
 			return;
 		}
 
-		int delay = plugin.getConfigFile().getDelayLoginEvent();
-		if (delay <= 0) {
-			login(event.getPlayer());
-		} else {
-			plugin.getLoginTimer().schedule(new TimerTask() {
-
-				@Override
-				public void run() {
-					login(event.getPlayer());
-				}
-			}, delay);
-		}
+		login(event.getPlayer());
 
 	}
 

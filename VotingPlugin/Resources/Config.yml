@@ -383,7 +383,7 @@ DisableCoolDownCheck: false
 DisableInteractEvent: false
 
 # Delays login event, delays vote reminding and more
-# In ticks
+# In miliseconds, 1000 = 1 second
 DelayLoginEvent: 0
 
 # If false, votestreaks will be disabled
