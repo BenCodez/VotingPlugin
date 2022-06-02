@@ -909,6 +909,32 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "VoteExact", "(PlayerExact)", "(Sitename)" },
+						"VotingPlugin.Commands.AdminVote.VoteExact|" + adminPerm,
+						"Trigger manual vote with exact player name") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1],
+								args[2], false);
+						sendMessage(sender, "&cTriggering vote...");
+						if (voteEvent.getVoteSite() != null) {
+							if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+								sendMessage(sender,
+										"&cPossible issue with service site, has the server gotten the vote from "
+												+ voteEvent.getServiceSite() + "?");
+							}
+						}
+						plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+						if (plugin.isYmlError()) {
+							sendMessage(sender, "&3Detected yml error, please check server log for details");
+						}
+
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Vote", "(player)", },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote via GUI", false) {
 
@@ -927,7 +953,7 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(PlayerExact)", "ForceVote", "All" },
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "All" },
 				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
 			@Override
@@ -953,7 +979,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "User", "(PlayerExact)", "ForceVote", "(Sitename)" },
+				.add(new CommandHandler(new String[] { "User", "(Player)", "ForceVote", "(Sitename)" },
 						"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
 					@Override
