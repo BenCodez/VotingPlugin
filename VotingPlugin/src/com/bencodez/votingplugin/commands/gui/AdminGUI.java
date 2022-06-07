@@ -65,6 +65,7 @@ public class AdminGUI {
 							plugin.getConfigVoteSites().generateVoteSite(value);
 							player.sendMessage("Generated site");
 							plugin.reload();
+							openAdminGUIVoteSiteSite(player, plugin.getVoteSite(value, true));
 						}
 					});
 				} else {
