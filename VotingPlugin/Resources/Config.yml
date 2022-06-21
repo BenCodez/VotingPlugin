@@ -441,6 +441,32 @@ PreventRepeatMilestones: false
 # This is to prevent any possible exploits
 CloseInventoryOnVote: true
 
+# If true, permissions will be handled differently
+MultiplePermissionsCheck: false
+
+AddCustomCommands: false
+
+# Injects custom command to /vote
+# Requires AddCustomCommand: true to be set
+CustomCommands:
+  # identifier, not specific name
+  command1:
+    Args:
+    - token
+    # Message to send on command
+    Message: 'token message'
+    # Permission for this command
+    Permission: 'votingplugin.commands.vote.token'
+    # help message
+    HelpMessage: 'See tokens'
+    # Forces player to run this command
+    Commands:
+    - tokencommand
+    
+# ---------------------------------------
+# Placeholderapi placeholders settings
+# ---------------------------------------
+
 # When enabled the command /vote setprimaryaccount (playername)
 # will be shown (after restart)
 # Primary account will be used instead of the players account to get
@@ -466,28 +492,6 @@ AutoCachePlaceholders: false
 # Please remove VotingPlugin_ from the placeholder listed here
 CachedPlaceholders: []
 #- Total_AllTime
-
-# If true, permissions will be handled differently
-MultiplePermissionsCheck: false
-
-AddCustomCommands: false
-
-# Injects custom command to /vote
-# Requires AddCustomCommand: true to be set
-CustomCommands:
-  # identifier, not specific name
-  command1:
-    Args:
-    - token
-    # Message to send on command
-    Message: 'token message'
-    # Permission for this command
-    Permission: 'votingplugin.commands.vote.token'
-    # help message
-    HelpMessage: 'See tokens'
-    # Forces player to run this command
-    Commands:
-    - tokencommand
 
 ######################
 # Debug
