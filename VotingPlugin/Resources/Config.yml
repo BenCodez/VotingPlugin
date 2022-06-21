@@ -479,6 +479,10 @@ UsePrimaryAccountForPlaceholders: false
 # Only affects placeholderapi placeholders
 AlwaysWaitForCachePlaceholders: false
 
+# Always force placeholders to be processed and return a proper value
+# This has small chances of crash server (mainly with mysql)
+AlwaysProcessPlaceholders: false
+
 # Enable auto caching placeholders
 # Generally this works well, but if you need to cache placeholders manually set them below
 AutoCachePlaceholders: false

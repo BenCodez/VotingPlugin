@@ -85,7 +85,9 @@ public class PlaceHolders {
 					if (plugin.getConfigFile().isAutoCachePlaceholders()) {
 						placeholdersToSetCacheOn.add(identifier);
 					}
-					return "..";
+					if (!plugin.getConfigFile().isAlwaysProcessPlaceholders()) {
+						return "..";
+					}
 				}
 			}
 		}
@@ -103,7 +105,11 @@ public class PlaceHolders {
 						if (cache.containsKey(p.getUniqueId())) {
 							return cache.get(p.getUniqueId());
 						} else {
-							return "....";
+							if (!plugin.getConfigFile().isAlwaysProcessPlaceholders()) {
+								return "....";
+							} else {
+								return placeholder.placeholderRequest(user, identifier);
+							}
 						}
 					} else {
 						return placeholder.placeholderRequest(user, identifier);

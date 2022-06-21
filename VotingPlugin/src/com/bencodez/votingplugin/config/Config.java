@@ -73,6 +73,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alwaysWaitForCachePlaceholders = false;
 
+	@ConfigDataBoolean(path = "AAlwaysProcessPlaceholders")
+	@Getter
+	private boolean alwaysProcessPlaceholders = false;
+
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
 	private boolean autoCreateVoteSites = true;
