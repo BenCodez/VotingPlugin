@@ -73,7 +73,7 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alwaysWaitForCachePlaceholders = false;
 
-	@ConfigDataBoolean(path = "AAlwaysProcessPlaceholders")
+	@ConfigDataBoolean(path = "AlwaysProcessPlaceholders")
 	@Getter
 	private boolean alwaysProcessPlaceholders = false;
 
