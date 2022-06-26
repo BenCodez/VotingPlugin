@@ -239,4 +239,19 @@ public class VoteSite {
 		return ArrayUtils.getInstance().containsIgnoreCase(plugin.getServerData().getServiceSites(), getServiceSite());
 	}
 
+	public String loadingDebug() {
+		String str = "Loading votesite key: " + key;
+		str += ", Displayname: " + displayName;
+		str += ", VoteDelay: " + getVoteDelay();
+		str += ", VoteDelayMin: " + getVoteDelayMin();
+		str += ", VoteDelayDaily: " + isVoteDelayDaily();
+		str += ", IsWaitUntilVoteDelay: " + isWaitUntilVoteDelay();
+		str += ", ServiceSite: " + getServiceSite();
+		str += ", TimeOffSet:" + getTimeOffSet();
+		str += ", Url: " + getVoteURL();
+		str += ", IgnoreCanVote: " + isIgnoreCanVote();
+		str += ", Hidden: " + isHidden();
+		return str;
+	}
+
 }

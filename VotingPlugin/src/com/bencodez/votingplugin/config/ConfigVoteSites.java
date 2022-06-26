@@ -130,12 +130,12 @@ public class ConfigVoteSites extends YMLFile {
 	 * @param siteName the site name
 	 * @return the vote delay
 	 */
-	public int getVoteDelay(String siteName) {
-		return getData(siteName).getInt("VoteDelay", 24);
+	public double getVoteDelay(String siteName) {
+		return getData(siteName).getDouble("VoteDelay", 24);
 	}
 
-	public int getVoteDelayMin(String siteName) {
-		return getData(siteName).getInt("VoteDelayMin", 0);
+	public double getVoteDelayMin(String siteName) {
+		return getData(siteName).getDouble("VoteDelayMin", 0);
 	}
 
 	/**
@@ -199,7 +199,9 @@ public class ConfigVoteSites extends YMLFile {
 					if (!siteCheck(site)) {
 						plugin.getLogger().warning("Failed to load site " + site + ", see above");
 					} else {
-						voteSites.add(new VoteSite(plugin, site));
+						VoteSite voteSite = new VoteSite(plugin, site);
+						plugin.debug(voteSite.loadingDebug());
+						voteSites.add(voteSite);
 					}
 				}
 			}
@@ -393,7 +395,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @param siteName  the site name
 	 * @param voteDelay the vote delay
 	 */
-	public void setVoteDelay(String siteName, int voteDelay) {
+	public void setVoteDelay(String siteName, double voteDelay) {
 		set(siteName, "VoteDelay", voteDelay);
 	}
 
