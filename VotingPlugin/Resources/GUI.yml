@@ -138,6 +138,7 @@ CHEST:
     # %time% = time, using timeformat below
     # %timesince% = time since vote
     Line: '&6%timeSince%'
+    ClickableLinks: true
   VoteNext:
     Name: 'VoteNext: %player%'
     BackButton: true

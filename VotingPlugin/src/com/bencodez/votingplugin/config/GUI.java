@@ -146,6 +146,10 @@ public class GUI extends YMLFile {
 	@Getter
 	private boolean lastMonthGUI = false;
 
+	@ConfigDataBoolean(path = "CHEST.VoteLast.ClickableLinks")
+	@Getter
+	private boolean chestVoteLastClickableLinks = true;
+
 	private VotingPluginMain plugin;
 
 	public GUI(VotingPluginMain plugin) {

@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteLast extends GUIHandler {
@@ -67,8 +68,24 @@ public class VoteLast extends GUIHandler {
 								.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1), 1000, 1000) {
 
 							@Override
-							public void onClick(ClickEvent clickEvent) {
+							public void onClick(ClickEvent event) {
+								if (plugin.getGui().isChestVoteLastClickableLinks()) {
+									Player player = event.getPlayer();
+									if (player != null) {
+										VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+										user.sendMessage(
+												StringParser.getInstance()
+														.replacePlaceHolder(
+																StringParser.getInstance().replacePlaceHolder(
+																		StringParser.getInstance()
+																				.replacePlaceHolder(plugin.getGui()
+																						.getChestVoteURLURLText(),
+																						"voteurl", site.getVoteURL()),
+																		"sitename", site.getDisplayName()),
+																"player", player.getName()));
 
+									}
+								}
 							}
 
 							@Override
