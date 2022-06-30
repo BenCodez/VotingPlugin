@@ -91,7 +91,7 @@ public class VotiferEvent implements Listener {
 
 				if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
 					plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
-							+ "' does not exist, attempting to generaterate...");
+							+ "' does not exist, attempting to generate...");
 					plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
 
 					plugin.getLogger().info("Current known service sites: "
