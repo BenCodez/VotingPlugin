@@ -142,8 +142,9 @@ public class VotingPluginVelocity {
 							}
 							if (p == null || !p.isActive()) {
 								toSend = false;
-							} else if (p != null && p.isActive() && !p.getCurrentServer().get().getServerInfo()
-									.getName().equals(serverToCheck.getServerInfo().getName())) {
+							} else if (p != null && p.isActive()
+									&& (!p.getCurrentServer().isPresent() || !p.getCurrentServer().get().getServerInfo()
+											.getName().equals(serverToCheck.getServerInfo().getName()))) {
 								toSend = false;
 							}
 
