@@ -26,7 +26,7 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 					serviceSite = "Empty";
 				}
 
-				plugin.vote(vote.getUsername(), serviceSite, true);
+				plugin.vote(vote.getUsername(), serviceSite, true, null, null);
 			}
 		});
 

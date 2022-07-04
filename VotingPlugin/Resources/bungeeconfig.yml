@@ -51,10 +51,6 @@ PointsOnVote: 1
 # Recommened to leave true, setting to false setups are currently unsupported
 BungeeManageTotals: true
 
-# Support for redis
-# experimental
-RedisSupport: false
-
 # Tell servers to broadcast
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true
@@ -92,3 +88,28 @@ WaitForUserOnline: false
 # ----------------------------
 # Options available here:
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
+
+
+# ----------------------------
+# Redis setup
+# Experimental
+# Primary server for redis needs votifier
+# Set socket host on each proxy and redissockets on primary redis only
+# All servers on pluginmessaging
+# ----------------------------
+
+# Support for redis
+# experimental
+RedisSupport: false
+
+# Enable on primary server
+PrimaryServer: false
+
+RedisSocketHost:
+  Host: 0.0.0.0
+  Port: 1234
+
+RedisServers:
+  secondproxy:
+    Host: 0.0.0.0
+    Port: 1235

@@ -53,6 +53,14 @@ public class Config {
 		return getData().getInt("BungeeServer.Port", 1297);
 	}
 
+	public int getRedisSocketHostPort() {
+		return getData().getInt("RedisSocketHost.Port", 1297);
+	}
+
+	public String getRedisSocketHostHost() {
+		return getData().getString("RedisSocketHost.Host", "");
+	}
+
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
 	}
@@ -73,12 +81,24 @@ public class Config {
 		return getData().getSection("SpigotServers." + s);
 	}
 
+	public Configuration getRedisServersConfiguration(String s) {
+		return getData().getSection("RedisServers." + s);
+	}
+
+	public Collection<String> getRedisServers() {
+		return getData().getSection("RedisServers").getKeys();
+	}
+
 	public Collection<String> getSpigotServers() {
 		return getData().getSection("SpigotServers").getKeys();
 	}
 
 	public boolean getWaitForUserOnline() {
 		return getData().getBoolean("WaitForUserOnline", false);
+	}
+
+	public boolean getPrimaryServer() {
+		return getData().getBoolean("PrimaryServer", false);
 	}
 
 	public boolean getVotePartyEnabled() {

@@ -63,6 +63,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private HashMap<String, ClientHandler> clientHandles;
 
+	private HashMap<String, ClientHandler> redisClientHandles;
+
 	@Getter
 	private Config config;
 
@@ -78,12 +80,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private SocketHandler socketHandler;
 
+	private SocketHandler redisSocketHandler;
+
 	private VoteCache voteCacheFile;
 
 	private boolean votifierEnabled = true;
-
-	@Getter
-	private RedisBungee redis;
 
 	@Getter
 	private TimeHandle timeHandle;
@@ -338,9 +339,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (mysql != null) {
 			mysql.shutdown();
 		}
-		if (redis != null) {
-			redis.destroy();
-		}
 		getLogger().info("VotingPlugin disabled");
 	}
 
@@ -362,12 +360,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		config = new Config(this);
 		config.load();
-
-		try {
-			redis = new RedisBungee(this);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
@@ -525,6 +517,42 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 		}
 
+		if (getConfig().getRedisSupport()) {
+			redisSocketHandler = new SocketHandler(getDescription().getVersion(), config.getRedisSocketHostHost(),
+					config.getRedisSocketHostPort(), encryptionHandler, config.getDebug()) {
+
+				@Override
+				public void log(String str) {
+					getLogger().info(str);
+				}
+			};
+
+			redisSocketHandler.add(new SocketReceiver() {
+
+				@Override
+				public void onReceive(String[] data) {
+					if (data.length > 8) {
+						if (data[0].equalsIgnoreCase("Vote")) {
+							// todo
+							// sendRedisServerMessage("Vote", uuid, player, service, "" + votePartyVotes,""
+							// + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+							vote(data[2], data[3], Boolean.valueOf(data[7]), new BungeeMessageData(data[8]), data[1]);
+						}
+					}
+
+				}
+			});
+
+			clientHandles = new HashMap<String, ClientHandler>();
+			for (
+
+			String s : config.getRedisServers()) {
+				Configuration d = config.getRedisServersConfiguration(s);
+				redisClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
+						encryptionHandler, config.getDebug()));
+			}
+		}
+
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
 
 		metrics.addCustomChart(
@@ -574,11 +602,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	public boolean isOnline(ProxiedPlayer p) {
 		if (p != null) {
-			if (redis != null && redis.isEnabled()) {
-				return redis.isOnline(p);
-			} else {
-				return p.isConnected();
-			}
+			return p.isConnected();
 		}
 
 		return false;
@@ -723,6 +747,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	public void sendRedisServerMessage(String... messageData) {
+		for (ClientHandler h : redisClientHandles.values()) {
+			h.sendMessage(messageData);
+		}
+	}
+
 	public void sendServerMessageServer(String server, String... messageData) {
 		if (clientHandles.containsKey(server)) {
 			clientHandles.get(server).sendMessage(messageData);
@@ -783,14 +813,17 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public synchronized void vote(String player, String service, boolean realVote) {
+	public synchronized void vote(String player, String service, boolean realVote, BungeeMessageData text,
+			String uuid) {
 		try {
 			if (player == null || player.isEmpty()) {
 				getLogger().info("No name from vote on " + service);
 				return;
 			}
 
-			String uuid = getUUID(player);
+			if (uuid == null) {
+				uuid = getUUID(player);
+			}
 			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
 					debug("Fetching UUID online, since allowunjoined is enabled");
@@ -815,43 +848,42 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			player = getProperName(uuid, player);
 
-			BungeeMessageData text = null;
+			if (!getConfig().getPrimaryServer()) {
+				addVoteParty();
+				if (getConfig().getBungeeManageTotals()) {
 
-			addVoteParty();
+					if (mysql == null) {
+						getLogger().severe("Mysql is not loaded correctly, stopping vote processing");
+						return;
+					}
 
-			if (getConfig().getBungeeManageTotals()) {
+					// one time query to insert player
+					if (!mysql.getUuids().contains(uuid)) {
+						mysql.update(uuid, "PlayerName", new DataValueString(player));
+					}
 
-				if (mysql == null) {
-					getLogger().severe("Mysql is not loaded correctly, stopping vote processing");
-					return;
+					ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", new DataValueString(uuid)));
+
+					int allTimeTotal = getValue(data, "AllTimeTotal", 1);
+					int monthTotal = getValue(data, "MonthTotal", 1);
+					int weeklyTotal = getValue(data, "WeeklyTotal", 1);
+					int dailyTotal = getValue(data, "DailyTotal", 1);
+					int points = getValue(data, "Points", getConfig().getPointsOnVote());
+					int milestoneCount = getValue(data, "MilestoneCount", 1);
+					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
+							milestoneCount, votePartyVotes, currentVotePartyVotesRequired);
+					ArrayList<Column> update = new ArrayList<Column>();
+					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
+					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
+					update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
+					update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
+					update.add(new Column("Points", new DataValueInt(points)));
+					update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
+					debug("Setting totals " + text.toString());
+					mysql.update(uuid, update);
+				} else {
+					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
 				}
-
-				// one time query to insert player
-				if (!mysql.getUuids().contains(uuid)) {
-					mysql.update(uuid, "PlayerName", new DataValueString(player));
-				}
-
-				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", new DataValueString(uuid)));
-
-				int allTimeTotal = getValue(data, "AllTimeTotal", 1);
-				int monthTotal = getValue(data, "MonthTotal", 1);
-				int weeklyTotal = getValue(data, "WeeklyTotal", 1);
-				int dailyTotal = getValue(data, "DailyTotal", 1);
-				int points = getValue(data, "Points", getConfig().getPointsOnVote());
-				int milestoneCount = getValue(data, "MilestoneCount", 1);
-				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount,
-						votePartyVotes, currentVotePartyVotesRequired);
-				ArrayList<Column> update = new ArrayList<Column>();
-				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
-				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
-				update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
-				update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
-				update.add(new Column("Points", new DataValueInt(points)));
-				update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
-				debug("Setting totals " + text.toString());
-				mysql.update(uuid, update);
-			} else {
-				text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
 			}
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -922,6 +954,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				sendSocketVote(player, service, text);
+			}
+			if (getConfig().getRedisSupport() && getConfig().getPrimaryServer()) {
+				sendRedisServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
+						"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
