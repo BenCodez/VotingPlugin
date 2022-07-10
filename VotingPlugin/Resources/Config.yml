@@ -480,7 +480,7 @@ UsePrimaryAccountForPlaceholders: false
 AlwaysWaitForCachePlaceholders: false
 
 # Always force placeholders to be processed and return a proper value
-# This has small chances of crash server (mainly with mysql)
+# This has small chance of crashing the server (mainly with mysql and using placeholders on main thread)
 AlwaysProcessPlaceholders: false
 
 # Enable auto caching placeholders

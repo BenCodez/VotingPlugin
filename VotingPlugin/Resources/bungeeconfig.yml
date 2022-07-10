@@ -102,7 +102,7 @@ WaitForUserOnline: false
 # experimental
 RedisSupport: false
 
-# Enable on primary server
+# Enable on primary server with votifier
 PrimaryServer: false
 
 RedisSocketHost:
