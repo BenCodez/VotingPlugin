@@ -579,11 +579,13 @@ public class VotingPluginVelocity {
 					}
 				}
 			}
+			
+			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+					+ voteCacheFile.getVotePartyInreaseVotesRequired();
+			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 		}
 
-		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
-				+ voteCacheFile.getVotePartyInreaseVotesRequired();
-		votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
+		
 
 		try {
 			getVersionFile();
