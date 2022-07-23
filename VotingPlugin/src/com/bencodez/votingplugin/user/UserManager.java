@@ -45,7 +45,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("DayVoteStreak"));
 		manager.addKey(new UserDataKeyInt("BestDayVoteStreak"));
 		manager.addKey(new UserDataKeyString("DayVoteStreakLastUpdate").setColumnType("MEDIUMTEXT"));
-		manager.addKey(new UserDataKeyString("GottenMileStones").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyString("GottenMileStones").setColumnType("LONGTEXT"));
 		manager.addKey(new UserDataKeyString("Reminded").setColumnType("VARCHAR(5)"));
 		manager.addKey(new UserDataKeyString("DisableBroadcast").setColumnType("VARCHAR(5)"));
 		manager.addKey(new UserDataKeyInt("WeekVoteStreak"));
