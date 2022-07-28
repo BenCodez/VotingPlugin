@@ -16,7 +16,7 @@ softdepend:
 - MVdWPlaceholderAPI
 - AuthMe
 - SuperVanish
-- PremiumVanishs
+- PremiumVanish
 - DiscordSRV
 loadbefore:
 - MCPerks
