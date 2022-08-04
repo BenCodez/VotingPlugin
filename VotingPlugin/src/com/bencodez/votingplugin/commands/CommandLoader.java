@@ -371,14 +371,14 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.cache();
-						int newTotal = 0;
 						synchronized (pointLock) {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							user.cache();
+							int newTotal = 0;
 							newTotal = user.addPoints(Integer.parseInt(args[3]));
+							sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
+									+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
 						}
-						sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
-								+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
 					}
 				});
 
