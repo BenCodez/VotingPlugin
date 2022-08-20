@@ -1019,7 +1019,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		topVoterHandler.register();
 
-		metrics();
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+
+			@Override
+			public void run() {
+				metrics();
+			}
+		});
 
 		// javascript api
 		getJavascriptEngineRequests().add(new JavascriptPlaceholderRequest("User") {
