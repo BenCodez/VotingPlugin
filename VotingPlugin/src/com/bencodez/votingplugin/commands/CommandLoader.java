@@ -1280,8 +1280,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						plugin.getServerData().setVotePartyExtraRequired(Integer.parseInt(args[1]));
-						sendMessage(sender, "&cSet VotePartyExtraRequired to " + args[1]);
+						plugin.getServerData().setVotePartyExtraRequired(Integer.parseInt(args[2]));
+						sendMessage(sender, "&cSet VotePartyExtraRequired to " + args[2]);
 					}
 				});
 
