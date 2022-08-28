@@ -1196,8 +1196,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void onUnLoad() {
-		getSigns().storeSigns();
-		HandlerList.unregisterAll(plugin);
 		if (bungeeSettings.isUseBungeecoord()) {
 			try {
 				getBungeeHandler().close();
@@ -1205,6 +1203,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
+		getSigns().storeSigns();
+		HandlerList.unregisterAll(plugin);
 		plugin = null;
 	}
 

@@ -107,6 +107,8 @@ public class BungeeHandler implements Listener {
 						bungeeVotePartyCurrent = text.getVotePartyCurrent();
 						bungeeVotePartyRequired = text.getVotePartyRequired();
 						plugin.getPlaceholders().onBungeeVotePartyUpdate();
+						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
@@ -169,6 +171,8 @@ public class BungeeHandler implements Listener {
 						bungeeVotePartyCurrent = text.getVotePartyCurrent();
 						bungeeVotePartyRequired = text.getVotePartyRequired();
 						plugin.getPlaceholders().onBungeeVotePartyUpdate();
+						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 
 						plugin.debug(
 								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
@@ -236,6 +240,8 @@ public class BungeeHandler implements Listener {
 					if (args.size() > 2) {
 						bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
 						bungeeVotePartyRequired = Integer.parseInt(args.get(2));
+						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 					}
 
 					plugin.setUpdate(true);
