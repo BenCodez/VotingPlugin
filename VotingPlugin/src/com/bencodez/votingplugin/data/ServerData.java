@@ -1,8 +1,10 @@
 package com.bencodez.votingplugin.data;
 
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -163,6 +165,14 @@ public class ServerData {
 		return false;
 	}
 
+	public boolean isLastVotePartySameWeek() {
+		int num = getData().getInt("LastVotePartyWeek", 0);
+		if (num != plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())) {
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Next sign number.
 	 *
@@ -261,6 +271,12 @@ public class ServerData {
 
 	public void updateLastVoteParty() {
 		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
+		saveData();
+	}
+
+	public void updateLastVotePartyWeek() {
+		getData().set("LastVotePartyWeek",
+				plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear()));
 		saveData();
 	}
 

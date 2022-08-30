@@ -74,6 +74,8 @@ VoteParty:
   ResetMonthly: false
   # If true, will give voteparty only once per day
   OnlyOncePerDay: false
+  # If true, will give voteparty once per week only
+  OnlyOncePerWeek: false
   # Reset extra votes
   ResetExtraVotesMonthly: false
   # Count votes from /av vote?

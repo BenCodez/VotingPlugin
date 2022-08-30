@@ -60,29 +60,40 @@ public class VoteParty implements Listener {
 	}
 
 	public void check(boolean forceBungee) {
-		if (getTotalVotes() >= getVotesRequired() && ((plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
-				&& plugin.getServerData().isLastVotePartySameDay())
-				|| !plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay())) {
-			if (plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
-				setTotalVotes(getTotalVotes() - getVotesRequired());
-			}
+		if (getTotalVotes() < getVotesRequired()) {
+			return;
+		}
+		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
+				&& plugin.getServerData().isLastVotePartySameDay()) {
+			return;
+		}
+		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerWeek()
+				&& plugin.getServerData().isLastVotePartySameWeek()) {
+			return;
+		}
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
+			setTotalVotes(getTotalVotes() - getVotesRequired());
+		}
 
-			VotePartyEvent event = new VotePartyEvent();
-			Bukkit.getPluginManager().callEvent(event);
-			if (event.isCancelled()) {
-				return;
-			}
+		VotePartyEvent event = new VotePartyEvent();
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			return;
+		}
 
-			giveRewards(forceBungee);
+		giveRewards(forceBungee);
 
-			if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired() > 0) {
-				plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
-						+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired());
-			}
+		if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired() > 0) {
+			plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
+					+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired());
+		}
 
-			if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()) {
-				plugin.getServerData().updateLastVoteParty();
-			}
+		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()) {
+			plugin.getServerData().updateLastVoteParty();
+		}
+
+		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerWeek()) {
+			plugin.getServerData().updateLastVotePartyWeek();
 		}
 
 	}
@@ -164,11 +175,9 @@ public class VoteParty implements Listener {
 
 	public void giveReward(VotingPluginUser user, boolean online, boolean useBungee) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath())
-						.setOnline(online)
-						.withPlaceHolder("VotesRequired",
-								"" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
-						.setServer(useBungee).send(user);
+				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
+				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
+				.setServer(useBungee).send(user);
 	}
 
 	public void giveRewards(boolean forceBungee) {
