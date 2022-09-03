@@ -104,6 +104,7 @@ public class VoteReminding {
 	public boolean shouldRemind(VotingPluginUser user) {
 		if (remindersEnabled.containsKey(user.getJavaUUID())) {
 			if (!remindersEnabled.get(user.getJavaUUID()).booleanValue()) {
+
 				return false;
 			}
 		}
@@ -115,6 +116,7 @@ public class VoteReminding {
 				return user.canVoteAny();
 			}
 		} else {
+			plugin.debug(user.getUUID() + " no need to remind");
 			return false;
 		}
 	}
@@ -132,7 +134,11 @@ public class VoteReminding {
 					}
 					plugin.debug(user.getPlayerName() + " was reminded!");
 
+				} else {
+					plugin.debug("Not reminding for " + user.getUUID());
 				}
+			} else {
+				plugin.debug(user.getUUID() + " has no permission for reminders");
 			}
 		}
 	}
