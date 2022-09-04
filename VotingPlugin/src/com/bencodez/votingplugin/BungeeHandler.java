@@ -408,7 +408,7 @@ public class BungeeHandler implements Listener {
 				public void onReceive(String[] data) {
 					if (data.length > 2) {
 						VoteSite site = plugin.getVoteSite(data[1], true);
-						String p = data[3];
+						String p = data[2];
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 						if (site != null) {
 							site.broadcastVote(user, false);

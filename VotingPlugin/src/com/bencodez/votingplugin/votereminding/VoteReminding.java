@@ -116,7 +116,7 @@ public class VoteReminding {
 				return user.canVoteAny();
 			}
 		} else {
-			plugin.debug(user.getUUID() + " no need to remind");
+			plugin.debug(user.getUUID() + " no need to remind because plaeyr has VotingPlugin.NoRemind");
 			return false;
 		}
 	}
