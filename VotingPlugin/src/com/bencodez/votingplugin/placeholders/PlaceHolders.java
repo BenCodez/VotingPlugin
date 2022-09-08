@@ -811,19 +811,15 @@ public class PlaceHolders {
 	public void onUpdate(VotingPluginUser user) {
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			if (placeholder.isUsesCache()) {
-				if (!placeholder.getIdentifier().startsWith("Top_") || placeholder.getCache().isEmpty()
-						|| placeholder.getUpdateDataKey().isEmpty()) {
-					for (String ident : placeholder.getCache().keySet()) {
-						placeholder.getCache().get(ident).put(user.getJavaUUID(),
-								placeholder.placeholderRequest(user, ident));
-					}
+				for (String ident : placeholder.getCache().keySet()) {
+					placeholder.getCache().get(ident).put(user.getJavaUUID(),
+							placeholder.placeholderRequest(user, ident));
 				}
 			}
 		}
 	}
 
 	public void onUpdate() {
-		ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 		while (!placeholdersToSetCacheOn.isEmpty()) {
 			String toCache = placeholdersToSetCacheOn.poll();
 			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
@@ -854,24 +850,6 @@ public class PlaceHolders {
 						}
 					} else {
 						plugin.debug("ident null: " + placeholder.getIdentifier());
-					}
-				}
-			}
-		}
-		for (String uuid : uuids) {
-			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-			user.dontCache();
-			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-				if (placeholder.isUsesCache()) {
-					if (placeholder.getIdentifier().startsWith("Top_")) {
-						for (String ident : placeholder.getCache().keySet()) {
-							if (ident != null) {
-								placeholder.getCache().get(ident).put(user.getJavaUUID(),
-										placeholder.placeholderRequest(user, ident));
-							} else {
-								plugin.debug("ident null: " + placeholder.getIdentifier());
-							}
-						}
 					}
 				}
 			}
