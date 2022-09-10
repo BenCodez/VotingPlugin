@@ -66,7 +66,7 @@ public class SpecialRewards {
 						String totalToUse = plugin.getSpecialRewardsConfig().getCumulativeVotesTotal(votesRequired);
 						TopVoter top = TopVoter.getTopVoter(totalToUse);
 						if (!useBungeeTotalNum) {
-							total = user.getTotal(top);
+							total = user.getTotal(top) + 1;
 						} else {
 							switch (top) {
 							case AllTime:
@@ -294,7 +294,7 @@ public class SpecialRewards {
 
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getCumulativeRewardsPath(cumulative)).setServer(forceBungee)
-						.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
+				.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
 
 	public void giveFirstVoteRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
@@ -331,7 +331,7 @@ public class SpecialRewards {
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMilestoneRewardsPath(milestone)).setOnline(online)
-						.withPlaceHolder("Milestone", "" + milestone).setServer(forceBungee).send(user);
+				.withPlaceHolder("Milestone", "" + milestone).setServer(forceBungee).send(user);
 	}
 
 	public void giveVoteStreakReward(VotingPluginUser user, boolean online, String type, String string, int votes,
@@ -345,8 +345,7 @@ public class SpecialRewards {
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, string)).setOnline(online)
-						.withPlaceHolder("Type", type).setServer(forceBungee).withPlaceHolder("Streak", "" + votes)
-						.send(user);
+				.withPlaceHolder("Type", type).setServer(forceBungee).withPlaceHolder("Streak", "" + votes).send(user);
 	}
 
 }
