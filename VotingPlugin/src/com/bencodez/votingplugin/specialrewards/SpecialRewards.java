@@ -66,7 +66,7 @@ public class SpecialRewards {
 						String totalToUse = plugin.getSpecialRewardsConfig().getCumulativeVotesTotal(votesRequired);
 						TopVoter top = TopVoter.getTopVoter(totalToUse);
 						if (!useBungeeTotalNum) {
-							total = user.getTotal(top) + 1;
+							total = user.getTotal(top);
 						} else {
 							switch (top) {
 							case AllTime:

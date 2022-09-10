@@ -199,6 +199,8 @@ public class PlayerVoteListener implements Listener {
 
 			// other rewards
 			plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
+			
+			user.clearCache();
 			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
 			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
 
