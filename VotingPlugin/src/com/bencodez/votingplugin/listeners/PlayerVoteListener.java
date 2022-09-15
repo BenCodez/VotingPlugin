@@ -194,7 +194,6 @@ public class PlayerVoteListener implements Listener {
 				}
 				user.addPoints();
 			}
-
 			user.checkDayVoteStreak(event.isForceBungee());
 
 			// other rewards

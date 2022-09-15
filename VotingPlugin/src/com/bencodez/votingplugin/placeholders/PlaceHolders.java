@@ -768,7 +768,7 @@ public class PlaceHolders {
 						for (String key : keys) {
 							if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
 								VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
-								user.dontCache();
+								vpUser.dontCache();
 								for (String ident : placeholder.getCache().keySet()) {
 									placeholder.getCache().get(ident).put(vpUser.getJavaUUID(),
 											placeholder.placeholderRequest(vpUser, ident));
