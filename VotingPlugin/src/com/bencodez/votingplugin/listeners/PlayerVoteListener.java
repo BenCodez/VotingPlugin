@@ -175,7 +175,9 @@ public class PlayerVoteListener implements Listener {
 					online = event.isWasOnline();
 				}
 				user.playerVote(voteSite, online, false, event.isForceBungee());
-				user.sendVoteEffects(online);
+				if (event.getVoteNumber() == 1) {
+					user.sendVoteEffects(online);
+				}
 				if (plugin.getConfigFile().isCloseInventoryOnVote()) {
 					user.closeInv();
 				}

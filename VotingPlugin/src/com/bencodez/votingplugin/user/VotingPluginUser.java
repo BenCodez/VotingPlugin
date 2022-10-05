@@ -190,7 +190,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
-			boolean wasOnline, boolean broadcast) {
+			boolean wasOnline, boolean broadcast, int num) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -204,6 +204,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
+			voteEvent.setVoteNumber(num);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
@@ -552,22 +553,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void giveDailyTopVoterAward(int place, String path) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-						.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
-						.setOnline(isOnline()).send(this);
+				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
+				.setOnline(isOnline()).send(this);
 	}
 
 	public void giveMonthlyTopVoterAward(int place, String path) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-						.withPlaceHolder("topvoter", "Monthly")
-						.withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly)).setOnline(isOnline()).send(this);
+				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly))
+				.setOnline(isOnline()).send(this);
 	}
 
 	public void giveWeeklyTopVoterAward(int place, String path) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-						.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
-						.setOnline(isOnline()).send(this);
+				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
+				.setOnline(isOnline()).send(this);
 	}
 
 	/**

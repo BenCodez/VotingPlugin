@@ -138,11 +138,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					server = getProxy().getPlayer(UUID.fromString(uuid)).getServer().getInfo().getName();
 				}
 				if (!config.getBlockedServers().contains(server)) {
+					int num = 1;
 					for (OfflineBungeeVote cache : c) {
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
+								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num);
+						num++;
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 				}
@@ -930,7 +932,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
-								"" + config.getBroadcast());
+								"" + config.getBroadcast(), "1");
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
 							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
