@@ -98,6 +98,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
 					ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
 					if (!c.isEmpty()) {
+						int num = 1;
 						for (OfflineBungeeVote cache : c) {
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
@@ -115,7 +116,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 										"" + cache.isRealVote(), cache.getText(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(),
+										"" + num);
+								num++;
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
@@ -921,7 +924,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 										Boolean.TRUE.toString(), "" + realVote, text.toString(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1");
 							}
 
 						}

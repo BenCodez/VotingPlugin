@@ -133,6 +133,7 @@ public class VotingPluginVelocity {
 				ArrayList<OfflineBungeeVote> c = cachedVotes.get(serverToCheck);
 				ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
 				if (!c.isEmpty()) {
+					int num = 1;
 					for (OfflineBungeeVote cache : c) {
 						boolean toSend = true;
 						if (getConfig().getWaitForUserOnline()) {
@@ -153,7 +154,8 @@ public class VotingPluginVelocity {
 							sendPluginMessageServer(serverToCheck, "Vote", cache.getPlayerName(), cache.getUuid(),
 									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 									"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
+									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num);
+							num++;
 						} else {
 							debug("Not sending vote because user isn't on server " + serverToCheck + ": "
 									+ cache.toString());
@@ -927,7 +929,7 @@ public class VotingPluginVelocity {
 								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 										Boolean.TRUE.toString(), "" + realVote, text.toString(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast());
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1");
 							}
 							if (config.getBroadcast()) {
 								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);

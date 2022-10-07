@@ -121,6 +121,11 @@ public class BungeeHandler implements Listener {
 							bungeeBroadcast = Boolean.valueOf(args.get(9));
 						}
 
+						int num = 1;
+						if (args.size() > 10) {
+							num = Integer.valueOf(args.get(10));
+						}
+
 						if (!bungeeBroadcast) {
 							if (!plugin.getBungeeSettings().isBungeeBroadcast()
 									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
@@ -138,7 +143,7 @@ public class BungeeHandler implements Listener {
 							broadcast = false;
 						}
 
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, 1);
+						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
