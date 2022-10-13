@@ -32,8 +32,16 @@ public class BroadcastHandler {
 			}
 			String bc = StringParser.getInstance()
 					.colorize(plugin.getConfigFile().getFormatAlternateBroadcastBroadcast());
+			String playersText = "";
+			while (!votedPlayers.isEmpty()) {
+				playersText += votedPlayers.remove();
+				if (!votedPlayers.isEmpty()) {
+					playersText += ", ";
+				}
+			}
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("numberofplayers", "" + size);
+			placeholders.put("players", playersText);
 			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {

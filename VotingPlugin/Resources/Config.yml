@@ -121,6 +121,8 @@ Format:
   # Broadcast every x number of minutes with number of players that voted
   AlternateBroadcast:
     Enabled: false
+    # Use %players% for all players names
+    # Use %numberofplayers% for number of players that voted
     Broadcast: '&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote'
     # Delay in minutes
     Delay: 30
