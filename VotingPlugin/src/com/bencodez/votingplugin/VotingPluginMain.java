@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -881,29 +881,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public void run() {
-				getTimer().schedule(new TimerTask() {
+				getTimer().scheduleWithFixedDelay(new Runnable() {
 
 					@Override
 					public void run() {
 						if (plugin != null) {
 							update();
-						} else {
-							cancel();
 						}
 					}
-				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates());
+				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates(), TimeUnit.MILLISECONDS);
 
-				getTimer().schedule(new TimerTask() {
+				getTimer().scheduleWithFixedDelay(new Runnable() {
 
 					@Override
 					public void run() {
 						if (plugin != null && configFile.isExtraBackgroundUpdate()) {
 							basicBungeeUpdate();
-						} else {
-							cancel();
 						}
 					}
-				}, 1000, 1000 * 30);
+				}, 1000, 1000 * 30, TimeUnit.MILLISECONDS);
 
 			}
 		}, 40L);

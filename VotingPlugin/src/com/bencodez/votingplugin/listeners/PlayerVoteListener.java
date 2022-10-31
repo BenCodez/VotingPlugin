@@ -3,8 +3,8 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -223,7 +223,7 @@ public class PlayerVoteListener implements Listener {
 					event.isForceBungee());
 			plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
-			plugin.getTimer().schedule(new TimerTask() {
+			plugin.getTimer().schedule(new Runnable() {
 
 				@Override
 				public void run() {
@@ -233,7 +233,7 @@ public class PlayerVoteListener implements Listener {
 						user.clearCache();
 					}
 				}
-			}, 1000 * 5);
+			}, 5, TimeUnit.SECONDS);
 
 		}
 
