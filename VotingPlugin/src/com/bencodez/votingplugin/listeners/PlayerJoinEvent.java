@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.listeners;
 
+import java.util.Timer;
 import java.util.TimerTask;
 
 import org.bukkit.entity.Player;
@@ -74,17 +75,23 @@ public class PlayerJoinEvent implements Listener {
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		if (plugin != null && plugin.isEnabled()) {
 			final java.util.UUID uuid = event.getPlayer().getUniqueId();
-			plugin.getLoginTimer().schedule(new TimerTask() {
+			try {
+				plugin.getLoginTimer().schedule(new TimerTask() {
 
-				@Override
-				public void run() {
-					VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
+					@Override
+					public void run() {
+						VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
 
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
-					user.dontCache();
-					user.logoutRewards();
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
+						user.dontCache();
+						user.logoutRewards();
+					}
+				}, 0);
+			} catch (IllegalStateException e) {
+				if (e.getMessage().contains("Timer already")) {
+					plugin.setLoginTimer(new Timer());
 				}
-			}, 0);
+			}
 		}
 	}
 }
