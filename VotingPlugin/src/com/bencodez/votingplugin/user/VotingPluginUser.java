@@ -372,7 +372,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (str == null || str.isEmpty() || str.equals("null")) {
 			return 0;
 		}
-		return Long.parseLong(str);
+		try {
+			return Long.parseLong(str);
+		} catch (NumberFormatException e) {
+			return 0;
+		}
 	}
 
 	public boolean getDisableBroadcast() {
