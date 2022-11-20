@@ -438,16 +438,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return lastVotes;
 	}
 
-	public VotingPluginUser dontCacheVP() {
-		dontCache();
-		return this;
-	}
-
-	public VotingPluginUser cacheDataVP() {
-		cacheData();
-		return this;
-	}
-
 	public Long getLastVoteTime() {
 		Long time = Long.valueOf(0);
 		for (Long value : getLastVotes().values()) {
@@ -1289,7 +1279,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public TopVoterPlayer getTopVoterPlayer() {
-		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName());
+		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName(), getLastOnline());
 	}
 
 	public long getNextTimeAllSitesAvailable() {

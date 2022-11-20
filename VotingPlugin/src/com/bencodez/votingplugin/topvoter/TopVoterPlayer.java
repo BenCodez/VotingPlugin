@@ -19,9 +19,14 @@ public class TopVoterPlayer {
 	@Setter
 	private String playerName;
 
-	public TopVoterPlayer(UUID uuid, String playerName) {
+	@Getter
+	@Setter
+	private Long lastVoteTime;
+
+	public TopVoterPlayer(UUID uuid, String playerName, Long lastVoteTime) {
 		this.uuid = uuid;
 		this.playerName = playerName;
+		this.lastVoteTime = lastVoteTime;
 	}
 
 	public ItemStack getPlayerHead() {
