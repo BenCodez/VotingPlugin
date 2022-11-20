@@ -409,13 +409,13 @@ public class TopVoterHandler implements Listener {
 					if (result != 0) {
 						return result;
 					}
-					return o2.getKey().getUser().getLastVoteTime().compareTo(o1.getKey().getUser().getLastVoteTime());
+					return o2.getKey().getUser().dontCache().getLastVoteTime().compareTo(o1.getKey().getUser().dontCache().getLastVoteTime());
 				} else {
 					int result = (o2.getValue()).compareTo(o1.getValue());
 					if (result != 0) {
 						return result;
 					}
-					return o1.getKey().getUser().getLastVoteTime().compareTo(o2.getKey().getUser().getLastVoteTime());
+					return o1.getKey().getUser().dontCache().getLastVoteTime().compareTo(o2.getKey().getUser().dontCache().getLastVoteTime());
 
 				}
 			}

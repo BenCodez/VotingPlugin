@@ -438,6 +438,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return lastVotes;
 	}
 
+	@Override
+	public VotingPluginUser dontCache() {
+		dontCache();
+		return this;
+	}
+
+	@Override
+	public VotingPluginUser cacheData() {
+		cacheData();
+		return this;
+	}
+
 	public Long getLastVoteTime() {
 		Long time = Long.valueOf(0);
 		for (Long value : getLastVotes().values()) {
