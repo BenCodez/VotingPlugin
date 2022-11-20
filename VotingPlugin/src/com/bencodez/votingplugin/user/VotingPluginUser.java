@@ -438,14 +438,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return lastVotes;
 	}
 
-	@Override
-	public VotingPluginUser dontCache() {
+	public VotingPluginUser dontCacheVP() {
 		dontCache();
 		return this;
 	}
 
-	@Override
-	public VotingPluginUser cacheData() {
+	public VotingPluginUser cacheDataVP() {
 		cacheData();
 		return this;
 	}
