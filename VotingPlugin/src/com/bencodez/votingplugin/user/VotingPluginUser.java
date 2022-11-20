@@ -438,6 +438,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return lastVotes;
 	}
 
+	public Long getLastVoteTime() {
+		Long time = Long.valueOf(0);
+		for (Long value : getLastVotes().values()) {
+			if (value.longValue() > time) {
+				time = value;
+			}
+		}
+		return time;
+	}
+
 	/**
 	 * Gets the last vote times sorted.
 	 *

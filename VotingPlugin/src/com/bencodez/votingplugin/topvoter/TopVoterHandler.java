@@ -405,9 +405,17 @@ public class TopVoterHandler implements Listener {
 			@Override
 			public int compare(Entry<TopVoterPlayer, Integer> o1, Entry<TopVoterPlayer, Integer> o2) {
 				if (order) {
-					return o1.getValue().compareTo(o2.getValue());
+					int result = (o1.getValue()).compareTo(o2.getValue());
+					if (result != 0) {
+						return result;
+					}
+					return o1.getKey().getUser().getLastVoteTime().compareTo(o2.getKey().getUser().getLastVoteTime());
 				} else {
-					return o2.getValue().compareTo(o1.getValue());
+					int result = (o2.getValue()).compareTo(o1.getValue());
+					if (result != 0) {
+						return result;
+					}
+					return o2.getKey().getUser().getLastVoteTime().compareTo(o1.getKey().getUser().getLastVoteTime());
 
 				}
 			}
