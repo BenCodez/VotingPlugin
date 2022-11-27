@@ -24,10 +24,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -109,7 +109,7 @@ public class VotingPluginVelocity {
 
 	private VoteCache voteCacheFile;
 
-	private Timer timer;
+	private ScheduledExecutorService timer;
 
 	@Getter
 	private TimeHandle timeHandle;
@@ -123,7 +123,7 @@ public class VotingPluginVelocity {
 		this.logger = logger;
 		this.dataDirectory = dataDirectory;
 		this.metricsFactory = metricsFactory;
-		timer = new Timer();
+		timer = Executors.newScheduledThreadPool(1);
 	}
 
 	public synchronized void checkCachedVotes(RegisteredServer serverToCheck) {
@@ -340,14 +340,14 @@ public class VotingPluginVelocity {
 						if (p.getCurrentServer().isPresent()) {
 							final RegisteredServer server = p.getCurrentServer().get().getServer();
 							final Player p1 = p;
-							timer.schedule(new TimerTask() {
+							timer.execute(new Runnable() {
 
 								@Override
 								public void run() {
 									checkCachedVotes(server);
 									checkOnlineVotes(p1, p.getUniqueId().toString(), server);
 								}
-							}, 0);
+							});
 
 						}
 					}
@@ -681,7 +681,7 @@ public class VotingPluginVelocity {
 	public void onVotifierEvent(VotifierEvent event) {
 		final String serviceSiteVote = event.getVote().getServiceName();
 		final String name = event.getVote().getUsername();
-		timer.schedule(new TimerTask() {
+		timer.execute(new Runnable() {
 
 			@Override
 			public void run() {
@@ -692,7 +692,7 @@ public class VotingPluginVelocity {
 				}
 				vote(name, serviceSite, true);
 			}
-		}, 0);
+		});
 
 	}
 

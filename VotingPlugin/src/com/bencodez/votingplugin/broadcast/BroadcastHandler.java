@@ -2,9 +2,10 @@ package com.bencodez.votingplugin.broadcast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -16,12 +17,12 @@ import com.bencodez.votingplugin.user.UserManager;
 
 public class BroadcastHandler {
 	private VotingPluginMain plugin;
-	private Timer timer;
+	private ScheduledExecutorService timer;
 	ConcurrentLinkedQueue<String> votedPlayers = new ConcurrentLinkedQueue<String>();
 
 	public BroadcastHandler(VotingPluginMain plugin, int delay) {
 		this.plugin = plugin;
-		schelude(delay);
+		schedule(delay);
 	}
 
 	public void check() {
@@ -58,19 +59,19 @@ public class BroadcastHandler {
 		votedPlayers.add(player);
 	}
 
-	public void schelude(int delay) {
+	public void schedule(int delay) {
 		if (timer != null) {
-			timer.cancel();
-			timer = new Timer();
+			timer.shutdownNow();
+			timer = Executors.newScheduledThreadPool(1);
 		} else {
-			timer = new Timer();
+			timer = Executors.newScheduledThreadPool(1);
 		}
-		timer.schedule(new TimerTask() {
+		timer.scheduleWithFixedDelay(new Runnable() {
 
 			@Override
 			public void run() {
 				check();
 			}
-		}, 1000 * 60, 1000 * 60 * delay);
+		}, 60, 60 * delay, TimeUnit.SECONDS);
 	}
 }

@@ -1,9 +1,10 @@
 package com.bencodez.votingplugin.votereminding;
 
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -24,7 +25,7 @@ public class VoteReminding {
 	/** The plugin. */
 	private VotingPluginMain plugin;
 
-	private Timer timer;
+	private ScheduledExecutorService timer;
 
 	@Getter
 	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<UUID, Boolean>();
@@ -61,11 +62,11 @@ public class VoteReminding {
 	 */
 	public void loadRemindChecking() {
 		if (timer != null) {
-			timer.cancel();
+			timer.shutdownNow();
 		}
 		if (plugin.getConfigFile().getVoteRemindingRemindDelay() > 0) {
-			timer = new Timer();
-			timer.schedule(new TimerTask() {
+			timer = Executors.newScheduledThreadPool(1);
+			timer.scheduleWithFixedDelay(new Runnable() {
 
 				@Override
 				public void run() {
@@ -75,10 +76,10 @@ public class VoteReminding {
 							checkRemind(user);
 						}
 					} else {
-						cancel();
+						timer.shutdown();
 					}
 				}
-			}, 1000 * 30, plugin.getConfigFile().getVoteRemindingRemindDelay() * 1000 * 60);
+			}, 30, plugin.getConfigFile().getVoteRemindingRemindDelay() * 60, TimeUnit.SECONDS);
 		}
 	}
 

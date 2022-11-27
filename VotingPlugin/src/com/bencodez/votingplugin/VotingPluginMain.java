@@ -16,8 +16,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Timer;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -209,7 +210,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private boolean ymlError = false;
 
 	@Getter
-	private Timer voteTimer = new Timer();
+	private ScheduledExecutorService voteTimer = Executors.newScheduledThreadPool(1);
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -1297,7 +1298,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		checkYMLError();
 
 		if (broadcastHandler != null) {
-			broadcastHandler.schelude(getConfigFile().getFormatAlternateBroadcastDelay());
+			broadcastHandler.schedule(getConfigFile().getFormatAlternateBroadcastDelay());
 		}
 
 		updateAdvancedCoreHook();

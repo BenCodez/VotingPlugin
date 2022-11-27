@@ -2,9 +2,10 @@ package com.bencodez.votingplugin.cooldown;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -25,10 +26,10 @@ public class CoolDownCheck implements Listener {
 
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
-		this.timer = new Timer();
+		this.timer = Executors.newScheduledThreadPool(1);
 	}
 
-	private Timer timer;
+	private ScheduledExecutorService timer;
 
 	private boolean cooldownCheckEnabled = false;
 
@@ -73,13 +74,13 @@ public class CoolDownCheck implements Listener {
 		if (time > 0) {
 			user.setCoolDownCheck(true);
 			uuids.add(uuid);
-			timer.schedule(new TimerTask() {
+			timer.schedule(new Runnable() {
 
 				@Override
 				public void run() {
 					check(uuid);
 				}
-			}, time * 1000 + 1500);
+			}, time * 1000 + 1500, TimeUnit.MILLISECONDS);
 		}
 
 	}

@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.listeners;
 
 import java.util.ArrayList;
-import java.util.TimerTask;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -65,7 +64,7 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		plugin.getVoteTimer().schedule(new TimerTask() {
+		plugin.getVoteTimer().execute(new Runnable() {
 
 			@Override
 			public void run() {
@@ -110,7 +109,7 @@ public class VotiferEvent implements Listener {
 				}
 
 			}
-		}, 0);
+		});
 
 	}
 
