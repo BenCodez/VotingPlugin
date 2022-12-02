@@ -85,7 +85,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 
 		// display item
 		ConfigurationSection displayItemData = plugin.getGui().getChestShopIdentifierSection(identifier);
-		inv.addButton(new EditGUIButton(new ItemBuilder(Material.valueOf(displayItemData.getString("Material")), 1),
+		inv.addButton(new EditGUIButton(new ItemBuilder(displayItemData.getString("Material")).setAmount(1),
 				new EditGUIValueString("Material", displayItemData.getString("Material")) {
 
 					@Override
