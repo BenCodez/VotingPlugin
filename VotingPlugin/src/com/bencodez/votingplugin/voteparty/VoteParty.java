@@ -114,7 +114,13 @@ public class VoteParty implements Listener {
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
 			msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
-			sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+			if (sender instanceof Player) {
+				Player p = (Player) sender;
+				sender.sendMessage(
+						ArrayUtils.getInstance().convert(ArrayUtils.getInstance().replacePlaceHolders(msg, p)));
+			} else {
+				sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+			}
 		} else {
 			sender.sendMessage(StringParser.getInstance().colorize("&cVoteParty not enabled"));
 		}
