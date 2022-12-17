@@ -33,6 +33,10 @@ public class Config {
 		return getData().getBoolean("Broadcast", false);
 	}
 
+	public boolean getOnlineMode() {
+		return getData().getBoolean("OnlineMode", true);
+	}
+
 	public boolean getRedisSupport() {
 		return getData().getBoolean("RedisSupport", false);
 	}

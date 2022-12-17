@@ -29,6 +29,10 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("Broadcast"), false);
 	}
 
+	public boolean getOnlineMode() {
+		return getBoolean(getNode("OnlineMode"), true);
+	}
+
 	public String getBungeeHost() {
 		return getString(getNode("BungeeServer", "Host"), "");
 	}

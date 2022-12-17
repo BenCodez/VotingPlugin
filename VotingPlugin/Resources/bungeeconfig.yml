@@ -19,6 +19,9 @@ Prefix: ''
 #Attempt to use mariadb driver
 #UseMariaDB: false
 
+# Online mode for UUIDS
+OnlineMode: true
+
 Debug: false
 # Have a reward on each server
 # If false, will send to online server only

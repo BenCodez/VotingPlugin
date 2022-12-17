@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.CodeSource;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -196,27 +197,32 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public String getUUID(String playerName) {
-		ProxiedPlayer p = getProxy().getPlayer(playerName);
-		if (p != null && p.isConnected()) {
-			return p.getUniqueId().toString();
+		if (config.getOnlineMode()) {
+			ProxiedPlayer p = getProxy().getPlayer(playerName);
+			if (p != null && p.isConnected()) {
+				return p.getUniqueId().toString();
+			}
+
+			for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
+				if (entry.getValue().equalsIgnoreCase(playerName)) {
+					return entry.getKey().toString();
+				}
+			}
+
+			if (mysql != null) {
+				String str = mysql.getUUID(playerName);
+				if (str != null) {
+					return str;
+				}
+			}
+			if (nonVotedPlayersCache != null) {
+				return nonVotedPlayersCache.playerExists(playerName);
+			}
+			return "";
+		} else {
+			return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8)).toString();
 		}
 
-		for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
-			if (entry.getValue().equalsIgnoreCase(playerName)) {
-				return entry.getKey().toString();
-			}
-		}
-
-		if (mysql != null) {
-			String str = mysql.getUUID(playerName);
-			if (str != null) {
-				return str;
-			}
-		}
-		if (nonVotedPlayersCache != null) {
-			return nonVotedPlayersCache.playerExists(playerName);
-		}
-		return "";
 	}
 
 	private int getValue(ArrayList<Column> cols, String column, int toAdd) {
@@ -834,7 +840,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					debug("Fetching UUID online, since allowunjoined is enabled");
 					UUID u = null;
 					try {
-						u = fetchUUID(player);
+						if (config.getOnlineMode()) {
+							u = fetchUUID(player);
+						}
 					} catch (Exception e) {
 						if (getConfig().getDebug()) {
 							e.printStackTrace();
