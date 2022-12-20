@@ -1,8 +1,6 @@
 package com.bencodez.votingplugin.cooldown;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,16 +20,13 @@ import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-import lombok.Getter;
-
 public class CoolDownCheck implements Listener {
 
 	private VotingPluginMain plugin;
 
-	@Getter
-	private Set<UUID> uuids = new HashSet<UUID>();
-
 	private HashMap<UUID, ScheduledFuture<?>> perSiteTasks = new HashMap<UUID, ScheduledFuture<?>>();
+
+	private HashMap<UUID, ScheduledFuture<?>> allSiteTasks = new HashMap<UUID, ScheduledFuture<?>>();
 
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -61,10 +56,7 @@ public class CoolDownCheck implements Listener {
 
 	public void vote(VotingPluginUser user, VoteSite site) {
 		if (cooldownCheckEnabled) {
-			UUID uuid = UUID.fromString(user.getUUID());
-			if (!uuids.contains(uuid)) {
-				schedule(user);
-			}
+			schedule(user);
 		}
 
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
@@ -79,7 +71,7 @@ public class CoolDownCheck implements Listener {
 			user.setCoolDownCheck(false);
 			PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
 			plugin.getServer().getPluginManager().callEvent(event);
-			uuids.remove(UUID.fromString(user.getUUID()));
+			allSiteTasks.remove(user.getJavaUUID());
 		} else if (!coolDownCheck) {
 			schedule(user);
 		}
@@ -134,14 +126,18 @@ public class CoolDownCheck implements Listener {
 		long time = user.getNextTimeAllSitesAvailable();
 		if (time > 0) {
 			user.setCoolDownCheck(true);
-			uuids.add(uuid);
-			timer.schedule(new Runnable() {
+			if (allSiteTasks.containsKey(uuid)) {
+				allSiteTasks.get(uuid).cancel(false);
+				allSiteTasks.remove(uuid);
+			}
+			ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
 
 				@Override
 				public void run() {
 					check(uuid);
 				}
 			}, time + 2, TimeUnit.SECONDS);
+			allSiteTasks.put(uuid, scheduledFuture);
 		}
 
 	}
