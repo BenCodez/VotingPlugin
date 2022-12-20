@@ -416,6 +416,31 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
 	}
 
+	public HashMap<VoteSite, Boolean> getCoolDownCheckSiteList() {
+		HashMap<VoteSite, Boolean> coolDownChecks = new HashMap<VoteSite, Boolean>();
+		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath(), isCacheData(),
+				isWaitForCache());
+		for (String str : coolDownCheck) {
+			String[] data = str.split("//");
+			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
+				VoteSite site = plugin.getVoteSite(data[0], true);
+				if (site != null) {
+					Boolean b = Boolean.valueOf(data[1]);
+					coolDownChecks.put(site, b);
+				}
+			}
+		}
+		return coolDownChecks;
+	}
+
+	public boolean getCoolDownCheckSite(VoteSite site) {
+		HashMap<VoteSite, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		if (coolDownChecks.containsKey(site)) {
+			return coolDownChecks.get(site).booleanValue();
+		}
+		return false;
+	}
+
 	public HashMap<VoteSite, Long> getLastVotes() {
 		HashMap<VoteSite, Long> lastVotes = new HashMap<VoteSite, Long>();
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
@@ -875,6 +900,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setStringList("LastVotes", data);
 	}
 
+	public void setCoolDownCheckSite(HashMap<VoteSite, Boolean> coolDownChecks) {
+		ArrayList<String> data = new ArrayList<String>();
+		for (Entry<VoteSite, Boolean> entry : coolDownChecks.entrySet()) {
+			String str = entry.getKey().getKey() + "//" + entry.getValue().toString();
+			data.add(str);
+		}
+		getUserData().setStringList(getCoolDownCheckSitePath(), data);
+	}
+
+	public void setCoolDownCheckSite(VoteSite site, boolean value) {
+		HashMap<VoteSite, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		coolDownChecks.put(site, Boolean.valueOf(value));
+		setCoolDownCheckSite(coolDownChecks);
+	}
+
 	public void setMilestoneCount(int value) {
 		getData().setInt("MilestoneCount", value);
 	}
@@ -884,6 +924,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return "CoolDownCheck_" + plugin.getBungeeSettings().getServer();
 		} else {
 			return "CoolDownCheck";
+		}
+	}
+
+	public String getCoolDownCheckSitePath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServer() + "_Sites";
+		} else {
+			return "CoolDownCheck" + "_Sites";
 		}
 	}
 
@@ -1292,6 +1340,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		return longest;
+	}
+
+	public long getNextTimeFirstSiteAvailable() {
+		long shortest = 0;
+		for (VoteSite site : plugin.getVoteSites()) {
+			if (!canVoteSite(site)) {
+				long seconds = voteNextDurationTime(site);
+				if (shortest == 0 || seconds < shortest) {
+					shortest = seconds;
+				}
+			}
+		}
+
+		return shortest;
 	}
 
 }

@@ -147,7 +147,6 @@ public class PlayerVoteListener implements Listener {
 			} else {
 				user.setTime(voteSite);
 			}
-			plugin.getCoolDownCheck().vote(user);
 
 			// try logging to file
 			if (plugin.getConfigFile().isLogVotesToFile()) {
@@ -202,6 +201,7 @@ public class PlayerVoteListener implements Listener {
 			plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
 			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
 			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
+			plugin.getCoolDownCheck().vote(user, voteSite);
 
 			final String uuid = user.getUUID();
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
