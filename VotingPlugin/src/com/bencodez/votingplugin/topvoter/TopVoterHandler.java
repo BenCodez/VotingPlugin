@@ -120,6 +120,11 @@ public class TopVoterHandler implements Listener {
 	public void onDayChange(DayChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
 			long startTime = System.currentTimeMillis();
+			if (plugin.getConfigFile().getStoreTopVotersDaily()) {
+				plugin.getLogger().info("Saving TopVoters Daily");
+				storeTopVoters(TopVoter.Daily);
+			}
+
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
 				user.dontCache();
@@ -139,11 +144,6 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 				user.clearTempCache();
-			}
-
-			if (plugin.getConfigFile().getStoreTopVotersDaily()) {
-				plugin.getLogger().info("Saving TopVoters Daily");
-				storeTopVoters(TopVoter.Daily);
 			}
 
 			try {
@@ -314,6 +314,11 @@ public class TopVoterHandler implements Listener {
 	public void onWeekChange(WeekChangeEvent event) {
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
+			if (plugin.getConfigFile().getStoreTopVotersWeekly()) {
+				plugin.getLogger().info("Saving TopVoters Weekly");
+				storeTopVoters(TopVoter.Weekly);
+			}
+
 			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
 				user.dontCache();
@@ -339,11 +344,6 @@ public class TopVoterHandler implements Listener {
 					}
 				}
 				user.clearTempCache();
-			}
-
-			if (plugin.getConfigFile().getStoreTopVotersWeekly()) {
-				plugin.getLogger().info("Saving TopVoters Weekly");
-				storeTopVoters(TopVoter.Weekly);
 			}
 
 			try {
