@@ -183,6 +183,15 @@ public class TopVoterHandler implements Listener {
 				}
 			}
 
+			// give time for other servers to catch up
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
 			resetTotals(TopVoter.Daily);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
@@ -274,6 +283,16 @@ public class TopVoterHandler implements Listener {
 					resetVoteShopLimit(shopIdent);
 				}
 			}
+
+			// give time for other servers to catch up
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
 			resetTotals(TopVoter.Monthly);
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
@@ -361,6 +380,16 @@ public class TopVoterHandler implements Listener {
 			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
 				if (plugin.getGui().getChestVoteShopResetWeekly(shopIdent)) {
 					resetVoteShopLimit(shopIdent);
+				}
+			}
+
+			// give time for other servers to catch up
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
 			}
 			resetTotals(TopVoter.Weekly);
