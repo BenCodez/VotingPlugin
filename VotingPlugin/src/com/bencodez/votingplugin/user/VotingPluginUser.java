@@ -279,6 +279,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	}
 
+	public boolean checkAlmostAllVotes() {
+		if (getSitesNotVotedOn() == 1) {
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Check all votes.
 	 *
@@ -385,6 +392,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getGottenAllSitesDay() {
 		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), 0, isWaitForCache());
+	}
+	
+	public int getGottenAlmostAllSitesDay() {
+		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), 0, isWaitForCache());
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
@@ -851,6 +862,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setGottenAllSitesDay(int day) {
 		getData().setInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), day);
+	}
+	
+	public void setGottenAlmostAllSitesDay(int day) {
+		getData().setInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), day);
 	}
 
 	public void setHasGotteMilestone(int votesRequired, boolean b) {

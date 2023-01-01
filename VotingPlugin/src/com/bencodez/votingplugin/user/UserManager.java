@@ -72,6 +72,13 @@ public class UserManager {
 		return "AllSitesLast";
 	}
 
+	public String getGottenAlmostAllSitesDayPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "AlmostAllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
+		}
+		return "AlmostAllSitesLast";
+	}
+
 	public ArrayList<String> getAllUUIDs() {
 		return plugin.getUserManager().getAllUUIDs();
 	}

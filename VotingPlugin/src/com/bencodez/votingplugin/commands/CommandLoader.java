@@ -1398,6 +1398,18 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ForceAlmostAllSites" },
+				"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a almostallsites reward") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				plugin.getSpecialRewards().giveAlmostAllSitesRewards(user, user.isOnline(),
+						plugin.getBungeeSettings().isUseBungeecoord());
+				sendMessage(sender, "&cAlmostAllSites forced");
+			}
+		});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ForceFirstVote" },
 				"VotingPlugin.Commands.AdminVote.ForceFirstVote|" + adminPerm, "Force a firstvote reward") {
 

@@ -49,6 +49,22 @@ public class SpecialRewards {
 		return checkAllVotes;
 	}
 
+	public boolean checkAlmostAllSites(VotingPluginUser user, boolean forceBungee) {
+		boolean checkAllVotes = user.checkAlmostAllVotes();
+		if (checkAllVotes) {
+			int currentDay = LocalDateTime.now().getDayOfYear();
+			int day = user.getGottenAlmostAllSitesDay();
+			if (currentDay == day) {
+				checkAllVotes = false;
+				plugin.debug("Not giving almostallsites, already gotten today");
+			} else {
+				user.setGottenAlmostAllSitesDay(currentDay);
+				giveAlmostAllSitesRewards(user, user.isOnline(), forceBungee);
+			}
+		}
+		return checkAllVotes;
+	}
+
 	public boolean checkCumualativeVotes(VotingPluginUser user, BungeeMessageData bungeeMessageData,
 			boolean forceBungee) {
 		boolean gotCumulativeAny = false;
@@ -280,6 +296,18 @@ public class SpecialRewards {
 		}
 		plugin.getRewardHandler().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getAllSitesRewardPath(),
+				new RewardOptions().setServer(forceBungee).setOnline(online));
+	}
+
+	public void giveAlmostAllSitesRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALMOSTALLSITES);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
+		plugin.getRewardHandler().giveReward(user, plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getAlmostAllSitesRewardPath(),
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 

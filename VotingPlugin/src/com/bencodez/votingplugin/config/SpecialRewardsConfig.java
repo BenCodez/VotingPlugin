@@ -19,6 +19,9 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@Getter
 	private String allSitesRewardPath = "AllSites";
+	
+	@Getter
+	private String almostAllSitesRewardPath = "AlmostAllSites";
 
 	@Getter
 	private String anySiteRewardsPath = "AnySiteRewards";

@@ -430,6 +430,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("AlmostAllSites") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
 		// FirstVote
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVote") {
 
@@ -1295,6 +1318,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		gui.reloadData();
 
 		bungeeSettings.reloadData();
+
+		if (bungeeSettings.isUseBungeecoord()) {
+			getBungeeHandler().loadGlobalMysql();
+		}
 		checkYMLError();
 
 		if (broadcastHandler != null) {

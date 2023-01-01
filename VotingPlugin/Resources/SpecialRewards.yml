@@ -17,6 +17,12 @@ FirstVoteToday: {}
 AllSites: 
   Messages:
     Player: '&aYou voted on all sites in 1 day!'
+    
+# Give a reward for voting on all sites minus 1
+# Similar to allsites
+#AlmostAllSites:
+#  Messages:
+#    Player: '&aYou almost voted on all sites in 1 day!'
 
 
 # If true only cumulative reward at a time can be given
