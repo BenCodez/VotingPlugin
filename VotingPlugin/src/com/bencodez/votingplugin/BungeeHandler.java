@@ -87,6 +87,7 @@ public class BungeeHandler implements Listener {
 
 	public void checkGlobalData() {
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
+		plugin.debug(data.toString());
 
 		checkGlobalDataTime(TimeType.MONTH, data);
 		checkGlobalDataTime(TimeType.WEEK, data);
@@ -102,13 +103,15 @@ public class BungeeHandler implements Listener {
 
 	public void checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
 		if (data.containsKey(type.toString())) {
+
 			DataValue value = data.get(type.toString());
 			boolean b = checkGlobalDataTimeValue(value);
 			if (b) {
 				long lastUpdated = Long.valueOf(data.get("LastUpdated").getString()).longValue();
+				plugin.debug("LastUpdated: " + lastUpdated);
 				if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastUpdated > 1000 * 60 * 60
-						* 24) {
-					plugin.getLogger().warning("Ignore bungee time change since it was more than 1 day ago");
+						* 1) {
+					plugin.getLogger().warning("Ignore bungee time change since it was more than 1 hour ago");
 					return;
 				}
 

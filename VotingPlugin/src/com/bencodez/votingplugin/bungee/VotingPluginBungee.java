@@ -480,9 +480,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					return;
 				}
 				for (String s : getProxy().getServers().keySet()) {
-					getGlobalDataHandler().setBoolean(s, type.toString(), true);
-					getGlobalDataHandler().setString(s, "LastUpdated",
-							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+					if (!config.getBlockedServers().contains(s)) {
+						getGlobalDataHandler().setBoolean(s, type.toString(), true);
+						getGlobalDataHandler().setString(s, "LastUpdated",
+								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+					}
 				}
 			}
 
