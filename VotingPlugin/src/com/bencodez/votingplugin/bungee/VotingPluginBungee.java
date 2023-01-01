@@ -16,6 +16,7 @@ import java.security.CodeSource;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,21 +24,25 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigBungee;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.BungeeMySQL;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -87,10 +92,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private boolean votifierEnabled = true;
 
-	@Getter
-	private TimeHandle timeHandle;
-
 	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
+
+	@Getter
+	private BungeeTimeChecker bungeeTimeChecker;
+
+	private boolean enabled;
+
+	@Getter
+	private GlobalDataHandler globalDataHandler;
 
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -160,6 +170,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (config.getDebug()) {
 			getLogger().info("Debug: " + msg);
 		}
+	}
+
+	public void debug2(String msg) {
+		debug(msg);
 	}
 
 	public UUID fetchUUID(String playerName) throws Exception {
@@ -256,6 +270,66 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 		};
 
+		if (config.getGlobalDataEnabled()) {
+			if (config.getGlobalDataUseMainMySQL()) {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", getMysql().getMysql()) {
+
+							@Override
+							public void warning(String text) {
+								getLogger().warning(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								getLogger().severe(text);
+							}
+
+							@Override
+							public void debug(Exception e) {
+								if (config.getDebug()) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public void debug(String text) {
+								debug2(text);
+							}
+						});
+			} else {
+				globalDataHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData",
+						new MysqlConfigBungee(config.getData().getSection("GlobalData"))) {
+
+					@Override
+					public void warning(String text) {
+						getLogger().warning(text);
+					}
+
+					@Override
+					public void severe(String text) {
+						getLogger().severe(text);
+					}
+
+					@Override
+					public void debug(Exception e) {
+						if (config.getDebug()) {
+							e.printStackTrace();
+						}
+					}
+
+					@Override
+					public void debug(String text) {
+						debug2(text);
+					}
+				});
+			}
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+		}
+
 		// column types
 		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
 		getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
@@ -344,17 +418,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 		}
-		timeHandle.save();
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
 			mysql.shutdown();
 		}
 		getLogger().info("VotingPlugin disabled");
+		enabled = false;
 	}
 
 	@Override
 	public void onEnable() {
+		enabled = true;
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
 		} catch (ClassNotFoundException e) {
@@ -392,27 +467,109 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
 
+		bungeeTimeChecker = new BungeeTimeChecker(config.getData().getInt("TimeHourOffSet")) {
+
+			@Override
+			public void warning(String text) {
+				getLogger().warning(text);
+			}
+
+			@Override
+			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (!config.getGlobalDataEnabled()) {
+					return;
+				}
+				for (String s : getProxy().getServers().keySet()) {
+					getGlobalDataHandler().setBoolean(s, type.toString(), true);
+					getGlobalDataHandler().setString(s, "LastUpdated",
+							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+				}
+			}
+
+			@Override
+			public void setPrevWeek(int week) {
+				voteCacheFile.getData().set("Time.Week", week);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevMonth(String text) {
+				voteCacheFile.getData().set("Time.Month", text);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevDay(int day) {
+				voteCacheFile.getData().set("Time.Day", day);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setLastUpdated() {
+				voteCacheFile.getData().set("Time.LastUpdated", System.currentTimeMillis());
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setIgnoreTime(boolean ignore) {
+				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public boolean isIgnoreTime() {
+				return voteCacheFile.getData().getBoolean("Time.IgnoreTime");
+			}
+
+			@Override
+			public boolean isEnabled() {
+				return enabled;
+			}
+
+			@Override
+			public void info(String text) {
+				getLogger().info(text);
+			}
+
+			@Override
+			public int getPrevWeek() {
+				return voteCacheFile.getData().getInt("Time.Week");
+			}
+
+			@Override
+			public String getPrevMonth() {
+				return voteCacheFile.getData().getString("Time.Month");
+			}
+
+			@Override
+			public int getPrevDay() {
+				return voteCacheFile.getData().getInt("Time.Day");
+			}
+
+			@Override
+			public long getLastUpdated() {
+				return voteCacheFile.getData().getLong("Time.LastUpdated");
+			}
+
+			@Override
+			public void debug(String text) {
+				debug2(text);
+			}
+		};
+
 		this.getProxy().registerChannel("vp:vp");
 
 		if (mysqlLoaded) {
+
 			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
 
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
+			bungeeTimeChecker.loadTimer();
+
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();
-
-			timeHandle = new TimeHandle(voteCacheFile.getData().getString("Time.Month", ""),
-					voteCacheFile.getData().getInt("Time.Day"), voteCacheFile.getData().getInt("Time.Week")) {
-
-				@Override
-				public void save() {
-					voteCacheFile.getData().set("Time.Month", timeHandle.getMonth());
-					voteCacheFile.getData().set("Time.Day", timeHandle.getDay());
-					voteCacheFile.getData().set("Time.Week", timeHandle.getWeek());
-				}
-			};
 
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
@@ -670,14 +827,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				login(p);
 				return;
-			} else if (subchannel.equalsIgnoreCase("timeupdate")) {
-				String str = in.readUTF();
-				String[] data = str.split(Pattern.quote("//"));
-				if (data.length == 3) {
-					timeHandle.setMonth(data[0]);
-					timeHandle.setDay(Integer.parseInt(data[1]));
-					timeHandle.setWeek(Integer.parseInt(data[2]));
-				}
 			} else {
 				// reforward message
 				out.writeUTF(subchannel);

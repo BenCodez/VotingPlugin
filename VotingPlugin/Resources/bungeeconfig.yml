@@ -22,6 +22,34 @@ Prefix: ''
 # Online mode for UUIDS
 OnlineMode: true
 
+# Global mysql data handle for between server commmunications
+# This is NOT required for bungee voting
+# This is still a WIP
+# This will create a different table then from users
+GlobalData:
+  Enabled: false
+  # Use existing connection above
+  UseMainMySQL: true
+  # Mysql settings only used if above is false
+  Host: ''
+  # Default port is 3306
+  Port: 3306 
+  Database: ''
+  Username: ''
+  Password: ''
+  # Max number of connections
+  MaxConnections: 1
+  # Must be the same on all servers
+  Prefix: ''
+  #UseSSL: true
+  #PublicKeyRetrieval: false
+  #Attempt to use mariadb driver
+  #UseMariaDB: false
+  
+# Time offset for time changes
+# Must match on all servers
+TimeHourOffSet: 0
+
 Debug: false
 # Have a reward on each server
 # If false, will send to online server only

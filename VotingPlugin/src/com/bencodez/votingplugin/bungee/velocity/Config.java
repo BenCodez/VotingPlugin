@@ -33,6 +33,14 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
 
+	public boolean getGlobalDataEnabled() {
+		return getBoolean(getNode("GlobalData", "Enabled"), false);
+	}
+
+	public boolean getGlobalDataUseMainMySQL() {
+		return getBoolean(getNode("GlobalData", "UseMainMySQL"), true);
+	}
+
 	public String getBungeeHost() {
 		return getString(getNode("BungeeServer", "Host"), "");
 	}

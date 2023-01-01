@@ -37,6 +37,14 @@ public class Config {
 		return getData().getBoolean("OnlineMode", true);
 	}
 
+	public boolean getGlobalDataEnabled() {
+		return getData().getBoolean("GlobalData.Enabled", false);
+	}
+
+	public boolean getGlobalDataUseMainMySQL() {
+		return getData().getBoolean("GlobalData.UseMainMySQL", true);
+	}
+
 	public boolean getRedisSupport() {
 		return getData().getBoolean("RedisSupport", false);
 	}

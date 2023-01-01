@@ -20,6 +20,7 @@ import java.security.CodeSource;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -41,19 +41,23 @@ import org.slf4j.Logger;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigVelocity;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
-import com.bencodez.votingplugin.bungee.TimeHandle;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.inject.Inject;
@@ -112,10 +116,15 @@ public class VotingPluginVelocity {
 
 	private ScheduledExecutorService timer;
 
-	@Getter
-	private TimeHandle timeHandle;
-
 	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
+
+	@Getter
+	private BungeeTimeChecker bungeeTimeChecker;
+
+	private boolean enabled;
+
+	@Getter
+	private GlobalDataHandler globalDataHandler;
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -196,6 +205,10 @@ public class VotingPluginVelocity {
 		if (config.getDebug()) {
 			logger.info("Debug: " + msg);
 		}
+	}
+
+	public void debug2(String msg) {
+		debug(msg);
 	}
 
 	public UUID fetchUUID(String playerName) throws Exception {
@@ -294,6 +307,66 @@ public class VotingPluginVelocity {
 				}
 			}
 		};
+
+		if (config.getGlobalDataEnabled()) {
+			if (config.getGlobalDataUseMainMySQL()) {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", getMysql().getMysql()) {
+
+							@Override
+							public void warning(String text) {
+								logger.warn(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								logger.error(text);
+							}
+
+							@Override
+							public void debug(Exception e) {
+								if (config.getDebug()) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public void debug(String text) {
+								debug2(text);
+							}
+						});
+			} else {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigVelocity("GlobalData", config)) {
+
+							@Override
+							public void warning(String text) {
+								logger.warn(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								logger.error(text);
+							}
+
+							@Override
+							public void debug(Exception e) {
+								if (config.getDebug()) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public void debug(String text) {
+								debug2(text);
+							}
+						});
+			}
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+		}
 		// column types
 		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
 		getMysql().alterColumnType("CheckWorld", "VARCHAR(5)");
@@ -357,14 +430,6 @@ public class VotingPluginVelocity {
 						}
 					}
 					return;
-				} else if (subchannel.equalsIgnoreCase("timeupdate")) {
-					String str = in.readUTF();
-					String[] data = str.split(Pattern.quote("//"));
-					if (data.length == 3) {
-						timeHandle.setMonth(data[0]);
-						timeHandle.setDay(Integer.parseInt(data[1]));
-						timeHandle.setWeek(Integer.parseInt(data[2]));
-					}
 				} else {
 
 					// reforward message
@@ -407,19 +472,18 @@ public class VotingPluginVelocity {
 				}
 			}
 		}
-		if (timeHandle != null) {
-			timeHandle.save();
-		}
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
 			mysql.shutDown();
 		}
+		enabled = false;
 		logger.info("VotingPlugin disabled");
 	}
 
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
+		enabled = true;
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
 		configFile.getParentFile().mkdirs();
 		if (!configFile.exists()) {
@@ -442,6 +506,99 @@ public class VotingPluginVelocity {
 				e.printStackTrace();
 			}
 		}
+
+		bungeeTimeChecker = new BungeeTimeChecker(config.getNode("TimeHourOffSet").getInt()) {
+
+			@Override
+			public void warning(String text) {
+				logger.warn(text);
+			}
+
+			@Override
+			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (!config.getGlobalDataEnabled()) {
+					return;
+				}
+				for (RegisteredServer s : server.getAllServers()) {
+					if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), type.toString(), true);
+						getGlobalDataHandler().setString(s.getServerInfo().getName(), "LastUpdated",
+								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+					}
+				}
+			}
+
+			@Override
+			public void setPrevWeek(int week) {
+				voteCacheFile.getNode("Time", "Week").setValue(week);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevMonth(String text) {
+				voteCacheFile.getNode("Time", "Month").setValue(text);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevDay(int day) {
+				voteCacheFile.getNode("Time", "Day").setValue(day);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setLastUpdated() {
+				voteCacheFile.getNode("Time", "LastUpdated").setValue(System.currentTimeMillis());
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setIgnoreTime(boolean ignore) {
+				voteCacheFile.getNode("Time", "IgnoreTime").setValue(ignore);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public boolean isIgnoreTime() {
+				return voteCacheFile.getNode("Time", "IgnoreTime").getBoolean();
+			}
+
+			@Override
+			public boolean isEnabled() {
+				return enabled;
+			}
+
+			@Override
+			public void info(String text) {
+				getLogger().info(text);
+			}
+
+			@Override
+			public int getPrevWeek() {
+				return voteCacheFile.getNode("Time", "Week").getInt();
+			}
+
+			@Override
+			public String getPrevMonth() {
+				return voteCacheFile.getNode("Time", "Month").getString("");
+			}
+
+			@Override
+			public int getPrevDay() {
+				return voteCacheFile.getNode("Time", "Day").getInt();
+			}
+
+			@Override
+			public long getLastUpdated() {
+				return voteCacheFile.getNode("Time", "LastUpdated").getLong();
+			}
+
+			@Override
+			public void debug(String text) {
+				debug2(text);
+			}
+		};
+
 		config = new Config(configFile);
 		server.getChannelRegistrar().register(CHANNEL);
 		method = BungeeMethod.getByName(config.getBungeeMethod());
@@ -468,19 +625,11 @@ public class VotingPluginVelocity {
 			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
 
 			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
+
+			bungeeTimeChecker.loadTimer();
+
 			nonVotedPlayersCache = new NonVotedPlayersCache(
 					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
-
-			timeHandle = new TimeHandle(voteCacheFile.getNode("Time", "Month").getString(""),
-					voteCacheFile.getNode("Time", "Day").getInt(), voteCacheFile.getNode("Time", "Week").getInt()) {
-
-				@Override
-				public void save() {
-					voteCacheFile.getNode("Time", "Month").setValue(timeHandle.getMonth());
-					voteCacheFile.getNode("Time", "Day").setValue(timeHandle.getDay());
-					voteCacheFile.getNode("Time", "Week").setValue(timeHandle.getWeek());
-				}
-			};
 
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 				try {

@@ -81,6 +81,14 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean disableBroadcast = false;
 
+	@ConfigDataBoolean(path = "GlobalData.UseMainMySQL")
+	@Getter
+	private boolean globlalDataUseMainMySQL = true;
+
+	@ConfigDataBoolean(path = "GlobalData.Enabled")
+	@Getter
+	private boolean globlalDataEnabled = false;
+
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
 	}

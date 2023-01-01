@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.bungee;
 
+import com.bencodez.advancedcore.api.time.TimeType;
+
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.plugin.Command;
@@ -30,6 +32,12 @@ public class VotingPluginBungeeCommand extends Command {
 						String site = args[2];
 						bungee.vote(user, site, false, null, null);
 						sender.sendMessage(new TextComponent("Sending vote"));
+					}
+				}
+				if (args[0].equalsIgnoreCase("forcetimechange")) {
+					if (args.length >= 2) {
+						bungee.getBungeeTimeChecker().forceChanged(TimeType.getTimeType(args[1]));
+						sender.sendMessage(new TextComponent("Triggering time change: " + args[1]));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {

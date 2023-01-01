@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.bungee.velocity;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
@@ -35,6 +36,12 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 					String site = args[2];
 					plugin.vote(user, site, false);
 					source.sendMessage(Component.text("Sending vote").color(NamedTextColor.AQUA));
+				}
+			}
+			if (args[0].equalsIgnoreCase("forcetimechange")) {
+				if (args.length >= 2) {
+					plugin.getBungeeTimeChecker().forceChanged(TimeType.getTimeType(args[1]));
+					source.sendMessage(Component.text("Triggering time change: " + args[1]).color(NamedTextColor.AQUA));
 				}
 			}
 			if (args[0].equalsIgnoreCase("status")) {

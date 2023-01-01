@@ -1,18 +1,28 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
+import com.bencodez.advancedcore.api.time.TimeType;
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
+import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigSpigot;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
@@ -46,8 +56,14 @@ public class BungeeHandler implements Listener {
 	@Getter
 	private SocketHandler socketHandler;
 
+	private GlobalDataHandler globalDataHandler;
+
+	@Getter
+	private ScheduledExecutorService timer;
+
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
+
 	}
 
 	public void close() {
@@ -55,13 +71,128 @@ public class BungeeHandler implements Listener {
 		clientHandler.stopConnection();
 		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+		if (globalDataHandler != null) {
+			globalDataHandler.getGlobalMysql().close();
+		}
 	}
 
-	@EventHandler
-	public void onDateChange(DateChangedEvent event) {
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			plugin.getPluginMessaging().sendPluginMessage("timeupdate", plugin.getServerDataFile().getPrevMonth() + "//"
-					+ plugin.getServerDataFile().getPrevDay() + "//" + plugin.getServerDataFile().getPrevWeekDay());
+	/*
+	 * @EventHandler public void onDateChange(DateChangedEvent event) { if
+	 * (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+	 * plugin.getPluginMessaging().sendPluginMessage("timeupdate",
+	 * plugin.getServerDataFile().getPrevMonth() + "//" +
+	 * plugin.getServerDataFile().getPrevDay() + "//" +
+	 * plugin.getServerDataFile().getPrevWeekDay()); } }
+	 */
+
+	public void checkGlobalData() {
+		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
+
+		checkGlobalDataTime(TimeType.MONTH, data);
+		checkGlobalDataTime(TimeType.WEEK, data);
+		checkGlobalDataTime(TimeType.DAY, data);
+	}
+
+	public boolean checkGlobalDataTimeValue(DataValue data) {
+		if (data.isBoolean()) {
+			return data.getBoolean();
+		}
+		return Boolean.valueOf(data.getString());
+	}
+
+	public void checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
+		if (data.containsKey(type.toString())) {
+			DataValue value = data.get(type.toString());
+			boolean b = checkGlobalDataTimeValue(value);
+			if (b) {
+				long lastUpdated = Long.valueOf(data.get("LastUpdated").getString()).longValue();
+				if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastUpdated > 1000 * 60 * 60
+						* 24) {
+					plugin.getLogger().warning("Ignore bungee time change since it was more than 1 day ago");
+					return;
+				}
+
+				plugin.debug("Detected time change from bungee: " + type.toString());
+				plugin.getTimeChecker().forceChanged(type, false, true, true);
+				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
+			}
+		}
+	}
+
+	public void loadGlobalMysql() {
+		if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
+			if (timer != null) {
+				timer.shutdown();
+				try {
+					timer.awaitTermination(5, TimeUnit.SECONDS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				timer.shutdownNow();
+			}
+			timer = Executors.newScheduledThreadPool(1);
+			timer.scheduleWithFixedDelay(new Runnable() {
+
+				@Override
+				public void run() {
+					checkGlobalData();
+				}
+			}, 60, 10, TimeUnit.SECONDS);
+			if (globalDataHandler != null) {
+				globalDataHandler.getGlobalMysql().close();
+			}
+			if (plugin.getBungeeSettings().isGloblalDataUseMainMySQL()
+					&& plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
+
+							@Override
+							public void warning(String text) {
+								plugin.getLogger().warning(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								plugin.getLogger().severe(text);
+							}
+
+							@Override
+							public void debug(Exception e) {
+								plugin.debug(e);
+							}
+
+							@Override
+							public void debug(String text) {
+								plugin.debug(text);
+							}
+						});
+			} else {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigSpigot(
+								plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
+
+							@Override
+							public void warning(String text) {
+								plugin.getLogger().warning(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								plugin.getLogger().severe(text);
+							}
+
+							@Override
+							public void debug(Exception e) {
+								plugin.debug(e);
+							}
+
+							@Override
+							public void debug(String text) {
+								plugin.debug(text);
+							}
+						});
+			}
+			plugin.getTimeChecker().setProcessingEnabled(false);
 		}
 	}
 
@@ -71,6 +202,8 @@ public class BungeeHandler implements Listener {
 		method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
 
 		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
+
+		loadGlobalMysql();
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			plugin.registerBungeeChannels("vp:vp");

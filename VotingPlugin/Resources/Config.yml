@@ -387,6 +387,9 @@ DisableCoolDownCheck: false
 # If true, disable PlayerInteractEvent (for clicking signs and skulls)
 DisableInteractEvent: false
 
+# If false plugin will use offline player UUIDs
+OnlineMode: true
+
 # Delays login event, delays vote reminding and more
 # In miliseconds, 1000 = 1 second
 DelayLoginEvent: 0
