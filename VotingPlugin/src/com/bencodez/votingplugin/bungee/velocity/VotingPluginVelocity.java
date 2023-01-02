@@ -47,7 +47,7 @@ import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigVelocity;
-import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
@@ -58,6 +58,7 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.inject.Inject;
@@ -124,7 +125,7 @@ public class VotingPluginVelocity {
 	private boolean enabled;
 
 	@Getter
-	private GlobalDataHandler globalDataHandler;
+	private GlobalDataHandlerProxy globalDataHandler;
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -308,9 +309,16 @@ public class VotingPluginVelocity {
 			}
 		};
 
+		ArrayList<String> servers = new ArrayList<String>();
+		for (RegisteredServer s : server.getAllServers()) {
+			if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+				servers.add(s.getServerInfo().getName());
+			}
+		}
+
 		if (config.getGlobalDataEnabled()) {
 			if (config.getGlobalDataUseMainMySQL()) {
-				globalDataHandler = new GlobalDataHandler(
+				globalDataHandler = new GlobalDataHandlerProxy(
 						new GlobalMySQL("VotingPlugin_GlobalData", getMysql().getMysql()) {
 
 							@Override
@@ -334,9 +342,30 @@ public class VotingPluginVelocity {
 							public void debug(String text) {
 								debug2(text);
 							}
-						});
+						}, servers) {
+					@Override
+					public void onTimeChangedFinished(TimeType type) {
+						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
+
+						for (RegisteredServer s : server.getAllServers()) {
+							if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+								getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
+								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+									sendPluginMessageServer(s, "BungeeTimeChange", "");
+								} else if (method.equals(BungeeMethod.SOCKETS)) {
+									sendServerMessage(s.getServerInfo().getName(), "BungeeTimeChange");
+								}
+							}
+						}
+					}
+
+					@Override
+					public void onTimeChangedFailed(String server, TimeType type) {
+						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+					}
+				};
 			} else {
-				globalDataHandler = new GlobalDataHandler(
+				globalDataHandler = new GlobalDataHandlerProxy(
 						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigVelocity("GlobalData", config)) {
 
 							@Override
@@ -360,12 +389,37 @@ public class VotingPluginVelocity {
 							public void debug(String text) {
 								debug2(text);
 							}
-						});
+						}, servers) {
+					@Override
+					public void onTimeChangedFinished(TimeType type) {
+						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
+
+						for (RegisteredServer s : server.getAllServers()) {
+							if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+								getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
+								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+									sendPluginMessageServer(s, "BungeeTimeChange", "");
+								} else if (method.equals(BungeeMethod.SOCKETS)) {
+									sendServerMessage(s.getServerInfo().getName(), "BungeeTimeChange");
+								}
+							}
+						}
+					}
+
+					@Override
+					public void onTimeChangedFailed(String server, TimeType type) {
+						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+					}
+				};
 			}
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
 		}
 		// column types
 		getMysql().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
@@ -413,7 +467,7 @@ public class VotingPluginVelocity {
 				} else if (subchannel.equalsIgnoreCase("login")) {
 					String player = in.readUTF();
 					debug("Login: " + player);
-					if (server.getPlayer(player).isPresent()) {
+					if (server.getPlayer(player).isPresent() && !getGlobalDataHandler().isTimeChangedHappened()) {
 						Player p = server.getPlayer(player).get();
 						if (p.getCurrentServer().isPresent()) {
 							final RegisteredServer server = p.getCurrentServer().get().getServer();
@@ -521,9 +575,15 @@ public class VotingPluginVelocity {
 				}
 				for (RegisteredServer s : server.getAllServers()) {
 					if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
-						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), type.toString(), true);
 						getGlobalDataHandler().setString(s.getServerInfo().getName(), "LastUpdated",
 								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "FinishedProcessing", false);
+						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), type.toString(), true);
+						if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+							sendPluginMessageServer(s, "BungeeTimeChange", "");
+						} else if (method.equals(BungeeMethod.SOCKETS)) {
+							sendServerMessageServer(s.getServerInfo().getName(), "BungeeTimeChange");
+						}
 					}
 				}
 			}
@@ -1065,7 +1125,8 @@ public class VotingPluginVelocity {
 							if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
 								p = server.getPlayer(UUID.fromString(uuid)).get();
 							}
-							if ((p == null || !p.isActive()) && getConfig().getWaitForUserOnline()) {
+							if (((p == null || !p.isActive()) && getConfig().getWaitForUserOnline())
+									|| getGlobalDataHandler().isTimeChangedHappened()) {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
@@ -1097,8 +1158,10 @@ public class VotingPluginVelocity {
 					if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
 						p = server.getPlayer(UUID.fromString(uuid)).get();
 					}
-					if (p != null && p.isActive() && !config.getBlockedServers()
-							.contains(p.getCurrentServer().get().getServerInfo().getName())) {
+					if (p != null && p.isActive()
+							&& !config.getBlockedServers()
+									.contains(p.getCurrentServer().get().getServerInfo().getName())
+							&& !getGlobalDataHandler().isTimeChangedHappened()) {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),

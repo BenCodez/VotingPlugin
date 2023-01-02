@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.topvoter;
 
 import java.util.ArrayList;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public enum TopVoter {
@@ -106,5 +107,18 @@ public enum TopVoter {
 			}
 		}
 		return TopVoter.AllTime;
+	}
+
+	public static TopVoter of(TimeType type) {
+		switch (type) {
+		case DAY:
+			return Daily;
+		case MONTH:
+			return Monthly;
+		case WEEK:
+			return Weekly;
+		default:
+			return null;
+		}
 	}
 }

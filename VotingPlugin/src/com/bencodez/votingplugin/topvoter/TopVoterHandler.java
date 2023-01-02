@@ -184,7 +184,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -192,7 +192,9 @@ public class TopVoterHandler implements Listener {
 					e.printStackTrace();
 				}
 			}
-			resetTotals(TopVoter.Daily);
+			if (!bungeeHandleResets()) {
+				resetTotals(TopVoter.Daily);
+			}
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
@@ -285,7 +287,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -293,7 +295,9 @@ public class TopVoterHandler implements Listener {
 					e.printStackTrace();
 				}
 			}
-			resetTotals(TopVoter.Monthly);
+			if (!bungeeHandleResets()) {
+				resetTotals(TopVoter.Monthly);
+			}
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
@@ -384,7 +388,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -392,7 +396,9 @@ public class TopVoterHandler implements Listener {
 					e.printStackTrace();
 				}
 			}
-			resetTotals(TopVoter.Weekly);
+			if (!bungeeHandleResets()) {
+				resetTotals(TopVoter.Weekly);
+			}
 
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
@@ -422,6 +428,16 @@ public class TopVoterHandler implements Listener {
 
 	public void resetTotals(TopVoter topVoter) {
 		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
+	}
+
+	public boolean bungeeHandleResets() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,

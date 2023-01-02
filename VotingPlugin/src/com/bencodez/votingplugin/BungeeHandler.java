@@ -87,11 +87,37 @@ public class BungeeHandler implements Listener {
 
 	public void checkGlobalData() {
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
-		plugin.debug(data.toString());
+		// plugin.debug(data.toString());
 
-		checkGlobalDataTime(TimeType.MONTH, data);
-		checkGlobalDataTime(TimeType.WEEK, data);
-		checkGlobalDataTime(TimeType.DAY, data);
+		if (data.containsKey("ForceUpdate")) {
+			boolean b = checkGlobalDataTimeValue(data.get("ForceUpdate"));
+			if (b) {
+				if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+					plugin.getMysql().clearCacheBasic();
+				}
+				plugin.getUserManager().getDataManager().clearCache();
+				plugin.setUpdate(true);
+				plugin.update();
+				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "ForceUpdate", false);
+			}
+		}
+
+		boolean forceUpdate = false;
+
+		if (checkGlobalDataTime(TimeType.MONTH, data)) {
+			forceUpdate = true;
+		}
+		if (checkGlobalDataTime(TimeType.WEEK, data)) {
+			forceUpdate = true;
+		}
+		if (checkGlobalDataTime(TimeType.DAY, data)) {
+			forceUpdate = true;
+		}
+
+		if (forceUpdate) {
+			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "Processing", false);
+			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "FinishedProcessing", true);
+		}
 	}
 
 	public boolean checkGlobalDataTimeValue(DataValue data) {
@@ -101,7 +127,8 @@ public class BungeeHandler implements Listener {
 		return Boolean.valueOf(data.getString());
 	}
 
-	public void checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
+	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
+		boolean isProcessing = false;
 		if (data.containsKey(type.toString())) {
 
 			DataValue value = data.get(type.toString());
@@ -112,14 +139,18 @@ public class BungeeHandler implements Listener {
 				if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastUpdated > 1000 * 60 * 60
 						* 1) {
 					plugin.getLogger().warning("Ignore bungee time change since it was more than 1 hour ago");
-					return;
+					return false;
 				}
+
+				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "Processing", true);
+				isProcessing = true;
 
 				plugin.debug("Detected time change from bungee: " + type.toString());
 				plugin.getTimeChecker().forceChanged(type, false, true, true);
 				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 			}
 		}
+		return isProcessing;
 	}
 
 	public void loadGlobalMysql() {
@@ -195,6 +226,14 @@ public class BungeeHandler implements Listener {
 							}
 						});
 			}
+			globalDataHandler.getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
+			globalDataHandler.getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
 			plugin.getTimeChecker().setProcessingEnabled(false);
 		}
 	}
@@ -394,6 +433,13 @@ public class BungeeHandler implements Listener {
 				}
 			});
 
+			plugin.getPluginMessaging().add(new PluginMessageHandler("BungeeTimeChange") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					checkGlobalData();
+				}
+			});
+
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteBroadcast") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
@@ -490,6 +536,14 @@ public class BungeeHandler implements Listener {
 
 						user.bungeeVote(data[3], new BungeeMessageData(data[4]), !Boolean.valueOf(data[5]));
 					}
+				}
+			});
+
+			socketHandler.add(new SocketReceiver("BungeeTimeChange") {
+
+				@Override
+				public void onReceive(String[] data) {
+					checkGlobalData();
 				}
 			});
 
