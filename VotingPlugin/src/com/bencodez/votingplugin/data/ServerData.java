@@ -166,8 +166,9 @@ public class ServerData {
 	}
 
 	public boolean isLastVotePartySameWeek() {
-		int num = getData().getInt("LastVotePartyWeek", 0);
-		if (num != plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())) {
+		int num = getData().getInt("LastVotePartyWeek", -1);
+		if (num != plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())
+				&& num != -1) {
 			return true;
 		}
 		return false;
