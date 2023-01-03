@@ -159,7 +159,7 @@ public class ServerData {
 
 	public boolean isLastVotePartySameDay() {
 		int num = getData().getInt("LastVoteParty", 0);
-		if (num != plugin.getTimeChecker().getTime().getDayOfYear()) {
+		if (num == plugin.getTimeChecker().getTime().getDayOfYear()) {
 			return true;
 		}
 		return false;
@@ -167,7 +167,7 @@ public class ServerData {
 
 	public boolean isLastVotePartySameWeek() {
 		int num = getData().getInt("LastVotePartyWeek", -1);
-		if (num != plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())
+		if (num == plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())
 				&& num != -1) {
 			return true;
 		}
