@@ -43,6 +43,7 @@ import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
@@ -575,10 +576,12 @@ public class VotingPluginVelocity {
 				}
 				for (RegisteredServer s : server.getAllServers()) {
 					if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
-						getGlobalDataHandler().setString(s.getServerInfo().getName(), "LastUpdated",
-								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
-						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "FinishedProcessing", false);
-						getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), type.toString(), true);
+						HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+						dataToSet.put("LastUpdated", new DataValueString(
+								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+						dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
+						dataToSet.put(type.toString(), new DataValueBoolean(true));
+						getGlobalDataHandler().setData(s.getServerInfo().getName(), dataToSet);
 						if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 							sendPluginMessageServer(s, "BungeeTimeChange", "");
 						} else if (method.equals(BungeeMethod.SOCKETS)) {
@@ -728,13 +731,15 @@ public class VotingPluginVelocity {
 				voteCacheFile.clearData();
 
 				server.getScheduler().buildTask(this, () -> {
-					for (RegisteredServer server : cachedVotes.keySet()) {
-						checkCachedVotes(server);
-					}
+					if (!getGlobalDataHandler().isTimeChangedHappened()) {
+						for (RegisteredServer server : cachedVotes.keySet()) {
+							checkCachedVotes(server);
+						}
 
-					for (String player : cachedOnlineVotes.keySet()) {
-						if (server.getPlayer(UUID.fromString(player)).isPresent()) {
-							checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
+						for (String player : cachedOnlineVotes.keySet()) {
+							if (server.getPlayer(UUID.fromString(player)).isPresent()) {
+								checkOnlineVotes(server.getPlayer(UUID.fromString(player)).get(), player, null);
+							}
 						}
 					}
 				}).delay(15L, TimeUnit.SECONDS).repeat(30l, TimeUnit.SECONDS).schedule();

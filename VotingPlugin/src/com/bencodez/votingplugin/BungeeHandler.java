@@ -20,6 +20,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigSpigot;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
@@ -115,8 +116,10 @@ public class BungeeHandler implements Listener {
 		}
 
 		if (forceUpdate) {
-			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "Processing", false);
-			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "FinishedProcessing", true);
+			HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+			dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+			dataToSet.put("Processing", new DataValueBoolean(false));
+			globalDataHandler.setData(plugin.getBungeeSettings().getServer(), dataToSet);
 		}
 	}
 
