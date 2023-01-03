@@ -21,8 +21,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -261,6 +263,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return toAdd;
 	}
 
+	@Getter
+	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<VoteTimeQueue>();
+
+	public void processQueue() {
+		while (getTimeChangeQueue().size() > 0) {
+			VoteTimeQueue vote = getTimeChangeQueue().remove();
+			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
+		}
+	}
+
 	private void loadMysql() {
 		mysql = new BungeeMySQL(this, "VotingPlugin_Users", config.getData()) {
 
@@ -323,6 +335,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								}
 							}
 						}
+
+						processQueue();
+
 					}
 
 					@Override
@@ -373,6 +388,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								}
 							}
 						}
+
+						processQueue();
+
 					}
 
 					@Override
@@ -479,6 +497,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 		}
+		if (!timeChangeQueue.isEmpty()) {
+			int num = 0;
+			for (VoteTimeQueue vote : timeChangeQueue) {
+				voteCacheFile.addTimedVote(num, vote);
+				num++;
+			}
+		}
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
@@ -487,6 +512,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		getLogger().info("VotingPlugin disabled");
 		enabled = false;
 	}
+
+	private VoteEventBungee voteEventBungee;
 
 	@Override
 	public void onEnable() {
@@ -499,7 +526,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 		if (votifierEnabled) {
 			try {
-				getProxy().getPluginManager().registerListener(this, new VoteEventBungee(this));
+				voteEventBungee = new VoteEventBungee(this);
+				getProxy().getPluginManager().registerListener(this, voteEventBungee);
 				getProxy().getPluginManager().registerListener(this, this);
 			} catch (Exception e) {
 			}
@@ -643,6 +671,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();
 
+			try {
+				for (String key : voteCacheFile.getTimedVoteCache()) {
+					Configuration data = voteCacheFile.getTimedVoteCache(key);
+					timeChangeQueue.add(
+							new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
+				}
+				
+				processQueue();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				try {
@@ -681,14 +721,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					@Override
 					public void run() {
-						if (!getGlobalDataHandler().isTimeChangedHappened()) {
-							for (String server : cachedVotes.keySet()) {
-								checkCachedVotes(server);
-							}
 
-							for (String player : cachedOnlineVotes.keySet()) {
-								checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
-							}
+						for (String server : cachedVotes.keySet()) {
+							checkCachedVotes(server);
+						}
+
+						for (String player : cachedOnlineVotes.keySet()) {
+							checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
 						}
 					}
 				}, 15l, 30l, TimeUnit.SECONDS);
@@ -778,7 +817,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							// todo
 							// sendRedisServerMessage("Vote", uuid, player, service, "" + votePartyVotes,""
 							// + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
-							vote(data[2], data[3], Boolean.valueOf(data[7]), new BungeeMessageData(data[8]), data[1]);
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
+									data[1]);
 						}
 					}
 
@@ -851,7 +891,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public void login(ProxiedPlayer p) {
-		if (isOnline(p) && !getGlobalDataHandler().isTimeChangedHappened()) {
+		if (isOnline(p)) {
 			if (p.getServer() != null && p.getServer().getInfo() != null) {
 				final String server = p.getServer().getInfo().getName();
 				final ProxiedPlayer proixedPlayer = p;
@@ -1047,12 +1087,24 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public synchronized void vote(String player, String service, boolean realVote, BungeeMessageData text,
-			String uuid) {
+	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			BungeeMessageData text, String uuid) {
 		try {
 			if (player == null || player.isEmpty()) {
 				getLogger().info("No name from vote on " + service);
 				return;
+			}
+
+			if (timeQueue) {
+				if (getConfig().getGlobalDataEnabled()) {
+					if (getGlobalDataHandler().isTimeChangedHappened()) {
+						timeChangeQueue.add(new VoteTimeQueue(player, service,
+								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
+						getLogger().info("Cachcing vote from " + player + "/" + service
+								+ " because time change is happening right now");
+						return;
+					}
+				}
 			}
 
 			if (uuid == null) {
@@ -1123,6 +1175,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			if (queueTime != 0) {
+				time = queueTime;
+			}
 
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
@@ -1132,8 +1187,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							ServerInfo info = getProxy().getServerInfo(s);
 							boolean forceCache = false;
 							ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-							if ((!isOnline(p) && getConfig().getWaitForUserOnline())
-									|| getGlobalDataHandler().isTimeChangedHappened()) {
+							if (!isOnline(p) && getConfig().getWaitForUserOnline()) {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
@@ -1163,8 +1217,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 				} else {
 					ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())
-							&& !getGlobalDataHandler().isTimeChangedHappened()) {
+					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),

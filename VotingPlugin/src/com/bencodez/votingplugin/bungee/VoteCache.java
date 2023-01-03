@@ -52,6 +52,13 @@ public class VoteCache {
 		section.set("Text", voteData.getText());
 	}
 
+	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
+		Configuration section = getData().getSection("TimedVoteCache." + num);
+		section.set("Name", voteTimedQueue.getName());
+		section.set("Service", voteTimedQueue.getService());
+		section.set("Time", voteTimedQueue.getTime());
+	}
+
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
 		Configuration section = getData().getSection("OnlineCache." + player + "." + num);
 		section.set("Name", voteData.getPlayerName());
@@ -82,6 +89,14 @@ public class VoteCache {
 
 	public Collection<String> getServers() {
 		return getData().getSection("VoteCache").getKeys();
+	}
+
+	public Configuration getTimedVoteCache(String key) {
+		return getData().getSection("TimedVoteCache." + key);
+	}
+
+	public Collection<String> getTimedVoteCache() {
+		return getData().getSection("TimedVoteCache").getKeys();
 	}
 
 	public Collection<String> getServerVotes(String server) {

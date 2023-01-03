@@ -20,12 +20,25 @@ Prefix: ''
 #UseMariaDB: false
 
 # Online mode for UUIDS
+# Offline mode setups are not fully tested and are not supported currently
 OnlineMode: true
 
+
+# ----------------------------------------------------------------
 # Global mysql data handle for between server commmunications
-# This is NOT required for bungee voting
-# This is still a WIP
-# This will create a different table then from users
+# This is NOT required for bungee voting to work
+# This is still a WIP, use with caution
+# This will create a different table then from users storing server info to process
+#
+# If you use this you need to enable this on BungeeSettings.yml on each server with votingplugin
+# Make sure server name is set correctly in BungeeSettings.yml or this will not work correctly
+# 
+# Please use PLUGINMESSAGING for this, SOCKETS should work as well, but not fully tested
+#
+# This will make votes cache until time change has finished processing
+# In the event a server is offline or time change fails, the time change process
+# will continue after a set amount of time (in essense skipping a specific server)
+# This will also respect blocked servers
 GlobalData:
   Enabled: false
   # Use existing connection above
@@ -49,6 +62,7 @@ GlobalData:
 # Time offset for time changes
 # Must match on all servers
 TimeHourOffSet: 0
+# ----------------------------------------------------------------
 
 Debug: false
 # Have a reward on each server

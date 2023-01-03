@@ -5,6 +5,7 @@ import java.util.Collection;
 
 import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.bungee.VoteTimeQueue;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
@@ -49,6 +50,13 @@ public class VoteCache extends VelocityYMLFile {
 		getNode(path, "Text").setValue(voteData.getText());
 	}
 
+	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
+		String[] path = new String[] { "TimedVoteCache", "" + num };
+		getNode(path, "Name").setValue(voteTimedQueue.getName());
+		getNode(path, "Service").setValue(voteTimedQueue.getService());
+		getNode(path, "Time").setValue(voteTimedQueue.getTime());
+	}
+
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
 		String[] path = new String[] { "OnlineCache", player, "" + num };
 
@@ -70,6 +78,10 @@ public class VoteCache extends VelocityYMLFile {
 		return getKeys(getNode("OnlineCache", name));
 	}
 
+	public ConfigurationNode getTimedVoteCache(String name) {
+		return getNode("TimedVoteCache", name);
+	}
+
 	public ConfigurationNode getOnlineVotes(String name, String num) {
 		return getNode("OnlineCache", name, num);
 	}
@@ -80,6 +92,10 @@ public class VoteCache extends VelocityYMLFile {
 
 	public Collection<String> getServers() {
 		return getKeys(getNode("VoteCache"));
+	}
+
+	public Collection<String> getTimedVoteCache() {
+		return getKeys(getNode("TimedVoteCache"));
 	}
 
 	public Collection<String> getServerVotes(String server) {

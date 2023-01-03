@@ -16,6 +16,7 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 	public void onVote(VotifierEvent event) {
 		plugin.getProxy().getScheduler().runAsync(plugin, new Runnable() {
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				Vote vote = event.getVote();
@@ -24,11 +25,13 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 
 				if (serviceSite.isEmpty()) {
 					serviceSite = "Empty";
+					vote.setServiceName(serviceSite);
 				}
 
-				plugin.vote(vote.getUsername(), serviceSite, true, null, null);
+				plugin.vote(vote.getUsername(), serviceSite, true, true, 0, null, null);
 			}
 		});
 
 	}
+
 }

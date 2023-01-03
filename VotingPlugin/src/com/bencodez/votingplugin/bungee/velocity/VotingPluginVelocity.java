@@ -26,8 +26,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +61,7 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.bungee.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -358,6 +361,8 @@ public class VotingPluginVelocity {
 								}
 							}
 						}
+
+						processQueue();
 					}
 
 					@Override
@@ -405,6 +410,8 @@ public class VotingPluginVelocity {
 								}
 							}
 						}
+
+						processQueue();
 					}
 
 					@Override
@@ -525,6 +532,13 @@ public class VotingPluginVelocity {
 					voteCacheFile.addVoteOnline(name, num, voteData);
 					num++;
 				}
+			}
+		}
+		if (!timeChangeQueue.isEmpty()) {
+			int num = 0;
+			for (VoteTimeQueue vote : timeChangeQueue) {
+				voteCacheFile.addTimedVote(num, vote);
+				num++;
 			}
 		}
 		voteCacheFile.save();
@@ -693,6 +707,18 @@ public class VotingPluginVelocity {
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(
 					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
+
+			try {
+				for (String key : voteCacheFile.getTimedVoteCache()) {
+					ConfigurationNode data = voteCacheFile.getTimedVoteCache(key);
+					timeChangeQueue.add(new VoteTimeQueue(data.getNode("Name").getString(),
+							data.getNode("Service").getString(), data.getNode("Time").getLong()));
+				}
+				
+				processQueue();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 				try {
@@ -909,7 +935,8 @@ public class VotingPluginVelocity {
 				if (serviceSite.isEmpty()) {
 					serviceSite = "Empty";
 				}
-				vote(name, serviceSite, true);
+
+				vote(name, serviceSite, true, false, 0);
 			}
 		});
 
@@ -1038,11 +1065,33 @@ public class VotingPluginVelocity {
 		}
 	}
 
-	public synchronized void vote(String player, String service, boolean realVote) {
+	@Getter
+	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<VoteTimeQueue>();
+
+	public void processQueue() {
+		while (getTimeChangeQueue().size() > 0) {
+			VoteTimeQueue vote = getTimeChangeQueue().remove();
+			vote(vote.getName(), vote.getService(), true, false, vote.getTime());
+		}
+	}
+
+	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queuedTime) {
 		try {
 			if (player == null || player.isEmpty()) {
 				logger.info("No name from vote on " + service);
 				return;
+			}
+
+			if (timeQueue) {
+				if (getConfig().getGlobalDataEnabled()) {
+					if (getGlobalDataHandler().isTimeChangedHappened()) {
+						timeChangeQueue.add(new VoteTimeQueue(player, service,
+								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
+						getLogger().info("Cachcing vote from " + player + "/" + service
+								+ " because time change is happening right now");
+						return;
+					}
+				}
 			}
 
 			String uuid = getUUID(player);
@@ -1119,6 +1168,9 @@ public class VotingPluginVelocity {
 			 */
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			if (queuedTime != 0) {
+				time = queuedTime;
+			}
 
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
