@@ -68,8 +68,12 @@ public class BungeeHandler implements Listener {
 	}
 
 	public void close() {
-		socketHandler.closeConnection();
-		clientHandler.stopConnection();
+		if (socketHandler != null) {
+			socketHandler.closeConnection();
+		}
+		if (clientHandler != null) {
+			clientHandler.stopConnection();
+		}
 		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 		if (globalDataHandler != null) {
@@ -175,6 +179,14 @@ public class BungeeHandler implements Listener {
 					checkGlobalData();
 				}
 			}, 60, 10, TimeUnit.SECONDS);
+			timer.scheduleWithFixedDelay(new Runnable() {
+
+				@Override
+				public void run() {
+					globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
+							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+				}
+			}, 1, 60, TimeUnit.MINUTES);
 			if (globalDataHandler != null) {
 				globalDataHandler.getGlobalMysql().close();
 			}

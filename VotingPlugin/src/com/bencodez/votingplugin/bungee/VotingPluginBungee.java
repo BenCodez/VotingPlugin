@@ -570,17 +570,36 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 				for (String s : getProxy().getServers().keySet()) {
 					if (!config.getBlockedServers().contains(s)) {
-						HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
-						dataToSet.put("LastUpdated", new DataValueString(
-								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
-						dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
-						dataToSet.put(type.toString(), new DataValueBoolean(true));
-						getGlobalDataHandler().setData(s, dataToSet);
-						if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-							sendPluginMessageServer(s, "BungeeTimeChange", "");
-						} else if (method.equals(BungeeMethod.SOCKETS)) {
-							sendServerMessage(s, "BungeeTimeChange");
+						if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
+							String lastOnlineStr = getGlobalDataHandler().getString(s, "LastOnline");
+							long lastOnline = 0;
+							try {
+								lastOnline = Long.valueOf(lastOnlineStr);
+							} catch (NumberFormatException e) {
+								e.printStackTrace();
+							}
+
+							if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+									- lastOnline < 1000 * 60 * 60 * 12) {
+								// server has been online within the 12 hours
+								HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+								dataToSet.put("LastUpdated", new DataValueString(
+										"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+								dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
+								dataToSet.put(type.toString(), new DataValueBoolean(true));
+								getGlobalDataHandler().setData(s, dataToSet);
+								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+									sendPluginMessageServer(s, "BungeeTimeChange", "");
+								} else if (method.equals(BungeeMethod.SOCKETS)) {
+									sendServerMessage(s, "BungeeTimeChange");
+								}
+							} else {
+								getLogger().warning("Server " + s + " hasn't been online recently");
+							}
+						} else {
+							getLogger().warning("Server " + s + " global data handler disabled?");
 						}
+
 					}
 				}
 				globalDataHandler.onTimeChange(type);
@@ -677,7 +696,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					timeChangeQueue.add(
 							new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
 				}
-				
+
 				processQueue();
 			} catch (Exception e) {
 				e.printStackTrace();

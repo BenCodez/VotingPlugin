@@ -590,17 +590,38 @@ public class VotingPluginVelocity {
 				}
 				for (RegisteredServer s : server.getAllServers()) {
 					if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
-						HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
-						dataToSet.put("LastUpdated", new DataValueString(
-								"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
-						dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
-						dataToSet.put(type.toString(), new DataValueBoolean(true));
-						getGlobalDataHandler().setData(s.getServerInfo().getName(), dataToSet);
-						if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-							sendPluginMessageServer(s, "BungeeTimeChange", "");
-						} else if (method.equals(BungeeMethod.SOCKETS)) {
-							sendServerMessageServer(s.getServerInfo().getName(), "BungeeTimeChange");
+
+						if (getGlobalDataHandler().getGlobalMysql().containsKey(s.getServerInfo().getName())) {
+							String lastOnlineStr = getGlobalDataHandler().getString(s.getServerInfo().getName(),
+									"LastOnline");
+							long lastOnline = 0;
+							try {
+								lastOnline = Long.valueOf(lastOnlineStr);
+							} catch (NumberFormatException e) {
+								e.printStackTrace();
+							}
+
+							if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+									- lastOnline < 1000 * 60 * 60 * 12) {
+								// server has been online within the 12 hours
+								HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+								dataToSet.put("LastUpdated", new DataValueString(
+										"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+								dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
+								dataToSet.put(type.toString(), new DataValueBoolean(true));
+								getGlobalDataHandler().setData(s.getServerInfo().getName(), dataToSet);
+								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+									sendPluginMessageServer(s, "BungeeTimeChange", "");
+								} else if (method.equals(BungeeMethod.SOCKETS)) {
+									sendServerMessageServer(s.getServerInfo().getName(), "BungeeTimeChange");
+								}
+							} else {
+								logger.warn("Server " + s + " hasn't been online recently");
+							}
+						} else {
+							logger.warn("Server " + s + " global data handler disabled?");
 						}
+
 					}
 				}
 			}
@@ -714,7 +735,7 @@ public class VotingPluginVelocity {
 					timeChangeQueue.add(new VoteTimeQueue(data.getNode("Name").getString(),
 							data.getNode("Service").getString(), data.getNode("Time").getLong()));
 				}
-				
+
 				processQueue();
 			} catch (Exception e) {
 				e.printStackTrace();
