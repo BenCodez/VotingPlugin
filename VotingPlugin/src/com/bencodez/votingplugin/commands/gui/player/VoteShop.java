@@ -98,7 +98,7 @@ public class VoteShop extends GUIHandler {
 							int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 							if (identifier != null) {
 								if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
-									event.getButton().getInv().closeInv(player, null);
+									event.closeInventory();
 								}
 
 								// limit fail-safe, should never be needed, except in rare cases
