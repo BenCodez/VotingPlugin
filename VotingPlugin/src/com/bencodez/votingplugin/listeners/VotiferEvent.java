@@ -97,6 +97,13 @@ public class VotiferEvent implements Listener {
 							+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
 				}
 
+				if (plugin.getTimeChecker().isProcessing()) {
+					// time change in progress
+					plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
+
+					return;
+				}
+
 				String voteSiteName = plugin.getVoteSiteName(true, voteSite);
 
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true), voteUsername,

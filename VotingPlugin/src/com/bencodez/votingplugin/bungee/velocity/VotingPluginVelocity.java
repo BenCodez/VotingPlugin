@@ -61,7 +61,7 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
-import com.bencodez.votingplugin.bungee.VoteTimeQueue;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

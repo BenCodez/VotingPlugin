@@ -14,6 +14,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -304,5 +305,29 @@ public class ServerData {
 	 */
 	public void updateValues() {
 		setVersion();
+	}
+
+	public void addTimeVoted(int num, VoteTimeQueue vote) {
+		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
+		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
+		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+		saveData();
+	}
+
+	public Set<String> getTimedVoteCacheKeys() {
+		if (getData().isConfigurationSection("TimedVoteCache")) {
+			return getData().getConfigurationSection("TimedVoteCache").getKeys(false);
+		} else {
+			return new HashSet<String>();
+		}
+	}
+
+	public ConfigurationSection getTimedVoteCacheSection(String num) {
+		return getData().getConfigurationSection("TimedVoteCache." + num);
+	}
+
+	public void clearTimedVoteCache() {
+		getData().set("TimedVoteCache", null);
+		saveData();
 	}
 }

@@ -81,6 +81,7 @@ import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
+import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -977,6 +978,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(this);
 	}
 
+	@Getter
+	private TimeQueueHandler timeQueueHandler;
+
 	@Override
 	public void onPostLoad() {
 		loadVersionFile();
@@ -990,6 +994,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						.warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
 			}
 
+		}
+
+		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
+			this.timeQueueHandler = new TimeQueueHandler(this);
 		}
 
 		registerCommands();
@@ -1223,6 +1231,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
+		if (timeQueueHandler != null) {
+			timeQueueHandler.save();
+		}
 		getSigns().storeSigns();
 		HandlerList.unregisterAll(plugin);
 		plugin = null;
@@ -1279,6 +1290,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new BlockBreak(this), this);
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {
 			pm.registerEvents(new PlayerInteract(this), this);
+		}
+
+		if (timeQueueHandler != null) {
+			pm.registerEvents(timeQueueHandler, plugin);
 		}
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);

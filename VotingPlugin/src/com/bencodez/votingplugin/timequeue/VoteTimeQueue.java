@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.timequeue;
 
 import lombok.Getter;
 import lombok.Setter;

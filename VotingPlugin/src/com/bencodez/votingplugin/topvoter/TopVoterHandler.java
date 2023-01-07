@@ -182,6 +182,12 @@ public class TopVoterHandler implements Listener {
 					resetVoteShopLimit(shopIdent);
 				}
 			}
+			
+			try {
+				Thread.sleep(30000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 
 			// give time for other servers to catch up
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {

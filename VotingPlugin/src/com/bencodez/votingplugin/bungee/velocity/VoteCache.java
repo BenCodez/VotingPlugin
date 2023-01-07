@@ -5,7 +5,7 @@ import java.util.Collection;
 
 import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
-import com.bencodez.votingplugin.bungee.VoteTimeQueue;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
