@@ -60,6 +60,12 @@ VoteSites:
     DisplayItem:
       Material: 'DIAMOND'
       Amount: 1
+      
+    # Reward to run when cooldown ends for this votesite
+    # Enable PerSiteCoolDownEvents in Config.yml to use this
+    #CoolDownEndRewards:
+    #  Messages:
+    #    Player: '&aTime to go vote on site1'
 
     # Rewards to give
     # https://github.com/BenCodez/AdvancedCore/wiki/Rewards

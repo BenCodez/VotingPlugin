@@ -131,6 +131,15 @@ public class AdminGUI {
 			}
 		});
 
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AlmostAllSites reward")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+						plugin.getRewardHandler().getDirectlyDefined("AlmostAllSites"));
+			}
+		});
+
 		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cEdit AnySiteRewards")) {
 
 			@Override
@@ -366,6 +375,29 @@ public class AdminGUI {
 				public void onClick(ClickEvent clickEvent) {
 					RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(), plugin.getRewardHandler()
 							.getDirectlyDefined("VoteSites." + voteSite.getKey() + ".Rewards"));
+				}
+			});
+		}
+
+		if (voteSite.getSiteData().isList("CoolDownEndRewards")) {
+
+			inv.addButton(new EditGUIButton(new EditGUIValueList("CoolDownEndRewards",
+					voteSite.getSiteData().getStringList("CoolDownEndRewards")) {
+
+				@Override
+				public void setValue(Player p, ArrayList<String> rewards) {
+					VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
+					plugin.getConfigVoteSites().set(voteSite.getKey(), "CoolDownEndRewards", rewards);
+					plugin.reload();
+				}
+			}));
+		} else {
+			inv.addButton(new BInventoryButton(new ItemBuilder(Material.DISPENSER, 1).setName("&cCoolDownEndRewards")) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(), plugin.getRewardHandler()
+							.getDirectlyDefined("VoteSites." + voteSite.getKey() + ".CoolDownEndRewards"));
 				}
 			});
 		}

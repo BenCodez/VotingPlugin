@@ -743,6 +743,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					getConfigVoteSites().setValue(path, value);
 				}
 			});
+
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".CoolDownEndRewards") {
+
+				@Override
+				public void createSection(String key) {
+					getConfigVoteSites().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getConfigVoteSites().getData();
+				}
+
+				@Override
+				public void save() {
+					getConfigVoteSites().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					getConfigVoteSites().setValue(path, value);
+				}
+			});
 		}
 
 		// vote streaks

@@ -99,6 +99,7 @@ public class VotiferEvent implements Listener {
 
 				if (plugin.getTimeChecker().isProcessing()) {
 					// time change in progress
+					plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
 					plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
 
 					return;
