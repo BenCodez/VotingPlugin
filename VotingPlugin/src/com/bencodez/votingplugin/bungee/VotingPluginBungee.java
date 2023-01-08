@@ -218,7 +218,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 		if (config.getGeyserSupport()) {
 			if (geyserHandler.isFloodgatePlayer(UUID.fromString(uuid))) {
-				return geyserHandler.getFloodgateName(UUID.fromString(uuid));
+				if (!currentName.startsWith(config.getGeyserPrefix())) {
+					return config.getGeyserPrefix() + currentName;
+				}
 			}
 		}
 		return currentName;
