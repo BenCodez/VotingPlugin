@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import com.bencodez.advancedcore.api.geyser.GeyserHandler;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
@@ -106,6 +107,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
 	private GlobalDataHandlerProxy globalDataHandler;
+
+	@Getter
+	private GeyserHandler geyserHandler;
 
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -212,11 +216,17 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (p != null && p.isConnected()) {
 			return p.getName();
 		}
+		if (config.getGeyserSupport()) {
+			if (geyserHandler.isFloodgatePlayer(UUID.fromString(uuid))) {
+				return geyserHandler.getFloodgateName(UUID.fromString(uuid));
+			}
+		}
 		return currentName;
 	}
 
 	public String getUUID(String playerName) {
 		if (config.getOnlineMode()) {
+
 			ProxiedPlayer p = getProxy().getPlayer(playerName);
 			if (p != null && p.isConnected()) {
 				return p.getUniqueId().toString();
@@ -555,6 +565,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 		if (method == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
+		}
+
+		if (config.getGeyserSupport()) {
+			geyserHandler = new GeyserHandler();
 		}
 
 		bungeeTimeChecker = new BungeeTimeChecker(config.getData().getInt("TimeHourOffSet")) {

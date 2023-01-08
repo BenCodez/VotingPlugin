@@ -100,6 +100,10 @@ BungeeManageTotals: true
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true
 
+# Geyser settings
+GeyserSupport: false
+GeyserPrefix: '.'
+
 VoteParty:
   # If enabled, will trigger vote party reward 
   # in BungeeSettings.yml under BungeeVotePartyReward

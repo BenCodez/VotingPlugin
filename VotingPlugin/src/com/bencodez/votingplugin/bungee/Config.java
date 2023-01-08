@@ -33,6 +33,14 @@ public class Config {
 		return getData().getBoolean("Broadcast", false);
 	}
 
+	public boolean getGeyserSupport() {
+		return getData().getBoolean("GeyserSupport", false);
+	}
+
+	public String getGeyserPrefix() {
+		return getData().getString("GeyserPrefix", ".");
+	}
+
 	public boolean getOnlineMode() {
 		return getData().getBoolean("OnlineMode", true);
 	}

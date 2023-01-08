@@ -20,7 +20,13 @@ public class NonVotedPlayersCache {
 
 	public void addPlayer(ProxiedPlayer proxiedPlayer) {
 		if (!bungee.getMysql().containsKeyQuery(proxiedPlayer.getUniqueId().toString())) {
-			addPlayer(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
+			if (bungee.getGeyserHandler() != null
+					&& bungee.getGeyserHandler().isFloodgatePlayer(proxiedPlayer.getUniqueId())) {
+				addPlayer(proxiedPlayer.getUniqueId().toString(),
+						bungee.getGeyserHandler().getFloodgateName(proxiedPlayer.getUniqueId()));
+			} else {
+				addPlayer(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
+			}
 		}
 	}
 
