@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 
@@ -49,14 +50,14 @@ public class TimeQueueHandler implements Listener {
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void postTimeChange() {
+	public void postTimeChange(DateChangedEvent event) {
 		plugin.getVoteTimer().schedule(new Runnable() {
 
 			@Override
 			public void run() {
 				processQueue();
 			}
-		}, 1, TimeUnit.SECONDS);
+		}, 5, TimeUnit.SECONDS);
 	}
 
 	public void load() {
