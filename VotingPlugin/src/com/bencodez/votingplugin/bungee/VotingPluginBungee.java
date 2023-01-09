@@ -835,6 +835,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 
 		if (getConfig().getRedisSupport()) {
+			if (encryptionHandler == null) {
+				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
+			}
+			
 			redisSocketHandler = new SocketHandler(getDescription().getVersion(), config.getRedisSocketHostHost(),
 					config.getRedisSocketHostPort(), encryptionHandler, config.getDebug()) {
 
