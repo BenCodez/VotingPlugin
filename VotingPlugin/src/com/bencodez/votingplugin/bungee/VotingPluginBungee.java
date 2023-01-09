@@ -234,12 +234,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return p.getUniqueId().toString();
 			}
 
-			if (config.getGeyserSupport()) {
-				if (geyserHandler.isFloodgatePlayer(playerName)) {
-					return geyserHandler.getFloodgateUUID(playerName).toString();
-				}
-			}
-
 			for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
 				if (entry.getValue().equalsIgnoreCase(playerName)) {
 					return entry.getKey().toString();
@@ -255,6 +249,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (nonVotedPlayersCache != null) {
 				return nonVotedPlayersCache.playerExists(playerName);
 			}
+			if (config.getGeyserSupport()) {
+				if (geyserHandler.isFloodgatePlayer(playerName)) {
+					UUID uuid = geyserHandler.getFloodgateUUID(playerName);
+					if (uuid != null) {
+						return uuid.toString();
+					}
+				}
+			}
+
 			return "";
 		} else {
 			return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8)).toString();
