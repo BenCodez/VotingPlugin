@@ -234,6 +234,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return p.getUniqueId().toString();
 			}
 
+			if (config.getGeyserSupport()) {
+				if (geyserHandler.isFloodgatePlayer(playerName)) {
+					return geyserHandler.getFloodgateUUID(playerName).toString();
+				}
+			}
+
 			for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
 				if (entry.getValue().equalsIgnoreCase(playerName)) {
 					return entry.getKey().toString();
@@ -838,7 +844,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (encryptionHandler == null) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 			}
-			
+
 			redisSocketHandler = new SocketHandler(getDescription().getVersion(), config.getRedisSocketHostHost(),
 					config.getRedisSocketHostPort(), encryptionHandler, config.getDebug()) {
 
