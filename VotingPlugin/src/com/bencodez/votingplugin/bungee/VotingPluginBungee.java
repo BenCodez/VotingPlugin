@@ -1156,7 +1156,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 
-			if (uuid == null) {
+			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
 			}
 			if (uuid.isEmpty()) {
