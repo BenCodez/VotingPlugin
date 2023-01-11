@@ -998,7 +998,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Metrics.
 	 */
 	private void metrics() {
-		new VotingPluginMetrics().load(this);
+		getTimer().schedule(new Runnable() {
+
+			@Override
+			public void run() {
+				new VotingPluginMetrics().load(plugin);
+			}
+		}, 1, TimeUnit.MINUTES);
+
 	}
 
 	@Getter
