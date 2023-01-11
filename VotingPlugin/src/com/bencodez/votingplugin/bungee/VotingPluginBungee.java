@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import com.bencodez.advancedcore.api.geyser.GeyserHandler;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
@@ -107,9 +106,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
 	private GlobalDataHandlerProxy globalDataHandler;
-
-	@Getter
-	private GeyserHandler geyserHandler;
 
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
@@ -216,13 +212,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (p != null && p.isConnected()) {
 			return p.getName();
 		}
-		if (config.getGeyserSupport()) {
-			if (geyserHandler.isFloodgatePlayer(UUID.fromString(uuid))) {
-				if (!currentName.startsWith(config.getGeyserPrefix())) {
-					return config.getGeyserPrefix() + currentName;
-				}
-			}
-		}
 		return currentName;
 	}
 
@@ -248,14 +237,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 			if (nonVotedPlayersCache != null) {
 				return nonVotedPlayersCache.playerExists(playerName);
-			}
-			if (config.getGeyserSupport()) {
-				if (geyserHandler.isFloodgatePlayer(playerName)) {
-					UUID uuid = geyserHandler.getFloodgateUUID(playerName);
-					if (uuid != null) {
-						return uuid.toString();
-					}
-				}
 			}
 
 			return "";
@@ -576,10 +557,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		method = BungeeMethod.getByName(config.getBungeeMethod());
 		if (method == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
-		}
-
-		if (config.getGeyserSupport()) {
-			geyserHandler = new GeyserHandler();
 		}
 
 		bungeeTimeChecker = new BungeeTimeChecker(config.getData().getInt("TimeHourOffSet")) {
