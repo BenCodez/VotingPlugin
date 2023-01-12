@@ -1136,6 +1136,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
 			}
+
+			if (uuid.isEmpty()) {
+				if (config.getGeyserSupport()) {
+					if (!player.startsWith(config.getGeyserPrefix())) {
+						uuid = getUUID(config.getGeyserPrefix() + player);
+						player = config.getGeyserPrefix() + player;
+					}
+				}
+			}
+
 			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
 					debug("Fetching UUID online, since allowunjoined is enabled");
