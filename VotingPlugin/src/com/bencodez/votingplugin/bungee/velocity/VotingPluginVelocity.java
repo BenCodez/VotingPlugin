@@ -576,6 +576,22 @@ public class VotingPluginVelocity {
 			}
 		}
 
+		config = new Config(configFile);
+		server.getChannelRegistrar().register(CHANNEL);
+		method = BungeeMethod.getByName(config.getBungeeMethod());
+		boolean mysqlLoaded = true;
+		try {
+			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
+				loadMysql();
+			} else {
+				mysqlLoaded = false;
+				logger.error("MySQL settings not set in bungeeconfig.yml");
+			}
+		} catch (Exception e) {
+			mysqlLoaded = false;
+			e.printStackTrace();
+		}
+
 		bungeeTimeChecker = new BungeeTimeChecker(config.getNode("TimeHourOffSet").getInt()) {
 
 			@Override
@@ -696,22 +712,6 @@ public class VotingPluginVelocity {
 				debug2(text);
 			}
 		};
-
-		config = new Config(configFile);
-		server.getChannelRegistrar().register(CHANNEL);
-		method = BungeeMethod.getByName(config.getBungeeMethod());
-		boolean mysqlLoaded = true;
-		try {
-			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
-				loadMysql();
-			} else {
-				mysqlLoaded = false;
-				logger.error("MySQL settings not set in bungeeconfig.yml");
-			}
-		} catch (Exception e) {
-			mysqlLoaded = false;
-			e.printStackTrace();
-		}
 
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")
 				// Specify other aliases (optional)
