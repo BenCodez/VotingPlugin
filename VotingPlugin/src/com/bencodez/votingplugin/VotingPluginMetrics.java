@@ -173,43 +173,28 @@ public class VotingPluginMetrics {
 			}
 		}));
 
+		int users = UserManager.getInstance().getAllUUIDs().size();
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				int total = UserManager.getInstance().getAllUUIDs().size();
+				int total = users;
 				if (total < 1000) {
 					return "<1000";
+				} else if (total > 300000) {
+					return ">300000";
+				} else if (total > 200000) {
+					return "200000-300000";
+				} else if (total > 100000) {
+					return "100000-200000";
 				} else if (total > 10000) {
-					return ">10000";
+					return ">10000-100000";
 				} else {
 					return "1000-10000";
 				}
 			}
 		}));
 
-		int users = UserManager.getInstance().getAllUUIDs().size();
-		if (users > 1000) {
-			metrics.addCustomChart(new BStatsMetrics.SimplePie("number_of_users_in_thousands", new Callable<String>() {
-
-				@Override
-				public String call() throws Exception {
-					int total = users / 1000;
-					return "" + total;
-				}
-			}));
-		}
-		if (users > 10000) {
-			metrics.addCustomChart(
-					new BStatsMetrics.SimplePie("number_of_users_in_thousands_plus_10", new Callable<String>() {
-
-						@Override
-						public String call() throws Exception {
-							int total = users / 1000;
-							return "" + total;
-						}
-					}));
-		}
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("data_storage", new Callable<String>() {
 
 			@Override
