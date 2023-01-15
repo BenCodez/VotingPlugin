@@ -194,7 +194,7 @@ public class VotingPluginMetrics {
 
 				@Override
 				public String call() throws Exception {
-					int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+					int total = users / 1000;
 					return "" + total;
 				}
 			}));
@@ -205,7 +205,7 @@ public class VotingPluginMetrics {
 
 						@Override
 						public String call() throws Exception {
-							int total = UserManager.getInstance().getAllUUIDs().size() / 1000;
+							int total = users / 1000;
 							return "" + total;
 						}
 					}));
