@@ -173,12 +173,11 @@ public class VotingPluginMetrics {
 			}
 		}));
 
-		int users = UserManager.getInstance().getAllUUIDs().size();
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofusers", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				int total = users;
+				int total = UserManager.getInstance().getAllUUIDs().size();
 				if (total < 1000) {
 					return "<1000";
 				} else if (total > 300000) {
@@ -285,7 +284,32 @@ public class VotingPluginMetrics {
 					return "" + plugin.getBungeeSettings().isTriggerVotifierEvent();
 				}
 			}));
+
+			metrics.addCustomChart(new BStatsMetrics.SimplePie("globaldata_enabled", new Callable<String>() {
+
+				@Override
+				public String call() throws Exception {
+					return "" + plugin.getBungeeSettings().isGloblalDataEnabled();
+				}
+			}));
+			if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
+				metrics.addCustomChart(new BStatsMetrics.SimplePie("globaldata_usemainmysql", new Callable<String>() {
+
+					@Override
+					public String call() throws Exception {
+						return "" + plugin.getBungeeSettings().isGloblalDataUseMainMySQL();
+					}
+				}));
+			}
 		}
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("persitecooldownevents", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return "" + plugin.getConfigFile().isPerSiteCoolDownEvents();
+			}
+		}));
 
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("geyserprefixsupport", new Callable<String>() {
 

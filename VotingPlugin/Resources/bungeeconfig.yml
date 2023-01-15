@@ -101,6 +101,8 @@ BungeeManageTotals: true
 Broadcast: true
 
 # Geyser settings
+# This may or may not work
+# Does not work on velocity currently
 GeyserSupport: false
 GeyserPrefix: '.'
 

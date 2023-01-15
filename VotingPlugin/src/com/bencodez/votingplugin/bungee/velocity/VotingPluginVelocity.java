@@ -881,6 +881,12 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("plugin_version", () -> "" + version));
 
+		metrics.addCustomChart(new SimplePie("globaldata_enabled", () -> "" + getConfig().getGlobalDataEnabled()));
+		if (getConfig().getGlobalDataEnabled()) {
+			metrics.addCustomChart(
+					new SimplePie("globaldata_usemainmysql", () -> "" + getConfig().getGlobalDataUseMainMySQL()));
+		}
+
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new SimplePie("dev_build_number", () -> "" + buildNumber));
 		}

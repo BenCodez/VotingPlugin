@@ -881,6 +881,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		metrics.addCustomChart(
 				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
 
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("globaldata_enabled", () -> "" + getConfig().getGlobalDataEnabled()));
+		if (getConfig().getGlobalDataEnabled()) {
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("globaldata_usemainmysql",
+					() -> "" + getConfig().getGlobalDataUseMainMySQL()));
+		}
+
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
 		}
