@@ -22,6 +22,7 @@ com.bencodez.votingplugin.placeholders
 com.bencodez.votingplugin.signs
 com.bencodez.votingplugin.specialrewards
 com.bencodez.votingplugin.test
+com.bencodez.votingplugin.timequeue
 com.bencodez.votingplugin.topvoter
 com.bencodez.votingplugin.updater
 com.bencodez.votingplugin.user
