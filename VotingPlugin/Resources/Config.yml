@@ -376,6 +376,7 @@ StoreTopVoters:
 # ------------------------------------------------
 
 # Enable per site cooldown events, requires more resources to use
+# Requires restart
 PerSiteCoolDownEvents: false
 
 # If true vanished players are treated as if they are offline

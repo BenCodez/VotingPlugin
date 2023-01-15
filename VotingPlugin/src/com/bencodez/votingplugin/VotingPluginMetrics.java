@@ -178,19 +178,26 @@ public class VotingPluginMetrics {
 			@Override
 			public String call() throws Exception {
 				int total = UserManager.getInstance().getAllUUIDs().size();
-				if (total < 1000) {
-					return "<1000";
+				if (total > 800000) {
+					return ">800000";
+				} else if (total > 700000) {
+					return "700000-800000";
+				} else if (total > 600000) {
+					return "600000-700000";
+				} else if (total > 500000) {
+					return "500000-600000";
+				} else if (total > 400000) {
+					return "400000-500000";
 				} else if (total > 300000) {
-					return ">300000";
+					return "300000-400000";
 				} else if (total > 200000) {
 					return "200000-300000";
 				} else if (total > 100000) {
 					return "100000-200000";
 				} else if (total > 10000) {
 					return ">10000-100000";
-				} else {
-					return "1000-10000";
 				}
+				return "<10000";
 			}
 		}));
 

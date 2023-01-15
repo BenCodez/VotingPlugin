@@ -999,6 +999,21 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(Player)", "ForceCoolDownEndRewards", "(Sitename)" },
+						"VotingPlugin.Commands.AdminVote.ForceCoolDownEndRewards|" + adminPerm,
+						"Trigger CoolDownEndRewards manually") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						plugin.getRewardHandler().giveReward(user, plugin.getVoteSite(args[3], true).getSiteData(),
+								"CoolDownEndRewards", new RewardOptions());
+						sendMessage(sender, "&cCoolDownEndRewards forced on votesite " + args[3]);
+
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "VoteSite", "(sitename)", "Create" },
 				"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Create VoteSite") {
 

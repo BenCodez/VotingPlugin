@@ -393,9 +393,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public int getGottenAllSitesDay() {
 		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), 0, isWaitForCache());
 	}
-	
+
 	public int getGottenAlmostAllSitesDay() {
-		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), 0, isWaitForCache());
+		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), 0,
+				isWaitForCache());
 	}
 
 	public HashMap<String, Boolean> getHasGottenMilestone() {
@@ -863,7 +864,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void setGottenAllSitesDay(int day) {
 		getData().setInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), day);
 	}
-	
+
 	public void setGottenAlmostAllSitesDay(int day) {
 		getData().setInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), day);
 	}
@@ -885,7 +886,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public String getGottenMilestonesPath() {
 		if (plugin.getBungeeSettings().isPerServerMilestones()) {
-			return plugin.getOptions().getServer() + "_" + "GottenMilestones";
+			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 		}
 		return "GottenMileStones";
 	}
@@ -936,7 +937,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public String getCoolDownCheckPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServer();
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
 		} else {
 			return "CoolDownCheck";
 		}
@@ -944,7 +945,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public String getCoolDownCheckSitePath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServer() + "_Sites";
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
 		} else {
 			return "CoolDownCheck" + "_Sites";
 		}
