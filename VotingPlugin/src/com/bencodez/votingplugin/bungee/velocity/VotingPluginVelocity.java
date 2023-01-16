@@ -475,7 +475,8 @@ public class VotingPluginVelocity {
 				} else if (subchannel.equalsIgnoreCase("login")) {
 					String player = in.readUTF();
 					debug("Login: " + player);
-					if (server.getPlayer(player).isPresent() && !getGlobalDataHandler().isTimeChangedHappened()) {
+					if (server.getPlayer(player).isPresent()
+							&& (getGlobalDataHandler() == null || !getGlobalDataHandler().isTimeChangedHappened())) {
 						Player p = server.getPlayer(player).get();
 						if (p.getCurrentServer().isPresent()) {
 							final RegisteredServer server = p.getCurrentServer().get().getServer();
@@ -778,7 +779,7 @@ public class VotingPluginVelocity {
 				voteCacheFile.clearData();
 
 				server.getScheduler().buildTask(this, () -> {
-					if (!getGlobalDataHandler().isTimeChangedHappened()) {
+					if (getGlobalDataHandler() == null || !getGlobalDataHandler().isTimeChangedHappened()) {
 						for (RegisteredServer server : cachedVotes.keySet()) {
 							checkCachedVotes(server);
 						}
@@ -1210,7 +1211,8 @@ public class VotingPluginVelocity {
 								p = server.getPlayer(UUID.fromString(uuid)).get();
 							}
 							if (((p == null || !p.isActive()) && getConfig().getWaitForUserOnline())
-									|| getGlobalDataHandler().isTimeChangedHappened()) {
+									|| (getGlobalDataHandler() != null
+											&& getGlobalDataHandler().isTimeChangedHappened())) {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
@@ -1245,7 +1247,7 @@ public class VotingPluginVelocity {
 					if (p != null && p.isActive()
 							&& !config.getBlockedServers()
 									.contains(p.getCurrentServer().get().getServerInfo().getName())
-							&& !getGlobalDataHandler().isTimeChangedHappened()) {
+							&& (getGlobalDataHandler() != null || !getGlobalDataHandler().isTimeChangedHappened())) {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
