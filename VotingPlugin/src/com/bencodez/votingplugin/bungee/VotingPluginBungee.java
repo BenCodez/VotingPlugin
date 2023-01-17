@@ -924,20 +924,21 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public void login(ProxiedPlayer p) {
-		if (isOnline(p)) {
-			if (p.getServer() != null && p.getServer().getInfo() != null) {
-				final String server = p.getServer().getInfo().getName();
-				final ProxiedPlayer proixedPlayer = p;
-				getProxy().getScheduler().runAsync(this, new Runnable() {
+		if (p.getServer() != null && p.getServer().getInfo() != null) {
+			final String server = p.getServer().getInfo().getName();
+			final ProxiedPlayer proixedPlayer = p;
+			getProxy().getScheduler().schedule(this, new Runnable() {
 
-					@Override
-					public void run() {
+				@Override
+				public void run() {
+					if (isOnline(p)) {
 						checkCachedVotes(server);
 						checkOnlineVotes(proixedPlayer, proixedPlayer.getUniqueId().toString(), server);
 					}
-				});
-			}
+				}
+			}, 1, TimeUnit.SECONDS);
 		}
+
 	}
 
 	@EventHandler
@@ -970,7 +971,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return;
 			} else if (subchannel.equalsIgnoreCase("login")) {
 				String player = in.readUTF();
-				debug("Login: " + player);
+				String uuid = in.readUTF();
+				String server = "";
+				if (size > 2) {
+					server = in.readUTF();
+				}
+				debug("Login: " + player + "/" + uuid + " " + server);
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				login(p);
 				return;

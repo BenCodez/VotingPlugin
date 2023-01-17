@@ -49,7 +49,8 @@ public class PlayerJoinEvent implements Listener {
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()
 				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-			plugin.getPluginMessaging().sendPluginMessage("Login", user.getPlayerName(), user.getUUID());
+			plugin.getPluginMessaging().sendPluginMessage("Login", user.getPlayerName(), user.getUUID(),
+					plugin.getBungeeSettings().getServer());
 		}
 	}
 
