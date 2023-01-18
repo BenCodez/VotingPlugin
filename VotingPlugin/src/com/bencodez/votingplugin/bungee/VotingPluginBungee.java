@@ -119,7 +119,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
 								ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(cache.getUuid()));
-								if (isOnline(p)) {
+								if (!isOnline(p)) {
 									toSend = false;
 								} else if (p != null && p.isConnected()
 										&& !p.getServer().getInfo().getName().equals(server)) {
