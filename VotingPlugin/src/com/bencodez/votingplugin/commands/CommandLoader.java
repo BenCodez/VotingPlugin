@@ -1258,7 +1258,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteParty().giveRewards(plugin.getBungeeSettings().isUseBungeecoord());
+						plugin.getVoteParty().giveRewards(null, plugin.getBungeeSettings().isUseBungeecoord());
 					}
 				});
 
