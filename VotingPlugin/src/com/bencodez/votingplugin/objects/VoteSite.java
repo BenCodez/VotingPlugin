@@ -172,7 +172,8 @@ public class VoteSite {
 	}
 
 	public String getVoteURL(boolean json) {
-		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json) {
+		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json
+				|| StringParser.getInstance().containsJson(voteURL)) {
 			return voteURL;
 		} else {
 			if (!voteURL.startsWith("http")) {
