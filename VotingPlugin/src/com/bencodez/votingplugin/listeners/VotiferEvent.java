@@ -64,6 +64,9 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
+		if (plugin.getVoteTimer().isShutdown() || plugin.getVoteTimer().isTerminated()) {
+			plugin.getLogger().severe("Vote timer has been stopped");
+		}
 		plugin.getVoteTimer().execute(new Runnable() {
 
 			@Override
