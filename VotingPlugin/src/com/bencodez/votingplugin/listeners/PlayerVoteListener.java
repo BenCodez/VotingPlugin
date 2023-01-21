@@ -76,6 +76,8 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
+		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
+
 		VoteSite voteSite = event.getVoteSite();
 
 		if (voteSite == null) {
