@@ -118,6 +118,7 @@ public class PlayerVoteListener implements Listener {
 
 		synchronized (object) {
 			if (!plugin.isEnabled()) {
+				plugin.getLogger().warning("Plugin disabled, ignoring vote");
 				return;
 			}
 			// reupdate cache
