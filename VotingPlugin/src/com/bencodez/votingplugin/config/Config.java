@@ -37,6 +37,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean perSiteCoolDownEvents = false;
 
+	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")
+	@Getter
+	private boolean queueVotesDuringTimeChange = false;
+
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;

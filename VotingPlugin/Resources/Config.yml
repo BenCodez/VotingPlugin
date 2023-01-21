@@ -379,6 +379,10 @@ StoreTopVoters:
 # Requires restart
 PerSiteCoolDownEvents: false
 
+# Queue votes during a time change (doesn't apply to bungee voting)
+# Votes will be given when time change is completed
+QueueVotesDuringTimeChange: false
+
 # If true vanished players are treated as if they are offline
 TreatVanishAsOffline: false
 
