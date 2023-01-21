@@ -71,52 +71,57 @@ public class VotiferEvent implements Listener {
 
 			@Override
 			public void run() {
-				plugin.getServerData().addServiceSite(voteSite);
-				if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
-						&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
-								|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {
-					plugin.getLogger().severe(
-							"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
-					return;
-				}
-				String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite);
+				try {
+					plugin.getServerData().addServiceSite(voteSite);
+					if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
+							&& (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
+									|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS))) {
+						plugin.getLogger().severe(
+								"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
+						return;
+					}
+					String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite);
 
-				ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
-				boolean createSite = false;
-				if (sites != null) {
-					if (!ArrayUtils.getInstance().containsIgnoreCase(sites, voteSiteNameStr)) {
+					ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
+					boolean createSite = false;
+					if (sites != null) {
+						if (!ArrayUtils.getInstance().containsIgnoreCase(sites, voteSiteNameStr)) {
+							createSite = true;
+						}
+					} else {
 						createSite = true;
 					}
-				} else {
-					createSite = true;
-				}
 
-				if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
-					plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
-							+ "' does not exist, attempting to generate...");
-					plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
+					if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
+						plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
+								+ "' does not exist, attempting to generate...");
+						plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
 
-					plugin.getLogger().info("Current known service sites: "
-							+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
-				}
+						plugin.getLogger().info("Current known service sites: "
+								+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
+					}
 
-				if (plugin.getTimeChecker().isActiveProcessing()) {
-					// time change in progress
-					plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-					plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
+					if (plugin.getTimeChecker().isActiveProcessing()) {
+						// time change in progress
+						plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
+						plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
 
-					return;
-				}
+						return;
+					}
 
-				String voteSiteName = plugin.getVoteSiteName(true, voteSite);
+					String voteSiteName = plugin.getVoteSiteName(true, voteSite);
 
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true), voteUsername,
-						voteSite, true);
-				plugin.getServer().getPluginManager().callEvent(voteEvent);
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true),
+							voteUsername, voteSite, true);
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
 
-				if (voteEvent.isCancelled()) {
-					plugin.debug("Vote cancelled");
-					return;
+					if (voteEvent.isCancelled()) {
+						plugin.debug("Vote cancelled");
+						return;
+					}
+				} catch (Exception e) {
+					plugin.getLogger().severe("Error occured during vote processing");
+					e.printStackTrace();
 				}
 
 			}
