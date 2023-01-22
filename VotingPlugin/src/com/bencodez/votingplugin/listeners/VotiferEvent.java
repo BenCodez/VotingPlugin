@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.listeners;
 
 import java.util.ArrayList;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -67,7 +68,7 @@ public class VotiferEvent implements Listener {
 		if (plugin.getVoteTimer().isShutdown() || plugin.getVoteTimer().isTerminated()) {
 			plugin.getLogger().severe("Vote timer has been stopped");
 		}
-		plugin.getVoteTimer().execute(new Runnable() {
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
