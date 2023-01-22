@@ -211,7 +211,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private boolean ymlError = false;
 
 	@Getter
-	private ScheduledExecutorService voteTimer = Executors.newScheduledThreadPool(1);
+	private ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
 
 	@Getter
 	private UserManager votingPluginUserManager;
