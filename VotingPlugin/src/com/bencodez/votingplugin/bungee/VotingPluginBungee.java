@@ -868,6 +868,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				multiproxyClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
 						encryptionHandler, config.getDebug()));
 			}
+
+			debug("Loaded multi-proxy support");
 		}
 
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
