@@ -1194,7 +1194,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			player = getProperName(uuid, player);
 
-			if (!getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
+			if (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
 				addVoteParty();
 				if (getConfig().getBungeeManageTotals()) {
 
@@ -1308,13 +1308,17 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
+					debug("Seending global proxy vote message");
 					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
 							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 				} else {
 					// check if reward should've already been given
 					if (!(isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName()))) {
+						debug("Seending global proxy voteonline message");
 						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
 								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+					} else {
+						debug("Not sending global proxy message for voteonline, player already got reward");
 					}
 				}
 
