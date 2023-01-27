@@ -1194,7 +1194,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			player = getProperName(uuid, player);
 
-			if (!getConfig().getPrimaryServer()) {
+			if (!getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
 				addVoteParty();
 				if (getConfig().getBungeeManageTotals()) {
 

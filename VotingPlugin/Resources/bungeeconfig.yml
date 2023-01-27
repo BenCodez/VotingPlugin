@@ -133,13 +133,6 @@ VoteParty:
 # Votes will be forwarded when specific player is online
 WaitForUserOnline: false
 
-# ----------------------------
-# SOCKET Settings
-# ONLY for SOCKET method
-# ----------------------------
-# Options available here:
-# https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
-
 
 # ----------------------------
 # Redis/multi proxy setup
