@@ -53,8 +53,8 @@ public class Config {
 		return getData().getBoolean("GlobalData.UseMainMySQL", true);
 	}
 
-	public boolean getRedisSupport() {
-		return getData().getBoolean("RedisSupport", false);
+	public boolean getMultiProxySupport() {
+		return getData().getBoolean("MultiProxySupport", false);
 	}
 
 	public String getBungeeHost() {
@@ -73,16 +73,20 @@ public class Config {
 		return getData().getInt("BungeeServer.Port", 1297);
 	}
 
-	public int getRedisSocketHostPort() {
-		return getData().getInt("RedisSocketHost.Port", 1297);
+	public int getMultiProxySocketHostPort() {
+		return getData().getInt("MultiProxyHost.Port", 1297);
 	}
 
-	public String getRedisSocketHostHost() {
-		return getData().getString("RedisSocketHost.Host", "");
+	public String getMultiProxySocketHostHost() {
+		return getData().getString("MultiProxyHost.Host", "");
 	}
 
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
+	}
+
+	public boolean getMultiProxyOneGlobalReward() {
+		return getData().getBoolean("MultiProxyOneGlobalReward", false);
 	}
 
 	public String getFallBack() {
@@ -101,12 +105,12 @@ public class Config {
 		return getData().getSection("SpigotServers." + s);
 	}
 
-	public Configuration getRedisServersConfiguration(String s) {
-		return getData().getSection("RedisServers." + s);
+	public Configuration getMultiProxyServersConfiguration(String s) {
+		return getData().getSection("MultiProxyServers." + s);
 	}
 
-	public Collection<String> getRedisServers() {
-		return getData().getSection("RedisServers").getKeys();
+	public Collection<String> getMultiProxyServers() {
+		return getData().getSection("MultiProxyServers").getKeys();
 	}
 
 	public Collection<String> getSpigotServers() {

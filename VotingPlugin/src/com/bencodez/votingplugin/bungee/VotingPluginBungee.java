@@ -74,7 +74,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private HashMap<String, ClientHandler> clientHandles;
 
-	private HashMap<String, ClientHandler> redisClientHandles;
+	private HashMap<String, ClientHandler> multiproxyClientHandles;
 
 	@Getter
 	private Config config;
@@ -91,7 +91,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private SocketHandler socketHandler;
 
-	private SocketHandler redisSocketHandler;
+	private SocketHandler multiproxySocketHandler;
 
 	private VoteCache voteCacheFile;
 
@@ -166,6 +166,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						num++;
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+						sendMultiProxyServerMessage("ClearVote", player.getName(), uuid);
+					}
 				}
 			}
 		}
@@ -820,13 +823,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 		}
 
-		if (getConfig().getRedisSupport()) {
+		if (getConfig().getMultiProxySupport()) {
 			if (encryptionHandler == null) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 			}
 
-			redisSocketHandler = new SocketHandler(getDescription().getVersion(), config.getRedisSocketHostHost(),
-					config.getRedisSocketHostPort(), encryptionHandler, config.getDebug()) {
+			multiproxySocketHandler = new SocketHandler(getDescription().getVersion(),
+					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
+					config.getDebug()) {
 
 				@Override
 				public void log(String str) {
@@ -834,7 +838,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			};
 
-			redisSocketHandler.add(new SocketReceiver() {
+			multiproxySocketHandler.add(new SocketReceiver() {
 
 				@Override
 				public void onReceive(String[] data) {
@@ -845,6 +849,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							// + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
 									data[1]);
+						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
+									data[1]);
+						} else if (data[0].equalsIgnoreCase("ClearVote")) {
+							cachedOnlineVotes.remove(data[2]);
 						}
 					}
 
@@ -854,9 +863,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			clientHandles = new HashMap<String, ClientHandler>();
 			for (
 
-			String s : config.getRedisServers()) {
-				Configuration d = config.getRedisServersConfiguration(s);
-				redisClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
+			String s : config.getMultiProxyServers()) {
+				Configuration d = config.getMultiProxyServersConfiguration(s);
+				multiproxyClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
 						encryptionHandler, config.getDebug()));
 			}
 		}
@@ -1060,8 +1069,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public void sendRedisServerMessage(String... messageData) {
-		for (ClientHandler h : redisClientHandles.values()) {
+	public void sendMultiProxyServerMessage(String... messageData) {
+		for (ClientHandler h : multiproxyClientHandles.values()) {
 			h.sendMessage(messageData);
 		}
 	}
@@ -1228,6 +1237,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				time = queueTime;
 			}
 
+			ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				if (config.getSendVotesToAllServers()) {
@@ -1235,7 +1245,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						if (!config.getBlockedServers().contains(s)) {
 							ServerInfo info = getProxy().getServerInfo(s);
 							boolean forceCache = false;
-							ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 							if (!isOnline(p) && getConfig().getWaitForUserOnline()) {
 								forceCache = true;
 								debug("Forcing vote to cache");
@@ -1265,12 +1274,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 					}
 				} else {
-					ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1");
+						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+							sendMultiProxyServerMessage("ClearVote", player, uuid);
+						}
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
 							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -1295,9 +1306,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				sendSocketVote(player, service, text);
 			}
-			if (getConfig().getRedisSupport() && getConfig().getPrimaryServer()) {
-				sendRedisServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
-						"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
+				if (!getConfig().getMultiProxyOneGlobalReward()) {
+					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
+							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+				} else {
+					// check if reward should've already been given
+					if (!(isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName()))) {
+						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
+								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+					}
+				}
+
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

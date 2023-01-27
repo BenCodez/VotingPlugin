@@ -142,25 +142,32 @@ WaitForUserOnline: false
 
 
 # ----------------------------
-# Redis setup
+# Redis/multi proxy setup
 # Experimental
-# Primary server for redis needs votifier
-# Set socket host on each proxy and redissockets on primary redis only
-# All servers on pluginmessaging
+# Primary server  needs votifier and config option enabled
+# Set socket host on each proxy and primary server set sub proxies
+# All servers should be on pluginmessaging or sockets setup
 # ----------------------------
 
 # Support for redis
 # experimental
-RedisSupport: false
+MultiProxySupport: false
 
-# Enable on primary server with votifier
+# Enable on primary proxy server with votifier
 PrimaryServer: false
 
-RedisSocketHost:
+# If enabled, player will only get 1 reward on a server on the network
+# Must be enabled on all proxies for this to work
+# Must also disable sendtoallservers
+MultiProxyOneGlobalReward: false
+
+# Set this for each proxy
+MultiProxySocketHost:
   Host: 0.0.0.0
   Port: 1234
 
-RedisServers:
+# Set other sub proxies here
+MultiProxyServers:
   secondproxy:
     Host: 0.0.0.0
     Port: 1235
