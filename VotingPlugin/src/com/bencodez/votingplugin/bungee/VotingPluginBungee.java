@@ -869,7 +869,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						encryptionHandler, config.getDebug()));
 			}
 
-			debug("Loaded multi-proxy support");
+			getLogger().info("Loaded multi-proxy support");
 		}
 
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
