@@ -860,7 +860,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			});
 
-			clientHandles = new HashMap<String, ClientHandler>();
+			multiproxyClientHandles = new HashMap<String, ClientHandler>();
 			for (
 
 			String s : config.getMultiProxyServers()) {
