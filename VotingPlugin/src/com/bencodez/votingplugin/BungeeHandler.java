@@ -324,7 +324,7 @@ public class BungeeHandler implements Listener {
 							if (!plugin.getBungeeSettings().isBungeeBroadcast()
 									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast()) {
+									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
 										if (num == 1) {
 											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
 													numberOfVotes);
@@ -416,7 +416,7 @@ public class BungeeHandler implements Listener {
 							if (!plugin.getBungeeSettings().isBungeeBroadcast()
 									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast()) {
+									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
 										if (num == 1) {
 											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
 													numberOfVotes);
