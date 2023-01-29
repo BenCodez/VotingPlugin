@@ -882,6 +882,7 @@ public class VotingPluginVelocity {
 
 					@Override
 					public void onReceive(String[] data) {
+						debug("MultiProxy Message: " + data.toString());
 						if (data.length > 0) {
 							if (data[0].equalsIgnoreCase("Status")) {
 								getLogger().info("Multi-proxy status message received");
@@ -1371,6 +1372,7 @@ public class VotingPluginVelocity {
 	}
 
 	public void sendMultiProxyServerMessage(String... messageData) {
+		debug("Sending multiproxy message: " + messageData);
 		for (ClientHandler h : multiproxyClientHandles.values()) {
 			h.sendMessage(messageData);
 		}
