@@ -34,7 +34,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 				if (args.length >= 2) {
 					String user = args[1];
 					String site = args[2];
-					plugin.vote(user, site, false, true, 0);
+					plugin.vote(user, site, false, true, 0, null, null);
 					source.sendMessage(Component.text("Sending vote").color(NamedTextColor.AQUA));
 				}
 			}

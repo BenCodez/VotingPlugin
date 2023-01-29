@@ -53,10 +53,6 @@ public class Config {
 		return getData().getBoolean("GlobalData.UseMainMySQL", true);
 	}
 
-	public boolean getMultiProxySupport() {
-		return getData().getBoolean("MultiProxySupport", false);
-	}
-
 	public String getBungeeHost() {
 		return getData().getString("BungeeServer.Host", "");
 	}
@@ -73,6 +69,14 @@ public class Config {
 		return getData().getInt("BungeeServer.Port", 1297);
 	}
 
+	public boolean getDebug() {
+		return getData().getBoolean("Debug", false);
+	}
+
+	public boolean getMultiProxySupport() {
+		return getData().getBoolean("MultiProxySupport", false);
+	}
+
 	public int getMultiProxySocketHostPort() {
 		return getData().getInt("MultiProxyHost.Port", 1297);
 	}
@@ -81,12 +85,20 @@ public class Config {
 		return getData().getString("MultiProxyHost.Host", "");
 	}
 
-	public boolean getDebug() {
-		return getData().getBoolean("Debug", false);
-	}
-
 	public boolean getMultiProxyOneGlobalReward() {
 		return getData().getBoolean("MultiProxyOneGlobalReward", false);
+	}
+	
+	public Configuration getMultiProxyServersConfiguration(String s) {
+		return getData().getSection("MultiProxyServers." + s);
+	}
+
+	public Collection<String> getMultiProxyServers() {
+		return getData().getSection("MultiProxyServers").getKeys();
+	}
+	
+	public boolean getPrimaryServer() {
+		return getData().getBoolean("PrimaryServer", false);
 	}
 
 	public String getFallBack() {
@@ -105,13 +117,7 @@ public class Config {
 		return getData().getSection("SpigotServers." + s);
 	}
 
-	public Configuration getMultiProxyServersConfiguration(String s) {
-		return getData().getSection("MultiProxyServers." + s);
-	}
 
-	public Collection<String> getMultiProxyServers() {
-		return getData().getSection("MultiProxyServers").getKeys();
-	}
 
 	public Collection<String> getSpigotServers() {
 		return getData().getSection("SpigotServers").getKeys();
@@ -121,9 +127,7 @@ public class Config {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
-	public boolean getPrimaryServer() {
-		return getData().getBoolean("PrimaryServer", false);
-	}
+
 
 	public boolean getVotePartyEnabled() {
 		return getData().getBoolean("VoteParty.Enabled", false);

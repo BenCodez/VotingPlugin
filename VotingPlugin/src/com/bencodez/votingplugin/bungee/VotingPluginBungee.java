@@ -75,6 +75,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private HashMap<String, ClientHandler> clientHandles;
 
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
+	
+	private SocketHandler multiproxySocketHandler;
 
 	@Getter
 	private Config config;
@@ -91,7 +93,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private SocketHandler socketHandler;
 
-	private SocketHandler multiproxySocketHandler;
+	
 
 	private VoteCache voteCacheFile;
 

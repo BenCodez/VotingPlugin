@@ -41,16 +41,16 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("GlobalData", "UseMainMySQL"), true);
 	}
 
-	public String getBungeeHost() {
-		return getString(getNode("BungeeServer", "Host"), "");
-	}
-
 	public boolean getBungeeManageTotals() {
 		return getBoolean(getNode("BungeeManageTotals"), true);
 	}
 
 	public String getBungeeMethod() {
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
+	}
+
+	public String getBungeeHost() {
+		return getString(getNode("BungeeServer", "Host"), "");
 	}
 
 	public int getBungeePort() {
@@ -120,4 +120,41 @@ public class Config extends VelocityYMLFile {
 	public boolean getWaitForUserOnline() {
 		return getBoolean(getNode("WaitForUserOnline"), false);
 	}
+
+	public boolean getMultiProxySupport() {
+		return getBoolean(getNode("MultiProxySupport"), false);
+	}
+
+	public boolean getMultiProxyOneGlobalReward() {
+		return getBoolean(getNode("MultiProxyOneGlobalReward"), false);
+	}
+
+	public boolean getGeyserSupport() {
+		return getBoolean(getNode("GeyserSupport"), false);
+	}
+
+	public boolean getPrimaryServer() {
+		return getBoolean(getNode("PrimaryServer"), false);
+	}
+
+	public String getGeyserPrefix() {
+		return getString(getNode("GeyserPrefix"), "*");
+	}
+
+	public ConfigurationNode getMultiProxyServers(String s) {
+		return getNode("MultiProxyServers", s);
+	}
+
+	public @NonNull Collection<? extends ConfigurationNode> getMultiProxyServers() {
+		return getNode("MultiProxyServers").getChildrenMap().values();
+	}
+
+	public String getMultiProxyHostHost() {
+		return getString(getNode("MultiProxyHost", "Host"), "");
+	}
+
+	public int getMultiProxyHostPort() {
+		return getInt(getNode("MultiProxyHost", "Port"), 1297);
+	}
+
 }

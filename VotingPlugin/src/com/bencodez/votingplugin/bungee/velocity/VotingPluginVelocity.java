@@ -131,6 +131,10 @@ public class VotingPluginVelocity {
 	@Getter
 	private GlobalDataHandlerProxy globalDataHandler;
 
+	private HashMap<String, ClientHandler> multiproxyClientHandles;
+
+	private SocketHandler multiproxySocketHandler;
+
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
 			@DataDirectory Path dataDirectory) {
@@ -201,6 +205,9 @@ public class VotingPluginVelocity {
 						num++;
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+						sendMultiProxyServerMessage("ClearVote", player.getUsername(), uuid);
+					}
 				}
 			}
 		}
@@ -854,6 +861,53 @@ public class VotingPluginVelocity {
 			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
 					+ voteCacheFile.getVotePartyInreaseVotesRequired();
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
+
+			if (getConfig().getMultiProxySupport()) {
+				if (encryptionHandler == null) {
+					encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
+				}
+
+				multiproxySocketHandler = new SocketHandler(
+						server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
+						config.getMultiProxyHostHost(), config.getMultiProxyHostPort(), encryptionHandler,
+						config.getDebug()) {
+
+					@Override
+					public void log(String str) {
+						getLogger().info(str);
+					}
+				};
+
+				multiproxySocketHandler.add(new SocketReceiver() {
+
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 8) {
+							if (data[0].equalsIgnoreCase("Vote")) {
+								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+										new BungeeMessageData(data[8]), data[1]);
+							} else if (data[0].equalsIgnoreCase("VoteOnline")) {
+								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+										new BungeeMessageData(data[8]), data[1]);
+							} else if (data[0].equalsIgnoreCase("ClearVote")) {
+								cachedOnlineVotes.remove(data[2]);
+							}
+						}
+
+					}
+				});
+
+				multiproxyClientHandles = new HashMap<String, ClientHandler>();
+
+				for (ConfigurationNode s : config.getMultiProxyServers()) {
+					ConfigurationNode d = config.getMultiProxyServers(s.getKey().toString());
+					multiproxyClientHandles.put(s.getKey().toString(),
+							new ClientHandler(d.getNode("Host").getString("0.0.0.0"), d.getNode("Port").getInt(1298),
+									encryptionHandler, config.getDebug()));
+				}
+
+				getLogger().info("Loaded multi-proxy support");
+			}
 		}
 
 		try {
@@ -964,7 +1018,7 @@ public class VotingPluginVelocity {
 					serviceSite = "Empty";
 				}
 
-				vote(name, serviceSite, true, false, 0);
+				vote(name, serviceSite, true, false, 0, null, null);
 			}
 		});
 
@@ -1099,11 +1153,12 @@ public class VotingPluginVelocity {
 	public void processQueue() {
 		while (getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getTimeChangeQueue().remove();
-			vote(vote.getName(), vote.getService(), true, false, vote.getTime());
+			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
 		}
 	}
 
-	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queuedTime) {
+	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queuedTime,
+			BungeeMessageData text, String uuid) {
 		try {
 			if (player == null || player.isEmpty()) {
 				logger.info("No name from vote on " + service);
@@ -1122,7 +1177,19 @@ public class VotingPluginVelocity {
 				}
 			}
 
-			String uuid = getUUID(player);
+			if (uuid == null || uuid.isEmpty()) {
+				uuid = getUUID(player);
+			}
+
+			if (uuid.isEmpty()) {
+				if (config.getGeyserSupport()) {
+					if (!player.startsWith(config.getGeyserPrefix())) {
+						uuid = getUUID(config.getGeyserPrefix() + player);
+						player = config.getGeyserPrefix() + player;
+					}
+				}
+			}
+
 			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
 					debug("Fetching UUID online, since allowunjoined is enabled");
@@ -1149,70 +1216,60 @@ public class VotingPluginVelocity {
 
 			player = getProperName(uuid, player);
 
-			BungeeMessageData text = null;
+			if (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
+				addVoteParty();
+				if (getConfig().getBungeeManageTotals()) {
 
-			addVoteParty();
+					if (mysql == null) {
+						logger.error("Mysql is not loaded correctly, stopping vote processing");
+						return;
+					}
 
-			if (getConfig().getBungeeManageTotals()) {
+					if (!mysql.getUuids().contains(uuid)) {
+						mysql.update(uuid, "PlayerName", new DataValueString(player));
+					}
 
-				if (mysql == null) {
-					logger.error("Mysql is not loaded correctly, stopping vote processing");
-					return;
+					ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", new DataValueString(uuid)));
+
+					int allTimeTotal = getValue(data, "AllTimeTotal", 1);
+					int monthTotal = getValue(data, "MonthTotal", 1);
+					int weeklyTotal = getValue(data, "WeeklyTotal", 1);
+					int dailyTotal = getValue(data, "DailyTotal", 1);
+					int points = getValue(data, "Points", getConfig().getPointsOnVote());
+					int milestoneCount = getValue(data, "MilestoneCount", 1);
+					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
+							milestoneCount, votePartyVotes, currentVotePartyVotesRequired);
+					ArrayList<Column> update = new ArrayList<Column>();
+					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
+					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
+					update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
+					update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
+					update.add(new Column("Points", new DataValueInt(points)));
+					update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
+					debug("Setting totals " + text.toString());
+					mysql.update(uuid, update);
+				} else {
+					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
 				}
-
-				if (!mysql.getUuids().contains(uuid)) {
-					mysql.update(uuid, "PlayerName", new DataValueString(player));
-				}
-
-				ArrayList<Column> data = mysql.getExactQuery(new Column("uuid", new DataValueString(uuid)));
-
-				int allTimeTotal = getValue(data, "AllTimeTotal", 1);
-				int monthTotal = getValue(data, "MonthTotal", 1);
-				int weeklyTotal = getValue(data, "WeeklyTotal", 1);
-				int dailyTotal = getValue(data, "DailyTotal", 1);
-				int points = getValue(data, "Points", getConfig().getPointsOnVote());
-				int milestoneCount = getValue(data, "MilestoneCount", 1);
-				text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, milestoneCount,
-						votePartyVotes, currentVotePartyVotesRequired);
-				ArrayList<Column> update = new ArrayList<Column>();
-				update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
-				update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
-				update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
-				update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
-				update.add(new Column("Points", new DataValueInt(points)));
-				update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
-				debug("Setting totals " + text.toString());
-				mysql.update(uuid, update);
-			} else {
-				text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
 			}
-
-			/*
-			 * String text = mysqlUpdate(data, uuid, "AllTimeTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "MonthTotal", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "WeeklyTotal", 1) + "//" + mysqlUpdate(data, uuid, "DailyTotal", 1) + "//" +
-			 * mysqlUpdate(data, uuid, "Points", 1) + "//" + mysqlUpdate(data, uuid,
-			 * "MilestoneCount", 1);
-			 */
 
 			long time = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 			if (queuedTime != 0) {
 				time = queuedTime;
 			}
 
+			Player p = null;
+			if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
+				p = server.getPlayer(UUID.fromString(uuid)).get();
+			}
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				if (config.getSendVotesToAllServers()) {
 					for (RegisteredServer s : server.getAllServers()) {
 						if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 							boolean forceCache = false;
-							Player p = null;
-							if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
-								p = server.getPlayer(UUID.fromString(uuid)).get();
-							}
-							if (((p == null || !p.isActive()) && getConfig().getWaitForUserOnline())
-									|| (getGlobalDataHandler() != null
-											&& getGlobalDataHandler().isTimeChangedHappened())) {
+							if ((!isOnline(p) && getConfig().getWaitForUserOnline()) || (getGlobalDataHandler() != null
+									&& getGlobalDataHandler().isTimeChangedHappened())) {
 								forceCache = true;
 								debug("Forcing vote to cache");
 							}
@@ -1240,11 +1297,8 @@ public class VotingPluginVelocity {
 						}
 					}
 				} else {
-					Player p = null;
-					if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
-						p = server.getPlayer(UUID.fromString(uuid)).get();
-					}
-					if (p != null && p.isActive()
+
+					if (isOnline(p)
 							&& !config.getBlockedServers()
 									.contains(p.getCurrentServer().get().getServerInfo().getName())
 							&& (getGlobalDataHandler() != null || !getGlobalDataHandler().isTimeChangedHappened())) {
@@ -1252,6 +1306,9 @@ public class VotingPluginVelocity {
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1");
+						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+							sendMultiProxyServerMessage("ClearVote", player, uuid);
+						}
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
 							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -1276,8 +1333,41 @@ public class VotingPluginVelocity {
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				sendSocketVote(player, service, text);
 			}
+
+			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
+				if (!getConfig().getMultiProxyOneGlobalReward()) {
+					debug("Seending global proxy vote message");
+					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
+							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+				} else {
+					// check if reward should've already been given
+					if (!(isOnline(p) && !config.getBlockedServers()
+							.contains(p.getCurrentServer().get().getServerInfo().getName()))) {
+						debug("Seending global proxy voteonline message");
+						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
+								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+					} else {
+						debug("Not sending global proxy message for voteonline, player already got reward");
+					}
+				}
+
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	public boolean isOnline(Player p) {
+		if (p != null) {
+			return p.isActive();
+		}
+
+		return false;
+	}
+
+	public void sendMultiProxyServerMessage(String... messageData) {
+		for (ClientHandler h : multiproxyClientHandles.values()) {
+			h.sendMessage(messageData);
 		}
 	}
 
