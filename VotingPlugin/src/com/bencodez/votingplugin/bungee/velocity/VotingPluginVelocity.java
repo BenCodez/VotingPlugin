@@ -884,6 +884,8 @@ public class VotingPluginVelocity {
 						if (data.length > 0) {
 							if (data[0].equalsIgnoreCase("Status")) {
 								getLogger().info("Multi-proxy status message received");
+							} else if (data[0].equalsIgnoreCase("ClearVote")) {
+								cachedOnlineVotes.remove(data[2]);
 							}
 						}
 						if (data.length > 8) {
@@ -893,9 +895,7 @@ public class VotingPluginVelocity {
 							} else if (data[0].equalsIgnoreCase("VoteOnline")) {
 								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
 										new BungeeMessageData(data[8]), data[1]);
-							} else if (data[0].equalsIgnoreCase("ClearVote")) {
-								cachedOnlineVotes.remove(data[2]);
-							}
+							} 
 						}
 
 					}

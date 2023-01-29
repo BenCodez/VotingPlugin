@@ -845,20 +845,17 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					if (data.length > 0) {
 						if (data[0].equalsIgnoreCase("Status")) {
 							getLogger().info("Multi-proxy status message received");
+						} else if (data[0].equalsIgnoreCase("ClearVote")) {
+							cachedOnlineVotes.remove(data[2]);
 						}
 					}
 					if (data.length > 8) {
 						if (data[0].equalsIgnoreCase("Vote")) {
-							// todo
-							// sendRedisServerMessage("Vote", uuid, player, service, "" + votePartyVotes,""
-							// + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
 									data[1]);
 						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
 							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
 									data[1]);
-						} else if (data[0].equalsIgnoreCase("ClearVote")) {
-							cachedOnlineVotes.remove(data[2]);
 						}
 					}
 
