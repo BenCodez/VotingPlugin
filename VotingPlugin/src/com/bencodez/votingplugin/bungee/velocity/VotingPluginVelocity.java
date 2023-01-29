@@ -1304,10 +1304,8 @@ public class VotingPluginVelocity {
 					}
 				} else {
 
-					if (isOnline(p)
-							&& !config.getBlockedServers()
-									.contains(p.getCurrentServer().get().getServerInfo().getName())
-							&& (getGlobalDataHandler() != null || !getGlobalDataHandler().isTimeChangedHappened())) {
+					if (isOnline(p) && !config.getBlockedServers()
+							.contains(p.getCurrentServer().get().getServerInfo().getName())) {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
