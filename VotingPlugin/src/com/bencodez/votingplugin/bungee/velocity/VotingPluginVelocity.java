@@ -869,7 +869,7 @@ public class VotingPluginVelocity {
 
 				multiproxySocketHandler = new SocketHandler(
 						server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
-						config.getMultiProxyHostHost(), config.getMultiProxyHostPort(), encryptionHandler,
+						config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
 						config.getDebug()) {
 
 					@Override

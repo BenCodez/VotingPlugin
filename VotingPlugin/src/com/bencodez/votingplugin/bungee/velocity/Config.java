@@ -149,12 +149,12 @@ public class Config extends VelocityYMLFile {
 		return getNode("MultiProxyServers").getChildrenMap().values();
 	}
 
-	public String getMultiProxyHostHost() {
-		return getString(getNode("MultiProxyHost", "Host"), "");
+	public String getMultiProxySocketHostHost() {
+		return getString(getNode("MultiProxySocketHost", "Host"), "");
 	}
 
-	public int getMultiProxyHostPort() {
-		return getInt(getNode("MultiProxyHost", "Port"), 1297);
+	public int getMultiProxySocketHostPort() {
+		return getInt(getNode("MultiProxySocketHost", "Port"), 1297);
 	}
 
 }

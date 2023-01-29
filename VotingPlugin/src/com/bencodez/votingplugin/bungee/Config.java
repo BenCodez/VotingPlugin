@@ -78,11 +78,11 @@ public class Config {
 	}
 
 	public int getMultiProxySocketHostPort() {
-		return getData().getInt("MultiProxyHost.Port", 1297);
+		return getData().getInt("MultiProxySocketHost.Port", 1297);
 	}
 
 	public String getMultiProxySocketHostHost() {
-		return getData().getString("MultiProxyHost.Host", "");
+		return getData().getString("MultiProxySocketHost.Host", "");
 	}
 
 	public boolean getMultiProxyOneGlobalReward() {
