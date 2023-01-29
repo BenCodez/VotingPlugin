@@ -75,7 +75,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private HashMap<String, ClientHandler> clientHandles;
 
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
-	
+
 	private SocketHandler multiproxySocketHandler;
 
 	@Getter
@@ -92,8 +92,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private NonVotedPlayersCache nonVotedPlayersCache;
 
 	private SocketHandler socketHandler;
-
-	
 
 	private VoteCache voteCacheFile;
 
@@ -844,6 +842,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				@Override
 				public void onReceive(String[] data) {
+					if (data.length > 0) {
+						if (data[0].equalsIgnoreCase("Status")) {
+							getLogger().info("Multi-proxy status message received");
+						}
+					}
 					if (data.length > 8) {
 						if (data[0].equalsIgnoreCase("Vote")) {
 							// todo

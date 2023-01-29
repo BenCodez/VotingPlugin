@@ -54,6 +54,10 @@ public class VotingPluginBungeeCommand extends Command {
 								new TextComponent("&aNot using socket/pluginmessage method, command unavailable"));
 					}
 				}
+				if (args[0].equalsIgnoreCase("multiproxystatus")) {
+					bungee.sendMultiProxyServerMessage("Status");
+					sender.sendMessage(new TextComponent("&aSending status message"));
+				}
 				if (args[0].equalsIgnoreCase("help")) {
 					TextComponent[] msg = new TextComponent[4];
 					msg[0] = new TextComponent("&avotingpluginbungee reload - Reload plugin");

@@ -60,6 +60,10 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 							.color(NamedTextColor.AQUA));
 				}
 			}
+			if (args[0].equalsIgnoreCase("multiproxystatus")) {
+				plugin.sendMultiProxyServerMessage("Status");
+				source.sendMessage(Component.text("Sending status message").color(NamedTextColor.AQUA));
+			}
 			if (args[0].equalsIgnoreCase("help")) {
 				String[] msg = new String[4];
 				msg[0] = "votingpluginbungee reload - Reload plugin";

@@ -882,6 +882,11 @@ public class VotingPluginVelocity {
 
 					@Override
 					public void onReceive(String[] data) {
+						if (data.length > 0) {
+							if (data[0].equalsIgnoreCase("Status")) {
+								getLogger().info("Multi-proxy status message received");
+							}
+						}
 						if (data.length > 8) {
 							if (data[0].equalsIgnoreCase("Vote")) {
 								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
