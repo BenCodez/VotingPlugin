@@ -69,7 +69,6 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
-import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Dependency;
@@ -797,7 +796,7 @@ public class VotingPluginVelocity {
 							}
 						}
 					}
-				}).delay(15L, TimeUnit.SECONDS).repeat(30l, TimeUnit.SECONDS).schedule();
+				}).delay(60, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
 
 				server.getScheduler().buildTask(this, () -> {
 					if (nonVotedPlayersCache != null) {
@@ -882,7 +881,6 @@ public class VotingPluginVelocity {
 
 					@Override
 					public void onReceive(String[] data) {
-						debug("MultiProxy Message: " + data.toString());
 						if (data.length > 0) {
 							if (data[0].equalsIgnoreCase("Status")) {
 								getLogger().info("Multi-proxy status message received");
@@ -1046,12 +1044,6 @@ public class VotingPluginVelocity {
 		leastSigBits |= Long.decode(parts[4]).longValue();
 
 		return new UUID(mostSigBits, leastSigBits);
-	}
-
-	@Subscribe
-	public void playerServerConnected(ServerConnectedEvent event) {
-		checkCachedVotes(event.getServer());
-		checkOnlineVotes(event.getPlayer(), event.getPlayer().getUniqueId().toString(), event.getServer());
 	}
 
 	public void reload(boolean loadMySQL) {
@@ -1370,7 +1362,6 @@ public class VotingPluginVelocity {
 	}
 
 	public void sendMultiProxyServerMessage(String... messageData) {
-		debug("Sending multiproxy message: " + messageData);
 		for (ClientHandler h : multiproxyClientHandles.values()) {
 			h.sendMessage(messageData);
 		}

@@ -755,7 +755,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)), player, null);
 						}
 					}
-				}, 15l, 30l, TimeUnit.SECONDS);
+				}, 60l, 60l, TimeUnit.SECONDS);
 
 				getProxy().getScheduler().schedule(this, new Runnable() {
 
@@ -842,7 +842,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				@Override
 				public void onReceive(String[] data) {
-					debug("MultiProxy Message: " + data.toString());
 					if (data.length > 0) {
 						if (data[0].equalsIgnoreCase("Status")) {
 							getLogger().info("Multi-proxy status message received");
@@ -1078,7 +1077,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public void sendMultiProxyServerMessage(String... messageData) {
-		debug("Sending multiproxy message: " + messageData);
 		for (ClientHandler h : multiproxyClientHandles.values()) {
 			h.sendMessage(messageData);
 		}
