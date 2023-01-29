@@ -315,18 +315,30 @@ public class BungeeHandler implements Listener {
 						if (args.size() > 10) {
 							num = Integer.valueOf(args.get(10));
 						}
+						int numberOfVotes = 1;
+						if (args.size() > 11) {
+							numberOfVotes = Integer.valueOf(args.get(11));
+						}
 
 						if (!bungeeBroadcast) {
 							if (!plugin.getBungeeSettings().isBungeeBroadcast()
 									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									VoteSite site = plugin.getVoteSite(service, true);
-									if (site != null) {
-										site.broadcastVote(user, false);
-										broadcast = false;
+									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast()) {
+										if (num == 1) {
+											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
+													numberOfVotes);
+										}
 									} else {
-										plugin.getLogger().warning("No votesite for " + service);
+										VoteSite site = plugin.getVoteSite(service, true);
+										if (site != null) {
+											site.broadcastVote(user, false);
+											broadcast = false;
+										} else {
+											plugin.getLogger().warning("No votesite for " + service);
+										}
 									}
+
 								}
 							}
 						} else {
@@ -395,18 +407,30 @@ public class BungeeHandler implements Listener {
 							num = Integer.valueOf(args.get(10));
 						}
 
+						int numberOfVotes = 1;
+						if (args.size() > 11) {
+							numberOfVotes = Integer.valueOf(args.get(11));
+						}
+
 						if (!bungeeBroadcast) {
 							if (!plugin.getBungeeSettings().isBungeeBroadcast()
 									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-								if (Boolean.valueOf(args.get(4))
-										|| plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									VoteSite site = plugin.getVoteSite(service, true);
-									if (site != null) {
-										site.broadcastVote(user, false);
-										broadcast = false;
+								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast()) {
+										if (num == 1) {
+											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
+													numberOfVotes);
+										}
 									} else {
-										plugin.getLogger().warning("No votesite for " + service);
+										VoteSite site = plugin.getVoteSite(service, true);
+										if (site != null) {
+											site.broadcastVote(user, false);
+											broadcast = false;
+										} else {
+											plugin.getLogger().warning("No votesite for " + service);
+										}
 									}
+
 								}
 							}
 						} else {

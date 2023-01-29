@@ -152,6 +152,7 @@ public class VotingPluginVelocity {
 				ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
 				if (!c.isEmpty()) {
 					int num = 1;
+					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
 						boolean toSend = true;
 						if (getConfig().getWaitForUserOnline()) {
@@ -172,7 +173,8 @@ public class VotingPluginVelocity {
 							sendPluginMessageServer(serverToCheck, "Vote", cache.getPlayerName(), cache.getUuid(),
 									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 									"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num);
+									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
+									"" + numberOfVotes);
 							num++;
 						} else {
 							debug("Not sending vote because user isn't on server " + serverToCheck + ": "
@@ -196,11 +198,13 @@ public class VotingPluginVelocity {
 				}
 				if (!config.getBlockedServers().contains(serverToCheck.getServerInfo().getName())) {
 					int num = 1;
+					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
 						sendPluginMessageServer(serverToCheck, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num);
+								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
+								"" + numberOfVotes);
 						num++;
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -895,7 +899,7 @@ public class VotingPluginVelocity {
 							} else if (data[0].equalsIgnoreCase("VoteOnline")) {
 								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
 										new BungeeMessageData(data[8]), data[1]);
-							} 
+							}
 						}
 
 					}
@@ -1287,7 +1291,8 @@ public class VotingPluginVelocity {
 								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 										Boolean.TRUE.toString(), "" + realVote, text.toString(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1");
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1",
+										"1");
 							}
 							if (config.getBroadcast()) {
 								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
@@ -1301,7 +1306,7 @@ public class VotingPluginVelocity {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
-								"" + config.getBroadcast(), "1");
+								"" + config.getBroadcast(), "1", "1");
 						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 							sendMultiProxyServerMessage("ClearVote", player, uuid);
 						}

@@ -115,6 +115,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
 					if (!c.isEmpty()) {
 						int num = 1;
+						int numberOfVotes = c.size();
 						for (OfflineBungeeVote cache : c) {
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
@@ -133,7 +134,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 										"" + cache.isRealVote(), cache.getText(),
 										"" + getConfig().getBungeeManageTotals(),
 										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(),
-										"" + num);
+										"" + num, "" + numberOfVotes);
 								num++;
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
@@ -158,11 +159,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 				if (!config.getBlockedServers().contains(server)) {
 					int num = 1;
+					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
 						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
-								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num);
+								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
+								"" + numberOfVotes);
 						num++;
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
@@ -1272,7 +1275,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
 										Boolean.TRUE.toString(), "" + realVote, text.toString(),
 										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1");
+										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1",
+										"1");
 							}
 
 						}
@@ -1282,7 +1286,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
-								"" + config.getBroadcast(), "1");
+								"" + config.getBroadcast(), "1", "1");
 						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 							sendMultiProxyServerMessage("ClearVote", player, uuid);
 						}
@@ -1318,7 +1322,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				} else {
 					// check if reward should've already been given
 					if (!(isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName()))) {
-						debug("Seending global proxy voteonline message");
+						debug("Sending global proxy voteonline message");
 						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
 								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 					} else {
