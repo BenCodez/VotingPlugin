@@ -116,6 +116,7 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 
+		final String uuid = user.getUUID();
 		synchronized (object) {
 			if (!plugin.isEnabled()) {
 				plugin.getLogger().warning("Plugin disabled, ignoring vote");
@@ -207,7 +208,6 @@ public class PlayerVoteListener implements Listener {
 			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
 			plugin.getCoolDownCheck().vote(user, voteSite);
 
-			final String uuid = user.getUUID();
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
 
@@ -222,24 +222,23 @@ public class PlayerVoteListener implements Listener {
 					}, 40);
 				}
 			}
-
-			PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
-					event.isForceBungee());
-			plugin.getServer().getPluginManager().callEvent(postVoteEvent);
-
-			plugin.getTimer().schedule(new Runnable() {
-
-				@Override
-				public void run() {
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid));
-					if (!user.isOnline()) {
-						user.clearCache();
-					}
-				}
-			}, 5, TimeUnit.SECONDS);
-
+			plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
 		}
+
+		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
+				event.isForceBungee());
+		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
+
+		plugin.getTimer().schedule(new Runnable() {
+
+			@Override
+			public void run() {
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+				if (!user.isOnline()) {
+					user.clearCache();
+				}
+			}
+		}, 5, TimeUnit.SECONDS);
 
 		plugin.setUpdate(true);
 	}
