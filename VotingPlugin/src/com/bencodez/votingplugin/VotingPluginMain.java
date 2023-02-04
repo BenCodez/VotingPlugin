@@ -1517,6 +1517,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								getSigns().updateSigns();
 
 								tempTopVoter = null;
+								
+								checkFirstTimeLoaded();
 
 								time1 = ((System.currentTimeMillis() - time1) / 1000);
 								long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
@@ -1524,7 +1526,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										+ " seconds. Total time: " + totalTime + " seconds");
 								plugin.extraDebug("Current cached users: "
 										+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-								checkFirstTimeLoaded();
 							} catch (Exception ex) {
 								if (plugin != null) {
 									plugin.getLogger().info("Looks like something went wrong");
@@ -1544,6 +1545,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void checkFirstTimeLoaded() {
 		if (!firstTimeLoaded) {
+			
 			if (getGui().isChestVoteTopUseSkull()) {
 				int maxToLoad = 200;
 				for (TopVoter top : topVoter.keySet()) {

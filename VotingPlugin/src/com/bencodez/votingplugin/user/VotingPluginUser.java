@@ -711,7 +711,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		Player player = getPlayer();
 		if (player != null) {
-			plugin.extraDebug("Checking offline vote site votes for " + player.getName());
+			plugin.extraDebug("Checking offline votes for " + player.getName());
 
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
 			if (isTopVoterIgnore() != topVoterIngorePerm) {
