@@ -79,7 +79,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
 import lombok.Getter;
 import ninja.leaping.configurate.ConfigurationNode;
@@ -118,6 +117,7 @@ public class VotingPluginVelocity {
 
 	private VoteCache voteCacheFile;
 
+	@Getter
 	private ScheduledExecutorService timer;
 
 	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
@@ -729,6 +729,19 @@ public class VotingPluginVelocity {
 				.aliases("vpb").build();
 
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
+		try {
+			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
+		} catch (ClassNotFoundException e) {
+			votifierEnabled = false;
+			getLogger().warn("Votifier event not found, not loading votifier event");
+		}
+		if (votifierEnabled) {
+			try {
+				server.getEventManager().register(this, new VoteEventVelocity(this));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 
 		if (mysqlLoaded) {
 			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
@@ -1010,26 +1023,6 @@ public class VotingPluginVelocity {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	@Subscribe
-	public void onVotifierEvent(VotifierEvent event) {
-		final String serviceSiteVote = event.getVote().getServiceName();
-		final String name = event.getVote().getUsername();
-		timer.execute(new Runnable() {
-
-			@Override
-			public void run() {
-				String serviceSite = serviceSiteVote;
-				logger.info("Vote received " + name + " from service site " + serviceSite);
-				if (serviceSite.isEmpty()) {
-					serviceSite = "Empty";
-				}
-
-				vote(name, serviceSite, true, false, 0, null, null);
-			}
-		});
-
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
@@ -1337,7 +1330,7 @@ public class VotingPluginVelocity {
 
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
-					debug("Seending global proxy vote message");
+					debug("Sending global proxy vote message");
 					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
 							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 				} else {
@@ -1374,6 +1367,7 @@ public class VotingPluginVelocity {
 
 	private int votePartyVotes = 0;
 	private int currentVotePartyVotesRequired = 0;
+	private boolean votifierEnabled = true;
 
 	public void addCurrentVotePartyVotes(int amount) {
 		votePartyVotes += amount;

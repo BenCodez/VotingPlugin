@@ -537,10 +537,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			try {
 				voteEventBungee = new VoteEventBungee(this);
 				getProxy().getPluginManager().registerListener(this, voteEventBungee);
-				getProxy().getPluginManager().registerListener(this, this);
 			} catch (Exception e) {
 			}
 		}
+		getProxy().getPluginManager().registerListener(this, this);
 
 		config = new Config(this);
 		config.load();
