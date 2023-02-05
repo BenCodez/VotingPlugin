@@ -5,6 +5,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -26,8 +27,6 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
  * The Class VotiferEvent.
  */
 public class PlayerVoteListener implements Listener {
-
-	private static Object object = new Object();
 
 	private VotingPluginMain plugin;
 
@@ -117,112 +116,124 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		final String uuid = user.getUUID();
-		synchronized (object) {
-			if (!plugin.isEnabled()) {
-				plugin.getLogger().warning("Plugin disabled, ignoring vote");
-				return;
-			}
-			// reupdate cache
-			user.clearCache();
-			user.cache();
 
-			user.updateName(true);
-
-			// vote party
-			plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
-
-			if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
-				// broadcast vote if enabled in config
-				if (plugin.getConfigFile().isBroadcastVotesEnabled()
-						&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
-					if (!plugin.getConfigFile().getFormatBroadcastWhenOnline() || user.isOnline()) {
-						voteSite.broadcastVote(user);
-					}
-				}
-			}
-
-			if (plugin.getBroadcastHandler() != null) {
-				plugin.getBroadcastHandler().onVote(playerName);
-			}
-
-			// update last vote time
-			if (event.getTime() != 0) {
-				user.setTime(voteSite, event.getTime());
-			} else {
-				user.setTime(voteSite);
-			}
-
-			// try logging to file
-			if (plugin.getConfigFile().isLogVotesToFile()) {
+		try {
+			if (plugin.getVoteLock().tryLock(20, TimeUnit.SECONDS)) {
 				try {
-					plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(), playerName,
-							voteSite.getKey());
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
+					if (!plugin.isEnabled()) {
+						plugin.getLogger().warning("Plugin disabled, ignoring vote");
+						return;
+					}
+					// reupdate cache
+					user.clearCache();
+					user.cache();
 
-			// check first vote rewards
-			plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
-			plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
+					user.updateName(true);
 
-			if (user.isReminded() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
-				user.setReminded(false);
-			}
+					// vote party
+					plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
-			// check if player has voted on all sites in one day
-			if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
-					|| event.isBungee()) {
-				boolean online = true;
-				if (event.isBungee()) {
-					online = event.isWasOnline();
-				}
-				user.playerVote(voteSite, online, false, event.isForceBungee());
-				if (event.getVoteNumber() == 1) {
-					user.sendVoteEffects(online);
-				}
-				if (plugin.getConfigFile().isCloseInventoryOnVote()) {
-					user.closeInv();
-				}
-			} else {
-				user.addOfflineVote(voteSite.getKey());
-				plugin.debug(
-						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
-			}
-
-			// add to total votes
-			if ((plugin.getConfigFile().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
-				if (plugin.getConfigFile().isAddTotals()) {
-					user.addTotal();
-					user.addTotalDaily();
-					user.addTotalWeekly();
-				}
-				user.addPoints();
-			}
-			user.checkDayVoteStreak(event.isForceBungee());
-
-			// other rewards
-			plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
-			plugin.getSpecialRewards().checkAlmostAllSites(user, event.isForceBungee());
-			plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
-			plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
-			plugin.getCoolDownCheck().vote(user, voteSite);
-
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
-				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
-
-					Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-
-						@Override
-						public void run() {
-							if (Bukkit.getOnlinePlayers().size() > 0) {
-								plugin.getPluginMessaging().sendPluginMessage("VoteUpdate", uuid);
+					if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
+						// broadcast vote if enabled in config
+						if (plugin.getConfigFile().isBroadcastVotesEnabled()
+								&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
+							if (!plugin.getConfigFile().getFormatBroadcastWhenOnline() || user.isOnline()) {
+								voteSite.broadcastVote(user);
 							}
 						}
-					}, 40);
+					}
+
+					if (plugin.getBroadcastHandler() != null) {
+						plugin.getBroadcastHandler().onVote(playerName);
+					}
+
+					// update last vote time
+					if (event.getTime() != 0) {
+						user.setTime(voteSite, event.getTime());
+					} else {
+						user.setTime(voteSite);
+					}
+
+					// try logging to file
+					if (plugin.getConfigFile().isLogVotesToFile()) {
+						try {
+							plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(),
+									playerName, voteSite.getKey());
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+
+					// check first vote rewards
+					plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
+					plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
+
+					if (user.isReminded() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
+						user.setReminded(false);
+					}
+
+					// check if player has voted on all sites in one day
+					if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
+							|| event.isBungee()) {
+						boolean online = true;
+						if (event.isBungee()) {
+							online = event.isWasOnline();
+						}
+						user.playerVote(voteSite, online, false, event.isForceBungee());
+						if (event.getVoteNumber() == 1) {
+							user.sendVoteEffects(online);
+						}
+						if (plugin.getConfigFile().isCloseInventoryOnVote()) {
+							user.closeInv();
+						}
+					} else {
+						user.addOfflineVote(voteSite.getKey());
+						plugin.debug("Offline vote set for " + playerName + " (" + user.getUUID() + ") on "
+								+ voteSite.getKey());
+					}
+
+					// add to total votes
+					if ((plugin.getConfigFile().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
+						if (plugin.getConfigFile().isAddTotals()) {
+							user.addTotal();
+							user.addTotalDaily();
+							user.addTotalWeekly();
+						}
+						user.addPoints();
+					}
+					user.checkDayVoteStreak(event.isForceBungee());
+
+					// other rewards
+					plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
+					plugin.getSpecialRewards().checkAlmostAllSites(user, event.isForceBungee());
+					plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(),
+							event.isForceBungee());
+					plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
+					plugin.getCoolDownCheck().vote(user, voteSite);
+
+					if (plugin.getBungeeSettings().isUseBungeecoord()) {
+						if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
+
+							Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+								@Override
+								public void run() {
+									if (Bukkit.getOnlinePlayers().size() > 0) {
+										plugin.getPluginMessaging().sendPluginMessage("VoteUpdate", uuid);
+									}
+								}
+							}, 40);
+						}
+					}
+					plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
+				} finally {
+					plugin.getVoteLock().unlock();
 				}
+			} else {
+				plugin.setVoteLock(new ReentrantLock());
 			}
-			plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),

@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -1386,6 +1387,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 	}
+	
+	@Getter
+	@Setter
+	private ReentrantLock voteLock = new ReentrantLock();
 
 	private void setupFiles() {
 		configFile = new Config(this);
