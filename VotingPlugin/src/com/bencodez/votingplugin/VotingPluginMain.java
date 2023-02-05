@@ -20,7 +20,6 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -212,7 +211,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private boolean ymlError = false;
 
 	@Getter
-	private ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+	private ScheduledExecutorService voteTimer;
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -1002,6 +1001,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
+	private void loadVoteTimer() {
+		if (getConfigFile().getBackgroundVoteProcessingThreads() == 1) {
+			voteTimer = Executors.newSingleThreadScheduledExecutor();
+		} else {
+			voteTimer = Executors.newScheduledThreadPool(getConfigFile().getBackgroundVoteProcessingThreads());
+		}
+	}
+
 	@Getter
 	private TimeQueueHandler timeQueueHandler;
 
@@ -1009,6 +1016,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onPostLoad() {
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
+
+		loadVoteTimer();
+
 		if (bungeeSettings.isUseBungeecoord()) {
 			bungeeHandler = new BungeeHandler(this);
 			bungeeHandler.load();
@@ -1255,6 +1265,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
+		voteTimer.shutdown();
+		try {
+			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		voteTimer.shutdownNow();
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
@@ -1347,6 +1364,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
 
+		voteTimer.shutdown();
+		try {
+			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		voteTimer.shutdownNow();
+		voteTimer = null;
+		loadVoteTimer();
+
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -1387,10 +1414,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 	}
-	
-	@Getter
-	@Setter
-	private ReentrantLock voteLock = new ReentrantLock();
 
 	private void setupFiles() {
 		configFile = new Config(this);
@@ -1522,7 +1545,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								getSigns().updateSigns();
 
 								tempTopVoter = null;
-								
+
 								checkFirstTimeLoaded();
 
 								time1 = ((System.currentTimeMillis() - time1) / 1000);
@@ -1550,7 +1573,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void checkFirstTimeLoaded() {
 		if (!firstTimeLoaded) {
-			
+
 			if (getGui().isChestVoteTopUseSkull()) {
 				int maxToLoad = 200;
 				for (TopVoter top : topVoter.keySet()) {

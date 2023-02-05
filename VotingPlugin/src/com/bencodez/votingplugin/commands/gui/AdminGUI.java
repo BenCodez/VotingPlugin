@@ -251,7 +251,13 @@ public class AdminGUI {
 						if (ob != null) {
 							VoteSite site = (VoteSite) ob;
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							plugin.getVoteTimer().execute(new Runnable() {
+
+								@Override
+								public void run() {
+									plugin.getServer().getPluginManager().callEvent(voteEvent);
+								}
+							});
 						}
 					}
 				}, ArrayUtils.getInstance().convert(playerNames)).usingMethod(InputMethod.INVENTORY)

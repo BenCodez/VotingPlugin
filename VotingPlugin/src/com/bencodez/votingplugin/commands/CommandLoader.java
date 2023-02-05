@@ -868,15 +868,22 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
 				for (VoteSite site : plugin.getVoteSites()) {
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
-					if (voteEvent.getVoteSite() != null) {
-						if (!voteEvent.getVoteSite().isVaidServiceSite()) {
-							sendMessage(sender,
-									"&cPossible issue with service site, has the server gotten the vote from "
-											+ voteEvent.getServiceSite() + "?");
+					plugin.getVoteTimer().execute(new Runnable() {
+
+						@Override
+						public void run() {
+							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
+									false);
+							if (voteEvent.getVoteSite() != null) {
+								if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+									sendMessage(sender,
+											"&cPossible issue with service site, has the server gotten the vote from "
+													+ voteEvent.getServiceSite() + "?");
+								}
+							}
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
-					}
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
+					});
 				}
 
 				if (plugin.isYmlError()) {
@@ -893,17 +900,24 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1], args[2],
 						false);
-				sendMessage(sender, "&cTriggering vote...");
 				if (voteEvent.getVoteSite() != null) {
 					if (!voteEvent.getVoteSite().isVaidServiceSite()) {
 						sendMessage(sender, "&cPossible issue with service site, has the server gotten the vote from "
 								+ voteEvent.getServiceSite() + "?");
 					}
-				}
-				plugin.getServer().getPluginManager().callEvent(voteEvent);
+					sendMessage(sender, "&cTriggering vote...");
 
-				if (plugin.isYmlError()) {
-					sendMessage(sender, "&3Detected yml error, please check server log for details");
+					plugin.getVoteTimer().execute(new Runnable() {
+
+						@Override
+						public void run() {
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
+						}
+					});
+
+					if (plugin.isYmlError()) {
+						sendMessage(sender, "&3Detected yml error, please check server log for details");
+					}
 				}
 
 			}
@@ -926,7 +940,13 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						plugin.getServer().getPluginManager().callEvent(voteEvent);
+						plugin.getVoteTimer().execute(new Runnable() {
+
+							@Override
+							public void run() {
+								plugin.getServer().getPluginManager().callEvent(voteEvent);
+							}
+						});
 
 						if (plugin.isYmlError()) {
 							sendMessage(sender, "&3Detected yml error, please check server log for details");

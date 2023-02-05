@@ -260,6 +260,10 @@ public class Config extends YMLFile {
 	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
 	@Getter
 	private int MaxiumNumberOfTopVotersToLoad = 1000;
+	
+	@ConfigDataInt(path = "BackgroundVoteProcessingThreads")
+	@Getter
+	private int backgroundVoteProcessingThreads = 1;
 
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
