@@ -531,13 +531,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
 		} catch (ClassNotFoundException e) {
 			votifierEnabled = false;
-			getLogger().warning("Votifier event not found, not loading votifier event");
 		}
 		if (votifierEnabled) {
 			try {
 				voteEventBungee = new VoteEventBungee(this);
 				getProxy().getPluginManager().registerListener(this, voteEventBungee);
 			} catch (Exception e) {
+				votifierEnabled = false;
 			}
 		}
 		getProxy().getPluginManager().registerListener(this, this);
@@ -875,6 +875,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
+		}
+
+		if (!votifierEnabled) {
+			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
+				getLogger().warning("Votifier event not found, not loading votifier event");
+			}
 		}
 
 		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);

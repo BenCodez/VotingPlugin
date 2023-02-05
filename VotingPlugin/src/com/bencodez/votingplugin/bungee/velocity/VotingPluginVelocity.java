@@ -733,13 +733,13 @@ public class VotingPluginVelocity {
 			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
 		} catch (ClassNotFoundException e) {
 			votifierEnabled = false;
-			getLogger().warn("Votifier event not found, not loading votifier event");
 		}
 		if (votifierEnabled) {
 			try {
 				server.getEventManager().register(this, new VoteEventVelocity(this));
 			} catch (Exception e) {
 				e.printStackTrace();
+				votifierEnabled = false;
 			}
 		}
 
@@ -939,6 +939,12 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+
+		if (!votifierEnabled) {
+			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
+				getLogger().warn("Votifier event not found, not loading votifier event");
+			}
 		}
 
 		Metrics metrics = metricsFactory.make(this, 11547);
