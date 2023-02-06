@@ -968,6 +968,9 @@ public class VotingPluginVelocity {
 			metrics.addCustomChart(
 					new SimplePie("globaldata_usemainmysql", () -> "" + getConfig().getGlobalDataUseMainMySQL()));
 		}
+		
+		metrics.addCustomChart(
+				new SimplePie("multi_proxy_support_enabled", () -> "" + getConfig().getMultiProxySupport()));
 
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new SimplePie("dev_build_number", () -> "" + buildNumber));

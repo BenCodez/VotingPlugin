@@ -909,6 +909,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("globaldata_usemainmysql",
 					() -> "" + getConfig().getGlobalDataUseMainMySQL()));
 		}
+		
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("multi_proxy_support_enabled", () -> "" + getConfig().getMultiProxySupport()));
 
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
