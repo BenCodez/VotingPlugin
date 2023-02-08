@@ -24,9 +24,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -324,7 +326,7 @@ public class VotingPluginVelocity {
 		};
 
 		ArrayList<String> servers = new ArrayList<String>();
-		for (RegisteredServer s : server.getAllServers()) {
+		for (RegisteredServer s : getAvailableAllServers()) {
 			if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 				servers.add(s.getServerInfo().getName());
 			}
@@ -357,11 +359,12 @@ public class VotingPluginVelocity {
 								debug2(text);
 							}
 						}, servers) {
+
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
-						for (RegisteredServer s : server.getAllServers()) {
+						for (RegisteredServer s : getAvailableAllServers()) {
 							if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 								getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
 								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -406,11 +409,12 @@ public class VotingPluginVelocity {
 								debug2(text);
 							}
 						}, servers) {
+
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
-						for (RegisteredServer s : server.getAllServers()) {
+						for (RegisteredServer s : getAvailableAllServers()) {
 							if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 								getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
 								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -428,6 +432,7 @@ public class VotingPluginVelocity {
 					public void onTimeChangedFailed(String server, TimeType type) {
 						getGlobalDataHandler().setBoolean(server, type.toString(), false);
 					}
+
 				};
 			}
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
@@ -511,7 +516,7 @@ public class VotingPluginVelocity {
 					for (int i = 0; i < size; i++) {
 						out.writeUTF(in.readUTF());
 					}
-					for (RegisteredServer send : server.getAllServers()) {
+					for (RegisteredServer send : getAvailableAllServers()) {
 
 						if (send.getPlayersConnected().size() > 0) {
 							send.sendPluginMessage(CHANNEL, outstream.toByteArray());
@@ -615,7 +620,7 @@ public class VotingPluginVelocity {
 				if (!config.getGlobalDataEnabled()) {
 					return;
 				}
-				for (RegisteredServer s : server.getAllServers()) {
+				for (RegisteredServer s : getAvailableAllServers()) {
 					if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 
 						if (getGlobalDataHandler().getGlobalMysql().containsKey(s.getServerInfo().getName())) {
@@ -968,7 +973,7 @@ public class VotingPluginVelocity {
 			metrics.addCustomChart(
 					new SimplePie("globaldata_usemainmysql", () -> "" + getConfig().getGlobalDataUseMainMySQL()));
 		}
-		
+
 		metrics.addCustomChart(
 				new SimplePie("multi_proxy_support_enabled", () -> "" + getConfig().getMultiProxySupport()));
 
@@ -1135,7 +1140,7 @@ public class VotingPluginVelocity {
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendServerMessage("status");
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			for (RegisteredServer s : server.getAllServers()) {
+			for (RegisteredServer s : getAvailableAllServers()) {
 				if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 					if (s.getPlayersConnected().size() == 0) {
 						getLogger().info("No players on server " + s + " to send test status message");
@@ -1269,7 +1274,7 @@ public class VotingPluginVelocity {
 			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
 				if (config.getSendVotesToAllServers()) {
-					for (RegisteredServer s : server.getAllServers()) {
+					for (RegisteredServer s : getAvailableAllServers()) {
 						if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
 							boolean forceCache = false;
 							if ((!isOnline(p) && getConfig().getWaitForUserOnline()) || (getGlobalDataHandler() != null
@@ -1325,7 +1330,7 @@ public class VotingPluginVelocity {
 						debug("Caching online vote for " + player + " on " + service);
 					}
 
-					for (RegisteredServer s : server.getAllServers()) {
+					for (RegisteredServer s : getAvailableAllServers()) {
 						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
 								"" + currentVotePartyVotesRequired);
 						if (config.getBroadcast()) {
@@ -1358,6 +1363,25 @@ public class VotingPluginVelocity {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	public Set<RegisteredServer> getAvailableAllServers() {
+		Set<RegisteredServer> servers = new HashSet<RegisteredServer>();
+		if (config.getWhiteListedServers().isEmpty()) {
+			for (RegisteredServer s : server.getAllServers()) {
+				if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
+					servers.add(s);
+				}
+			}
+		} else {
+			for (RegisteredServer s : server.getAllServers()) {
+				if (config.getBlockedServers().contains(s.getServerInfo().getName())) {
+					servers.add(s);
+				}
+			}
+		}
+
+		return servers;
 	}
 
 	public boolean isOnline(Player p) {
@@ -1422,7 +1446,7 @@ public class VotingPluginVelocity {
 
 	public Collection<RegisteredServer> getVotePartyServers() {
 		if (getConfig().getVotePartySendToAllServers()) {
-			return server.getAllServers();
+			return getAvailableAllServers();
 		}
 		Collection<RegisteredServer> list = new ArrayList<RegisteredServer>();
 		for (String server : getConfig().getVotePartyServersToSend()) {

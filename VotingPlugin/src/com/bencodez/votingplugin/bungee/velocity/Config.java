@@ -25,6 +25,10 @@ public class Config extends VelocityYMLFile {
 		return getStringList(getNode("BlockedServers"), new ArrayList<String>());
 	}
 
+	public List<String> getWhiteListedServers() {
+		return getStringList(getNode("WhiteListedServers"), new ArrayList<String>());
+	}
+
 	public boolean getBroadcast() {
 		return getBoolean(getNode("Broadcast"), false);
 	}

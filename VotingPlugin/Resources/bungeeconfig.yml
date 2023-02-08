@@ -73,6 +73,11 @@ SendVotesToAllServers: true
 BlockedServers:
 - hub
 
+
+# Similar to BlockServers
+# If a server is listed then blockedservers is ignored
+WhiteListedServers: []
+
 # What type of bungee setup
 # Requires restart and set on all servers
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups

@@ -29,6 +29,10 @@ public class Config {
 		return getData().getStringList("BlockedServers");
 	}
 
+	public List<String> getWhiteListedServers() {
+		return getData().getStringList("WhiteListedServers");
+	}
+
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
@@ -88,7 +92,7 @@ public class Config {
 	public boolean getMultiProxyOneGlobalReward() {
 		return getData().getBoolean("MultiProxyOneGlobalReward", false);
 	}
-	
+
 	public Configuration getMultiProxyServersConfiguration(String s) {
 		return getData().getSection("MultiProxyServers." + s);
 	}
@@ -96,7 +100,7 @@ public class Config {
 	public Collection<String> getMultiProxyServers() {
 		return getData().getSection("MultiProxyServers").getKeys();
 	}
-	
+
 	public boolean getPrimaryServer() {
 		return getData().getBoolean("PrimaryServer", false);
 	}
@@ -117,8 +121,6 @@ public class Config {
 		return getData().getSection("SpigotServers." + s);
 	}
 
-
-
 	public Collection<String> getSpigotServers() {
 		return getData().getSection("SpigotServers").getKeys();
 	}
@@ -126,8 +128,6 @@ public class Config {
 	public boolean getWaitForUserOnline() {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
-
-
 
 	public boolean getVotePartyEnabled() {
 		return getData().getBoolean("VoteParty.Enabled", false);
