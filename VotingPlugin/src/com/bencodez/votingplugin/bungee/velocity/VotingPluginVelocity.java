@@ -1361,7 +1361,7 @@ public class VotingPluginVelocity {
 			}
 		} else {
 			for (RegisteredServer s : server.getAllServers()) {
-				if (config.getBlockedServers().contains(s.getServerInfo().getName())) {
+				if (config.getWhiteListedServers().contains(s.getServerInfo().getName())) {
 					servers.add(s);
 				}
 			}
