@@ -297,9 +297,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		ArrayList<String> servers = new ArrayList<String>();
 		for (String s : getAvailableAllServers()) {
-			if (!config.getBlockedServers().contains(s)) {
-				servers.add(s);
-			}
+			servers.add(s);
 		}
 
 		if (config.getGlobalDataEnabled()) {
@@ -329,6 +327,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								debug2(text);
 							}
 						}, servers) {
+
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
@@ -337,13 +336,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							return;
 						}
 						for (String s : getAvailableAllServers()) {
-							if (!config.getBlockedServers().contains(s)) {
-								getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-									sendPluginMessageServer(s, "BungeeTimeChange", "");
-								} else if (method.equals(BungeeMethod.SOCKETS)) {
-									sendServerMessage(s, "BungeeTimeChange");
-								}
+							getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
+							if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+								sendPluginMessageServer(s, "BungeeTimeChange", "");
+							} else if (method.equals(BungeeMethod.SOCKETS)) {
+								sendServerMessage(s, "BungeeTimeChange");
 							}
 						}
 
@@ -382,6 +379,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						debug2(text);
 					}
 				}, servers) {
+
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
@@ -390,13 +388,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							return;
 						}
 						for (String s : getAvailableAllServers()) {
-							if (!config.getBlockedServers().contains(s)) {
-								getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-									sendPluginMessageServer(s, "BungeeTimeChange", "");
-								} else if (method.equals(BungeeMethod.SOCKETS)) {
-									sendServerMessage(s, "BungeeTimeChange");
-								}
+							getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
+							if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+								sendPluginMessageServer(s, "BungeeTimeChange", "");
+							} else if (method.equals(BungeeMethod.SOCKETS)) {
+								sendServerMessage(s, "BungeeTimeChange");
 							}
 						}
 
@@ -580,38 +576,36 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					return;
 				}
 				for (String s : getAvailableAllServers()) {
-					if (!config.getBlockedServers().contains(s)) {
-						if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
-							String lastOnlineStr = getGlobalDataHandler().getString(s, "LastOnline");
-							long lastOnline = 0;
-							try {
-								lastOnline = Long.valueOf(lastOnlineStr);
-							} catch (NumberFormatException e) {
-								e.printStackTrace();
-							}
-
-							if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
-									- lastOnline < 1000 * 60 * 60 * 12) {
-								// server has been online within the 12 hours
-								HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
-								dataToSet.put("LastUpdated", new DataValueString(
-										"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
-								dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
-								dataToSet.put(type.toString(), new DataValueBoolean(true));
-								getGlobalDataHandler().setData(s, dataToSet);
-								if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-									sendPluginMessageServer(s, "BungeeTimeChange", "");
-								} else if (method.equals(BungeeMethod.SOCKETS)) {
-									sendServerMessage(s, "BungeeTimeChange");
-								}
-							} else {
-								getLogger().warning("Server " + s + " hasn't been online recently");
-							}
-						} else {
-							getLogger().warning("Server " + s + " global data handler disabled?");
+					if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
+						String lastOnlineStr = getGlobalDataHandler().getString(s, "LastOnline");
+						long lastOnline = 0;
+						try {
+							lastOnline = Long.valueOf(lastOnlineStr);
+						} catch (NumberFormatException e) {
+							e.printStackTrace();
 						}
 
+						if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastOnline < 1000
+								* 60 * 60 * 12) {
+							// server has been online within the 12 hours
+							HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+							dataToSet.put("LastUpdated", new DataValueString(
+									"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+							dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
+							dataToSet.put(type.toString(), new DataValueBoolean(true));
+							getGlobalDataHandler().setData(s, dataToSet);
+							if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+								sendPluginMessageServer(s, "BungeeTimeChange", "");
+							} else if (method.equals(BungeeMethod.SOCKETS)) {
+								sendServerMessage(s, "BungeeTimeChange");
+							}
+						} else {
+							getLogger().warning("Server " + s + " hasn't been online recently");
+						}
+					} else {
+						getLogger().warning("Server " + s + " global data handler disabled?");
 					}
+
 				}
 				globalDataHandler.onTimeChange(type);
 			}
@@ -1137,17 +1131,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			sendServerMessage("status");
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			for (String s : getAvailableAllServers()) {
-				if (!config.getBlockedServers().contains(s)) {
-					ServerInfo info = getProxy().getServerInfo(s);
-					if (info.getPlayers().isEmpty()) {
-						getLogger().info("No players on server " + s + " to send test status message");
-					} else {
-						// send
-						getLogger().info("Sending request for status message on " + s);
-						sendPluginMessageServer(s, "Status", s);
-					}
+				ServerInfo info = getProxy().getServerInfo(s);
+				if (info.getPlayers().isEmpty()) {
+					getLogger().info("No players on server " + s + " to send test status message");
 				} else {
-					getLogger().info("Ignoring blocked server " + s);
+					// send
+					getLogger().info("Sending request for status message on " + s);
+					sendPluginMessageServer(s, "Status", s);
 				}
 			}
 		}
@@ -1260,37 +1250,34 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				if (config.getSendVotesToAllServers()) {
 					for (String s : getAvailableAllServers()) {
-						if (!config.getBlockedServers().contains(s)) {
-							ServerInfo info = getProxy().getServerInfo(s);
-							boolean forceCache = false;
-							if (!isOnline(p) && getConfig().getWaitForUserOnline()) {
-								forceCache = true;
-								debug("Forcing vote to cache");
-							}
-							if (config.getBroadcast()) {
-								sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
-							}
-							if (info.getPlayers().isEmpty() || forceCache) {
-								// cache
-								if (!cachedVotes.containsKey(s)) {
-									cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
-								}
-								ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-								list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-								cachedVotes.put(s, list);
-
-								debug("Caching vote for " + player + " on " + service + " for " + s);
-
-							} else {
-								// send
-								sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-										Boolean.TRUE.toString(), "" + realVote, text.toString(),
-										"" + getConfig().getBungeeManageTotals(),
-										"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1",
-										"1");
-							}
-
+						ServerInfo info = getProxy().getServerInfo(s);
+						boolean forceCache = false;
+						if (!isOnline(p) && getConfig().getWaitForUserOnline()) {
+							forceCache = true;
+							debug("Forcing vote to cache");
 						}
+						if (config.getBroadcast()) {
+							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+						}
+						if (info.getPlayers().isEmpty() || forceCache) {
+							// cache
+							if (!cachedVotes.containsKey(s)) {
+								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
+							}
+							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
+							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+							cachedVotes.put(s, list);
+
+							debug("Caching vote for " + player + " on " + service + " for " + s);
+
+						} else {
+							// send
+							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
+									Boolean.TRUE.toString(), "" + realVote, text.toString(),
+									"" + getConfig().getBungeeManageTotals(),
+									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1", "1");
+						}
+
 					}
 				} else {
 					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
