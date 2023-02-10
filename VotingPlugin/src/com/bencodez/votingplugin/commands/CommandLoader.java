@@ -1236,7 +1236,7 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "Test", "(Player)", "(sitename)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting times") {
+						"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting speed, for debug") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
@@ -1248,8 +1248,21 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "TestSpam", "(Player)", "(sitename)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.TestSpam|" + adminPerm, "Test voting spam speed, for debug") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteTester.getInstance().testSpam(Integer.parseInt(args[3]), args[1], args[2]);
+						if (isPlayer(sender)) {
+							sendMessage(sender, "&cSee console for details");
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward times") {
+						"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward speed, for debug") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
