@@ -1360,16 +1360,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
 
-		voteTimer.shutdown();
-		try {
-			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		voteTimer.shutdownNow();
-		voteTimer = null;
-		loadVoteTimer();
-
 		configFile.reloadData();
 		configFile.loadValues();
 
