@@ -1358,8 +1358,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void reloadPlugin(boolean userStorage) {
-		setUpdate(true);
-
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -1391,14 +1389,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
-
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
-
-			@Override
-			public void run() {
-				update();
-			}
-		});
+		setUpdate(true);
 	}
 
 	private void setupFiles() {
