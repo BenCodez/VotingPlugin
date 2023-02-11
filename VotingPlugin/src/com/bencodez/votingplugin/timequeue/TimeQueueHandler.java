@@ -51,18 +51,11 @@ public class TimeQueueHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void postTimeChange(DateChangedEvent event) {
-		plugin.getTimer().schedule(new Runnable() {
+		plugin.getVoteTimer().schedule(new Runnable() {
 
 			@Override
 			public void run() {
-				plugin.getVoteQueue().add(new Runnable() {
-
-					@Override
-					public void run() {
-						processQueue();
-					}
-				});
-
+				processQueue();
 			}
 		}, 5, TimeUnit.SECONDS);
 	}
@@ -74,18 +67,11 @@ public class TimeQueueHandler implements Listener {
 					.add(new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
 		}
 		plugin.getServerData().clearTimedVoteCache();
-		plugin.getTimer().schedule(new Runnable() {
+		plugin.getVoteTimer().schedule(new Runnable() {
 
 			@Override
 			public void run() {
-				plugin.getVoteQueue().add(new Runnable() {
-
-					@Override
-					public void run() {
-						processQueue();
-					}
-				});
-
+				processQueue();
 			}
 		}, 120, TimeUnit.SECONDS);
 	}

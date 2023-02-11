@@ -22,7 +22,7 @@ public class VoteTester {
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
 	public void testRewards(int amount, String name, String rewardName) {
-		plugin.getVoteQueue().add(new Runnable() {
+		plugin.getVoteTimer().submit(new Runnable() {
 
 			@Override
 			public void run() {
@@ -60,7 +60,7 @@ public class VoteTester {
 	}
 
 	public void testVotes(int amount, String name, String site) {
-		plugin.getVoteQueue().add(new Runnable() {
+		plugin.getVoteTimer().submit(new Runnable() {
 
 			@Override
 			public void run() {
@@ -98,7 +98,7 @@ public class VoteTester {
 
 				@Override
 				public void run() {
-					plugin.getVoteQueue().add(new Runnable() {
+					plugin.getVoteTimer().submit(new Runnable() {
 
 						@Override
 						public void run() {

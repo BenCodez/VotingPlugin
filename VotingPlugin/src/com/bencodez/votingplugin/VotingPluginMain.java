@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -209,6 +209,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private boolean ymlError = false;
+
+	@Getter
+	private ScheduledExecutorService voteTimer;
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -998,22 +1001,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
-	@Getter
-	private final BlockingQueue<Runnable> voteQueue = new ArrayBlockingQueue<Runnable>(10000);
-	private Thread voteThread;
-
 	private void loadVoteTimer() {
-		voteThread = new Thread(() -> {
-			while (true) {
-				try {
-					voteQueue.take().run();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-
-			}
-		});
-		voteThread.start();
+		voteTimer = Executors.newSingleThreadScheduledExecutor();
 	}
 
 	@Getter
@@ -1272,7 +1261,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
-
+		voteTimer.shutdown();
+		try {
+			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		voteTimer.shutdownNow();
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
@@ -1364,6 +1359,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void reloadPlugin(boolean userStorage) {
 		setUpdate(true);
+
+		voteTimer.shutdown();
+		try {
+			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		voteTimer.shutdownNow();
+		voteTimer = null;
+		loadVoteTimer();
 
 		configFile.reloadData();
 		configFile.loadValues();
