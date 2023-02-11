@@ -251,7 +251,7 @@ public class AdminGUI {
 						if (ob != null) {
 							VoteSite site = (VoteSite) ob;
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
-							plugin.getVoteTimer().execute(new Runnable() {
+							plugin.getVoteQueue().add(new Runnable() {
 
 								@Override
 								public void run() {

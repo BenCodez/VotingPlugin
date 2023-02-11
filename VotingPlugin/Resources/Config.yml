@@ -375,10 +375,6 @@ StoreTopVoters:
 # Most of these values can be left untouched for most setups
 # ------------------------------------------------
 
-# Number of background vote processing threads
-# Leave at default of 1 unless you run into issues
-BackgroundVoteProcessingThreads: 1
-
 # Enable per site cooldown events, requires more resources to use
 # Requires restart
 PerSiteCoolDownEvents: false

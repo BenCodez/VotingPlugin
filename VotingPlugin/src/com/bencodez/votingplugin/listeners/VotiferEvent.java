@@ -64,7 +64,7 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		plugin.getVoteTimer().execute(new Runnable() {
+		plugin.getVoteQueue().add(new Runnable() {
 
 			@Override
 			public void run() {

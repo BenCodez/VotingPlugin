@@ -868,7 +868,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
 				for (VoteSite site : plugin.getVoteSites()) {
-					plugin.getVoteTimer().execute(new Runnable() {
+					plugin.getVoteQueue().add(new Runnable() {
 
 						@Override
 						public void run() {
@@ -907,7 +907,7 @@ public class CommandLoader {
 					}
 					sendMessage(sender, "&cTriggering vote...");
 
-					plugin.getVoteTimer().execute(new Runnable() {
+					plugin.getVoteQueue().add(new Runnable() {
 
 						@Override
 						public void run() {
@@ -940,7 +940,7 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						plugin.getVoteTimer().execute(new Runnable() {
+						plugin.getVoteQueue().add(new Runnable() {
 
 							@Override
 							public void run() {
