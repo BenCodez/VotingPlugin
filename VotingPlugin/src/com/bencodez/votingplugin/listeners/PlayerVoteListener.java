@@ -3,8 +3,6 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -219,24 +217,18 @@ public class PlayerVoteListener implements Listener {
 				}, 40);
 			}
 		}
-		plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
 				event.isForceBungee());
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
-		plugin.getTimer().schedule(new Runnable() {
-
-			@Override
-			public void run() {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-				if (!user.isOnline()) {
-					user.clearCache();
-				}
-			}
-		}, 5, TimeUnit.SECONDS);
+		if (!user.isOnline()) {
+			user.clearCache();
+		}
 
 		plugin.setUpdate(true);
+
+		plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
 	}
 
 }
