@@ -48,6 +48,7 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 		String playerName = event.getPlayer();
+		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
 		if (!PlayerUtils.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!plugin.getConfigFile().isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
@@ -72,8 +73,6 @@ public class PlayerVoteListener implements Listener {
 				new BungeeVotifierEvent().send(plugin, event);
 			}
 		}
-
-		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
 
 		VoteSite voteSite = event.getVoteSite();
 

@@ -1491,7 +1491,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 												voteToday.put(user.getTopVoterPlayer(), times);
 											}
 										}
-										if (!extraBackgroundUpdate) {
+										if (extraBackgroundUpdate) {
 											if (user.isOnline()) {
 												user.offVote();
 											}
@@ -1529,6 +1529,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
 								plugin.debug("Background task finished. Final processing took " + time1
 										+ " seconds. Total time: " + totalTime + " seconds");
+								plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 								plugin.extraDebug("Current cached users: "
 										+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 							} catch (Exception ex) {
