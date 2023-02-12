@@ -44,6 +44,7 @@ public class PlayerVoteListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		if (!plugin.isEnabled()) {
+			plugin.getLogger().warning("Plugin disabled, ignoring vote");
 			return;
 		}
 		String playerName = event.getPlayer();
@@ -59,7 +60,7 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		if (playerName.isEmpty()) {
-			plugin.getLogger().warning("Empty player name for vote");
+			plugin.getLogger().warning("Empty player name from vote, ignoring");
 			return;
 		}
 
@@ -114,10 +115,6 @@ public class PlayerVoteListener implements Listener {
 
 		final String uuid = user.getUUID();
 
-		if (!plugin.isEnabled()) {
-			plugin.getLogger().warning("Plugin disabled, ignoring vote");
-			return;
-		}
 		// reupdate cache
 		user.clearCache();
 		user.cache();
