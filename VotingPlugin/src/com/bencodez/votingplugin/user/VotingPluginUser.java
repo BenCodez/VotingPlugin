@@ -693,11 +693,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void loginRewards() {
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LoginRewards").send(this);
+		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(), "LoginRewards")) {
+			new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LoginRewards").send(this);
+		}
 	}
 
 	public void logoutRewards() {
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LogoutRewards").send(this);
+		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(), "LogoutRewards")) {
+			new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LogoutRewards").send(this);
+		}
 	}
 
 	/**
