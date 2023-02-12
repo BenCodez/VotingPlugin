@@ -97,7 +97,7 @@ public class UserManager {
 	}
 
 	public VotingPluginUser getVotingPluginUser(Player player) {
-		return getVotingPluginUser(player.getName());
+		return getVotingPluginUser(player.getUniqueId(), player.getName());
 	}
 
 	@SuppressWarnings("deprecation")
