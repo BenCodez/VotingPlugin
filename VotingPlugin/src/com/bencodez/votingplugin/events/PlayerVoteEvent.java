@@ -83,6 +83,10 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private int voteNumber = 1;
+	
+	@Getter
+	@Setter
+	private String uuidStr = "";
 
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
