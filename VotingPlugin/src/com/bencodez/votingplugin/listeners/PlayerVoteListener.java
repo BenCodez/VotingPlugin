@@ -3,7 +3,6 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -111,12 +110,7 @@ public class PlayerVoteListener implements Listener {
 				// player online
 				user = UserManager.getInstance().getVotingPluginUser(p);
 			} else {
-				if (event.getUuidStr() == null || event.getUuidStr().isEmpty()) {
-					user = UserManager.getInstance().getVotingPluginUser(playerName);
-				} else {
-					user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(event.getUuidStr()),
-							playerName);
-				}
+				user = UserManager.getInstance().getVotingPluginUser(playerName);
 			}
 		}
 
