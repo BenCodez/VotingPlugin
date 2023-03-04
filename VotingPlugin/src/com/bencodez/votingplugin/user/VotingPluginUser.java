@@ -170,7 +170,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			plugin.getVoteTimer().submit(new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
+			});
+
 		}
 	}
 
@@ -185,13 +192,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			plugin.getVoteTimer().submit(new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
+			});
+
 		}
 	}
 
 	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
@@ -205,7 +220,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			plugin.getVoteTimer().submit(new Runnable() {
+
+				@Override
+				public void run() {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				}
+			});
+
 		}
 	}
 

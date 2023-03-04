@@ -97,8 +97,8 @@ PointsOnVote: 1
 
 # If true, bungee will handle adding totals
 # If false, spigot servers will EACH set their own totals
-# If false, AllowUnJoined should false on bungee, spigot servers will handle that
-# Recommened to leave true, setting to false setups are currently unsupported
+# If false, AllowUnJoined should be enabled on bungee, spigot servers will handle that
+# Recommeneded to leave enabled, setups with this disabled are currently unsupported
 BungeeManageTotals: true
 
 # Tell servers to broadcast
