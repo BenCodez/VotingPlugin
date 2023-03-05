@@ -763,16 +763,19 @@ public class PlaceHolders {
 
 			@Override
 			public void onChange(AdvancedCoreUser user, String... keys) {
+				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
+				if (!vpUser.isCached()) {
+					vpUser.dontCache();
+				}
 				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 					if (placeholder.isUsesCache()) {
 						for (String key : keys) {
 							if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
-								VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
-								vpUser.dontCache();
 								for (String ident : placeholder.getCache().keySet()) {
-									placeholder.getCache().get(ident).put(vpUser.getJavaUUID(),
-											placeholder.placeholderRequest(vpUser, ident));
-									plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID() + " on " + key);
+									String value = placeholder.placeholderRequest(vpUser, ident);
+									placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
+									plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID() + " on " + key
+											+ " with " + value);
 
 								}
 
