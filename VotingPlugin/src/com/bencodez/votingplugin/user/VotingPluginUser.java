@@ -170,13 +170,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			plugin.getVoteTimer().submit(new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		}
 	}
@@ -192,13 +186,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setVotingPluginUser(this);
-			plugin.getVoteTimer().submit(new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		}
 	}
@@ -220,13 +208,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
-			plugin.getVoteTimer().submit(new Runnable() {
-
-				@Override
-				public void run() {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-			});
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 		}
 	}
