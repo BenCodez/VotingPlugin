@@ -63,6 +63,7 @@ public class UserManager {
 		if (plugin.getConfigFile().isExtraAllSitesCheck()) {
 			manager.addKey(new UserDataKeyInt(getGottenAllSitesDayPath()));
 		}
+		manager.addKey(new UserDataKeyInt(getGottenAlmostAllSitesDayPath()));
 	}
 
 	public String getGottenAllSitesDayPath() {
