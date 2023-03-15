@@ -875,57 +875,7 @@ public class VotingPluginVelocity {
 					+ voteCacheFile.getVotePartyInreaseVotesRequired();
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 
-			if (getConfig().getMultiProxySupport()) {
-				if (encryptionHandler == null) {
-					encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
-				}
-
-				multiproxySocketHandler = new SocketHandler(
-						server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
-						config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
-						config.getDebug()) {
-
-					@Override
-					public void log(String str) {
-						getLogger().info(str);
-					}
-				};
-
-				multiproxySocketHandler.add(new SocketReceiver() {
-
-					@Override
-					public void onReceive(String[] data) {
-						if (data.length > 0) {
-							if (data[0].equalsIgnoreCase("Status")) {
-								getLogger().info("Multi-proxy status message received");
-							} else if (data[0].equalsIgnoreCase("ClearVote")) {
-								cachedOnlineVotes.remove(data[2]);
-							}
-						}
-						if (data.length > 8) {
-							if (data[0].equalsIgnoreCase("Vote")) {
-								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-										new BungeeMessageData(data[8]), data[1]);
-							} else if (data[0].equalsIgnoreCase("VoteOnline")) {
-								vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-										new BungeeMessageData(data[8]), data[1]);
-							}
-						}
-
-					}
-				});
-
-				multiproxyClientHandles = new HashMap<String, ClientHandler>();
-
-				for (ConfigurationNode s : config.getMultiProxyServers()) {
-					ConfigurationNode d = config.getMultiProxyServers(s.getKey().toString());
-					multiproxyClientHandles.put(s.getKey().toString(),
-							new ClientHandler(d.getNode("Host").getString("0.0.0.0"), d.getNode("Port").getInt(1298),
-									encryptionHandler, config.getDebug()));
-				}
-
-				getLogger().info("Loaded multi-proxy support");
-			}
+			loadMultiProxySupport();
 		}
 
 		try {
@@ -977,6 +927,60 @@ public class VotingPluginVelocity {
 				+ BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: " + version);
 		if (!buildNumber.equals("NOTSET")) {
 			logger.info("Detected using dev build number: " + buildNumber);
+		}
+	}
+
+	public void loadMultiProxySupport() {
+		if (getConfig().getMultiProxySupport()) {
+			if (encryptionHandler == null) {
+				encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
+			}
+
+			multiproxySocketHandler = new SocketHandler(
+					server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
+					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
+					config.getDebug()) {
+
+				@Override
+				public void log(String str) {
+					getLogger().info(str);
+				}
+			};
+
+			multiproxySocketHandler.add(new SocketReceiver() {
+
+				@Override
+				public void onReceive(String[] data) {
+					if (data.length > 0) {
+						if (data[0].equalsIgnoreCase("Status")) {
+							getLogger().info("Multi-proxy status message received");
+						} else if (data[0].equalsIgnoreCase("ClearVote")) {
+							cachedOnlineVotes.remove(data[2]);
+						}
+					}
+					if (data.length > 8) {
+						if (data[0].equalsIgnoreCase("Vote")) {
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+									new BungeeMessageData(data[8]), data[1]);
+						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+									new BungeeMessageData(data[8]), data[1]);
+						}
+					}
+
+				}
+			});
+
+			multiproxyClientHandles = new HashMap<String, ClientHandler>();
+
+			for (ConfigurationNode s : config.getMultiProxyServers()) {
+				ConfigurationNode d = config.getMultiProxyServers(s.getKey().toString());
+				multiproxyClientHandles.put(s.getKey().toString(),
+						new ClientHandler(d.getNode("Host").getString("0.0.0.0"), d.getNode("Port").getInt(1298),
+								encryptionHandler, config.getDebug()));
+			}
+
+			getLogger().info("Loaded multi-proxy support");
 		}
 	}
 
@@ -1060,6 +1064,7 @@ public class VotingPluginVelocity {
 				logger.error("MySQL settings not set in bungeeconfig.yml");
 			}
 		}
+		loadMultiProxySupport();
 	}
 
 	public void sendPluginMessageServer(RegisteredServer s, String channel, String... messageData) {

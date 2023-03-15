@@ -822,6 +822,58 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
 		}
 
+		loadMultiProxySupport();
+
+		if (!votifierEnabled) {
+			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
+				getLogger().warning("Votifier event not found, not loading votifier event");
+			}
+		}
+
+		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
+
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
+				() -> "" + getConfig().getSendVotesToAllServers()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
+
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("bungeemanagetotals",
+				() -> "" + getConfig().getBungeeManageTotals()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
+
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("globaldata_enabled", () -> "" + getConfig().getGlobalDataEnabled()));
+		if (getConfig().getGlobalDataEnabled()) {
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("globaldata_usemainmysql",
+					() -> "" + getConfig().getGlobalDataUseMainMySQL()));
+		}
+
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("multi_proxy_support_enabled",
+				() -> "" + getConfig().getMultiProxySupport()));
+
+		if (!buildNumber.equals("NOTSET")) {
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
+		}
+
+		loadVersionFile();
+
+		getLogger().info("VotingPlugin loaded, using method: " + method.toString() + ", PluginMessagingVersion: "
+				+ BungeeVersion.getPluginMessageVersion());
+		if (!buildNumber.equals("NOTSET")) {
+			getLogger().info("Detected using dev build number: " + buildNumber);
+		}
+	}
+
+	public void loadMultiProxySupport() {
 		if (getConfig().getMultiProxySupport()) {
 			if (encryptionHandler == null) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
@@ -871,55 +923,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
-		}
-
-		if (!votifierEnabled) {
-			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
-				getLogger().warning("Votifier event not found, not loading votifier event");
-			}
-		}
-
-		BStatsMetricsBungee metrics = new BStatsMetricsBungee(this, 9453);
-
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
-
-		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
-				() -> "" + getConfig().getSendVotesToAllServers()));
-
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
-
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
-
-		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("bungeemanagetotals",
-				() -> "" + getConfig().getBungeeManageTotals()));
-
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
-
-		metrics.addCustomChart(
-				new BStatsMetricsBungee.SimplePie("globaldata_enabled", () -> "" + getConfig().getGlobalDataEnabled()));
-		if (getConfig().getGlobalDataEnabled()) {
-			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("globaldata_usemainmysql",
-					() -> "" + getConfig().getGlobalDataUseMainMySQL()));
-		}
-
-		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("multi_proxy_support_enabled",
-				() -> "" + getConfig().getMultiProxySupport()));
-
-		if (!buildNumber.equals("NOTSET")) {
-			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
-		}
-
-		loadVersionFile();
-
-		getLogger().info("VotingPlugin loaded, using method: " + method.toString() + ", PluginMessagingVersion: "
-				+ BungeeVersion.getPluginMessageVersion());
-		if (!buildNumber.equals("NOTSET")) {
-			getLogger().info("Detected using dev build number: " + buildNumber);
-		}
+		} 
 	}
 
 	@EventHandler
@@ -1052,6 +1056,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				e.printStackTrace();
 			}
 		}
+		loadMultiProxySupport();
 	}
 
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {
