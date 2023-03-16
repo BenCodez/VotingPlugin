@@ -9,7 +9,6 @@ softdepend:
 - Votifier
 - VotifierPlus
 - NuVotifier
-- CMI
 - Vault
 - PlaceholderAPI
 - ProtocolLib
