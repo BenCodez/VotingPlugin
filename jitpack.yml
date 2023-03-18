@@ -1,0 +1,4 @@
+install:
+   - echo "Running a custom install command"
+   - cd VotingPlugin
+   - mvn install -DskipTests -P prod
