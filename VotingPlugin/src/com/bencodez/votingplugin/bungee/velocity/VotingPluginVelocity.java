@@ -960,11 +960,11 @@ public class VotingPluginVelocity {
 					}
 					if (data.length > 8) {
 						if (data[0].equalsIgnoreCase("Vote")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-									new BungeeMessageData(data[8]), data[1]);
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
+									data[1]);
 						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-									new BungeeMessageData(data[8]), data[1]);
+							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
+									data[1]);
 						}
 					}
 
@@ -981,6 +981,10 @@ public class VotingPluginVelocity {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
+		} else {
+			if (multiproxySocketHandler != null) {
+				multiproxySocketHandler.getServer().close();
+			}
 		}
 	}
 

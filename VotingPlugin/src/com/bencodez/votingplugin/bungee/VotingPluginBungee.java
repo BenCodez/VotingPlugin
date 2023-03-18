@@ -923,7 +923,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
-		} 
+		} else {
+			if (multiproxySocketHandler != null) {
+				multiproxySocketHandler.getServer().close();
+			}
+		}
 	}
 
 	@EventHandler
