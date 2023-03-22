@@ -879,6 +879,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
 			}
 
+			if (multiproxySocketHandler != null) {
+				multiproxySocketHandler.getServer().close();
+				multiproxySocketHandler = null;
+			}
 			multiproxySocketHandler = new SocketHandler(getDescription().getVersion(),
 					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
 					config.getDebug()) {
@@ -923,11 +927,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
-		} else {
-			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.getServer().close();
-			}
-		}
+		} 
 	}
 
 	@EventHandler

@@ -936,6 +936,10 @@ public class VotingPluginVelocity {
 				encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
 			}
 
+			if (multiproxySocketHandler != null) {
+				multiproxySocketHandler.getServer().close();
+				multiproxySocketHandler = null;
+			}
 			multiproxySocketHandler = new SocketHandler(
 					server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
 					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
@@ -981,10 +985,6 @@ public class VotingPluginVelocity {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
-		} else {
-			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.getServer().close();
-			}
 		}
 	}
 
