@@ -1455,57 +1455,62 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								int currentDay = LocalDateTime.now().getDayOfMonth();
 								int currentDataLoad = 0;
 								for (String uuid : uuids) {
-									if (uuid != null && !uuid.isEmpty()) {
-										VotingPluginUser user = UserManager.getInstance()
-												.getVotingPluginUser(UUID.fromString(uuid), false);
-										user.dontCache();
-										user.tempCache();
-										user.getUserData().updateCacheWithTemp();
-										if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
+									if (plugin != null) {
+										if (uuid != null && !uuid.isEmpty()) {
+											VotingPluginUser user = UserManager.getInstance()
+													.getVotingPluginUser(UUID.fromString(uuid), false);
+											user.dontCache();
+											user.tempCache();
+											user.getUserData().updateCacheWithTemp();
+											if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
 
-											if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
-												for (TopVoter top : topVotersToCheck) {
-													int total = user.getTotal(top);
-													if (total > 0) {
-														tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
+												if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
+													for (TopVoter top : topVotersToCheck) {
+														int total = user.getTotal(top);
+														if (total > 0) {
+															tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
+														}
 													}
 												}
-											}
 
-											HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-											for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-												if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
-													long time = entry.getValue();
-													if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
-															&& (LocalDateTime.now().getMonthValue() == MiscUtils
-																	.getInstance().getMonthFromMili(time))
-															&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
-																	.getYearFromMili(time))) {
+												HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
+												for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
+													if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
+														long time = entry.getValue();
+														if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
+																&& (LocalDateTime.now().getMonthValue() == MiscUtils
+																		.getInstance().getMonthFromMili(time))
+																&& (LocalDateTime.now().getYear() == MiscUtils
+																		.getInstance().getYearFromMili(time))) {
 
-														times.put(entry.getKey(), LocalDateTime.ofInstant(
-																Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+															times.put(entry.getKey(),
+																	LocalDateTime.ofInstant(Instant.ofEpochMilli(time),
+																			ZoneId.systemDefault()));
+														}
 													}
 												}
+												if (times.keySet().size() > 0) {
+													voteToday.put(user.getTopVoterPlayer(), times);
+												}
 											}
-											if (times.keySet().size() > 0) {
-												voteToday.put(user.getTopVoterPlayer(), times);
+											if (extraBackgroundUpdate) {
+												if (user.isOnline()) {
+													user.offVote();
+												}
+											}
+											plugin.getPlaceholders().onUpdate(user);
+											user.clearTempCache();
+											user = null;
+											if (dataLoadLimit > 0) {
+												currentDataLoad++;
+												if (currentDataLoad >= dataLoadLimit) {
+													currentDataLoad -= dataLoadLimit;
+													Thread.sleep(1000);
+												}
 											}
 										}
-										if (extraBackgroundUpdate) {
-											if (user.isOnline()) {
-												user.offVote();
-											}
-										}
-										plugin.getPlaceholders().onUpdate(user);
-										user.clearTempCache();
-										user = null;
-										if (dataLoadLimit > 0) {
-											currentDataLoad++;
-											if (currentDataLoad >= dataLoadLimit) {
-												currentDataLoad -= dataLoadLimit;
-												Thread.sleep(1000);
-											}
-										}
+									} else {
+										return;
 									}
 								}
 								update = false;
