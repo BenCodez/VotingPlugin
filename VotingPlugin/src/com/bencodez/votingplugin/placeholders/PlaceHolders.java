@@ -81,7 +81,6 @@ public class PlaceHolders {
 			if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
 				user.setWaitForCache(false);
 				if (!user.isCached()) {
-					user.loadCache();
 					if (plugin.getConfigFile().isAutoCachePlaceholders()) {
 						placeholdersToSetCacheOn.add(identifier);
 					}
@@ -104,6 +103,9 @@ public class PlaceHolders {
 						ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
 						if (cache.containsKey(p.getUniqueId())) {
 							return cache.get(p.getUniqueId());
+						} else if (plugin.getConfigFile().isCacheOnlyPlaceholders()) {
+							placeholdersToSetCacheOn.add(identifier);
+							return ".....";
 						} else {
 							if (!plugin.getConfigFile().isAlwaysProcessPlaceholders()) {
 								return "....";

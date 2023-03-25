@@ -496,6 +496,9 @@ AlwaysWaitForCachePlaceholders: false
 # This has small chance of crashing the server (mainly with mysql and using placeholders on main thread)
 AlwaysProcessPlaceholders: false
 
+# If true only use cache for placeholders
+CacheOnlyPlaceholders: false
+
 # Enable auto caching placeholders
 # Generally this works well, but if you need to cache placeholders manually set them below
 AutoCachePlaceholders: false

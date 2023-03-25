@@ -124,6 +124,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter
 	private boolean disableInteractEvent = false;
+	
+	@ConfigDataBoolean(path = "CacheOnlyPlaceholders")
+	@Getter
+	private boolean cacheOnlyPlaceholders = false;
 
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
