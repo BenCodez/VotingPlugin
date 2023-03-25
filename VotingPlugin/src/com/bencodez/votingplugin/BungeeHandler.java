@@ -522,6 +522,16 @@ public class BungeeHandler implements Listener {
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VotePartyBungee") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
+					for (final String cmd : plugin.getBungeeSettings().getBungeeVotePartyGlobalCommands()) {
+						Bukkit.getScheduler().runTask(plugin, new Runnable() {
+
+							@Override
+							public void run() {
+								Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
+							}
+
+						});
+					}
 					for (Player p : Bukkit.getOnlinePlayers()) {
 						new RewardBuilder(plugin.getBungeeSettings().getData(), "BungeeVotePartyRewards").send(p);
 					}

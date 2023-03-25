@@ -54,6 +54,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import lombok.Getter;
+import lombok.Setter;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -927,7 +928,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			getLogger().info("Loaded multi-proxy support");
-		} 
+		}
 	}
 
 	@EventHandler
@@ -1359,7 +1360,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return servers;
 	}
 
+	@Getter
 	private int votePartyVotes = 0;
+	@Getter
+	@Setter
 	private int currentVotePartyVotesRequired = 0;
 
 	public void addCurrentVotePartyVotes(int amount) {
@@ -1368,10 +1372,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		debug("Current vote party total: " + votePartyVotes);
 	}
 
-	public void addVoteParty() {
-		if (getConfig().getVotePartyEnabled()) {
-			addCurrentVotePartyVotes(1);
+	public void setCurrentVotePartyVotes(int amount) {
+		votePartyVotes = amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
 
+	public void checkVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
 			if (votePartyVotes >= currentVotePartyVotesRequired) {
 				debug("Vote party reached");
 				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
@@ -1405,6 +1413,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 			voteCacheFile.save();
+		}
+	}
+
+	public void addVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
+			addCurrentVotePartyVotes(1);
+
+			checkVoteParty();
 		}
 	}
 

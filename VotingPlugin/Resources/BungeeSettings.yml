@@ -62,6 +62,10 @@ Server: PleaseSet
 # Can edit via /av gui
 BungeeVotePartyRewards: {}
 
+# List of commands to run on bungee party
+# This runs a one time command only
+BungeeVotePartyGlobalCommands: []
+
 # ----------------------------------------------------------------
 # Global mysql data handle for between server commmunications
 # This is NOT required for bungee voting to work

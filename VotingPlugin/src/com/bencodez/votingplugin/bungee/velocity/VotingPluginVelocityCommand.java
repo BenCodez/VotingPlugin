@@ -65,16 +65,50 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 				source.sendMessage(Component.text("Sending status message").color(NamedTextColor.AQUA));
 			}
 			if (args[0].equalsIgnoreCase("help")) {
-				String[] msg = new String[4];
+				String[] msg = new String[7];
 				msg[0] = "votingpluginbungee reload - Reload plugin";
 				msg[1] = "votingpluginbungee reloadmysql - Reload plugin including mysql";
 				msg[2] = "votingpluginbungee vote (player) (servicesite) - Send bungee vote";
 				msg[3] = "votingpluginbungee status - Check socket connection status";
+				msg[4] = "&avotingpluginbungee forcetimechange (timetype) - Force a time change";
+				msg[5] = "&avotingpluginbungee voteparty force - Force a vote party";
+				msg[6] = "&avotingpluginbungee voteparty setvotecount (number) - Set current vote party votes";
 				for (String m : msg) {
 					source.sendMessage(Component.text(m).color(NamedTextColor.AQUA));
 				}
-
 			}
+			if (args[0].equalsIgnoreCase("voteparty")) {
+				if (args.length > 1) {
+					if (args[1].equalsIgnoreCase("Force")) {
+						plugin.setCurrentVotePartyVotes(plugin.getCurrentVotePartyVotesRequired());
+						plugin.checkVoteParty();
+						source.sendMessage(Component.text("Vote party forced").color(NamedTextColor.AQUA));
+					}
+					if (args.length > 2) {
+						if (args[1].equalsIgnoreCase("SetVoteCount")) {
+							if (isInt(args[2])) {
+								plugin.setCurrentVotePartyVotes(Integer.parseInt(args[2]));
+								source.sendMessage(Component.text("Set current vote party votes to " + args[2])
+										.color(NamedTextColor.AQUA));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public boolean isInt(String st) {
+		if (st == null) {
+			return false;
+		}
+		try {
+			@SuppressWarnings("unused")
+			int num = Integer.parseInt(st);
+			return true;
+
+		} catch (NumberFormatException ex) {
+			return false;
 		}
 	}
 

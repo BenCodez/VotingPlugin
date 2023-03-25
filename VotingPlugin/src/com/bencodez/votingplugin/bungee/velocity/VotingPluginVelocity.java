@@ -83,6 +83,7 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 
 import lombok.Getter;
+import lombok.Setter;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
@@ -1393,9 +1394,11 @@ public class VotingPluginVelocity {
 		}
 	}
 
+	@Getter
 	private int votePartyVotes = 0;
+	@Getter
+	@Setter
 	private int currentVotePartyVotesRequired = 0;
-	private boolean votifierEnabled = true;
 
 	public void addCurrentVotePartyVotes(int amount) {
 		votePartyVotes += amount;
@@ -1403,10 +1406,24 @@ public class VotingPluginVelocity {
 		debug("Current vote party total: " + votePartyVotes);
 	}
 
+	public void setCurrentVotePartyVotes(int amount) {
+		votePartyVotes = amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
+
+	private boolean votifierEnabled = true;
+
 	public void addVoteParty() {
 		if (getConfig().getVotePartyEnabled()) {
 			addCurrentVotePartyVotes(1);
 
+			checkVoteParty();
+		}
+	}
+
+	public void checkVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
 			if (votePartyVotes >= currentVotePartyVotesRequired) {
 				debug("Current vote party total: " + votePartyVotes);
 				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);

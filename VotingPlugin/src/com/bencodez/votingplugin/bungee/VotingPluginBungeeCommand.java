@@ -59,16 +59,51 @@ public class VotingPluginBungeeCommand extends Command {
 					sender.sendMessage(new TextComponent("&aSending status message"));
 				}
 				if (args[0].equalsIgnoreCase("help")) {
-					TextComponent[] msg = new TextComponent[4];
+					TextComponent[] msg = new TextComponent[7];
 					msg[0] = new TextComponent("&avotingpluginbungee reload - Reload plugin");
 					msg[1] = new TextComponent("&avotingpluginbungee reloadmysql - Reload plugin including mysql");
 					msg[2] = new TextComponent("&avotingpluginbungee vote (player) (servicesite) - Send bungee vote");
 					msg[3] = new TextComponent("&avotingpluginbungee status - Check socket connection status");
+					msg[4] = new TextComponent("&avotingpluginbungee forcetimechange (timetype) - Force a time change");
+					msg[5] = new TextComponent("&avotingpluginbungee voteparty force - Force a vote party");
+					msg[6] = new TextComponent(
+							"&avotingpluginbungee voteparty setvotecount (number) - Set current vote party votes");
 					sender.sendMessage(msg);
+				}
+				if (args[0].equalsIgnoreCase("voteparty")) {
+					if (args.length > 1) {
+						if (args[1].equalsIgnoreCase("Force")) {
+							bungee.setCurrentVotePartyVotes(bungee.getCurrentVotePartyVotesRequired());
+							bungee.checkVoteParty();
+							sender.sendMessage(new TextComponent("Vote party forced"));
+						}
+						if (args.length > 2) {
+							if (args[1].equalsIgnoreCase("SetVoteCount")) {
+								if (isInt(args[2])) {
+									bungee.setCurrentVotePartyVotes(Integer.parseInt(args[2]));
+									sender.sendMessage(new TextComponent("Set current vote party votes to " + args[2]));
+								}
+							}
+						}
+					}
 				}
 			}
 		} else {
 			sender.sendMessage(new TextComponent("&cYou do not have permission to do this!"));
+		}
+	}
+
+	public boolean isInt(String st) {
+		if (st == null) {
+			return false;
+		}
+		try {
+			@SuppressWarnings("unused")
+			int num = Integer.parseInt(st);
+			return true;
+
+		} catch (NumberFormatException ex) {
+			return false;
 		}
 	}
 }

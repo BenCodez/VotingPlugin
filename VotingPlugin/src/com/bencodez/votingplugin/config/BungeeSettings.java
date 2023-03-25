@@ -1,11 +1,13 @@
 package com.bencodez.votingplugin.config;
 
 import java.io.File;
+import java.util.ArrayList;
 
 import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -88,6 +90,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "GlobalData.Enabled")
 	@Getter
 	private boolean globlalDataEnabled = false;
+
+	@ConfigDataListString(path = "BungeeVotePartyGlobalCommands")
+	@Getter
+	private ArrayList<String> bungeeVotePartyGlobalCommands = new ArrayList<String>();
 
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
