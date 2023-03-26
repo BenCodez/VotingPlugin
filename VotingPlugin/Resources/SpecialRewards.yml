@@ -13,7 +13,8 @@ FirstVote:
 FirstVoteToday: {}
 
 # All vote rewards
-# Reward for voting on all sites in one day
+# One time reward for voting on all sites in one day
+# Enable ExtraAllSitesCheck if you get double rewards
 AllSites: 
   Messages:
     Player: '&aYou voted on all sites in 1 day!'

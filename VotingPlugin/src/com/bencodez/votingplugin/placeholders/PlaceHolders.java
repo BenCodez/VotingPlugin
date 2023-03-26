@@ -78,8 +78,8 @@ public class PlaceHolders {
 		}
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
 		if (!cachedPlaceholders.contains(identifier)) {
-			if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()) {
-				user.setWaitForCache(false);
+			if (Bukkit.isPrimaryThread() || plugin.getConfigFile().isAlwaysWaitForCachePlaceholders()
+					|| plugin.getConfigFile().isCacheOnlyPlaceholders()) {
 				if (!user.isCached()) {
 					if (plugin.getConfigFile().isAutoCachePlaceholders()) {
 						placeholdersToSetCacheOn.add(identifier);
