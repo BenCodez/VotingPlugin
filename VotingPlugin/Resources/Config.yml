@@ -487,26 +487,21 @@ CustomCommands:
 # Mainly to be used for alts and such
 UsePrimaryAccountForPlaceholders: false
 
-# Always force placeholders to return value if the value isn't cached
-# This should prevent server from crashing when pulling placeholders on main thread
-# Only affects placeholderapi placeholders
-AlwaysWaitForCachePlaceholders: false
+# Valid Options:
+# AUTO - Auto cache after they have been used
+# SPECIFIC - Only cache certain placeholders 
+# NONE - Don't cache any placeholders
+PlaceholderCacheLevel: AUTO
 
-# Always force placeholders to be processed and return a proper value
-# This has small chance of crashing the server (mainly with mysql and using placeholders on main thread)
-AlwaysProcessPlaceholders: false
-
-# If true only use cache for placeholders
-CacheOnlyPlaceholders: false
-
-# Enable auto caching placeholders
-# Generally this works well, but if you need to cache placeholders manually set them below
-AutoCachePlaceholders: false
+# Placeholder controls
+# Add _Process to end of placeholder to force a return value rather than . or .. if no cached value is ready
+# Add _NoCache to end of placeholder to skip cache and retrive a live value, uses a direct mysql connection, do not use on main thread
+#
 
 # Set which placeholders to cache at all times
 # Use for placeholders to are pulled constantly or on the main thread
-# Mainly aimed for scoreboards
-# Placeholders may auto cache in certain conditions
+# Mainly aimed for scoreboards that pull placeholders often
+# Placeholders may auto cache in certain conditions (if enabled above)
 # Will use additional memory, but not a lot
 # Still in early stages, please report bugs
 # Please remove VotingPlugin_ from the placeholder listed here

@@ -1389,6 +1389,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
+		placeholders.reload();
 		setUpdate(true);
 	}
 

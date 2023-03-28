@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceholderCacheLevel;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
@@ -49,10 +50,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean preloadSkulls = false;
 
-	@ConfigDataBoolean(path = "AutoCachePlaceholders")
-	@Getter
-	private boolean autoCachePlaceholders = true;
-
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;
@@ -76,14 +73,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
 	private boolean alwaysUpdate = false;
-
-	@ConfigDataBoolean(path = "AlwaysWaitForCachePlaceholders")
-	@Getter
-	private boolean alwaysWaitForCachePlaceholders = false;
-
-	@ConfigDataBoolean(path = "AlwaysProcessPlaceholders")
-	@Getter
-	private boolean alwaysProcessPlaceholders = false;
 
 	@ConfigDataBoolean(path = "AutoCreateVoteSites")
 	@Getter
@@ -124,10 +113,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter
 	private boolean disableInteractEvent = false;
-	
-	@ConfigDataBoolean(path = "CacheOnlyPlaceholders")
-	@Getter
-	private boolean cacheOnlyPlaceholders = false;
 
 	@ConfigDataBoolean(path = "DisableNoServiceSiteMessage")
 	@Getter
@@ -438,6 +423,10 @@ public class Config extends YMLFile {
 	public String getFormatCommandsVoteNextInfoVoteDelayDaily() {
 		return getData().getString("Format.Commands.Vote.Next.Info.VoteDelayDaily",
 				"%hours% Hours and %minutes% Minutes");
+	}
+
+	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
+		return PlaceholderCacheLevel.getCache(getData().getString("PlaceholderCacheLevel", "AUTO"));
 	}
 
 	/**
