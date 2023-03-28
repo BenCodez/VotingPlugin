@@ -488,7 +488,7 @@ CustomCommands:
 UsePrimaryAccountForPlaceholders: false
 
 # Valid Options:
-# AUTO - Auto cache after they have been used
+# AUTO - Auto cache after they have been used (Recommended)
 # SPECIFIC - Only cache certain placeholders 
 # NONE - Don't cache any placeholders
 PlaceholderCacheLevel: AUTO
