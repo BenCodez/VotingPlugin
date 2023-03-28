@@ -189,7 +189,7 @@ public class VoteParty implements Listener {
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 
-		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyCommands()) {
+		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 				@Override

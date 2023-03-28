@@ -196,7 +196,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueList("Commands", plugin.getSpecialRewardsConfig().getVotePartyCommands()) {
+				new EditGUIValueList("Commands", plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {
 
 					@Override
 					public void setValue(Player player, ArrayList<String> value) {

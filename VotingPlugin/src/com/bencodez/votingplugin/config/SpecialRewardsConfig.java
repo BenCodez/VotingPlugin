@@ -19,7 +19,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@Getter
 	private String allSitesRewardPath = "AllSites";
-	
+
 	@Getter
 	private String almostAllSitesRewardPath = "AlmostAllSites";
 
@@ -236,8 +236,9 @@ public class SpecialRewardsConfig extends YMLFile {
 	}
 
 	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyCommands() {
-		return (ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>());
+	public ArrayList<String> getVotePartyGlobalCommands() {
+		return (ArrayList<String>) getData().getList("VoteParty.GlobalCommands",
+				(ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>()));
 	}
 
 	public boolean getVotePartyCountFakeVotes() {

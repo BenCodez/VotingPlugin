@@ -95,7 +95,7 @@ VoteParty:
   Broadcast: '&cReached the vote party amount!'
   # List of commands to execute, these only execute once.
   # %player% does not work here
-  Commands: []
+  GlobalCommands: []
   # Rewards to give per player
   Rewards: 
     # Uncomment below for online players to be rewarded only
