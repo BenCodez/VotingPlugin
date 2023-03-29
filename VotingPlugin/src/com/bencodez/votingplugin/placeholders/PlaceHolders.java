@@ -78,6 +78,7 @@ public class PlaceHolders {
 		if (getCacheLevel().equals(PlaceholderCacheLevel.NONE)) {
 			useCache = false;
 		}
+
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
@@ -135,7 +136,8 @@ public class PlaceHolders {
 
 						if (forceProcess) {
 							if (getCacheLevel().shouldCache()) {
-								if (!placeholdersToSetCacheOn.contains(identifier)) {
+								if (!placeholdersToSetCacheOn.contains(identifier)
+										&& !cachedPlaceholders.contains(identifier)) {
 									placeholdersToSetCacheOn.add(identifier);
 									schedulePlaceholderCheck(user);
 								}
@@ -143,7 +145,8 @@ public class PlaceHolders {
 							return placeholder.placeholderRequest(user, identifier);
 						} else {
 							if (getCacheLevel().shouldCache()) {
-								if (!placeholdersToSetCacheOn.contains(identifier)) {
+								if (!placeholdersToSetCacheOn.contains(identifier)
+										&& !cachedPlaceholders.contains(identifier)) {
 									placeholdersToSetCacheOn.add(identifier);
 									schedulePlaceholderCheck(user);
 								}
@@ -763,38 +766,22 @@ public class PlaceHolders {
 		}
 
 		for (String toCache : placeholdersSet) {
-			if (toCache.startsWith("VotingPlugin")) {
-				toCache = toCache.substring("VotingPlugin_".length());
+			if (toCache.startsWith("votingplugin")) {
+				toCache = toCache.substring("votingplugin_".length());
 			}
 			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
-				if (placeholder.isUseStartsWith()) {
-					if (toCache.startsWith(placeholder.getIdentifier())) {
-						placeholder.setUseCache(true, toCache);
-						cachedPlaceholders.add(toCache);
-						plugin.extraDebug("Caching placeholder " + toCache);
-					}
-				} else {
-					if (placeholder.getIdentifier().equalsIgnoreCase(toCache)) {
-						placeholder.setUseCache(true, toCache);
-						cachedPlaceholders.add(toCache);
-						plugin.extraDebug("Caching placeholder " + toCache);
-					}
+				if (placeholder.matches(toCache)) {
+					placeholder.setUseCache(true, toCache);
+					cachedPlaceholders.add(toCache);
+					plugin.extraDebug("Caching placeholder " + toCache);
 				}
 			}
 
 			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-				if (placeholder.isUseStartsWith()) {
-					if (toCache.startsWith(placeholder.getIdentifier())) {
-						placeholder.setUseCache(true, toCache);
-						cachedPlaceholders.add(toCache);
-						plugin.extraDebug("Caching placeholder " + toCache);
-					}
-				} else {
-					if (placeholder.getIdentifier().equalsIgnoreCase(toCache)) {
-						placeholder.setUseCache(true, toCache);
-						cachedPlaceholders.add(toCache);
-						plugin.extraDebug("Caching placeholder " + toCache);
-					}
+				if (placeholder.matches(toCache)) {
+					placeholder.setUseCache(true, toCache);
+					cachedPlaceholders.add(toCache);
+					plugin.extraDebug("Caching placeholder " + toCache);
 				}
 			}
 		}
@@ -865,20 +852,24 @@ public class PlaceHolders {
 	public void checkNonCachedPlaceholders() {
 		while (!placeholdersToSetCacheOn.isEmpty()) {
 			String toCache = placeholdersToSetCacheOn.poll();
+			if (toCache.startsWith("VotingPlugin")) {
+				toCache = toCache.substring("VotingPlugin_".length());
+			}
 			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 				if (placeholder.matches(toCache)) {
 					placeholder.setUseCache(true, toCache);
 					cachedPlaceholders.add(toCache);
 					plugin.getServerData().addAutoCachedPlaceholder(toCache);
-					plugin.debug("Auto caching placeholder: " + toCache);
+					plugin.extraDebug("Auto Caching placeholder " + toCache);
 				}
+
 			}
 			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 				if (placeholder.matches(toCache)) {
 					placeholder.setUseCache(true, toCache);
 					cachedPlaceholders.add(toCache);
 					plugin.getServerData().addAutoCachedPlaceholder(toCache);
-					plugin.debug("Auto caching placeholder: " + toCache);
+					plugin.extraDebug("Auto Caching placeholder " + toCache);
 				}
 			}
 

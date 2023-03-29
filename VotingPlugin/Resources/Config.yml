@@ -494,8 +494,8 @@ UsePrimaryAccountForPlaceholders: false
 PlaceholderCacheLevel: AUTO
 
 # Placeholder controls
-# Add _Process to end of placeholder to force a return value rather than . or .. if no cached value is ready
-# Add _NoCache to end of placeholder to skip cache and retrive a live value, uses a direct mysql connection, do not use on main thread
+# Add _process to end of placeholder to force a return value rather than . or .. if no cached value is ready
+# Add _nocache to end of placeholder to skip cache and retrive a live value, uses a direct mysql connection, do not use on main thread
 #
 
 # Set which placeholders to cache at all times
