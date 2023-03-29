@@ -67,13 +67,13 @@ public class PlaceHolders {
 	public String getPlaceHolder(OfflinePlayer p, String identifier, boolean javascript) {
 		boolean forceProcess = false;
 		boolean useCache = true;
-		if (identifier.endsWith("_Process")) {
+		if (identifier.endsWith("_process")) {
 			forceProcess = true;
-			identifier = identifier.replaceAll("_Process", "");
+			identifier = identifier.replaceAll("_process", "");
 		}
-		if (identifier.endsWith("_NoCache")) {
+		if (identifier.endsWith("_nocache")) {
 			useCache = false;
-			identifier = identifier.replaceAll("_NoCache", "");
+			identifier = identifier.replaceAll("_nocache", "");
 		}
 		if (getCacheLevel().equals(PlaceholderCacheLevel.NONE)) {
 			useCache = false;
@@ -127,6 +127,9 @@ public class PlaceHolders {
 							ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
 							if (cache.containsKey(p.getUniqueId())) {
 								return cache.get(p.getUniqueId());
+							} else if (!forceProcess) {
+								schedulePlaceholderCheck(user);
+								return "...";
 							}
 						}
 
