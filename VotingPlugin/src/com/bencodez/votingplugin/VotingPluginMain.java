@@ -1499,7 +1499,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 													user.offVote();
 												}
 											}
-											plugin.getPlaceholders().onUpdate(user);
+											if (plugin != null) {
+												plugin.getPlaceholders().onUpdate(user);
+											}
 											user.clearTempCache();
 											user = null;
 											if (dataLoadLimit > 0) {
