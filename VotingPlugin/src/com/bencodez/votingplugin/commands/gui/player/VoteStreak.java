@@ -13,6 +13,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -118,6 +119,21 @@ public class VoteStreak extends GUIHandler {
 
 			}
 		});
+		
+		String guiPath = "VoteStreak";
+		for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
+			inv.addButton(
+					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
+
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							new RewardBuilder(plugin.getGui().getData(),
+									"CHEST." + guiPath + ".ExtraItems." + str + ".Rewards").setGiveOffline(false)
+									.send(clickEvent.getPlayer());
+
+						}
+					});
+		}
 
 		if (plugin.getGui().getChestVoteStreakBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));

@@ -123,6 +123,7 @@ CHEST:
     # URL when clicking item in /vote (GUI version)
     URLText: '%VoteUrl%'
     # #Add Extra items
+    # This extra item format works across other gui settings below
     # ExtraItems:
       # Item1:
         # Material: DIRT

@@ -499,6 +499,17 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
 	}
 
+	public Set<String> getChestGUIExtraItems(String gui) {
+		if (getData().isConfigurationSection("CHEST." + gui + ".ExtraItems")) {
+			return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems").getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
+	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
+		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
+	}
+
 	/**
 	 * Gets the vote URL site name.
 	 *
