@@ -113,7 +113,9 @@ public class CoolDownCheck implements Listener {
 
 				@Override
 				public void run() {
-					checkPerSite(uuid);
+					if (plugin != null && plugin.isEnabled()) {
+						checkPerSite(uuid);
+					}
 				}
 			}, time + 2, TimeUnit.SECONDS);
 			perSiteTasks.put(uuid, scheduledFuture);
