@@ -30,6 +30,7 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
@@ -255,35 +256,36 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResyncMilestones" },
-				"VotingPlugin.Commands.AdminVote.ResyncMilestones|" + adminPerm, "Resync Milestones to all time total") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cStarting...");
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.dontCache();
-					user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
-				}
-				sendMessage(sender, "&cFinished sync milestonecount with all time total");
-
-			}
-		});
-
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(new String[] { "ResetMilestoneCount" },
-						"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm,
-						"Resets milestone count to 0l") {
+				.add(new CommandHandler(new String[] { "ResyncMilestones" },
+						"VotingPlugin.Commands.AdminVote.ResyncMilestones|" + adminPerm,
+						"Resync Milestones to all time total") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						sendMessage(sender, "&cStarting to clear milestonecounts...");
-						plugin.getTopVoterHandler().resetMilestoneCount();
-						sendMessage(sender, "&cFinished");
+						sendMessage(sender, "&cStarting...");
+						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+							VotingPluginUser user = UserManager.getInstance()
+									.getVotingPluginUser(UUID.fromString(uuid));
+							user.dontCache();
+							user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
+						}
+						sendMessage(sender, "&cFinished sync milestonecount with all time total");
 
 					}
 				});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetMilestoneCount" },
+				"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm, "Resets milestone count to 0l") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cStarting to clear milestonecounts...");
+				plugin.getTopVoterHandler().resetMilestoneCount();
+				sendMessage(sender, "&cFinished");
+
+			}
+		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "ResyncMilestonesAlreadyGiven" },
@@ -2205,13 +2207,41 @@ public class CommandLoader {
 				int month = 0;
 				int all = 0;
 
-				for (String uuid : uuids) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-					user.dontCache();
-					daily += user.getTotal(TopVoter.Daily);
-					weekly += user.getTotal(TopVoter.Weekly);
-					month += user.getTotal(TopVoter.Monthly);
-					all += user.getTotal(TopVoter.AllTime);
+				if (plugin.getOptions().getStorageType().equals(UserStorage.MYSQL)) {
+					for (TopVoter top : TopVoter.values()) {
+						int cTotal = 0;
+						ArrayList<Integer> nums = plugin.getMysql().getNumbersInColumn(top.getColumnName());
+						for (Integer num : nums) {
+							cTotal += num.intValue();
+						}
+						switch (top) {
+						case AllTime:
+							all = cTotal;
+							break;
+						case Daily:
+							daily = cTotal;
+							break;
+						case Monthly:
+							month = cTotal;
+							break;
+						case Weekly:
+							weekly = cTotal;
+							break;
+						default:
+							break;
+
+						}
+					}
+				} else {
+
+					for (String uuid : uuids) {
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+						user.dontCache();
+						daily += user.getTotal(TopVoter.Daily);
+						weekly += user.getTotal(TopVoter.Weekly);
+						month += user.getTotal(TopVoter.Monthly);
+						all += user.getTotal(TopVoter.AllTime);
+					}
 				}
 
 				for (String s : plugin.getConfigFile().getFormatCommandsVoteTotalAll()) {
