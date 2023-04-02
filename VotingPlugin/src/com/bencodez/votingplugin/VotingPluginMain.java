@@ -1456,7 +1456,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								int currentDay = LocalDateTime.now().getDayOfMonth();
 								int currentDataLoad = 0;
 								for (String uuid : uuids) {
-									if (plugin != null) {
+									if (plugin != null && plugin.isEnabled()) {
 										if (uuid != null && !uuid.isEmpty()) {
 											VotingPluginUser user = UserManager.getInstance()
 													.getVotingPluginUser(UUID.fromString(uuid), false);
