@@ -24,7 +24,7 @@ Prefix: ''
 OnlineMode: true
 
 
-# ----------------------------------------------------------------
+####################################################################################
 # Global mysql data handle for between server commmunications
 # This is NOT required for bungee voting to work
 # This is still a WIP, use with caution
@@ -62,7 +62,7 @@ GlobalData:
 # Time offset for time changes
 # Must match on all servers
 TimeHourOffSet: 0
-# ----------------------------------------------------------------
+####################################################################################
 
 Debug: false
 # Have a reward on each server
@@ -130,22 +130,22 @@ VoteParty:
   Broadcast: '&aVote party has been reached!'
   
 
-# ----------------------------
+##########################################
 # PLUGINMESSAGING Settings
-# ----------------------------
+##########################################
 
 # Applies to PLUGINMESSAGING only
 # Votes will be forwarded when specific player is online
 WaitForUserOnline: false
 
 
-# ----------------------------
-# Redis/multi proxy setup
+##########################################
+# Multi-proxy setup
 # Experimental
 # Primary server  needs votifier and config option enabled
 # Set socket host on each proxy and primary server set sub proxies
 # All servers should be on pluginmessaging or sockets setup
-# ----------------------------
+##########################################
 
 # Support for redis
 # experimental

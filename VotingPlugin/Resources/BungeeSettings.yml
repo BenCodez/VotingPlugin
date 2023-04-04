@@ -1,8 +1,8 @@
-# --------------------------
+##########################################
 # Bungee Setup 
 # Only if using votingplugin bungee to send votes
 # REQUIRES RESTART FOR CHANGES TO TAKE EFFECT
-# --------------------------
+##########################################
 
 # Plugin using bungee, requires plugin on bungee server
 UseBungeecord: false
@@ -66,7 +66,7 @@ BungeeVotePartyRewards: {}
 # This runs a one time command only
 BungeeVotePartyGlobalCommands: []
 
-# ----------------------------------------------------------------
+####################################################################################
 # Global mysql data handle for between server commmunications
 # This is NOT required for bungee voting to work
 # This is still a WIP, use with caution
@@ -101,8 +101,9 @@ GlobalData:
   #Attempt to use mariadb driver
   #UseMariaDB: false
 
-# -----------------------------
-# For socket setup below only
-# -----------------------------
+##########################################
+# For socket setup
+# Options hidden by default to avoid confusion
+##########################################
 # Options available here:
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS

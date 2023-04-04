@@ -4,7 +4,11 @@
 # https://github.com/BenCodez/VotingPlugin/wiki
 # Config is sorted in sections
 # Use Control + F to search with Notepad++
-# 
+
+
+###########################################
+# User storage
+###########################################
 # Valid Options:
 # - SQLITE 
 # - FLAT
@@ -33,22 +37,10 @@ MySQL:
   #Attempt to use mariadb driver
   #UseMariaDB: false
 
-# --------------------
-# AllowUnJoined options
-# May need to set to true for bungee setup
-# --------------------
 
-# Let players who never joined before vote
-# Recommend: False (Will prevent creating random user data)
-AllowUnjoined: false
-
-# Use server lookup for when allowunjoined is set to false
-# Recommend leaving enabled unless you face issues
-AllowUnJoinedCheckServer: true
-
-# ------------------------------------------------
+###########################################
 # VoteReminding
-# ------------------------------------------------
+###########################################
 
 # Configuration for VoteReminding
 # By default this should be all setup to work
@@ -91,9 +83,9 @@ VoteReminding:
       Message: '&cRemember to vote'
       Delay: 30
     
-# ------------------------------------------------
-# Format
-# ------------------------------------------------
+###########################################
+# Format options
+###########################################
     
 # Common PlacesHolders:
 # Special PlaceHolders will be commented where available
@@ -329,11 +321,19 @@ Format:
     Weekly: 'Weekly'
     Monthly: 'Monthly'
     AllTime: 'AllTime'
+    
+# Playernames to not be broadcasted when voting
+# case sensitive
+VotingBroadcastBlacklist: []
 
-# ------------------------------------------------
+# Playernames to not be broadcasted when broadcast comes from reward file
+# case sensitive
+BroadcastBlacklist: []
+
+###########################################
 # Top Voter
 # Top voter rewards available in specialrewards.yml
-# ------------------------------------------------
+###########################################
 
 # Top voter blacklist
 # Hide these names from top voter lists
@@ -369,116 +369,37 @@ MaxiumNumberOfTopVotersToLoad: 1000
 StoreTopVoters:
   Weekly: false
   Daily: false
-    
-# ------------------------------------------------
-# Advanced
-# Most of these values can be left untouched for most setups
-# ------------------------------------------------
-
-# Enable per site cooldown events, requires more resources to use
-# Requires restart
-PerSiteCoolDownEvents: false
-
-# Queue votes during a time change (doesn't apply to bungee voting)
-# Votes will be given when time change is completed
-QueueVotesDuringTimeChange: false
-
-# If true vanished players are treated as if they are offline
-TreatVanishAsOffline: false
-
-# If true, cooldown check is disabled
-DisableCoolDownCheck: false
-
-# If true, disable PlayerInteractEvent (for clicking signs and skulls)
-DisableInteractEvent: false
-
-# If false plugin will use offline player UUIDs
-OnlineMode: true
-
-# Delays login event, delays vote reminding and more
-# In miliseconds, 1000 = 1 second
-DelayLoginEvent: 0
-
-# If false, votestreaks will be disabled
-UseVoteStreaks: true
-
-# If false, storing best totals will be disabled
-UseHighestTotals: true
-
-# If true, /vote will open /vote gui by default
-UseVoteGUIMainCommand: false
-
-# Number of points to give on vote
-# Set to 0 to give no points
-PointsOnVote: 1
-
-# Set this to false to disable the plugin adding totals
-# Not really recommended
-AddTotals: true
-
-# If true, items given for rewards are dropped on the ground
-# If false, items will be given when there is space
-DropOnFullInv: true
-
-# If true, allsites will have an extra check to prevent duplicate allsites from being given
-ExtraAllSitesCheck: false
-
-# Click sound when using gui
-# Set to none for no sound
-ClickSound: 
-  Sound: 'UI_BUTTON_CLICK'
-  Volume: 1.0
-  Pitch: 1.0
-  
-# Playernames to not be broadcasted when voting
-# case sensitive
-VotingBroadcastBlacklist: []
-
-# Playernames to not be broadcasted when broadcast comes from reward file
-# case sensitive
-BroadcastBlacklist: []
-
-# When enabled, javascript will be parsed on placeholders (from placeholderapi)
-# allows more fancy placeholders with math for example
-UseJavascriptPlaceholders: false
   
 # Limit monthly votes to number of days of a month multipled by the number of sites
 LimitMonthlyVotes: false
 
-# This is an extra safe guard to prevent milestones 
-# from being executed more than once
-# Shoudn't be needed, but enable if you have trouble with milestones
-PreventRepeatMilestones: false
+###########################################
+# Debug
+###########################################
 
-# Close inventory on player vote
-# This is to prevent any possible exploits
-CloseInventoryOnVote: true
+# Debug levels:
+# NONE
+# INFO
+# EXTRA
+DebugLevel: NONE
 
-# If true, permissions will be handled differently
-MultiplePermissionsCheck: false
+# Debug info ingame
+# Players with permission "VotingPlugin.Debug"
+# will see debug info if debug is true
+DebugInGame: false
 
-AddCustomCommands: false
+# Will log debug messages to VotingPlugin/Log/log.txt
+# Only needed for extreme cases
+#LogDebugToFile: false
+  
+# Whether or not to log every vote to a file
+# Use this if you wanna track player votes
+# Not recommended though
+LogVotesToFile: false
 
-# Injects custom command to /vote
-# Requires AddCustomCommand: true to be set
-CustomCommands:
-  # identifier, not specific name
-  command1:
-    Args:
-    - token
-    # Message to send on command
-    Message: 'token message'
-    # Permission for this command
-    Permission: 'votingplugin.commands.vote.token'
-    # help message
-    HelpMessage: 'See tokens'
-    # Forces player to run this command
-    Commands:
-    - tokencommand
-    
-# ---------------------------------------
+###########################################
 # Placeholderapi placeholders settings
-# ---------------------------------------
+###########################################
 
 # When enabled the command /vote setprimaryaccount (playername)
 # will be shown (after restart)
@@ -508,29 +429,198 @@ PlaceholderCacheLevel: AUTO
 CachedPlaceholders: []
 #- Total_AllTime
 
-######################
-# Debug
-######################
+# When enabled, javascript will be parsed on placeholders (from placeholderapi)
+# allows more fancy placeholders with math for example
+UseJavascriptPlaceholders: false
 
-# Debug levels:
-# NONE
-# INFO
-# EXTRA
-DebugLevel: NONE
+###########################################
+# Login options
+###########################################
 
-# Debug info ingame
-# Players with permission "VotingPlugin.Debug"
-# will see debug info if debug is true
-DebugInGame: false
+# If true vanished players are treated as if they are offline
+TreatVanishAsOffline: false
 
-# Will log debug messages to VotingPlugin/Log/log.txt
-# Only needed for extreme cases
-#LogDebugToFile: false
-  
-# Whether or not to log every vote to a file
-# Use this if you wanna track player votes
-# Not recommended though
-LogVotesToFile: false
+# Delays login event, delays vote reminding and more
+# In miliseconds, 1000 = 1 second
+DelayLoginEvent: 0
+
+# Wait until user is logged in with AuthMe
+# Requires AuthMe
+WaitUntilLoggedIn: true
+
+###########################################
+# Disable/Enable features
+###########################################
+
+# If true, cooldown check is disabled
+DisableCoolDownCheck: false
+
+# If true, disable PlayerInteractEvent (for clicking signs and skulls)
+DisableInteractEvent: false
+
+# Disable this on a hub server for example
+# Still processes rewards for offline rewards (just won't give any)
+ProcessRewards: true
+
+# Set to true to disable no service site message on voting
+# You should never have to touch this if everything is setup properly
+# Will also disable a few other warnings about vote sites
+DisableNoServiceSiteMessage: false
+
+# Count fake votes
+# If true fake votes will give points and totals
+CountFakeVotes: true
+
+# Whether or not to disable update checks
+DisableUpdateChecking: false
+
+# Enable per site cooldown events, requires more resources to use
+# Requires restart
+PerSiteCoolDownEvents: false
+
+# Queue votes during a time change (doesn't apply to bungee voting)
+# Votes will be given when time change is completed
+QueueVotesDuringTimeChange: false
+
+# If true, plugin will automaticly generate votesites
+# Disable this if you experience issues with sites being created randomly
+# Most cases this will work all the time
+AutoCreateVoteSites: true
+
+# Set this to false to disable the plugin adding totals
+# Not really recommended
+AddTotals: true
+
+# If false, votestreaks will be disabled
+UseVoteStreaks: true
+
+# If false, storing best totals will be disabled
+UseHighestTotals: true
+
+# Enable Geyser prefix support
+# Geyser support is hit or miss currently
+# May work best if players vote with prefix
+GeyserPrefixSupport: false
+GeyserPrefix: '*'
+
+# Whether or not to create daily backups. (Only the most recent ones get kept)
+CreateBackups: true
+
+# Automaticly download the latest version
+# Will require a restart to actually update
+# Note: It takes 30-40 minutes before being able to download the latest build
+# You can also use /av download
+AutoDownload: false
+
+# If false plugin will use offline player UUIDs
+OnlineMode: true
+
+# Disable checking on world change
+# May improve performance
+#DisableCheckOnWorldChange: false
+
+###########################################
+# Skull settings
+###########################################
+
+# Preload skulls to improve performance for vote top
+# when using skulls as the item to display players
+# If false, skulls will be cached as they are used
+# assuming loadskulls is enabled
+PreloadSkulls: false
+
+# Setting to false disables saving skulls in a cache to improve speeds
+# Will reduce ram usage (very little) if disabled, but slow GUI speeds when using skulls
+LoadSkulls: true
+
+###########################################
+# Extra checks on vote
+###########################################
+
+# If true, allsites will have an extra check to prevent duplicate allsites from being given
+ExtraAllSitesCheck: false
+
+# This is an extra safe guard to prevent milestones 
+# from being executed more than once
+# Shoudn't be needed, but enable if you have trouble with milestones
+PreventRepeatMilestones: false
+
+# Number of points to give on vote
+# Set to 0 to give no points
+PointsOnVote: 1
+
+# May need to enable this for bungee setups
+# Let players who never joined before vote
+# Recommend: False (Will prevent creating random user data)
+AllowUnjoined: false
+
+# Use server lookup for when allowunjoined is set to false
+# Recommend leaving enabled unless you face issues
+AllowUnJoinedCheckServer: true
+
+##############################################
+# Command/Permission settings
+##############################################
+
+# Give VotingPlugin.Player by default
+# Requires restart to take affect
+GiveDefaultPermission: true
+
+# Permissions given by VotingPlugin.Player by default
+# Permissions listed here will no be accessible with the default permission
+DisabledDefaultPermissions: []
+
+# If true, /vote will open /vote gui by default
+UseVoteGUIMainCommand: false
+
+# Disable checking permissions on tab complete
+# Could increase performance slightly, but probably not
+DisableAdvancedTab: false
+
+# Load command aliases, such as /avgui
+# Requires restart to take effect
+LoadCommandAliases: true
+
+# Use vault for permission checks
+# May not work on some plugins
+UseVaultPermissions: false
+
+# List of disabled commands from /vote
+# List the specific permission
+# E.g:
+# - PERMISSION
+DisabledCommands: []
+
+# If true, permissions will be handled differently
+MultiplePermissionsCheck: false
+
+# Allow transfer of vote points between players
+# Requires restart for command to load
+# Command: /vote givepoints (player) (points)
+AllowVotePointTransfers: false
+
+AddCustomCommands: false
+
+# Injects custom command to /vote
+# Requires AddCustomCommand: true to be set
+CustomCommands:
+  # identifier, not specific name
+  command1:
+    Args:
+    - token
+    # Message to send on command
+    Message: 'token message'
+    # Permission for this command
+    Permission: 'votingplugin.commands.vote.token'
+    # help message
+    HelpMessage: 'See tokens'
+    # Forces player to run this command
+    Commands:
+    - tokencommand
+
+##############################################
+# Background task settings
+##############################################
 
 # Only update in the background when needed when set to false
 AlwaysUpdate: false
@@ -543,97 +633,29 @@ UpdateWithPlayersOnlineOnly: false
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
 DelayBetweenUpdates: 3
 
-# Set to true to disable no service site message on voting
-# You should never have to touch this if everything is setup properly
-# Will also disable a few other warnings about vote sites
-DisableNoServiceSiteMessage: false
-
-# Count fake votes
-# If true fake votes will give points and totals
-CountFakeVotes: true
-
-# Give VotingPlugin.Player by default
-# Requires restart to take affect
-GiveDefaultPermission: true
-
-# Permissions given by VotingPlugin.Player by default
-# Permissions listed here will no be accessible with the default permission
-DisabledDefaultPermissions: []
-
-# Remove old player files
-# Happens on startup or /av purge
-PurgeOldData: false
-
-# Minimum number of days offline in order to purge
-PurgeMin: 90
-
-# Whether or not to create daily backups. (Only the most recent ones get kept)
-CreateBackups: true
-
-# If true, plugin will automaticly generate votesites
-# Disable this if you experience issues with sites being created randomly
-# Most cases this will work all the time
-AutoCreateVoteSites: true
-
-# Automaticly download the latest version
-# Will require a restart to actually update
-# Note: It takes 30-40 minutes before being able to download the latest build
-# You can also use /av download
-AutoDownload: false
-
-# Whether or not to disable update checks
-DisableUpdateChecking: false
-
-# Allow transfer of vote points between players
-AllowVotePointTransfers: false
-
-# Disable this on a hub server for example
-# Still processes rewards for offline rewards (just won't give any)
-ProcessRewards: true
-
-# Disable checking permissions on tab complete
-DisableAdvancedTab: false
-
-# Load command aliases, such as /avgui
-# Requires restart to take effect
-LoadCommandAliases: true
-
-# Wait until user is logged in with AuthMe
-# Requires AuthMe
-WaitUntilLoggedIn: true
-
-# Preload skulls to improve performance for vote top
-# when using skulls as the item to display players
-# If false, skulls will be cached as they are used
-# assuming loadskulls is enabled
-PreloadSkulls: false
-
-# Setting to false disables saving skulls in a cache to improve speeds
-# Will reduce ram usage (very little) if disabled, but slow GUI speeds when using skulls
-LoadSkulls: true
+# Enable to true for extra player checks
+# Recommend leaving this to false
+ExtraBackgroundUpdate: false
 
 # Limit number of users to load in a second
 # Effects background tasks mainly
 # set to -1 to disable (default value)
 #PlayerDataLoadLimit: 500
 
-# Use vault for permission checks
-# May not work on some plugins
-UseVaultPermissions: false
+##########################################
+# Inventory controls
+##########################################
 
-# List of disabled commands from /vote
-# List the specific permission
-# E.g:
-# - PERMISSION
-DisabledCommands: []
+# Click sound when using gui
+# Set to none for no sound
+ClickSound: 
+  Sound: 'UI_BUTTON_CLICK'
+  Volume: 1.0
+  Pitch: 1.0
 
-# Enable Geyser prefix support
-GeyserPrefixSupport: false
-GeyserPrefix: '*'
-
-# Enable to true for extra player checks
-# Recommend leaving this to false
-ExtraBackgroundUpdate: false
+# If true, items given for rewards are dropped on the ground
+# If false, items will be given when there is space
+DropOnFullInv: true
 
 # This will prevent spam clicking GUI's to prevent exploits
 # Number is time in between clicking in milliseconds
@@ -642,11 +664,27 @@ SpamClickTime: 150
 # Uncomment to use
 #SpamClickMessage: '&cDetected spam clicking GUI, closing to prevent exploits'
 
-# ###############################################################
-# Deprecated options, don't recommend using any of these
-
 # Will force GUI's to close on every click
 AlwaysCloseInventory: false
+
+# Close inventory on player vote
+# This is to prevent any possible exploits
+CloseInventoryOnVote: true
+
+###########################################
+# Purge settings
+###########################################
+# Remove old player files
+# Happens on startup or /av purge
+PurgeOldData: false
+
+# Minimum number of days offline in order to purge
+PurgeMin: 90
+
+##########################################
+# Extra options
+# Options below don't need to be touched
+##########################################
 
 # Options for request api
 # Current methods:
@@ -658,9 +696,3 @@ RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
 
-# Shouldn't need to change this
-#AutoKillInvs: true
-
-# Disable checking on world change
-# May improve performance
-#DisableCheckOnWorldChange: false
