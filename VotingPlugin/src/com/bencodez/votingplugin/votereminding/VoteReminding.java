@@ -73,7 +73,9 @@ public class VoteReminding {
 					if (plugin != null && plugin.isEnabled()) {
 						for (Player player : Bukkit.getServer().getOnlinePlayers()) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-							checkRemind(user);
+							if (!plugin.getOptions().isTreatVanishAsOffline() || !user.isVanished()) {
+								checkRemind(user);
+							}
 						}
 					} else {
 						timer.shutdown();
