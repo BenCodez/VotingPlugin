@@ -194,7 +194,6 @@
 			<id>spigot-repo</id>
 			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
 		</repository>
-
 		<repository>
 			<id>maven-central</id>
 			<url>https://oss.sonatype.org/content/groups/public</url>
@@ -211,18 +210,8 @@
 			<id>bencodez repo</id>
 			<url>https://nexus.bencodez.com/repository/maven-public/</url>
 		</repository>
-		<repository>
-			<id>jitpack.io</id>
-			<url>https://jitpack.io</url>
-		</repository>
 	</repositories>
 	<dependencies>
-		<dependency>
-			<groupId>com.github.limework</groupId>
-			<artifactId>redisbungee</artifactId>
-			<version>0.6.5</version>
-			<scope>provided</scope>
-		</dependency>
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
@@ -265,51 +254,14 @@
 			<version>2.2.1</version>
 			<scope>compile</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.bencodez</groupId>
+			<artifactId>advancedcore</artifactId>
+			<version>LATEST</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 	<profiles>
-		<profile>
-			<id>prod</id>
-			<properties>
-				<build.profile.id>prod</build.profile.id>
-			</properties>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<repositories>
-				<repository>
-					<id>bencodez repo</id>
-					<url>https://nexus.bencodez.com/repository/maven-public/</url>
-				</repository>
-			</repositories>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
-		<profile>
-			<id>jitpack</id>
-			<properties>
-				<build.profile.id>jitpack</build.profile.id>
-			</properties>
-			<repositories>
-				<repository>
-					<id>jitpack.io</id>
-					<url>https://jitpack.io</url>
-				</repository>
-			</repositories>
-			<dependencies>
-				<dependency>
-					<groupId>com.github.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>master-SNAPSHOT</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
 		<profile>
 			<id>prod2</id>
 			<properties>
@@ -332,9 +284,9 @@
 			</dependencies>
 		</profile>
 		<profile>
-			<id>dev</id>
+			<id>deploy-snapshot</id>
 			<properties>
-				<build.profile.id>dev</build.profile.id>
+				<build.profile.id>deploy-snapshot</build.profile.id>
 			</properties>
 			<dependencies>
 				<dependency>
@@ -344,6 +296,47 @@
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
+			<distributionManagement>
+				<snapshotRepository>
+					<id>nexus</id>
+					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
+				</snapshotRepository>
+				<repository>
+					<id>nexus</id>
+					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
+				</repository>
+			</distributionManagement>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-deploy-plugin</artifactId>
+						<version>3.0.0-M1</version>
+						<configuration>
+							<skip>true</skip>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.sonatype.plugins</groupId>
+						<artifactId>nexus-staging-maven-plugin</artifactId>
+						<version>1.5.1</version>
+						<executions>
+							<execution>
+								<id>default-deploy</id>
+								<phase>deploy</phase>
+								<goals>
+									<goal>deploy</goal>
+								</goals>
+							</execution>
+						</executions>
+						<configuration>
+							<serverId>nexus</serverId>
+							<nexusUrl>https://nexus.bencodez.com/nexus/</nexusUrl>
+							<skipStaging>true</skipStaging>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
 		</profile>
 		<profile>
 			<id>deploy</id>
