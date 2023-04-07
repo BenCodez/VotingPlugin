@@ -274,28 +274,12 @@
 					<url>file://${project.build.directory}/mvn-repo</url>
 				</repository>
 			</distributionManagement>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 		</profile>
 		<profile>
 			<id>deploy-snapshot</id>
 			<properties>
 				<build.profile.id>deploy-snapshot</build.profile.id>
 			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 			<distributionManagement>
 				<snapshotRepository>
 					<id>nexus</id>
@@ -343,14 +327,6 @@
 			<properties>
 				<build.profile.id>deploy</build.profile.id>
 			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 			<distributionManagement>
 				<snapshotRepository>
 					<id>nexus</id>
