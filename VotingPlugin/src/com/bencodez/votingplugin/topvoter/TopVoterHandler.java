@@ -125,25 +125,27 @@ public class TopVoterHandler implements Listener {
 				storeTopVoters(TopVoter.Daily);
 			}
 
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
-				user.dontCache();
-				user.tempCache();
-				user.getUserData().updateCacheWithTemp();
-				if (plugin.getConfigFile().isUseVoteStreaks()) {
-					if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
-						if (user.getDayVoteStreak() != 0) {
-							user.setDayVoteStreak(0);
+			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.tempCache();
+					user.getUserData().updateCacheWithTemp();
+					if (plugin.getConfigFile().isUseVoteStreaks()) {
+						if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
+							if (user.getDayVoteStreak() != 0) {
+								user.setDayVoteStreak(0);
+							}
 						}
 					}
-				}
 
-				if (plugin.getConfigFile().isUseHighestTotals()) {
-					if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
-						user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+					if (plugin.getConfigFile().isUseHighestTotals()) {
+						if (user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
+							user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+						}
 					}
+					user.clearTempCache();
 				}
-				user.clearTempCache();
 			}
 
 			try {
@@ -182,15 +184,18 @@ public class TopVoterHandler implements Listener {
 					resetVoteShopLimit(shopIdent);
 				}
 			}
-			
-			try {
-				Thread.sleep(30000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+
+			if (!plugin.getBungeeSettings().isGloblalDataEnabled() && plugin.getBungeeSettings().isUseBungeecoord()) {
+				// give time for other servers to catch up
+				try {
+					Thread.sleep(30000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
+			if (!plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -293,7 +298,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
+			if (!bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -329,31 +334,33 @@ public class TopVoterHandler implements Listener {
 				storeTopVoters(TopVoter.Weekly);
 			}
 
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
-				user.dontCache();
-				user.tempCache();
-				user.getUserData().updateCacheWithTemp();
-				if (plugin.getConfigFile().isUseVoteStreaks()) {
-					if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
-						user.setWeekVoteStreak(0);
-					} else {
-						if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
-								|| user.hasPercentageTotal(TopVoter.Weekly,
-										plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
-							user.addWeekVoteStreak();
-							plugin.getSpecialRewards().checkVoteStreak(user, "Week",
-									plugin.getBungeeSettings().isUseBungeecoord());
+			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.tempCache();
+					user.getUserData().updateCacheWithTemp();
+					if (plugin.getConfigFile().isUseVoteStreaks()) {
+						if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
+							user.setWeekVoteStreak(0);
+						} else {
+							if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+									|| user.hasPercentageTotal(TopVoter.Weekly,
+											plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
+								user.addWeekVoteStreak();
+								plugin.getSpecialRewards().checkVoteStreak(user, "Week",
+										plugin.getBungeeSettings().isUseBungeecoord());
+							}
 						}
 					}
-				}
 
-				if (plugin.getConfigFile().isUseHighestTotals()) {
-					if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
-						user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+					if (plugin.getConfigFile().isUseHighestTotals()) {
+						if (user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
+							user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+						}
 					}
+					user.clearTempCache();
 				}
-				user.clearTempCache();
 			}
 
 			try {
@@ -394,7 +401,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getTopVoterHandler().bungeeHandleResets()) {
+			if (!plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
