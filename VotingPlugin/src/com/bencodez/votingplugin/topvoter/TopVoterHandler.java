@@ -158,17 +158,17 @@ public class TopVoterHandler implements Listener {
 					LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
 							.getTopVoter(TopVoter.Daily).clone();
 					for (Entry<TopVoterPlayer, Integer> entry : clone.entrySet()) {
-						VotingPluginUser user = entry.getKey().getUser();
-						user.dontCache();
-						if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-							if (plugin.getConfigFile().getTopVoterAwardsTies()) {
-								if (entry.getValue().intValue() != lastTotal) {
-									i++;
-								}
-							} else {
+						if (plugin.getConfigFile().getTopVoterAwardsTies()) {
+							if (entry.getValue().intValue() != lastTotal) {
 								i++;
 							}
-							if (places.containsKey(i)) {
+						} else {
+							i++;
+						}
+						if (places.containsKey(i)) {
+							VotingPluginUser user = entry.getKey().getUser();
+							user.dontCache();
+							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveDailyTopVoterAward(i, places.get(i));
 							}
 						}
@@ -264,17 +264,19 @@ public class TopVoterHandler implements Listener {
 					LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
 							.getTopVoter(TopVoter.Monthly).clone();
 					for (Entry<TopVoterPlayer, Integer> entry : clone.entrySet()) {
-						VotingPluginUser user = entry.getKey().getUser();
-						user.dontCache();
-						if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-							if (plugin.getConfigFile().getTopVoterAwardsTies()) {
-								if (entry.getValue().intValue() != lastTotal) {
-									i++;
-								}
-							} else {
+						if (plugin.getConfigFile().getTopVoterAwardsTies()) {
+							if (entry.getValue().intValue() != lastTotal) {
 								i++;
 							}
-							if (places.containsKey(i)) {
+						} else {
+							i++;
+						}
+
+						if (places.containsKey(i)) {
+							VotingPluginUser user = entry.getKey().getUser();
+							user.dontCache();
+							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+
 								user.giveMonthlyTopVoterAward(i, places.get(i));
 							}
 						}
@@ -373,17 +375,18 @@ public class TopVoterHandler implements Listener {
 					LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
 							.getTopVoter(TopVoter.Weekly).clone();
 					for (Entry<TopVoterPlayer, Integer> entry : clone.entrySet()) {
-						VotingPluginUser user = entry.getKey().getUser();
-						user.dontCache();
-						if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-							if (plugin.getConfigFile().getTopVoterAwardsTies()) {
-								if (entry.getValue().intValue() != lastTotal) {
-									i++;
-								}
-							} else {
+						if (plugin.getConfigFile().getTopVoterAwardsTies()) {
+							if (entry.getValue().intValue() != lastTotal) {
 								i++;
 							}
-							if (places.containsKey(i)) {
+						} else {
+							i++;
+						}
+						if (places.containsKey(i)) {
+							VotingPluginUser user = entry.getKey().getUser();
+							user.dontCache();
+							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+
 								user.giveWeeklyTopVoterAward(i, places.get(i));
 							}
 						}
