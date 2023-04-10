@@ -125,6 +125,7 @@ public class TopVoterHandler implements Listener {
 				storeTopVoters(TopVoter.Daily);
 			}
 
+			plugin.getUserManager().copyColumnData(TopVoter.Daily.getColumnName(), TopVoter.Daily.getLastColumnName());
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
@@ -223,34 +224,42 @@ public class TopVoterHandler implements Listener {
 		synchronized (VotingPluginMain.plugin) {
 			plugin.getLogger().info("Saving TopVoters Monthly");
 			storeTopVoters(TopVoter.Monthly);
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
-				user.dontCache();
-				user.tempCache();
-				user.getUserData().updateCacheWithTemp();
-				if (plugin.getConfigFile().isUseVoteStreaks()) {
-					if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
-						user.setMonthVoteStreak(0);
-					} else {
-						if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
-								|| user.hasPercentageTotal(TopVoter.Monthly,
-										plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
-										LocalDateTime.now().minusDays(1))) {
-							user.addMonthVoteStreak();
-							plugin.getSpecialRewards().checkVoteStreak(user, "Month",
-									plugin.getBungeeSettings().isUseBungeecoord());
+			if (!bungeeHandleResets()) {
+				plugin.getUserManager().copyColumnData(TopVoter.Monthly.getColumnName(),
+						TopVoter.Monthly.getLastColumnName());
+			}
+			if (plugin.getConfigFile().isUseHighestTotals() || plugin.getConfigFile().isUseVoteStreaks()) {
+				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.tempCache();
+					user.getUserData().updateCacheWithTemp();
+					if (plugin.getConfigFile().isUseVoteStreaks()) {
+						if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
+							user.setMonthVoteStreak(0);
+						} else {
+							if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+									|| user.hasPercentageTotal(TopVoter.Monthly,
+											plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
+											LocalDateTime.now().minusDays(1))) {
+								user.addMonthVoteStreak();
+								plugin.getSpecialRewards().checkVoteStreak(user, "Month",
+										plugin.getBungeeSettings().isUseBungeecoord());
+							}
 						}
 					}
-				}
 
-				user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
+					// using new system
+					// user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
 
-				if (plugin.getConfigFile().isUseHighestTotals()) {
-					if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
-						user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+					if (plugin.getConfigFile().isUseHighestTotals()) {
+						if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
+							user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+						}
 					}
+					user.clearTempCache();
 				}
-				user.clearTempCache();
+
 			}
 
 			try {
@@ -336,6 +345,8 @@ public class TopVoterHandler implements Listener {
 				storeTopVoters(TopVoter.Weekly);
 			}
 
+			plugin.getUserManager().copyColumnData(TopVoter.Weekly.getColumnName(),
+					TopVoter.Weekly.getLastColumnName());
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
@@ -510,8 +521,15 @@ public class TopVoterHandler implements Listener {
 		file.setup();
 		file.header("Saving top voters for " + top.toString() + ", file also contains other top voter info as backup");
 		for (TopVoter cTop : TopVoter.values()) {
+			ArrayList<String> topVoters = new ArrayList<String>();
+			int cTotal = 0;
+			ArrayList<Integer> nums = plugin.getMysql().getNumbersInColumn(cTop.getColumnName());
+			for (Integer num : nums) {
+				cTotal += num.intValue();
+			}
+			topVoters.add("Combined total: " + cTotal);
 			if (plugin.getTopVoter().containsKey(cTop)) {
-				ArrayList<String> topVoters = new ArrayList<String>();
+
 				int count = 1;
 				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(cTop).entrySet()) {
 					topVoters.add(count + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());

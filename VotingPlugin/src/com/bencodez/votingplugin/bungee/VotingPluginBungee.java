@@ -331,6 +331,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
+						if (type.equals(TimeType.MONTH)) {
+							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+						}
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
 						if (!config.getGlobalDataEnabled()) {
@@ -383,6 +386,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
+						if (type.equals(TimeType.MONTH)) {
+							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+						}
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
 						if (!config.getGlobalDataEnabled()) {

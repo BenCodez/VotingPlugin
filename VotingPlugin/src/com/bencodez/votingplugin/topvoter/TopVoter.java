@@ -44,6 +44,22 @@ public enum TopVoter {
 
 		}
 	}
+	
+	public String getLastColumnName() {
+		switch (this) {
+		case AllTime:
+			return null;
+		case Daily:
+			return "LastDailyTotal";
+		case Monthly:
+			return "LastMonthTotal";
+		case Weekly:
+			return "LastWeeklyTotal";
+		default:
+			return null;
+
+		}
+	}
 
 	public String getName() {
 		if (this.equals(TopVoter.Monthly)) {

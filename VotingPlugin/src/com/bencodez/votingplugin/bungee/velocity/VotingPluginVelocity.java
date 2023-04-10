@@ -361,6 +361,9 @@ public class VotingPluginVelocity {
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
+						if (type.equals(TimeType.MONTH)) {
+							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+						}
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
 						for (RegisteredServer s : getAvailableAllServers()) {
@@ -409,6 +412,9 @@ public class VotingPluginVelocity {
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
+						if (type.equals(TimeType.MONTH)) {
+							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+						}
 						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
 
 						for (RegisteredServer s : getAvailableAllServers()) {
