@@ -62,6 +62,7 @@ GlobalData:
 # Time offset for time changes
 # Must match on all servers
 TimeHourOffSet: 0
+
 ####################################################################################
 
 Debug: false
@@ -83,7 +84,7 @@ WhiteListedServers: []
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # SOCKETS 
-# PLUGINMESSAGING 
+# PLUGINMESSAGING (Recommended)
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
@@ -141,7 +142,7 @@ WaitForUserOnline: false
 
 ##########################################
 # Multi-proxy setup
-# Experimental
+# This is still a WIP, use with caution
 # Primary server  needs votifier and config option enabled
 # Set socket host on each proxy and primary server set sub proxies
 # All servers should be on pluginmessaging or sockets setup

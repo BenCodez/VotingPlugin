@@ -12,7 +12,7 @@ UseBungeecord: false
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups
 # Available:
 # SOCKETS
-# PLUGINMESSAGING
+# PLUGINMESSAGING (Recommended)
 # MYSQL
 BungeeMethod: PLUGINMESSAGING
 
@@ -103,6 +103,7 @@ GlobalData:
 
 ##########################################
 # For socket setup
+# Recommend to try PLUGINMESSAGING setup first
 # Options hidden by default to avoid confusion
 ##########################################
 # Options available here:

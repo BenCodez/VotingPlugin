@@ -851,9 +851,9 @@ public class PlaceHolders {
 
 	public void checkNonCachedPlaceholders() {
 		while (!placeholdersToSetCacheOn.isEmpty()) {
-			String toCache = placeholdersToSetCacheOn.poll();
-			if (toCache.startsWith("VotingPlugin")) {
-				toCache = toCache.substring("VotingPlugin_".length());
+			String toCache = placeholdersToSetCacheOn.poll().toLowerCase();
+			if (toCache.startsWith("votingplugin")) {
+				toCache = toCache.substring("votingplugin_".length());
 			}
 			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 				if (placeholder.matches(toCache)) {

@@ -276,7 +276,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ResetMilestoneCount" },
-				"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm, "Resets milestone count to 0l") {
+				"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm, "Resets milestone count to 0") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
