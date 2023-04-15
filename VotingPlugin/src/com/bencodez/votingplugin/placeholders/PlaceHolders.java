@@ -103,14 +103,19 @@ public class PlaceHolders {
 			if (!cachedPlaceholders.contains(identifier)) {
 				// not cached placeholder
 				if (!forceProcess) {
-					if (getCacheLevel().shouldCache()) {
-						if (!placeholdersToSetCacheOn.contains(identifier)) {
-							placeholdersToSetCacheOn.add(identifier);
-							schedulePlaceholderCheck(user);
+					for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+						if (placeholder.matches(identifier)) {
+							if (getCacheLevel().shouldCache()) {
+								if (!placeholdersToSetCacheOn.contains(identifier)) {
+									placeholdersToSetCacheOn.add(identifier);
+									schedulePlaceholderCheck(user);
+								}
+							}
+							return "..";
 						}
 					}
+					return "Not a valid placeholder";
 
-					return "..";
 				}
 			}
 		}
