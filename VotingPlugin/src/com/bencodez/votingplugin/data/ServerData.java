@@ -30,7 +30,7 @@ public class ServerData {
 
 	public void addAutoCachedPlaceholder(String placeholder) {
 		List<String> p = getAutoCachedPlaceholder();
-		if (ArrayUtils.getInstance().containsIgnoreCase(p, placeholder)) {
+		if (!ArrayUtils.getInstance().containsIgnoreCase(p, placeholder)) {
 			p.add(placeholder);
 			setAutoCachedPlaceholder(p);
 		}
