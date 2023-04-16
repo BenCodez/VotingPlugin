@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>votingplugin</artifactId>
-	<version>6.11.3</version>
+	<version>6.12</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
