@@ -446,6 +446,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		getMysql().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("LastWeeklyTotal", "INT DEFAULT '0'");
+		getMysql().alterColumnType("LastDailyTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
 		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
 	}

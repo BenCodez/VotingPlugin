@@ -55,6 +55,8 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("HighestMonthlyTotal"));
 		manager.addKey(new UserDataKeyInt("HighestWeeklyTotal"));
 		manager.addKey(new UserDataKeyInt("LastMonthTotal"));
+		manager.addKey(new UserDataKeyInt("LastWeeklyTotal"));
+		manager.addKey(new UserDataKeyInt("LastDailyTotal"));
 		manager.addKey(new UserDataKeyInt("BestMonthVoteStreak"));
 		if (plugin.getOptions().isPerServerRewards()) {
 			manager.addKey(new UserDataKeyString("OfflineRewards" + plugin.getOptions().getServer())
