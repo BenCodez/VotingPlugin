@@ -38,14 +38,14 @@ public class AdminVotePlaceholders extends GUIHandler {
 
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String msg = "";
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg = "VotingPlugin_" + identifier + " - " + placeholder.getDescription();
+				msg = "votingplugin_" + identifier + " - " + placeholder.getDescription();
 			} else {
-				msg = "VotingPlugin_" + identifier + "";
+				msg = "votingplugin_" + identifier + "";
 			}
 
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
@@ -56,14 +56,14 @@ public class AdminVotePlaceholders extends GUIHandler {
 
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 			String msg = "";
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg = "VotingPlugin_" + identifier + " - " + placeholder.getDescription();
+				msg = "votingplugin_" + identifier + " - " + placeholder.getDescription();
 			} else {
-				msg = "VotingPlugin_" + identifier + "";
+				msg = "votingplugin_" + identifier + "";
 			}
 
 			Layout layout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
@@ -82,26 +82,26 @@ public class AdminVotePlaceholders extends GUIHandler {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("&cPlaceholders:");
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg.add("VotingPlugin_" + identifier + " - " + placeholder.getDescription());
+				msg.add("votingplugin_" + identifier + " - " + placeholder.getDescription());
 			} else {
-				msg.add("VotingPlugin_" + identifier + "");
+				msg.add("votingplugin_" + identifier + "");
 			}
 		}
 
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "#";
 			}
 			if (placeholder.hasDescription()) {
-				msg.add("VotingPlugin_" + identifier + " - " + placeholder.getDescription());
+				msg.add("votingplugin_" + identifier + " - " + placeholder.getDescription());
 			} else {
-				msg.add("VotingPlugin_" + identifier + "");
+				msg.add("votingplugin_" + identifier + "");
 			}
 		}
 

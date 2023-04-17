@@ -40,7 +40,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 		BookWrapper book = new BookWrapper("Placeholders");
 
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
@@ -54,7 +54,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
 
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
@@ -78,20 +78,20 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 			placeholderUser = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
 		}
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
-			msg.add("VotingPlugin_" + identifier + " = " + placeholder.placeholderRequest(placeholderUser, identifier));
+			msg.add("votingplugin_" + identifier + " = " + placeholder.placeholderRequest(placeholderUser, identifier));
 		}
 
 		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
-			String identifier = placeholder.getIdentifier();
+			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {
 				identifier += "1";
 			}
 
-			msg.add("VotingPlugin_" + identifier + " = " + placeholder.placeholderRequest(identifier));
+			msg.add("votingplugin_" + identifier + " = " + placeholder.placeholderRequest(identifier));
 		}
 		sendMessage(msg);
 	}
