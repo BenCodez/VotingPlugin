@@ -64,9 +64,10 @@ public class PlaceHolders {
 		return getPlaceHolder(p, identifier, true);
 	}
 
-	public String getPlaceHolder(OfflinePlayer p, String identifier, boolean javascript) {
+	public String getPlaceHolder(OfflinePlayer p, String identifier1, boolean javascript) {
 		boolean forceProcess = false;
 		boolean useCache = true;
+		String identifier = identifier1.toLowerCase();
 		if (identifier.endsWith("_process")) {
 			forceProcess = true;
 			identifier = identifier.replaceAll("_process", "");
