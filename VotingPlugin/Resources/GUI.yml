@@ -288,6 +288,10 @@ CHEST:
   VoteShopLimitReached: '&aYou reached your limit'
   VoteShopRequireConfirmation: false
   VoteShopDisabled: '&cVote shop disabled'
+  # VoteShop extra items for display only
+  #VoteShopExtraItems:
+    #Item:
+      #...
   Shop:
     # Identifier
     # Used in placeholders for formats

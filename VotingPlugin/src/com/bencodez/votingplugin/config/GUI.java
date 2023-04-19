@@ -506,6 +506,17 @@ public class GUI extends YMLFile {
 		return new HashSet<String>();
 	}
 
+	public ConfigurationSection getChestGUIVoteShopExtraItems(String item) {
+		return getData().getConfigurationSection("CHEST.VoteShopExtraItems." + item);
+	}
+
+	public Set<String> getChestGUIVoteShopExtraItems() {
+		if (getData().isConfigurationSection("CHEST.VoteShopExtraItems")) {
+			return getData().getConfigurationSection("CHEST.VoteShopExtraItems").getKeys(false);
+		}
+		return new HashSet<String>();
+	}
+
 	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
 		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
 	}
