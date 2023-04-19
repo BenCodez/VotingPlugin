@@ -571,10 +571,11 @@ public class Config extends YMLFile {
 	}
 
 	public String getFormatShopFailedMsg() {
-		String msg = getData().getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
+		return getData().getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
+	}
 
-		return msg;
-
+	public String getFormatShopNotPurchasable() {
+		return getData().getString("Format.ShopNotPurchasable", "&cThis item is not buyable!");
 	}
 
 	public String getFormatShopPurchaseMsg() {
