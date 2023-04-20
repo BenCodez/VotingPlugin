@@ -155,7 +155,7 @@ public class VoteShop extends GUIHandler {
 
 						@Override
 						public void onClick(ClickEvent event) {
-							user.sendMessage(plugin.getConfigFile().getFormatShopFailedMsg());
+							user.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
 						}
 
 					}.dontClose().addData("identifier", identifier).addData("Limit", limit));
