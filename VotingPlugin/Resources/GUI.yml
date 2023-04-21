@@ -279,6 +279,8 @@ CHEST:
     OpenVoteURL: false
     # If true, backbutton will be the last slot of the GUI
     EndOfGUI: false
+    # If true, this item will become an exit button instead
+    Exit: false
 
   VoteShopBackButton: true
   VoteShopEnabled: true

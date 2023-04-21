@@ -103,25 +103,32 @@ public class CommandLoader {
 	public BInventoryButton getBackButton(VotingPluginUser user) {
 		ConfigurationSection sec = plugin.getGui().getCHESTBackButton();
 		boolean a = false;
+		boolean exit = false;
 
 		ItemBuilder item;
 		if (sec != null) {
 			item = new ItemBuilder(sec);
 			a = sec.getBoolean("OpenVoteURL", false);
+			exit = sec.getBoolean("Exit");
 		} else {
 			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
 
 		final boolean openVoteURL = a;
+		final boolean exitGUI = exit;
 		BInventoryButton b = new BInventoryButton(item) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (!openVoteURL) {
-					new VoteGUI(plugin, event.getWhoClicked(), user)
-							.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+				if (!exitGUI) {
+					if (!openVoteURL) {
+						new VoteGUI(plugin, event.getWhoClicked(), user)
+								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+					} else {
+						new VoteURL(plugin, event.getWhoClicked(), user, true).open();
+					}
 				} else {
-					new VoteURL(plugin, event.getWhoClicked(), user, true).open();
+					event.closeInventory();
 				}
 			}
 
