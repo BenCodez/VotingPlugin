@@ -136,6 +136,7 @@ public class VoteGUI extends GUIHandler {
 		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.addPlaceholder("player", user.getPlayerName());
 		inv.addPlaceholder("top", plugin.getConfigFile().getVoteTopDefault());
+		inv.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
 
 		for (String slot : plugin.getGui().getChestVoteGUISlots()) {
 			ItemBuilder builder = getItemSlot(slot, player);
