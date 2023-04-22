@@ -946,7 +946,7 @@ public class VotingPluginVelocity {
 			}
 
 			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.getServer().close();
+				multiproxySocketHandler.closeConnection();
 				multiproxySocketHandler = null;
 			}
 			multiproxySocketHandler = new SocketHandler(

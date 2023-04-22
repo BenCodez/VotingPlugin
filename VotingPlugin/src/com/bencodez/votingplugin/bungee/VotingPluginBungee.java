@@ -889,7 +889,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.getServer().close();
+				multiproxySocketHandler.closeConnection();
 				multiproxySocketHandler = null;
 			}
 			multiproxySocketHandler = new SocketHandler(getDescription().getVersion(),
