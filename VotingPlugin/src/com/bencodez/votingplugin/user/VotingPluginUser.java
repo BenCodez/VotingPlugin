@@ -1380,4 +1380,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return shortest;
 	}
 
+	public void resetLastVoted() {
+		HashMap<VoteSite, Long> map = getLastVotes();
+		for (Entry<VoteSite, Long> e : map.entrySet()) {
+			e.setValue(0l);
+		}
+		setLastVotes(map);
+	}
+
+	public void resetLastVoted(VoteSite site) {
+		HashMap<VoteSite, Long> map = getLastVotes();
+		map.put(site, 0l);
+		setLastVotes(map);
+	}
+
 }

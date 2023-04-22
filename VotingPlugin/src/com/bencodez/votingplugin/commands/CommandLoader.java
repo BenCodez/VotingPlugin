@@ -829,6 +829,31 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "User", "(player)", "ResetAllVotedSites" },
+				"VotingPlugin.Commands.AdminVote.ResetAllVotedSites|" + adminPerm, "Resets all voted") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+				user.resetLastVoted();
+				sender.sendMessage(StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
+			}
+		});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(new String[] { "User", "(player)", "ResetVotedSite", "(Sitename)" },
+						"VotingPlugin.Commands.AdminVote.ResetVotedSite|" + adminPerm,
+						"Resets last voted for specific site") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+						user.resetLastVoted(plugin.getVoteSite(args[3], false));
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
+					}
+				});
+
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(new String[] { "User", "(player)", "AddMilestoneCount", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddMilestoneCount|" + adminPerm, "Add milestonecount") {
