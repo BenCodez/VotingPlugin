@@ -1094,6 +1094,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 		getJavascriptEngine().put("VotingPluginHooks", VotingPluginHooks.getInstance());
+		getJavascriptEngine().put("VotingPlugin", this);
 
 		loadTimer();
 
