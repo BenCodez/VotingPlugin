@@ -56,6 +56,7 @@ public class VoteShop extends GUIHandler {
 		}
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteShopName());
 		inv.addPlaceholder("points", "" + user.getPoints());
+		inv.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
 		inv.dontClose();
 
 		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
