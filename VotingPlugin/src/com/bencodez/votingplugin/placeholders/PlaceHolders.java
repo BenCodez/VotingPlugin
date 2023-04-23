@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -51,6 +52,12 @@ public class PlaceHolders {
 
 	public void reload() {
 		cacheLevel = plugin.getConfigFile().getPlaceholderCacheLevel();
+		onUpdate();
+		if (!cacheLevel.equals(PlaceholderCacheLevel.NONE)) {
+			for (Player player : Bukkit.getOnlinePlayers()) {
+				onUpdate(UserManager.getInstance().getVotingPluginUser(player));
+			}
+		}
 	}
 
 	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
