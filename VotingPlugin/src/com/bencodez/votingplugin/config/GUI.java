@@ -269,6 +269,10 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
 	}
 
+	public ConfigurationSection getChestVoteTopCustomization() {
+		return getData().getConfigurationSection("CHEST.VoteTop.Customization");
+	}
+
 	/**
 	 * Gets the vote GUI slot slot.
 	 *
@@ -410,6 +414,11 @@ public class GUI extends YMLFile {
 
 	public ConfigurationSection getChestVoteTopSwitchItem() {
 		return getData().getConfigurationSection("CHEST.VoteTop.SwitchItem");
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChestVoteTopSwitchItemTopVoters() {
+		return (ArrayList<String>) getData().getList("CHEST.VoteTop.SwitchItem.TopVoters", new ArrayList<String>());
 	}
 
 	public ConfigurationSection getChestVoteTotalAllTimeTotalItem() {

@@ -167,6 +167,10 @@ CHEST:
       Lore: '&bCurrently: %Top%'
       Material: 'OAK_SIGN'
       Amount: 1
+      # Top voters for the switch item to use
+      #TopVoters:
+      #- ALLTIME
+      #- MONTHLY
       # 8 Slots over from the bottom left
       # Bottom of GUI
       Slot: 7
@@ -177,6 +181,15 @@ CHEST:
     # Item for player in GUI if use skull is false
     PlayerItem:
       Material: 'PAPER'
+    Customization:
+      Enabled: false
+      # List of slots for top voter
+      PlayerSlots: []
+      # Add extra items
+      ExtraItems: {}
+      RemoveBottomBar: false
+      # Set slot for backbutton
+      BackButtonSlot: 0
   VoteTotal:
     Name: 'VoteTotal: %player%'
     BackButton: true

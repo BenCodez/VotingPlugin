@@ -2,11 +2,15 @@ package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 
@@ -17,6 +21,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -78,14 +83,22 @@ public class VoteTopVoter extends GUIHandler {
 					.getTopVoter(top).clone();
 			users = topVotes.entrySet();
 
+			ConfigurationSection customization = plugin.getGui().getChestVoteTopCustomization();
+			boolean customzationEnabled = customization.getBoolean("Enabled");
+
 			BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 			inv.addPlaceholder("topvoter", topVoter);
 			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 				inv.dontClose();
 			}
 
+			List<Integer> customizationPlayerSlots = customization.getIntegerList("PlayerSlots");
+			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<Integer>();
+			playerSlots.addAll(customizationPlayerSlots);
+
 			int pos = 1;
 			for (Entry<TopVoterPlayer, Integer> entry : users) {
+
 				ItemBuilder playerItem = new ItemBuilder(Material.PAPER);
 
 				if (plugin.getGui().isChestVoteTopUseSkull()) {
@@ -96,7 +109,8 @@ public class VoteTopVoter extends GUIHandler {
 
 				playerItem.setLore(new ArrayList<String>());
 
-				inv.addButton(new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
+				BInventoryButton button = new BInventoryButton(playerItem
+						.setName(plugin.getGui().getChestVoteTopItemName())
 						.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
 						.addPlaceholder("player", entry.getKey().getPlayerName())
 						.addPlaceholder("votes", "" + entry.getValue())) {
@@ -111,11 +125,25 @@ public class VoteTopVoter extends GUIHandler {
 							getInv().forceClose(clickEvent.getPlayer());
 						}
 					}
-				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey()));
+				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey());
+
+				if (customzationEnabled && !playerSlots.isEmpty()) {
+					button.setSlot(playerSlots.remove());
+				}
+
+				inv.addButton(button);
 				pos++;
 			}
 
-			final TopVoter cur = top;
+			TopVoter newTops = top;
+			ArrayList<String> tops = plugin.getGui().getChestVoteTopSwitchItemTopVoters();
+			if (!tops.isEmpty()) {
+				for (String name : tops) {
+					newTops.getSwitchItems().add(TopVoter.getTopVoter(name));
+				}
+			}
+
+			final TopVoter cur = newTops;
 			inv.getPageButtons().add(new BInventoryButton(
 					new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
@@ -130,10 +158,32 @@ public class VoteTopVoter extends GUIHandler {
 			});
 
 			if (plugin.getGui().getChestVoteTopBackButton()) {
-				inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
+				if (customzationEnabled) {
+					inv.addButton(plugin.getCommandLoader().getBackButton(user)
+							.setSlot(customization.getInt("BackButtonSlot", 0)));
+				} else {
+					inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
+				}
 			}
 
-			inv.setPages(true);
+			String guiPath = "VoteTop.Customization";
+			for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
+				inv.addButton(
+						new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
+
+							@Override
+							public void onClick(ClickEvent clickEvent) {
+								new RewardBuilder(plugin.getGui().getData(),
+										"CHEST." + guiPath + ".ExtraItems." + str + ".Rewards").setGiveOffline(false)
+										.send(clickEvent.getPlayer());
+
+							}
+						});
+			}
+
+			if (!customization.getBoolean("RemoveBottomBar")) {
+				inv.setPages(true);
+			}
 			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
 			inv.openInventory(player);
 		} catch (Exception e) {

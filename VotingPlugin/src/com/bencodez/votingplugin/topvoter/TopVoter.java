@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+import lombok.Getter;
+
 public enum TopVoter {
 	AllTime, Monthly, Weekly, Daily;
 
@@ -44,7 +46,7 @@ public enum TopVoter {
 
 		}
 	}
-	
+
 	public String getLastColumnName() {
 		switch (this) {
 		case AllTime:
@@ -61,6 +63,9 @@ public enum TopVoter {
 		}
 	}
 
+	@Getter
+	private ArrayList<TopVoter> switchItems = new ArrayList<TopVoter>();
+
 	public String getName() {
 		if (this.equals(TopVoter.Monthly)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterMonthly();
@@ -75,18 +80,23 @@ public enum TopVoter {
 
 	public TopVoter next() {
 		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
-			list.add(TopVoter.AllTime);
+		if (switchItems != null && !switchItems.isEmpty()) {
+			list.addAll(switchItems);
+		} else {
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
+				list.add(TopVoter.AllTime);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
+				list.add(TopVoter.Monthly);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
+				list.add(TopVoter.Weekly);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
+				list.add(TopVoter.Daily);
+			}
 		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
-			list.add(TopVoter.Monthly);
-		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
-			list.add(TopVoter.Weekly);
-		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
-			list.add(TopVoter.Daily);
-		}
+
 		for (int i = 0; i < list.size(); i++) {
 			if (list.get(i).equals(this)) {
 				int next = i + 1;
@@ -101,17 +111,21 @@ public enum TopVoter {
 
 	public TopVoter prev() {
 		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
-			list.add(TopVoter.AllTime);
-		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
-			list.add(TopVoter.Monthly);
-		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
-			list.add(TopVoter.Weekly);
-		}
-		if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
-			list.add(TopVoter.Daily);
+		if (switchItems != null && !switchItems.isEmpty()) {
+			list.addAll(switchItems);
+		} else {
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
+				list.add(TopVoter.AllTime);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
+				list.add(TopVoter.Monthly);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
+				list.add(TopVoter.Weekly);
+			}
+			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
+				list.add(TopVoter.Daily);
+			}
 		}
 		for (int i = list.size() - 1; i >= 0; i--) {
 			if (list.get(i).equals(this)) {
