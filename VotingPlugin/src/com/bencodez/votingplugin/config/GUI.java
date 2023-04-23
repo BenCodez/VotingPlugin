@@ -191,7 +191,6 @@ public class GUI extends YMLFile {
 
 	public String getChestShopIdentifierRewardsPath(String identifier) {
 		return "CHEST.Shop." + identifier + ".Rewards";
-
 	}
 
 	public Set<String> getChestShopIdentifiers() {
@@ -247,9 +246,9 @@ public class GUI extends YMLFile {
 	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
 		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
 	}
-
-	public String getChestVoteGUISlotRewardsPath(String slot) {
-		return "CHEST.VoteGUI." + slot + ".Rewards";
+	
+	public String getChestVoteGUISlotRewardsPath(String slot, String lastPath) {
+		return "CHEST.VoteGUI." + slot + "." + lastPath;
 	}
 
 	/**

@@ -8,10 +8,12 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -184,10 +186,12 @@ public class VoteGUI extends GUIHandler {
 						}
 					}
 
-					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(),
-							plugin.getGui().getChestVoteGUISlotRewardsPath(slot))) {
+					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(), plugin.getGui()
+							.getChestVoteGUISlotRewardsPath(slot, event.getButton().getLastRewardsPath(player)))) {
 						plugin.getRewardHandler().giveReward(UserManager.getInstance().getVotingPluginUser(player),
-								plugin.getGui().getData(), plugin.getGui().getChestVoteGUISlotRewardsPath(slot),
+								plugin.getGui().getData(),
+								plugin.getGui().getChestVoteGUISlotRewardsPath(slot,
+										event.getButton().getLastRewardsPath(player)),
 								new RewardOptions().addPlaceholder("identifier", slot));
 					}
 				}
@@ -199,10 +203,27 @@ public class VoteGUI extends GUIHandler {
 					item.addPlaceholder("points", "" + user.getPoints());
 					item.addPlaceholder("player", user.getPlayerName());
 					item.addPlaceholder("top", plugin.getConfigFile().getVoteTopDefault());
+					item.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
 					return item;
 				}
 
 			});
+		}
+
+		String guiPath = "VoteGUI";
+		for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
+			inv.addButton(
+					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
+
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							new RewardBuilder(plugin.getGui().getData(),
+									"CHEST." + guiPath + ".ExtraItems." + str + "."
+											+ clickEvent.getButton().getLastRewardsPath(player))
+									.setGiveOffline(false).send(clickEvent.getPlayer());
+
+						}
+					});
 		}
 
 		inv.openInventory(player);

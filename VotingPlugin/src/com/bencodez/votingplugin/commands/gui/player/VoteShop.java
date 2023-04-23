@@ -169,9 +169,10 @@ public class VoteShop extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					new RewardBuilder(plugin.getGui().getData(), "CHEST.VoteShopExtraItems." + str + ".Rewards")
+					new RewardBuilder(plugin.getGui().getData(),
+							"CHEST.VoteShopExtraItems." + str + "."
+									+ clickEvent.getButton().getLastRewardsPath(player))
 							.setGiveOffline(false).send(clickEvent.getPlayer());
-
 				}
 			});
 		}

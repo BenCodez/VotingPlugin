@@ -119,7 +119,7 @@ public class VoteStreak extends GUIHandler {
 
 			}
 		});
-		
+
 		String guiPath = "VoteStreak";
 		for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
 			inv.addButton(
@@ -128,8 +128,9 @@ public class VoteStreak extends GUIHandler {
 						@Override
 						public void onClick(ClickEvent clickEvent) {
 							new RewardBuilder(plugin.getGui().getData(),
-									"CHEST." + guiPath + ".ExtraItems." + str + ".Rewards").setGiveOffline(false)
-									.send(clickEvent.getPlayer());
+									"CHEST." + guiPath + ".ExtraItems." + str + "."
+											+ clickEvent.getButton().getLastRewardsPath(player))
+									.setGiveOffline(false).send(clickEvent.getPlayer());
 
 						}
 					});

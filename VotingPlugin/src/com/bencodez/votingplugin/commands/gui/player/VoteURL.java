@@ -221,7 +221,9 @@ public class VoteURL extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent clickEvent) {
-					new RewardBuilder(plugin.getGui().getData(), "CHEST.VoteURL.ExtraItems." + str + ".Rewards")
+					new RewardBuilder(plugin.getGui().getData(),
+							"CHEST.VoteURL.ExtraItems." + str + "."
+									+ clickEvent.getButton().getLastRewardsPath(player))
 							.setGiveOffline(false).send(clickEvent.getPlayer());
 
 				}
