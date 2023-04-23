@@ -84,17 +84,19 @@ public class VoteTopVoter extends GUIHandler {
 			users = topVotes.entrySet();
 
 			ConfigurationSection customization = plugin.getGui().getChestVoteTopCustomization();
-			boolean customzationEnabled = customization.getBoolean("Enabled");
+			boolean customzationEnabled = false;
+			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<Integer>();
+			if (customization != null) {
+				customzationEnabled = customization.getBoolean("Enabled");
+				List<Integer> customizationPlayerSlots = customization.getIntegerList("PlayerSlots");
+				playerSlots.addAll(customizationPlayerSlots);
+			}
 
 			BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 			inv.addPlaceholder("topvoter", topVoter);
 			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 				inv.dontClose();
 			}
-
-			List<Integer> customizationPlayerSlots = customization.getIntegerList("PlayerSlots");
-			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<Integer>();
-			playerSlots.addAll(customizationPlayerSlots);
 
 			int pos = 1;
 			for (Entry<TopVoterPlayer, Integer> entry : users) {
@@ -144,7 +146,7 @@ public class VoteTopVoter extends GUIHandler {
 			}
 
 			final TopVoter cur = newTops;
-			if (customzationEnabled) {
+			if (!customzationEnabled) {
 				inv.getPageButtons().add(new BInventoryButton(
 						new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
@@ -196,7 +198,7 @@ public class VoteTopVoter extends GUIHandler {
 						});
 			}
 
-			if (!customization.getBoolean("RemoveBottomBar")) {
+			if (customization == null || (customzationEnabled && !customization.getBoolean("RemoveBottomBar"))) {
 				inv.setPages(true);
 			}
 			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
