@@ -144,18 +144,33 @@ public class VoteTopVoter extends GUIHandler {
 			}
 
 			final TopVoter cur = newTops;
-			inv.getPageButtons().add(new BInventoryButton(
-					new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
+			if (customzationEnabled) {
+				inv.getPageButtons().add(new BInventoryButton(
+						new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
 
-				@Override
-				public void onClick(ClickEvent clickEvent) {
-					if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
-						new VoteTopVoter(plugin, player, user, cur.next(), 0).open(GUIMethod.CHEST);
-					} else {
-						new VoteTopVoter(plugin, player, user, cur.prev(), 0).open(GUIMethod.CHEST);
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
+							new VoteTopVoter(plugin, player, user, cur.next(), 0).open(GUIMethod.CHEST);
+						} else {
+							new VoteTopVoter(plugin, player, user, cur.prev(), 0).open(GUIMethod.CHEST);
+						}
 					}
-				}
-			});
+				});
+			} else {
+				inv.addButton(new BInventoryButton(
+						new ItemBuilder(plugin.getGui().getChestVoteTopSwitchItem()).addPlaceholder("Top", topVoter)) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
+							new VoteTopVoter(plugin, player, user, cur.next(), 0).open(GUIMethod.CHEST);
+						} else {
+							new VoteTopVoter(plugin, player, user, cur.prev(), 0).open(GUIMethod.CHEST);
+						}
+					}
+				});
+			}
 
 			if (plugin.getGui().getChestVoteTopBackButton()) {
 				if (customzationEnabled) {
