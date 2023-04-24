@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
+import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
@@ -44,15 +45,15 @@ public class VoteGUI extends GUIHandler {
 
 		String str = plugin.getConfigFile().getVoteTopDefault();
 		if (lore.length == 0) {
-			if (slot.equalsIgnoreCase("url")) {
+			if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
 				lore = new String[] { "&aClick me" };
-			} else if (slot.equalsIgnoreCase("next")) {
+			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
 				lore = ArrayUtils.getInstance().convert(new VoteNext(plugin, player, user).getChat(player));
-			} else if (slot.equalsIgnoreCase("last")) {
+			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
 				lore = ArrayUtils.getInstance().convert(new VoteLast(plugin, player, user).getChat(player));
-			} else if (slot.equalsIgnoreCase("total")) {
+			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
 				lore = ArrayUtils.getInstance().convert(new VoteTotal(plugin, player, user).getChat(player));
-			} else if (slot.equalsIgnoreCase("top")) {
+			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
 
 				if (str.equalsIgnoreCase("monthly")) {
 					lore = plugin.getTopVoterHandler().topVoterMonthly(1);
@@ -161,27 +162,28 @@ public class VoteGUI extends GUIHandler {
 							}
 						});
 					} else {
-						if (slot.equalsIgnoreCase("url")) {
+
+						if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
 							new VoteURL(plugin, player, user, true).open();
-						} else if (slot.equalsIgnoreCase("next")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
 							new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("last")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
 							new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("total")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
 							new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("top")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
 							new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("today")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "today")) {
 							new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("help")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "help")) {
 							player.performCommand("vote help");
-						} else if (slot.equalsIgnoreCase("shop")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "shop")) {
 							new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("lastmonth")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "lastmonth")) {
 							new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("best")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "best")) {
 							new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (slot.equalsIgnoreCase("streak")) {
+						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "streak")) {
 							new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
 						}
 					}
