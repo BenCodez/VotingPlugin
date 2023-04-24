@@ -209,7 +209,7 @@ public class VoteGUI extends GUIHandler {
 					return item;
 				}
 
-			});
+			}.setCloseInv(plugin.getGui().getChestVoteGUICloseGUI(slot)));
 		}
 
 		String guiPath = "VoteGUI";
