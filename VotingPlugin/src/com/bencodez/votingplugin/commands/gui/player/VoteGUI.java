@@ -8,8 +8,8 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
@@ -17,7 +17,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -141,7 +140,7 @@ public class VoteGUI extends GUIHandler {
 		inv.addPlaceholder("top", plugin.getConfigFile().getVoteTopDefault());
 		inv.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
 
-		for (String slot : plugin.getGui().getChestVoteGUISlots()) {
+		for (final String slot : plugin.getGui().getChestVoteGUISlots()) {
 			ItemBuilder builder = getItemSlot(slot, player);
 
 			inv.addButton(new UpdatingBInventoryButton(builder, 1000, 1000) {
@@ -162,30 +161,7 @@ public class VoteGUI extends GUIHandler {
 							}
 						});
 					} else {
-
-						if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
-							new VoteURL(plugin, player, user, true).open();
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
-							new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
-							new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
-							new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
-							new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "today")) {
-							new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "help")) {
-							player.performCommand("vote help");
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "shop")) {
-							new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "lastmonth")) {
-							new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "best")) {
-							new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
-						} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "streak")) {
-							new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
-						}
+						plugin.getCommandLoader().processSlotClick(player, user, slot);
 					}
 
 					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(), plugin.getGui()

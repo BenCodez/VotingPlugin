@@ -93,6 +93,32 @@ public class CommandLoader {
 		this.plugin = plugin;
 	}
 
+	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
+		if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
+			new VoteURL(plugin, player, user, true).open();
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
+			new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
+			new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
+			new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
+			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "today")) {
+			new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "help")) {
+			player.performCommand("vote help");
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "shop")) {
+			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "lastmonth")) {
+			new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "best")) {
+			new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "streak")) {
+			new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
+		}
+	}
+
 	/**
 	 * @return the adminPerm
 	 */
