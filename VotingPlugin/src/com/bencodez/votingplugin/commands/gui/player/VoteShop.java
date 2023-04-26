@@ -99,9 +99,9 @@ public class VoteShop extends GUIHandler {
 							int limit = (int) getData("Limit");
 							int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 							if (identifier != null) {
-								if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
-									event.closeInventory();
-								}
+								// if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
+								// event.closeInventory();
+								// }
 
 								// limit fail-safe, should never be needed, except in rare cases
 								boolean limitPass = true;
@@ -159,7 +159,7 @@ public class VoteShop extends GUIHandler {
 							user.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
 						}
 
-					}.dontClose().addData("identifier", identifier).addData("Limit", limit));
+					}.addData("identifier", identifier).addData("Limit", limit));
 				}
 			}
 		}

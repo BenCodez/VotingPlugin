@@ -246,7 +246,7 @@ public class GUI extends YMLFile {
 	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
 		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
 	}
-	
+
 	public String getChestVoteGUISlotRewardsPath(String slot, String lastPath) {
 		return "CHEST.VoteGUI." + slot + "." + lastPath;
 	}
@@ -312,10 +312,6 @@ public class GUI extends YMLFile {
 
 	public boolean getChestVoteShopCloseGUI(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
-	}
-	
-	public boolean getChestVoteGUICloseGUI(String slot) {
-		return getData().getBoolean("CHEST.VoteGUI." + slot + ".CloseGUI", false);
 	}
 
 	public boolean getChestVoteShopEnabled() {
