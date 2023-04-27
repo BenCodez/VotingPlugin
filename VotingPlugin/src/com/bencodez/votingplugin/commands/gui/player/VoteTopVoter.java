@@ -123,8 +123,6 @@ public class VoteTopVoter extends GUIHandler {
 							TopVoterPlayer user = (TopVoterPlayer) getData("User");
 							new VoteGUI(plugin, player, user.getUser())
 									.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
-						} else {
-							getInv().forceClose(clickEvent.getPlayer());
 						}
 					}
 				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey());
@@ -190,6 +188,7 @@ public class VoteTopVoter extends GUIHandler {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {
+								plugin.getCommandLoader().processSlotClick(player, user, str);
 								new RewardBuilder(plugin.getGui().getData(),
 										"CHEST." + guiPath + ".ExtraItems." + str + ".Rewards").setGiveOffline(false)
 										.send(clickEvent.getPlayer());
