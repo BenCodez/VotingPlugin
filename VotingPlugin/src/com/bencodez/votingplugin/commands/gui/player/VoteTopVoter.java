@@ -131,6 +131,8 @@ public class VoteTopVoter extends GUIHandler {
 					button.setSlot(playerSlots.remove());
 				}
 
+				inv.setCloseInv(plugin.getGui().getChestVoteTopCloseGUIOnClick());
+
 				inv.addButton(button);
 				pos++;
 			}

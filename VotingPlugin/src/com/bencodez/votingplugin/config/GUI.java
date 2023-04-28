@@ -407,6 +407,10 @@ public class GUI extends YMLFile {
 		return getData().getBoolean("CHEST.VoteTop.OpenMainGUIOnClick", true);
 	}
 
+	public boolean getChestVoteTopCloseGUIOnClick() {
+		return getData().getBoolean("CHEST.VoteTop.CloseGUIOnClick", true);
+	}
+
 	public int getChestVoteTopSize() {
 		return getData().getInt("CHEST.VoteTop.Size", 27);
 	}

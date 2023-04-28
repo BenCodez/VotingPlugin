@@ -162,6 +162,8 @@ CHEST:
       Lore: '&3&lVotes: &3%votes%'
     # Opens main GUI of the specific player that gets clicked
     OpenMainGUIOnClick: true
+    # Close GUI when clicking on a player item
+    CloseGUIOnClick: true
     SwitchItem:
       Name: '&3Switch TopVoter'
       Lore: '&bCurrently: %Top%'
