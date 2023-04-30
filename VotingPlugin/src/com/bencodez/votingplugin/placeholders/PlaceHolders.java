@@ -440,7 +440,7 @@ public class PlaceHolders {
 				}
 				return "false";
 			}
-		}.withDescription("Return true/false if player has said points").updateDataKey("Points"));
+		}.withDescription("Return true/false if player has said points").updateDataKey("Points").useStartsWith());
 
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
 
