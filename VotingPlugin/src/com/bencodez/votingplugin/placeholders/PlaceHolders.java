@@ -430,6 +430,18 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("Points_") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				int number = Integer.parseInt(identifier.split("_")[2]);
+				if (user.getPoints() >= number) {
+					return "true";
+				}
+				return "false";
+			}
+		}.withDescription("Return true/false if player has said points").updateDataKey("Points"));
+
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
 
 			@Override
