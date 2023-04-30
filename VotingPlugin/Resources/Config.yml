@@ -436,6 +436,7 @@ UseJavascriptPlaceholders: false
 # Custom placeholder returns
 # For the example below use %votingplugin_custom_points_5%
 # DO NOT USE ON MAIN THREAD IF POSSIBLE
+# Keep everything lowercase
 #CustomPlaceholderReturns:
 #  'points_5':
 #    'true': 'User has enough points'
