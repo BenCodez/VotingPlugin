@@ -434,7 +434,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				int number = Integer.parseInt(identifier.split("_")[2]);
+				int number = Integer.parseInt(identifier.split("_")[1]);
 				if (user.getPoints() >= number) {
 					return "true";
 				}
