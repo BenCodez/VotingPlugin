@@ -1100,7 +1100,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		// placeholderapi loading
 		placeholders = new PlaceHolders(this);
+		getServerData().updatePlaceholders();
 		placeholders.load();
+		
 
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			mvdwPlaceholders = new MVdWPlaceholders(this);

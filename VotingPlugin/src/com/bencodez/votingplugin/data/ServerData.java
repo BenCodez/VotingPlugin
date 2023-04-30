@@ -30,9 +30,23 @@ public class ServerData {
 
 	public void addAutoCachedPlaceholder(String placeholder) {
 		List<String> p = getAutoCachedPlaceholder();
+
 		if (!ArrayUtils.getInstance().containsIgnoreCase(p, placeholder)) {
 			p.add(placeholder);
 			setAutoCachedPlaceholder(p);
+		}
+	}
+
+	public void updatePlaceholders() {
+		boolean data = getData().getBoolean("AutoCacheUpdated", false);
+		if (!data) {
+			List<String> placeholders = getAutoCachedPlaceholder();
+			for (int i = 0; i < placeholders.size(); i++) {
+				placeholders.set(i, placeholders.get(i).toLowerCase());
+			}
+			setAutoCachedPlaceholder(placeholders);
+			getData().set("AutoCacheUpdated", true);
+			saveData();
 		}
 	}
 
