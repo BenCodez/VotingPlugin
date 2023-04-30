@@ -1385,7 +1385,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
 		if (userStorage) {
-			//placeholders.load();
+			placeholders.load();
 			placeholders.reload();
 		}
 
