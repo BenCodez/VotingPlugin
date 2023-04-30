@@ -523,7 +523,7 @@ public class TopVoterHandler implements Listener {
 		for (TopVoter cTop : TopVoter.values()) {
 			ArrayList<String> topVoters = new ArrayList<String>();
 			int cTotal = 0;
-			ArrayList<Integer> nums = plugin.getMysql().getNumbersInColumn(cTop.getColumnName());
+			ArrayList<Integer> nums = plugin.getUserManager().getNumbersInColumn(cTop.getColumnName());
 			for (Integer num : nums) {
 				cTotal += num.intValue();
 			}
