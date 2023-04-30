@@ -254,6 +254,27 @@ public class PlaceHolders {
 			}
 		}.withDescription("User milestonecount").updateDataKey("MilestoneCount"));
 
+		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
+		for (String vote : mVotes) {
+			if (StringParser.getInstance().isInt(vote)) {
+
+				final int num = Integer.parseInt(vote);
+				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
+					placeholders.add(new PlaceHolder<VotingPluginUser>("milestone_numberofvotesuntil_" + num) {
+
+						@Override
+						public String placeholderRequest(VotingPluginUser user, String identifier) {
+							int toGo = num - user.getMilestoneCount();
+							if (toGo >= 0) {
+								return "" + toGo;
+							}
+							return "0";
+						}
+					}.withDescription("Get number of votes until milestone").updateDataKey("MilestoneCount"));
+				}
+			}
+		}
+
 		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
 			if (plugin.getGui().getChestShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {
