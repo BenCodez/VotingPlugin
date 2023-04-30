@@ -94,12 +94,12 @@ public class PlaceHolders {
 		}
 
 		if (custom && plugin.getConfigFile().getCustomPlaceholderReturns().contains(identifier)) {
-			String returnStr = plugin.getConfigFile().getCustomPlaceholderReturns(identifier,
-					getPlaceholderValue(p, identifier, javascript, true, useCache));
+			String str = getPlaceholderValue(p, identifier, javascript, true, useCache);
+			String returnStr = plugin.getConfigFile().getCustomPlaceholderReturns(identifier, str);
 			if (!returnStr.isEmpty()) {
 				return returnStr;
 			}
-			return "No value";
+			return "No value: " + str;
 		} else {
 			return getPlaceholderValue(p, identifier, javascript, forceProcess, useCache);
 		}
