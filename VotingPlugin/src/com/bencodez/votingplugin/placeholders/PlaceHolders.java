@@ -75,6 +75,7 @@ public class PlaceHolders {
 		boolean forceProcess = false;
 		boolean useCache = true;
 		String identifier = identifier1.toLowerCase();
+		boolean custom = false;
 		if (identifier.endsWith("_process")) {
 			forceProcess = true;
 			identifier = identifier.replaceAll("_process", "");
@@ -87,6 +88,26 @@ public class PlaceHolders {
 			useCache = false;
 		}
 
+		if (identifier.startsWith("custom_")) {
+			custom = true;
+			identifier = identifier.replaceAll("custom_", "");
+		}
+
+		if (custom && plugin.getConfigFile().getCustomPlaceholderReturns().contains(identifier)) {
+			String returnStr = plugin.getConfigFile().getCustomPlaceholderReturns(identifier,
+					getPlaceholderValue(p, identifier, javascript, true, useCache));
+			if (!returnStr.isEmpty()) {
+				return returnStr;
+			}
+			return "No value";
+		} else {
+			return getPlaceholderValue(p, identifier, javascript, forceProcess, useCache);
+		}
+
+	}
+
+	public String getPlaceholderValue(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
+			boolean useCache) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
 		}
@@ -177,7 +198,6 @@ public class PlaceHolders {
 		}
 
 		return "Not a valid placeholder";
-
 	}
 
 	public String getPlaceHolder(Player p, String identifier) {

@@ -308,6 +308,26 @@ public class Config extends YMLFile {
 		return str;
 	}
 
+	public Set<String> getCustomPlaceholderReturns() {
+		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns").getKeys(false);
+		if (str == null) {
+			str = new HashSet<String>();
+		}
+		return str;
+	}
+
+	public Set<String> getCustomPlaceholderReturns(String placeholder) {
+		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns." + placeholder).getKeys(false);
+		if (str == null) {
+			str = new HashSet<String>();
+		}
+		return str;
+	}
+
+	public String getCustomPlaceholderReturns(String placeholder, String returnString) {
+		return getData().getString("CustomPlaceholderReturns." + placeholder + "." + returnString, "");
+	}
+
 	public ConfigurationSection getCustomCommands(String ident) {
 		return getData().getConfigurationSection("CustomCommands." + ident);
 	}

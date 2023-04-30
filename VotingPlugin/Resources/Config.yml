@@ -433,6 +433,14 @@ CachedPlaceholders: []
 # allows more fancy placeholders with math for example
 UseJavascriptPlaceholders: false
 
+# Custom placeholder returns
+# For the example below use %votingplugin_custom_points_5%
+# DO NOT USE ON MAIN THREAD IF POSSIBLE
+#CustomPlaceholderReturns:
+#  'points_5':
+#    'true': 'User has enough points'
+#    'false': 'User does not have enough points'
+
 ###########################################
 # Login options
 ###########################################
