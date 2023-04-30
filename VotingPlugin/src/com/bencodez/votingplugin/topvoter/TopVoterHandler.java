@@ -523,11 +523,15 @@ public class TopVoterHandler implements Listener {
 		for (TopVoter cTop : TopVoter.values()) {
 			ArrayList<String> topVoters = new ArrayList<String>();
 			int cTotal = 0;
-			ArrayList<Integer> nums = plugin.getUserManager().getNumbersInColumn(cTop.getColumnName());
-			for (Integer num : nums) {
-				cTotal += num.intValue();
+			try {
+				ArrayList<Integer> nums = plugin.getUserManager().getNumbersInColumn(cTop.getColumnName());
+				for (Integer num : nums) {
+					cTotal += num.intValue();
+				}
+				topVoters.add("Combined total: " + cTotal);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			topVoters.add("Combined total: " + cTotal);
 			if (plugin.getTopVoter().containsKey(cTop)) {
 
 				int count = 1;
