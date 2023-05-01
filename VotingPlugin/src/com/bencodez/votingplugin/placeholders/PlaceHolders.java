@@ -99,7 +99,7 @@ public class PlaceHolders {
 			if (!returnStr.isEmpty()) {
 				return returnStr;
 			}
-			return "No value: " + str;
+			return str;
 		} else {
 			return getPlaceholderValue(p, identifier, javascript, forceProcess, useCache);
 		}
