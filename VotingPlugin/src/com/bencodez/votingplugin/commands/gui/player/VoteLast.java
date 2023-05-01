@@ -66,7 +66,7 @@ public class VoteLast extends GUIHandler {
 		for (VoteSite site : plugin.getVoteSites()) {
 			if (!site.isHidden()) {
 				inv.addButton(inv.getNextSlot(),
-						new UpdatingBInventoryButton(site.getItem().setName(site.getDisplayName())
+						new UpdatingBInventoryButton(plugin, site.getItem().setName(site.getDisplayName())
 								.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1), 1000, 1000) {
 
 							@Override

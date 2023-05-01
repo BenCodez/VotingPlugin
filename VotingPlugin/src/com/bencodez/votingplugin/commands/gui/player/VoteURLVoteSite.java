@@ -69,7 +69,7 @@ public class VoteURLVoteSite extends GUIHandler {
 					}
 				});
 
-		inv.addButton(new UpdatingBInventoryButton(
+		inv.addButton(new UpdatingBInventoryButton(plugin,
 				new ItemBuilder(Material.COMPASS).setName("&4Next Vote").addLoreLine(user.voteCommandNextInfo(site)),
 				1000, 1000) {
 

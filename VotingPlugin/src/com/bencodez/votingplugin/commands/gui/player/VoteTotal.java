@@ -67,7 +67,7 @@ public class VoteTotal extends GUIHandler {
 		inv.addPlaceholder("player", user.getPlayerName());
 
 		for (final TopVoter top : TopVoter.values()) {
-			inv.addButton(new UpdatingBInventoryButton(
+			inv.addButton(new UpdatingBInventoryButton(plugin,
 					new ItemBuilder(plugin.getGui().getChestVoteTotalItem(top))
 							.addPlaceholder("Total", "" + user.getTotal(top)).addPlaceholder("topvoter", top.getName()),
 					1000, 1000) {

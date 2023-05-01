@@ -165,7 +165,7 @@ public class VoteURL extends GUIHandler {
 		if (plugin.getGui().getChestVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = getItemAll();
 
-			inv.addButton(new UpdatingBInventoryButton(builderAll, 5000, 5000) {
+			inv.addButton(new UpdatingBInventoryButton(plugin, builderAll, 5000, 5000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
@@ -190,7 +190,7 @@ public class VoteURL extends GUIHandler {
 					startSlot++;
 				}
 
-				inv.addButton(new UpdatingBInventoryButton(builder, 5000, 5000) {
+				inv.addButton(new UpdatingBInventoryButton(plugin, builder, 5000, 5000) {
 
 					@Override
 					public void onClick(ClickEvent event) {
@@ -222,8 +222,7 @@ public class VoteURL extends GUIHandler {
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					new RewardBuilder(plugin.getGui().getData(),
-							"CHEST.VoteURL.ExtraItems." + str + "."
-									+ clickEvent.getButton().getLastRewardsPath(player))
+							"CHEST.VoteURL.ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
 							.setGiveOffline(false).send(clickEvent.getPlayer());
 
 				}

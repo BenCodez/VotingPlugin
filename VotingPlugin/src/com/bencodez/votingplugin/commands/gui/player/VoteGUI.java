@@ -143,7 +143,7 @@ public class VoteGUI extends GUIHandler {
 		for (final String slot : plugin.getGui().getChestVoteGUISlots()) {
 			ItemBuilder builder = getItemSlot(slot, player);
 
-			inv.addButton(new UpdatingBInventoryButton(builder, 1000, 1000) {
+			inv.addButton(new UpdatingBInventoryButton(plugin, builder, 1000, 1000) {
 
 				@Override
 				public void onClick(ClickEvent event) {
