@@ -434,11 +434,11 @@ CachedPlaceholders: []
 UseJavascriptPlaceholders: false
 
 # Custom placeholder returns
-# For the example below use %votingplugin_custom_points_5%
+# For the example below use %votingplugin_custom_enoughpoints_5%
 # DO NOT USE ON MAIN THREAD IF POSSIBLE
 # Keep everything lowercase
 #CustomPlaceholderReturns:
-#  'points_5':
+#  'enoughpoints_5':
 #    'true': 'User has enough points'
 #    'false': 'User does not have enough points'
 

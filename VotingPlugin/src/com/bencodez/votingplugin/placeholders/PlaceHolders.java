@@ -471,7 +471,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("Points_") {
+		placeholders.add(new PlaceHolder<VotingPluginUser>("EnoughPoints_") {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
