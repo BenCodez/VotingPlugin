@@ -7,6 +7,7 @@ import lombok.Getter;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
+import net.md_5.bungee.config.JsonConfiguration;
 import net.md_5.bungee.config.YamlConfiguration;
 
 public class NonVotedPlayersCache {
@@ -53,7 +54,8 @@ public class NonVotedPlayersCache {
 			bungee.getDataFolder().mkdir();
 		}
 
-		File file = new File(bungee.getDataFolder(), "nonvotedplayerscache.yml");
+		File yamlFile = new File(bungee.getDataFolder(), "nonvotedplayerscache.yml");
+		File file = new File(bungee.getDataFolder(), "nonvotedplayerscache.json");
 
 		if (!file.exists()) {
 			try {
@@ -62,9 +64,24 @@ public class NonVotedPlayersCache {
 				e.printStackTrace();
 			}
 		}
+
+		if (yamlFile.exists()) {
+			try {
+				data = ConfigurationProvider.getProvider(YamlConfiguration.class)
+						.load(new File(bungee.getDataFolder(), "nonvotedplayerscache.yml"));
+				yamlFile.renameTo(new File(bungee.getDataFolder(), "oldnonvotedplayerscache.yml"));
+				ConfigurationProvider.getProvider(YamlConfiguration.class).save(data,
+						new File(bungee.getDataFolder(), "oldnonvotedplayerscache.yml"));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			save();
+		}
+
 		try {
-			data = ConfigurationProvider.getProvider(YamlConfiguration.class)
-					.load(new File(bungee.getDataFolder(), "nonvotedplayerscache.yml"));
+			data = ConfigurationProvider.getProvider(JsonConfiguration.class)
+					.load(new File(bungee.getDataFolder(), "nonvotedplayerscache.json"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -84,8 +101,8 @@ public class NonVotedPlayersCache {
 
 	public void save() {
 		try {
-			ConfigurationProvider.getProvider(YamlConfiguration.class).save(data,
-					new File(bungee.getDataFolder(), "nonvotedplayerscache.yml"));
+			ConfigurationProvider.getProvider(JsonConfiguration.class).save(data,
+					new File(bungee.getDataFolder(), "nonvotedplayerscache.json"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

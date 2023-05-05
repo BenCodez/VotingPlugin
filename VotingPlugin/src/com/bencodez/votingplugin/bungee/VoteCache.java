@@ -9,6 +9,7 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
+import net.md_5.bungee.config.JsonConfiguration;
 import net.md_5.bungee.config.YamlConfiguration;
 
 public class VoteCache {
@@ -114,7 +115,9 @@ public class VoteCache {
 			bungee.getDataFolder().mkdir();
 		}
 
-		File file = new File(bungee.getDataFolder(), "votecache.yml");
+		File yamlFile = new File(bungee.getDataFolder(), "votecache.yml");
+		
+		File file = new File(bungee.getDataFolder(), "votecache.json");
 
 		if (!file.exists()) {
 			try {
@@ -123,9 +126,23 @@ public class VoteCache {
 				e.printStackTrace();
 			}
 		}
+		if (yamlFile.exists()) {
+			try {
+				data = ConfigurationProvider.getProvider(YamlConfiguration.class)
+						.load(new File(bungee.getDataFolder(), "votecache.yml"));
+				yamlFile.renameTo(new File(bungee.getDataFolder(), "oldvotecache.yml"));
+				ConfigurationProvider.getProvider(YamlConfiguration.class).save(data,
+						new File(bungee.getDataFolder(), "oldvotecache.yml"));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			save();
+		}
+		
 		try {
-			data = ConfigurationProvider.getProvider(YamlConfiguration.class)
-					.load(new File(bungee.getDataFolder(), "votecache.yml"));
+			data = ConfigurationProvider.getProvider(JsonConfiguration.class)
+					.load(new File(bungee.getDataFolder(), "votecache.json"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -133,8 +150,8 @@ public class VoteCache {
 
 	public void save() {
 		try {
-			ConfigurationProvider.getProvider(YamlConfiguration.class).save(data,
-					new File(bungee.getDataFolder(), "votecache.yml"));
+			ConfigurationProvider.getProvider(JsonConfiguration.class).save(data,
+					new File(bungee.getDataFolder(), "votecache.json"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
