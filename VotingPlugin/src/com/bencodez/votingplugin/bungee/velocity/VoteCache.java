@@ -3,13 +3,13 @@ package com.bencodez.votingplugin.bungee.velocity;
 import java.io.File;
 import java.util.Collection;
 
-import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
+import com.bencodez.advancedcore.bungeeapi.velocity.VelocityJSONFile;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
-public class VoteCache extends VelocityYMLFile {
+public class VoteCache extends VelocityJSONFile {
 
 	public VoteCache(File file) {
 		super(file);

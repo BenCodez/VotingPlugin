@@ -59,6 +59,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
+import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
@@ -632,7 +633,7 @@ public class VotingPluginVelocity {
 						try {
 							lastOnline = Long.valueOf(lastOnlineStr);
 						} catch (NumberFormatException e) {
-							//e.printStackTrace();
+							// e.printStackTrace();
 						}
 
 						if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastOnline < 1000
@@ -752,12 +753,36 @@ public class VotingPluginVelocity {
 		if (mysqlLoaded) {
 			uuidPlayerNameCache = mysql.getRowsUUIDNameQuery();
 
-			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.yml"));
+			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.json"));
 
-			bungeeTimeChecker.loadTimer();
+			// convert yml file if exists
+			File yamlVoteCacheFile = new File(dataDirectory.toFile(), "votecache.yml");
+			if (yamlVoteCacheFile.exists()) {
+				VelocityYMLFile yamlVoteCache = new VelocityYMLFile(yamlVoteCacheFile);
+				voteCacheFile.setConf(yamlVoteCache.getData());
+				yamlVoteCacheFile.renameTo(new File(dataDirectory.toFile(), "oldvotecache.yml"));
+				VelocityYMLFile oldYamlVoteCache = new VelocityYMLFile(
+						new File(dataDirectory.toFile(), "oldvotecache.yml"));
+				oldYamlVoteCache.setConf(yamlVoteCache.getData());
+				voteCacheFile.save();
+			}
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(
-					new File(dataDirectory.toFile(), "nonvotedplayerscache.yml"), this);
+					new File(dataDirectory.toFile(), "nonvotedplayerscache.json"), this);
+
+			// convert yml file if exists
+			File yamlnonVotedPlayersCacheFile = new File(dataDirectory.toFile(), "nonvotedplayerscache.yml");
+			if (yamlnonVotedPlayersCacheFile.exists()) {
+				VelocityYMLFile yamlnonVotedPlayersCache = new VelocityYMLFile(yamlnonVotedPlayersCacheFile);
+				voteCacheFile.setConf(yamlnonVotedPlayersCache.getData());
+				yamlnonVotedPlayersCacheFile.renameTo(new File(dataDirectory.toFile(), "oldnonvotedplayerscache.yml"));
+				VelocityYMLFile oldYamlnonVotedPlayersCache = new VelocityYMLFile(
+						new File(dataDirectory.toFile(), "oldnonvotedplayerscache.yml"));
+				oldYamlnonVotedPlayersCache.setConf(yamlnonVotedPlayersCache.getData());
+				voteCacheFile.save();
+			}
+
+			bungeeTimeChecker.loadTimer();
 
 			try {
 				for (String key : voteCacheFile.getTimedVoteCache()) {
