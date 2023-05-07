@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -998,6 +999,40 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		} else {
 			getData().setString("PrimaryAccount", "");
 		}
+	}
+
+	public int getNextAvailableMileStone() {
+		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
+		ArrayList<Integer> nums = new ArrayList<Integer>();
+		int mileStoneCount = getMilestoneCount();
+		HashMap<String, Boolean> gottenMileStones = getHasGottenMilestone();
+		for (String vote : mVotes) {
+			if (StringParser.getInstance().isInt(vote)) {
+				final int num = Integer.parseInt(vote);
+				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
+					if (gottenMileStones.containsKey("" + num)) {
+						if (!gottenMileStones.get("" + num).booleanValue()) {
+							nums.add(Integer.valueOf(num));
+						}
+					} else {
+						nums.add(Integer.valueOf(num));
+					}
+				}
+			}
+		}
+
+		int lowestNum = -1;
+
+		for (Integer num : nums) {
+			if (mileStoneCount < num.intValue()) {
+				if (lowestNum == -1 || num.intValue() < lowestNum) {
+					lowestNum = num.intValue();
+				}
+			}
+		}
+
+		return lowestNum;
+
 	}
 
 	public void setReminded(boolean reminded) {
