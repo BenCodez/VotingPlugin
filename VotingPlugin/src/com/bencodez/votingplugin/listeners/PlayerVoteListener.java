@@ -224,8 +224,6 @@ public class PlayerVoteListener implements Listener {
 				event.isForceBungee());
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
-		plugin.getPlaceholders().onUpdate(user);
-
 		if (!user.isOnline()) {
 			user.clearCache();
 		}
