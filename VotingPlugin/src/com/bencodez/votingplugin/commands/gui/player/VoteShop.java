@@ -93,7 +93,7 @@ public class VoteShop extends GUIHandler {
 							Player player = event.getWhoClicked();
 
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-							user.clearCache();
+							user.cache();
 
 							String identifier = (String) getData("identifier");
 							int limit = (int) getData("Limit");

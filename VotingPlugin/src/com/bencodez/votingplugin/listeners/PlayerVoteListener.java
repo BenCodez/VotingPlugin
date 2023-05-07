@@ -122,7 +122,6 @@ public class PlayerVoteListener implements Listener {
 		final String uuid = user.getUUID();
 
 		// reupdate cache
-		user.clearCache();
 		user.cache();
 
 		user.updateName(true);

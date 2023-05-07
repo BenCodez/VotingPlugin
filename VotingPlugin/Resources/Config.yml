@@ -680,6 +680,10 @@ AlwaysCloseInventory: false
 # This is to prevent any possible exploits
 CloseInventoryOnVote: true
 
+# This will close GUI's if you shift click them rather than a regular
+# This can help prevent exploits
+CloseGUIOnShiftClick: false
+
 ###########################################
 # Purge settings
 ###########################################

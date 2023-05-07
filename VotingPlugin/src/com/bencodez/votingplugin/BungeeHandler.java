@@ -302,7 +302,7 @@ public class BungeeHandler implements Listener {
 
 						boolean setTotals = Boolean.valueOf(args.get(7));
 
-						user.clearCache();
+						user.cache();
 
 						boolean broadcast = true;
 						boolean bungeeBroadcast = false;
@@ -385,7 +385,7 @@ public class BungeeHandler implements Listener {
 								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
 						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid),
 								player);
-						user.clearCache();
+						user.cache();
 
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
@@ -457,7 +457,7 @@ public class BungeeHandler implements Listener {
 					String player = args.get(0);
 					plugin.debug("pluginmessaging voteupdate received for " + player);
 					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(player));
-					user.clearCache();
+					user.cache();
 
 					user.offVote();
 
@@ -577,7 +577,7 @@ public class BungeeHandler implements Listener {
 							user = UserManager.getInstance().getVotingPluginUser(data[2]);
 						}
 
-						user.clearCache();
+						user.cache();
 
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
@@ -610,7 +610,7 @@ public class BungeeHandler implements Listener {
 							user = UserManager.getInstance().getVotingPluginUser(data[2]);
 						}
 
-						user.clearCache();
+						user.cache();
 
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());

@@ -223,7 +223,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-			user.clearCache();
+			user.cache();
 			user.offVote();
 			user.checkOfflineRewards();
 		}
@@ -1102,7 +1102,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		placeholders = new PlaceHolders(this);
 		getServerData().updatePlaceholders();
 		placeholders.load();
-		
 
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			mvdwPlaceholders = new MVdWPlaceholders(this);
@@ -1393,7 +1392,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
-	
+
 		setUpdate(true);
 	}
 
