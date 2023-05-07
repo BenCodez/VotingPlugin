@@ -258,7 +258,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			LocalDateTime now = plugin.getTimeChecker().getTime();
 			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-					.plusHours(plugin.getOptions().getTimeHourOffSet());
+					.plusHours(plugin.getOptions().getTimeHourOffSet()).plusHours((int) voteSite.getTimeOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
 				double votedelay = voteSite.getVoteDelay();
