@@ -258,7 +258,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			LocalDateTime now = plugin.getTimeChecker().getTime();
 			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-					.plusHours(plugin.getOptions().getTimeHourOffSet()).plusHours((int) voteSite.getTimeOffSet());
+					.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
 				double votedelay = voteSite.getVoteDelay();
@@ -272,10 +272,24 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 				return now.isAfter(nextvote);
 			} else {
-				if (now.getDayOfYear() != lastVote.getDayOfYear() || now.getYear() != lastVote.getYear()) {
-					return true;
+				LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
+						.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
+				LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
+						.plusHours((long) voteSite.getTimeOffSet());
+
+				if (!now.isBefore(offsetoclocktoday)) {
+					if (!lastVote.isBefore(offsetoclocktoday)) {
+						return false;
+					} else {
+						return true;
+					}
+				} else {
+					if (!lastVote.isBefore(offsetoclockyesterday)) {
+						return false;
+					} else {
+						return true;
+					}
 				}
-				return false;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
