@@ -53,6 +53,7 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
@@ -1455,17 +1456,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										.getTopVoterIgnorePermission();
 								ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
 
-								ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+								// ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 								int currentDay = LocalDateTime.now().getDayOfMonth();
 								int currentDataLoad = 0;
-								for (String uuid : uuids) {
+								HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+								for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+									String uuid = playerData.getKey().toString();
 									if (plugin != null && plugin.isEnabled()) {
 										if (uuid != null && !uuid.isEmpty()) {
 											VotingPluginUser user = UserManager.getInstance()
 													.getVotingPluginUser(UUID.fromString(uuid), false);
 											user.dontCache();
-											user.tempCache();
-											user.getUserData().updateCacheWithTemp();
+											user.updateCacheWithColumns(playerData.getValue());
 											if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
 
 												if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
@@ -1521,7 +1524,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								}
 								update = false;
 								long time1 = ((System.currentTimeMillis() - startTime) / 1000);
-								plugin.debug("Finished loading player data in " + time1 + " seconds, " + uuids.size()
+								plugin.debug("Finished loading player data in " + time1 + " seconds, " + cols.size()
 										+ " users, " + plugin.getStorageType().toString() + ", data load limit: "
 										+ dataLoadLimit);
 								time1 = System.currentTimeMillis();
