@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.voteparty;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -186,15 +187,29 @@ public class VoteParty implements Listener {
 				.setServer(useBungee).send(user);
 	}
 
+	public String getRandomPlayerName() {
+		ArrayList<String> allPlayers = new ArrayList<String>();
+		for (Player players : Bukkit.getOnlinePlayers()) {
+			allPlayers.add(players.getName());
+		}
+		if (allPlayers.size() == 0) {
+			return "No Player";
+		}
+		int random = new Random().nextInt(allPlayers.size());
+		return allPlayers.get(random);
+	}
+
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 
+		String player = getRandomPlayerName();
 		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {
 			Bukkit.getScheduler().runTask(plugin, new Runnable() {
 
 				@Override
 				public void run() {
-					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
+					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
+							StringParser.getInstance().replacePlaceHolder(cmd, "randomonlineplayer", player));
 				}
 
 			});
