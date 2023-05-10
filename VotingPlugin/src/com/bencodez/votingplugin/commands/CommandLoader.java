@@ -1684,110 +1684,97 @@ public class CommandLoader {
 
 			@Override
 			public void run() {
-				com.bencodez.advancedcore.thread.Thread.getInstance().run(new Runnable() {
+				loadTabComplete();
 
-					@Override
-					public void run() {
-						loadTabComplete();
+				UserGUI.getInstance().addPluginButton(plugin,
+						new BInventoryButton("Force Vote", new String[] {}, new ItemStack(Material.STONE)) {
 
-						UserGUI.getInstance().addPluginButton(plugin,
-								new BInventoryButton("Force Vote", new String[] {}, new ItemStack(Material.STONE)) {
+							@Override
+							public void onClick(ClickEvent clickEvent) {
+								Player player = clickEvent.getPlayer();
+								ArrayList<String> voteSites = new ArrayList<String>();
+								for (VoteSite voteSite : plugin.getVoteSites()) {
+									voteSites.add(voteSite.getKey());
+								}
+								new ValueRequest().requestString(player, "",
+										ArrayUtils.getInstance().convert(voteSites), true, new StringListener() {
 
-									@Override
-									public void onClick(ClickEvent clickEvent) {
-										Player player = clickEvent.getPlayer();
-										ArrayList<String> voteSites = new ArrayList<String>();
-										for (VoteSite voteSite : plugin.getVoteSites()) {
-											voteSites.add(voteSite.getKey());
-										}
-										new ValueRequest().requestString(player, "",
-												ArrayUtils.getInstance().convert(voteSites), true,
-												new StringListener() {
+											@Override
+											public void onInput(Player player, String value) {
+												PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+														plugin.getVoteSite(value, true),
+														UserGUI.getInstance().getCurrentPlayer(player),
+														plugin.getVoteSiteServiceSite(value), false);
+												plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+												player.sendMessage("Forced vote for "
+														+ UserGUI.getInstance().getCurrentPlayer(player) + " on "
+														+ value);
+											}
+										});
+
+							}
+						});
+
+				UserGUI.getInstance().addPluginButton(plugin,
+						new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
+
+							@Override
+							public void onClick(ClickEvent event) {
+
+								Player player = event.getWhoClicked();
+								String playerName = (String) event.getMeta(player, "Player");
+								BInventory inv = new BInventory("MileStones: " + playerName);
+								for (String mileStoneName : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
+									if (StringParser.getInstance().isInt(mileStoneName)) {
+										int mileStone = Integer.parseInt(mileStoneName);
+
+										inv.addButton(inv.getNextSlot(),
+												new BInventoryButton("" + mileStone, new String[] {
+														"Enabled: " + plugin.getSpecialRewardsConfig()
+																.getMilestoneRewardEnabled(mileStone),
+														"&cClick to set wether this has been completed or not" },
+														new ItemStack(Material.STONE)) {
 
 													@Override
-													public void onInput(Player player, String value) {
-														PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-																plugin.getVoteSite(value, true),
-																UserGUI.getInstance().getCurrentPlayer(player),
-																plugin.getVoteSiteServiceSite(value), false);
-														plugin.getServer().getPluginManager().callEvent(voteEvent);
+													public void onClick(ClickEvent clickEvent) {
+														if (StringParser.getInstance().isInt(clickEvent.getClickedItem()
+																.getItemMeta().getDisplayName())) {
+															Player player = clickEvent.getPlayer();
+															int mileStone = Integer.parseInt(clickEvent.getClickedItem()
+																	.getItemMeta().getDisplayName());
+															String playerName = (String) event.getMeta(player,
+																	"Player");
+															VotingPluginUser user = UserManager.getInstance()
+																	.getVotingPluginUser(playerName);
+															new ValueRequest().requestBoolean(player,
+																	"" + user.hasGottenMilestone(mileStone),
+																	new BooleanListener() {
 
-														player.sendMessage("Forced vote for "
-																+ UserGUI.getInstance().getCurrentPlayer(player)
-																+ " on " + value);
+																		@Override
+																		public void onInput(Player player,
+																				boolean value) {
+																			String playerName = UserGUI.getInstance()
+																					.getCurrentPlayer(player);
+																			VotingPluginUser user = UserManager
+																					.getInstance()
+																					.getVotingPluginUser(playerName);
+																			user.setHasGotteMilestone(mileStone, value);
+																			player.sendMessage(
+																					"Set milestone completetion to "
+																							+ value + " on "
+																							+ mileStone);
+
+																		}
+																	});
+														}
 													}
 												});
-
 									}
-								});
+								}
+							}
+						});
 
-						UserGUI.getInstance().addPluginButton(plugin,
-								new BInventoryButton("MileStones", new String[0], new ItemStack(Material.STONE)) {
-
-									@Override
-									public void onClick(ClickEvent event) {
-
-										Player player = event.getWhoClicked();
-										String playerName = (String) event.getMeta(player, "Player");
-										BInventory inv = new BInventory("MileStones: " + playerName);
-										for (String mileStoneName : plugin.getSpecialRewardsConfig()
-												.getMilestoneVotes()) {
-											if (StringParser.getInstance().isInt(mileStoneName)) {
-												int mileStone = Integer.parseInt(mileStoneName);
-
-												inv.addButton(inv.getNextSlot(),
-														new BInventoryButton("" + mileStone, new String[] {
-																"Enabled: " + plugin.getSpecialRewardsConfig()
-																		.getMilestoneRewardEnabled(mileStone),
-																"&cClick to set wether this has been completed or not" },
-																new ItemStack(Material.STONE)) {
-
-															@Override
-															public void onClick(ClickEvent clickEvent) {
-																if (StringParser.getInstance()
-																		.isInt(clickEvent.getClickedItem().getItemMeta()
-																				.getDisplayName())) {
-																	Player player = clickEvent.getPlayer();
-																	int mileStone = Integer
-																			.parseInt(clickEvent.getClickedItem()
-																					.getItemMeta().getDisplayName());
-																	String playerName = (String) event.getMeta(player,
-																			"Player");
-																	VotingPluginUser user = UserManager.getInstance()
-																			.getVotingPluginUser(playerName);
-																	new ValueRequest().requestBoolean(player,
-																			"" + user.hasGottenMilestone(mileStone),
-																			new BooleanListener() {
-
-																				@Override
-																				public void onInput(Player player,
-																						boolean value) {
-																					String playerName = UserGUI
-																							.getInstance()
-																							.getCurrentPlayer(player);
-																					VotingPluginUser user = UserManager
-																							.getInstance()
-																							.getVotingPluginUser(
-																									playerName);
-																					user.setHasGotteMilestone(mileStone,
-																							value);
-																					player.sendMessage(
-																							"Set milestone completetion to "
-																									+ value + " on "
-																									+ mileStone);
-
-																				}
-																			});
-																}
-															}
-														});
-											}
-										}
-									}
-								});
-
-					}
-				});
 			}
 
 		});
