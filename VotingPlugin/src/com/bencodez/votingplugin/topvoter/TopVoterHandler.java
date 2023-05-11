@@ -186,15 +186,6 @@ public class TopVoterHandler implements Listener {
 				}
 			}
 
-			if (!plugin.getBungeeSettings().isGloblalDataEnabled() && plugin.getBungeeSettings().isUseBungeecoord()) {
-				// give time for other servers to catch up
-				try {
-					Thread.sleep(30000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-
 			// give time for other servers to catch up
 			if (!plugin.getTopVoterHandler().bungeeHandleResets()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
