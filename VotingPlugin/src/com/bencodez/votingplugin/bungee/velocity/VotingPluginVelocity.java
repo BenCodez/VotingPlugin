@@ -612,7 +612,8 @@ public class VotingPluginVelocity {
 			e.printStackTrace();
 		}
 
-		bungeeTimeChecker = new BungeeTimeChecker(config.getNode("TimeHourOffSet").getInt()) {
+		bungeeTimeChecker = new BungeeTimeChecker(config.getNode("TimeZone").getString(""),
+				config.getNode("TimeHourOffSet").getInt()) {
 
 			@Override
 			public void warning(String text) {

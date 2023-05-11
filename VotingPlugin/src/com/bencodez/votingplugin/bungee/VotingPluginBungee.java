@@ -572,7 +572,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
 
-		bungeeTimeChecker = new BungeeTimeChecker(config.getData().getInt("TimeHourOffSet")) {
+		bungeeTimeChecker = new BungeeTimeChecker(config.getData().getString("TimeZone", ""),
+				config.getData().getInt("TimeHourOffSet")) {
 
 			@Override
 			public void warning(String text) {
@@ -591,7 +592,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						try {
 							lastOnline = Long.valueOf(lastOnlineStr);
 						} catch (NumberFormatException e) {
-							//e.printStackTrace();
+							// e.printStackTrace();
 						}
 
 						if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastOnline < 1000

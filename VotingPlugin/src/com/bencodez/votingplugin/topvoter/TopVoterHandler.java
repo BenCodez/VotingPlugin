@@ -26,6 +26,7 @@ import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -113,7 +114,6 @@ public class TopVoterHandler implements Listener {
 		if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 			plugin.getMysql().clearCacheBasic();
 		}
-		plugin.getUserManager().getDataManager().clearCache();
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -127,11 +127,11 @@ public class TopVoterHandler implements Listener {
 
 			plugin.getUserManager().copyColumnData(TopVoter.Daily.getColumnName(), TopVoter.Daily.getLastColumnName());
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
-					user.tempCache();
-					user.getUserData().updateCacheWithTemp();
+					user.updateCacheWithColumns(playerData.getValue());
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
 						if (!user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1))) {
 							if (user.getDayVoteStreak() != 0) {
@@ -211,7 +211,6 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
 			}
-			plugin.getUserManager().getDataManager().clearCache();
 
 			long now = ((System.currentTimeMillis() - startTime) / 1000);
 			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
@@ -229,11 +228,11 @@ public class TopVoterHandler implements Listener {
 						TopVoter.Monthly.getLastColumnName());
 			}
 			if (plugin.getConfigFile().isUseHighestTotals() || plugin.getConfigFile().isUseVoteStreaks()) {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
-					user.tempCache();
-					user.getUserData().updateCacheWithTemp();
+					user.updateCacheWithColumns(playerData.getValue());
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
 						if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
 							user.setMonthVoteStreak(0);
@@ -285,7 +284,6 @@ public class TopVoterHandler implements Listener {
 							VotingPluginUser user = entry.getKey().getUser();
 							user.dontCache();
 							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-
 								user.giveMonthlyTopVoterAward(i, places.get(i));
 							}
 						}
@@ -324,7 +322,6 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
 			}
-			plugin.getUserManager().getDataManager().clearCache();
 			long now = ((System.currentTimeMillis() - startTime) / 1000);
 			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
 		}
@@ -348,11 +345,11 @@ public class TopVoterHandler implements Listener {
 			plugin.getUserManager().copyColumnData(TopVoter.Weekly.getColumnName(),
 					TopVoter.Weekly.getLastColumnName());
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
-				for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid), false);
+				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
-					user.tempCache();
-					user.getUserData().updateCacheWithTemp();
+					user.updateCacheWithColumns(playerData.getValue());
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
 						if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
 							user.setWeekVoteStreak(0);
@@ -430,7 +427,6 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				plugin.getMysql().clearCacheBasic();
 			}
-			plugin.getUserManager().getDataManager().clearCache();
 
 			long now = ((System.currentTimeMillis() - startTime) / 1000);
 			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
