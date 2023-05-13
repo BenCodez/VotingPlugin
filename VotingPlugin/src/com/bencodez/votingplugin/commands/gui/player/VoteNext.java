@@ -89,9 +89,15 @@ public class VoteNext extends GUIHandler {
 		inv.addPlaceholder("player", user.getPlayerName());
 		for (VoteSite site : plugin.getVoteSites()) {
 			if (!site.isHidden()) {
+				String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
+				if (siteNameDisplay.isEmpty()) {
+					siteNameDisplay = site.getDisplayName();
+				}
 				inv.addButton(inv.getNextSlot(),
-						new UpdatingBInventoryButton(plugin, site.getItem().setName(site.getDisplayName())
-								.setLore(user.voteCommandNextInfo(site)).setAmountNone(1), 1000, 1000) {
+						new UpdatingBInventoryButton(plugin, site.getItem().setName(siteNameDisplay)
+								.setLore(StringParser.getInstance().replacePlaceHolder(
+										plugin.getGui().getChestVoteNextLine(), "time", user.voteCommandNextInfo(site)))
+								.setAmountNone(1), 1000, 1000) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {

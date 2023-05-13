@@ -143,6 +143,10 @@ CHEST:
   VoteNext:
     Name: 'VoteNext: %player%'
     BackButton: true
+    # Extra customization for displaying site names in GUI only
+    #CustomSiteNamesDisplays:
+    #  Site1: site name display
+    LoreLine: '%time%'
   VoteToday:
     Name: 'VoteToday'
     Line: '&6%VoteSite% : %Time%'

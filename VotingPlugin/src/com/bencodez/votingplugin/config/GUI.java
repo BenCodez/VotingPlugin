@@ -301,6 +301,14 @@ public class GUI extends YMLFile {
 	public String getChestVoteNextName() {
 		return getData().getString("CHEST.VoteNext.Name", "VoteNext: %player%");
 	}
+	
+	public String getChestVoteNextLine() {
+		return getData().getString("CHEST.VoteNext.Line", "%time%");
+	}
+	
+	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
+		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
+	}
 
 	public String getChestVoteRewardName() {
 		return getData().getString("CHEST.VoteRewardName", "VoteReward");
