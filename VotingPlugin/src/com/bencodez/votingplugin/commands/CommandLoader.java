@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.commands;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -30,7 +31,7 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
-import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
@@ -297,12 +298,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
-						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance()
-									.getVotingPluginUser(UUID.fromString(uuid));
-							user.dontCache();
-							user.setMilestoneCount(user.getTotal(TopVoter.AllTime));
-						}
+						plugin.getUserManager().copyColumnData(TopVoter.AllTime.getColumnName(), "MilestoneCount");
 						sendMessage(sender, "&cFinished sync milestonecount with all time total");
 
 					}
@@ -337,31 +333,40 @@ public class CommandLoader {
 								plugin.getLogger().warning("Failed to get number from " + str);
 							}
 						}
-						for (String uuid : UserManager.getInstance().getAllUUIDs()) {
-							VotingPluginUser user = UserManager.getInstance()
-									.getVotingPluginUser(UUID.fromString(uuid));
-							user.dontCache();
-							int milestoneCount = user.getMilestoneCount();
-							for (int num : nums) {
-								if (milestoneCount >= num) {
-									if (!user.hasGottenMilestone(num)) {
-										sendMessage(sender,
-												"&cMilestone " + num + " for " + user.getPlayerName()
+						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+						for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+							String uuid = playerData.getKey().toString();
+							if (plugin != null && plugin.isEnabled()) {
+								if (uuid != null && !uuid.isEmpty()) {
+									VotingPluginUser user = UserManager.getInstance()
+											.getVotingPluginUser(UUID.fromString(uuid));
+									user.dontCache();
+									user.updateTempCacheWithColumns(playerData.getValue());
+									int milestoneCount = user.getMilestoneCount();
+									for (int num : nums) {
+										if (milestoneCount >= num) {
+											if (!user.hasGottenMilestone(num)) {
+												sendMessage(sender, "&cMilestone " + num + " for "
+														+ user.getPlayerName()
 														+ " not already given when it should be, Current AllTimeTotal: "
 														+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
 														+ user.getMilestoneCount());
-										user.setHasGotteMilestone(num, true);
-									}
-								} else {
-									if (user.hasGottenMilestone(num)) {
-										sendMessage(sender,
-												"&cMilestone " + num + " for " + user.getPlayerName()
+												user.setHasGotteMilestone(num, true);
+											}
+										} else {
+											if (user.hasGottenMilestone(num)) {
+												sendMessage(sender, "&cMilestone " + num + " for "
+														+ user.getPlayerName()
 														+ " already given when it shouldn't be, Current AllTimeTotal: "
 														+ user.getTotal(TopVoter.AllTime) + ", Current MileStoneCount: "
 														+ user.getMilestoneCount());
-										user.setHasGotteMilestone(num, false);
-									}
+												user.setHasGotteMilestone(num, false);
+											}
 
+										}
+									}
+									user.clearTempCache();
 								}
 							}
 						}
@@ -2245,47 +2250,33 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				ArrayList<String> msg = new ArrayList<String>();
 
-				ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
-
 				int daily = 0;
 				int weekly = 0;
 				int month = 0;
 				int all = 0;
 
-				if (plugin.getOptions().getStorageType().equals(UserStorage.MYSQL)) {
-					for (TopVoter top : TopVoter.values()) {
-						int cTotal = 0;
-						ArrayList<Integer> nums = plugin.getMysql().getNumbersInColumn(top.getColumnName());
-						for (Integer num : nums) {
-							cTotal += num.intValue();
-						}
-						switch (top) {
-						case AllTime:
-							all = cTotal;
-							break;
-						case Daily:
-							daily = cTotal;
-							break;
-						case Monthly:
-							month = cTotal;
-							break;
-						case Weekly:
-							weekly = cTotal;
-							break;
-						default:
-							break;
-
-						}
+				for (TopVoter top : TopVoter.values()) {
+					int cTotal = 0;
+					ArrayList<Integer> nums = plugin.getUserManager().getNumbersInColumn(top.getColumnName());
+					for (Integer num : nums) {
+						cTotal += num.intValue();
 					}
-				} else {
+					switch (top) {
+					case AllTime:
+						all = cTotal;
+						break;
+					case Daily:
+						daily = cTotal;
+						break;
+					case Monthly:
+						month = cTotal;
+						break;
+					case Weekly:
+						weekly = cTotal;
+						break;
+					default:
+						break;
 
-					for (String uuid : uuids) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
-						user.dontCache();
-						daily += user.getTotal(TopVoter.Daily);
-						weekly += user.getTotal(TopVoter.Weekly);
-						month += user.getTotal(TopVoter.Monthly);
-						all += user.getTotal(TopVoter.AllTime);
 					}
 				}
 
