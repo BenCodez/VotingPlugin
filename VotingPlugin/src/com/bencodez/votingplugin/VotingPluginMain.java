@@ -1419,6 +1419,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		plugin.debug("Loaded Files");
 	}
+	
+	@Getter
+	private long lastBackgroundTaskTimeTaken = 0;
 
 	public void update() {
 		if (update || configFile.isAlwaysUpdate()) {
@@ -1434,7 +1437,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							plugin.debug("Starting background task, current cached users: "
 									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 
-							int dataLoadLimit = getConfigFile().getPlayerDataLoadLimit();
 							try {
 								boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
 								long startTime = System.currentTimeMillis();
@@ -1458,7 +1460,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 								// ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
 								int currentDay = LocalDateTime.now().getDayOfMonth();
-								int currentDataLoad = 0;
 								HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 								for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
@@ -1510,13 +1511,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 											}
 											user.clearTempCache();
 											user = null;
-											if (dataLoadLimit > 0) {
-												currentDataLoad++;
-												if (currentDataLoad >= dataLoadLimit) {
-													currentDataLoad -= dataLoadLimit;
-													Thread.sleep(1000);
-												}
-											}
 										}
 									} else {
 										return;
@@ -1525,8 +1519,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								update = false;
 								long time1 = ((System.currentTimeMillis() - startTime) / 1000);
 								plugin.debug("Finished loading player data in " + time1 + " seconds, " + cols.size()
-										+ " users, " + plugin.getStorageType().toString() + ", data load limit: "
-										+ dataLoadLimit);
+										+ " users, " + plugin.getStorageType().toString());
 								time1 = System.currentTimeMillis();
 
 								topVoterHandler.updateTopVoters(tempTopVoter);
@@ -1543,6 +1536,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
 								plugin.debug("Background task finished. Final processing took " + time1
 										+ " seconds. Total time: " + totalTime + " seconds");
+								lastBackgroundTaskTimeTaken = totalTime;
 								plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 								plugin.extraDebug("Current cached users: "
 										+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());

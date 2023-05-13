@@ -351,6 +351,14 @@ public class VotingPluginMetrics {
 			}
 		}));
 
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("background_task_time_taken", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return "" + plugin.getLastBackgroundTaskTimeTaken();
+			}
+		}));
+
 		if (!plugin.getBuildNumber().equals("NOTSET")) {
 			metrics.addCustomChart(new BStatsMetrics.SimplePie("dev_build_number", new Callable<String>() {
 

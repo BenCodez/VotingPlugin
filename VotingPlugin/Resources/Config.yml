@@ -646,11 +646,6 @@ DelayBetweenUpdates: 3
 # Recommend leaving this to false
 ExtraBackgroundUpdate: false
 
-# Limit number of users to load in a second
-# Effects background tasks mainly
-# set to -1 to disable (default value)
-#PlayerDataLoadLimit: 500
-
 ##########################################
 # Inventory controls
 ##########################################
