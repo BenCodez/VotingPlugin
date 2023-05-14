@@ -92,6 +92,7 @@ public class VoteTester {
 						}
 						user.setMilestoneCount(random.nextInt(100));
 						user.setPlayerName(playerName);
+						user.updateName(true);
 						num++;
 						plugin.debug("Generated user " + uuid.toString() + "/" + playerName);
 					}
