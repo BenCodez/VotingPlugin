@@ -1474,6 +1474,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 													.getVotingPluginUser(UUID.fromString(uuid), false);
 											user.dontCache();
 											user.updateTempCacheWithColumns(playerData.getValue());
+											cols.put(playerData.getKey(), null);
 											if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
 
 												if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
@@ -1520,6 +1521,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										return;
 									}
 								}
+								cols.clear();
+								cols = null;
 
 								topVoterHandler.updateTopVoters(tempTopVoter);
 								placeholders.onUpdate();
@@ -1539,9 +1542,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 								time1 = ((System.currentTimeMillis() - time1) / 1000);
 								long totalTime = ((System.currentTimeMillis() - startTime) / 1000);
+								lastBackgroundTaskTimeTaken = totalTime;
 								plugin.debug("Background task finished. Final processing took " + time1
 										+ " seconds. Total time: " + totalTime + " seconds");
-								lastBackgroundTaskTimeTaken = totalTime;
 
 							} catch (Exception ex) {
 								if (plugin != null) {

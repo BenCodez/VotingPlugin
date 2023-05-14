@@ -343,6 +343,7 @@ public class CommandLoader {
 											.getVotingPluginUser(UUID.fromString(uuid));
 									user.dontCache();
 									user.updateTempCacheWithColumns(playerData.getValue());
+									cols.put(playerData.getKey(), null);
 									int milestoneCount = user.getMilestoneCount();
 									for (int num : nums) {
 										if (milestoneCount >= num) {
@@ -370,6 +371,8 @@ public class CommandLoader {
 								}
 							}
 						}
+						cols.clear();
+						cols = null;
 						sendMessage(sender, "&cFinished");
 
 					}

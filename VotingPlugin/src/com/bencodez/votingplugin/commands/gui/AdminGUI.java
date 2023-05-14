@@ -184,15 +184,6 @@ public class AdminGUI {
 
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.STONE, 1).setName("&cLast background task time taken")
-				.addLoreLine("Time: " + plugin.getLastBackgroundTaskTimeTaken())) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-
-			}
-
-		});
 		return buttons;
 	}
 
