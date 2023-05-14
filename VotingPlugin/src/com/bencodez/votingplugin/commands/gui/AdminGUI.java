@@ -184,6 +184,16 @@ public class AdminGUI {
 
 		});
 
+		buttons.add(new BInventoryButton(
+				new ItemBuilder(Material.STONE, 1).setName("&cBackground task time").addLoreLine("&aClick to see")) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				event.getPlayer().sendMessage("Last background task time: " + plugin.getLastBackgroundTaskTimeTaken());
+			}
+
+		});
+
 		return buttons;
 	}
 

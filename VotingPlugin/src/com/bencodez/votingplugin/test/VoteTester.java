@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.test;
 
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 
@@ -8,18 +10,17 @@ import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTester {
 
-	private static VoteTester instance = new VoteTester();
-
-	public static VoteTester getInstance() {
-		return instance;
+	public VoteTester(VotingPluginMain plugin) {
+		this.plugin = plugin;
 	}
 
-	private VotingPluginMain plugin = VotingPluginMain.plugin;
+	private VotingPluginMain plugin;
 
 	public void testRewards(int amount, String name, String rewardName) {
 		plugin.getVoteTimer().submit(new Runnable() {
@@ -57,6 +58,46 @@ public class VoteTester {
 
 		});
 
+	}
+
+	private String getSaltString() {
+		String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+		StringBuilder salt = new StringBuilder();
+		Random rnd = new Random();
+		while (salt.length() < 18) { // length of the random string.
+			int index = (int) (rnd.nextFloat() * SALTCHARS.length());
+			salt.append(SALTCHARS.charAt(index));
+		}
+		String saltStr = salt.toString();
+		return saltStr;
+
+	}
+
+	public void generatePlayers(int numberOfPlayers) {
+		if (plugin.getOptions().getDebug().isDebug()) {
+			int num = 1;
+			String salt = getSaltString();
+			Random random = new Random();
+			for (int i = 0; i < numberOfPlayers; i++) {
+				UUID uuid = UUID.randomUUID();
+				if (!plugin.getUserManager().userExist(uuid)) {
+					String playerName = salt + num;
+					if (!plugin.getUserManager().userExist(playerName)) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid,
+								playerName);
+						user.dontCache();
+						user.setPoints(random.nextInt(100));
+						for (TopVoter top : TopVoter.values()) {
+							user.setTotal(top, random.nextInt(1000));
+						}
+						user.setMilestoneCount(random.nextInt(100));
+						user.setPlayerName(playerName);
+						num++;
+						plugin.debug("Generated user " + uuid.toString() + "/" + playerName);
+					}
+				}
+			}
+		}
 	}
 
 	public void testVotes(int amount, String name, String site) {

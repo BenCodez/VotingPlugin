@@ -66,7 +66,6 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -1308,7 +1307,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VoteTester.getInstance().testVotes(Integer.parseInt(args[3]), args[1], args[2]);
+						plugin.getVoteTester().testVotes(Integer.parseInt(args[3]), args[1], args[2]);
 						if (isPlayer(sender)) {
 							sendMessage(sender, "&cSee console for details");
 						}
@@ -1321,7 +1320,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VoteTester.getInstance().testSpam(Integer.parseInt(args[3]), args[1], args[2]);
+						plugin.getVoteTester().testSpam(Integer.parseInt(args[3]), args[1], args[2]);
 						if (isPlayer(sender)) {
 							sendMessage(sender, "&cSee console for details");
 						}
@@ -1334,7 +1333,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VoteTester.getInstance().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
+						plugin.getVoteTester().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
 						if (isPlayer(sender)) {
 							sendMessage(sender, "&cSee console for details");
 						}

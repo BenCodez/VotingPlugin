@@ -82,6 +82,7 @@ import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
+import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
@@ -145,6 +146,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private PlaceHolders placeholders;
+	
+	@Getter
+	private VoteTester voteTester;
 
 	@Getter
 	private String profile = "";
@@ -1013,6 +1017,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onPostLoad() {
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
+		
+		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
 
