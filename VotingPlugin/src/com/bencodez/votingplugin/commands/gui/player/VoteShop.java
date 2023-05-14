@@ -145,6 +145,9 @@ public class VoteShop extends GUIHandler {
 									user.sendMessage(plugin.getGui().getChestVoteShopLimitReached());
 								}
 								plugin.getCommandLoader().processSlotClick(player, user, identifier);
+								if (plugin.getGui().getChestVoteShopReopenGUIOnPurchase()) {
+									plugin.getCommandLoader().processSlotClick(player, user, "shop");
+								}
 							}
 						}
 

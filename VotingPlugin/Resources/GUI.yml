@@ -309,6 +309,8 @@ CHEST:
   VoteShopLimitReached: '&aYou reached your limit'
   VoteShopRequireConfirmation: false
   VoteShopDisabled: '&cVote shop disabled'
+  # If true, shop gui will reopen, updating all placeholders
+  VoteShopReopenGUIOnPurchase: false
   # VoteShop extra items for display only
   #VoteShopExtraItems:
     #Item:
