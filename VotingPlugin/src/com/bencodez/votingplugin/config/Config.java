@@ -65,6 +65,12 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AlwaysCloseInventory")
 	@Getter
 	private boolean alwaysCloseInventory = false;
+	
+	@ConfigDataBoolean(path = "ExtraVoteShopCheck")
+	@Getter
+	private boolean extraVoteShopCheck = true;
+	
+	
 
 	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
