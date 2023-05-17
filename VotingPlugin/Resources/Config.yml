@@ -696,8 +696,6 @@ PurgeMin: 90
 
 # If enabled, data is repulled from storage on vote shop purchase
 # This prevents possible exploits with vote shop
-# If disabled, an extra check will happen in the background on GUI opening
-# but if values differ the GUI will show out of date values
 ExtraVoteShopCheck: true
 
 # Options for request api
