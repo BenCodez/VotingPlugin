@@ -55,9 +55,9 @@ public class VoteShop extends GUIHandler {
 			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		}
 		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
-		/*if (!plugin.getConfigFile().isExtraVoteShopCheck()) {
-			user.cacheAsync();
-		}*/
+		/*
+		 * if (!plugin.getConfigFile().isExtraVoteShopCheck()) { user.cacheAsync(); }
+		 */
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteShopName());
 		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
@@ -127,7 +127,9 @@ public class VoteShop extends GUIHandler {
 										if (user.removePoints(points)) {
 											plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/"
 													+ user.getUUID() + " bought " + identifier + " for " + points);
-											plugin.getServerData().addVoteShopPurchase(identifier);
+											if (plugin.getConfigFile().isTrackShopPurchases()) {
+												plugin.getServerData().addVoteShopPurchase(identifier);
+											}
 
 											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
