@@ -50,6 +50,19 @@ public class ServerData {
 		}
 	}
 
+	public void addVoteShopPurchase(String ident) {
+		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
+	}
+
+	public void setVoteShopPurchases(String ident, int amount) {
+		getData().set("VoteShopPurchases." + ident, amount);
+		saveData();
+	}
+
+	public int getVoteShopPurchases(String ident) {
+		return getData().getInt("VoteShopPurchases." + ident);
+	}
+
 	public void setAutoCachedPlaceholder(List<String> placeholders) {
 		getData().set("AutoCachePlaceholders", placeholders);
 		saveData();
