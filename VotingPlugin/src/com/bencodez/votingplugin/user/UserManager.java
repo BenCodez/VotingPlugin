@@ -7,6 +7,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -31,10 +32,10 @@ public class UserManager {
 
 	public void addCachingKeys() {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
-		manager.addKey(new UserDataKeyString("TopVoterIgnore").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyBoolean("TopVoterIgnore"));
 		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
 		manager.addKey(new UserDataKeyString("LastVotes"));
-		manager.addKey(new UserDataKeyString("CoolDownCheck").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyBoolean("CoolDownCheck"));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
 		manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
@@ -46,8 +47,8 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("BestDayVoteStreak"));
 		manager.addKey(new UserDataKeyString("DayVoteStreakLastUpdate").setColumnType("MEDIUMTEXT"));
 		manager.addKey(new UserDataKeyString("GottenMileStones").setColumnType("LONGTEXT"));
-		manager.addKey(new UserDataKeyString("Reminded").setColumnType("VARCHAR(5)"));
-		manager.addKey(new UserDataKeyString("DisableBroadcast").setColumnType("VARCHAR(5)"));
+		manager.addKey(new UserDataKeyBoolean("Reminded"));
+		manager.addKey(new UserDataKeyBoolean("DisableBroadcast"));
 		manager.addKey(new UserDataKeyInt("WeekVoteStreak"));
 		manager.addKey(new UserDataKeyInt("BestWeekVoteStreak"));
 		manager.addKey(new UserDataKeyInt("MonthVoteStreak"));
