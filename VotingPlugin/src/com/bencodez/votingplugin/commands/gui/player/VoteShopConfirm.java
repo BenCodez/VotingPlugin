@@ -60,7 +60,7 @@ public class VoteShopConfirm extends GUIHandler {
 				placeholders.put("identifier", identifier);
 				placeholders.put("points", "" + points);
 				placeholders.put("limit", "" + limit);
-				if (user.removePoints(points)) {
+				if (user.removePoints(points, true)) {
 					plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 							+ identifier + " for " + points);
 					if (plugin.getConfigFile().isTrackShopPurchases()) {

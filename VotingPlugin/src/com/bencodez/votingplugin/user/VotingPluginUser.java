@@ -833,6 +833,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return false;
 	}
 
+	public boolean removePoints(int points, boolean async) {
+		if (getPoints() >= points) {
+			setPoints(getPoints() - points, async);
+			return true;
+		}
+		return false;
+	}
+
 	public void resetTotals(TopVoter topVoter) {
 		setTotal(topVoter, 0);
 	}
@@ -1005,6 +1013,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPoints(int value) {
 		getUserData().setInt(getPointsPath(), value, false);
+	}
+
+	public void setPoints(int value, boolean async) {
+		getUserData().setInt(getPointsPath(), value, false, async);
 	}
 
 	public void setPrimaryAccount(java.util.UUID uuid) {
