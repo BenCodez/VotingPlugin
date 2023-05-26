@@ -245,6 +245,13 @@ Format:
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
       
+      GivePoints:
+        NotEnoughPoints: '&cNot enough points'
+        NotJoinedServer: '&c%player% has not joined the server'
+        NumberLowerThanZero: '&cNumber of points needs to be greater than 0'
+        TransferFrom: '&c%transfer% points given to %touser%'
+        TransferTo: '&cYou received %transfer% points from %fromuser%'
+      
       ToggleBroadcasts:
         Enabled: '&cYou will now see vote broadcasts'
         Disabled: '&cYou will no longer see vote broadcasts'

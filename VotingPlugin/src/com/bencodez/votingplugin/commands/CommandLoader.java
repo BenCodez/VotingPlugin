@@ -2384,18 +2384,31 @@ public class CommandLoader {
 								if (cPlayer.getPoints() >= pointsToGive) {
 									user.addPoints(pointsToGive);
 									cPlayer.removePoints(pointsToGive);
+									HashMap<String, String> placeholders = new HashMap<String, String>();
+									placeholders.put("transfer", "" + pointsToGive);
+									placeholders.put("touser", "" + user.getPlayerName());
+									placeholders.put("fromuser", "" + cPlayer.getPlayerName());
 									sendMessage(sender,
-											"&c" + pointsToGive + " points given to " + user.getPlayerName());
-									user.sendMessage("&cYou received " + pointsToGive + " points from "
-											+ cPlayer.getPlayerName());
+											StringParser.getInstance().replacePlaceHolder(
+													plugin.getConfigFile()
+															.getFormatCommandsVoteGivePointsTransferFrom(),
+													placeholders));
+									user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+											plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
+											placeholders));
 								} else {
-									sendMessage(sender, "&cNot enough points");
+									sendMessage(sender,
+											plugin.getConfigFile().getFormatCommandsVoteGivePointsNotEnoughPoints());
 								}
 							} else {
-								sendMessage(sender, "&cNumber of points needs to be greater than 0");
+								sendMessage(sender,
+										plugin.getConfigFile().getFormatCommandsVoteGivePointsNumberLowerThanZero());
 							}
 						} else {
-							sendMessage(sender, "&c" + args[1] + " has not joined the server");
+							sendMessage(sender,
+									StringParser.getInstance().replacePlaceHolder(
+											plugin.getConfigFile().getFormatCommandsVoteGivePointsNotJoinedServer(),
+											"player", args[1]));
 						}
 					}
 				}

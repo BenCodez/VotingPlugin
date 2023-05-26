@@ -166,6 +166,26 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteLastLastVoted = "%times% ago";
 
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.NotEnoughPoints")
+	@Getter
+	private String formatCommandsVoteGivePointsNotEnoughPoints = "&cNot enough points";
+
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.NotJoinedServer")
+	@Getter
+	private String formatCommandsVoteGivePointsNotJoinedServer = "&c%player% has not joined the server";
+
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.NumberLowerThanZero")
+	@Getter
+	private String formatCommandsVoteGivePointsNumberLowerThanZero = "&cNumber of points needs to be greater than 0";
+
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.TransferFrom")
+	@Getter
+	private String formatCommandsVoteGivePointsTransferFrom = "&c%transfer% points given to %touser%";
+
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.TransferTo")
+	@Getter
+	private String formatCommandsVoteGivePointsTransferTo = "&cYou received %transfer points from %fromuser%";
+
 	@ConfigDataString(path = "Format.Commands.Vote.Last.Line", defaultValue = "&3%SiteName%: &6%timeSince% ago")
 	@Getter
 	private String formatCommandsVoteLastLine;
