@@ -245,6 +245,9 @@ Format:
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
       
+      # /vote givepoints command
+      # Transfer between players command
+      # Enable command below
       GivePoints:
         NotEnoughPoints: '&cNot enough points'
         NotJoinedServer: '&c%player% has not joined the server'
