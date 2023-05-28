@@ -2378,7 +2378,9 @@ public class CommandLoader {
 
 						if (plugin.getUserManager().userExist(args[1])) {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-							user.dontCache();
+							if (!user.isOnline()) {
+								user.dontCache();
+							}
 							int pointsToGive = Integer.parseInt(args[2]);
 							if (pointsToGive > 0) {
 								if (cPlayer.getPoints() >= pointsToGive) {
