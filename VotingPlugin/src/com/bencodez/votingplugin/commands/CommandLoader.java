@@ -1967,7 +1967,9 @@ public class CommandLoader {
 
 						if (!plugin.getGui().getChestVoteShopNotBuyable(identifier)) {
 							if (hasPerm) {
-								user.cache();
+								if (plugin.getConfigFile().isExtraVoteShopCheck()) {
+									user.cache();
+								}
 								int points = plugin.getGui().getChestShopIdentifierCost(identifier);
 								if (identifier != null) {
 
@@ -1976,7 +1978,7 @@ public class CommandLoader {
 										placeholders.put("identifier", identifier);
 										placeholders.put("points", "" + points);
 										placeholders.put("limit", "" + limit);
-										if (user.removePoints(points)) {
+										if (user.removePoints(points, true)) {
 
 											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
