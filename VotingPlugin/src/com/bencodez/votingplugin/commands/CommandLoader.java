@@ -37,6 +37,7 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.command.gui.UserGUI;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
@@ -595,6 +596,7 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Reload" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, will not reload user storage") {
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
@@ -622,6 +624,7 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ReloadAll" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, including user storage") {
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
@@ -653,7 +656,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					Player player = (Player) sender;
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+					BukkitScheduler.runTask(plugin, new Runnable() {
 
 						@Override
 						public void run() {
@@ -662,7 +665,7 @@ public class CommandLoader {
 					});
 
 				} else {
-					Bukkit.getScheduler().runTask(plugin, new Runnable() {
+					BukkitScheduler.runTask(plugin, new Runnable() {
 
 						@Override
 						public void run() {
@@ -1200,8 +1203,9 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+				BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
 
+					@SuppressWarnings("deprecation")
 					@Override
 					public void run() {
 						sender.sendMessage(StringParser.getInstance().colorize("&cChecking for update..."));
@@ -1687,7 +1691,7 @@ public class CommandLoader {
 	public void loadCommands() {
 		loadAdminVoteCommand();
 		loadVoteCommand();
-		Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -1743,6 +1747,7 @@ public class CommandLoader {
 														"&cClick to set wether this has been completed or not" },
 														new ItemStack(Material.STONE)) {
 
+													@SuppressWarnings("deprecation")
 													@Override
 													public void onClick(ClickEvent clickEvent) {
 														if (StringParser.getInstance().isInt(clickEvent.getClickedItem()
@@ -2461,7 +2466,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, section.getString("Message", ""));
 						for (String str : (ArrayList<String>) section.getList("Commands", new ArrayList<String>())) {
-							Bukkit.getScheduler().runTask(plugin, new Runnable() {
+							BukkitScheduler.runTask(plugin, new Runnable() {
 
 								@Override
 								public void run() {

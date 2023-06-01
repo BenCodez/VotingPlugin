@@ -30,6 +30,7 @@ public class VotingPluginUpdateEvent implements Listener {
 	 *
 	 * @param event the event
 	 */
+	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPluginUpdate(PluginUpdateVersionEvent event) {
 		if (event.getPlugin().getName().equals(plugin.getDescription().getName())) {

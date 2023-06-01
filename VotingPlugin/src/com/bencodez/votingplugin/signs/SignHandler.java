@@ -2,7 +2,6 @@ package com.bencodez.votingplugin.signs;
 
 import java.util.ArrayList;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -14,6 +13,7 @@ import org.bukkit.block.data.Directional;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -111,7 +111,7 @@ public class SignHandler {
 	 * Check valid sign.
 	 */
 	public void checkValidSign() {
-		Bukkit.getScheduler().runTask(plugin, new Runnable() {
+		BukkitScheduler.runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -121,7 +121,7 @@ public class SignHandler {
 					setValid(false);
 				}
 			}
-		});
+		}, getLocation());
 
 	}
 
@@ -240,8 +240,9 @@ public class SignHandler {
 	 * @param delay the delay
 	 */
 	public void updateSign(int delay) {
-		Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+		BukkitScheduler.runTaskLater(plugin, new Runnable() {
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				try {
@@ -261,7 +262,7 @@ public class SignHandler {
 					VotingPluginMain.plugin.debug(ex);
 				}
 			}
-		}, delay);
+		}, delay, getLocation());
 	}
 
 	public void updateSkulls(Location loc1, Location loc2) {

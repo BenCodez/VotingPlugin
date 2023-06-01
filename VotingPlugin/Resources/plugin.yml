@@ -20,6 +20,7 @@ softdepend:
 loadbefore:
 - MCPerks
 api-version: 1.13
+folia-supported: true
 libraries:
 - org.openjdk.nashorn:nashorn-core:15.3
 commands:

@@ -28,6 +28,7 @@ import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
@@ -523,7 +524,7 @@ public class BungeeHandler implements Listener {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
 					for (final String cmd : plugin.getBungeeSettings().getBungeeVotePartyGlobalCommands()) {
-						Bukkit.getScheduler().runTask(plugin, new Runnable() {
+						BukkitScheduler.runTask(plugin, new Runnable() {
 
 							@Override
 							public void run() {

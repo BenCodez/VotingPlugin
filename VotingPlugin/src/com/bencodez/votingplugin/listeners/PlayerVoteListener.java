@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -208,7 +209,7 @@ public class PlayerVoteListener implements Listener {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
 
-				Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+				BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
 
 					@Override
 					public void run() {

@@ -3,9 +3,8 @@ package com.bencodez.votingplugin.updater;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.bukkit.Bukkit;
-
 import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -23,6 +22,7 @@ public class CheckUpdate {
 	/**
 	 * Check update.
 	 */
+	@SuppressWarnings("deprecation")
 	public void checkUpdate() {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;
@@ -49,6 +49,7 @@ public class CheckUpdate {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	public void checkUpdateBasic() {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;
@@ -74,7 +75,7 @@ public class CheckUpdate {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;
 		}
-		Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+		BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
