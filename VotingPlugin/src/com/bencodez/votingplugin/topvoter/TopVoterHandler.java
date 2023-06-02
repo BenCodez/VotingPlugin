@@ -186,6 +186,8 @@ public class TopVoterHandler implements Listener {
 							user.dontCache();
 							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveDailyTopVoterAward(i, places.get(i));
+								plugin.getLogger().info("Giving daily top voter reward " + i + " to "
+										+ entry.getKey().getPlayerName());
 							}
 						}
 						lastTotal = entry.getValue().intValue();
@@ -294,6 +296,8 @@ public class TopVoterHandler implements Listener {
 							user.dontCache();
 							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveMonthlyTopVoterAward(i, places.get(i));
+								plugin.getLogger().info("Giving Monthly top voter reward " + i + " to "
+										+ entry.getKey().getPlayerName());
 							}
 						}
 						lastTotal = entry.getValue().intValue();
@@ -406,8 +410,9 @@ public class TopVoterHandler implements Listener {
 							VotingPluginUser user = entry.getKey().getUser();
 							user.dontCache();
 							if (!plugin.getConfigFile().getTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-
 								user.giveWeeklyTopVoterAward(i, places.get(i));
+								plugin.getLogger().info("Giving weekly top voter reward " + i + " to "
+										+ entry.getKey().getPlayerName());
 							}
 						}
 						lastTotal = entry.getValue().intValue();
