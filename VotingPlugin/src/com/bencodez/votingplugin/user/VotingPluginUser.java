@@ -1254,9 +1254,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public String voteCommandNextInfo(VoteSite voteSite) {
+		return voteCommandNextInfo(voteSite, getTime(voteSite));
+	}
+	
+	public String voteCommandNextInfo(VoteSite voteSite, long time) {
 		String info = new String();
 
-		long time = getTime(voteSite);
 		LocalDateTime now = plugin.getTimeChecker().getTime();
 
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())

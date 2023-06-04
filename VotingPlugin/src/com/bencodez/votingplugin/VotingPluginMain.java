@@ -1164,19 +1164,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
-		getTimer().scheduleWithFixedDelay(new Runnable() {
-
-			@Override
-			public void run() {
-				for (Player p : Bukkit.getOnlinePlayers()) {
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-					if (user.isCached()) {
-						plugin.getPlaceholders().onUpdate();
-					}
-				}
-			}
-		}, 5, 1, TimeUnit.MINUTES);
-
 		for (final TopVoter top : TopVoter.values()) {
 			getRewardHandler().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
 
