@@ -39,7 +39,6 @@ public class AdminVotePerms extends GUIHandler {
 		return null;
 	}
 
-	@SuppressWarnings("deprecation")
 	public String[] listPerms(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 
@@ -114,7 +113,6 @@ public class AdminVotePerms extends GUIHandler {
 		return ArrayUtils.getInstance().convert(text);
 	}
 
-	@SuppressWarnings("deprecation")
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {
 		Player p = Bukkit.getPlayer(player);
 		ArrayList<String> text = new ArrayList<String>();
@@ -181,7 +179,6 @@ public class AdminVotePerms extends GUIHandler {
 
 	}
 
-	@SuppressWarnings("deprecation")
 	public String[] listPermsDev(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<String>();
 		msg.add("Command");

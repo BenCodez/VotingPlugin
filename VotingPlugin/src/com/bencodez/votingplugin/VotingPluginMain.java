@@ -1014,7 +1014,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private TimeQueueHandler timeQueueHandler;
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void onPostLoad() {
 		loadVersionFile();

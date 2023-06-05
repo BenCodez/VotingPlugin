@@ -22,7 +22,6 @@ public class CheckUpdate {
 	/**
 	 * Check update.
 	 */
-	@SuppressWarnings("deprecation")
 	public void checkUpdate() {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;
@@ -49,7 +48,6 @@ public class CheckUpdate {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	public void checkUpdateBasic() {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;

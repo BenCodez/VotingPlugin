@@ -769,7 +769,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	public void offlineBroadcast(VotingPluginUser user, boolean checkBungee, int numberOfVotes) {
 		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
 			return;

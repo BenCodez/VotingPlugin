@@ -102,7 +102,6 @@ public class VoteSite {
 	 * @param user        the user
 	 * @param checkBungee check bungee broadcast
 	 */
-	@SuppressWarnings("deprecation")
 	public void broadcastVote(VotingPluginUser user, boolean checkBungee) {
 		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
 			return;

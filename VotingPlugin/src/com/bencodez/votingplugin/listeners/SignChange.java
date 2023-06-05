@@ -32,7 +32,6 @@ public class SignChange implements Listener {
 	 *
 	 * @param event the event
 	 */
-	@SuppressWarnings("deprecation")
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
 		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {

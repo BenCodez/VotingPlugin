@@ -596,7 +596,6 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "Reload" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, will not reload user storage") {
 
-			@SuppressWarnings("deprecation")
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
@@ -624,7 +623,6 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand().add(new CommandHandler(new String[] { "ReloadAll" },
 				"VotingPlugin.Commands.AdminVote.Reload|" + adminPerm, "Reload plugin, including user storage") {
 
-			@SuppressWarnings("deprecation")
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&4" + "Reloading " + plugin.getName() + "...");
@@ -1205,7 +1203,6 @@ public class CommandLoader {
 
 				BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
 
-					@SuppressWarnings("deprecation")
 					@Override
 					public void run() {
 						sender.sendMessage(StringParser.getInstance().colorize("&cChecking for update..."));
@@ -1747,7 +1744,6 @@ public class CommandLoader {
 														"&cClick to set wether this has been completed or not" },
 														new ItemStack(Material.STONE)) {
 
-													@SuppressWarnings("deprecation")
 													@Override
 													public void onClick(ClickEvent clickEvent) {
 														if (StringParser.getInstance().isInt(clickEvent.getClickedItem()
