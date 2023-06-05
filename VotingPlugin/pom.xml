@@ -256,12 +256,6 @@
 			<version>2.2.1</version>
 			<scope>compile</scope>
 		</dependency>
-		<dependency>
-			<groupId>com.bencodez</groupId>
-			<artifactId>advancedcore</artifactId>
-			<version>LATEST</version>
-			<scope>compile</scope>
-		</dependency>
 	</dependencies>
 	<profiles>
 		<profile>
