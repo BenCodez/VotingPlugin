@@ -1,13 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
-	<artifactId>votingplugin</artifactId>
+	<artifactId>${version.art}</artifactId>
 	<version>6.13</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
 		<github.global.server>github</github.global.server>
 		<project.build.sourceEncoding>Cp1252</project.build.sourceEncoding>
 		<build.number>NOTSET</build.number>
@@ -266,6 +264,46 @@
 		</dependency>
 	</dependencies>
 	<profiles>
+		<profile>
+			<id>normal</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<build.profile.id>normal</build.profile.id>
+				<version.art>votingplugin</version.art>
+				<maven.compiler.source>1.8</maven.compiler.source>
+				<maven.compiler.target>1.8</maven.compiler.target>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>com.bencodez</groupId>
+					<artifactId>advancedcore</artifactId>
+					<version>LATEST</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>normal-folia</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<build.profile.id>normal</build.profile.id>
+				<version.art>votingplugin-folia</version.art>
+				<maven.compiler.source>17</maven.compiler.source>
+				<maven.compiler.target>17</maven.compiler.target>
+			</properties>
+			<dependencies>
+				<dependency>
+					<groupId>com.bencodez</groupId>
+					<artifactId>advancedcore-folia</artifactId>
+					<version>LATEST</version>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
 		<profile>
 			<id>prod2</id>
 			<properties>
