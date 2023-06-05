@@ -286,9 +286,6 @@
 		</profile>
 		<profile>
 			<id>normal-folia</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
 			<properties>
 				<build.profile.id>normal</build.profile.id>
 				<version.art>votingplugin-folia</version.art>
