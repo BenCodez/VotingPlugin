@@ -242,6 +242,7 @@ public class SignHandler {
 	public void updateSign(int delay) {
 		BukkitScheduler.runTaskLater(plugin, new Runnable() {
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				try {
