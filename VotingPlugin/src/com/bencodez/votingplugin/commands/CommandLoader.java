@@ -2154,6 +2154,7 @@ public class CommandLoader {
 		});
 
 		if (plugin.getGui().isLastMonthGUI() || plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
+			plugin.debug("Loading last month top");
 			plugin.getVoteCommand()
 					.add(new CommandHandler(new String[] { "LastMonthTop" },
 							"VotingPlugin.Commands.Vote.LastMonthTop|" + playerPerm,
