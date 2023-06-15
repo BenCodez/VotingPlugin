@@ -27,7 +27,6 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
@@ -56,7 +55,7 @@ public class PlaceHolders {
 		onUpdate();
 		if (!cacheLevel.equals(PlaceholderCacheLevel.NONE)) {
 			for (Player player : Bukkit.getOnlinePlayers()) {
-				onUpdate(UserManager.getInstance().getVotingPluginUser(player));
+				onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(player));
 			}
 		}
 	}
@@ -128,7 +127,7 @@ public class PlaceHolders {
 			return "no player";
 		}
 
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(p);
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
 		if (useCache) {
 			if (!cachedPlaceholders.contains(identifier)) {
 				// not cached placeholder
@@ -151,7 +150,7 @@ public class PlaceHolders {
 		}
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()) {
 			if (user.hasPrimaryAccount()) {
-				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+				user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 			}
 		}
 
@@ -930,7 +929,7 @@ public class PlaceHolders {
 
 			@Override
 			public void onChange(AdvancedCoreUser user, String... keys) {
-				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
+				VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
 				if (!vpUser.isCached()) {
 					vpUser.dontCache();
 				}

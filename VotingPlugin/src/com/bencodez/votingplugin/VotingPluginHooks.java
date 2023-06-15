@@ -33,7 +33,7 @@ public class VotingPluginHooks {
 	}
 
 	public UserManager getUserManager() {
-		return UserManager.getInstance();
+		return getMainClass().getVotingPluginUserManager();
 	}
 
 }

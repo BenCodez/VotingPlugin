@@ -9,7 +9,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
@@ -31,7 +30,7 @@ public class PlayerJoinEvent implements Listener {
 	}
 
 	private void login(Player player) {
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		if (player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
 		}
@@ -81,7 +80,7 @@ public class PlayerJoinEvent implements Listener {
 				public void run() {
 					VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
 
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 					user.dontCache();
 					user.logoutRewards();
 				}

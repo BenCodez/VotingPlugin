@@ -12,7 +12,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
-import com.bencodez.votingplugin.user.UserManager;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -52,7 +51,7 @@ public class PlayerInteract implements Listener {
 						if (sign.isLocationSame(event.getClickedBlock().getLocation())) {
 							// plugin.debug(player.getName() +
 							// " right clicked a top voter sign, sending message");
-							UserManager.getInstance().getVotingPluginUser(player)
+							plugin.getVotingPluginUserManager().getVotingPluginUser(player)
 									.sendMessage(sign.getRightClickMessage());
 
 							if (!sign.isSkullSet()) {

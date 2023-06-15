@@ -3,7 +3,6 @@ package com.bencodez.votingplugin;
 import java.util.concurrent.Callable;
 
 import com.bencodez.advancedcore.api.metrics.BStatsMetrics;
-import com.bencodez.votingplugin.user.UserManager;
 
 public class VotingPluginMetrics {
 
@@ -177,7 +176,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				int total = UserManager.getInstance().getAllUUIDs().size();
+				int total = plugin.getUserManager().getAllUUIDs().size();
 				if (total > 800000) {
 					return ">800000";
 				} else if (total > 700000) {

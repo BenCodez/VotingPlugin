@@ -18,7 +18,6 @@ import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
@@ -56,7 +55,7 @@ public class PlayerVoteListener implements Listener {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
 				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
-					UserManager.getInstance().getVotingPluginUser(playerName).remove();
+					plugin.getVotingPluginUserManager().getVotingPluginUser(playerName).remove();
 				}
 				return;
 			}
@@ -109,9 +108,9 @@ public class PlayerVoteListener implements Listener {
 			Player p = Bukkit.getPlayerExact(playerName);
 			if (p != null) {
 				// player online
-				user = UserManager.getInstance().getVotingPluginUser(p);
+				user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
 			} else {
-				user = UserManager.getInstance().getVotingPluginUser(playerName);
+				user = plugin.getVotingPluginUserManager().getVotingPluginUser(playerName);
 			}
 		}
 

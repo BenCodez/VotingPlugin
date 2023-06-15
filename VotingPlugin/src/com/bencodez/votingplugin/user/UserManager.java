@@ -13,21 +13,11 @@ import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class UserManager {
-	/** The instance. */
-	static UserManager instance = new UserManager();
-	/** The plugin. */
-	static VotingPluginMain plugin = VotingPluginMain.plugin;
+	private VotingPluginMain plugin;
 
-	/**
-	 * Gets the single instance of UserManager.
-	 *
-	 * @return single instance of UserManager
-	 */
-	public static UserManager getInstance() {
-		return instance;
-	}
 
-	public UserManager() {
+	public UserManager(VotingPluginMain plugin) {
+		this.plugin = plugin;
 	}
 
 	public void addCachingKeys() {

@@ -16,7 +16,6 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteShop extends GUIHandler {
@@ -54,7 +53,7 @@ public class VoteShop extends GUIHandler {
 		if (this.user == null) {
 			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		}
-		VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		/*
 		 * if (!plugin.getConfigFile().isExtraVoteShopCheck()) { user.cacheAsync(); }
 		 */
@@ -96,7 +95,7 @@ public class VoteShop extends GUIHandler {
 						public void onClick(ClickEvent event) {
 							Player player = event.getWhoClicked();
 
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 							if (plugin.getConfigFile().isExtraVoteShopCheck()) {
 								user.cache();
 							}

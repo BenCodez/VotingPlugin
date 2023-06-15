@@ -5,7 +5,6 @@ import org.bukkit.Bukkit;
 import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import be.maximvdw.placeholderapi.PlaceholderAPI;
@@ -41,11 +40,11 @@ public class MVdWPlaceholders {
 
 								@Override
 								public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
-									VotingPluginUser user = UserManager.getInstance()
+									VotingPluginUser user = plugin.getVotingPluginUserManager()
 											.getVotingPluginUser(event.getOfflinePlayer());
 									if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()
 											&& user.hasPrimaryAccount()) {
-										user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+										user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 									}
 									return place.placeholderRequest(user,
 											event.getPlaceholder().substring("VotingPlugin_".length()));

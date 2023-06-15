@@ -17,7 +17,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteGUI extends GUIHandler {
@@ -122,7 +121,7 @@ public class VoteGUI extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		if (this.user == null) {
-			user = UserManager.getInstance().getVotingPluginUser(player);
+			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		}
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteGUIName());
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
@@ -166,7 +165,7 @@ public class VoteGUI extends GUIHandler {
 
 					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(), plugin.getGui()
 							.getChestVoteGUISlotRewardsPath(slot, event.getButton().getLastRewardsPath(player)))) {
-						plugin.getRewardHandler().giveReward(UserManager.getInstance().getVotingPluginUser(player),
+						plugin.getRewardHandler().giveReward(plugin.getVotingPluginUserManager().getVotingPluginUser(player),
 								plugin.getGui().getData(),
 								plugin.getGui().getChestVoteGUISlotRewardsPath(slot,
 										event.getButton().getLastRewardsPath(player)),
@@ -177,7 +176,7 @@ public class VoteGUI extends GUIHandler {
 				@Override
 				public ItemBuilder onUpdate(Player player) {
 					ItemBuilder item = getItemSlot(slot, player);
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 					item.addPlaceholder("points", "" + user.getPoints());
 					item.addPlaceholder("player", user.getPlayerName());
 					item.addPlaceholder("top", plugin.getConfigFile().getVoteTopDefault());

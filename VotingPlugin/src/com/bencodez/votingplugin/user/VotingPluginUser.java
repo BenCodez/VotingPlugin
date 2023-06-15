@@ -803,7 +803,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
-					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
 						players.add(p);
 					}
 				}

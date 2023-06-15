@@ -23,7 +23,6 @@ import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteToday extends GUIHandler {
@@ -110,7 +109,7 @@ public class VoteToday extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(uuid);
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}

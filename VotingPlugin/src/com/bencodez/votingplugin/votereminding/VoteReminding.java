@@ -11,7 +11,6 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
@@ -72,7 +71,7 @@ public class VoteReminding {
 				public void run() {
 					if (plugin != null && plugin.isEnabled()) {
 						for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 							if (!plugin.getOptions().isTreatVanishAsOffline() || !user.isVanished()) {
 								checkRemind(user);
 							}
@@ -93,7 +92,7 @@ public class VoteReminding {
 	public void runRemind(VotingPluginUser user) {
 		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+				user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 			}
 			giveReward(user);
 			if (user.getData().hasData() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
@@ -128,9 +127,9 @@ public class VoteReminding {
 		if (plugin.getConfigFile().getVoteRemindingEnabled()) {
 			if (user.hasPermission("VotingPlugin.Login.RemindVotes") || user.hasPermission("VotingPlugin.Player")) {
 				if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-					user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+					user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 				}
-				if ((!UserManager.getInstance().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
+				if ((!plugin.getVotingPluginUserManager().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
 					giveReward(user);
 					if (user.getData().hasData()) {
 						user.setReminded(true);

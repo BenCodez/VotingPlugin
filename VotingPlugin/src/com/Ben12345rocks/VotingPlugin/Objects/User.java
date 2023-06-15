@@ -2,7 +2,7 @@ package com.Ben12345rocks.VotingPlugin.Objects;
 
 import org.bukkit.entity.Player;
 
-import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 @Deprecated
@@ -10,7 +10,7 @@ public class User {
 	private VotingPluginUser user;
 
 	public User(Player p) {
-		user = UserManager.getInstance().getVotingPluginUser(p);
+		user = VotingPluginMain.plugin.getVotingPluginUserManager().getVotingPluginUser(p);
 	}
 
 	public void addPoints(int points) {

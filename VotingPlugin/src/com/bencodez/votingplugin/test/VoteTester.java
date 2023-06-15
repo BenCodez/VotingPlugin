@@ -10,7 +10,6 @@ import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteTester {
@@ -28,7 +27,7 @@ public class VoteTester {
 			public void run() {
 				long time1 = System.currentTimeMillis();
 				ArrayList<Long> timesPerReward = new ArrayList<Long>();
-				VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(name);
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(name);
 				Reward reward = plugin.getRewardHandler().getReward(rewardName);
 				int rewardsGiven = 0;
 				for (int i = 0; i < amount; i++) {
@@ -51,7 +50,7 @@ public class VoteTester {
 				VotingPluginMain.plugin.getLogger()
 						.info("Time to process rewards (" + amount + "): " + time + " ms, average per reward "
 								+ timePerRewardAvg + " ms. " + VotingPluginMain.plugin.getStorageType() + ", "
-								+ UserManager.getInstance().getAllUUIDs().size() + " users. " + rewardsGiven
+								+ plugin.getVotingPluginUserManager().getAllUUIDs().size() + " users. " + rewardsGiven
 								+ " rewards given");
 			}
 
@@ -125,7 +124,7 @@ public class VoteTester {
 				VotingPluginMain.plugin.getLogger()
 						.info("Time to process votes (" + amount + "): " + time + " ms, average per vote "
 								+ timePerVoteAvg + " ms. " + VotingPluginMain.plugin.getStorageType() + ", "
-								+ UserManager.getInstance().getAllUUIDs().size() + " users. "
+								+ plugin.getVotingPluginUserManager().getAllUUIDs().size() + " users. "
 								+ VotingPluginMain.plugin.getVoteSites().size() + " votesites");
 			}
 

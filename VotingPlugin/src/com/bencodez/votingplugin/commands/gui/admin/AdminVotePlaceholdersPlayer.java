@@ -14,7 +14,6 @@ import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import xyz.upperlevel.spigot.book.BookUtil;
@@ -75,7 +74,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 		msg.add("&cPlaceholders:");
 		VotingPluginUser placeholderUser = user;
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-			placeholderUser = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+			placeholderUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 		}
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier().toLowerCase();

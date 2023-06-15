@@ -16,7 +16,6 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
@@ -138,7 +137,7 @@ public class VoteSite {
 				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
-					if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
 						players.add(p);
 					}
 				}

@@ -24,7 +24,6 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import xyz.upperlevel.spigot.book.BookUtil;
@@ -41,11 +40,11 @@ public class VoteURL extends GUIHandler {
 		this.user = user;
 		this.json = json;
 		if (user == null && player instanceof Player) {
-			this.user = UserManager.getInstance().getVotingPluginUser((Player) player);
+			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) player);
 		}
 		if (player != null && user != null && player.getName().equals(user.getPlayerName())) {
 			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-				user = UserManager.getInstance().getVotingPluginUser(user.getPrimaryAccount());
+				user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 			}
 		}
 	}
@@ -169,7 +168,7 @@ public class VoteURL extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent event) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(event.getPlayer());
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(event.getPlayer());
 					json = true;
 					user.sendMessage(getChat(player));
 				}
@@ -196,7 +195,7 @@ public class VoteURL extends GUIHandler {
 					public void onClick(ClickEvent event) {
 						Player player = event.getPlayer();
 						if (player != null) {
-							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 							user.sendMessage(StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
 									.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
 											plugin.getGui().getChestVoteURLURLText(), "voteurl", voteSite.getVoteURL()),

@@ -8,8 +8,8 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
@@ -17,7 +17,6 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteLast extends GUIHandler {
@@ -74,7 +73,7 @@ public class VoteLast extends GUIHandler {
 								if (plugin.getGui().isChestVoteLastClickableLinks()) {
 									Player player = event.getPlayer();
 									if (player != null) {
-										VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+										VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 										user.sendMessage(
 												StringParser.getInstance()
 														.replacePlaceHolder(

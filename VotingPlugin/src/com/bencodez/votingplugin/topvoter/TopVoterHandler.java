@@ -30,7 +30,6 @@ import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class TopVoterHandler implements Listener {
@@ -94,7 +93,7 @@ public class TopVoterHandler implements Listener {
 				String uuid = playerData.getKey().toString();
 				if (plugin != null && plugin.isEnabled()) {
 					if (uuid != null && !uuid.isEmpty()) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
 						user.dontCache();
 						user.updateTempCacheWithColumns(playerData.getValue());
 						cols.put(playerData.getKey(), null);
@@ -141,7 +140,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
 					user.updateTempCacheWithColumns(playerData.getValue());
 					cols.put(playerData.getKey(), null);
@@ -238,7 +237,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseHighestTotals() || plugin.getConfigFile().isUseVoteStreaks()) {
 				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
 					user.updateTempCacheWithColumns(playerData.getValue());
 					cols.put(playerData.getKey(), null);
@@ -360,7 +359,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
-					VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(playerData.getKey(), false);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(playerData.getKey(), false);
 					user.dontCache();
 					user.updateTempCacheWithColumns(playerData.getValue());
 					cols.put(playerData.getKey(), null);

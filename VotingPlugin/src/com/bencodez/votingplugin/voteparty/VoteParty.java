@@ -23,7 +23,6 @@ import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
-import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
@@ -224,7 +223,7 @@ public class VoteParty implements Listener {
 				if (orgUser != null && orgUser.getJavaUUID().equals(p.getUniqueId())) {
 					user = orgUser;
 				} else {
-					user = UserManager.getInstance().getVotingPluginUser(p);
+					user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
 					user.dontCache();
 				}
 
@@ -233,13 +232,13 @@ public class VoteParty implements Listener {
 				}
 				alreadyGotten.add(p.getUniqueId().toString());
 			}
-			for (String uuid : UserManager.getInstance().getAllUUIDs()) {
+			for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
 				if (!alreadyGotten.contains(uuid)) {
 					VotingPluginUser user;
 					if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
 						user = orgUser;
 					} else {
-						user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+						user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
 						user.dontCache();
 					}
 
@@ -256,7 +255,7 @@ public class VoteParty implements Listener {
 				if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
 					user = orgUser;
 				} else {
-					user = UserManager.getInstance().getVotingPluginUser(UUID.fromString(uuid));
+					user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
 					user.dontCache();
 				}
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {

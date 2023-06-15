@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.UserManager;
 
 public class BroadcastHandler {
 	private VotingPluginMain plugin;
@@ -46,7 +45,7 @@ public class BroadcastHandler {
 			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
-				if (!UserManager.getInstance().getVotingPluginUser(p).getDisableBroadcast()) {
+				if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
 					players.add(p);
 				}
 			}

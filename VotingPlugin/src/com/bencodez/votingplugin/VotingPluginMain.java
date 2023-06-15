@@ -228,7 +228,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
-			VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(player);
+			VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(player);
 			user.cache();
 			user.offVote();
 			user.checkOfflineRewards();
@@ -295,7 +295,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @return the user
 	 */
 	public VotingPluginUser getUser(UUID uuid) {
-		return UserManager.getInstance().getVotingPluginUser(uuid);
+		return getVotingPluginUserManager().getVotingPluginUser(uuid);
 	}
 
 	private YamlConfiguration getVersionFile() {
@@ -1122,7 +1122,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			@Override
 			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					int num, HashMap<String, String> placeholders) {
-				VotingPluginUser vpUser = UserManager.getInstance().getVotingPluginUser(user);
+				VotingPluginUser vpUser = getVotingPluginUserManager().getVotingPluginUser(user);
 				String str = "" + vpUser.addPoints(num);
 				debug("Setting points to " + str);
 				return str;
@@ -1155,7 +1155,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							StringParser.getInstance().replacePlaceHolder(section.getString("Message", ""),
 									placeholders),
 							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
-							(double) UserManager.getInstance().getVotingPluginUser(user).getSitesVotedOn()
+							(double) getVotingPluginUserManager().getVotingPluginUser(user).getSitesVotedOn()
 									/ plugin.getVoteSites().size(),
 							section.getInt("Delay", 30));
 				}
@@ -1168,7 +1168,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 				@Override
 				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
-					VotingPluginUser vUser = UserManager.getInstance().getVotingPluginUser(user);
+					VotingPluginUser vUser = getVotingPluginUserManager().getVotingPluginUser(user);
 					return "" + vUser.getTotal(top);
 				}
 			});
@@ -1249,7 +1249,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteSites();
 
-		votingPluginUserManager = UserManager.getInstance();
+		votingPluginUserManager = new UserManager(this);
 		votingPluginUserManager.addCachingKeys();
 
 		setJenkinsSite("bencodez.com");
@@ -1465,7 +1465,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 										.getTopVoterIgnorePermission();
 								ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
 
-								// ArrayList<String> uuids = UserManager.getInstance().getAllUUIDs();
+								// ArrayList<String> uuids = getVotingPluginUserManager().getAllUUIDs();
 								int currentDay = LocalDateTime.now().getDayOfMonth();
 								HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 								long time1 = ((System.currentTimeMillis() - startTime) / 1000);
@@ -1477,7 +1477,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									String uuid = playerData.getKey().toString();
 									if (plugin != null && plugin.isEnabled()) {
 										if (uuid != null && !uuid.isEmpty()) {
-											VotingPluginUser user = UserManager.getInstance()
+											VotingPluginUser user = getVotingPluginUserManager()
 													.getVotingPluginUser(UUID.fromString(uuid), false);
 											user.dontCache();
 											user.updateTempCacheWithColumns(playerData.getValue());
