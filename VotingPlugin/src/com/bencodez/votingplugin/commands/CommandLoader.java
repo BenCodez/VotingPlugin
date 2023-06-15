@@ -922,10 +922,19 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.setHasGottenMilestone(new HashMap<String, Boolean>());
-						sender.sendMessage(
-								StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
+						if (args[1].equalsIgnoreCase("all")) {
+							String path = "GottenMileStones";
+							if (plugin.getBungeeSettings().isPerServerMilestones()) {
+								path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
+							}
+							plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
+
+						} else {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							user.setHasGottenMilestone(new HashMap<String, Boolean>());
+							sender.sendMessage(
+									StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
+						}
 					}
 				});
 
