@@ -894,11 +894,26 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
-						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
-						plugin.getSpecialRewards().checkMilestone(user, null, false);
-						sender.sendMessage(
-								StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+						if (args[1].equalsIgnoreCase("all")) {
+							int toAdd = Integer.parseInt(args[3]);
+
+							sender.sendMessage(
+									StringParser.getInstance().colorize("&cAdding milestonecount for all players..."));
+							for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+								UUID uuid = UUID.fromString(uuidStr);
+								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+								user.dontCache();
+								user.setMilestoneCount(user.getMilestoneCount() + toAdd);
+								sender.sendMessage(
+										StringParser.getInstance().colorize("&cFinished adding milestonecount for all players"));
+							}
+						} else {
+							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
+							user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
+							plugin.getSpecialRewards().checkMilestone(user, null, false);
+							sender.sendMessage(
+									StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+						}
 					}
 				});
 
@@ -927,9 +942,13 @@ public class CommandLoader {
 							if (plugin.getBungeeSettings().isPerServerMilestones()) {
 								path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 							}
+							sender.sendMessage(StringParser.getInstance()
+									.colorize("&cClearing gotten milestones for all players..."));
 							plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
 							for (Player p : Bukkit.getOnlinePlayers()) {
 								plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
+								sender.sendMessage(StringParser.getInstance()
+										.colorize("&cFinished clearing gotten milestones for all players"));
 							}
 
 						} else {
