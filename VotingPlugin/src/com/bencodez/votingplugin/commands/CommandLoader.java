@@ -903,9 +903,9 @@ public class CommandLoader {
 								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 								user.dontCache();
 								user.setMilestoneCount(user.getMilestoneCount() + toAdd);
-								sender.sendMessage(
-										StringParser.getInstance().colorize("&cFinished adding milestonecount for all players"));
 							}
+							sender.sendMessage(
+									StringParser.getInstance().colorize("&cFinished adding milestonecount for all players"));
 						} else {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 							user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
@@ -946,9 +946,9 @@ public class CommandLoader {
 							plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
 							for (Player p : Bukkit.getOnlinePlayers()) {
 								plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
-								sender.sendMessage(StringParser.getInstance()
-										.colorize("&cFinished clearing gotten milestones for all players"));
 							}
+							sender.sendMessage(StringParser.getInstance()
+									.colorize("&cFinished clearing gotten milestones for all players"));
 
 						} else {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
