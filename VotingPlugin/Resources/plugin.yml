@@ -57,9 +57,6 @@ commands:
   votereward:
     description: Open VoteReward GUI
     aliases: vreward
-  vote?:
-    description: View Help
-    aliases: v?
   voteparty:
     description: A command
     aliases: vparty
