@@ -928,6 +928,9 @@ public class CommandLoader {
 								path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 							}
 							plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
+							for (Player p : Bukkit.getOnlinePlayers()) {
+								plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
+							}
 
 						} else {
 							VotingPluginUser user = UserManager.getInstance().getVotingPluginUser(args[1]);
