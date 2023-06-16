@@ -903,6 +903,7 @@ public class CommandLoader {
 								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 								user.dontCache();
 								user.setMilestoneCount(user.getMilestoneCount() + toAdd);
+								plugin.getSpecialRewards().checkMilestone(user, null, false);
 							}
 							sender.sendMessage(
 									StringParser.getInstance().colorize("&cFinished adding milestonecount for all players"));
