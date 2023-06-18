@@ -496,7 +496,7 @@
 							<skipStaging>true</skipStaging>
 						</configuration>
 					</plugin>
-					<plugin>
+					<!--<plugin>
 						<groupId>com.github.github</groupId>
 						<artifactId>site-maven-plugin</artifactId>
 						<version>0.12</version>
@@ -522,7 +522,7 @@
 								</configuration>
 							</execution>
 						</executions>
-					</plugin>
+					</plugin>-->
 				</plugins>
 			</build>
 		</profile>
