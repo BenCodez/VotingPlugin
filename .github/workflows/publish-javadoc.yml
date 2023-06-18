@@ -1,7 +1,8 @@
 name: Deploy Javadoc
 
 on:
-  push:
+  release:
+    types: [published]
     branches:
       - master
       - main
