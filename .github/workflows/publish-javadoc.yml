@@ -16,7 +16,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           javadoc-branch: gh-pages
           java-version: 17
-          target-folder: ''
+          target-folder: 'javadoc'
           project: maven # or gradle
           # subdirectories: moduleA moduleB #for subdirectories support, needs to be run with custom command
           custom-command: mvn -f VotingPlugin/pom.xml javadoc:aggregate
