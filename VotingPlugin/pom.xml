@@ -385,6 +385,13 @@
 				<maven.compiler.target>1.8</maven.compiler.target>
 				<build.profile.id>javadoc</build.profile.id>
 			</properties>
+			<distributionManagement>
+				<repository>
+					<id>internal.repo</id>
+					<name>Temporary Staging Repository</name>
+					<url>file://${project.build.directory}/mvn-repo</url>
+				</repository>
+			</distributionManagement>
 			<dependencies>
 				<dependency>
 					<groupId>com.bencodez</groupId>
@@ -424,6 +431,7 @@
 				<maven.compiler.target>1.8</maven.compiler.target>
 				<build.profile.id>deploy</build.profile.id>
 			</properties>
+
 			<dependencies>
 				<dependency>
 					<groupId>com.bencodez</groupId>
