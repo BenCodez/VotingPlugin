@@ -10,6 +10,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - uses: GuillaumeFalourd/assert-command-line-output@v2
+        with:
+          command_line: cat VotingPlugin/pom.xml
+          contains: JAVAVERSION
       - name: Deploy JavaDoc 🚀
         uses: MathieuSoysal/Javadoc-publisher.yml@v2.4.0
         with:
