@@ -19,6 +19,7 @@ import org.bukkit.permissions.Permission;
 
 import com.bencodez.advancedcore.DebugLevel;
 import com.bencodez.advancedcore.api.command.CommandHandler;
+import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
 import com.bencodez.advancedcore.api.command.TabCompleteHandle;
 import com.bencodez.advancedcore.api.command.TabCompleteHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
@@ -277,15 +278,33 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
+				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
 
 					@Override
-					public void execute(CommandSender sender, String[] args) {
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setPoints(Integer.parseInt(args[3]));
 						sender.sendMessage(
 								StringParser.getInstance().colorize("&cSet " + args[1] + " points to " + args[3]));
+					}
+
+					@Override
+					public void executeAll(CommandSender sender, String[] args) {
+						int num = Integer.parseInt(args[3]);
+
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cSetting all players points to " + args[3]));
+						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+							UUID uuid = UUID.fromString(uuidStr);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+							user.dontCache();
+							user.setPoints(num);
+							plugin.getSpecialRewards().checkMilestone(user, null,
+									plugin.getBungeeSettings().isUseBungeecoord());
+						}
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cDone setting all players points to " + args[3]));
 					}
 				});
 
@@ -408,11 +427,16 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
+				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
+
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						synchronized (pointLock) {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 							user.cache();
@@ -421,6 +445,24 @@ public class CommandLoader {
 							sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
 									+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
 						}
+					}
+
+					@Override
+					public void executeAll(CommandSender sender, String[] args) {
+						int num = Integer.parseInt(args[3]);
+
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
+						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+							UUID uuid = UUID.fromString(uuidStr);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+							user.dontCache();
+							user.addPoints(num);
+							plugin.getSpecialRewards().checkMilestone(user, null,
+									plugin.getBungeeSettings().isUseBungeecoord());
+						}
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cGave " + "all players" + " " + args[3] + " points"));
 					}
 				});
 
@@ -581,7 +623,8 @@ public class CommandLoader {
 
 		if (plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
 			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin, new String[] { "PermsDebug" }, "VotingPlugin.Commands.AdminVote.PermsDebug",
+					.add(new CommandHandler(plugin, new String[] { "PermsDebug" },
+							"VotingPlugin.Commands.AdminVote.PermsDebug",
 							"Dev permission list, generate this list, requires dev debug") {
 
 						@Override
@@ -734,8 +777,10 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				try {
 					sender.sendMessage(ChatColor.GREEN + "PlayerName of player " + ChatColor.DARK_GREEN + args[1]
-							+ ChatColor.GREEN + " is: " + PlayerUtils.getInstance().getPlayerName(
-									plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(args[1])), args[1]));
+							+ ChatColor.GREEN + " is: "
+							+ PlayerUtils.getInstance().getPlayerName(
+									plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(args[1])),
+									args[1]));
 				} catch (IllegalArgumentException e) {
 					sendMessage(sender, "&cInvalid uuid");
 				}
@@ -793,37 +838,36 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "SetVoteStreak", "WEEK", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Week|" + adminPerm,
-						"Set votestreak for player") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "User", "(player)", "SetVoteStreak", "WEEK", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetVoteStreak.Week|" + adminPerm, "Set votestreak for player") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
-								.setWeekVoteStreak(Integer.parseInt(args[4]));
-						sender.sendMessage(StringParser.getInstance()
-								.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
-					}
-				});
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
+						.setWeekVoteStreak(Integer.parseInt(args[4]));
+				sender.sendMessage(StringParser.getInstance()
+						.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
+			}
+		});
 
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "SetVoteStreak", "MONTH", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Month|" + adminPerm,
-						"Set votestreak for player") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "User", "(player)", "SetVoteStreak", "MONTH", "(number)" },
+				"VotingPlugin.Commands.AdminVote.SetVoteStreak.Month|" + adminPerm, "Set votestreak for player") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
-								.setMonthVoteStreak(Integer.parseInt(args[4]));
-						sender.sendMessage(StringParser.getInstance()
-								.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
-					}
-				});
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
+						.setMonthVoteStreak(Integer.parseInt(args[4]));
+				sender.sendMessage(StringParser.getInstance()
+						.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
+			}
+		});
 
 		for (final TopVoter top : TopVoter.values()) {
 			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin, new String[] { "User", "(player)", "SetTotal", top.toString(), "(number)" },
+					.add(new CommandHandler(plugin,
+							new String[] { "User", "(player)", "SetTotal", top.toString(), "(number)" },
 							"VotingPlugin.Commands.AdminVote.SetTotal." + top.toString() + "|" + adminPerm,
 							"Set " + top.toString() + " totals for player") {
 
@@ -837,7 +881,8 @@ public class CommandLoader {
 					});
 
 			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin, new String[] { "User", "(player)", "AddTotal", top.toString(), "(number)" },
+					.add(new CommandHandler(plugin,
+							new String[] { "User", "(player)", "AddTotal", top.toString(), "(number)" },
 							"VotingPlugin.Commands.AdminVote.AddTotal." + top.toString() + "|" + adminPerm,
 							"Add " + top.toString() + " totals for player") {
 
@@ -862,16 +907,18 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetAllVotedSites" },
-				"VotingPlugin.Commands.AdminVote.ResetAllVotedSites|" + adminPerm, "Resets all voted") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetAllVotedSites" },
+						"VotingPlugin.Commands.AdminVote.ResetAllVotedSites|" + adminPerm, "Resets all voted") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-				user.resetLastVoted();
-				sender.sendMessage(StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.resetLastVoted();
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVotedSite", "(Sitename)" },
@@ -888,32 +935,36 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "AddMilestoneCount", "(number)" },
+				.add(new PlayerCommandHandler(plugin,
+						new String[] { "User", "(player)", "AddMilestoneCount", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddMilestoneCount|" + adminPerm, "Add milestonecount") {
 
 					@Override
-					public void execute(CommandSender sender, String[] args) {
-						if (args[1].equalsIgnoreCase("all")) {
-							int toAdd = Integer.parseInt(args[3]);
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
+						plugin.getSpecialRewards().checkMilestone(user, null,
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+					}
 
-							sender.sendMessage(
-									StringParser.getInstance().colorize("&cAdding milestonecount for all players..."));
-							for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
-								UUID uuid = UUID.fromString(uuidStr);
-								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-								user.dontCache();
-								user.setMilestoneCount(user.getMilestoneCount() + toAdd);
-								plugin.getSpecialRewards().checkMilestone(user, null, plugin.getBungeeSettings().isUseBungeecoord());
-							}
-							sender.sendMessage(
-									StringParser.getInstance().colorize("&cFinished adding milestonecount for all players"));
-						} else {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
-							plugin.getSpecialRewards().checkMilestone(user, null, plugin.getBungeeSettings().isUseBungeecoord());
-							sender.sendMessage(
-									StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+					@Override
+					public void executeAll(CommandSender sender, String[] args) {
+						int toAdd = Integer.parseInt(args[3]);
+
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cAdding milestonecount for all players..."));
+						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+							UUID uuid = UUID.fromString(uuidStr);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+							user.dontCache();
+							user.setMilestoneCount(user.getMilestoneCount() + toAdd);
+							plugin.getSpecialRewards().checkMilestone(user, null,
+									plugin.getBungeeSettings().isUseBungeecoord());
 						}
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cFinished adding milestonecount for all players"));
 					}
 				});
 
@@ -931,32 +982,32 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ClearGottenMilestones" },
+				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "ClearGottenMilestones" },
 						"VotingPlugin.Commands.AdminVote.ClearGottenMilestones|" + adminPerm,
 						"Clears received milestones") {
 
 					@Override
-					public void execute(CommandSender sender, String[] args) {
-						if (args[1].equalsIgnoreCase("all")) {
-							String path = "GottenMileStones";
-							if (plugin.getBungeeSettings().isPerServerMilestones()) {
-								path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
-							}
-							sender.sendMessage(StringParser.getInstance()
-									.colorize("&cClearing gotten milestones for all players..."));
-							plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
-							for (Player p : Bukkit.getOnlinePlayers()) {
-								plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
-							}
-							sender.sendMessage(StringParser.getInstance()
-									.colorize("&cFinished clearing gotten milestones for all players"));
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.setHasGottenMilestone(new HashMap<String, Boolean>());
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
+					}
 
-						} else {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							user.setHasGottenMilestone(new HashMap<String, Boolean>());
-							sender.sendMessage(
-									StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
+					@Override
+					public void executeAll(CommandSender sender, String[] args) {
+						String path = "GottenMileStones";
+						if (plugin.getBungeeSettings().isPerServerMilestones()) {
+							path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 						}
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cClearing gotten milestones for all players..."));
+						plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
+						for (Player p : Bukkit.getOnlinePlayers()) {
+							plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
+						}
+						sender.sendMessage(StringParser.getInstance()
+								.colorize("&cFinished clearing gotten milestones for all players"));
 					}
 				});
 
@@ -1072,30 +1123,32 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(Player)", "ForceVote", "All" },
-				"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(Player)", "ForceVote", "All" },
+						"VotingPlugin.Commands.AdminVote.Vote|" + adminPerm, "Trigger manual vote") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				sendMessage(sender, "&cTriggering vote for all voting sites...");
-				for (VoteSite site : plugin.getVoteSites()) {
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
-					if (voteEvent.getVoteSite() != null) {
-						if (!voteEvent.getVoteSite().isVaidServiceSite()) {
-							sendMessage(sender,
-									"&cPossible issue with service site, has the server gotten the vote from "
-											+ voteEvent.getServiceSite() + "?");
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						sendMessage(sender, "&cTriggering vote for all voting sites...");
+						for (VoteSite site : plugin.getVoteSites()) {
+							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
+									false);
+							if (voteEvent.getVoteSite() != null) {
+								if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+									sendMessage(sender,
+											"&cPossible issue with service site, has the server gotten the vote from "
+													+ voteEvent.getServiceSite() + "?");
+								}
+							}
+							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
+
+						if (plugin.isYmlError()) {
+							sendMessage(sender, "&3Detected yml error, please check server log for details");
+						}
+
 					}
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				}
-
-				if (plugin.isYmlError()) {
-					sendMessage(sender, "&3Detected yml error, please check server log for details");
-				}
-
-			}
-		});
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "User", "(Player)", "ForceVote", "(Sitename)" },
@@ -1119,7 +1172,8 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(Player)", "ForceCoolDownEndRewards", "(Sitename)" },
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(Player)", "ForceCoolDownEndRewards", "(Sitename)" },
 						"VotingPlugin.Commands.AdminVote.ForceCoolDownEndRewards|" + adminPerm,
 						"Trigger CoolDownEndRewards manually") {
 
@@ -1394,32 +1448,34 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteParty", "SetVoteCount", "(Number)" },
-				"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Set voteparty count") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "VoteParty", "SetVoteCount", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Set voteparty count") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int num = Integer.parseInt(args[2]);
-				if (num == 0) {
-					plugin.getVoteParty().reset(true);
-					sendMessage(sender, "&cVoteparty totals have been set to 0 and all been reset");
-				} else {
-					plugin.getVoteParty().setTotalVotes(num);
-					sendMessage(sender, "&cVoteparty total votes has been set to " + args[2]);
-				}
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						int num = Integer.parseInt(args[2]);
+						if (num == 0) {
+							plugin.getVoteParty().reset(true);
+							sendMessage(sender, "&cVoteparty totals have been set to 0 and all been reset");
+						} else {
+							plugin.getVoteParty().setTotalVotes(num);
+							sendMessage(sender, "&cVoteparty total votes has been set to " + args[2]);
+						}
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteParty", "AddVoteCount", "(Number)" },
-				"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Add voteparty count") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "VoteParty", "AddVoteCount", "(Number)" },
+						"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Add voteparty count") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				int num = plugin.getVoteParty().getTotalVotes() + Integer.parseInt(args[2]);
-				plugin.getVoteParty().setTotalVotes(num);
-				sendMessage(sender, "&cVoteparty total votes has been set to " + num);
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						int num = plugin.getVoteParty().getTotalVotes() + Integer.parseInt(args[2]);
+						plugin.getVoteParty().setTotalVotes(num);
+						sendMessage(sender, "&cVoteparty total votes has been set to " + num);
+					}
+				});
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "VoteParty", "SetExtraRequired", "(Number)" },
 						"VotingPlugin.Commands.AdminVote.VoteParty.SetExtraRequired|" + adminPerm,
@@ -1460,7 +1516,7 @@ public class CommandLoader {
 
 		for (final TopVoter top : TopVoter.valuesMinusAllTime()) {
 			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin, 
+					.add(new CommandHandler(plugin,
 							new String[] { "User", "(player)", "ForceTopVoter", top.toString(), "(Number)" },
 							"VotingPlugin.Commands.AdminVote.ForceTopVoter." + top.toString() + "|" + adminPerm,
 							"Force a top voter reward") {
@@ -1506,7 +1562,8 @@ public class CommandLoader {
 			final String str = text;
 
 			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
+					.add(new CommandHandler(plugin,
+							new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
 							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 							"Force a votestreak reward for " + str) {
 
@@ -1533,53 +1590,58 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceAllSites" },
-				"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a allsites reward") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceAllSites" },
+						"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a allsites reward") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveAllSitesRewards(user, user.isOnline(),
-						plugin.getBungeeSettings().isUseBungeecoord());
-				sendMessage(sender, "&cAllSites forced");
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						plugin.getSpecialRewards().giveAllSitesRewards(user, user.isOnline(),
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sendMessage(sender, "&cAllSites forced");
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceAlmostAllSites" },
-				"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a almostallsites reward") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceAlmostAllSites" },
+						"VotingPlugin.Commands.AdminVote.ForceAllSites|" + adminPerm, "Force a almostallsites reward") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveAlmostAllSitesRewards(user, user.isOnline(),
-						plugin.getBungeeSettings().isUseBungeecoord());
-				sendMessage(sender, "&cAlmostAllSites forced");
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						plugin.getSpecialRewards().giveAlmostAllSitesRewards(user, user.isOnline(),
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sendMessage(sender, "&cAlmostAllSites forced");
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceFirstVote" },
-				"VotingPlugin.Commands.AdminVote.ForceFirstVote|" + adminPerm, "Force a firstvote reward") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceFirstVote" },
+						"VotingPlugin.Commands.AdminVote.ForceFirstVote|" + adminPerm, "Force a firstvote reward") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveFirstVoteRewards(user, user.isOnline(),
-						plugin.getBungeeSettings().isUseBungeecoord());
-				sendMessage(sender, "&cFirstVote forced");
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						plugin.getSpecialRewards().giveFirstVoteRewards(user, user.isOnline(),
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sendMessage(sender, "&cFirstVote forced");
+					}
+				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceFirstVoteToday" },
-				"VotingPlugin.Commands.AdminVote.ForceFirstVoteToday|" + adminPerm, "Force a firstvotetoday reward") {
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceFirstVoteToday" },
+						"VotingPlugin.Commands.AdminVote.ForceFirstVoteToday|" + adminPerm,
+						"Force a firstvotetoday reward") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-				plugin.getSpecialRewards().giveFirstVoteTodayRewards(user, user.isOnline(),
-						plugin.getBungeeSettings().isUseBungeecoord());
-				sendMessage(sender, "&cFirstVoteToday forced");
-			}
-		});
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						plugin.getSpecialRewards().giveFirstVoteTodayRewards(user, user.isOnline(),
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sendMessage(sender, "&cFirstVoteToday forced");
+					}
+				});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "Placeholders", "(player)" },
@@ -1594,14 +1656,14 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(
-				new CommandHandler(plugin, new String[] {}, "VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {},
+				"VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						sendMessage(sender, "&cInvalid command, see /adminvote help");
-					}
-				});
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cInvalid command, see /adminvote help");
+			}
+		});
 
 		ArrayList<CommandHandler> avCommands = com.bencodez.advancedcore.command.CommandLoader.getInstance()
 				.getBasicAdminCommands("VotingPlugin");
@@ -1795,7 +1857,8 @@ public class CommandLoader {
 																				boolean value) {
 																			String playerName = UserGUI.getInstance()
 																					.getCurrentPlayer(player);
-																			VotingPluginUser user = plugin.getVotingPluginUserManager()
+																			VotingPluginUser user = plugin
+																					.getVotingPluginUserManager()
 																					.getVotingPluginUser(playerName);
 																			user.setHasGotteMilestone(mileStone, value);
 																			player.sendMessage(
@@ -1955,7 +2018,8 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					new VoteShop(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+					new VoteShop(plugin, sender,
+							plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
 				}
 			});
 			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop", "(Text)" },
@@ -1987,7 +2051,8 @@ public class CommandLoader {
 
 						int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
 
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(sender.getName());
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(sender.getName());
 						boolean limitPass = true;
 						if (limit > 0) {
 
@@ -2044,8 +2109,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteURLVoteSite(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender),
-						args[1]).open();
+				new VoteURLVoteSite(plugin, sender,
+						plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), args[1]).open();
 			}
 		});
 
@@ -2054,8 +2119,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteURL(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), true)
-						.open();
+				new VoteURL(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender),
+						true).open();
 
 			}
 		});
@@ -2066,7 +2131,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteLast(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteLast(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2080,7 +2146,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteLast(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteLast(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2091,7 +2158,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser((Player) sender);
 						boolean value = !user.getDisableBroadcast();
 						user.setDisableBroadcast(value);
 						if (!value) {
@@ -2108,7 +2176,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteNext(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteNext(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2155,7 +2224,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteNext(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteNext(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2165,7 +2235,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteGUI(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteGUI(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2179,7 +2250,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteGUI(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteGUI(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2251,7 +2323,8 @@ public class CommandLoader {
 		});
 
 		plugin.getVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "Party" }, "VotingPlugin.Commands.Vote.Party|" + playerPerm,
+				.add(new CommandHandler(plugin, new String[] { "Party" },
+						"VotingPlugin.Commands.Vote.Party|" + playerPerm,
 						"View current amount of votes and how many more needed") {
 
 					@Override
@@ -2336,7 +2409,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteTotal(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteTotal(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2350,7 +2424,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteTotal(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteTotal(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2359,7 +2434,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteBest(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteBest(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2369,7 +2445,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteBest(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteBest(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2382,7 +2459,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new VoteStreak(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+				new VoteStreak(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 			}
 		});
 
@@ -2392,7 +2470,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
-					new VoteStreak(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+					new VoteStreak(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]))
+							.open();
 				} else {
 					sendMessage(sender, StringParser.getInstance()
 							.replacePlaceHolder(plugin.getConfigFile().getFormatUserNotExist(), "player", args[1]));
@@ -2401,74 +2480,78 @@ public class CommandLoader {
 		});
 
 		if (plugin.getConfigFile().isAllowVotePointTransfers()) {
-			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "GivePoints", "(player)", "(number)" },
-					"VotingPlugin.Commands.Vote.GivePoints", "Give someone points from your points", false) {
+			plugin.getVoteCommand()
+					.add(new CommandHandler(plugin, new String[] { "GivePoints", "(player)", "(number)" },
+							"VotingPlugin.Commands.Vote.GivePoints", "Give someone points from your points", false) {
 
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					if (plugin.getConfigFile().isAllowVotePointTransfers()) {
-						VotingPluginUser cPlayer = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
-						cPlayer.cache();
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							if (plugin.getConfigFile().isAllowVotePointTransfers()) {
+								VotingPluginUser cPlayer = plugin.getVotingPluginUserManager()
+										.getVotingPluginUser((Player) sender);
+								cPlayer.cache();
 
-						if (plugin.getUserManager().userExist(args[1])) {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							if (!user.isOnline()) {
-								user.dontCache();
-							}
-							int pointsToGive = Integer.parseInt(args[2]);
-							if (pointsToGive > 0) {
-								if (cPlayer.getPoints() >= pointsToGive) {
-									user.addPoints(pointsToGive);
-									cPlayer.removePoints(pointsToGive);
-									HashMap<String, String> placeholders = new HashMap<String, String>();
-									placeholders.put("transfer", "" + pointsToGive);
-									placeholders.put("touser", "" + user.getPlayerName());
-									placeholders.put("fromuser", "" + cPlayer.getPlayerName());
+								if (plugin.getUserManager().userExist(args[1])) {
+									VotingPluginUser user = plugin.getVotingPluginUserManager()
+											.getVotingPluginUser(args[1]);
+									if (!user.isOnline()) {
+										user.dontCache();
+									}
+									int pointsToGive = Integer.parseInt(args[2]);
+									if (pointsToGive > 0) {
+										if (cPlayer.getPoints() >= pointsToGive) {
+											user.addPoints(pointsToGive);
+											cPlayer.removePoints(pointsToGive);
+											HashMap<String, String> placeholders = new HashMap<String, String>();
+											placeholders.put("transfer", "" + pointsToGive);
+											placeholders.put("touser", "" + user.getPlayerName());
+											placeholders.put("fromuser", "" + cPlayer.getPlayerName());
+											sendMessage(sender,
+													StringParser.getInstance()
+															.replacePlaceHolder(plugin.getConfigFile()
+																	.getFormatCommandsVoteGivePointsTransferFrom(),
+																	placeholders));
+											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+													plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
+													placeholders));
+										} else {
+											sendMessage(sender, plugin.getConfigFile()
+													.getFormatCommandsVoteGivePointsNotEnoughPoints());
+										}
+									} else {
+										sendMessage(sender, plugin.getConfigFile()
+												.getFormatCommandsVoteGivePointsNumberLowerThanZero());
+									}
+								} else {
 									sendMessage(sender,
 											StringParser.getInstance().replacePlaceHolder(
 													plugin.getConfigFile()
-															.getFormatCommandsVoteGivePointsTransferFrom(),
-													placeholders));
-									user.sendMessage(StringParser.getInstance().replacePlaceHolder(
-											plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
-											placeholders));
-								} else {
-									sendMessage(sender,
-											plugin.getConfigFile().getFormatCommandsVoteGivePointsNotEnoughPoints());
+															.getFormatCommandsVoteGivePointsNotJoinedServer(),
+													"player", args[1]));
 								}
-							} else {
-								sendMessage(sender,
-										plugin.getConfigFile().getFormatCommandsVoteGivePointsNumberLowerThanZero());
 							}
-						} else {
-							sendMessage(sender,
-									StringParser.getInstance().replacePlaceHolder(
-											plugin.getConfigFile().getFormatCommandsVoteGivePointsNotJoinedServer(),
-											"player", args[1]));
 						}
-					}
-				}
-			});
+					});
 		}
 
-		plugin.getVoteCommand().add(
-				new CommandHandler(plugin, new String[] {}, "VotingPlugin.Commands.Vote|" + playerPerm, "See voting URLs") {
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] {},
+				"VotingPlugin.Commands.Vote|" + playerPerm, "See voting URLs") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = null;
-						if (sender instanceof Player) {
-							user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
-						}
-						if (plugin.getConfigFile().isUseVoteGUIMainCommand() && sender instanceof Player) {
-							// vote gui command
-							new VoteGUI(plugin, sender, user).open();
-						} else {
-							new VoteURL(plugin, sender, user, true).open();
-						}
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VotingPluginUser user = null;
+				if (sender instanceof Player) {
+					user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
+				}
+				if (plugin.getConfigFile().isUseVoteGUIMainCommand() && sender instanceof Player) {
+					// vote gui command
+					new VoteGUI(plugin, sender, user).open();
+				} else {
+					new VoteURL(plugin, sender, user, true).open();
+				}
 
-					}
-				});
+			}
+		});
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "List&All" },
 				"VotingPlugin.Commands.Vote.List|" + playerPerm, "See voting URLs") {
