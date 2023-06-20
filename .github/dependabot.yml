@@ -9,3 +9,5 @@ updates:
     directory: "/VotingPlugin/" # Location of package manifests
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "AdvancedCore
