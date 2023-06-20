@@ -273,7 +273,7 @@
 				<dependency>
 					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
+					<version>3.6.8</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
@@ -314,7 +314,7 @@
 				<dependency>
 					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
+					<version>3.6.8</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
@@ -341,7 +341,7 @@
 				<dependency>
 					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
+					<version>3.6.8</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
@@ -396,7 +396,7 @@
 				<dependency>
 					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
+					<version>3.6.8</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
@@ -436,7 +436,7 @@
 				<dependency>
 					<groupId>com.bencodez</groupId>
 					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
+					<version>3.6.8</version>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
