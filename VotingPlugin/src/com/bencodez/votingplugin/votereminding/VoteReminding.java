@@ -53,7 +53,8 @@ public class VoteReminding {
 
 	private void giveReward(VotingPluginUser user) {
 		new RewardBuilder(plugin.getConfigFile().getData(), plugin.getConfigFile().getVoteRemindingRewardsPath())
-				.withPlaceHolder("sitesavailable", "" + user.getSitesNotVotedOn()).setGiveOffline(false).send(user);
+				.withPlaceHolder("sitesavailable", "" + user.getSitesNotVotedOn()).setGiveOffline(false)
+				.disableDefaultWorlds().send(user);
 	}
 
 	/**
@@ -129,7 +130,8 @@ public class VoteReminding {
 				if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
 					user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
 				}
-				if ((!plugin.getVotingPluginUserManager().getAllUUIDs().contains(user.getUUID()) || shouldRemind(user))) {
+				if ((!plugin.getVotingPluginUserManager().getAllUUIDs().contains(user.getUUID())
+						|| shouldRemind(user))) {
 					giveReward(user);
 					if (user.getData().hasData()) {
 						user.setReminded(true);

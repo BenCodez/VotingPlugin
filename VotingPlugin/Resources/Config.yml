@@ -550,6 +550,12 @@ OfflineVotesLimit:
   Enabled: false
   # Limit of votes per votesite
   Amount: 5
+  
+# Default worlds set for all rewards
+DefaultRewardWorlds: []
+
+# Default blackedlisted worlds set for all rewards
+DefaultRewardBlackListedWorlds: []
 
 ###########################################
 # Skull settings
