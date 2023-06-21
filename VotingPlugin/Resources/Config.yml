@@ -543,6 +543,14 @@ OnlineMode: true
 # No commands to view data currently 
 TrackShopPurchases: false
 
+# Limits about of offline votesites
+# Does not currently work with bungee votes from votingplugin
+OfflineVotesLimit:
+  # Enable or disable
+  Enabled: false
+  # Limit of votes per votesite
+  Amount: 5
+
 ###########################################
 # Skull settings
 ###########################################

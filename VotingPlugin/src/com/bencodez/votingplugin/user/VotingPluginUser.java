@@ -12,8 +12,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -1255,7 +1255,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public String voteCommandNextInfo(VoteSite voteSite) {
 		return voteCommandNextInfo(voteSite, getTime(voteSite));
 	}
-	
+
 	public String voteCommandNextInfo(VoteSite voteSite, long time) {
 		String info = new String();
 
@@ -1460,6 +1460,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		HashMap<VoteSite, Long> map = getLastVotes();
 		map.put(site, 0l);
 		setLastVotes(map);
+	}
+
+	public int getNumberOfOfflineVotes(VoteSite site) {
+		ArrayList<String> offlineVotes = getOfflineVotes();
+		int num = 0;
+		for (String str : offlineVotes) {
+			if (str.equals(site.getKey())) {
+				num++;
+			}
+		}
+		return num;
+	}
+
+	public long getLastVoteTimer(VoteSite voteSite) {
+		HashMap<VoteSite, Long> times = getLastVotes();
+		if (times.containsKey(voteSite)) {
+			return times.get(voteSite).longValue();
+		}
+		return 0;
+
 	}
 
 }

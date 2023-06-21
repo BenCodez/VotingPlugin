@@ -282,6 +282,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean preventRepeatMilestones = false;
 
+	@ConfigDataBoolean(path = "OfflineVotesLimit.Enabled")
+	@Getter
+	private boolean offlineVotesLimitEnabled = false;
+
+	@ConfigDataInt(path = "OfflineVotesLimit.Amount")
+	@Getter
+	private int offlineVotesLimitAmount = 5;
+
 	@ConfigDataBoolean(path = "UpdateWithPlayersOnlineOnly")
 	@Getter
 	private boolean updateWithPlayersOnlineOnly = false;

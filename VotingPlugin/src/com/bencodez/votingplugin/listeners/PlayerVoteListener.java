@@ -183,8 +183,14 @@ public class PlayerVoteListener implements Listener {
 				user.closeInv();
 			}
 		} else {
-			user.addOfflineVote(voteSite.getKey());
-			plugin.debug("Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
+			if (!plugin.getConfigFile().isOfflineVotesLimitEnabled()
+					|| user.getNumberOfOfflineVotes(voteSite) <= plugin.getConfigFile().getOfflineVotesLimitAmount()) {
+				user.addOfflineVote(voteSite.getKey());
+				plugin.debug(
+						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
+			} else {
+				plugin.debug("Not setting offline vote, offline vote limit reached");
+			}
 		}
 
 		// add to total votes
