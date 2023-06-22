@@ -10,6 +10,7 @@ import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataDouble;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
@@ -62,6 +63,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
+
+	@ConfigDataListString(path = "VoteParty.GlobalRandomCommand")
+	@Getter
+	private ArrayList<String> votePartyGlobalRandomCommand = new ArrayList<String>();
 
 	@Getter
 	private String votePartyRewardsPath = "VoteParty.Rewards";

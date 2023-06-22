@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -210,6 +211,21 @@ public class VoteParty implements Listener {
 				public void run() {
 					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
 							StringParser.getInstance().replacePlaceHolder(cmd, "randomonlineplayer", player));
+				}
+
+			});
+		}
+
+		final ArrayList<String> list = plugin.getSpecialRewardsConfig().getVotePartyGlobalRandomCommand();
+		if (list.size() > 0) {
+			BukkitScheduler.runTask(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
+							StringParser.getInstance().replacePlaceHolder(
+									list.get(ThreadLocalRandom.current().nextInt(list.size())), "randomonlineplayer",
+									player));
 				}
 
 			});
