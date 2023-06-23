@@ -1338,8 +1338,7 @@ public class VotingPluginVelocity {
 					}
 				} else {
 
-					if (isOnline(p) && !config.getBlockedServers()
-							.contains(p.getCurrentServer().get().getServerInfo().getName())) {
+					if (isOnline(p) && isInAvailableServers(p.getCurrentServer().get().getServerInfo().getName())) {
 						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
 								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
@@ -1393,6 +1392,15 @@ public class VotingPluginVelocity {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	public boolean isInAvailableServers(String server) {
+		for (RegisteredServer s : getAvailableAllServers()) {
+			if (s.getServerInfo().getName().equalsIgnoreCase(server)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public Set<RegisteredServer> getAvailableAllServers() {

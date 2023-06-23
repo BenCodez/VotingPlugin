@@ -1299,7 +1299,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					}
 				} else {
-					if (isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName())) {
+					if (isOnline(p) && getAvailableAllServers().contains(p.getServer().getInfo().getName())) {
 						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
