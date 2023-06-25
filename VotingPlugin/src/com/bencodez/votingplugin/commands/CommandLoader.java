@@ -37,12 +37,12 @@ import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
+import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.UserGUI;
 import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
-import com.bencodez.votingplugin.commands.gui.admin.AdminVoteBungeeSettings;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholders;
@@ -531,7 +531,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteBungeeSettings(plugin, sender).open(GUIMethod.CHEST);
+				new ConfigEditor(plugin.getBungeeSettings()).open((Player) sender);
 			}
 		});
 

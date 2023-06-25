@@ -1014,6 +1014,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private TimeQueueHandler timeQueueHandler;
 
+	private void loadBungeeHandler() {
+		bungeeHandler = new BungeeHandler(this);
+		bungeeHandler.load();
+
+		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
+			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
+		}
+	}
+
 	@Override
 	public void onPostLoad() {
 		loadVersionFile();
@@ -1024,14 +1033,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadVoteTimer();
 
 		if (bungeeSettings.isUseBungeecoord()) {
-			bungeeHandler = new BungeeHandler(this);
-			bungeeHandler.load();
-
-			if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
-				getLogger()
-						.warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
-			}
-
+			loadBungeeHandler();
 		}
 
 		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
@@ -1380,6 +1382,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		bungeeSettings.reloadData();
 
 		if (bungeeSettings.isUseBungeecoord()) {
+			if (getBungeeHandler() == null) {
+				loadBungeeHandler();
+			}
 			getBungeeHandler().loadGlobalMysql();
 		}
 		checkYMLError();

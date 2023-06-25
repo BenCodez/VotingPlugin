@@ -25,9 +25,9 @@ import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
+import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.commands.gui.admin.AdminVoteBungeeSettings;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
@@ -167,11 +167,35 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml")) {
+		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml").addLoreLine("&aCurrently WIP")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new AdminVoteBungeeSettings(plugin, clickEvent.getPlayer()).open();
+				new ConfigEditor(plugin.getBungeeSettings()).open(clickEvent.getPlayer());
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit Config.yml").addLoreLine("&aCurrently WIP")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new ConfigEditor(plugin.getConfigFile()).open(clickEvent.getPlayer());
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.CHEST).setName("&cEdit GUI.yml").addLoreLine("&aCurrently WIP")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new ConfigEditor(plugin.getGui()).open(clickEvent.getPlayer());
+			}
+		});
+
+		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit SpecialRewards.yml").addLoreLine("&aCurrently WIP")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new ConfigEditor(plugin.getSpecialRewardsConfig()).open(clickEvent.getPlayer());
 			}
 		});
 
