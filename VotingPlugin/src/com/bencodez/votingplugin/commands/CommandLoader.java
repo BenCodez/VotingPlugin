@@ -431,11 +431,6 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
 					@Override
-					public void execute(CommandSender sender, String[] args) {
-
-					}
-
-					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						synchronized (pointLock) {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
