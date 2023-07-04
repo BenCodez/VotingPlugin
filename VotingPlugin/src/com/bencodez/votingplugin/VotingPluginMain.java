@@ -54,6 +54,7 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.yml.YMLConfig;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.advancedcore.scheduler.BukkitScheduler;
@@ -1598,7 +1599,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void updateAdvancedCoreHook() {
 		getJavascriptEngine().put("VotingPlugin", this);
 		allowDownloadingFromSpigot(15358);
-		setConfigData(configFile.getData());
+		setConfigData(new YMLConfig(this, configFile.getData()) {
+
+			@Override
+			public void setValue(String path, Object value) {
+				configFile.setValue(path, value);
+			}
+
+			@Override
+			public void saveData() {
+				configFile.saveData();
+			}
+
+			@Override
+			public void createSection(String key) {
+				configFile.createSection(key);
+			}
+		});
 		if (bungeeSettings.isUseBungeecoord()) {
 			getOptions().setPerServerRewards(getBungeeSettings().isPerServerRewards());
 		}

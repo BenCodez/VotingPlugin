@@ -167,7 +167,8 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml").addLoreLine("&aCurrently WIP")) {
+		buttons.add(new BInventoryButton(
+				new ItemBuilder("GRASS_BLOCK").setName("&cEdit BungeeSettings.yml").addLoreLine("&aCurrently WIP")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -175,15 +176,18 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit Config.yml").addLoreLine("&aCurrently WIP")) {
+		buttons.add(new BInventoryButton(
+				new ItemBuilder("GRASS_BLOCK").setName("&cEdit Config.yml").addLoreLine("&aCurrently WIP")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ConfigEditor(plugin.getConfigFile()).open(clickEvent.getPlayer());
+				new ConfigEditor(plugin.getConfigFile(), plugin.getOptions().getYmlConfig(),
+						plugin.getOptions().getClass()).open(clickEvent.getPlayer());
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.CHEST).setName("&cEdit GUI.yml").addLoreLine("&aCurrently WIP")) {
+		buttons.add(new BInventoryButton(
+				new ItemBuilder(Material.CHEST).setName("&cEdit GUI.yml").addLoreLine("&aCurrently WIP")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
@@ -191,7 +195,8 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder("GRASS_BLOCK").setName("&cEdit SpecialRewards.yml").addLoreLine("&aCurrently WIP")) {
+		buttons.add(new BInventoryButton(
+				new ItemBuilder("GRASS_BLOCK").setName("&cEdit SpecialRewards.yml").addLoreLine("&aCurrently WIP")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
