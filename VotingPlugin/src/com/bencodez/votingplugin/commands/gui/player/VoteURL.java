@@ -136,6 +136,7 @@ public class VoteURL extends GUIHandler {
 			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUITopLayout());
 			book.addLayout(layout);
 		}
+		int i = 1;
 		for (VoteSite site : plugin.getVoteSites()) {
 			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
 					site.getDisplayName());
@@ -145,12 +146,12 @@ public class VoteURL extends GUIHandler {
 				color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUICanVoteColor());
 				text = plugin.getGui().getBookVoteURLBookGUICanVoteText();
 			}
-			String url = StringParser.getInstance().replacePlaceHolder(site.getVoteURLJsonStrip(), "player",
-					user.getPlayerName());
+			String url = StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
+					.replacePlaceHolder(site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
 			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color)
 					.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url)).build());
 			book.addLayout(layout);
-
+			i++;
 		}
 
 		book.open(player);
