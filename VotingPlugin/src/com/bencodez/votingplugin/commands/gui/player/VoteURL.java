@@ -132,6 +132,10 @@ public class VoteURL extends GUIHandler {
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper(plugin.getGui().getBookVoteURLBookGUITitle());
 
+		if (plugin.getGui().isBookVoteURLBookGUIManual()) {
+			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUITopLayout());
+			book.addLayout(layout);
+		}
 		for (VoteSite site : plugin.getVoteSites()) {
 			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
 					site.getDisplayName());

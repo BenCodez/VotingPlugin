@@ -378,7 +378,11 @@ BOOK:
     CanVoteText: 'Click me'
     CanVoteColor: 'GREEN'
     AlreadyVotedText: 'Click me'
-    AlreadyVotedColor: 'RED' 
+    AlreadyVotedColor: 'RED'
+    # If true the layout below is the full book text 
+    Manual: false
+    # Only works if Manual is enabled
+    TopLayout: []
     Layout:
     - '&3&l%Sitename%'
     - '[UrlText]'

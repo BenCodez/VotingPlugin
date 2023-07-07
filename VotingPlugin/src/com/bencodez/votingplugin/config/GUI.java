@@ -33,6 +33,10 @@ public class GUI extends YMLFile {
 	@Getter
 	private String bookVoteURLBookGUICanVoteColor = "GREEN";
 
+	@ConfigDataBoolean(path = "BOOK.VoteURLBookGUI.Manual")
+	@Getter
+	private boolean bookVoteURLBookGUIManual = false;
+
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.CanVoteText")
 	@Getter
 	private String bookVoteURLBookGUICanVoteText = "Click me";
@@ -41,6 +45,10 @@ public class GUI extends YMLFile {
 	@Getter
 	private ArrayList<String> bookVoteURLBookGUILayout = ArrayUtils.getInstance()
 			.convert(new String[] { "&c%Sitename%", "[UrlText]" });
+	
+	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.TopLayout")
+	@Getter
+	private ArrayList<String> bookVoteURLBookGUITopLayout = new ArrayList<String>();
 
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.Title")
 	@Getter
@@ -301,11 +309,11 @@ public class GUI extends YMLFile {
 	public String getChestVoteNextName() {
 		return getData().getString("CHEST.VoteNext.Name", "VoteNext: %player%");
 	}
-	
+
 	public String getChestVoteNextLine() {
 		return getData().getString("CHEST.VoteNext.Line", "%time%");
 	}
-	
+
 	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
 		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
 	}
@@ -317,7 +325,7 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteShopBackButton() {
 		return getData().getBoolean("CHEST.VoteShopBackButton", true);
 	}
-	
+
 	public boolean getChestVoteShopReopenGUIOnPurchase() {
 		return getData().getBoolean("CHEST.VoteShopReopenGUIOnPurchase", false);
 	}
