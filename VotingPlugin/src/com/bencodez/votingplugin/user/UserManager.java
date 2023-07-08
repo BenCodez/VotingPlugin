@@ -19,6 +19,11 @@ public class UserManager {
 	public UserManager(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
+	
+	@Deprecated
+	public static UserManager getInstance() {
+		return VotingPluginMain.plugin.getVotingPluginUserManager();
+	}
 
 	public void addCachingKeys() {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
