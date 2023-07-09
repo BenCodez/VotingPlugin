@@ -15,14 +15,20 @@ import com.bencodez.votingplugin.VotingPluginMain;
 public class UserManager {
 	private VotingPluginMain plugin;
 
-
 	public UserManager(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
-	
+
+	@Deprecated
+	public UserManager() {
+	}
+
+	@Deprecated
+	static UserManager instance = new UserManager();
+
 	@Deprecated
 	public static UserManager getInstance() {
-		return VotingPluginMain.plugin.getVotingPluginUserManager();
+		return instance;
 	}
 
 	public void addCachingKeys() {
