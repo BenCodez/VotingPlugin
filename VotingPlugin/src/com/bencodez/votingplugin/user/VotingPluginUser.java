@@ -1209,14 +1209,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				info += " ";
 			}
 
-			if (diffSeconds == 1) {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-						plugin.getConfigFile().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
-			} else {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-						plugin.getConfigFile().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
+			if (plugin.getConfigFile().isFormatCommandsVoteLastIncludeSeconds()) {
+				if (diffSeconds == 1) {
+					info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+							plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+							plugin.getConfigFile().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
+				} else {
+					info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+							plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+							plugin.getConfigFile().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
+				}
 			}
 
 			info = StringParser.getInstance()

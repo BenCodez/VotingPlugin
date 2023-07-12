@@ -194,6 +194,10 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteLastNeverVoted;
 
+	@ConfigDataBoolean(path = "Format.Commands.Vote.Last.IncludeSeconds")
+	@Getter
+	private boolean formatCommandsVoteLastIncludeSeconds = true;
+
 	@ConfigDataString(path = "Format.Commands.Vote.Last.TimeFormat", defaultValue = "%amount% %TimeType%")
 	@Getter
 	private String formatCommandsVoteLastTimeFormat;

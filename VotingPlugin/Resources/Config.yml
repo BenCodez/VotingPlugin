@@ -172,6 +172,8 @@ Format:
         TimeFormat: '%amount% %TimeType%'
         LastVoted: '%times% ago'
         NeverVoted: 'Never voted'
+        # Whether or not to include seconds into last voted time
+        IncludeSeconds: true
         
       # Format for /vote total
       Total:
