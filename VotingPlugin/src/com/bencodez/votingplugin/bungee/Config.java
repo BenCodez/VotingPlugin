@@ -145,6 +145,10 @@ public class Config {
 		return getData().getInt("VoteParty.IncreaseVotesRequired", 0);
 	}
 
+	public int getVoteCacheTime() {
+		return getData().getInt("VoteCacheTime", -1);
+	}
+
 	public String getVotePartyBroadcast() {
 		return getData().getString("VoteParty.Broadcast", "");
 	}

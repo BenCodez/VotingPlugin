@@ -180,6 +180,27 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	public void checkVoteCacheTime() {
+		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+					votes.remove(i);
+				}
+			}
+		}
+
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+					votes.remove(i);
+				}
+			}
+		}
+	}
+
 	public void debug(String msg) {
 		if (config.getDebug()) {
 			getLogger().info("Debug: " + msg);
@@ -582,6 +603,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (getConfig().getVoteCacheTime() > 0) {
+					checkVoteCacheTime();
+				}
 				if (!config.getGlobalDataEnabled()) {
 					return;
 				}

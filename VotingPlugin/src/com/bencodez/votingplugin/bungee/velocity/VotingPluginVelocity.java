@@ -533,6 +533,27 @@ public class VotingPluginVelocity {
 		}
 	}
 
+	public void checkVoteCacheTime() {
+		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+					votes.remove(i);
+				}
+			}
+		}
+
+		for (Entry<RegisteredServer, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+					votes.remove(i);
+				}
+			}
+		}
+	}
+
 	@Subscribe
 	public void onProxyDisable(ProxyShutdownEvent event) {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -622,6 +643,9 @@ public class VotingPluginVelocity {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (getConfig().getVoteCacheTime() > 0) {
+					checkVoteCacheTime();
+				}
 				if (!config.getGlobalDataEnabled()) {
 					return;
 				}

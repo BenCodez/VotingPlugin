@@ -112,6 +112,11 @@ Broadcast: true
 GeyserSupport: false
 GeyserPrefix: '.'
 
+# Time votes will be cached on proxy
+# -1 means no time limit
+# Time in days
+VoteCacheTime: -1
+
 VoteParty:
   # If enabled, will trigger vote party reward 
   # in BungeeSettings.yml under BungeeVotePartyReward
