@@ -64,7 +64,7 @@ public class AdminVoteHelp extends GUIHandler {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
+		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {

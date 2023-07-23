@@ -83,16 +83,16 @@ public enum TopVoter {
 		if (switchItems != null && !switchItems.isEmpty()) {
 			list.addAll(switchItems);
 		} else {
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterAllTime()) {
 				list.add(TopVoter.AllTime);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterMonthly()) {
 				list.add(TopVoter.Monthly);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterWeekly()) {
 				list.add(TopVoter.Weekly);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterDaily()) {
 				list.add(TopVoter.Daily);
 			}
 		}
@@ -114,16 +114,16 @@ public enum TopVoter {
 		if (switchItems != null && !switchItems.isEmpty()) {
 			list.addAll(switchItems);
 		} else {
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterAllTime()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterAllTime()) {
 				list.add(TopVoter.AllTime);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterMonthly()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterMonthly()) {
 				list.add(TopVoter.Monthly);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterWeekly()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterWeekly()) {
 				list.add(TopVoter.Weekly);
 			}
-			if (VotingPluginMain.plugin.getConfigFile().getLoadTopVoterDaily()) {
+			if (VotingPluginMain.plugin.getConfigFile().isLoadTopVoterDaily()) {
 				list.add(TopVoter.Daily);
 			}
 		}

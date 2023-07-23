@@ -710,7 +710,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Login message.
 	 */
 	public void loginMessage() {
-		if (plugin.getConfigFile().getVoteRemindingRemindOnLogin()) {
+		if (plugin.getConfigFile().isVoteRemindingRemindOnLogin()) {
 			plugin.getVoteReminding().runRemindLogin(this);
 		}
 	}
@@ -816,7 +816,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
-		if (plugin.getConfigFile().getFormatBroadcastWhenOnline() && plugin.getConfigFile().isBroadcastVotesEnabled()
+		if (plugin.getConfigFile().isFormatBroadcastWhenOnline() && plugin.getConfigFile().isBroadcastVotesEnabled()
 				&& broadcast && !plugin.getBungeeSettings().isDisableBroadcast()) {
 			voteSite.broadcastVote(this);
 		}

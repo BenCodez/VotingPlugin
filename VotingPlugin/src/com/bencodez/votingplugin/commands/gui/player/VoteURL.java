@@ -57,7 +57,7 @@ public class VoteURL extends GUIHandler {
 		if (title != null) {
 			sites.addAll(title);
 		}
-		if (plugin.getConfigFile().getFormatCommandsVoteAutoInputSites()) {
+		if (plugin.getConfigFile().isFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSites()) {
 				if (!voteSite.isHidden()) {

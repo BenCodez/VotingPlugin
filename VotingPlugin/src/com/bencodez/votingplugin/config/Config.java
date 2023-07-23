@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataKeys;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -336,21 +337,13 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
 	}
 
-	public Set<String> getCustomCommands() {
-		Set<String> str = getData().getConfigurationSection("CustomCommands").getKeys(false);
-		if (str == null) {
-			str = new HashSet<String>();
-		}
-		return str;
-	}
+	@ConfigDataKeys(path = "CustomCommands")
+	@Getter
+	private Set<String> customCommands = new HashSet<String>();
 
-	public Set<String> getCustomPlaceholderReturns() {
-		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns").getKeys(false);
-		if (str == null) {
-			str = new HashSet<String>();
-		}
-		return str;
-	}
+	@ConfigDataKeys(path = "CustomPlaceholderReturns")
+	@Getter
+	private Set<String> customPlaceholderReturns = new HashSet<String>();
 
 	public Set<String> getCustomPlaceholderReturns(String placeholder) {
 		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns." + placeholder).getKeys(false);
@@ -368,141 +361,77 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("CustomCommands." + ident);
 	}
 
-	/**
-	 * Gets the broad cast msg.
-	 *
-	 * @return the broad cast msg
-	 */
-	public String getFormatBroadCastMsg() {
-		return getData().getString("Format.BroadcastMsg",
-				"&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%");
+	@ConfigDataString(path = "Format.BroadcastMsg")
+	@Getter
+	private String formatBroadCastMsg = "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%";
 
-	}
+	@ConfigDataBoolean(path = "Format.BroadcastWhenOnline")
+	@Getter
+	private boolean formatBroadcastWhenOnline = false;
 
-	/**
-	 * Gets the broadcast when online.
-	 *
-	 * @return the broadcast when online
-	 */
-	public boolean getFormatBroadcastWhenOnline() {
-		return getData().getBoolean("Format.BroadcastWhenOnline");
-	}
+	@ConfigDataBoolean(path = "Format.Commands.Vote.AutoInputSites")
+	@Getter
+	private boolean formatCommandsVoteAutoInputSites = true;
 
-	/**
-	 * Gets the commands vote auto input sites.
-	 *
-	 * @return the commands vote auto input sites
-	 */
-	public boolean getFormatCommandsVoteAutoInputSites() {
-		return getData().getBoolean("Format.Commands.Vote.AutoInputSites");
-	}
+	@ConfigDataListString(path = "Format.Commands.Vote.Best.Lines")
+	@Getter
+	private ArrayList<String> formatCommandsVoteBestLines = new ArrayList<String>();
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteBestLines() {
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Best.Lines", new ArrayList<String>());
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Best.Title")
+	@Getter
+	private String formatCommandsVoteBestTitle = "&3&l%player% Best Votes";
 
-	public String getFormatCommandsVoteBestTitle() {
-		return getData().getString("Format.Commands.Vote.Best.Title", "&3&l%player% Best Votes");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Help.HoverColor")
+	@Getter
+	private String formatCommandsVoteHelpHoverColor = "AQUA";
 
-	public String getFormatCommandsVoteHelpHoverColor() {
-		return getData().getString("Format.Commands.Vote.Help.HoverColor", "AQUA");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Help.Line")
+	@Getter
+	private String formatCommandsVoteHelpLine = "&6%Command% - &6%HelpMessage%";
 
-	/**
-	 * Gets the commands vote help line.
-	 *
-	 * @return the commands vote help line
-	 */
-	public String getFormatCommandsVoteHelpLine() {
-		return getData().getString("Format.Commands.Vote.Help.Line", "&6%Command% - &6%HelpMessage%");
-	}
+	@ConfigDataBoolean(path = "Format.Commands.Vote.Help.RequirePermission")
+	@Getter
+	private boolean formatCommandsVoteHelpRequirePermission = false;
 
-	/**
-	 * Gets the commands vote help require permission.
-	 *
-	 * @return the commands vote help require permission
-	 */
-	public boolean getFormatCommandsVoteHelpRequirePermission() {
-		return getData().getBoolean("Format.Commands.Vote.Help.RequirePermission");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Help.Title")
+	@Getter
+	private String formatCommandsVoteHelpTitle = "&6Voting Player Help";
 
-	/**
-	 * Gets the commands vote help title.
-	 *
-	 * @return the commands vote help title
-	 */
-	public String getFormatCommandsVoteHelpTitle() {
-		return getData().getString("Format.Commands.Vote.Help.Title", "&6Voting Player Help");
+	@ConfigDataString(path = "Format.Commands.Vote.Last.Title")
+	@Getter
+	private String formatCommandsVoteLastTitle = "&3&l%player% Last Vote Times:";
 
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Info.CanVote")
+	@Getter
+	private String formatCommandsVoteNextInfoCanVote = "Go Vote!";
 
-	/**
-	 * Gets the commands vote last title.
-	 *
-	 * @return the commands vote last title
-	 */
-	public String getFormatCommandsVoteLastTitle() {
-		return getData().getString("Format.Commands.Vote.Last.Title", "&3&l%player% Last Vote Times:");
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Info.Error")
+	@Getter
+	private String formatCommandsVoteNextInfoError = "";
 
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Info.TimeUntilVote")
+	@Getter
+	private String formatCommandsVoteNextInfoTime = "&cCould not caculate time until next vote!";
 
-	/**
-	 * Gets the commands vote next info can vote.
-	 *
-	 * @return the commands vote next info can vote
-	 */
-	public String getFormatCommandsVoteNextInfoCanVote() {
-		return getData().getString("Format.Commands.Vote.Next.Info.CanVote", "Go Vote!");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Info.VoteDelayDaily")
+	@Getter
+	private String formatCommandsVoteNextInfoVoteDelayDaily = "%hours% Hours and %minutes% Minutes";
 
-	/**
-	 * Gets the commands vote next info error.
-	 *
-	 * @return the commands vote next info error
-	 */
-	public String getFormatCommandsVoteNextInfoError() {
-		return getData().getString("Format.Commands.Vote.Next.Info.Error", "");
-	}
-
-	/**
-	 * Gets the commands vote next info time.
-	 *
-	 * @return the commands vote next info time
-	 */
-	public String getFormatCommandsVoteNextInfoTime() {
-		return getData().getString("Format.Commands.Vote.Next.Info.TimeUntilVote",
-				"&cCould not caculate time until next vote!");
-	}
-
-	public String getFormatCommandsVoteNextInfoVoteDelayDaily() {
-		return getData().getString("Format.Commands.Vote.Next.Info.VoteDelayDaily",
-				"%hours% Hours and %minutes% Minutes");
-	}
+	@ConfigDataString(path = "PlaceholderCacheLevel", options = { "AUTO", "SPECIFIC", "NONE" })
+	@Getter
+	private String placeholderCacheLevelString = "AUTO";
 
 	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
-		return PlaceholderCacheLevel.getCache(getData().getString("PlaceholderCacheLevel", "AUTO"));
+		return PlaceholderCacheLevel.getCache(getPlaceholderCacheLevelString());
 	}
 
-	/**
-	 * Gets the commands vote next layout.
-	 *
-	 * @return the commands vote next layout
-	 */
-	public String getFormatCommandsVoteNextLayout() {
-		return getData().getString("Format.Commands.Vote.Next.Layout", "&3%SiteName%: &6%info%");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Layout")
+	@Getter
+	private String formatCommandsVoteNextLayout = "&3%SiteName%: &6%info%";
 
-	/**
-	 * Gets the commands vote next title.
-	 *
-	 * @return the commands vote next title
-	 */
-	public String getFormatCommandsVoteNextTitle() {
-		return getData().getString("Format.Commands.Vote.Next.Title", "&3&l%player% Next Votes:");
-
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Next.Title")
+	@Getter
+	private String formatCommandsVoteNextTitle = "&3&l%player% Next Votes:";
 
 	/**
 	 * Gets the commands vote party.
@@ -522,9 +451,9 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<String>());
 	}
 
-	public String getFormatCommandsVoteStreakTitle() {
-		return getData().getString("Format.Commands.Vote.Streak.Title", "&3&l%player% Vote Streak");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Streak.Title")
+	@Getter
+	private String formatCommandsVoteStreakTitle = "&3&l%player% Vote Streak";
 
 	/**
 	 * Gets the commands vote text.
@@ -567,168 +496,95 @@ public class Config extends YMLFile {
 		return list;
 	}
 
-	/**
-	 * Gets the commands vote URLS.
-	 *
-	 * @return the commands vote URLS
-	 */
-	public String getFormatCommandsVoteURLS() {
-		return getData().getString("Format.Commands.Vote.Sites", "&4%num%: &c&l%SiteName% - &c%url%");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Sites")
+	@Getter
+	private String formatCommandsVoteURLS = "&4%num%: &c&l%SiteName% - &c%url%";
 
-	/**
-	 * Gets the command vote points.
-	 *
-	 * @return the command vote points
-	 */
-	public String getFormatCommandVotePoints() {
-		return getData().getString("Format.Commands.Vote.Points", "&a%Player% currently has &a&l%Points%&a Points!");
+	@ConfigDataString(path = "Format.Commands.Vote.Points")
+	@Getter
+	private String formatCommandsVotePoints = "&a%Player% currently has &a&l%Points%&a Points!";
 
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Top.Line")
+	@Getter
+	private String formatCommandsVoteTopLine = "&c%num%: &6%player%, %votes%";
 
-	/**
-	 * Gets the command vote top line.
-	 *
-	 * @return the command vote top line
-	 */
-	public String getFormatCommandVoteTopLine() {
-		return getData().getString("Format.Commands.Vote.Top.Line", "&c%num%: &6%player%, %votes%");
-	}
+	@ConfigDataString(path = "Format.Commands.Vote.Top.Title")
+	@Getter
+	private String formatCommandVoteTopTitle = "&3Top %Top% Voters %page%/%maxpages%";
 
-	/**
-	 * Gets the command vote top title.
-	 *
-	 * @return the command vote top title
-	 */
-	public String getFormatCommandVoteTopTitle() {
-		return getData().getString("Format.Commands.Vote.Top.Title", "&3Top %Top% Voters %page%/%maxpages%");
+	@ConfigDataString(path = "Format.NextPage")
+	@Getter
+	private String formatNextPage = "&aNext Page";
 
-	}
+	@ConfigDataString(path = "Format.NoPerms")
+	@Getter
+	private String formatNoPerms = "&cYou do not have enough permission!";
 
-	public String getFormatNextPage() {
-		return getData().getString("Format.NextPage", "&aNext Page");
-	}
+	@ConfigDataString(path = "Format.NotNumber")
+	@Getter
+	private String formatNotNumber = "&cError on &6%arg%&c, number expected!";
 
-	/**
-	 * Gets the format no perms.
-	 *
-	 * @return the format no perms
-	 */
-	public String getFormatNoPerms() {
-		return getData().getString("Format.NoPerms", "&cYou do not have enough permission!");
-	}
+	@ConfigDataString(path = "Format.PrevPage")
+	@Getter
+	private String formatPrevPage = "&aPrevious Page";
 
-	public String getFormatNotNumber() {
-		return getData().getString("Format.NotNumber", "&cError on &6%arg%&c, number expected!");
-	}
+	@ConfigDataString(path = "Format.ShopFailed")
+	@Getter
+	private String formatShopFailedMsg = "&cYou do not have %Points% points to purhcase this!";
 
-	public String getFormatPrevPage() {
-		return getData().getString("Format.PrevPage", "&aPrevious Page");
-	}
+	@ConfigDataString(path = "Format.ShopNotPurchasable")
+	@Getter
+	private String formatShopNotPurchasable = "&cThis item is not buyable!";
 
-	public String getFormatShopFailedMsg() {
-		return getData().getString("Format.ShopFailed", "&cYou do not have %Points% points to purhcase this!");
-	}
+	@ConfigDataString(path = "Format.ShopPurchase")
+	@Getter
+	private String formatShopPurchaseMsg = "&aYou bought the %Identifier% for %Points% Points!";
 
-	public String getFormatShopNotPurchasable() {
-		return getData().getString("Format.ShopNotPurchasable", "&cThis item is not buyable!");
-	}
+	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line1")
+	@Getter
+	private String formatSignTopVoterSignLine1 = "TopVoter: %SiteName%";
 
-	public String getFormatShopPurchaseMsg() {
-		return getData().getString("Format.ShopPurchase", "&aYou bought the %Identifier% for %Points% Points!");
+	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line2")
+	@Getter
+	private String formatSignTopVoterSignLine2 = "#%position%";
+	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line3")
+	@Getter
+	private String formatSignTopVoterSignLine3 = "%player%";
+	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line4")
+	@Getter
+	private String formatSignTopVoterSignLine4 = "%votes% Votes";
 
-	}
+	@ConfigDataString(path = "Format.Signs.RightClickMessage")
+	@Getter
+	private String formatSignTopVoterSignRightClickMessage = "&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%";
 
-	/**
-	 * Gets the sign top voter sign line 1.
-	 *
-	 * @return the sign top voter sign line 1
-	 */
-	public String getFormatSignTopVoterSignLine1() {
-		return getData().getString("Format.Signs.TopVoterSign.Line1", "TopVoter: %SiteName%");
+	@ConfigDataString(path = "Format.TimeFormat")
+	@Getter
+	private String formatTimeFormat = "EEE, d MMM yyyy HH:mm";
 
-	}
+	@ConfigDataString(path = "Format.TopVoter.AllTime")
+	@Getter
+	private String formatTopVoterAllTime = "AllTime";
 
-	/**
-	 * Gets the sign top voter sign line 2.
-	 *
-	 * @return the sign top voter sign line 2
-	 */
-	public String getFormatSignTopVoterSignLine2() {
-		return getData().getString("Format.Signs.TopVoterSign.Line2", "#%position%");
-	}
+	@ConfigDataString(path = "Format.TopVoter.Daily")
+	@Getter
+	private String formatTopVoterDaily = "Daily";
 
-	/**
-	 * Gets the sign top voter sign line 3.
-	 *
-	 * @return the sign top voter sign line 3
-	 */
-	public String getFormatSignTopVoterSignLine3() {
-		return getData().getString("Format.Signs.TopVoterSign.Line3", "%player%");
+	@ConfigDataString(path = "Format.TopVoter.Monthly")
+	@Getter
+	private String formatTopVoterMonthly = "Monthly";
 
-	}
+	@ConfigDataString(path = "Format.TopVoterAwardMsg")
+	@Getter
+	private String formatTopVoterRewardMsg = "&aYou came in %place% in top voters of the month! Here is an award!";
 
-	/**
-	 * Gets the sign top voter sign line 4.
-	 *
-	 * @return the sign top voter sign line 4
-	 */
-	public String getFormatSignTopVoterSignLine4() {
-		return getData().getString("Format.Signs.TopVoterSign.Line4", "%votes% Votes");
+	@ConfigDataString(path = "Format.TopVoter.Weekly")
+	@Getter
+	private String formatTopVoterWeekly = "Weekly";
 
-	}
-
-	/**
-	 * Gets the sign top voter sign right click message.
-	 *
-	 * @return the sign top voter sign right click message
-	 */
-	public String getFormatSignTopVoterSignRightClickMessage() {
-		return getData().getString("Format.Signs.RightClickMessage",
-				"&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cin &c&l%SiteName%");
-
-	}
-
-	/**
-	 * Gets the time format.
-	 *
-	 * @return the time format
-	 */
-	public String getFormatTimeFormat() {
-		return getData().getString("Format.TimeFormat", "EEE, d MMM yyyy HH:mm");
-
-	}
-
-	public String getFormatTopVoterAllTime() {
-		return getData().getString("Format.TopVoter.AllTime", "AllTime");
-	}
-
-	public String getFormatTopVoterDaily() {
-		return getData().getString("Format.TopVoter.Daily", "Daily");
-	}
-
-	public String getFormatTopVoterMonthly() {
-		return getData().getString("Format.TopVoter.Monthly", "Monthly");
-	}
-
-	/**
-	 * Gets the top voter reward msg.
-	 *
-	 * @return the top voter reward msg
-	 */
-	public String getFormatTopVoterRewardMsg() {
-		return getData().getString("Format.TopVoterAwardMsg",
-				"&aYou came in %place% in top voters of the month! Here is an award!");
-
-	}
-
-	public String getFormatTopVoterWeekly() {
-		return getData().getString("Format.TopVoter.Weekly", "Weekly");
-	}
-
-	public String getFormatUserNotExist() {
-		return getData().getString("Format.UserNotExist", "&cUser does not exist: %player%");
-	}
+	@ConfigDataString(path = "Format.UserNotExist")
+	@Getter
+	private String formatUserNotExist = "&cUser does not exist: %player%";
 
 	/**
 	 * Gets the vote help.
@@ -747,126 +603,85 @@ public class Config extends YMLFile {
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {
 		case AllTime:
-			return getLoadTopVoterAllTime();
+			return isLoadTopVoterAllTime();
 		case Daily:
-			return getLoadTopVoterDaily();
+			return isLoadTopVoterDaily();
 		case Monthly:
-			return getLoadTopVoterMonthly();
+			return isLoadTopVoterMonthly();
 		case Weekly:
-			return getLoadTopVoterWeekly();
+			return isLoadTopVoterWeekly();
 		default:
 			return false;
 		}
 	}
 
-	public boolean getLoadTopVoterAllTime() {
-		return getData().getBoolean("LoadTopVoter.AllTime", true);
-	}
+	@ConfigDataBoolean(path = "LoadTopVoter.AllTime")
+	@Getter
+	private boolean loadTopVoterAllTime = true;
 
-	public boolean getLoadTopVoterDaily() {
-		return getData().getBoolean("LoadTopVoter.Daily", false);
-	}
+	@ConfigDataBoolean(path = "LoadTopVoter.Monthly")
+	@Getter
+	private boolean loadTopVoterMonthly = true;
 
-	public boolean getLoadTopVoterMonthly() {
-		return getData().getBoolean("LoadTopVoter.Monthly", true);
-	}
+	@ConfigDataBoolean(path = "LoadTopVoter.Daily")
+	@Getter
+	private boolean loadTopVoterDaily = false;
 
-	public boolean getLoadTopVoterWeekly() {
-		return getData().getBoolean("LoadTopVoter.Weekly", false);
-	}
+	@ConfigDataBoolean(path = "LoadTopVoter.Weekly")
+	@Getter
+	private boolean loadTopVoterWeekly = false;
 
-	public int getPointsOnVote() {
-		return getData().getInt("PointsOnVote", 1);
-	}
+	@ConfigDataInt(path = "PointsOnVote")
+	@Getter
+	private int pointsOnVote = 1;
 
-	public int getPurgeMin() {
-		return getData().getInt("PurgeMin", 90);
-	}
+	@ConfigDataInt(path = "PurgeMin")
+	@Getter
+	private int purgeMin = 90;
 
-	public boolean getPurgeOldData() {
-		return getData().getBoolean("PurgeOldData");
-	}
+	@ConfigDataBoolean(path = "PurgeOldData")
+	@Getter
+	private boolean purgeOldData = false;
 
-	/**
-	 * Gets the request API default method.
-	 *
-	 * @return the request API default method
-	 */
-	public String getRequestAPIDefaultMethod() {
-		return getData().getString("RequestAPI.DefaultMethod", "Anvil");
-	}
+	@ConfigDataString(path = "RequestAPI.DefaultMethod")
+	@Getter
+	private String requestAPIDefaultMethod = "ANVIL";
 
-	/**
-	 * Gets the request API disabled methods.
-	 *
-	 * @return the request API disabled methods
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getRequestAPIDisabledMethods() {
-		return (ArrayList<String>) getData().getList("RequestAPI.DisabledMethods", new ArrayList<String>());
-	}
+	@ConfigDataListString(path = "RequestAPI.DisabledMethods")
+	@Getter
+	private ArrayList<String> requestAPIDisabledMethods = new ArrayList<String>();
 
-	/**
-	 * Gets the store top voters daily.
-	 *
-	 * @return the store top voters daily
-	 */
-	public boolean getStoreTopVotersDaily() {
-		return getData().getBoolean("StoreTopVoters.Daily");
-	}
+	@ConfigDataBoolean(path = "StoreTopVoters.Daily")
+	@Getter
+	private boolean storeTopVotersDaily = false;
 
-	/**
-	 * Gets the store top voters weekly.
-	 *
-	 * @return the store top voters weekly
-	 */
-	public boolean getStoreTopVotersWeekly() {
-		return getData().getBoolean("StoreTopVoters.Weekly");
-	}
+	@ConfigDataBoolean(path = "StoreTopVoters.Weekly")
+	@Getter
+	private boolean storeTopVotersWeekly = false;
 
-	public boolean getTopVoterAwardsTies() {
-		return getData().getBoolean("TopVoterAwardsTies", true);
-	}
+	@ConfigDataBoolean(path = "TopVoterAwardsTies")
+	@Getter
+	private boolean topVoterAwardsTies = true;
 
-	public boolean getTopVoterIgnorePermission() {
-		return getData().getBoolean("TopVoterIgnorePermission");
-	}
+	@ConfigDataBoolean(path = "TopVoterIgnorePermission")
+	@Getter
+	private boolean topVoterIgnorePermission = false;
 
-	/**
-	 * Gets the enabled.
-	 *
-	 * @return the enabled
-	 */
-	public boolean getVoteRemindingEnabled() {
-		return getData().getBoolean("VoteReminding.Enabled");
-	}
+	@ConfigDataBoolean(path = "VoteReminding.Enabled")
+	@Getter
+	private boolean voteRemindingEnabled = true;
 
-	/**
-	 * Gets the remind delay.
-	 *
-	 * @return the remind delay
-	 */
-	public int getVoteRemindingRemindDelay() {
-		return getData().getInt("VoteReminding.RemindDelay", 30);
-	}
+	@ConfigDataInt(path = "VoteReminding.RemindDelay")
+	@Getter
+	private int voteRemindingRemindDelay = 30;
 
-	/**
-	 * Gets the remind on login.
-	 *
-	 * @return the remind on login
-	 */
-	public boolean getVoteRemindingRemindOnLogin() {
-		return getData().getBoolean("VoteReminding.RemindOnLogin");
-	}
+	@ConfigDataBoolean(path = "VoteReminding.RemindOnLogin")
+	@Getter
+	private boolean voteRemindingRemindOnLogin = false;
 
-	/**
-	 * Gets the remind only once.
-	 *
-	 * @return the remind only once
-	 */
-	public boolean getVoteRemindingRemindOnlyOnce() {
-		return getData().getBoolean("VoteReminding.RemindOnlyOnce");
-	}
+	@ConfigDataBoolean(path = "VoteReminding.RemindOnlyOnce")
+	@Getter
+	private boolean voteRemindingRemindOnlyOnce = false;
 
 	/**
 	 * Gets the rewards.
@@ -877,9 +692,9 @@ public class Config extends YMLFile {
 		return "VoteReminding.Rewards";
 	}
 
-	public String getVoteTopDefault() {
-		return getData().getString("VoteTopDefault", "Monthly");
-	}
+	@ConfigDataString(path = "VoteTopDefault")
+	@Getter
+	private String voteTopDefault = "Monthly";
 
 	@Override
 	public void loadValues() {

@@ -133,7 +133,7 @@ public class PlayerVoteListener implements Listener {
 			// broadcast vote if enabled in config
 			if (plugin.getConfigFile().isBroadcastVotesEnabled()
 					&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
-				if (!plugin.getConfigFile().getFormatBroadcastWhenOnline() || user.isOnline()) {
+				if (!plugin.getConfigFile().isFormatBroadcastWhenOnline() || user.isOnline()) {
 					voteSite.broadcastVote(user);
 				}
 			}
@@ -164,7 +164,7 @@ public class PlayerVoteListener implements Listener {
 		plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
 		plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
 
-		if (user.isReminded() && plugin.getConfigFile().getVoteRemindingRemindOnlyOnce()) {
+		if (user.isReminded() && plugin.getConfigFile().isVoteRemindingRemindOnlyOnce()) {
 			user.setReminded(false);
 		}
 

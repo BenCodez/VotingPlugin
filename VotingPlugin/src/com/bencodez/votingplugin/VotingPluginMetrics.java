@@ -218,28 +218,28 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getConfigFile().getVoteRemindingEnabled();
+				return "" + plugin.getConfigFile().isVoteRemindingEnabled();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getConfigFile().getLoadTopVoterMonthly();
+				return "" + plugin.getConfigFile().isLoadTopVoterMonthly();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Weekly", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getConfigFile().getLoadTopVoterWeekly();
+				return "" + plugin.getConfigFile().isLoadTopVoterWeekly();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Daily", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getConfigFile().getLoadTopVoterDaily();
+				return "" + plugin.getConfigFile().isLoadTopVoterDaily();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeemethod", new Callable<String>() {

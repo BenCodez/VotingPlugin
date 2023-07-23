@@ -37,7 +37,7 @@ public class VoteHelp extends GUIHandler {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
+		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
 		String colorStr = plugin.getConfigFile().getFormatCommandsVoteHelpHoverColor();
 		ChatColor hoverColor = null;
@@ -68,7 +68,7 @@ public class VoteHelp extends GUIHandler {
 		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
 		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
 
-		boolean requirePerms = plugin.getConfigFile().getFormatCommandsVoteHelpRequirePermission();
+		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {

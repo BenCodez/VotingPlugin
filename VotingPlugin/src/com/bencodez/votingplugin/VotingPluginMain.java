@@ -1468,7 +1468,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									}
 								}
 								boolean topVoterIgnorePermissionUse = plugin.getConfigFile()
-										.getTopVoterIgnorePermission();
+										.isTopVoterIgnorePermission();
 								ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
 
 								// ArrayList<String> uuids = getVotingPluginUserManager().getAllUUIDs();

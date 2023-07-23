@@ -2187,7 +2187,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (plugin.getUserManager().userExist(args[1])) {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-					String msg = plugin.getConfigFile().getFormatCommandVotePoints()
+					String msg = plugin.getConfigFile().getFormatCommandsVotePoints()
 							.replace("%Player%", user.getPlayerName()).replace("%Points%", "" + user.getPoints());
 					if (sender instanceof Player) {
 						plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender).sendMessage(msg);
@@ -2208,7 +2208,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
-				String msg = plugin.getConfigFile().getFormatCommandVotePoints()
+				String msg = plugin.getConfigFile().getFormatCommandsVotePoints()
 						.replace("%Player%", user.getPlayerName()).replace("%Points%", "" + user.getPoints());
 				user.sendMessage(msg);
 			}
