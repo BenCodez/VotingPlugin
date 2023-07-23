@@ -172,7 +172,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ConfigEditor(plugin.getBungeeSettings()).open(clickEvent.getPlayer());
+				new ConfigEditor(plugin, plugin.getBungeeSettings()).open(clickEvent.getPlayer());
 			}
 		});
 
@@ -181,7 +181,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ConfigEditor(plugin.getConfigFile(), plugin.getOptions().getYmlConfig(),
+				new ConfigEditor(plugin, plugin.getConfigFile(), plugin.getOptions().getYmlConfig(),
 						plugin.getOptions().getClass()).open(clickEvent.getPlayer());
 			}
 		});
@@ -191,7 +191,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ConfigEditor(plugin.getGui()).open(clickEvent.getPlayer());
+				new ConfigEditor(plugin, plugin.getGui()).open(clickEvent.getPlayer());
 			}
 		});
 
@@ -200,7 +200,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ConfigEditor(plugin.getSpecialRewardsConfig()).open(clickEvent.getPlayer());
+				new ConfigEditor(plugin, plugin.getSpecialRewardsConfig()).open(clickEvent.getPlayer());
 			}
 		});
 

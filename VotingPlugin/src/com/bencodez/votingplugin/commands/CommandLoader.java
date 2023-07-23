@@ -526,7 +526,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new ConfigEditor(plugin.getBungeeSettings()).open((Player) sender);
+				new ConfigEditor(plugin, plugin.getBungeeSettings()).open((Player) sender);
 			}
 		});
 
