@@ -114,7 +114,7 @@ public class VoteLast extends GUIHandler {
 					});
 		}
 
-		if (plugin.getGui().getChestVoteLastBackButton()) {
+		if (plugin.getGui().isChestVoteLastBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 

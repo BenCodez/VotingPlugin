@@ -596,9 +596,9 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
 	}
 
-	public boolean getGiveDefaultPermission() {
-		return getData().getBoolean("GiveDefaultPermission", true);
-	}
+	@ConfigDataBoolean(path = "GiveDefaultPermission")
+	@Getter
+	private boolean giveDefaultPermission = true;
 
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {

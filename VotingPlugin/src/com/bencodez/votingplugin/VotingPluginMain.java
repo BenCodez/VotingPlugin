@@ -1313,7 +1313,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		Permission perm = Bukkit.getPluginManager().getPermission("VotingPlugin.Player");
 		if (perm != null) {
-			if (configFile.getGiveDefaultPermission()) {
+			if (configFile.isGiveDefaultPermission()) {
 				perm.setDefault(PermissionDefault.TRUE);
 				getLogger().info("Giving VotingPlugin.Player permission by default, can be disabled in the config");
 			} else {

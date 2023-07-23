@@ -45,7 +45,7 @@ public class VoteShop extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		if (!plugin.getGui().getChestVoteShopEnabled()) {
+		if (!plugin.getGui().isChestVoteShopEnabled()) {
 			player.sendMessage(StringParser.getInstance().colorize(plugin.getGui().getChestVoteShopDisabled()));
 			return;
 		}
@@ -153,7 +153,7 @@ public class VoteShop extends GUIHandler {
 									user.sendMessage(plugin.getGui().getChestVoteShopLimitReached());
 								}
 								plugin.getCommandLoader().processSlotClick(player, user, identifier);
-								if (plugin.getGui().getChestVoteShopReopenGUIOnPurchase()) {
+								if (plugin.getGui().isChestVoteShopReopenGUIOnPurchase()) {
 									plugin.getCommandLoader().processSlotClick(player, user, "shop");
 								}
 							}
@@ -189,7 +189,7 @@ public class VoteShop extends GUIHandler {
 			});
 		}
 
-		if (plugin.getGui().getChestVoteShopBackButton()) {
+		if (plugin.getGui().isChestVoteShopBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 

@@ -102,7 +102,7 @@ public class VoteTotal extends GUIHandler {
 					});
 		}
 
-		if (plugin.getGui().getChestVoteTotalBackButton()) {
+		if (plugin.getGui().isChestVoteTotalBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);

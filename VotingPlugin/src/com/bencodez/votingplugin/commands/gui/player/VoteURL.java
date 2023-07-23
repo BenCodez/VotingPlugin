@@ -166,7 +166,7 @@ public class VoteURL extends GUIHandler {
 	public void onChest(Player player) {
 		// normal GUI
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLName());
-		if (plugin.getGui().getChestVoteURLViewAllUrlsButtonEnabled()) {
+		if (plugin.getGui().isChestVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = getItemAll();
 
 			inv.addButton(new UpdatingBInventoryButton(plugin, builderAll, 5000, 5000) {
@@ -233,7 +233,7 @@ public class VoteURL extends GUIHandler {
 			});
 		}
 
-		if (plugin.getGui().getChestVoteURLBackButton()) {
+		if (plugin.getGui().isChestVoteURLBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 

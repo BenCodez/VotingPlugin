@@ -52,7 +52,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 
 		// to add
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueBoolean("Enabled", plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
+				new EditGUIValueBoolean("Enabled", plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 
 					@Override
 					public void setValue(Player player, boolean name) {
@@ -70,7 +70,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.LADDER, 1), new EditGUIValueNumber(
-				"IncreaseVotesRquired", plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired()) {
+				"IncreaseVotesRquired", plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired()) {
 
 			@Override
 			public void setValue(Player player, Number num) {
@@ -106,7 +106,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("GiveAllPlayers",
-				plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
+				plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {
@@ -124,7 +124,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueBoolean("ResetEachDay", plugin.getSpecialRewardsConfig().getVotePartyResetEachDay()) {
+				new EditGUIValueBoolean("ResetEachDay", plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
 
 					@Override
 					public void setValue(Player player, boolean name) {
@@ -133,7 +133,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueBoolean("ResetWeekly", plugin.getSpecialRewardsConfig().getVotePartyResetWeekly()) {
+				new EditGUIValueBoolean("ResetWeekly", plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
 
 					@Override
 					public void setValue(Player player, boolean name) {
@@ -142,7 +142,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueBoolean("ResetMonthly", plugin.getSpecialRewardsConfig().getVotePartyResetMontly()) {
+				new EditGUIValueBoolean("ResetMonthly", plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
 
 					@Override
 					public void setValue(Player player, boolean name) {
@@ -151,7 +151,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 				}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("OnlyOncePerDay",
-				plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()) {
+				plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {
@@ -169,7 +169,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("CountFakeVotes",
-				plugin.getSpecialRewardsConfig().getVotePartyCountFakeVotes()) {
+				plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {
@@ -178,7 +178,7 @@ public class AdminVoteVoteParty extends GUIHandler {
 		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueBoolean("CountOfflineVotes",
-				plugin.getSpecialRewardsConfig().getVotePartyCountOfflineVotes()) {
+				plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes()) {
 
 			@Override
 			public void setValue(Player player, boolean name) {

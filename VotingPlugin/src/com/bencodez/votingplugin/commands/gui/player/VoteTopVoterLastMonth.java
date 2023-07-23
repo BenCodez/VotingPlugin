@@ -82,7 +82,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 			pos++;
 		}
 
-		if (plugin.getGui().getChestVoteTopBackButton()) {
+		if (plugin.getGui().isChestVoteTopBackButton()) {
 			inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
 		}
 

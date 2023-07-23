@@ -65,11 +65,11 @@ public class VoteParty implements Listener {
 		if (getTotalVotes() < getVotesRequired()) {
 			return;
 		}
-		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()
+		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
 				&& plugin.getServerData().isLastVotePartySameDay()) {
 			return;
 		}
-		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerWeek()
+		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
 				&& plugin.getServerData().isLastVotePartySameWeek()) {
 			return;
 		}
@@ -85,16 +85,16 @@ public class VoteParty implements Listener {
 
 		giveRewards(user, forceBungee);
 
-		if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired() > 0) {
+		if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired() > 0) {
 			plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
-					+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRquired());
+					+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired());
 		}
 
-		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerDay()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()) {
 			plugin.getServerData().updateLastVoteParty();
 		}
 
-		if (plugin.getSpecialRewardsConfig().getVotePartyOnlyOncePerWeek()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
 			plugin.getServerData().updateLastVotePartyWeek();
 		}
 
@@ -106,7 +106,7 @@ public class VoteParty implements Listener {
 	 * @param sender the sender
 	 */
 	public void commandVoteParty(CommandSender sender) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 			ArrayList<String> msg = plugin.getConfigFile().getFormatCommandsVoteParty();
 			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
@@ -231,7 +231,7 @@ public class VoteParty implements Listener {
 			});
 		}
 
-		if (plugin.getSpecialRewardsConfig().getVotePartyGiveAllPlayers()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
 			ArrayList<String> alreadyGotten = new ArrayList<String>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
@@ -285,14 +285,14 @@ public class VoteParty implements Listener {
 
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyResetEachDay()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
 			reset(true);
 		}
 	}
 
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyResetMontly()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
 			reset(true);
 		}
 
@@ -303,7 +303,7 @@ public class VoteParty implements Listener {
 
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyResetWeekly()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
 			reset(true);
 		}
 	}
@@ -346,9 +346,9 @@ public class VoteParty implements Listener {
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
-			if (plugin.getSpecialRewardsConfig().getVotePartyCountFakeVotes() || realVote) {
-				if (plugin.getSpecialRewardsConfig().getVotePartyCountOfflineVotes() || user.isOnline()) {
+		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
+			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
+				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline()) {
 					addTotal(user);
 					addVotePlayer(user);
 					check(user, forceBungee);

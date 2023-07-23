@@ -119,7 +119,7 @@ public class VoteTopVoter extends GUIHandler {
 
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						if (plugin.getGui().getChestVoteTopOpenMainGUIOnClick()) {
+						if (plugin.getGui().isChestVoteTopOpenMainGUIOnClick()) {
 							TopVoterPlayer user = (TopVoterPlayer) getData("User");
 							new VoteGUI(plugin, player, user.getUser())
 									.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
@@ -131,7 +131,7 @@ public class VoteTopVoter extends GUIHandler {
 					button.setSlot(playerSlots.remove());
 				}
 
-				inv.setCloseInv(plugin.getGui().getChestVoteTopCloseGUIOnClick());
+				inv.setCloseInv(plugin.getGui().isChestVoteTopCloseGUIOnClick());
 
 				inv.addButton(button);
 				pos++;
@@ -174,7 +174,7 @@ public class VoteTopVoter extends GUIHandler {
 				});
 			}
 
-			if (plugin.getGui().getChestVoteTopBackButton()) {
+			if (plugin.getGui().isChestVoteTopBackButton()) {
 				if (customzationEnabled) {
 					inv.addButton(plugin.getCommandLoader().getBackButton(user)
 							.setSlot(customization.getInt("BackButtonSlot", 0)));

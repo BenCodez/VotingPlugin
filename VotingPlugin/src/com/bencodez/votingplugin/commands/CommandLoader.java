@@ -2007,7 +2007,7 @@ public class CommandLoader {
 			}
 		});
 
-		if (plugin.getGui().getChestVoteShopEnabled()) {
+		if (plugin.getGui().isChestVoteShopEnabled()) {
 			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop" },
 					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
 
@@ -2022,7 +2022,7 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					if (!plugin.getGui().getChestVoteShopEnabled()) {
+					if (!plugin.getGui().isChestVoteShopEnabled()) {
 						sender.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
 						return;
 					}

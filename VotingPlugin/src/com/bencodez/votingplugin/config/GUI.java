@@ -12,6 +12,8 @@ import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataConfigurationSection;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataKeys;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -45,7 +47,7 @@ public class GUI extends YMLFile {
 	@Getter
 	private ArrayList<String> bookVoteURLBookGUILayout = ArrayUtils.getInstance()
 			.convert(new String[] { "&c%Sitename%", "[UrlText]" });
-	
+
 	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.TopLayout")
 	@Getter
 	private ArrayList<String> bookVoteURLBookGUITopLayout = new ArrayList<String>();
@@ -181,9 +183,9 @@ public class GUI extends YMLFile {
 		saveData();
 	}
 
-	public ConfigurationSection getCHESTBackButton() {
-		return getData().getConfigurationSection("CHEST.BackButton");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.BackButton")
+	@Getter
+	private ConfigurationSection CHESTBackButton;
 
 	public int getChestShopIdentifierCost(String identifier) {
 		return getData().getInt("CHEST.Shop." + identifier + ".Cost");
@@ -213,25 +215,25 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.Shop." + identifier);
 	}
 
-	public ConfigurationSection getChestVoteBestDayBestItem() {
-		return getData().getConfigurationSection("CHEST.VoteBest.DayBest.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteBest.DayBest.Item")
+	@Getter
+	private ConfigurationSection chestVoteBestDayBestItem;
 
-	public ConfigurationSection getChestVoteBestMonthBestItem() {
-		return getData().getConfigurationSection("CHEST.VoteBest.MonthBest.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteBest.MonthBest.Item")
+	@Getter
+	private ConfigurationSection chestVoteBestMonthBestItem;
 
-	public String getChestVoteBestName() {
-		return getData().getString("CHEST.VoteBest.Name", "VoteBest: %player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteBest.Name")
+	@Getter
+	private String chestVoteBestName = "VoteBest: %player%";
 
-	public ConfigurationSection getChestVoteBestWeekBestItem() {
-		return getData().getConfigurationSection("CHEST.VoteBest.WeekBest.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteBest.WeekBest.Item")
+	@Getter
+	private ConfigurationSection chestVoteBestWeekBestItem;
 
-	public String getChestVoteGUIName() {
-		return getData().getString("CHEST.VoteGUIName", "&cVoteGUI: &c&l%player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteGUIName")
+	@Getter
+	private String chestVoteGUIName = "&cVoteGUI: &c&l%player%";
 
 	/**
 	 * Gets the vote GUI slot command.
@@ -259,26 +261,17 @@ public class GUI extends YMLFile {
 		return "CHEST.VoteGUI." + slot + "." + lastPath;
 	}
 
-	/**
-	 * Gets the vote GUI slots.
-	 *
-	 * @return the vote GUI slots
-	 */
-	public Set<String> getChestVoteGUISlots() {
-		try {
-			return getData().getConfigurationSection("CHEST.VoteGUI").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
+	@ConfigDataKeys(path = "CHEST.VoteGUI")
+	@Getter
+	private Set<String> chestVoteGUISlots = new HashSet<String>();
 
 	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
 		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
 	}
 
-	public ConfigurationSection getChestVoteTopCustomization() {
-		return getData().getConfigurationSection("CHEST.VoteTop.Customization");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTop.Customization")
+	@Getter
+	private ConfigurationSection chestVoteTopCustomization;
 
 	/**
 	 * Gets the vote GUI slot slot.
@@ -290,57 +283,57 @@ public class GUI extends YMLFile {
 		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
 	}
 
-	public boolean getChestVoteLastBackButton() {
-		return getData().getBoolean("CHEST.VoteLast.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteLast.BackButton")
+	@Getter
+	private boolean chestVoteLastBackButton = false;
 
-	public String getChestVoteLastLine() {
-		return getData().getString("CHEST.VoteLast.Line", "&6%timeSince%");
-	}
+	@ConfigDataString(path = "CHEST.VoteLast.Line")
+	@Getter
+	private String chestVoteLastLine = "&6%timeSince%";
 
-	public String getChestVoteLastName() {
-		return getData().getString("CHEST.VoteLast.Name", "VoteLast: %player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteLast.Name")
+	@Getter
+	private String chestVoteLastName = "VoteLast: %player%";
 
-	public boolean getChestVoteNextBackButton() {
-		return getData().getBoolean("CHEST.VoteNext.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteNext.BackButton")
+	@Getter
+	private boolean chestVoteNextBackButton = false;
 
-	public String getChestVoteNextName() {
-		return getData().getString("CHEST.VoteNext.Name", "VoteNext: %player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteNext.Name")
+	@Getter
+	private String chestVoteNextName = "VoteNext: %player%";
 
-	public String getChestVoteNextLine() {
-		return getData().getString("CHEST.VoteNext.Line", "%time%");
-	}
+	@ConfigDataString(path = "CHEST.VoteNext.Line")
+	@Getter
+	private String chestVoteNextLine = "%time%";
 
 	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
 		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
 	}
 
-	public String getChestVoteRewardName() {
-		return getData().getString("CHEST.VoteRewardName", "VoteReward");
-	}
+	@ConfigDataString(path = "CHEST.VoteRewardName")
+	@Getter
+	private String chestVoteRewardName = "VoteReward";
 
-	public boolean getChestVoteShopBackButton() {
-		return getData().getBoolean("CHEST.VoteShopBackButton", true);
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteShopBackButton")
+	@Getter
+	private boolean chestVoteShopBackButton = true;
 
-	public boolean getChestVoteShopReopenGUIOnPurchase() {
-		return getData().getBoolean("CHEST.VoteShopReopenGUIOnPurchase", false);
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteShopReopenGUIOnPurchase")
+	@Getter
+	private boolean chestVoteShopReopenGUIOnPurchase = true;
 
 	public boolean getChestVoteShopCloseGUI(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
 	}
 
-	public boolean getChestVoteShopEnabled() {
-		return getData().getBoolean("CHEST.VoteShopEnabled", true);
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteShopEnabled")
+	@Getter
+	private boolean chestVoteShopEnabled = true;
 
-	public String getChestVoteShopName() {
-		return getData().getString("CHEST.VoteShopName", "VoteShop");
-	}
+	@ConfigDataString(path = "CHEST.VoteShopName")
+	@Getter
+	private String chestVoteShopName = "VoteShop";
 
 	public boolean getChestVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
@@ -367,94 +360,93 @@ public class GUI extends YMLFile {
 		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Weekly", false);
 	}
 
-	public boolean getChestVoteStreakBackButton() {
-		return getData().getBoolean("CHEST.VoteStreak.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteStreak.BackButton")
+	@Getter
+	private boolean chestVoteStreakBackButton = false;
 
-	public ConfigurationSection getChestVoteStreakCurrentDayStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.CurrentDayStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.CurrentDayStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakCurrentDayStreakItem;
 
-	public ConfigurationSection getChestVoteStreakCurrentMonthStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.CurrentMonthStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.CurrentMonthStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakCurrentMonthStreakItem;
 
-	public ConfigurationSection getChestVoteStreakCurrentWeekStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.CurrentWeekStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.CurrentWeekStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakCurrentWeekStreakItem;
 
-	public ConfigurationSection getChestVoteStreakHighestDayStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.HighestDayStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.HighestDayStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakHighestDayStreakItem;
 
-	public ConfigurationSection getChestVoteStreakHighestMonthStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.HighestMonthStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.HighestMonthStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakHighestMonthStreakItem;
 
-	public ConfigurationSection getChestVoteStreakHighestWeekStreakItem() {
-		return getData().getConfigurationSection("CHEST.VoteStreak.HighestWeekStreak.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteStreak.HighestWeekStreak.Item")
+	@Getter
+	private ConfigurationSection chestVoteStreakHighestWeekStreakItem;
 
-	public String getChestVoteStreakName() {
-		return getData().getString("CHEST.VoteStreak.Name", "VoteStreak");
-	}
+	@ConfigDataString(path = "CHEST.VoteStreak.Name")
+	@Getter
+	private String chestVoteStreakName = "VoteStreak";
 
-	public boolean getChestVoteTodayBackButton() {
-		return getData().getBoolean("CHEST.VoteToday.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteToday.BackButton")
+	@Getter
+	private boolean chestVoteTodayBackButton = false;
 
-	public String getChestVoteTodayName() {
-		return getData().getString("CHEST.VoteToday.Name", "VoteToday");
-	}
+	@ConfigDataString(path = "CHEST.VoteToday.Name")
+	@Getter
+	private String chestVoteTodayName = "VoteToday";
 
-	public boolean getChestVoteTopBackButton() {
-		return getData().getBoolean("CHEST.VoteTop.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteTop.BackButton")
+	@Getter
+	private boolean chestVoteTopBackButton = false;
 
-	public String getChestVoteTopItemLore() {
-		return getData().getString("CHEST.VoteTop.Item.Lore", "&3&lVotes: &3%votes%");
-	}
+	@ConfigDataString(path = "CHEST.VoteTop.Item.Lore")
+	@Getter
+	private String chestVoteTopItemLore = "&3&lVotes: &3%votes%";
 
-	public String getChestVoteTopItemName() {
-		return getData().getString("CHEST.VoteTop.Item.Name", "&3&l%position%: &3%player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteTop.Item.Name")
+	@Getter
+	private String chestVoteTopItemName = "&3&l%position%: &3%player%";
 
-	public String getChestVoteTopName() {
-		return getData().getString("CHEST.VoteTop.Name", "VoteTop %topvoter%");
-	}
+	@ConfigDataString(path = "CHEST.VoteTop.Name")
+	@Getter
+	private String chestVoteTopName = "VoteTop %topvoter%";
 
-	public boolean getChestVoteTopOpenMainGUIOnClick() {
-		return getData().getBoolean("CHEST.VoteTop.OpenMainGUIOnClick", true);
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteTop.OpenMainGUIOnClick")
+	@Getter
+	private boolean chestVoteTopOpenMainGUIOnClick = true;
 
-	public boolean getChestVoteTopCloseGUIOnClick() {
-		return getData().getBoolean("CHEST.VoteTop.CloseGUIOnClick", true);
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteTop.CloseGUIOnClick")
+	@Getter
+	private boolean chestVoteTopCloseGUIOnClick = true;
 
-	public int getChestVoteTopSize() {
-		return getData().getInt("CHEST.VoteTop.Size", 27);
-	}
+	@ConfigDataInt(path = "CHEST.VoteTop.Size")
+	@Getter
+	private int chestVoteTopSize = 27;
 
-	public ConfigurationSection getChestVoteTopSwitchItem() {
-		return getData().getConfigurationSection("CHEST.VoteTop.SwitchItem");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTop.SwitchItem")
+	@Getter
+	private ConfigurationSection chestVoteTopSwitchItem;
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChestVoteTopSwitchItemTopVoters() {
-		return (ArrayList<String>) getData().getList("CHEST.VoteTop.SwitchItem.TopVoters", new ArrayList<String>());
-	}
+	@ConfigDataListString(path = "CHEST.VoteTop.SwitchItem.TopVoters")
+	@Getter
+	private ArrayList<String> chestVoteTopSwitchItemTopVoters = new ArrayList<String>();
 
-	public ConfigurationSection getChestVoteTotalAllTimeTotalItem() {
-		return getData().getConfigurationSection("CHEST.VoteTotal.AllTimeTotal.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.AllTimeTotal.Item")
+	@Getter
+	private ConfigurationSection chestVoteTotalAllTimeTotalItem;
 
-	public boolean getChestVoteTotalBackButton() {
-		return getData().getBoolean("CHEST.VoteTotal.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteTotal.BackButton")
+	@Getter
+	private boolean chestVoteTotalBackButton = false;
 
-	public ConfigurationSection getChestVoteTotalDayTotalItem() {
-		return getData().getConfigurationSection("CHEST.VoteTotal.DayTotal.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.DayTotal.Item")
+	@Getter
+	private ConfigurationSection chestVoteTotalDayTotalItem;
 
 	public ConfigurationSection getChestVoteTotalItem(TopVoter top) {
 		switch (top) {
@@ -472,60 +464,49 @@ public class GUI extends YMLFile {
 		}
 	}
 
-	public ConfigurationSection getChestVoteTotalMonthTotalItem() {
-		return getData().getConfigurationSection("CHEST.VoteTotal.MonthTotal.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.MonthTotal.Item")
+	@Getter
+	private ConfigurationSection chestVoteTotalMonthTotalItem;
 
-	public String getChestVoteTotalName() {
-		return getData().getString("CHEST.VoteTotal.Name", "VoteTotal: %player%");
-	}
+	@ConfigDataString(path = "CHEST.VoteTotal.Name")
+	@Getter
+	private String chestVoteTotalName = "VoteTotal: %player%";
 
-	public ConfigurationSection getChestVoteTotalWeekTotalItem() {
-		return getData().getConfigurationSection("CHEST.VoteTotal.WeekTotal.Item");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.WeekTotal.Item")
+	@Getter
+	private ConfigurationSection chestVoteTotalWeekTotalItem;
 
-	public int getChestVoteURLAllUrlsButtonSlot() {
-		return getData().getInt("CHEST.VoteURL.AllUrlsButton.Slot", -1);
-	}
+	@ConfigDataInt(path = "CHEST.VoteURL.AllUrlsButton.Slot")
+	@Getter
+	private int chestVoteURLAllUrlsButtonSlot = -1;
 
-	public int getChestVoteURLAllUrlsButtonStartSlot() {
-		return getData().getInt("CHEST.VoteURL.StartSlot", -1);
-	}
+	@ConfigDataInt(path = "CHEST.VoteURL.StartSlot")
+	@Getter
+	private int chestVoteURLAllUrlsButtonStartSlot = -1;
 
-	public ConfigurationSection getChestVoteURLAlreadyVotedAllUrlsButtonItemSection() {
-		if (getData().isConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem")) {
-			return getData().getConfigurationSection("CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem");
-		} else {
-			return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
-		}
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteURL.AllUrlsButton.AlreadyVotedItem", secondPath = "CHEST.VoteURL.AlreadyVotedItem")
+	@Getter
+	private ConfigurationSection chestVoteURLAlreadyVotedAllUrlsButtonItemSection;
 
-	public ConfigurationSection getChestVoteURLAlreadyVotedItemSection() {
-		return getData().getConfigurationSection("CHEST.VoteURL.AlreadyVotedItem");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteURL.AlreadyVotedItem")
+	@Getter
+	private ConfigurationSection chestVoteURLAlreadyVotedItemSection;
 
-	public boolean getChestVoteURLBackButton() {
-		return getData().getBoolean("CHEST.VoteURL.BackButton");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteURL.BackButton")
+	@Getter
+	private boolean chestVoteURLBackButton = false;
 
-	public ConfigurationSection getChestVoteURLCanVoteAllUrlsButtonItemSection() {
-		if (getData().isConfigurationSection("CHEST.VoteURL.AllUrlsButton.CanVoteItem")) {
-			return getData().getConfigurationSection("CHEST.VoteURL.AllUrlsButton.CanVoteItem");
-		} else {
-			return getData().getConfigurationSection("CHEST.VoteURL.CanVoteItem");
-		}
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteURL.AllUrlsButton.CanVoteItem", secondPath = "CHEST.VoteURL.CanVoteItem")
+	@Getter
+	private ConfigurationSection chestVoteURLCanVoteAllUrlsButtonItemSection;
 
-	public ConfigurationSection getChestVoteURLCanVoteItemSection() {
-		return getData().getConfigurationSection("CHEST.VoteURL.CanVoteItem");
-	}
+	@ConfigDataConfigurationSection(path = "CHEST.VoteURL.CanVoteItem")
+	@Getter
+	private ConfigurationSection chestVoteURLCanVoteItemSection;
 
-	public Set<String> getChestVoteURLExtraItems() {
-		if (getData().isConfigurationSection("CHEST.VoteURL.ExtraItems")) {
-			return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems").getKeys(false);
-		}
-		return new HashSet<String>();
-	}
+	@ConfigDataKeys(path = "CHEST.VoteURL.ExtraItems")
+	@Getter
+	private Set<String> chestVoteURLExtraItems = new HashSet<String>();
 
 	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
 		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
@@ -542,69 +523,45 @@ public class GUI extends YMLFile {
 		return getData().getConfigurationSection("CHEST.VoteShopExtraItems." + item);
 	}
 
-	public Set<String> getChestGUIVoteShopExtraItems() {
-		if (getData().isConfigurationSection("CHEST.VoteShopExtraItems")) {
-			return getData().getConfigurationSection("CHEST.VoteShopExtraItems").getKeys(false);
-		}
-		return new HashSet<String>();
-	}
+	@ConfigDataKeys(path = "CHEST.VoteShopExtraItems")
+	@Getter
+	private Set<String> chestGUIVoteShopExtraItems = new HashSet<String>();
 
 	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
 		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
 	}
 
-	/**
-	 * Gets the vote URL site name.
-	 *
-	 * @return the vote URL site name
-	 */
-	public String getChestVoteURLGUISiteName() {
-		return getData().getString("CHEST.VoteURL.SiteName", "&c%Name%");
-	}
+	@ConfigDataString(path = "CHEST.VoteURL.SiteName")
+	@Getter
+	private String chestVoteURLGUISiteName = "&c%Name%";
 
-	public String getChestVoteURLGUISiteNameCanVote() {
-		return getData().getString("CHEST.VoteURL.SiteNameCanVote", "&a%Name%");
-	}
+	@ConfigDataString(path = "CHEST.VoteURL.SiteNameCanVote")
+	@Getter
+	private String chestVoteURLGUISiteNameCanVote = "&a%Name%";
 
-	public String getChestVoteURLName() {
-		return getData().getString("CHEST.VoteURL.Name", "&cVoteURL");
-	}
+	@ConfigDataString(path = "CHEST.VoteURL.Name")
+	@Getter
+	private String chestVoteURLName = "&cVoteURL";
 
-	/**
-	 * Gets the vote URL next vote.
-	 *
-	 * @return the vote URL next vote
-	 */
-	public String getChestVoteURLNextVote() {
-		return getData().getString("CHEST.VoteURL.NextVote", "&cCan Vote In: %Info%");
+	@ConfigDataString(path = "CHEST.VoteURL.NextVote")
+	@Getter
+	private String chestVoteURLNextVote = "&cCan Vote In: %Info%";
 
-	}
+	@ConfigDataString(path = "CHEST.VoteURL.SeeURL")
+	@Getter
+	private String chestVoteURLSeeURL = "&cClick to see URL";
 
-	/**
-	 * Gets the vote URL see URL.
-	 *
-	 * @return the vote URL see URL
-	 */
-	public String getChestVoteURLSeeURL() {
-		return getData().getString("CHEST.VoteURL.SeeURL", "&cClick to see URL");
-	}
+	@ConfigDataString(path = "CHEST.VoteURLSite.Name")
+	@Getter
+	private String chestVoteURLSiteName = "VoteSite %site%";
 
-	public String getChestVoteURLSiteName() {
-		return getData().getString("CHEST.VoteURLSite.Name", "VoteSite %site%");
-	}
+	@ConfigDataString(path = "CHEST.VoteURL.URLText")
+	@Getter
+	private String chestVoteURLURLText = "%VoteUrl%";
 
-	public String getChestVoteURLURLText() {
-		return getData().getString("CHEST.VoteURL.URLText", "%VoteUrl%");
-	}
-
-	/**
-	 * Gets the vote URL view all urls button enabled.
-	 *
-	 * @return the vote URL view all urls button enabled
-	 */
-	public boolean getChestVoteURLViewAllUrlsButtonEnabled() {
-		return getData().getBoolean("CHEST.VoteURL.ViewAllUrlsButtonEnabled");
-	}
+	@ConfigDataBoolean(path = "CHEST.VoteURL.ViewAllUrlsButtonEnabled")
+	@Getter
+	private boolean chestVoteURLViewAllUrlsButtonEnabled = false;
 
 	public boolean isChestVoteShopRequireConfirmation(String identifier) {
 		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",

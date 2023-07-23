@@ -10,7 +10,10 @@ import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataDouble;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataKeys;
 import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
+import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
@@ -108,29 +111,10 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getData().getBoolean("Cumulative." + cumulative + ".Recurring", true);
 	}
 
-	/**
-	 * Gets the cumulative votes.
-	 *
-	 * @return the cumulative votes
-	 */
-	public Set<String> getCumulativeVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("Cumulative").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
+	@ConfigDataKeys(path = "Cumulative")
+	@Getter
+	private Set<String> cumulativeVotes = new HashSet<String>();
 
-	/**
-	 * Gets the cumulative votes in same day.
-	 *
-	 * @param cumulative the cumulative
-	 * @return the cumulative votes in same day
-	 */
 	@Deprecated
 	public boolean getCumulativeVotesInSameDay(int cumulative) {
 		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
@@ -164,19 +148,9 @@ public class SpecialRewardsConfig extends YMLFile {
 		return "DailyAwards." + path + ".Rewards";
 	}
 
-	/**
-	 * Gets the daily possible reward places.
-	 *
-	 * @return the daily possible reward places
-	 */
-	public Set<String> getDailyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("DailyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-
-		}
-	}
+	@ConfigDataKeys(path = "DailyAwards")
+	@Getter
+	private Set<String> dailyPossibleRewardPlaces = new HashSet<String>();
 
 	/**
 	 * Gets the milestone reward enabled.
@@ -198,22 +172,9 @@ public class SpecialRewardsConfig extends YMLFile {
 		return "MileStones." + milestones + ".Rewards";
 	}
 
-	/**
-	 * Gets the milestone votes.
-	 *
-	 * @return the milestone votes
-	 */
-	public Set<String> getMilestoneVotes() {
-		try {
-			Set<String> set = getData().getConfigurationSection("MileStones").getKeys(false);
-			if (set != null) {
-				return set;
-			}
-			return new HashSet<String>();
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
+	@ConfigDataKeys(path = "MileStones")
+	@Getter
+	private Set<String> milestoneVotes = new HashSet<String>();
 
 	public String getMonthlyAwardRewardsPath(String path) {
 		return "MonthlyAwards." + path + ".Rewards";
@@ -232,82 +193,64 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
-	public boolean getResetMilestonesMonthly() {
-		return getData().getBoolean("ResetMilestonesMonthly");
-	}
+	@ConfigDataBoolean(path = "ResetMilestonesMonthly")
+	@Getter
+	private boolean resetMilestonesMonthly = false;
+	@ConfigDataString(path = "VoteParty.Broadcast")
+	@Getter
+	private String votePartyBroadcast = "";
 
-	public String getVotePartyBroadcast() {
-		return getData().getString("VoteParty.Broadcast", "");
-	}
+	@ConfigDataListString(path = "VoteParty.GlobalCommands", secondPath = "VoteParty.Commands")
+	@Getter
+	private ArrayList<String> votePartyGlobalCommands = new ArrayList<String>();
 
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotePartyGlobalCommands() {
-		return (ArrayList<String>) getData().getList("VoteParty.GlobalCommands",
-				(ArrayList<String>) getData().getList("VoteParty.Commands", new ArrayList<String>()));
-	}
+	@ConfigDataBoolean(path = "VoteParty.CountFakeVotes")
+	@Getter
+	private boolean votePartyCountFakeVotes = true;
 
-	public boolean getVotePartyCountFakeVotes() {
-		return getData().getBoolean("VoteParty.CountFakeVotes", true);
-	}
+	@ConfigDataBoolean(path = "VoteParty.CountOfflineVotes")
+	@Getter
+	private boolean votePartyCountOfflineVotes = true;
 
-	public boolean getVotePartyCountOfflineVotes() {
-		return getData().getBoolean("VoteParty.CountOfflineVotes", true);
-	}
+	@ConfigDataBoolean(path = "VoteParty.Enabled")
+	@Getter
+	private boolean votePartyEnabled = false;
 
-	/**
-	 * Gets the vote party enabled.
-	 *
-	 * @return the vote party enabled
-	 */
-	public boolean getVotePartyEnabled() {
-		return getData().getBoolean("VoteParty.Enabled");
-	}
+	@ConfigDataBoolean(path = "VoteParty.GiveAllPlayers")
+	@Getter
+	private boolean votePartyGiveAllPlayers = false;
 
-	/**
-	 * Gets the vote party give all players.
-	 *
-	 * @return the vote party give all players
-	 */
-	public boolean getVotePartyGiveAllPlayers() {
-		return getData().getBoolean("VoteParty.GiveAllPlayers");
-	}
+	@ConfigDataInt(path = "VoteParty.IncreaseVotesRquired")
+	@Getter
+	private int votePartyIncreaseVotesRequired = 0;
 
-	public int getVotePartyIncreaseVotesRquired() {
-		return getData().getInt("VoteParty.IncreaseVotesRquired", 0);
-	}
+	@ConfigDataBoolean(path = "VoteParty.OnlyOncePerDay")
+	@Getter
+	private boolean votePartyOnlyOncePerDay = false;
 
-	public boolean getVotePartyOnlyOncePerDay() {
-		return getData().getBoolean("VoteParty.OnlyOncePerDay");
-	}
+	@ConfigDataBoolean(path = "VoteParty.OnlyOncePerWeek")
+	@Getter
+	private boolean votePartyOnlyOncePerWeek = false;
 
-	public boolean getVotePartyOnlyOncePerWeek() {
-		return getData().getBoolean("VoteParty.OnlyOncePerWeek");
-	}
+	@ConfigDataBoolean(path = "VoteParty.ResetEachDay")
+	@Getter
+	private boolean votePartyResetEachDay = false;
 
-	public boolean getVotePartyResetEachDay() {
-		return getData().getBoolean("VoteParty.ResetEachDay");
-	}
+	@ConfigDataBoolean(path = "VoteParty.ResetMonthly")
+	@Getter
+	private boolean votePartyResetMonthly = false;
 
-	public boolean getVotePartyResetMontly() {
-		return getData().getBoolean("VoteParty.ResetMonthly");
-	}
+	@ConfigDataBoolean(path = "VoteParty.ResetWeekly")
+	@Getter
+	private boolean votePartyResetWeekly = false;
 
-	public boolean getVotePartyResetWeekly() {
-		return getData().getBoolean("VoteParty.ResetWeekly");
-	}
+	@ConfigDataInt(path = "VoteParty.UserVotesRequired")
+	@Getter
+	private int votePartyUserVotesRequired = 0;
 
-	public int getVotePartyUserVotesRequired() {
-		return getData().getInt("VoteParty.UserVotesRequired");
-	}
-
-	/**
-	 * Gets the vote party votes required.
-	 *
-	 * @return the vote party votes required
-	 */
-	public int getVotePartyVotesRequired() {
-		return getData().getInt("VoteParty.VotesRequired");
-	}
+	@ConfigDataInt(path = "VoteParty.VotesRequired")
+	@Getter
+	private int votePartyVotesRequired = 0;
 
 	public boolean getVoteStreakRewardEnabled(String type, String s) {
 		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
@@ -333,18 +276,9 @@ public class SpecialRewardsConfig extends YMLFile {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
 
-	/**
-	 * Gets the weekly possible reward places.
-	 *
-	 * @return the weekly possible reward places
-	 */
-	public Set<String> getWeeklyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("WeeklyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
+	@ConfigDataKeys(path = "WeeklyAwards")
+	@Getter
+	private Set<String> weeklyPossibleRewardPlaces = new HashSet<String>();
 
 	@Override
 	public void loadValues() {

@@ -130,7 +130,7 @@ public class VoteNext extends GUIHandler {
 					});
 		}
 
-		if (plugin.getGui().getChestVoteNextBackButton()) {
+		if (plugin.getGui().isChestVoteNextBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);

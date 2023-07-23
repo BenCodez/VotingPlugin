@@ -133,7 +133,7 @@ public class VoteToday extends GUIHandler {
 					});
 		}
 
-		if (plugin.getGui().getChestVoteTodayBackButton()) {
+		if (plugin.getGui().isChestVoteTodayBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);

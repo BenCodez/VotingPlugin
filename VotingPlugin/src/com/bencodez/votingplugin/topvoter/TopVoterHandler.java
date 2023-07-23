@@ -310,7 +310,7 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
-			if (plugin.getSpecialRewardsConfig().getResetMilestonesMonthly()) {
+			if (plugin.getSpecialRewardsConfig().isResetMilestonesMonthly()) {
 				resetMilestoneCount();
 				resetGottenMilestones();
 			}

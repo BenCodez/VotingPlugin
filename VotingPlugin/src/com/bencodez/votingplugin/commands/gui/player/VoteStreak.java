@@ -136,7 +136,7 @@ public class VoteStreak extends GUIHandler {
 					});
 		}
 
-		if (plugin.getGui().getChestVoteStreakBackButton()) {
+		if (plugin.getGui().isChestVoteStreakBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 

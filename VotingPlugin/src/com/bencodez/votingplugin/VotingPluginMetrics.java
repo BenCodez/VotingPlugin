@@ -65,7 +65,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				if (!plugin.getSpecialRewardsConfig().getVotePartyEnabled()) {
+				if (!plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 					return "False";
 				} else {
 					return "True";

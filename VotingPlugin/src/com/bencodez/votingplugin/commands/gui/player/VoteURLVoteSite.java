@@ -94,7 +94,7 @@ public class VoteURLVoteSite extends GUIHandler {
 			}
 		});
 
-		if (plugin.getGui().getChestVoteURLBackButton()) {
+		if (plugin.getGui().isChestVoteURLBackButton()) {
 			inv.addButton(plugin.getCommandLoader().getBackButton(user));
 		}
 		inv.openInventory(player);
