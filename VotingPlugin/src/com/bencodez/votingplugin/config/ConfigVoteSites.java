@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.yml.YMLFile;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -52,6 +53,53 @@ public class ConfigVoteSites extends YMLFile {
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
 			plugin.loadVoteSites();
+
+			plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + siteName + ".Rewards") {
+
+				@Override
+				public void createSection(String key) {
+					plugin.getConfigVoteSites().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return plugin.getConfigVoteSites().getData();
+				}
+
+				@Override
+				public void save() {
+					plugin.getConfigVoteSites().saveData();
+				}
+
+				@Override
+				public void setData(String path, Object value) {
+					plugin.getConfigVoteSites().setValue(path, value);
+				}
+			});
+
+			plugin.addDirectlyDefinedRewards(
+					new DirectlyDefinedReward("VoteSites." + siteName + ".CoolDownEndRewards") {
+
+						@Override
+						public void createSection(String key) {
+							plugin.getConfigVoteSites().createSection(key);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return plugin.getConfigVoteSites().getData();
+						}
+
+						@Override
+						public void save() {
+							plugin.getConfigVoteSites().saveData();
+						}
+
+						@Override
+						public void setData(String path, Object value) {
+							plugin.getConfigVoteSites().setValue(path, value);
+						}
+					});
 
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite") || p.isOp()) {

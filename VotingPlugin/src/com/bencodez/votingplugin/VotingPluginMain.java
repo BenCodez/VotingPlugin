@@ -223,7 +223,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private UserManager votingPluginUserManager;
 
-	private void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
+	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
 	}
 
@@ -929,6 +929,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getBungeeSettings().setValue(path, value);
 			}
 		});
+		
+		getRewardHandler().checkDirectlyDefined();
+		
 	}
 
 	private void loadTimer() {
@@ -1396,7 +1399,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
-		loadDirectlyDefined();
+
 		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
 		if (userStorage) {
@@ -1406,6 +1409,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
+		loadDirectlyDefined();
 
 		setUpdate(true);
 	}
