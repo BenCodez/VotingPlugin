@@ -540,6 +540,9 @@ OnlineMode: true
 # May improve performance
 #DisableCheckOnWorldChange: false
 
+# Disable javascript processing in messages/rewards
+DisableJavascript: false
+
 # If true, number of vote shop purchases will be tracked
 # Data will be tracked in serverdata.yml, may change in the future
 # No commands to view data currently 
