@@ -330,7 +330,8 @@ public class CommandLoader {
 				sendMessage(sender, "&cStarting to clear milestonecounts...");
 				plugin.getTopVoterHandler().resetMilestoneCount();
 				sendMessage(sender, "&cFinished");
-
+				plugin.setUpdate(true);
+				plugin.getUserManager().getDataManager().updateCacheOnline();
 			}
 		});
 
