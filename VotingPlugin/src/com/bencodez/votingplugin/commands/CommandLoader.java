@@ -799,6 +799,7 @@ public class CommandLoader {
 					plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
 				}
 				plugin.getUserManager().getDataManager().clearCache();
+				plugin.setUpdate(true);
 				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
 			}
 		});
