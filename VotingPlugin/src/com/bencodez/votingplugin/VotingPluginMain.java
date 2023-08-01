@@ -929,9 +929,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getBungeeSettings().setValue(path, value);
 			}
 		});
-		
+
 		getRewardHandler().checkDirectlyDefined();
-		
+
 	}
 
 	private void loadTimer() {
@@ -1389,7 +1389,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (getBungeeHandler() == null) {
 				loadBungeeHandler();
 			}
-			getBungeeHandler().loadGlobalMysql();
+			if (userStorage) {
+				getBungeeHandler().loadGlobalMysql();
+			}
 		}
 		checkYMLError();
 
