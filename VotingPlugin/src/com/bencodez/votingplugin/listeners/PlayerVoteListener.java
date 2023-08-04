@@ -42,7 +42,7 @@ public class PlayerVoteListener implements Listener {
 	 *
 	 * @param event the event
 	 */
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		if (!plugin.isEnabled()) {
 			plugin.getLogger().warning("Plugin disabled, ignoring vote");
@@ -148,6 +148,7 @@ public class PlayerVoteListener implements Listener {
 			user.setTime(voteSite, event.getTime());
 		} else {
 			user.setTime(voteSite);
+			event.setTime(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 		}
 
 		// try logging to file
