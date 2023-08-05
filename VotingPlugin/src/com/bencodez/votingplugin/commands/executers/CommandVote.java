@@ -1,11 +1,11 @@
 package com.bencodez.votingplugin.commands.executers;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
+import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -61,7 +61,7 @@ public class CommandVote implements CommandExecutor {
 		}
 
 		// invalid command
-		sender.sendMessage(ChatColor.RED + "No valid arguments, see /vote help!");
+		sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
 		return true;
 	}
 

@@ -333,6 +333,11 @@ Format:
     Weekly: 'Weekly'
     Monthly: 'Monthly'
     AllTime: 'AllTime'
+  
+  # Invalid command messages
+  InvalidCommand:
+    Vote: '&4No valid arguments, see /vote help!'
+    AdminVote: '&4No valid arguments, see /adminvote help!'
     
 # Playernames to not be broadcasted when voting
 # case sensitive

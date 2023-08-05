@@ -2,12 +2,12 @@ package com.bencodez.votingplugin.commands.executers;
 
 import java.util.ArrayList;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
+import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -91,9 +91,9 @@ public class CommandAliases implements CommandExecutor {
 
 		// invalid command
 		if (adminCommand) {
-			sender.sendMessage(ChatColor.RED + "No valid arguments, see /adminvote help!");
+			sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 		} else {
-			sender.sendMessage(ChatColor.RED + "No valid arguments, see /vote help!");
+			sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
 		}
 		return true;
 	}

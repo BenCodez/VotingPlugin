@@ -585,6 +585,14 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.UserNotExist")
 	@Getter
 	private String formatUserNotExist = "&cUser does not exist: %player%";
+	
+	@ConfigDataString(path = "Format.InvalidCommand.Vote")
+	@Getter
+	private String formatInvalidCommandVote = "&4No valid arguments, see /vote help!";
+	
+	@ConfigDataString(path = "Format.InvalidCommand.AdminVote")
+	@Getter
+	private String formatInvalidCommandAdminVote = "&4No valid arguments, see /adminvote help!";
 
 	/**
 	 * Gets the vote help.
