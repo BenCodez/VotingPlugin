@@ -785,7 +785,7 @@ public class PlaceHolders {
 				if (plugin.getBungeeHandler() != null) {
 					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyCurrent());
 				}
-				return "" + 0;
+				return "-1";
 			}
 		}.withDescription("Current amount of bungee voteparty votes"));
 
@@ -797,7 +797,7 @@ public class PlaceHolders {
 					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired()
 							- plugin.getBungeeHandler().getBungeeVotePartyCurrent());
 				}
-				return "" + 0;
+				return "-1";
 			}
 		}.withDescription("Voteparty bungee votes needed"));
 
@@ -808,7 +808,7 @@ public class PlaceHolders {
 				if (plugin.getBungeeHandler() != null) {
 					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired());
 				}
-				return "" + 0;
+				return "-1";
 			}
 		}.withDescription("Amount of votes needed for bungee  voteparty"));
 
