@@ -143,11 +143,14 @@ public class PlayerVoteListener implements Listener {
 			plugin.getBroadcastHandler().onVote(playerName);
 		}
 
+		long voteTime = 0;
 		// update last vote time
 		if (event.getTime() != 0) {
 			user.setTime(voteSite, event.getTime());
+			voteTime = event.getTime();
 		} else {
 			user.setTime(voteSite);
+			voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 		}
 
 		// try logging to file
@@ -227,7 +230,7 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
-				event.isForceBungee());
+				event.isForceBungee(), voteTime);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
 		if (!user.isOnline()) {
