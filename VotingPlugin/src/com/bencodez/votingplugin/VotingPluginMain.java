@@ -82,6 +82,7 @@ import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
+import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.test.VoteTester;
@@ -1043,6 +1044,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
 			this.timeQueueHandler = new TimeQueueHandler(this);
 		}
+		
+		if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new VotingPluginExpansion(this).register();
+            getLogger().info("Loading PlaceholderAPI expansion");
+      }
 
 		registerCommands();
 		checkVotifier();

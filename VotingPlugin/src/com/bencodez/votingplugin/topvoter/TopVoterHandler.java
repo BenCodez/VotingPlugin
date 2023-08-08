@@ -94,7 +94,7 @@ public class TopVoterHandler implements Listener {
 				if (plugin != null && plugin.isEnabled()) {
 					if (uuid != null && !uuid.isEmpty()) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(UUID.fromString(uuid));
+								.getVotingPluginUser(UUID.fromString(uuid), false);
 						user.dontCache();
 						user.updateTempCacheWithColumns(playerData.getValue());
 						cols.put(playerData.getKey(), null);

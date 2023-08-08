@@ -49,10 +49,10 @@ public class BungeeHandler implements Listener {
 	private VotingPluginMain plugin;
 
 	@Getter
-	private int bungeeVotePartyCurrent = 0;
+	private int bungeeVotePartyCurrent = -2;
 
 	@Getter
-	private int bungeeVotePartyRequired = 0;
+	private int bungeeVotePartyRequired = -2;
 
 	@Getter
 	private SocketHandler socketHandler;
@@ -64,7 +64,6 @@ public class BungeeHandler implements Listener {
 
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
-
 	}
 
 	public void close() {

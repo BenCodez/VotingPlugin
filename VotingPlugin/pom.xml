@@ -212,6 +212,10 @@
 			<id>papermc</id>
 			<url>https://repo.papermc.io/repository/maven-public/</url>
 		</repository>
+		<repository>
+			<id>placeholderapi</id>
+			<url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
@@ -255,6 +259,12 @@
 			<artifactId>bstats-velocity</artifactId>
 			<version>3.0.2</version>
 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>me.clip</groupId>
+			<artifactId>placeholderapi</artifactId>
+			<version>2.11.3</version>
+			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 	<profiles>
