@@ -55,7 +55,7 @@ public class PlaceHolders {
 		onUpdate();
 		if (!cacheLevel.equals(PlaceholderCacheLevel.NONE)) {
 			for (Player player : Bukkit.getOnlinePlayers()) {
-				onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(player));
+				onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(player), player.isOnline());
 			}
 		}
 	}
@@ -934,34 +934,38 @@ public class PlaceHolders {
 					vpUser.dontCache();
 				}
 				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-					if (placeholder instanceof CalculatingPlaceholder<?>) {
-						CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
-						if (placeholder.isUsesCache()) {
-							for (String key : keys) {
-								if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
-									for (String ident : placeholder.getCache().keySet()) {
-										String value = placeholder.placeholderRequest(vpUser, ident);
-										cPlaceholder.getCacheData().put(user.getJavaUUID(),
-												cPlaceholder.placeholderDataRequest(vpUser, ident));
-										placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
-										plugin.devDebug("Updated calculating placeholder cache for " + vpUser.getUUID()
-												+ " on " + key + " with " + value);
+					if (placeholder.isUsesCache()) {
+						if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID())) {
+							if (placeholder instanceof CalculatingPlaceholder<?>) {
+								CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
+								if (placeholder.isUsesCache()) {
+									for (String key : keys) {
+										if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
+											for (String ident : placeholder.getCache().keySet()) {
+												String value = placeholder.placeholderRequest(vpUser, ident);
+												cPlaceholder.getCacheData().put(user.getJavaUUID(),
+														cPlaceholder.placeholderDataRequest(vpUser, ident));
+												placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
+												plugin.devDebug("Updated calculating placeholder cache for "
+														+ vpUser.getUUID() + " on " + key + " with " + value);
+											}
+										}
 									}
 								}
-							}
-						}
-					} else {
-						if (placeholder.isUsesCache()) {
-							for (String key : keys) {
-								if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
-									for (String ident : placeholder.getCache().keySet()) {
-										String value = placeholder.placeholderRequest(vpUser, ident);
-										placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
-										plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID() + " on "
-												+ key + " with " + value);
+							} else {
+								if (placeholder.isUsesCache()) {
+									for (String key : keys) {
+										if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
+											for (String ident : placeholder.getCache().keySet()) {
+												String value = placeholder.placeholderRequest(vpUser, ident);
+												placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
+												plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID()
+														+ " on " + key + " with " + value);
 
+											}
+
+										}
 									}
-
 								}
 							}
 						}
@@ -972,48 +976,56 @@ public class PlaceHolders {
 	}
 
 	public void onVotePartyUpdate() {
-		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
-			if (placeholder.isUsesCache()) {
-				if (placeholder.getIdentifier().startsWith("VoteParty")) {
-					for (String ident : placeholder.getCache().keySet()) {
-						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
-					}
-				}
-			}
-		}
+		/*
+		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
+		 * nonPlayerPlaceholders) { if (placeholder.isUsesCache()) { if
+		 * (placeholder.getIdentifier().startsWith("VoteParty")) { for (String ident :
+		 * placeholder.getCache().keySet()) { placeholder.getCache().put(ident,
+		 * placeholder.placeholderRequest(ident)); } } } }
+		 */
 	}
 
 	public void onBungeeVotePartyUpdate() {
-		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
+		/*
+		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
+		 * nonPlayerPlaceholders) { if (placeholder.isUsesCache()) { if
+		 * (placeholder.getIdentifier().startsWith("BungeeVoteParty")) { for (String
+		 * ident : placeholder.getCache().keySet()) { placeholder.getCache().put(ident,
+		 * placeholder.placeholderRequest(ident)); } } } }
+		 */
+	}
+
+	public void onLogout(VotingPluginUser user) {
+		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			if (placeholder.isUsesCache()) {
-				if (placeholder.getIdentifier().startsWith("BungeeVoteParty")) {
-					for (String ident : placeholder.getCache().keySet()) {
-						placeholder.getCache().put(ident, placeholder.placeholderRequest(ident));
-					}
-				}
+				placeholder.clearCachePlayer(user.getJavaUUID());
 			}
 		}
 	}
 
-	public void onUpdate(VotingPluginUser user) {
+	public void onUpdate(VotingPluginUser user, boolean login) {
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-			if (placeholder instanceof CalculatingPlaceholder<?>) {
+			if (placeholder.isUsesCache()) {
+				if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID()) || login) {
+					if (placeholder instanceof CalculatingPlaceholder<?>) {
 
-				CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
-				if (placeholder.isUsesCache()) {
-					for (String ident : placeholder.getCache().keySet()) {
-						cPlaceholder.getCacheData().put(user.getJavaUUID(),
-								cPlaceholder.placeholderDataRequest(user, ident));
-						placeholder.getCache().get(ident).put(user.getJavaUUID(),
-								placeholder.placeholderRequest(user, ident));
-					}
+						CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
+						if (placeholder.isUsesCache()) {
+							for (String ident : placeholder.getCache().keySet()) {
+								cPlaceholder.getCacheData().put(user.getJavaUUID(),
+										cPlaceholder.placeholderDataRequest(user, ident));
+								placeholder.getCache().get(ident).put(user.getJavaUUID(),
+										placeholder.placeholderRequest(user, ident));
+							}
 
-				}
-			} else {
-				if (placeholder.isUsesCache()) {
-					for (String ident : placeholder.getCache().keySet()) {
-						placeholder.getCache().get(ident).put(user.getJavaUUID(),
-								placeholder.placeholderRequest(user, ident));
+						}
+					} else {
+						if (placeholder.isUsesCache()) {
+							for (String ident : placeholder.getCache().keySet()) {
+								placeholder.getCache().get(ident).put(user.getJavaUUID(),
+										placeholder.placeholderRequest(user, ident));
+							}
+						}
 					}
 				}
 			}
@@ -1026,15 +1038,15 @@ public class PlaceHolders {
 			if (toCache.startsWith("votingplugin")) {
 				toCache = toCache.substring("votingplugin_".length());
 			}
-			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
-				if (placeholder.matches(toCache)) {
-					placeholder.setUseCache(true, toCache);
-					cachedPlaceholders.add(toCache);
-					plugin.getServerData().addAutoCachedPlaceholder(toCache);
-					plugin.extraDebug("Auto Caching placeholder " + toCache);
-				}
-
-			}
+			/*
+			 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
+			 * nonPlayerPlaceholders) { if (placeholder.matches(toCache)) {
+			 * placeholder.setUseCache(true, toCache); cachedPlaceholders.add(toCache);
+			 * plugin.getServerData().addAutoCachedPlaceholder(toCache);
+			 * plugin.extraDebug("Auto Caching placeholder " + toCache); }
+			 * 
+			 * }
+			 */
 			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 				if (placeholder.matches(toCache)) {
 					placeholder.setUseCache(true, toCache);
@@ -1053,27 +1065,21 @@ public class PlaceHolders {
 			@Override
 			public void run() {
 				checkNonCachedPlaceholders();
-				onUpdate(user);
+				onUpdate(user, user.isOnline());
 			}
 		});
 	}
 
 	public void onUpdate() {
 		checkNonCachedPlaceholders();
-		for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
-			if (placeholder.isUsesCache()) {
-				for (String ident : placeholder.getCache().keySet()) {
-					if (ident != null) {
-						String str = placeholder.placeholderRequest(ident);
-						if (str != null) {
-							placeholder.getCache().put(ident, str);
-						}
-					} else {
-						plugin.debug("ident null: " + placeholder.getIdentifier());
-					}
-				}
-			}
-		}
+		/*
+		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
+		 * nonPlayerPlaceholders) { if (placeholder.isUsesCache()) { for (String ident :
+		 * placeholder.getCache().keySet()) { if (ident != null) { String str =
+		 * placeholder.placeholderRequest(ident); if (str != null) {
+		 * placeholder.getCache().put(ident, str); } } else {
+		 * plugin.debug("ident null: " + placeholder.getIdentifier()); } } } }
+		 */
 
 	}
 }

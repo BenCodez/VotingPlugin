@@ -46,7 +46,7 @@ public class PlayerJoinEvent implements Listener {
 
 		user.loginRewards();
 
-		plugin.getPlaceholders().onUpdate(user);
+		plugin.getPlaceholders().onUpdate(user, true);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()
 				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -83,6 +83,7 @@ public class PlayerJoinEvent implements Listener {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 					user.dontCache();
 					user.logoutRewards();
+					plugin.getPlaceholders().onLogout(user);
 				}
 			});
 		}

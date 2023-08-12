@@ -1044,11 +1044,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
 			this.timeQueueHandler = new TimeQueueHandler(this);
 		}
-		
-		if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            new VotingPluginExpansion(this).register();
-            getLogger().info("Loading PlaceholderAPI expansion");
-      }
+
+		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+			new VotingPluginExpansion(this).register();
+			getLogger().info("Loading PlaceholderAPI expansion");
+		}
 
 		registerCommands();
 		checkVotifier();
@@ -1537,7 +1537,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 												}
 											}
 											if (plugin != null) {
-												plugin.getPlaceholders().onUpdate(user);
+												if (user.isOnline()) {
+													plugin.getPlaceholders().onUpdate(user, false);
+												}
 											}
 											user.clearTempCache();
 											user = null;
