@@ -426,7 +426,8 @@ LogVotesToFile: false
 UsePrimaryAccountForPlaceholders: false
 
 # Valid Options:
-# AUTO - Auto cache after they have been used (Recommended)
+# AUTOALL - Auto cache placeholders after they have been used and cache all players placeholder all the time
+# AUTO - Auto cache after they have been used and cache online players placeholders (Recommended)
 # SPECIFIC - Only cache certain placeholders 
 # NONE - Don't cache any placeholders
 PlaceholderCacheLevel: AUTO

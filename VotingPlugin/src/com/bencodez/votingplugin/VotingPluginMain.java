@@ -1537,7 +1537,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 												}
 											}
 											if (plugin != null) {
-												if (user.isOnline()) {
+												if (!plugin.getPlaceholders().getCacheLevel().onlineOnly()
+														|| user.isOnline()) {
 													plugin.getPlaceholders().onUpdate(user, false);
 												}
 											}
