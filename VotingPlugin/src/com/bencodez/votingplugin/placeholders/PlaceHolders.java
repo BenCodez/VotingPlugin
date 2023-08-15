@@ -935,7 +935,8 @@ public class PlaceHolders {
 				}
 				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 					if (placeholder.isUsesCache()) {
-						if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID()) || !getCacheLevel().onlineOnly()) {
+						if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID())
+								|| !getCacheLevel().onlineOnly() || user.isOnline()) {
 							if (placeholder instanceof CalculatingPlaceholder<?>) {
 								CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
 								if (placeholder.isUsesCache()) {
