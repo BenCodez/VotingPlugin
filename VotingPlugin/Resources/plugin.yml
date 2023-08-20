@@ -16,7 +16,6 @@ softdepend:
 - AuthMe
 - SuperVanish
 - PremiumVanish
-- DiscordSRV
 loadbefore:
 - MCPerks
 api-version: 1.13
