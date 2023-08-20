@@ -72,6 +72,13 @@ public class VotingPluginMetrics {
 				}
 			}
 		}));
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("placeholder_cache_level", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return plugin.getPlaceholders().getCacheLevel().toString();
+			}
+		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_milestone", new Callable<String>() {
 
 			@Override
