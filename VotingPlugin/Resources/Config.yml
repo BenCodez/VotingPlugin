@@ -428,7 +428,8 @@ UsePrimaryAccountForPlaceholders: false
 # Valid Options:
 # AUTOALL - Auto cache placeholders after they have been used and cache all players placeholder all the time
 # AUTO - Auto cache after they have been used and cache online players placeholders (Recommended)
-# SPECIFIC - Only cache certain placeholders 
+# SPECIFIC - Only cache certain placeholders for online players
+# SPECIFICALL - Only cache certain placeholders for all players
 # NONE - Don't cache any placeholders
 PlaceholderCacheLevel: AUTO
 
@@ -525,8 +526,10 @@ UseVoteStreaks: true
 UseHighestTotals: true
 
 # Enable Geyser prefix support
-# Geyser support is hit or miss currently
-# May work best if players vote with prefix
+# May take time before geyser players can vote properly
+# If players vote with prefix, then this is probably not needed and
+# may work better disabled
+# Geyser support is currently hit or miss
 GeyserPrefixSupport: false
 GeyserPrefix: '*'
 
