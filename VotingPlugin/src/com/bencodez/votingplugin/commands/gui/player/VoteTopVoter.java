@@ -199,7 +199,7 @@ public class VoteTopVoter extends GUIHandler {
 						});
 			}
 
-			if (customization == null || (customzationEnabled && !customization.getBoolean("RemoveBottomBar"))) {
+			if (customization == null || !customzationEnabled || !customization.getBoolean("RemoveBottomBar")) {
 				inv.setPages(true);
 			}
 			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
