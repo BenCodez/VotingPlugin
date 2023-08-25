@@ -180,7 +180,8 @@ public class CoolDownCheck implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		plugin.getRewardHandler().giveReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
-				new RewardOptions());
+				new RewardOptions().addPlaceholder("sitename", event.getSite().getDisplayName()).addPlaceholder("url",
+						event.getSite().getVoteURL()));
 	}
 
 }
