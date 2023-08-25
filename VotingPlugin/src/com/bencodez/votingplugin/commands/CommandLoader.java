@@ -912,6 +912,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.resetLastVoted();
+						plugin.getCoolDownCheck().check(user);
 						sender.sendMessage(
 								StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
 					}
@@ -926,6 +927,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.resetLastVoted(plugin.getVoteSite(args[3], false));
+						plugin.getCoolDownCheck().checkPerSite(user);
 						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
 					}
