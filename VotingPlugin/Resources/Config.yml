@@ -519,6 +519,9 @@ AutoCreateVoteSites: true
 # Not really recommended
 AddTotals: true
 
+# Disabling this prevents offline votes from adding totals to users
+AddTotalsOffline: true
+
 # If false, votestreaks will be disabled
 UseVoteStreaks: true
 

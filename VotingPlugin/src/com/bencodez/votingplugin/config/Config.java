@@ -35,6 +35,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean addTotals = true;
 
+	@ConfigDataBoolean(path = "AddTotalsOffline")
+	@Getter
+	private boolean addTotalsOffline = true;
+
 	@ConfigDataBoolean(path = "PerSiteCoolDownEvents")
 	@Getter
 	private boolean perSiteCoolDownEvents = false;
@@ -585,11 +589,11 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.UserNotExist")
 	@Getter
 	private String formatUserNotExist = "&cUser does not exist: %player%";
-	
+
 	@ConfigDataString(path = "Format.InvalidCommand.Vote")
 	@Getter
 	private String formatInvalidCommandVote = "&4No valid arguments, see /vote help!";
-	
+
 	@ConfigDataString(path = "Format.InvalidCommand.AdminVote")
 	@Getter
 	private String formatInvalidCommandAdminVote = "&4No valid arguments, see /adminvote help!";

@@ -199,9 +199,11 @@ public class PlayerVoteListener implements Listener {
 		// add to total votes
 		if ((plugin.getConfigFile().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
 			if (plugin.getConfigFile().isAddTotals()) {
-				user.addTotal();
-				user.addTotalDaily();
-				user.addTotalWeekly();
+				if (plugin.getConfigFile().isAddTotalsOffline() || user.isOnline()) {
+					user.addTotal();
+					user.addTotalDaily();
+					user.addTotalWeekly();
+				}
 			}
 			user.addPoints();
 		}
