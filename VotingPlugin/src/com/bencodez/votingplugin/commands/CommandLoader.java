@@ -67,6 +67,7 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURL;
 import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -1179,8 +1180,9 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getRewardHandler().giveReward(user, plugin.getVoteSite(args[3], true).getSiteData(),
-								"CoolDownEndRewards", new RewardOptions());
+						PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user,
+								plugin.getVoteSite(args[3], true));
+						plugin.getServer().getPluginManager().callEvent(event);
 						sendMessage(sender, "&cCoolDownEndRewards forced on votesite " + args[3]);
 
 					}
