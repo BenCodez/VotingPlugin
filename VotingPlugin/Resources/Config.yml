@@ -473,7 +473,7 @@ TreatVanishAsOffline: false
 DelayLoginEvent: 0
 
 # Wait until user is logged in with AuthMe
-# Requires AuthMe
+# Requires AuthMe or LoginSecurity
 WaitUntilLoggedIn: true
 
 ###########################################
