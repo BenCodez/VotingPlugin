@@ -914,6 +914,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.resetLastVoted();
 						plugin.getCoolDownCheck().check(user);
+						plugin.getCoolDownCheck().checkPerSite(user);
 						sender.sendMessage(
 								StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
 					}
