@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.commands.gui.admin.voteshop;
 
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -109,6 +111,31 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 						setPathData(getKey(), value);
 					}
 				}));
+		inv.addButton(new BInventoryButton(
+				new ItemBuilder(player.getInventory().getItemInMainHand().clone()).addLoreLine("&cClick to add")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				ItemBuilder item = new ItemBuilder(clickEvent.getPlayer().getInventory().getItemInMainHand().clone());
+				Map<String, Object> map = item.getConfiguration(false);
+				for (Entry<String, Object> entry : map.entrySet()) {
+					setPathData(entry.getKey(), entry.getValue());
+				}
+			}
+		});
+		inv.addButton(new BInventoryButton(new ItemBuilder(player.getInventory().getItemInMainHand().clone())
+				.addLoreLine("&cClick to add with exact data")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				ItemBuilder item = new ItemBuilder(clickEvent.getPlayer().getInventory().getItemInMainHand().clone());
+				Map<String, Object> map = item.getConfiguration(true);
+				for (Entry<String, Object> entry : map.entrySet()) {
+					setPathData("ItemStack." + entry.getKey(), entry.getValue());
+				}
+			}
+		});
+
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.DISPENSER, 1).setName("&cRewards")) {
 
 			@Override
