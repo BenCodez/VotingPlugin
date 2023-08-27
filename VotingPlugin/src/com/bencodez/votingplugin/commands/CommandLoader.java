@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.commands;
 
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -38,6 +40,7 @@ import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
+import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
 import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -1221,6 +1224,24 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginMain.plugin.getOptions().setDebug(DebugLevel.EXTRA);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "Config", "Update" },
+						"VotingPlugin.Commands.AdminVote.Config.Edit|" + adminPerm,
+						"Force update Config.yml with new options") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						try {
+							ConfigUpdater.update(plugin, "Config.yml", plugin.getConfigFile().getdFile(), Arrays
+									.asList("VoteReminding", "MySQL", "CustomCommands", "CustomPlaceholderReturns"));
+							plugin.getConfigFile().reloadData();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						sendMessage(sender, "&aUpdated config");
 					}
 				});
 
