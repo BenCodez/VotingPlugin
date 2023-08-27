@@ -456,10 +456,12 @@ UseJavascriptPlaceholders: false
 # For the example below use %votingplugin_custom_enoughpoints_5%
 # DO NOT USE ON MAIN THREAD IF POSSIBLE
 # Keep everything lowercase
+# Example:
 #CustomPlaceholderReturns:
 #  'enoughpoints_5':
 #    'true': 'User has enough points'
 #    'false': 'User does not have enough points'
+CustomPlaceholderReturns: {}
 
 ###########################################
 # Login options
@@ -576,6 +578,7 @@ DefaultRewardBlackListedWorlds: []
 
 # If enabled Config.yml will add new options as they are added to default file
 # Expiremental at this time, make backups
+# Still a WIP, DO NOT USE IN LIVE SERVERS
 AutoConfigUpdating: false
 
 ###########################################

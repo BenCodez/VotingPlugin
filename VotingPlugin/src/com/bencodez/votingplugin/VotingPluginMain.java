@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
@@ -11,7 +10,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -57,7 +55,6 @@ import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.yml.YMLConfig;
-import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
 import com.bencodez.advancedcore.scheduler.BukkitScheduler;
@@ -1430,13 +1427,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.setup();
 
 		if (configFile.isAutoConfigUpdating()) {
-			try {
+			/*try {
 				ConfigUpdater.update(plugin, "Config.yml", configFile.getdFile(),
-						Arrays.asList("VoteReminding", "MySQL", "CustomCommands"));
+						Arrays.asList("VoteReminding", "MySQL", "CustomCommands", "CustomPlaceholderReturns"));
 				configFile.reloadData();
 			} catch (IOException e) {
 				e.printStackTrace();
-			}
+			}*/
 		}
 
 		configVoteSites = new ConfigVoteSites(this);
