@@ -579,6 +579,8 @@ DefaultRewardBlackListedWorlds: []
 # If enabled Config.yml will add new options as they are added to default file
 # Expiremental at this time, make backups
 # Still a WIP, DO NOT USE IN LIVE SERVERS
+# Use /av config update to do manual update if you so desire
+# Config backup will be made
 AutoConfigUpdating: false
 
 ###########################################
