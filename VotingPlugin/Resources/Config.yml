@@ -574,6 +574,10 @@ DefaultRewardWorlds: []
 # Default blackedlisted worlds set for all rewards
 DefaultRewardBlackListedWorlds: []
 
+# If enabled Config.yml will add new options as they are added to default file
+# Expiremental at this time, make backups
+AutoConfigUpdating: false
+
 ###########################################
 # Skull settings
 ###########################################
