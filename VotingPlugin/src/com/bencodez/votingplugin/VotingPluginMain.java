@@ -1426,16 +1426,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile = new Config(this);
 		configFile.setup();
 
-		if (configFile.isAutoConfigUpdating()) {
-			/*try {
-				ConfigUpdater.update(plugin, "Config.yml", configFile.getdFile(),
-						Arrays.asList("VoteReminding", "MySQL", "CustomCommands", "CustomPlaceholderReturns"));
-				configFile.reloadData();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}*/
-		}
-
 		configVoteSites = new ConfigVoteSites(this);
 		configVoteSites.setup();
 

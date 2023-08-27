@@ -695,10 +695,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean voteRemindingRemindOnlyOnce = false;
 
-	@ConfigDataBoolean(path = "AutoConfigUpdating")
-	@Getter
-	private boolean autoConfigUpdating = false;
-
 	/**
 	 * Gets the rewards.
 	 *
