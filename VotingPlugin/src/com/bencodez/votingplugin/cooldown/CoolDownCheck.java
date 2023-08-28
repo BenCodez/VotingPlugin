@@ -77,7 +77,7 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
-	public synchronized void checkPerSite(VotingPluginUser user) {
+	public void checkPerSite(VotingPluginUser user) {
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			HashMap<VoteSite, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
 			boolean changed = false;
@@ -103,11 +103,11 @@ public class CoolDownCheck implements Listener {
 	public void schedulePerSite(VotingPluginUser user) {
 		final UUID uuid = UUID.fromString(user.getUUID());
 		long time = user.getNextTimeFirstSiteAvailable();
+		if (perSiteTasks.containsKey(uuid)) {
+			perSiteTasks.get(uuid).cancel(false);
+			perSiteTasks.remove(uuid);
+		}
 		if (time > 0) {
-			if (perSiteTasks.containsKey(uuid)) {
-				perSiteTasks.get(uuid).cancel(false);
-				perSiteTasks.remove(uuid);
-			}
 			plugin.devDebug("PerSiteCoolDownEvent schedule time: " + time);
 			ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
 
@@ -126,17 +126,19 @@ public class CoolDownCheck implements Listener {
 	public void schedule(VotingPluginUser user) {
 		final UUID uuid = UUID.fromString(user.getUUID());
 		long time = user.getNextTimeAllSitesAvailable();
+		if (allSiteTasks.containsKey(uuid)) {
+			allSiteTasks.get(uuid).cancel(false);
+			allSiteTasks.remove(uuid);
+		}
 		if (time > 0) {
 			user.setCoolDownCheck(true);
-			if (allSiteTasks.containsKey(uuid)) {
-				allSiteTasks.get(uuid).cancel(false);
-				allSiteTasks.remove(uuid);
-			}
 			ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
 
 				@Override
 				public void run() {
-					check(uuid);
+					if (plugin != null && plugin.isEnabled()) {
+						check(uuid);
+					}
 				}
 			}, time + 2, TimeUnit.SECONDS);
 			allSiteTasks.put(uuid, scheduledFuture);
