@@ -65,7 +65,7 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
-	public void check(VotingPluginUser user) {
+	public synchronized void check(VotingPluginUser user) {
 		boolean coolDownCheck = user.getCoolDownCheck();
 		if (user.canVoteAll() && coolDownCheck) {
 			user.setCoolDownCheck(false);
@@ -77,7 +77,7 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
-	public void checkPerSite(VotingPluginUser user) {
+	public synchronized void checkPerSite(VotingPluginUser user) {
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			HashMap<VoteSite, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
 			boolean changed = false;

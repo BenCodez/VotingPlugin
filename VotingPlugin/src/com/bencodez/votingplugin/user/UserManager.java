@@ -36,7 +36,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyBoolean("TopVoterIgnore"));
 		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
 		manager.addKey(new UserDataKeyString("LastVotes"));
-		manager.addKey(new UserDataKeyBoolean("CoolDownCheck"));
+		manager.addKey(new UserDataKeyBoolean(getCoolDownCheckPath()));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
 		manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
@@ -60,6 +60,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("LastWeeklyTotal"));
 		manager.addKey(new UserDataKeyInt("LastDailyTotal"));
 		manager.addKey(new UserDataKeyInt("BestMonthVoteStreak"));
+		manager.addKey(new UserDataKeyString(getCoolDownCheckSitePath()).setColumnType("LONGTEXT"));
 		if (plugin.getOptions().isPerServerRewards()) {
 			manager.addKey(new UserDataKeyString("OfflineRewards" + plugin.getOptions().getServer())
 					.setColumnType("MEDIUMTEXT"));
@@ -82,6 +83,22 @@ public class UserManager {
 			return "AlmostAllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
 		}
 		return "AlmostAllSitesLast";
+	}
+
+	public String getCoolDownCheckSitePath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
+		} else {
+			return "CoolDownCheck" + "_Sites";
+		}
+	}
+
+	public String getCoolDownCheckPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
+		} else {
+			return "CoolDownCheck";
+		}
 	}
 
 	public ArrayList<String> getAllUUIDs() {
