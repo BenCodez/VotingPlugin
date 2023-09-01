@@ -1413,6 +1413,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (userStorage) {
 			placeholders.load();
 			placeholders.reload();
+			getCoolDownCheck().getTimer().schedule(new Runnable() {
+
+				@Override
+				public void run() {
+					for (VoteSite site : plugin.getVoteSites()) {
+						if (site.isVoteDelayDaily()) {
+							getCoolDownCheck().checkAllVoteSite(site);
+						}
+					}
+				}
+			}, 5, TimeUnit.SECONDS);
+
 		}
 
 		voteReminding.loadRemindChecking();

@@ -1,6 +1,10 @@
 package com.bencodez.votingplugin.cooldown;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -14,11 +18,14 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserStartup;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+
+import lombok.Getter;
 
 public class CoolDownCheck implements Listener {
 
@@ -28,11 +35,14 @@ public class CoolDownCheck implements Listener {
 
 	private HashMap<UUID, ScheduledFuture<?>> allSiteTasks = new HashMap<UUID, ScheduledFuture<?>>();
 
+	private HashMap<String, ScheduledFuture<?>> voteSiteChecks = new HashMap<String, ScheduledFuture<?>>();
+
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		this.timer = Executors.newScheduledThreadPool(1);
 	}
 
+	@Getter
 	private ScheduledExecutorService timer;
 
 	private boolean cooldownCheckEnabled = false;
@@ -55,14 +65,21 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void vote(VotingPluginUser user, VoteSite site) {
-		if (cooldownCheckEnabled) {
-			schedule(user);
-		}
+		timer.schedule(new Runnable() {
 
-		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
-			user.setCoolDownCheckSite(site, Boolean.FALSE);
-			schedulePerSite(user);
-		}
+			@Override
+			public void run() {
+				if (cooldownCheckEnabled) {
+					schedule(user);
+				}
+
+				if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
+					user.setCoolDownCheckSite(site, Boolean.FALSE);
+					schedulePerSite(user);
+				}
+			}
+		}, 10, TimeUnit.SECONDS);
+
 	}
 
 	public synchronized void check(VotingPluginUser user) {
@@ -171,6 +188,85 @@ public class CoolDownCheck implements Listener {
 
 			}
 		});
+
+		scheduleGlobalCheckVoteSite();
+	}
+
+	public void scheduleGlobalCheckVoteSite() {
+		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
+			for (VoteSite site : plugin.getVoteSites()) {
+				scheduleGlobalCheckVoteSite(site);
+			}
+		}
+	}
+
+	public void scheduleGlobalCheckVoteSite(VoteSite site) {
+		if (voteSiteChecks.containsKey(site.getKey())) {
+			voteSiteChecks.get(site.getKey()).cancel(false);
+			voteSiteChecks.remove(site.getKey());
+		}
+		if (site.isVoteDelayDaily()) {
+			LocalDateTime now = plugin.getTimeChecker().getTime();
+
+			LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
+					.plusHours((long) site.getTimeOffSet());
+			LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0).withMinute(0)
+					.plusHours((long) site.getTimeOffSet());
+
+			ScheduledFuture<?> scheduledFuture = null;
+			if (!now.isBefore(offsetoclocktoday)) {
+				Duration dur = Duration.between(now, offsetoclocktomorrow);
+				scheduledFuture = timer.schedule(new Runnable() {
+
+					@Override
+					public void run() {
+						checkAllVoteSite(site);
+					}
+				}, dur.getSeconds() + 2, TimeUnit.SECONDS);
+				plugin.debug("Checking vote delay daily cooldown events/rewards in " + dur.getSeconds()
+						+ " seconds for " + site.getKey());
+			} else {
+				Duration dur = Duration.between(now, offsetoclocktoday);
+				scheduledFuture = timer.schedule(new Runnable() {
+
+					@Override
+					public void run() {
+						checkAllVoteSite(site);
+					}
+				}, dur.getSeconds() + 2, TimeUnit.SECONDS);
+				plugin.debug("Checking vote delay daily cooldown events/rewards in " + dur.getSeconds()
+						+ " seconds for " + site.getKey());
+			}
+			voteSiteChecks.put(site.getKey(), scheduledFuture);
+		}
+
+	}
+
+	public void checkAllVoteSite(VoteSite site) {
+		plugin.debug("Checking vote cooldown rewards for all players");
+		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+			String uuid = playerData.getKey().toString();
+			if (plugin != null && plugin.isEnabled()) {
+				if (uuid != null && !uuid.isEmpty()) {
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.updateTempCacheWithColumns(playerData.getValue());
+					cols.put(playerData.getKey(), null);
+					checkPerSite(user);
+					user.clearTempCache();
+					user = null;
+				}
+			}
+		}
+		cols.clear();
+		cols = null;
+
+		plugin.debug("Finished checking vote cooldown rewards for all players");
+		scheduleGlobalCheckVoteSite(site);
+
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
