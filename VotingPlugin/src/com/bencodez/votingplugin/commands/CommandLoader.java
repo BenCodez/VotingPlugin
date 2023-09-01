@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -1256,6 +1257,29 @@ public class CommandLoader {
 						plugin.getConfigVoteSites().setServiceSite(voteSite, serviceSite);
 						sender.sendMessage(StringParser.getInstance()
 								.colorize("&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l" + voteSite));
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "CheckVoteCoolDownRewards" },
+						"VotingPlugin.Commands.AdminVote.VoteSite.CheckVoteCoolDownRewards|" + adminPerm,
+						"Force check all vote cooldown rewards") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						plugin.getCoolDownCheck().getTimer().schedule(new Runnable() {
+
+							@Override
+							public void run() {
+								for (VoteSite site : plugin.getVoteSites()) {
+									if (site.isVoteDelayDaily()) {
+										plugin.getCoolDownCheck().checkAllVoteSite(site);
+									}
+								}
+							}
+						}, 5, TimeUnit.SECONDS);
+						sender.sendMessage(
+								StringParser.getInstance().colorize("&cForce checking on vote cooldown rewards"));
 					}
 				});
 
