@@ -1259,7 +1259,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public String voteCommandNextInfo(VoteSite voteSite, long time) {
 		String info = new String();
 
-		long nextTime = voteNextDurationTime(voteSite);
+		long nextTime = voteNextDurationTime(voteSite, time);
 		if (nextTime == 0) {
 			info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
 		} else {
@@ -1286,7 +1286,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public long voteNextDurationTime(VoteSite voteSite) {
-		long time = getTime(voteSite);
+		return voteNextDurationTime(voteSite, getTime(voteSite));
+	}
+
+	public long voteNextDurationTime(VoteSite voteSite, long time) {
 		LocalDateTime now = plugin.getTimeChecker().getTime();
 
 		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
