@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -146,7 +147,14 @@ public class VoteShop extends GUIHandler {
 													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 										}
 									} else {
-										new VoteShopConfirm(plugin, player, user, identifier).open(GUIMethod.CHEST);
+										BukkitScheduler.runTask(plugin, new Runnable() {
+											
+											@Override
+											public void run() {
+												new VoteShopConfirm(plugin, player, user, identifier).open(GUIMethod.CHEST);
+											}
+										});
+										
 
 									}
 								} else {
