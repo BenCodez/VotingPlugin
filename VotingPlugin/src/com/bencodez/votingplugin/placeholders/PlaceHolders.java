@@ -607,6 +607,43 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get user top voter position"));
 
+		if (plugin.getGui().isLastMonthGUI()) {
+			nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_LastMonth_") {
+
+				@Override
+				public String placeholderRequest(String identifier) {
+					if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+						return null;
+					}
+					int num = 1;
+					int number = Integer.parseInt(identifier.split("_")[2]);
+					for (Entry<TopVoterPlayer, Integer> entry : plugin.getLastMonthTopVoter().entrySet()) {
+						if (num == number) {
+							return entry.getKey().getPlayerName();
+						}
+						num++;
+					}
+					return "";
+				}
+			}.useStartsWith().withDescription("Get user at position in last month top voter"));
+
+			nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_LastMonthVotes_") {
+
+				@Override
+				public String placeholderRequest(String identifier) {
+					int num = 1;
+					int number = Integer.parseInt(identifier.split("_")[2]);
+					for (Entry<TopVoterPlayer, Integer> entry : plugin.getLastMonthTopVoter().entrySet()) {
+						if (num == number) {
+							return "" + entry.getValue().intValue();
+						}
+						num++;
+					}
+					return "";
+				}
+			}.useStartsWith().withDescription("Get user votes at position in last month top voter"));
+		}
+
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_Month_") {
 
 			@Override
