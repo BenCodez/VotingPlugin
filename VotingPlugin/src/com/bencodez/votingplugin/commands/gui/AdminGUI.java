@@ -369,6 +369,17 @@ public class AdminGUI {
 			}
 		}));
 
+		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelayDailyHour", voteSite.getVoteDelayDailyHour()) {
+
+			@Override
+			public void setValue(Player player, Number num) {
+				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
+				String siteName = voteSite.getKey();
+				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
+				plugin.reload();
+			}
+		}));
+
 		inv.addButton(new EditGUIButton(new EditGUIValueBoolean("Enabled", voteSite.isEnabled()) {
 
 			@Override
