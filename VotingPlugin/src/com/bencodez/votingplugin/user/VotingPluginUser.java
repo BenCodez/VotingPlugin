@@ -276,21 +276,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 				return now.isAfter(nextvote);
 			} else {
-				LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
-						.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-				LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
-						.plusHours((long) voteSite.getTimeOffSet());
+				LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(voteSite.getVoteDelayDailyHour())
+						.withMinute(0);
+				LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
-				if (!now.isBefore(offsetoclocktoday)) {
-					if (!lastVote.isBefore(offsetoclocktoday)) {
-						return false;
-					} else {
-						return true;
+				if (lastVote.isBefore(resetTimeTomorrow)) {
+					if (lastVote.isBefore(resetTime)) {
+						if (now.isAfter(resetTime)) {
+							return true;
+						} else {
+							return false;
+						}
 					}
-				} else {
-					if (!lastVote.isBefore(offsetoclockyesterday)) {
-						return false;
-					} else {
+					if (now.isAfter(resetTimeTomorrow)) {
 						return true;
 					}
 				}
@@ -1261,98 +1259,29 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public String voteCommandNextInfo(VoteSite voteSite, long time) {
 		String info = new String();
 
-		LocalDateTime now = plugin.getTimeChecker().getTime();
-
-		LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-				.plusHours(plugin.getOptions().getTimeHourOffSet());
-
-		if (!voteSite.isVoteDelayDaily()) {
-			double votedelay = voteSite.getVoteDelay();
-			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
-				String errorMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoError();
-				info = errorMsg;
-			} else {
-
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-						.plusMinutes((long) voteSite.getVoteDelayMin());
-
-				if (time == 0 || now.isAfter(nextvote)) {
-					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
-				} else {
-					Duration dur = Duration.between(now, nextvote);
-
-					long diffHours = dur.getSeconds() / (60 * 60);
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoTime();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Long.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-
-				}
-			}
+		long nextTime = voteNextDurationTime(voteSite);
+		if (nextTime == 0) {
+			info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
 		} else {
-			LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
+			int diffHours = (int) (nextTime / (60 * 60));
+			long diffMinutes = nextTime / 60 - diffHours * 60;
 
-			if (!now.isBefore(offsetoclocktoday)) {
-				if (!lastVote.isBefore(offsetoclocktoday)) {
-					Duration dur = Duration.between(now, offsetoclocktomorrow);
-					int diffHours = (int) (dur.getSeconds() / (60 * 60));
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					if (diffHours < 0) {
-						diffHours = diffHours * -1;
-					}
-					if (diffHours >= 24) {
-						diffHours = diffHours - 24;
-					}
-					if (diffMinutes < 0) {
-						diffMinutes = diffMinutes * -1;
-					}
-
-					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Integer.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-				} else {
-					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
-				}
-			} else {
-				if (!lastVote.isBefore(offsetoclockyesterday)) {
-					Duration dur = Duration.between(now, offsetoclocktoday);
-					int diffHours = (int) (dur.getSeconds() / (60 * 60));
-					long diffMinutes = dur.getSeconds() / 60 - diffHours * 60;
-
-					if (diffHours < 0) {
-						diffHours = diffHours * -1;
-					}
-					if (diffHours >= 24) {
-						diffHours = diffHours - 24;
-					}
-					if (diffMinutes < 0) {
-						diffMinutes = diffMinutes * -1;
-					}
-
-					String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%",
-							Integer.toString(diffHours));
-					timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-							Long.toString(diffMinutes));
-					info = timeMsg;
-				} else {
-					info = plugin.getConfigFile().getFormatCommandsVoteNextInfoCanVote();
-				}
+			if (diffHours < 0) {
+				diffHours = diffHours * -1;
 			}
+			if (diffHours >= 24) {
+				diffHours = diffHours - 24;
+			}
+			if (diffMinutes < 0) {
+				diffMinutes = diffMinutes * -1;
+			}
+
+			String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
+			timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+			timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
+			info = timeMsg;
 		}
+
 		return info;
 	}
 
@@ -1379,28 +1308,23 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 			}
 		} else {
-			LocalDateTime offsetoclockyesterday = plugin.getTimeChecker().getTime().plusDays(-1).withHour(0)
-					.withMinute(0).plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktoday = plugin.getTimeChecker().getTime().withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-			LocalDateTime offsetoclocktomorrow = plugin.getTimeChecker().getTime().plusDays(1).withHour(0).withMinute(0)
-					.plusHours((long) voteSite.getTimeOffSet());
-
-			if (!now.isBefore(offsetoclocktoday)) {
-				if (!lastVote.isBefore(offsetoclocktoday)) {
-					Duration dur = Duration.between(now, offsetoclocktomorrow);
+			LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(voteSite.getVoteDelayDailyHour())
+					.withMinute(0);
+			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
+			if (lastVote.isBefore(resetTime)) {
+				if (now.isBefore(resetTime)) {
+					Duration dur = Duration.between(now, resetTime);
 					return dur.getSeconds();
-				} else {
-					return 0;
-				}
-			} else {
-				if (!lastVote.isBefore(offsetoclockyesterday)) {
-					Duration dur = Duration.between(now, offsetoclocktoday);
-					return dur.getSeconds();
-				} else {
-					return 0;
 				}
 			}
+			if (lastVote.isBefore(resetTimeTomorrow)) {
+				if (now.isBefore(resetTimeTomorrow)) {
+					Duration dur = Duration.between(now, resetTimeTomorrow);
+					return dur.getSeconds();
+				}
+			}
+
+			return 0;
 		}
 	}
 

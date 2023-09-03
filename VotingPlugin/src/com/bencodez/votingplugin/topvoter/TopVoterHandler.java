@@ -205,7 +205,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (!plugin.getTopVoterHandler().bungeeHandleResets()) {
+			if (!plugin.getTopVoterHandler().bungeeHandleResets() && plugin.getBungeeSettings().isUseBungeecoord()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -322,7 +322,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (!bungeeHandleResets()) {
+			if (!bungeeHandleResets() && plugin.getBungeeSettings().isUseBungeecoord()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);
@@ -432,7 +432,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			// give time for other servers to catch up
-			if (!plugin.getTopVoterHandler().bungeeHandleResets()) {
+			if (!plugin.getTopVoterHandler().bungeeHandleResets() && plugin.getBungeeSettings().isUseBungeecoord()) {
 				plugin.debug("Delaying time change 10 seconds for other servers to catchup");
 				try {
 					Thread.sleep(10000);

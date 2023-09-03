@@ -64,7 +64,7 @@ public class VoteSite {
 
 	@Getter
 	@Setter
-	private double timeOffSet;
+	private int voteDelayDailyHour;
 
 	@Getter
 	@Setter
@@ -230,7 +230,7 @@ public class VoteSite {
 		voteDelayDaily = plugin.getConfigVoteSites().getVoteSiteResetVoteDelayDaily(key);
 		giveOffline = plugin.getConfigVoteSites().getVoteSiteGiveOffline(key);
 		waitUntilVoteDelay = plugin.getConfigVoteSites().getWaitUntilVoteDelay(key);
-		timeOffSet = plugin.getConfigVoteSites().getTimeOffSet(key);
+		voteDelayDailyHour = plugin.getConfigVoteSites().getVoteDelayDailyHour(key);
 		hidden = plugin.getConfigVoteSites().getVoteSiteHidden(key);
 		ignoreCanVote = plugin.getConfigVoteSites().getVoteSiteIgnoreCanVote(key);
 	}
@@ -247,7 +247,7 @@ public class VoteSite {
 		str += ", VoteDelayDaily: " + isVoteDelayDaily();
 		str += ", IsWaitUntilVoteDelay: " + isWaitUntilVoteDelay();
 		str += ", ServiceSite: " + getServiceSite();
-		str += ", TimeOffSet:" + getTimeOffSet();
+		str += ", TimeOffSet:" + getVoteDelayDailyHour();
 		str += ", Url: " + getVoteURL();
 		str += ", IgnoreCanVote: " + isIgnoreCanVote();
 		str += ", Hidden: " + isHidden();

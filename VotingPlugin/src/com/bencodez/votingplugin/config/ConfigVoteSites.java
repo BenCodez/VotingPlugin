@@ -168,8 +168,8 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
-	public int getTimeOffSet(String siteName) {
-		return getData(siteName).getInt("TimeOffSet", 0);
+	public int getVoteDelayDailyHour(String siteName) {
+		return getData(siteName).getInt("VoteDelayDailyHour", 0);
 	}
 
 	/**
