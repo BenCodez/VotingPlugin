@@ -50,7 +50,9 @@ VoteSites:
     
     # Replaces offset, set the exact hour based on server time
     # Include server time offset when setting this
-    VoteDelayDailyHour: 14
+    # 2 = 2 am server time
+    # Use 1-24
+    #VoteDelayDailyHour: 14
     
     # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
     # Setting this to true will execute the reward offline while the player is offline
