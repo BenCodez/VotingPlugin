@@ -449,8 +449,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
 	}
 
-	public HashMap<VoteSite, Boolean> getCoolDownCheckSiteList() {
-		HashMap<VoteSite, Boolean> coolDownChecks = new HashMap<VoteSite, Boolean>();
+	public HashMap<String, Boolean> getCoolDownCheckSiteList() {
+		HashMap<String, Boolean> coolDownChecks = new HashMap<String, Boolean>();
 		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath(), isCacheData(),
 				isWaitForCache());
 		for (String str : coolDownCheck) {
@@ -459,7 +459,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				VoteSite site = plugin.getVoteSite(data[0], true);
 				if (site != null) {
 					Boolean b = Boolean.valueOf(data[1]);
-					coolDownChecks.put(site, b);
+					coolDownChecks.put(site.getKey(), b);
 				}
 			}
 		}
@@ -467,9 +467,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public boolean getCoolDownCheckSite(VoteSite site) {
-		HashMap<VoteSite, Boolean> coolDownChecks = getCoolDownCheckSiteList();
-		if (coolDownChecks.containsKey(site)) {
-			return coolDownChecks.get(site).booleanValue();
+		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		if (coolDownChecks.containsKey(site.getKey())) {
+			return coolDownChecks.get(site.getKey()).booleanValue();
 		}
 		return false;
 	}
@@ -949,18 +949,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setStringList("LastVotes", data);
 	}
 
-	public void setCoolDownCheckSite(HashMap<VoteSite, Boolean> coolDownChecks) {
+	public void setCoolDownCheckSite(HashMap<String, Boolean> coolDownChecks) {
 		ArrayList<String> data = new ArrayList<String>();
-		for (Entry<VoteSite, Boolean> entry : coolDownChecks.entrySet()) {
-			String str = entry.getKey().getKey() + "//" + entry.getValue().toString();
+		for (Entry<String, Boolean> entry : coolDownChecks.entrySet()) {
+			String str = entry.getKey() + "//" + entry.getValue().toString();
 			data.add(str);
 		}
 		getUserData().setStringList(getCoolDownCheckSitePath(), data);
 	}
 
 	public void setCoolDownCheckSite(VoteSite site, boolean value) {
-		HashMap<VoteSite, Boolean> coolDownChecks = getCoolDownCheckSiteList();
-		coolDownChecks.put(site, Boolean.valueOf(value));
+		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		coolDownChecks.put(site.getKey(), Boolean.valueOf(value));
 		setCoolDownCheckSite(coolDownChecks);
 	}
 
@@ -1319,8 +1319,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					Duration dur = Duration.between(now, resetTime);
 					return dur.getSeconds();
 				}
-			}
-			if (lastVote.isBefore(resetTimeTomorrow)) {
+			} else if (lastVote.isBefore(resetTimeTomorrow)) {
 				if (now.isBefore(resetTimeTomorrow)) {
 					Duration dur = Duration.between(now, resetTimeTomorrow);
 					return dur.getSeconds();
