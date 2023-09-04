@@ -101,14 +101,13 @@ public class CoolDownCheck implements Listener {
 			for (VoteSite site : plugin.getVoteSites()) {
 				if (user.canVoteSite(site)) {
 					if (!coolDownChecks.containsKey(site.getKey())
-							|| coolDownChecks.get(site.getKey()).booleanValue() == false) {
+							|| !coolDownChecks.get(site.getKey()).booleanValue()) {
 						coolDownChecks.put(site.getKey(), Boolean.TRUE);
 						changed = true;
 						plugin.extraDebug("Trigger votesitecooldownend event for " + user.getUUID());
 						PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
 						plugin.getServer().getPluginManager().callEvent(event);
 					}
-				} else {
 				}
 			}
 			if (changed) {
