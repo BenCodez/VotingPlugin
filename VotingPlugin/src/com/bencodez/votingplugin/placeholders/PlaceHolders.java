@@ -1112,6 +1112,9 @@ public class PlaceHolders {
 
 	public void onUpdate() {
 		checkNonCachedPlaceholders();
+		for (Player p : Bukkit.getOnlinePlayers()) {
+			onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(p), true);
+		}
 		/*
 		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
 		 * nonPlayerPlaceholders) { if (placeholder.isUsesCache()) { for (String ident :
