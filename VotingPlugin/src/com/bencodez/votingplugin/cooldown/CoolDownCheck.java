@@ -65,21 +65,14 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void vote(VotingPluginUser user, VoteSite site) {
-		timer.schedule(new Runnable() {
+		if (cooldownCheckEnabled) {
+			schedule(user);
+		}
 
-			@Override
-			public void run() {
-				if (cooldownCheckEnabled) {
-					schedule(user);
-				}
-
-				if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
-					user.setCoolDownCheckSite(site, Boolean.FALSE);
-					schedulePerSite(user);
-				}
-			}
-		}, 10, TimeUnit.SECONDS);
-
+		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
+			user.setCoolDownCheckSite(site, Boolean.FALSE);
+			schedulePerSite(user);
+		}
 	}
 
 	public synchronized void check(VotingPluginUser user) {
@@ -159,7 +152,7 @@ public class CoolDownCheck implements Listener {
 						check(uuid);
 					}
 				}
-			}, time + 2, TimeUnit.SECONDS);
+			}, time + 60, TimeUnit.SECONDS);
 			allSiteTasks.put(uuid, scheduledFuture);
 		}
 
