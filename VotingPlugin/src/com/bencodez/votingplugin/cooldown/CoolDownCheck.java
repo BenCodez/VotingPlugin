@@ -221,7 +221,7 @@ public class CoolDownCheck implements Listener {
 					checkAllVoteSite(site);
 				}
 			}, time + 2, TimeUnit.SECONDS);
-			plugin.debug(
+			plugin.getLogger().info(
 					"Checking vote delay daily cooldown events/rewards in " + time + " seconds for " + site.getKey());
 
 			voteSiteChecks.put(site.getKey(), scheduledFuture);
@@ -230,7 +230,7 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void checkAllVoteSite(VoteSite site) {
-		plugin.debug("Checking vote cooldown rewards for all players: " + site.getKey());
+		plugin.getLogger().info("Checking vote cooldown rewards for all players: " + site.getKey());
 		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
@@ -251,7 +251,7 @@ public class CoolDownCheck implements Listener {
 		cols.clear();
 		cols = null;
 
-		plugin.debug("Finished checking vote cooldown rewards for all players: " + site.getKey());
+		plugin.getLogger().info("Finished checking vote cooldown rewards for all players: " + site.getKey());
 		scheduleGlobalCheckVoteSite(site);
 
 	}
