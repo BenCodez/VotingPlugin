@@ -202,7 +202,7 @@ public class CoolDownCheck implements Listener {
 		}
 		if (site.isVoteDelayDaily()) {
 			LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(site.getVoteDelayDailyHour())
-					.withMinute(0);
+					.withMinute(0).withSecond(0);
 			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 			long time = 0;
 			LocalDateTime now = plugin.getTimeChecker().getTime();

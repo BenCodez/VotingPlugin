@@ -277,7 +277,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				return now.isAfter(nextvote);
 			} else {
 				LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(voteSite.getVoteDelayDailyHour())
-						.withMinute(0);
+						.withMinute(0).withSecond(0);
 				LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
 				if (lastVote.isBefore(resetTimeTomorrow)) {
@@ -1312,7 +1312,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 		} else {
 			LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(voteSite.getVoteDelayDailyHour())
-					.withMinute(0);
+					.withMinute(0).withSecond(0);
 			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 			if (lastVote.isBefore(resetTime)) {
 				if (now.isBefore(resetTime)) {
