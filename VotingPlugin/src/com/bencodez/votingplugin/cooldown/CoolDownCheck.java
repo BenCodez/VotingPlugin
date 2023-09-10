@@ -129,7 +129,7 @@ public class CoolDownCheck implements Listener {
 						checkPerSite(uuid);
 					}
 				}
-			}, time + 2, TimeUnit.SECONDS);
+			}, time + 61, TimeUnit.SECONDS);
 			perSiteTasks.put(uuid, scheduledFuture);
 		}
 
@@ -220,7 +220,7 @@ public class CoolDownCheck implements Listener {
 				public void run() {
 					checkAllVoteSite(site);
 				}
-			}, time + 2, TimeUnit.SECONDS);
+			}, time + 65, TimeUnit.SECONDS);
 			plugin.getLogger().info(
 					"Checking vote delay daily cooldown events/rewards in " + time + " seconds for " + site.getKey());
 
