@@ -92,12 +92,11 @@ public class CoolDownCheck implements Listener {
 			HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
 			boolean changed = false;
 			for (VoteSite site : plugin.getVoteSites()) {
-				if (user.canVoteSite(site)) {
-					if (!coolDownChecks.containsKey(site.getKey())
-							|| !coolDownChecks.get(site.getKey()).booleanValue()) {
+				if (!coolDownChecks.containsKey(site.getKey()) || !coolDownChecks.get(site.getKey()).booleanValue()) {
+					if (user.canVoteSite(site)) {
 						coolDownChecks.put(site.getKey(), Boolean.TRUE);
 						changed = true;
-						plugin.extraDebug("Trigger votesitecooldownend event for " + user.getUUID());
+						plugin.extraDebug("Triggering votesitecooldownend event for " + user.getUUID());
 						PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
 						plugin.getServer().getPluginManager().callEvent(event);
 					}
@@ -152,7 +151,7 @@ public class CoolDownCheck implements Listener {
 						check(uuid);
 					}
 				}
-			}, time + 60, TimeUnit.SECONDS);
+			}, time, TimeUnit.SECONDS);
 			allSiteTasks.put(uuid, scheduledFuture);
 		}
 
@@ -220,7 +219,7 @@ public class CoolDownCheck implements Listener {
 				public void run() {
 					checkAllVoteSite(site);
 				}
-			}, time + 65, TimeUnit.SECONDS);
+			}, time + 90, TimeUnit.SECONDS);
 			plugin.getLogger().info(
 					"Checking vote delay daily cooldown events/rewards in " + time + " seconds for " + site.getKey());
 
