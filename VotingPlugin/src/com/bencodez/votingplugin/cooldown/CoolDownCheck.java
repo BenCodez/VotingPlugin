@@ -128,7 +128,7 @@ public class CoolDownCheck implements Listener {
 						checkPerSite(uuid);
 					}
 				}
-			}, time + 61, TimeUnit.SECONDS);
+			}, time + 2, TimeUnit.SECONDS);
 			perSiteTasks.put(uuid, scheduledFuture);
 		}
 
@@ -151,7 +151,7 @@ public class CoolDownCheck implements Listener {
 						check(uuid);
 					}
 				}
-			}, time, TimeUnit.SECONDS);
+			}, time+2, TimeUnit.SECONDS);
 			allSiteTasks.put(uuid, scheduledFuture);
 		}
 
@@ -183,7 +183,7 @@ public class CoolDownCheck implements Listener {
 			}
 		});
 
-		scheduleGlobalCheckVoteSite();
+		//scheduleGlobalCheckVoteSite();
 	}
 
 	public void scheduleGlobalCheckVoteSite() {
@@ -251,7 +251,7 @@ public class CoolDownCheck implements Listener {
 		cols = null;
 
 		plugin.getLogger().info("Finished checking vote cooldown rewards for all players: " + site.getKey());
-		scheduleGlobalCheckVoteSite(site);
+		//scheduleGlobalCheckVoteSite(site);
 
 	}
 
