@@ -13,7 +13,6 @@ import org.bukkit.block.data.Directional;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.nms.NMSManager;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -111,7 +110,7 @@ public class SignHandler {
 	 * Check valid sign.
 	 */
 	public void checkValidSign() {
-		BukkitScheduler.runTask(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -240,7 +239,7 @@ public class SignHandler {
 	 * @param delay the delay
 	 */
 	public void updateSign(int delay) {
-		BukkitScheduler.runTaskLater(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskLater(plugin, new Runnable() {
 
 			@SuppressWarnings("deprecation")
 			@Override

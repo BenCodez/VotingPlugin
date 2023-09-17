@@ -4,7 +4,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import com.bencodez.advancedcore.api.updater.Updater;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -73,7 +72,7 @@ public class CheckUpdate {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;
 		}
-		BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -87,7 +86,7 @@ public class CheckUpdate {
 				}, 1000 * 60 * 1200, 1000 * 60 * 1200);
 
 			}
-		}, 10l);
+		}, 10);
 	}
 
 }

@@ -57,7 +57,6 @@ import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.yml.YMLConfig;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.advancedcore.nms.NMSManager;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
@@ -263,13 +262,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		if (ymlError) {
-			BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
+			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
 					plugin.getLogger().severe("Failed to load a file, check startup log");
 				}
-			}, 10);
+			}, 1);
 		}
 	}
 
@@ -936,7 +935,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadTimer() {
-		BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -961,7 +960,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}, 1000, 1000 * 30, TimeUnit.MILLISECONDS);
 
 			}
-		}, 40L);
+		}, 2);
 
 	}
 
@@ -1064,7 +1063,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		coolDownCheck.checkEnabled();
 		coolDownCheck.load();
 
-		BukkitScheduler.runTask(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -1074,7 +1073,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		topVoterHandler = new TopVoterHandler(this);
 		lastMonthTopVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
-		BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -1097,7 +1096,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		topVoterHandler.register();
 
-		BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -1223,14 +1222,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		if (!issues) {
-			BukkitScheduler.runTaskLaterAsynchronously(plugin, new Runnable() {
+			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
 					plugin.getLogger().warning(
 							"Detected an issue with voting sites, check the server startup log for more details: https://github.com/BenCodez/VotingPlugin/wiki/Votifier-Troubleshooting");
 				}
-			}, 30l);
+			}, 5);
 		}
 
 	}

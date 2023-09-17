@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.concurrent.TimeUnit;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
@@ -43,7 +43,6 @@ import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
@@ -697,7 +696,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					Player player = (Player) sender;
-					BukkitScheduler.runTask(plugin, new Runnable() {
+					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 						@Override
 						public void run() {
@@ -706,7 +705,7 @@ public class CommandLoader {
 					});
 
 				} else {
-					BukkitScheduler.runTask(plugin, new Runnable() {
+					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 						@Override
 						public void run() {
@@ -1333,7 +1332,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 
-				BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 					@Override
 					public void run() {
@@ -1828,7 +1827,7 @@ public class CommandLoader {
 	public void loadCommands() {
 		loadAdminVoteCommand();
 		loadVoteCommand();
-		BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -2623,7 +2622,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, section.getString("Message", ""));
 						for (String str : (ArrayList<String>) section.getList("Commands", new ArrayList<String>())) {
-							BukkitScheduler.runTask(plugin, new Runnable() {
+							plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 								@Override
 								public void run() {

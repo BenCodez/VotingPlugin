@@ -77,7 +77,7 @@ public class Signs {
 			} else {
 				getSigns().get(i).updateLines();
 				getSigns().get(i).updateSign(time);
-				time += 5;
+				time += 1;
 			}
 		}
 

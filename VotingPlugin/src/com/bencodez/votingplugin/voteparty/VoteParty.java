@@ -21,7 +21,6 @@ import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -205,7 +204,7 @@ public class VoteParty implements Listener {
 
 		String player = getRandomPlayerName();
 		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {
-			BukkitScheduler.runTask(plugin, new Runnable() {
+			plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 				@Override
 				public void run() {
@@ -218,7 +217,7 @@ public class VoteParty implements Listener {
 
 		final ArrayList<String> list = plugin.getSpecialRewardsConfig().getVotePartyGlobalRandomCommand();
 		if (list.size() > 0) {
-			BukkitScheduler.runTask(plugin, new Runnable() {
+			plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 				@Override
 				public void run() {

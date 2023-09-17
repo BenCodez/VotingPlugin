@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -134,7 +133,7 @@ public class VoteTester {
 
 	public void testSpam(int amount, String name, String site) {
 		for (int i = 0; i < amount; i++) {
-			BukkitScheduler.runTaskAsynchronously(plugin, new Runnable() {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
