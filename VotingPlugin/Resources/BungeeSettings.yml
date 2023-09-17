@@ -52,6 +52,13 @@ PerServerPoints: false
 # Should allow some compability with other plugins
 TriggerVotifierEvent: false
 
+# If enabled plugin will give extra allsites reward if deterimned that it should
+# E.g. user votes offline for 7 days, they will only get 1 allsites reward by default
+# When enabled, they should get 7
+# Only applies to PLUGINMESSAGING
+# Recommend enabling ExtraAllSitesCheck in config.yml as well
+GiveExtraAllSitesRewards: false
+
 # What server this is in bungee (must match)
 # Also can be applied to rewards
 Server: PleaseSet

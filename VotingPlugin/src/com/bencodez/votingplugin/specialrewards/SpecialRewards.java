@@ -49,6 +49,21 @@ public class SpecialRewards {
 		return checkAllVotes;
 	}
 
+	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
+		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
+			int numberOfSites = plugin.getVoteSites().size();
+			if (numberOfVotes > numberOfSites * 2) {
+				if (num % numberOfSites == 0) {
+					// should give extra allsites?
+					if (user.checkAllVotes()) {
+						plugin.debug("Giving extra allsites reward from bungee");
+						giveAllSitesRewards(user, user.isOnline(), true);
+					}
+				}
+			}
+		}
+	}
+
 	public boolean checkAlmostAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAlmostAllVotes();
 		if (checkAllVotes) {

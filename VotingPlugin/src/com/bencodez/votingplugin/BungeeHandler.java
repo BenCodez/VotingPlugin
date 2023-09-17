@@ -285,8 +285,8 @@ public class BungeeHandler implements Listener {
 						String service = args.get(2);
 						long time = Long.parseLong(args.get(3));
 						plugin.debug("pluginmessaging vote received from " + player + "/" + uuid + " on " + service);
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
-								player);
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(UUID.fromString(uuid), player);
 
 						boolean wasOnline = Boolean.valueOf(args.get(4));
 
@@ -347,6 +347,8 @@ public class BungeeHandler implements Listener {
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
+
+						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
 
 						if (Boolean.valueOf(args.get(5))) {
 							plugin.getServerData().addServiceSite(service);
@@ -381,8 +383,8 @@ public class BungeeHandler implements Listener {
 
 						plugin.debug(
 								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
-								player);
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(UUID.fromString(uuid), player);
 						user.cache();
 
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
@@ -440,6 +442,8 @@ public class BungeeHandler implements Listener {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
 
+						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
+
 						if (Boolean.valueOf(args.get(5))) {
 							plugin.getServerData().addServiceSite(service);
 						}
@@ -454,7 +458,8 @@ public class BungeeHandler implements Listener {
 				public void onRecieve(String subChannel, ArrayList<String> args) {
 					String player = args.get(0);
 					plugin.debug("pluginmessaging voteupdate received for " + player);
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(player));
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(player));
 					user.cache();
 
 					user.offVote();
@@ -483,8 +488,8 @@ public class BungeeHandler implements Listener {
 					if (args.size() > 2) {
 						String uuid = args.get(0);
 						String service = args.get(2);
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
-								args.get(1));
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
 						VoteSite site = plugin.getVoteSite(service, true);
 						if (site != null) {
 							site.broadcastVote(user, false);
@@ -501,8 +506,8 @@ public class BungeeHandler implements Listener {
 					if (args.size() > 2) {
 						String uuid = args.get(0);
 						String votes = args.get(2);
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
-								args.get(1));
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
 						user.offlineBroadcast(user, false, Integer.parseInt(votes));
 					}
 				}
