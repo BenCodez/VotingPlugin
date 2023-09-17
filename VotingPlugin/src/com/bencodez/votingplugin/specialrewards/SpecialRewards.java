@@ -52,12 +52,14 @@ public class SpecialRewards {
 	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
 		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
 			int numberOfSites = plugin.getVoteSites().size();
-			if (numberOfVotes > numberOfSites * 2) {
-				if (num % numberOfSites == 0) {
-					// should give extra allsites?
-					if (user.checkAllVotes()) {
-						plugin.debug("Giving extra allsites reward from bungee");
-						giveAllSitesRewards(user, user.isOnline(), true);
+			if (numberOfVotes >= numberOfSites * 2) {
+				if (num >= numberOfSites * 2) {
+					if (num % numberOfSites == 0) {
+						// should give extra allsites?
+						if (user.checkAllVotes()) {
+							plugin.debug("Giving extra allsites reward from bungee");
+							giveAllSitesRewards(user, user.isOnline(), true);
+						}
 					}
 				}
 			}
