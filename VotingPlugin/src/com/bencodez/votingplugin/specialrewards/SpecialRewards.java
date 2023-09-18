@@ -53,7 +53,7 @@ public class SpecialRewards {
 		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
 			int numberOfSites = plugin.getVoteSites().size();
 			if (numberOfVotes >= numberOfSites * 2) {
-				if (num >= numberOfSites * 2) {
+				if (num > numberOfSites) {
 					if (num % numberOfSites == 0) {
 						// should give extra allsites?
 						if (user.checkAllVotes()) {
