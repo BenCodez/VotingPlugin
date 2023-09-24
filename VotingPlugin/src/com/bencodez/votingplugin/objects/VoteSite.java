@@ -247,7 +247,7 @@ public class VoteSite {
 		str += ", VoteDelayDaily: " + isVoteDelayDaily();
 		str += ", IsWaitUntilVoteDelay: " + isWaitUntilVoteDelay();
 		str += ", ServiceSite: " + getServiceSite();
-		str += ", TimeOffSet:" + getVoteDelayDailyHour();
+		str += ", VoteDelayDailyHour:" + getVoteDelayDailyHour();
 		str += ", Url: " + getVoteURL();
 		str += ", IgnoreCanVote: " + isIgnoreCanVote();
 		str += ", Hidden: " + isHidden();

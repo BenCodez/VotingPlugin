@@ -1,7 +1,5 @@
 package com.bencodez.votingplugin.cooldown;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -34,8 +32,6 @@ public class CoolDownCheck implements Listener {
 	private HashMap<UUID, ScheduledFuture<?>> perSiteTasks = new HashMap<UUID, ScheduledFuture<?>>();
 
 	private HashMap<UUID, ScheduledFuture<?>> allSiteTasks = new HashMap<UUID, ScheduledFuture<?>>();
-
-	private HashMap<String, ScheduledFuture<?>> voteSiteChecks = new HashMap<String, ScheduledFuture<?>>();
 
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -183,49 +179,6 @@ public class CoolDownCheck implements Listener {
 			}
 		});
 
-		//scheduleGlobalCheckVoteSite();
-	}
-
-	public void scheduleGlobalCheckVoteSite() {
-		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
-			for (VoteSite site : plugin.getVoteSites()) {
-				scheduleGlobalCheckVoteSite(site);
-			}
-		}
-	}
-
-	public void scheduleGlobalCheckVoteSite(VoteSite site) {
-		if (voteSiteChecks.containsKey(site.getKey())) {
-			voteSiteChecks.get(site.getKey()).cancel(false);
-			voteSiteChecks.remove(site.getKey());
-		}
-		if (site.isVoteDelayDaily()) {
-			LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(site.getVoteDelayDailyHour())
-					.withMinute(0).withSecond(0);
-			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
-			long time = 0;
-			LocalDateTime now = plugin.getTimeChecker().getTime();
-			if (now.isBefore(resetTime)) {
-				Duration dur = Duration.between(now, resetTime);
-				time = dur.getSeconds();
-			} else if (now.isBefore(resetTimeTomorrow)) {
-				Duration dur = Duration.between(now, resetTimeTomorrow);
-				time = dur.getSeconds();
-			}
-
-			ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
-
-				@Override
-				public void run() {
-					checkAllVoteSite(site);
-				}
-			}, time + 90, TimeUnit.SECONDS);
-			plugin.getLogger().info(
-					"Checking vote delay daily cooldown events/rewards in " + time + " seconds for " + site.getKey());
-
-			voteSiteChecks.put(site.getKey(), scheduledFuture);
-		}
-
 	}
 
 	public void checkAllVoteSite(VoteSite site) {
@@ -251,8 +204,6 @@ public class CoolDownCheck implements Listener {
 		cols = null;
 
 		plugin.getLogger().info("Finished checking vote cooldown rewards for all players: " + site.getKey());
-		//scheduleGlobalCheckVoteSite(site);
-
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
