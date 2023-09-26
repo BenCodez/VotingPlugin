@@ -1282,8 +1282,8 @@ public class VotingPluginVelocity {
 
 			player = getProperName(uuid, player);
 
+			addVoteParty();
 			if (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
-				addVoteParty();
 				if (getConfig().getBungeeManageTotals()) {
 
 					if (mysql == null) {
