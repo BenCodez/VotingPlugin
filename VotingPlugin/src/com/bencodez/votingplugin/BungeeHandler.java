@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
@@ -348,6 +349,15 @@ public class BungeeHandler implements Listener {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
 						}
 
+						if (plugin.getConfigFile().isLimitMonthlyVotes()) {
+							int value = text.getMonthTotal();
+							LocalDateTime cTime = plugin.getTimeChecker().getTime();
+							int days = cTime.getDayOfMonth();
+							if (value >= days * plugin.getVoteSites().size()) {
+								user.setTotal(TopVoter.Monthly, days * plugin.getVoteSites().size());
+							}
+						}
+
 						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
 
 						if (Boolean.valueOf(args.get(5))) {
@@ -440,6 +450,15 @@ public class BungeeHandler implements Listener {
 						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
 						if (plugin.getBungeeSettings().isPerServerPoints()) {
 							user.addPoints(plugin.getConfigFile().getPointsOnVote());
+						}
+
+						if (plugin.getConfigFile().isLimitMonthlyVotes()) {
+							int value = text.getMonthTotal();
+							LocalDateTime cTime = plugin.getTimeChecker().getTime();
+							int days = cTime.getDayOfMonth();
+							if (value >= days * plugin.getVoteSites().size()) {
+								user.setTotal(TopVoter.Monthly, days * plugin.getVoteSites().size());
+							}
 						}
 
 						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);

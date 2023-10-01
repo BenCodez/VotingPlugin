@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.bungee;
 import java.util.regex.Pattern;
 
 import lombok.Getter;
+import lombok.Setter;
 
 public class BungeeMessageData {
 
@@ -10,20 +11,28 @@ public class BungeeMessageData {
 	// alltimetotal//monthtotal//weeklytotal//dailytotal//points//milestonecount//votepartycurrent//votepartyrequired
 
 	@Getter
+	@Setter
 	private int allTimeTotal = 0;
 	@Getter
+	@Setter
 	private int dailyTotal = 0;
 	@Getter
+	@Setter
 	private int milestoneCount = 0;
 	@Getter
+	@Setter
 	private int monthTotal = 0;
 	@Getter
+	@Setter
 	private int points = 0;
 	@Getter
+	@Setter
 	private int weeklyTotal = 0;
 	@Getter
+	@Setter
 	private int votePartyCurrent = 0;
 	@Getter
+	@Setter
 	private int votePartyRequired = 0;
 
 	public BungeeMessageData(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
