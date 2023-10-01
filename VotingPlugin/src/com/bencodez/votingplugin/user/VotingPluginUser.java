@@ -4,7 +4,6 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1092,7 +1091,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		case Monthly:
 			if (plugin.getConfigFile().isLimitMonthlyVotes()) {
 				LocalDateTime time = plugin.getTimeChecker().getTime();
-				int days = YearMonth.of(time.getYear(), time.getMonth()).lengthOfMonth();
+				int days = time.getDayOfMonth();
 				if (value >= days * plugin.getVoteSites().size()) {
 					value = days * plugin.getVoteSites().size();
 				}
