@@ -17,6 +17,7 @@ import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc
@@ -207,6 +208,20 @@ public class PlayerVoteListener implements Listener {
 			user.addPoints();
 		}
 		user.checkDayVoteStreak(event.isForceBungee());
+		
+		if (plugin.getConfigFile().isLimitMonthlyVotes()) {
+			int value = 0;
+			if (event.isBungee()) {
+				value = event.getBungeeTextTotals().getMonthTotal();
+			} else {
+				value = user.getTotal(TopVoter.Monthly);
+			}
+			LocalDateTime cTime = plugin.getTimeChecker().getTime();
+			int days = cTime.getDayOfMonth();
+			if (value >= days * plugin.getVoteSites().size()) {
+				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSites().size());
+			}
+		}
 
 		// other rewards
 		plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
