@@ -1303,6 +1303,18 @@ public class VotingPluginVelocity {
 					int dailyTotal = getValue(data, "DailyTotal", 1);
 					int points = getValue(data, "Points", getConfig().getPointsOnVote());
 					int milestoneCount = getValue(data, "MilestoneCount", 1);
+					
+					int maxVotes = getConfig().getMaxAmountOfVotesPerDay();
+					if (maxVotes > 0) {
+						if (dailyTotal > maxVotes) {
+							dailyTotal = maxVotes;
+						}
+						LocalDateTime cTime = getBungeeTimeChecker().getTime();
+						int days = cTime.getDayOfMonth();
+						if (monthTotal > days * maxVotes) {
+							monthTotal = days * maxVotes;
+						}
+					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 							milestoneCount, votePartyVotes, currentVotePartyVotesRequired);
 					ArrayList<Column> update = new ArrayList<Column>();

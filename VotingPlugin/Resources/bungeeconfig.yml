@@ -117,6 +117,12 @@ GeyserPrefix: '.'
 # Time in days
 VoteCacheTime: -1
 
+# Maxium number of votes possible per day
+# Usually matches the amount of votesites
+# Will limit vote totals to match accordingly
+# Set to -1 to disable
+MaxAmountOfVotesPerDay: -1
+
 VoteParty:
   # If enabled, will trigger vote party reward 
   # in BungeeSettings.yml under BungeeVotePartyReward

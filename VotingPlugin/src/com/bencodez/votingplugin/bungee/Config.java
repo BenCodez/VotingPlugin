@@ -81,6 +81,10 @@ public class Config {
 		return getData().getBoolean("MultiProxySupport", false);
 	}
 
+	public int getMaxAmountOfVotesPerDay() {
+		return getData().getInt("MaxAmountOfVotesPerDay", -1);
+	}
+
 	public int getMultiProxySocketHostPort() {
 		return getData().getInt("MultiProxySocketHost.Port", 1297);
 	}

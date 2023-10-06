@@ -60,11 +60,15 @@ public class Config extends VelocityYMLFile {
 	public int getBungeePort() {
 		return getInt(getNode("BungeeServer", "Port"), 1297);
 	}
-	
+
+	public int getMaxAmountOfVotesPerDay() {
+		return getInt(getNode("MaxAmountOfVotesPerDay"), -1);
+	}
+
 	public int getVoteCacheTime() {
 		return getInt(getNode("VoteCacheTime"), -1);
 	}
-	
+
 	public boolean getDebug() {
 		return getBoolean(getNode("Debug"), false);
 	}
