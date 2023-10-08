@@ -120,6 +120,7 @@ VoteCacheTime: -1
 # Maxium number of votes possible per day
 # Usually matches the amount of votesites
 # Will limit vote totals to match accordingly
+# Only applies for month total
 # Set to -1 to disable
 MaxAmountOfVotesPerDay: -1
 

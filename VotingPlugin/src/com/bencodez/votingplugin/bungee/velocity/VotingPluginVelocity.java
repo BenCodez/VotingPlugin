@@ -1306,9 +1306,6 @@ public class VotingPluginVelocity {
 					
 					int maxVotes = getConfig().getMaxAmountOfVotesPerDay();
 					if (maxVotes > 0) {
-						if (dailyTotal > maxVotes) {
-							dailyTotal = maxVotes;
-						}
 						LocalDateTime cTime = getBungeeTimeChecker().getTime();
 						int days = cTime.getDayOfMonth();
 						if (monthTotal > days * maxVotes) {
