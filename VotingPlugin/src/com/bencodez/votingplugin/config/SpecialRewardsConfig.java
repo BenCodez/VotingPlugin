@@ -67,6 +67,14 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
 
+	@ConfigDataString(path = "VoteParty.VoteReminderBroadcast")
+	@Getter
+	private String votePartyVoteReminderBroadcast = "%votesrequired% left to go, go vote!";
+
+	@ConfigDataListString(path = "VoteParty.VoteReminderAtVotes")
+	@Getter
+	private ArrayList<String> votePartyVoteReminderAtVotes = new ArrayList<String>();
+
 	@ConfigDataListString(path = "VoteParty.GlobalRandomCommand")
 	@Getter
 	private ArrayList<String> votePartyGlobalRandomCommand = new ArrayList<String>();
