@@ -344,7 +344,7 @@ public class VoteParty implements Listener {
 		plugin.getServerData().saveData();
 	}
 
-	public void checkVoteReminder() {
+	public void checkVoteReminder(VotingPluginUser user) {
 		int neededVotes = getNeededVotes();
 
 		for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
@@ -352,9 +352,11 @@ public class VoteParty implements Listener {
 				int num = Integer.parseInt(str);
 				if (neededVotes == num) {
 					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
-					broadcastMessage = StringParser.getInstance().replacePlaceHolder(broadcastMessage, "votesrequired",
-							"" + neededVotes);
-					MiscUtils.getInstance().broadcast(broadcastMessage);
+					HashMap<String, String> placeholders = new HashMap<String, String>();
+					placeholders.put("player", user.getPlayerName());
+					placeholders.put("votesrequired", "" + neededVotes);
+					MiscUtils.getInstance()
+							.broadcast(StringParser.getInstance().replacePlaceHolder(broadcastMessage, placeholders));
 				}
 			}
 		}
@@ -367,7 +369,7 @@ public class VoteParty implements Listener {
 					addTotal(user);
 					addVotePlayer(user);
 					check(user, forceBungee);
-					checkVoteReminder();
+					checkVoteReminder(user);
 				}
 			}
 		}
