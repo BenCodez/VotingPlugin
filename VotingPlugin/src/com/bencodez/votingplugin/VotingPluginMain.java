@@ -1284,7 +1284,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		voteTimer.shutdown();
 		try {
-			voteTimer.awaitTermination(10, TimeUnit.SECONDS);
+			voteTimer.awaitTermination(1, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
