@@ -208,7 +208,7 @@ public class PlayerVoteListener implements Listener {
 			user.addPoints();
 		}
 		user.checkDayVoteStreak(event.isForceBungee());
-		
+
 		if (plugin.getConfigFile().isLimitMonthlyVotes()) {
 			int value = 0;
 			if (event.isBungee()) {
@@ -248,6 +248,10 @@ public class PlayerVoteListener implements Listener {
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
 				event.isForceBungee(), voteTime);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
+
+		if (user.isOnline()) {
+			plugin.getPlaceholders().onUpdate(user, true);
+		}
 
 		if (!user.isOnline()) {
 			user.clearCache();
