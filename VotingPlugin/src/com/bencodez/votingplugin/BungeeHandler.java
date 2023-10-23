@@ -142,8 +142,9 @@ public class BungeeHandler implements Listener {
 				long lastUpdated = Long.valueOf(data.get("LastUpdated").getString()).longValue();
 				plugin.debug("LastUpdated: " + lastUpdated);
 				if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastUpdated > 1000 * 60 * 60
-						* 1) {
-					plugin.getLogger().warning("Ignore bungee time change since it was more than 1 hour ago");
+						* 2) {
+					plugin.getLogger().warning("Ignoring bungee time change since it was more than 2 hours ago");
+					globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 					return false;
 				}
 
