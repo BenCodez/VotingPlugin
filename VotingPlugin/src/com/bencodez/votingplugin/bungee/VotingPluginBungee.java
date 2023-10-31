@@ -1211,15 +1211,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			if (uuid.isEmpty()) {
-				if (config.getGeyserSupport()) {
-					if (!player.startsWith(config.getGeyserPrefix())) {
-						uuid = getUUID(config.getGeyserPrefix() + player);
-						player = config.getGeyserPrefix() + player;
-					}
+				if (player.startsWith(config.getBedrockPlayerPrefix())) {
+					getLogger().info("Ignoring vote since unable to get UUID of bedrock player");
+					return;
 				}
-			}
-
-			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
 					debug("Fetching UUID online, since allowunjoined is enabled");
 					UUID u = null;

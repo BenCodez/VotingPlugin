@@ -106,11 +106,9 @@ BungeeManageTotals: true
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
 Broadcast: true
 
-# Geyser settings
-# This may or may not work
-# Does not work on velocity currently
-GeyserSupport: false
-GeyserPrefix: '.'
+# Geyser/bedrock player settings
+# https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
+BedrockPlayerPrefix: '.'
 
 # Time votes will be cached on proxy
 # -1 means no time limit

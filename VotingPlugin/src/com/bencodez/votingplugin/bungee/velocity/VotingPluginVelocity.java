@@ -1248,16 +1248,11 @@ public class VotingPluginVelocity {
 			}
 
 			if (uuid.isEmpty()) {
-				if (config.getGeyserSupport()) {
-					if (!player.startsWith(config.getGeyserPrefix())) {
-						uuid = getUUID(config.getGeyserPrefix() + player);
-						player = config.getGeyserPrefix() + player;
-					}
-				}
-			}
-
-			if (uuid.isEmpty()) {
 				if (config.getAllowUnJoined()) {
+					if (player.startsWith(config.getBedrockPlayerPrefix())) {
+						logger.info("Ignoring vote since unable to get UUID of bedrock player");
+						return;
+					}
 					debug("Fetching UUID online, since allowunjoined is enabled");
 					UUID u = null;
 					try {
@@ -1303,7 +1298,7 @@ public class VotingPluginVelocity {
 					int dailyTotal = getValue(data, "DailyTotal", 1);
 					int points = getValue(data, "Points", getConfig().getPointsOnVote());
 					int milestoneCount = getValue(data, "MilestoneCount", 1);
-					
+
 					int maxVotes = getConfig().getMaxAmountOfVotesPerDay();
 					if (maxVotes > 0) {
 						LocalDateTime cTime = getBungeeTimeChecker().getTime();

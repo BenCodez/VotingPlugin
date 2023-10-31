@@ -324,11 +324,11 @@ public class VotingPluginMetrics {
 			}
 		}));
 
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("geyserprefixsupport", new Callable<String>() {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("bedrockplayerprefix", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getOptions().isGeyserPrefixSupport();
+				return "" + plugin.getOptions().getBedrockPlayerPrefix();
 			}
 		}));
 

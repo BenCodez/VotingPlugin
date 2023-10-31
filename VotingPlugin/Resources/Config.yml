@@ -530,13 +530,11 @@ UseVoteStreaks: true
 # If false, storing best totals will be disabled
 UseHighestTotals: true
 
-# Enable Geyser prefix support
-# May take time before geyser players can vote properly
-# If players vote with prefix, then this is probably not needed and
-# may work better disabled
-# Geyser support is currently hit or miss
-GeyserPrefixSupport: false
-GeyserPrefix: '*'
+# Geyser/Bedrock player support
+# Set prefix used for voting
+# Players should vote with prefix
+# https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
+BedrockPlayerPrefix: '.'
 
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true

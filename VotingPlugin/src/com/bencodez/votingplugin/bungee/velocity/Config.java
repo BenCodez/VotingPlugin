@@ -141,16 +141,12 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("MultiProxyOneGlobalReward"), false);
 	}
 
-	public boolean getGeyserSupport() {
-		return getBoolean(getNode("GeyserSupport"), false);
-	}
-
 	public boolean getPrimaryServer() {
 		return getBoolean(getNode("PrimaryServer"), false);
 	}
 
-	public String getGeyserPrefix() {
-		return getString(getNode("GeyserPrefix"), "*");
+	public String getBedrockPlayerPrefix() {
+		return getString(getNode("BedrockPlayerPrefix"), ".");
 	}
 
 	public ConfigurationNode getMultiProxyServers(String s) {
