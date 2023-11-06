@@ -936,6 +936,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							getLogger().info("Multi-proxy status message received");
 						} else if (data[0].equalsIgnoreCase("ClearVote")) {
 							cachedOnlineVotes.remove(data[2]);
+						} else if (data[0].equalsIgnoreCase("login")) {
+							nonVotedPlayersCache.addPlayer(data[1], data[2]);
 						}
 					}
 					if (data.length > 8) {
@@ -952,9 +954,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			});
 
 			multiproxyClientHandles = new HashMap<String, ClientHandler>();
-			for (
-
-			String s : config.getMultiProxyServers()) {
+			for (String s : config.getMultiProxyServers()) {
 				Configuration d = config.getMultiProxyServersConfiguration(s);
 				multiproxyClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
 						encryptionHandler, config.getDebug()));
@@ -989,19 +989,32 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	public void login(ProxiedPlayer p) {
 		if (p != null && p.getServer() != null && p.getServer().getInfo() != null) {
 			final String server = p.getServer().getInfo().getName();
-			final ProxiedPlayer proixedPlayer = p;
+			final ProxiedPlayer proxiedPlayer = p;
 			getProxy().getScheduler().schedule(this, new Runnable() {
 
 				@Override
 				public void run() {
 					if (isOnline(p)) {
 						checkCachedVotes(server);
-						checkOnlineVotes(proixedPlayer, proixedPlayer.getUniqueId().toString(), server);
+						checkOnlineVotes(proxiedPlayer, proxiedPlayer.getUniqueId().toString(), server);
+						multiProxyLogin(proxiedPlayer);
 					}
 				}
 			}, 1, TimeUnit.SECONDS);
 		}
 
+	}
+
+	public void multiProxyLogin(ProxiedPlayer p) {
+		if (!config.getMultiProxySupport()) {
+			return;
+		}
+		if (config.getPrimaryServer()) {
+			return;
+		}
+		if (!config.getAllowUnJoined()) {
+			sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getName());
+		}
 	}
 
 	@EventHandler

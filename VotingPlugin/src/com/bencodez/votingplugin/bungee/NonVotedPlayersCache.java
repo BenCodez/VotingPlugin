@@ -25,7 +25,7 @@ public class NonVotedPlayersCache {
 		}
 	}
 
-	private void addPlayer(String uuid, String playerName) {
+	public void addPlayer(String uuid, String playerName) {
 		getData().set("NonVotedPlayers." + playerName + ".UUID", uuid);
 		getData().set("NonVotedPlayers." + playerName + ".LastTime", System.currentTimeMillis());
 	}
