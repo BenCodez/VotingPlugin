@@ -19,18 +19,6 @@ public class UserManager {
 		this.plugin = plugin;
 	}
 
-	@Deprecated
-	public UserManager() {
-	}
-
-	@Deprecated
-	static UserManager instance = new UserManager();
-
-	@Deprecated
-	public static UserManager getInstance() {
-		return instance;
-	}
-
 	public void addCachingKeys() {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
 		manager.addKey(new UserDataKeyBoolean("TopVoterIgnore"));
