@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -70,6 +71,10 @@ public class ServerData {
 
 	public List<String> getAutoCachedPlaceholder() {
 		return getData().getStringList("AutoCachePlaceholders");
+	}
+
+	public List<String> getDisabledReminders() {
+		return getData().getStringList("DisabledReminders");
 	}
 
 	public synchronized void addServiceSite(String site) {
@@ -324,6 +329,15 @@ public class ServerData {
 
 	public void setBungeeVotePartyRequired(int required) {
 		getData().set("BungeeVotePartyRequired", required);
+		saveData();
+	}
+
+	public void saveDisabledReminders(ArrayList<UUID> disabledReminders) {
+		ArrayList<String> uuids = new ArrayList<String>();
+		for (UUID uuid : disabledReminders) {
+			uuids.add(uuid.toString());
+		}
+		getData().set("DisabledReminders", uuids);
 		saveData();
 	}
 

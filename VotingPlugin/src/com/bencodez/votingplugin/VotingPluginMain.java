@@ -1057,6 +1057,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		checkUpdate.startUp();
 		voteReminding = new VoteReminding(this);
 		voteReminding.loadRemindChecking();
+		voteReminding.loadReminds();
 		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
 
@@ -1292,6 +1293,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
+		getVoteReminding().saveReminds();
 		getSigns().storeSigns();
 		HandlerList.unregisterAll(plugin);
 		plugin = null;
