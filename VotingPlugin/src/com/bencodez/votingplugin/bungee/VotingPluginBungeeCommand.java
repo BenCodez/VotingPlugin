@@ -49,6 +49,7 @@ public class VotingPluginBungeeCommand extends Command {
 						sender.sendMessage(new TextComponent(
 								"&aChecking status, waiting for response, check console, method: plugin messaging"));
 						bungee.status(sender);
+						bungee.sendServerNameMessage();
 					} else {
 						sender.sendMessage(
 								new TextComponent("&aNot using socket/pluginmessage method, command unavailable"));

@@ -905,6 +905,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (!buildNumber.equals("NOTSET")) {
 			getLogger().info("Detected using dev build number: " + buildNumber);
 		}
+		sendServerNameMessage();
+	}
+
+	public void sendServerNameMessage() {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (String s : getAvailableAllServers()) {
+				sendPluginMessageServer(s, "ServerName", s);
+			}
+		}
+
 	}
 
 	public void loadMultiProxySupport() {

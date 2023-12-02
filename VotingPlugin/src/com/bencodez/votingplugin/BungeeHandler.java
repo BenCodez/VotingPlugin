@@ -523,6 +523,17 @@ public class BungeeHandler implements Listener {
 				}
 			});
 
+			plugin.getPluginMessaging().add(new PluginMessageHandler("ServerName") {
+				@Override
+				public void onRecieve(String subChannel, ArrayList<String> args) {
+					String server = args.get(0);
+					if (!plugin.getOptions().getServer().equals(server)) {
+						plugin.getLogger()
+								.warning("Server name doesn't match in BungeeSettings.yml, should be " + server);
+					}
+				}
+			});
+
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VotePartyBungee") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {

@@ -55,6 +55,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 							.text("Checking status, waiting for response, check console, method: pluginmessaging")
 							.color(NamedTextColor.AQUA));
 					plugin.status();
+					plugin.sendServerNameMessage();
 				} else {
 					source.sendMessage(Component.text("Not using socket/pluginmessage method, command unavailable")
 							.color(NamedTextColor.AQUA));
@@ -62,6 +63,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 			}
 			if (args[0].equalsIgnoreCase("multiproxystatus")) {
 				plugin.sendMultiProxyServerMessage("Status");
+
 				source.sendMessage(Component.text("Sending status message").color(NamedTextColor.AQUA));
 			}
 			if (args[0].equalsIgnoreCase("help")) {

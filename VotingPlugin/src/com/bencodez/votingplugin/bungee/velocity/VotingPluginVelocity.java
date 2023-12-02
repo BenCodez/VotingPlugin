@@ -987,6 +987,16 @@ public class VotingPluginVelocity {
 		if (!buildNumber.equals("NOTSET")) {
 			logger.info("Detected using dev build number: " + buildNumber);
 		}
+		sendServerNameMessage();
+	}
+
+	public void sendServerNameMessage() {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (RegisteredServer s : getAvailableAllServers()) {
+				sendPluginMessageServer(s, "ServerName", s.getServerInfo().getName());
+			}
+		}
+
 	}
 
 	public void loadMultiProxySupport() {
