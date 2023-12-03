@@ -2049,6 +2049,8 @@ public class CommandLoader {
 					value = !plugin.getVoteReminding().getRemindersEnabled().get(p.getUniqueId());
 				}
 				plugin.getVoteReminding().getRemindersEnabled().put(p.getUniqueId(), value);
+				plugin.getPlaceholders().onUpdate(
+						plugin.getVotingPluginUserManager().getVotingPluginUser(p.getUniqueId(), p.getName()), true);
 
 				if (value) {
 					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersEnabled());
