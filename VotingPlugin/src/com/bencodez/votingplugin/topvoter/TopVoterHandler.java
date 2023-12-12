@@ -462,7 +462,14 @@ public class TopVoterHandler implements Listener {
 	}
 
 	public void resetGottenMilestones() {
-		plugin.getUserManager().removeAllKeyValues("GottenMileStones", DataType.STRING);
+		plugin.getUserManager().removeAllKeyValues(getGottenMilestonesPath(), DataType.STRING);
+	}
+
+	public String getGottenMilestonesPath() {
+		if (plugin.getBungeeSettings().isPerServerMilestones()) {
+			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
+		}
+		return "GottenMileStones";
 	}
 
 	public void resetVoteShopLimit(String shopIdent) {
