@@ -44,6 +44,8 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConf
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.BungeeMySQL;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
@@ -110,6 +112,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	@Getter
 	private GlobalDataHandlerProxy globalDataHandler;
 
+	@Getter
+	private RedisHandler redisHandler;
+
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
@@ -132,7 +137,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 							}
 							if (toSend) {
-								sendPluginMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
+								sendMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
 										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 										"" + cache.isRealVote(), cache.getText(),
 										"" + getConfig().getBungeeManageTotals(),
@@ -164,7 +169,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					int num = 1;
 					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
-						sendPluginMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
+						sendMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
 								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
@@ -850,6 +855,43 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								encryptionHandler, config.getDebug()));
 					}
 				}
+			} else if (method.equals(BungeeMethod.REDIS)) {
+				redisHandler = new RedisHandler(config.getRedisHost(), config.getRedisPort(), config.getRedisUsername(),
+						config.getRedisPassword()) {
+
+					@Override
+					protected void onMessage(String channel, String[] message) {
+						if (message.length > 0) {
+							if (message[0].equalsIgnoreCase("statusokay")) {
+								String server = message[1];
+								getLogger().info("Status okay for " + server);
+							} else if (message[0].equalsIgnoreCase("login")) {
+								String player = message[1];
+								String uuid = message[2];
+								String server = "";
+								if (message.length > 3) {
+									server = message[3];
+								}
+								debug("Login: " + player + "/" + uuid + " " + server);
+								ProxiedPlayer p = getProxy().getPlayer(player);
+								login(p);
+							}
+						}
+					}
+
+					@Override
+					public void debug(String message) {
+						debug2(message);
+					}
+				};
+				getProxy().getScheduler().runAsync(this, new Runnable() {
+
+					@Override
+					public void run() {
+						redisHandler.loadListener(new RedisListener(redisHandler, "VotingPlugin"));
+					}
+				});
+
 			}
 			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
 					+ voteCacheFile.getVotePartyInreaseVotesRequired();
@@ -906,6 +948,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			getLogger().info("Detected using dev build number: " + buildNumber);
 		}
 		sendServerNameMessage();
+
 	}
 
 	public void sendServerNameMessage() {
@@ -1120,6 +1163,21 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		loadMultiProxySupport();
 	}
 
+	public void sendMessageServer(String server, String channel, String... messageData) {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			sendPluginMessageServer(server, channel, messageData);
+		} else if (method.equals(BungeeMethod.REDIS)) {
+			sendRedisMessageServer(server, channel, messageData);
+		}
+	}
+
+	public void sendRedisMessageServer(String server, String channel, String... messageData) {
+		ArrayList<String> list = new ArrayList<String>();
+		list.add(channel);
+		list.addAll(ArrayUtils.getInstance().convert(messageData));
+		redisHandler.sendMessage("VotingPlugin_" + server, ArrayUtils.getInstance().convert(list));
+	}
+
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {
 		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
 		DataOutputStream out = new DataOutputStream(byteOutStream);
@@ -1195,7 +1253,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	public void status(CommandSender sender) {
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendServerMessage("status");
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
 			for (String s : getAvailableAllServers()) {
 				ServerInfo info = getProxy().getServerInfo(s);
 				if (info.getPlayers().isEmpty()) {
@@ -1203,7 +1261,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				} else {
 					// send
 					getLogger().info("Sending request for status message on " + s);
-					sendPluginMessageServer(s, "Status", s);
+					sendMessageServer(s, "Status", s);
 				}
 			}
 		}
@@ -1316,7 +1374,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
-			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
 
 				if (config.getSendVotesToAllServers()) {
 					for (String s : getAvailableAllServers()) {
@@ -1327,7 +1385,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							debug("Forcing vote to cache");
 						}
 						if (config.getBroadcast()) {
-							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
 						if (info.getPlayers().isEmpty() || forceCache) {
 							// cache
@@ -1342,16 +1400,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 						} else {
 							// send
-							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote, text.toString(),
-									"" + getConfig().getBungeeManageTotals(),
+							sendMessageServer(s, "Vote", player, uuid, service, "" + time, Boolean.TRUE.toString(),
+									"" + realVote, text.toString(), "" + getConfig().getBungeeManageTotals(),
 									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1", "1");
 						}
 
 					}
 				} else {
 					if (isOnline(p) && getAvailableAllServers().contains(p.getServer().getInfo().getName())) {
-						sendPluginMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
+						sendMessageServer(p.getServer().getInfo().getName(), "VoteOnline", player, uuid, service,
 								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1", "1");
@@ -1372,9 +1429,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 					for (String s : getAvailableAllServers()) {
 						if (config.getBroadcast()) {
-							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
-						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
+						sendMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
 								"" + currentVotePartyVotesRequired);
 
 					}

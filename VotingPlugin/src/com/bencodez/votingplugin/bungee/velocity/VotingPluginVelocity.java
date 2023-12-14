@@ -55,6 +55,8 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConf
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
@@ -137,6 +139,9 @@ public class VotingPluginVelocity {
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 
 	private SocketHandler multiproxySocketHandler;
+
+	@Getter
+	private RedisHandler redisHandler;
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -928,6 +933,56 @@ public class VotingPluginVelocity {
 								d.getNode("Port").getInt(1298), encryptionHandler, config.getDebug()));
 					}
 				}
+			} else if (method.equals(BungeeMethod.REDIS)) {
+				redisHandler = new RedisHandler(config.getRedisHost(), config.getRedisPort(), config.getRedisUsername(),
+						config.getRedisPassword()) {
+
+					@Override
+					protected void onMessage(String channel, String[] message) {
+						if (message.length > 0) {
+							if (message[0].equalsIgnoreCase("statusokay")) {
+								String server = message[1];
+								getLogger().info("Status okay for " + server);
+							} else if (message[0].equalsIgnoreCase("login")) {
+								String player = message[1];
+								String uuid = message[2];
+								String serverName = "";
+								if (message.length > 3) {
+									serverName = message[3];
+								}
+								debug("Login: " + player + "/" + uuid + " " + serverName);
+								if (server.getPlayer(player).isPresent() && (getGlobalDataHandler() == null
+										|| !getGlobalDataHandler().isTimeChangedHappened())) {
+									Player p = server.getPlayer(player).get();
+									if (p.getCurrentServer().isPresent()) {
+										final RegisteredServer server = p.getCurrentServer().get().getServer();
+										final Player p1 = p;
+										timer.execute(new Runnable() {
+
+											@Override
+											public void run() {
+												checkCachedVotes(server);
+												checkOnlineVotes(p1, p.getUniqueId().toString(), server);
+											}
+										});
+
+									}
+								}
+								return;
+							}
+						}
+					}
+
+					@Override
+					public void debug(String message) {
+						debug2(message);
+					}
+				};
+
+				server.getScheduler().buildTask(this, () -> {
+					redisHandler.loadListener(new RedisListener(redisHandler, "VotingPlugin"));
+				}).schedule();
+
 			}
 
 			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
@@ -1140,6 +1195,21 @@ public class VotingPluginVelocity {
 		loadMultiProxySupport();
 	}
 
+	public void sendMessageServer(RegisteredServer s, String channel, String... messageData) {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			sendPluginMessageServer(s, channel, messageData);
+		} else if (method.equals(BungeeMethod.REDIS)) {
+			sendRedisMessageServer(s, channel, messageData);
+		}
+	}
+
+	public void sendRedisMessageServer(RegisteredServer s, String channel, String... messageData) {
+		ArrayList<String> list = new ArrayList<String>();
+		list.add(channel);
+		list.addAll(ArrayUtils.getInstance().convert(messageData));
+		redisHandler.sendMessage("VotingPlugin_" + s.getServerInfo().getName(), ArrayUtils.getInstance().convert(list));
+	}
+
 	public void sendPluginMessageServer(RegisteredServer s, String channel, String... messageData) {
 		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
 		DataOutputStream out = new DataOutputStream(byteOutStream);
@@ -1342,7 +1412,7 @@ public class VotingPluginVelocity {
 			if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
 				p = server.getPlayer(UUID.fromString(uuid)).get();
 			}
-			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
 
 				if (config.getSendVotesToAllServers()) {
 					for (RegisteredServer s : getAvailableAllServers()) {
@@ -1365,9 +1435,8 @@ public class VotingPluginVelocity {
 
 						} else {
 							// send
-							sendPluginMessageServer(s, "Vote", player, uuid, service, "" + time,
-									Boolean.TRUE.toString(), "" + realVote, text.toString(),
-									"" + getConfig().getBungeeManageTotals(),
+							sendMessageServer(s, "Vote", player, uuid, service, "" + time, Boolean.TRUE.toString(),
+									"" + realVote, text.toString(), "" + getConfig().getBungeeManageTotals(),
 									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "1", "1");
 						}
 						if (config.getBroadcast()) {
@@ -1377,8 +1446,8 @@ public class VotingPluginVelocity {
 				} else {
 
 					if (isOnline(p) && isInAvailableServers(p.getCurrentServer().get().getServerInfo().getName())) {
-						sendPluginMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid,
-								service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
+						sendMessageServer(p.getCurrentServer().get().getServer(), "VoteOnline", player, uuid, service,
+								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1", "1");
 						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
@@ -1398,10 +1467,10 @@ public class VotingPluginVelocity {
 					}
 
 					for (RegisteredServer s : getAvailableAllServers()) {
-						sendPluginMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
+						sendMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
 								"" + currentVotePartyVotesRequired);
 						if (config.getBroadcast()) {
-							sendPluginMessageServer(s, "VoteBroadcast", uuid, player, service);
+							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
 					}
 				}

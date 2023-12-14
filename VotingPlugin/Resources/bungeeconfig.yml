@@ -19,9 +19,7 @@ Prefix: ''
 #Attempt to use mariadb driver
 #UseMariaDB: false
 
-# Online mode for UUIDS
-# Offline mode setups are not fully tested and are not supported currently
-OnlineMode: true
+
 
 
 ####################################################################################
@@ -86,7 +84,15 @@ WhiteListedServers: []
 # SOCKETS 
 # PLUGINMESSAGING (Recommended)
 # MYSQL
+# REDIS
 BungeeMethod: PLUGINMESSAGING
+
+# Use Redis for between server communication, set BungeeMethod to REDIS to use this
+Redis:
+  Host: localhost
+  Port: 6379
+  Username: ''
+  Password: ''
 
 # If false, votes will be checked if user is a valid player that has joined to server
 # Works for PLUGINMESSAGING and SOCKETS methods only
@@ -140,6 +146,9 @@ VoteParty:
   BungeeCommands: []
   Broadcast: '&aVote party has been reached!'
   
+# Online mode for UUIDS
+# Offline mode setups are not fully tested and are not supported currently
+OnlineMode: true
 
 ##########################################
 # PLUGINMESSAGING Settings

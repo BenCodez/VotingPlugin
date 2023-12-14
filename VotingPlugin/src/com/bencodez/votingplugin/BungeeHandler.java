@@ -14,6 +14,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
@@ -22,9 +23,13 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigSpigot;
+import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageHandler;
+import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageListener;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
@@ -60,6 +65,14 @@ public class BungeeHandler implements Listener {
 
 	@Getter
 	private ScheduledExecutorService timer;
+
+	@Getter
+	private RedisHandler redisHandler;
+
+	@Getter
+	private GlobalMessageHandler globalMessageHandler;
+
+	private Thread redisThread;
 
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -261,9 +274,361 @@ public class BungeeHandler implements Listener {
 
 		loadGlobalMysql();
 
+		globalMessageHandler = new GlobalMessageHandler() {
+
+			@Override
+			public void sendMessage(String subChannel, String... messageData) {
+				if (method.equals(BungeeMethod.MYSQL)) {
+					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
+				} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
+				} else if (method.equals(BungeeMethod.SOCKETS)) {
+					ArrayList<String> list = new ArrayList<String>();
+					list.add(subChannel);
+					list.addAll(ArrayUtils.getInstance().convert(messageData));
+					sendData(ArrayUtils.getInstance().convert(list));
+				} else if (method.equals(BungeeMethod.REDIS)) {
+					ArrayList<String> list = new ArrayList<String>();
+					list.add(subChannel);
+					list.addAll(ArrayUtils.getInstance().convert(messageData));
+					redisHandler.sendMessage("VotingPlugin", ArrayUtils.getInstance().convert(list));
+				}
+			}
+		};
+
+		globalMessageHandler.addListener(new GlobalMessageListener("Vote") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				if (args.size() > 8) {
+					int bungeeVersion = Integer.parseInt(args.get(8));
+					if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
+						plugin.getLogger().warning("Incompatible version with bungee, please update all servers" + bungeeVersion + ":" + BungeeVersion.getPluginMessageVersion());
+						return;
+					}
+
+					String player = args.get(0);
+					String uuid = args.get(1);
+					String service = args.get(2);
+					long time = Long.parseLong(args.get(3));
+					plugin.debug("pluginmessaging vote received from " + player + "/" + uuid + " on " + service);
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), player);
+
+					boolean wasOnline = Boolean.valueOf(args.get(4));
+
+					BungeeMessageData text = new BungeeMessageData(args.get(6));
+
+					bungeeVotePartyCurrent = text.getVotePartyCurrent();
+					bungeeVotePartyRequired = text.getVotePartyRequired();
+					plugin.getPlaceholders().onBungeeVotePartyUpdate();
+					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+
+					boolean setTotals = Boolean.valueOf(args.get(7));
+
+					user.cache();
+
+					boolean broadcast = true;
+					boolean bungeeBroadcast = false;
+
+					if (args.size() > 9) {
+						bungeeBroadcast = Boolean.valueOf(args.get(9));
+					}
+
+					int num = 1;
+					if (args.size() > 10) {
+						num = Integer.valueOf(args.get(10));
+					}
+					int numberOfVotes = 1;
+					if (args.size() > 11) {
+						numberOfVotes = Integer.valueOf(args.get(11));
+					}
+
+					if (!bungeeBroadcast) {
+						if (!plugin.getBungeeSettings().isBungeeBroadcast()
+								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
+							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+								if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
+									if (num == 1) {
+										user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
+												numberOfVotes);
+									}
+								} else {
+									VoteSite site = plugin.getVoteSite(service, true);
+									if (site != null) {
+										site.broadcastVote(user, false);
+										broadcast = false;
+									} else {
+										plugin.getLogger().warning("No votesite for " + service);
+									}
+								}
+
+							}
+						}
+					} else {
+						broadcast = false;
+					}
+
+					user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
+					if (plugin.getBungeeSettings().isPerServerPoints()) {
+						user.addPoints(plugin.getConfigFile().getPointsOnVote());
+					}
+
+					plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
+
+					if (Boolean.valueOf(args.get(5))) {
+						plugin.getServerData().addServiceSite(service);
+					}
+				} else {
+					plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
+				}
+			}
+		});
+
+		globalMessageHandler.addListener(new GlobalMessageListener("VoteOnline") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				if (args.size() > 8) {
+					int bungeeVersion = Integer.parseInt(args.get(8));
+					if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
+						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
+						return;
+					}
+					String player = args.get(0);
+					String uuid = args.get(1);
+					String service = args.get(2);
+					long time = Long.parseLong(args.get(3));
+					BungeeMessageData text = new BungeeMessageData(args.get(6));
+
+					bungeeVotePartyCurrent = text.getVotePartyCurrent();
+					bungeeVotePartyRequired = text.getVotePartyRequired();
+					plugin.getPlaceholders().onBungeeVotePartyUpdate();
+					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+
+					plugin.debug("pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), player);
+					user.cache();
+
+					if (plugin.getBungeeSettings().isPerServerPoints()) {
+						user.addPoints(plugin.getConfigFile().getPointsOnVote());
+					}
+
+					boolean setTotals = Boolean.valueOf(args.get(7));
+
+					boolean wasOnline = Boolean.valueOf(args.get(4));
+
+					boolean broadcast = true;
+					boolean bungeeBroadcast = false;
+
+					if (args.size() > 9) {
+						bungeeBroadcast = Boolean.valueOf(args.get(9));
+					}
+
+					int num = 1;
+					if (args.size() > 10) {
+						num = Integer.valueOf(args.get(10));
+					}
+
+					int numberOfVotes = 1;
+					if (args.size() > 11) {
+						numberOfVotes = Integer.valueOf(args.get(11));
+					}
+
+					if (!bungeeBroadcast) {
+						if (!plugin.getBungeeSettings().isBungeeBroadcast()
+								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
+							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+								if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
+									if (num == 1) {
+										user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
+												numberOfVotes);
+									}
+								} else {
+									VoteSite site = plugin.getVoteSite(service, true);
+									if (site != null) {
+										site.broadcastVote(user, false);
+										broadcast = false;
+									} else {
+										plugin.getLogger().warning("No votesite for " + service);
+									}
+								}
+
+							}
+						}
+					} else {
+						broadcast = false;
+					}
+
+					user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
+					if (plugin.getBungeeSettings().isPerServerPoints()) {
+						user.addPoints(plugin.getConfigFile().getPointsOnVote());
+					}
+
+					plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
+
+					if (Boolean.valueOf(args.get(5))) {
+						plugin.getServerData().addServiceSite(service);
+					}
+				} else {
+					plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
+				}
+
+			}
+		});
+
+		globalMessageHandler.addListener(new GlobalMessageListener("VoteUpdate") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				String player = args.get(0);
+				plugin.debug("pluginmessaging voteupdate received for " + player);
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser(UUID.fromString(player));
+				user.cache();
+
+				user.offVote();
+
+				if (args.size() > 2) {
+					bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
+					bungeeVotePartyRequired = Integer.parseInt(args.get(2));
+					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+				}
+
+				plugin.setUpdate(true);
+			}
+		});
+
+		globalMessageHandler.addListener(new GlobalMessageListener("BungeeTimeChange") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				checkGlobalData();
+			}
+		});
+
+		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcast") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				if (args.size() > 2) {
+					String uuid = args.get(0);
+					String service = args.get(2);
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
+					VoteSite site = plugin.getVoteSite(service, true);
+					if (site != null) {
+						site.broadcastVote(user, false);
+					} else {
+						plugin.getLogger().warning("No votesite for " + service);
+					}
+				}
+			}
+		});
+		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcastOffline") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				if (args.size() > 2) {
+					String uuid = args.get(0);
+					String votes = args.get(2);
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
+					user.offlineBroadcast(user, false, Integer.parseInt(votes));
+				}
+			}
+		});
+		globalMessageHandler.addListener(new GlobalMessageListener("Status") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				String server = args.get(0);
+				sendMessage(globalMessageHandler, "statusokay", server);
+			}
+		});
+		globalMessageHandler.addListener(new GlobalMessageListener("ServerName") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				String server = args.get(0);
+				if (!plugin.getOptions().getServer().equals(server)) {
+					plugin.getLogger().warning("Server name doesn't match in BungeeSettings.yml, should be " + server);
+				}
+			}
+		});
+		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBungee") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				for (final String cmd : plugin.getBungeeSettings().getBungeeVotePartyGlobalCommands()) {
+					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
+						}
+
+					});
+				}
+				for (Player p : Bukkit.getOnlinePlayers()) {
+					new RewardBuilder(plugin.getBungeeSettings().getData(), "BungeeVotePartyRewards").send(p);
+				}
+			}
+		});
+		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBroadcast") {
+
+			@Override
+			public void onReceive(ArrayList<String> args) {
+				String broadcast = args.get(0);
+				MiscUtils.getInstance().broadcast(broadcast);
+			}
+		});
+
 		if (method.equals(BungeeMethod.MYSQL)) {
 			plugin.registerBungeeChannels("vp:vp");
+		} else if (method.equals(BungeeMethod.REDIS)) {
+			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
+					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisPassword(),
+					plugin.getBungeeSettings().getRedisPassword()) {
+
+				@Override
+				protected void onMessage(String channel, String[] message) {
+					plugin.getLogger().info(channel
+							+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(message)));
+					if (message.length > 0) {
+						ArrayList<String> list = new ArrayList<String>();
+						for (int i = 1; i < message.length; i++) {
+							list.add(message[i]);
+						}
+						globalMessageHandler.onMessage(message[0], list);
+					}
+				}
+
+				@Override
+				public void debug(String message) {
+					if (plugin.getBungeeSettings().isBungeeDebug()) {
+						plugin.debug(message);
+					}
+				}
+			};
+			redisThread = new Thread(new Runnable() {
+
+				@Override
+				public void run() {
+					if (plugin.isEnabled()) {
+						redisHandler.loadListener(new RedisListener(redisHandler,
+								"VotingPlugin_" + plugin.getBungeeSettings().getServer()));
+					}
+				}
+			});
+			redisThread.start();
+
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+
 			plugin.registerBungeeChannels("vp:vp");
 
 			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
@@ -274,290 +639,71 @@ public class BungeeHandler implements Listener {
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Vote") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					if (args.size() > 8) {
-						int bungeeVersion = Integer.parseInt(args.get(8));
-						if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
-							plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-							return;
-						}
-
-						String player = args.get(0);
-						String uuid = args.get(1);
-						String service = args.get(2);
-						long time = Long.parseLong(args.get(3));
-						plugin.debug("pluginmessaging vote received from " + player + "/" + uuid + " on " + service);
-						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(UUID.fromString(uuid), player);
-
-						boolean wasOnline = Boolean.valueOf(args.get(4));
-
-						BungeeMessageData text = new BungeeMessageData(args.get(6));
-
-						bungeeVotePartyCurrent = text.getVotePartyCurrent();
-						bungeeVotePartyRequired = text.getVotePartyRequired();
-						plugin.getPlaceholders().onBungeeVotePartyUpdate();
-						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-
-						boolean setTotals = Boolean.valueOf(args.get(7));
-
-						user.cache();
-
-						boolean broadcast = true;
-						boolean bungeeBroadcast = false;
-
-						if (args.size() > 9) {
-							bungeeBroadcast = Boolean.valueOf(args.get(9));
-						}
-
-						int num = 1;
-						if (args.size() > 10) {
-							num = Integer.valueOf(args.get(10));
-						}
-						int numberOfVotes = 1;
-						if (args.size() > 11) {
-							numberOfVotes = Integer.valueOf(args.get(11));
-						}
-
-						if (!bungeeBroadcast) {
-							if (!plugin.getBungeeSettings().isBungeeBroadcast()
-									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
-										if (num == 1) {
-											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
-													numberOfVotes);
-										}
-									} else {
-										VoteSite site = plugin.getVoteSite(service, true);
-										if (site != null) {
-											site.broadcastVote(user, false);
-											broadcast = false;
-										} else {
-											plugin.getLogger().warning("No votesite for " + service);
-										}
-									}
-
-								}
-							}
-						} else {
-							broadcast = false;
-						}
-
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
-						if (plugin.getBungeeSettings().isPerServerPoints()) {
-							user.addPoints(plugin.getConfigFile().getPointsOnVote());
-						}
-
-						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
-
-						if (Boolean.valueOf(args.get(5))) {
-							plugin.getServerData().addServiceSite(service);
-						}
-					} else {
-						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-					}
-
+					globalMessageHandler.onMessage("Vote", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteOnline") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					if (args.size() > 8) {
-						int bungeeVersion = Integer.parseInt(args.get(8));
-						if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
-							plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-							return;
-						}
-						String player = args.get(0);
-						String uuid = args.get(1);
-						String service = args.get(2);
-						long time = Long.parseLong(args.get(3));
-						BungeeMessageData text = new BungeeMessageData(args.get(6));
-
-						bungeeVotePartyCurrent = text.getVotePartyCurrent();
-						bungeeVotePartyRequired = text.getVotePartyRequired();
-						plugin.getPlaceholders().onBungeeVotePartyUpdate();
-						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-
-						plugin.debug(
-								"pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
-						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(UUID.fromString(uuid), player);
-						user.cache();
-
-						if (plugin.getBungeeSettings().isPerServerPoints()) {
-							user.addPoints(plugin.getConfigFile().getPointsOnVote());
-						}
-
-						boolean setTotals = Boolean.valueOf(args.get(7));
-
-						boolean wasOnline = Boolean.valueOf(args.get(4));
-
-						boolean broadcast = true;
-						boolean bungeeBroadcast = false;
-
-						if (args.size() > 9) {
-							bungeeBroadcast = Boolean.valueOf(args.get(9));
-						}
-
-						int num = 1;
-						if (args.size() > 10) {
-							num = Integer.valueOf(args.get(10));
-						}
-
-						int numberOfVotes = 1;
-						if (args.size() > 11) {
-							numberOfVotes = Integer.valueOf(args.get(11));
-						}
-
-						if (!bungeeBroadcast) {
-							if (!plugin.getBungeeSettings().isBungeeBroadcast()
-									&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-								if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-									if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
-										if (num == 1) {
-											user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
-													numberOfVotes);
-										}
-									} else {
-										VoteSite site = plugin.getVoteSite(service, true);
-										if (site != null) {
-											site.broadcastVote(user, false);
-											broadcast = false;
-										} else {
-											plugin.getLogger().warning("No votesite for " + service);
-										}
-									}
-
-								}
-							}
-						} else {
-							broadcast = false;
-						}
-
-						user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
-						if (plugin.getBungeeSettings().isPerServerPoints()) {
-							user.addPoints(plugin.getConfigFile().getPointsOnVote());
-						}
-
-						plugin.getSpecialRewards().bungeeAllSitesCheck(user, numberOfVotes, num);
-
-						if (Boolean.valueOf(args.get(5))) {
-							plugin.getServerData().addServiceSite(service);
-						}
-					} else {
-						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-					}
+					globalMessageHandler.onMessage("VoteOnline", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteUpdate") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String player = args.get(0);
-					plugin.debug("pluginmessaging voteupdate received for " + player);
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(player));
-					user.cache();
-
-					user.offVote();
-
-					if (args.size() > 2) {
-						bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
-						bungeeVotePartyRequired = Integer.parseInt(args.get(2));
-						plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-						plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-					}
-
-					plugin.setUpdate(true);
+					globalMessageHandler.onMessage("VoteUpdate", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("BungeeTimeChange") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					checkGlobalData();
+					globalMessageHandler.onMessage("BungeeTimeChange", args);
+
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteBroadcast") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					if (args.size() > 2) {
-						String uuid = args.get(0);
-						String service = args.get(2);
-						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-						VoteSite site = plugin.getVoteSite(service, true);
-						if (site != null) {
-							site.broadcastVote(user, false);
-						} else {
-							plugin.getLogger().warning("No votesite for " + service);
-						}
-					}
+					globalMessageHandler.onMessage("VoteBroadcast", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VoteBroadcastOffline") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					if (args.size() > 2) {
-						String uuid = args.get(0);
-						String votes = args.get(2);
-						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-						user.offlineBroadcast(user, false, Integer.parseInt(votes));
-					}
+					globalMessageHandler.onMessage("VoteBroadcastOffline", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("Status") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String server = args.get(0);
-					plugin.getPluginMessaging().sendPluginMessage("statusokay", server);
-
+					globalMessageHandler.onMessage("Status", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("ServerName") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String server = args.get(0);
-					if (!plugin.getOptions().getServer().equals(server)) {
-						plugin.getLogger()
-								.warning("Server name doesn't match in BungeeSettings.yml, should be " + server);
-					}
+					globalMessageHandler.onMessage("ServerName", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VotePartyBungee") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					for (final String cmd : plugin.getBungeeSettings().getBungeeVotePartyGlobalCommands()) {
-						plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-
-							@Override
-							public void run() {
-								Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
-							}
-
-						});
-					}
-					for (Player p : Bukkit.getOnlinePlayers()) {
-						new RewardBuilder(plugin.getBungeeSettings().getData(), "BungeeVotePartyRewards").send(p);
-					}
+					globalMessageHandler.onMessage("VotePartyBungee", args);
 				}
 			});
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler("VotePartyBroadcast") {
 				@Override
 				public void onRecieve(String subChannel, ArrayList<String> args) {
-					String broadcast = args.get(0);
-					MiscUtils.getInstance().broadcast(broadcast);
+					globalMessageHandler.onMessage("VotePartyBroadcast", args);
 				}
 			});
 

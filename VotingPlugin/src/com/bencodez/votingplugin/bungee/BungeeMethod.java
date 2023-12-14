@@ -1,7 +1,7 @@
 package com.bencodez.votingplugin.bungee;
 
 public enum BungeeMethod {
-	MYSQL, PLUGINMESSAGING, SOCKETS;
+	MYSQL, PLUGINMESSAGING, SOCKETS, REDIS;
 
 	public static BungeeMethod getByName(String str) {
 		for (BungeeMethod method : values()) {
@@ -9,6 +9,6 @@ public enum BungeeMethod {
 				return method;
 			}
 		}
-		return SOCKETS;
+		return PLUGINMESSAGING;
 	}
 }

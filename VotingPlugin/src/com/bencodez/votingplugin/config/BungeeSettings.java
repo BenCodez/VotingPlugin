@@ -31,6 +31,22 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String bungeeMethod = "PLUGINMESSAGING";
 
+	@ConfigDataString(path = "Redis.Host")
+	@Getter
+	private String RedisHost = "";
+
+	@ConfigDataString(path = "Redis.Username")
+	@Getter
+	private String RedisUsername = "";
+
+	@ConfigDataString(path = "Redis.Password")
+	@Getter
+	private String RedisPassword = "";
+
+	@ConfigDataInt(path = "Redis.Port")
+	@Getter
+	private int RedisPort = 6379;
+
 	@ConfigDataString(path = "BungeeServer.Host")
 	@Getter
 	private String bungeeServerHost = "";
@@ -46,11 +62,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "PerServerMilestones")
 	@Getter
 	private boolean perServerMilestones = false;
-	
+
 	@ConfigDataBoolean(path = "GiveExtraAllSitesRewards")
 	@Getter
 	private boolean giveExtraAllSitesRewards = false;
-	
 
 	@ConfigDataBoolean(path = "PerServerRewards")
 	@Getter

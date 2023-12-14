@@ -20,6 +20,24 @@ public class Config {
 	public Config(VotingPluginBungee bungee) {
 		this.bungee = bungee;
 	}
+	
+	public String getRedisHost() {
+		return getData().getString("Redis.Host", "");
+	}
+	
+	public int getRedisPort() {
+		return getData().getInt("Redis.Port", 6379);
+	}
+	
+	public String getRedisUsername() {
+		return getData().getString("Redis.Username", "");
+	}
+	
+	
+	public String getRedisPassword() {
+		return getData().getString("Redis.Password", "");
+	}
+	
 
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);

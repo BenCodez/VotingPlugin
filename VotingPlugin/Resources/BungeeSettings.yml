@@ -14,7 +14,15 @@ UseBungeecord: false
 # SOCKETS
 # PLUGINMESSAGING (Recommended)
 # MYSQL
+# REDIS
 BungeeMethod: PLUGINMESSAGING
+
+# Use Redis for between server communication, set BungeeMethod to REDIS to use this
+Redis:
+  Host: localhost
+  Port: 6379
+  Username: ''
+  Password: ''
 
 # Enables more debug messages for communication between servers
 # Use /votingpluginbungee status for testing communication

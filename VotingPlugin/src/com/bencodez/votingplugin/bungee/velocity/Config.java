@@ -52,6 +52,22 @@ public class Config extends VelocityYMLFile {
 	public String getBungeeMethod() {
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
 	}
+	
+	public String getRedisHost() {
+		return getString(getNode("Redis", "Host"), "");
+	}
+
+	public int getRedisPort() {
+		return getInt(getNode("Redis", "Port"), 6379);
+	}
+	
+	public String getRedisUsername() {
+		return getString(getNode("Redis", "Username"), "");
+	}
+	
+	public String getRedisPassword() {
+		return getString(getNode("Redis", "Password"), "");
+	}
 
 	public String getBungeeHost() {
 		return getString(getNode("BungeeServer", "Host"), "");

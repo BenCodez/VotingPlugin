@@ -56,6 +56,12 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 							.color(NamedTextColor.AQUA));
 					plugin.status();
 					plugin.sendServerNameMessage();
+				} else if (plugin.getMethod().equals(BungeeMethod.REDIS)) {
+					source.sendMessage(
+							Component.text("Checking status, waiting for response, check console, method: redis")
+									.color(NamedTextColor.AQUA));
+					plugin.status();
+					plugin.sendServerNameMessage();
 				} else {
 					source.sendMessage(Component.text("Not using socket/pluginmessage method, command unavailable")
 							.color(NamedTextColor.AQUA));

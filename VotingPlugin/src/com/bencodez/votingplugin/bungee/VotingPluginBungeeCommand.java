@@ -50,9 +50,14 @@ public class VotingPluginBungeeCommand extends Command {
 								"&aChecking status, waiting for response, check console, method: plugin messaging"));
 						bungee.status(sender);
 						bungee.sendServerNameMessage();
+					} else if (bungee.getMethod().equals(BungeeMethod.REDIS)) {
+						sender.sendMessage(new TextComponent(
+								"&aChecking status, waiting for response, check console, method: redis"));
+						bungee.status(sender);
+						bungee.sendServerNameMessage();
 					} else {
 						sender.sendMessage(
-								new TextComponent("&aNot using socket/pluginmessage method, command unavailable"));
+								new TextComponent("&aNot using socket/pluginmessage/redis method, command unavailable"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("multiproxystatus")) {
