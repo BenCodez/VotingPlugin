@@ -179,7 +179,7 @@ public class VotingPluginVelocity {
 
 						}
 						if (toSend) {
-							sendPluginMessageServer(serverToCheck, "Vote", cache.getPlayerName(), cache.getUuid(),
+							sendMessageServer(serverToCheck, "Vote", cache.getPlayerName(), cache.getUuid(),
 									cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 									"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
 									"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
@@ -209,7 +209,7 @@ public class VotingPluginVelocity {
 					int num = 1;
 					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
-						sendPluginMessageServer(serverToCheck, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
+						sendMessageServer(serverToCheck, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
 								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
 								"" + BungeeVersion.getPluginMessageVersion(), "" + config.getBroadcast(), "" + num,
