@@ -20,7 +20,7 @@ public class NonVotedPlayersCache extends VelocityJSONFile {
 		}
 	}
 
-	private void addPlayer(String uuid, String playerName) {
+	public void addPlayer(String uuid, String playerName) {
 		getNode("NonVotedPlayers", playerName, "UUID").setValue(uuid);
 		getNode("NonVotedPlayers", playerName, "LastTime").setValue(System.currentTimeMillis());
 		save();

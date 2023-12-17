@@ -512,6 +512,7 @@ public class VotingPluginVelocity {
 								public void run() {
 									checkCachedVotes(server);
 									checkOnlineVotes(p1, p.getUniqueId().toString(), server);
+									multiProxyLogin(p1);
 								}
 							});
 
@@ -963,6 +964,7 @@ public class VotingPluginVelocity {
 											public void run() {
 												checkCachedVotes(server);
 												checkOnlineVotes(p1, p.getUniqueId().toString(), server);
+												multiProxyLogin(p1);
 											}
 										});
 
@@ -1084,6 +1086,8 @@ public class VotingPluginVelocity {
 							getLogger().info("Multi-proxy status message received");
 						} else if (data[0].equalsIgnoreCase("ClearVote")) {
 							cachedOnlineVotes.remove(data[2]);
+						} else if (data[0].equalsIgnoreCase("login")) {
+							nonVotedPlayersCache.addPlayer(data[1], data[2]);
 						}
 					}
 					if (data.length > 8) {
@@ -1498,6 +1502,18 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	public void multiProxyLogin(Player p) {
+		if (!config.getMultiProxySupport()) {
+			return;
+		}
+		if (config.getPrimaryServer()) {
+			return;
+		}
+		if (!config.getAllowUnJoined()) {
+			sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getUsername());
 		}
 	}
 
