@@ -335,6 +335,8 @@ CHEST:
       Cost: 3
       # Permission required, leave blank for no permission
       Permission: ''
+      # Hide if player doesn't have permission (only if permission is set)
+      HideOnNoPermission: true
       # Whether or not to keep GUI open after purchase
       CloseGUI: true
       # Require confirmation on purchase, overrides global option above

@@ -86,7 +86,8 @@ public class VoteShop extends GUIHandler {
 			}
 
 			if (!plugin.getGui().getChestVoteShopNotBuyable(identifier)) {
-				if (hasPerm && (limitPass || !plugin.getGui().isChestVoteShopHideLimitedReached())) {
+				if ((hasPerm || !plugin.getGui().getChestVoteShopHideOnNoPermission(identifier))
+						&& (limitPass || !plugin.getGui().isChestVoteShopHideLimitedReached())) {
 					ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier));
 
 					inv.addButton(new BInventoryButton(builder) {
@@ -147,13 +148,13 @@ public class VoteShop extends GUIHandler {
 										}
 									} else {
 										plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-											
+
 											@Override
 											public void run() {
-												new VoteShopConfirm(plugin, player, user, identifier).open(GUIMethod.CHEST);
+												new VoteShopConfirm(plugin, player, user, identifier)
+														.open(GUIMethod.CHEST);
 											}
 										});
-										
 
 									}
 								} else {

@@ -326,6 +326,10 @@ public class GUI extends YMLFile {
 	public boolean getChestVoteShopCloseGUI(String shop) {
 		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
 	}
+	
+	public boolean getChestVoteShopHideOnNoPermission(String shop) {
+		return getData().getBoolean("CHEST.Shop." + shop + ".HideOnNoPermission", true);
+	}
 
 	@ConfigDataBoolean(path = "CHEST.VoteShopEnabled")
 	@Getter
