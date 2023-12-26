@@ -20,8 +20,6 @@ Prefix: ''
 #UseMariaDB: false
 
 
-
-
 ####################################################################################
 # Global mysql data handle for between server commmunications
 # This is NOT required for bungee voting to work

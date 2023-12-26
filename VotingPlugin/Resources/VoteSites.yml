@@ -118,7 +118,7 @@ VoteSites:
           Messages:
             Player: 'You got unlucky'
             
-      # Give 1 diamond
+      # Give 1 diamond regardless of above
       Items:
         item1:
           Material: DIAMOND
