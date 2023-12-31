@@ -115,12 +115,17 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
-			if (user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
+			if (!event.isRealVote()) {
 				plugin.getLogger()
-						.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
+				.info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
 			} else {
-				plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
-				return;
+				if (user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
+					plugin.getLogger()
+							.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
+				} else {
+					plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
+					return;
+				}
 			}
 		}
 
