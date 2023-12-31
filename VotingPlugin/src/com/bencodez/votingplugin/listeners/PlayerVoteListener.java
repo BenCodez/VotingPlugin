@@ -115,8 +115,13 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
-			plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
-			return;
+			if (user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
+				plugin.getLogger()
+						.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
+			} else {
+				plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
+				return;
+			}
 		}
 
 		final String uuid = user.getUUID();
