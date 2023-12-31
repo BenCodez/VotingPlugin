@@ -66,6 +66,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
+	
+	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesWeekly")
+	@Getter
+	private boolean votePartyResetExtraVotesWeekly = false;
 
 	@ConfigDataString(path = "VoteParty.VoteReminderBroadcast")
 	@Getter

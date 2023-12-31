@@ -305,6 +305,10 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
 			reset(true);
 		}
+		
+		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly()) {
+			plugin.getServerData().setVotePartyExtraRequired(0);
+		}
 	}
 
 	public void register() {
