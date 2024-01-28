@@ -1432,7 +1432,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
 						sendMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired);
+								"" + currentVotePartyVotesRequired, text.toString());
 
 					}
 				}

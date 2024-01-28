@@ -303,7 +303,8 @@ public class BungeeHandler implements Listener {
 				if (args.size() > 8) {
 					int bungeeVersion = Integer.parseInt(args.get(8));
 					if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
-						plugin.getLogger().warning("Incompatible version with bungee, please update all servers" + bungeeVersion + ":" + BungeeVersion.getPluginMessageVersion());
+						plugin.getLogger().warning("Incompatible version with bungee, please update all servers"
+								+ bungeeVersion + ":" + BungeeVersion.getPluginMessageVersion());
 						return;
 					}
 
@@ -491,6 +492,11 @@ public class BungeeHandler implements Listener {
 				user.cache();
 
 				user.offVote();
+
+				if (args.size() > 3 && plugin.getBungeeSettings().isPerServerMilestones()) {
+					BungeeMessageData text = new BungeeMessageData(args.get(3));
+					plugin.getSpecialRewards().checkMilestone(user, text, true);
+				}
 
 				if (args.size() > 2) {
 					bungeeVotePartyCurrent = Integer.parseInt(args.get(1));

@@ -1472,7 +1472,7 @@ public class VotingPluginVelocity {
 
 					for (RegisteredServer s : getAvailableAllServers()) {
 						sendMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired);
+								"" + currentVotePartyVotesRequired, text.toString());
 						if (config.getBroadcast()) {
 							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
 						}
