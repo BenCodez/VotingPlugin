@@ -598,7 +598,7 @@ public class BungeeHandler implements Listener {
 			plugin.registerBungeeChannels("vp:vp");
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
-					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisPassword(),
+					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
 					plugin.getBungeeSettings().getRedisPassword()) {
 
 				@Override
