@@ -1701,8 +1701,7 @@ public class CommandLoader {
 							sendMessage(sender, "&cNot in online mode!");
 							return;
 						}
-						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager()
-								.getAllKeys(plugin.getStorageType());
+						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 						int amount = 0;
 						for (Entry<UUID, ArrayList<Column>> entry : cols.entrySet()) {
 							String playerName = null;
@@ -1712,8 +1711,11 @@ public class CommandLoader {
 								}
 							}
 							if (playerName != null) {
-								if (entry.getKey().equals(UUID.nameUUIDFromBytes(
-										("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8)))) {
+								plugin.debug(playerName);
+								if (entry.getKey().toString()
+										.equals(UUID.nameUUIDFromBytes(
+												("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
+												.toString())) {
 									plugin.getUserManager().removeUUID(entry.getKey());
 									amount++;
 								}

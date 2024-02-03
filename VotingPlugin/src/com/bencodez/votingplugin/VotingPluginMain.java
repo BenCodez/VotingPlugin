@@ -1293,7 +1293,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
-		getVoteReminding().saveReminds();
 		getSigns().storeSigns();
 		HandlerList.unregisterAll(plugin);
 		plugin = null;
