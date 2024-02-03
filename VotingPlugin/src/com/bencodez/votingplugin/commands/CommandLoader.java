@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1686,6 +1687,39 @@ public class CommandLoader {
 						plugin.getSpecialRewards().giveFirstVoteTodayRewards(user, user.isOnline(),
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cFirstVoteToday forced");
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "RemoveOfflineUUIDs" },
+						"VotingPlugin.Commands.AdminVote.RemoveOfflineUUIDs|" + adminPerm,
+						"Purges database of offline UUIDs, keeps online UUIDs", true, true) {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						if (!plugin.getOptions().isOnlineMode()) {
+							sendMessage(sender, "&cNot in online mode!");
+							return;
+						}
+						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager()
+								.getAllKeys(plugin.getStorageType());
+						int amount = 0;
+						for (Entry<UUID, ArrayList<Column>> entry : cols.entrySet()) {
+							String playerName = null;
+							for (Column col : entry.getValue()) {
+								if (col.getName().equalsIgnoreCase("PlayerName")) {
+									playerName = col.getValue().getString();
+								}
+							}
+							if (playerName != null) {
+								if (entry.getKey().equals(UUID.nameUUIDFromBytes(
+										("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8)))) {
+									plugin.getUserManager().removeUUID(entry.getKey());
+									amount++;
+								}
+							}
+						}
+						sendMessage(sender, "&cOffline UUIDs purged: " + amount);
 					}
 				});
 
