@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.commands;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1701,25 +1700,13 @@ public class CommandLoader {
 							sendMessage(sender, "&cNot in online mode!");
 							return;
 						}
-						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 						int amount = 0;
-						for (Entry<UUID, ArrayList<Column>> entry : cols.entrySet()) {
-							String playerName = null;
-							for (Column col : entry.getValue()) {
-								if (col.getName().equalsIgnoreCase("PlayerName")) {
-									playerName = col.getValue().getString();
-								}
+						for (String uuid : plugin.getUserManager().getAllUUIDs()) {
+							if (uuid.charAt(14) == '3') {
+								plugin.getUserManager().removeUUID(UUID.fromString(uuid));
+								amount++;
 							}
-							if (playerName != null) {
-								plugin.debug(playerName);
-								if (entry.getKey().toString()
-										.equals(UUID.nameUUIDFromBytes(
-												("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
-												.toString())) {
-									plugin.getUserManager().removeUUID(entry.getKey());
-									amount++;
-								}
-							}
+
 						}
 						sendMessage(sender, "&cOffline UUIDs purged: " + amount);
 					}
