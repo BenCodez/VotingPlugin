@@ -1065,9 +1065,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (config.getPrimaryServer()) {
 			return;
 		}
-		if (!config.getAllowUnJoined()) {
-			sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getName());
-		}
+		sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getName());
 	}
 
 	@EventHandler

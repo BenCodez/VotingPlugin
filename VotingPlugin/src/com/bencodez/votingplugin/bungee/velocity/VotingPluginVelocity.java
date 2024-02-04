@@ -1512,9 +1512,8 @@ public class VotingPluginVelocity {
 		if (config.getPrimaryServer()) {
 			return;
 		}
-		if (!config.getAllowUnJoined()) {
-			sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getUsername());
-		}
+		sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getUsername());
+
 	}
 
 	public boolean isInAvailableServers(String server) {
