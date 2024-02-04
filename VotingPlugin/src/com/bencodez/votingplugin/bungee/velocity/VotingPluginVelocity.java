@@ -952,6 +952,9 @@ public class VotingPluginVelocity {
 									serverName = message[3];
 								}
 								debug("Login: " + player + "/" + uuid + " " + serverName);
+								if (nonVotedPlayersCache != null) {
+									nonVotedPlayersCache.addPlayerCheck(uuid, player);
+								}
 								if (server.getPlayer(player).isPresent() && (getGlobalDataHandler() == null
 										|| !getGlobalDataHandler().isTimeChangedHappened())) {
 									Player p = server.getPlayer(player).get();

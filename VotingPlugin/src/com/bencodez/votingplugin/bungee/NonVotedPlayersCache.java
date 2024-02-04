@@ -28,6 +28,13 @@ public class NonVotedPlayersCache {
 	public void addPlayer(String uuid, String playerName) {
 		getData().set("NonVotedPlayers." + playerName + ".UUID", uuid);
 		getData().set("NonVotedPlayers." + playerName + ".LastTime", System.currentTimeMillis());
+		save();
+	}
+
+	public void addPlayerCheck(String uuid, String playerName) {
+		if (!bungee.getMysql().containsKeyQuery(uuid)) {
+			addPlayer(uuid, playerName);
+		}
 	}
 
 	public void check() {

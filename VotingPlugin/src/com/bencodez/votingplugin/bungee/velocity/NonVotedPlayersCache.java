@@ -26,6 +26,12 @@ public class NonVotedPlayersCache extends VelocityJSONFile {
 		save();
 	}
 
+	public void addPlayerCheck(String uuid, String playerName) {
+		if (!plugin.getMysql().containsKeyQuery(uuid)) {
+			addPlayer(uuid, playerName);
+		}
+	}
+
 	public void check() {
 		for (String player : getKeys(getNode("NonVotedPlayers"))) {
 			long time = getNode("NonVotedPlayers", player, "LastTime").getLong(0);

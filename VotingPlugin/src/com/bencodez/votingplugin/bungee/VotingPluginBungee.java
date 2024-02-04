@@ -873,6 +873,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 									server = message[3];
 								}
 								debug("Login: " + player + "/" + uuid + " " + server);
+								if (nonVotedPlayersCache != null) {
+									nonVotedPlayersCache.addPlayerCheck(uuid, player);
+								}
 								ProxiedPlayer p = getProxy().getPlayer(player);
 								login(p);
 							}
