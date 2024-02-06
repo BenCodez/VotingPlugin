@@ -5,7 +5,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +37,7 @@ import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
@@ -1721,6 +1724,51 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						new AdminVotePlaceholdersPlayer(plugin, sender,
 								plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])).open();
+
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "MergeDataFrom", "(UserStorage)" },
+						"VotingPlugin.Commands.AdminVote.MergeDataFrom|" + adminPerm,
+						"Merge player totals from other storage type", true, true) {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						plugin.loadUserAPI(UserStorage.value(args[1]));
+
+						if (plugin.getMysql() != null) {
+							plugin.getMysql().clearCacheBasic();
+						}
+
+						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager()
+								.getAllKeys(UserStorage.value(args[1]));
+						Queue<Entry<UUID, ArrayList<Column>>> players = new LinkedList<Entry<UUID, ArrayList<Column>>>(
+								cols.entrySet());
+						ArrayList<String> uuids = plugin.getUserManager().getAllUUIDs();
+
+						while (players.size() > 0) {
+							Entry<UUID, ArrayList<Column>> entry = players.poll();
+							VotingPluginUser user = plugin.getVotingPluginUserManager()
+									.getVotingPluginUser(entry.getKey(), false);
+							user.dontCache();
+							if (uuids.contains(entry.getKey().toString())) {
+								user.mergeData(user.getData().convert(entry.getValue()));
+							} else {
+								user.getData().setValues(plugin.getStorageType(),
+										user.getData().convert(entry.getValue()));
+							}
+
+							sendMessage(sender, "Finished merge for " + user.getUUID() + ", " + players.size()
+									+ " more left to go!");
+
+							if (players.size() % 50 == 0) {
+								sendMessage(sender,
+										"Working on converting data, about " + players.size() + " left to go!");
+							}
+						}
+						plugin.getUserManager().getDataManager().clearCache();
+						sendMessage(sender, "Merge finished");
 
 					}
 				});

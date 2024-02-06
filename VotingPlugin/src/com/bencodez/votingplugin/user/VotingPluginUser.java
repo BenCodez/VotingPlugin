@@ -24,6 +24,8 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
+import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -1407,6 +1409,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		return 0;
 
+	}
+
+	public void mergeData(HashMap<String, DataValue> toAdd) {
+		HashMap<String, DataValue> currentData = getData().getValues();
+		HashMap<String, DataValue> newData = new HashMap<String, DataValue>();
+
+		for (TopVoter top : TopVoter.values()) {
+			if (toAdd.containsKey(top.getColumnName()) && currentData.containsKey(top.getColumnName())) {
+				newData.put(top.getColumnName(), new DataValueInt(
+						currentData.get(top.getColumnName()).getInt() + toAdd.get(top.getColumnName()).getInt()));
+			}
+		}
+
+		if (newData.size() > 0) {
+			getData().setValues(newData);
+		}
 	}
 
 }
