@@ -352,6 +352,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
 					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
+				plugin.debug("Adding day vote streak to " + getUUID() + " "
+						+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
+						+ hasPercentageTotal(TopVoter.Daily,
+								plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
 				addDayVoteStreak();
 				plugin.getSpecialRewards().checkVoteStreak(this, "Day", forceBungee);
 				setDayVoteStreakLastUpdate(System.currentTimeMillis());
