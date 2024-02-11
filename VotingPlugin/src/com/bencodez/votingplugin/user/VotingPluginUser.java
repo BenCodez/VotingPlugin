@@ -352,7 +352,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
 					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
-				plugin.debug("Adding day vote streak to " + getUUID() + " "
+				plugin.extraDebug("Adding day vote streak to " + getUUID() + " "
 						+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
 						+ hasPercentageTotal(TopVoter.Daily,
 								plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
@@ -687,11 +687,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int total = getTotal(top);
 		switch (top) {
 		case Daily:
-			return total / plugin.getVoteSites().size() * 100 > percentage;
+			return (double) total / (double) plugin.getVoteSitesEnabled().size() * 100 > percentage;
 		case Monthly:
-			return total / (plugin.getVoteSites().size() * time.getMonth().length(false)) * 100 > percentage;
+			return (double) total / ((double) plugin.getVoteSitesEnabled().size() * time.getMonth().length(false))
+					* 100 > percentage;
 		case Weekly:
-			return total / (plugin.getVoteSites().size() * 7) * 100 > percentage;
+			return (double) total / ((double) plugin.getVoteSitesEnabled().size() * 7) * 100 > percentage;
 		default:
 			return false;
 		}

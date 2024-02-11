@@ -342,6 +342,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
+	public ArrayList<VoteSite> getVoteSitesEnabled() {
+		ArrayList<VoteSite> sites = new ArrayList<VoteSite>();
+		for (VoteSite site : getVoteSites()) {
+			if (site.isEnabled()) {
+				sites.add(site);
+			}
+		}
+		return sites;
+	}
+
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
 		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
 		for (String url : urls) {

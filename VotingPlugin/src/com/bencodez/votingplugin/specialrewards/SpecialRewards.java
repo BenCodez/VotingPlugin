@@ -262,7 +262,9 @@ public class SpecialRewards {
 			if (streak.contains("-")) {
 				// multiple
 				multiple = true;
+
 			}
+			plugin.debug("Streak: " + streak + " multiple: " + multiple);
 			if (StringParser.getInstance().isInt(s)) {
 				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
@@ -287,8 +289,7 @@ public class SpecialRewards {
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
-								giveVoteStreakReward(user, user.isOnline(), type, streakRequired + "-", curStreak,
-										forceBungee);
+								giveVoteStreakReward(user, user.isOnline(), type, streak, curStreak, forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
