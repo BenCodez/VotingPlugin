@@ -95,8 +95,8 @@ import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 public class VotingPluginVelocity {
 
 	private static final ChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("vp", "vp");
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
-	private HashMap<RegisteredServer, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<RegisteredServer, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<RegisteredServer, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<RegisteredServer, ArrayList<OfflineBungeeVote>>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 

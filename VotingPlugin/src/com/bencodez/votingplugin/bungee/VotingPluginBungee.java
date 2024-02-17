@@ -73,9 +73,9 @@ import net.md_5.bungee.event.EventHandler;
 
 public class VotingPluginBungee extends Plugin implements Listener {
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
 
-	private HashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new HashMap<String, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 
