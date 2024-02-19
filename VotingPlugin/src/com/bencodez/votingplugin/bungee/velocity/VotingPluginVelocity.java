@@ -66,6 +66,9 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfiguration;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfigurationVelocity;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.gson.JsonElement;
@@ -135,10 +138,6 @@ public class VotingPluginVelocity {
 
 	@Getter
 	private GlobalDataHandlerProxy globalDataHandler;
-
-	private HashMap<String, ClientHandler> multiproxyClientHandles;
-
-	private SocketHandler multiproxySocketHandler;
 
 	@Getter
 	private RedisHandler redisHandler;
@@ -218,7 +217,7 @@ public class VotingPluginVelocity {
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
-						sendMultiProxyServerMessage("ClearVote", player.getUsername(), uuid);
+						getMultiProxyHandler().sendMultiProxyServerMessage("ClearVote", player.getUsername(), uuid);
 					}
 				}
 			}
@@ -512,7 +511,7 @@ public class VotingPluginVelocity {
 								public void run() {
 									checkCachedVotes(server);
 									checkOnlineVotes(p1, p.getUniqueId().toString(), server);
-									multiProxyLogin(p1);
+									getMultiProxyHandler().login(p1.getUniqueId().toString(), p1.getUsername());
 								}
 							});
 
@@ -967,7 +966,8 @@ public class VotingPluginVelocity {
 											public void run() {
 												checkCachedVotes(server);
 												checkOnlineVotes(p1, p.getUniqueId().toString(), server);
-												multiProxyLogin(p1);
+												getMultiProxyHandler().login(p1.getUniqueId().toString(),
+														p1.getUsername());
 											}
 										});
 
@@ -1050,6 +1050,98 @@ public class VotingPluginVelocity {
 		sendServerNameMessage();
 	}
 
+	private void loadMultiProxySupport() {
+		if (multiProxyHandler != null) {
+			multiProxyHandler.close();
+		}
+		multiProxyHandler = new MultiProxyHandler() {
+
+			@Override
+			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+					BungeeMessageData text, String uuid) {
+				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
+			}
+
+			@Override
+			public void setEncryptionHandler(EncryptionHandler encryptionHandler1) {
+				encryptionHandler = encryptionHandler1;
+			}
+
+			@Override
+			public void logInfo(String msg) {
+				getLogger().info(msg);
+			}
+
+			@Override
+			public String getVersion() {
+				return server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get();
+			}
+
+			@Override
+			public boolean getMultiProxySupportEnabled() {
+				return config.getMultiProxySupport();
+			}
+
+			@Override
+			protected int getMultiProxySocketHostPort() {
+				return config.getMultiProxySocketHostPort();
+			}
+
+			@Override
+			protected String getMultiProxySocketHostHost() {
+				return config.getMultiProxySocketHostHost();
+			}
+
+			@Override
+			protected MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
+				return new MultiProxyServerSocketConfigurationVelocity(s, config.getMultiProxyServers(s));
+			}
+
+			@Override
+			protected Collection<String> getMultiProxyServers() {
+				ArrayList<String> servers = new ArrayList<String>();
+				for (ConfigurationNode s : config.getMultiProxyServers()) {
+					servers.add(s.getKey().toString());
+				}
+				return servers;
+			}
+
+			@Override
+			public EncryptionHandler getEncryptionHandler() {
+				return encryptionHandler;
+			}
+
+			@Override
+			public boolean getDebug() {
+				return config.getDebug();
+			}
+
+			@Override
+			public File getPluginDataFolder() {
+				return dataDirectory.toFile();
+			}
+
+			@Override
+			protected void clearVote(String string) {
+				cachedOnlineVotes.remove(string);
+			}
+
+			@Override
+			protected void addNonVotedPlayerCache(String uuid, String player) {
+				nonVotedPlayersCache.addPlayer(uuid, player);
+			}
+
+			@Override
+			public boolean getPrimaryServer() {
+				return config.getPrimaryServer();
+			}
+		};
+		multiProxyHandler.loadMultiProxySupport();
+	}
+
+	@Getter
+	private MultiProxyHandler multiProxyHandler;
+
 	public void sendServerNameMessage() {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			for (RegisteredServer s : getAvailableAllServers()) {
@@ -1057,66 +1149,6 @@ public class VotingPluginVelocity {
 			}
 		}
 
-	}
-
-	public void loadMultiProxySupport() {
-		if (getConfig().getMultiProxySupport()) {
-			if (encryptionHandler == null) {
-				encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
-			}
-
-			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.closeConnection();
-				multiproxySocketHandler = null;
-			}
-			multiproxySocketHandler = new SocketHandler(
-					server.getPluginManager().getPlugin("votingplugin").get().getDescription().getVersion().get(),
-					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
-					config.getDebug()) {
-
-				@Override
-				public void log(String str) {
-					getLogger().info(str);
-				}
-			};
-
-			multiproxySocketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 0) {
-						if (data[0].equalsIgnoreCase("Status")) {
-							getLogger().info("Multi-proxy status message received");
-						} else if (data[0].equalsIgnoreCase("ClearVote")) {
-							cachedOnlineVotes.remove(data[2]);
-						} else if (data[0].equalsIgnoreCase("login")) {
-							nonVotedPlayersCache.addPlayer(data[1], data[2]);
-						}
-					}
-					if (data.length > 8) {
-						if (data[0].equalsIgnoreCase("Vote")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
-									data[1]);
-						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
-									data[1]);
-						}
-					}
-
-				}
-			});
-
-			multiproxyClientHandles = new HashMap<String, ClientHandler>();
-
-			for (ConfigurationNode s : config.getMultiProxyServers()) {
-				ConfigurationNode d = config.getMultiProxyServers(s.getKey().toString());
-				multiproxyClientHandles.put(s.getKey().toString(),
-						new ClientHandler(d.getNode("Host").getString("0.0.0.0"), d.getNode("Port").getInt(1298),
-								encryptionHandler, config.getDebug()));
-			}
-
-			getLogger().info("Loaded multi-proxy support");
-		}
 	}
 
 	private String version = "";
@@ -1458,7 +1490,7 @@ public class VotingPluginVelocity {
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1", "1");
 						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
-							sendMultiProxyServerMessage("ClearVote", player, uuid);
+							getMultiProxyHandler().sendMultiProxyServerMessage("ClearVote", player, uuid);
 						}
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
@@ -1488,15 +1520,17 @@ public class VotingPluginVelocity {
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Sending global proxy vote message");
-					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
-							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+					getMultiProxyHandler().sendMultiProxyServerMessage("Vote", uuid, player, service,
+							"" + votePartyVotes, "" + currentVotePartyVotesRequired, "" + time, "" + realVote,
+							text.toString());
 				} else {
 					// check if reward should've already been given
 					if (!(isOnline(p) && !config.getBlockedServers()
 							.contains(p.getCurrentServer().get().getServerInfo().getName()))) {
 						debug("Seending global proxy voteonline message");
-						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+						getMultiProxyHandler().sendMultiProxyServerMessage("VoteOnline", uuid, player, service,
+								"" + votePartyVotes, "" + currentVotePartyVotesRequired, "" + time, "" + realVote,
+								text.toString());
 					} else {
 						debug("Not sending global proxy message for voteonline, player already got reward");
 					}
@@ -1506,17 +1540,6 @@ public class VotingPluginVelocity {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	public void multiProxyLogin(Player p) {
-		if (!config.getMultiProxySupport()) {
-			return;
-		}
-		if (config.getPrimaryServer()) {
-			return;
-		}
-		sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getUsername());
-
 	}
 
 	public boolean isInAvailableServers(String server) {
@@ -1553,12 +1576,6 @@ public class VotingPluginVelocity {
 		}
 
 		return false;
-	}
-
-	public void sendMultiProxyServerMessage(String... messageData) {
-		for (ClientHandler h : multiproxyClientHandles.values()) {
-			h.sendMessage(messageData);
-		}
 	}
 
 	@Getter

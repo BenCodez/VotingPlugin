@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +51,9 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfiguration;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.gson.JsonElement;
@@ -78,10 +82,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
 
 	private HashMap<String, ClientHandler> clientHandles;
-
-	private HashMap<String, ClientHandler> multiproxyClientHandles;
-
-	private SocketHandler multiproxySocketHandler;
 
 	@Getter
 	private Config config;
@@ -178,7 +178,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
-						sendMultiProxyServerMessage("ClearVote", player.getName(), uuid);
+						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player.getName(), uuid);
 					}
 				}
 			}
@@ -375,6 +375,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 
 						processQueue();
+						
 
 					}
 
@@ -556,6 +557,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	private VoteEventBungee voteEventBungee;
+
+	@Getter
+	private MultiProxyHandler multiProxyHandler;
 
 	@Override
 	public void onEnable() {
@@ -899,9 +903,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
 					+ voteCacheFile.getVotePartyInreaseVotesRequired();
 			votePartyVotes = voteCacheFile.getVotePartyCurrentVotes();
-		}
 
-		loadMultiProxySupport();
+			loadMultiProxySupport();
+		}
 
 		if (!votifierEnabled) {
 			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
@@ -954,6 +958,91 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
+	private void loadMultiProxySupport() {
+		if (multiProxyHandler != null) {
+			multiProxyHandler.close();
+		}
+		multiProxyHandler = new MultiProxyHandler() {
+
+			@Override
+			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+					BungeeMessageData text, String uuid) {
+				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
+			}
+
+			@Override
+			public void setEncryptionHandler(EncryptionHandler encryptionHandler1) {
+				encryptionHandler = encryptionHandler1;
+			}
+
+			@Override
+			public void logInfo(String msg) {
+				getLogger().info(msg);
+			}
+
+			@Override
+			public String getVersion() {
+				return getDescription().getVersion();
+			}
+
+			@Override
+			public boolean getMultiProxySupportEnabled() {
+				return config.getMultiProxySupport();
+			}
+
+			@Override
+			protected int getMultiProxySocketHostPort() {
+				return config.getMultiProxySocketHostPort();
+			}
+
+			@Override
+			protected String getMultiProxySocketHostHost() {
+				return config.getMultiProxySocketHostHost();
+			}
+
+			@Override
+			protected MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
+				return new MultiProxyServerSocketConfigurationBungee(s, config.getMultiProxyServersConfiguration(s));
+			}
+
+			@Override
+			protected Collection<String> getMultiProxyServers() {
+				return config.getMultiProxyServers();
+			}
+
+			@Override
+			public EncryptionHandler getEncryptionHandler() {
+				return encryptionHandler;
+			}
+
+			@Override
+			public boolean getDebug() {
+				return config.getDebug();
+			}
+
+			@Override
+			public File getPluginDataFolder() {
+				return getDataFolder();
+			}
+
+			@Override
+			protected void clearVote(String string) {
+				cachedOnlineVotes.remove(string);
+			}
+
+			@Override
+			protected void addNonVotedPlayerCache(String uuid, String player) {
+				nonVotedPlayersCache.addPlayer(uuid, player);
+			}
+
+			@Override
+			public boolean getPrimaryServer() {
+				return config.getPrimaryServer();
+			}
+		};
+		multiProxyHandler.loadMultiProxySupport();
+	}
+
 	public void sendServerNameMessage() {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			for (String s : getAvailableAllServers()) {
@@ -961,63 +1050,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 		}
 
-	}
-
-	public void loadMultiProxySupport() {
-		if (getConfig().getMultiProxySupport()) {
-			if (encryptionHandler == null) {
-				encryptionHandler = new EncryptionHandler(new File(getDataFolder(), "secretkey.key"));
-			}
-
-			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.closeConnection();
-				multiproxySocketHandler = null;
-			}
-			multiproxySocketHandler = new SocketHandler(getDescription().getVersion(),
-					config.getMultiProxySocketHostHost(), config.getMultiProxySocketHostPort(), encryptionHandler,
-					config.getDebug()) {
-
-				@Override
-				public void log(String str) {
-					getLogger().info(str);
-				}
-			};
-
-			multiproxySocketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 0) {
-						if (data[0].equalsIgnoreCase("Status")) {
-							getLogger().info("Multi-proxy status message received");
-						} else if (data[0].equalsIgnoreCase("ClearVote")) {
-							cachedOnlineVotes.remove(data[2]);
-						} else if (data[0].equalsIgnoreCase("login")) {
-							nonVotedPlayersCache.addPlayer(data[1], data[2]);
-						}
-					}
-					if (data.length > 8) {
-						if (data[0].equalsIgnoreCase("Vote")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
-									data[1]);
-						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
-							vote(data[2], data[3], Boolean.valueOf(data[7]), true, 0, new BungeeMessageData(data[8]),
-									data[1]);
-						}
-					}
-
-				}
-			});
-
-			multiproxyClientHandles = new HashMap<String, ClientHandler>();
-			for (String s : config.getMultiProxyServers()) {
-				Configuration d = config.getMultiProxyServersConfiguration(s);
-				multiproxyClientHandles.put(s, new ClientHandler(d.getString("Host", ""), d.getInt("Port", 1234),
-						encryptionHandler, config.getDebug()));
-			}
-
-			getLogger().info("Loaded multi-proxy support");
-		}
 	}
 
 	@EventHandler
@@ -1053,22 +1085,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					if (isOnline(p)) {
 						checkCachedVotes(server);
 						checkOnlineVotes(proxiedPlayer, proxiedPlayer.getUniqueId().toString(), server);
-						multiProxyLogin(proxiedPlayer);
+						multiProxyHandler.login(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
 					}
 				}
 			}, 1, TimeUnit.SECONDS);
 		}
 
-	}
-
-	public void multiProxyLogin(ProxiedPlayer p) {
-		if (!config.getMultiProxySupport()) {
-			return;
-		}
-		if (config.getPrimaryServer()) {
-			return;
-		}
-		sendMultiProxyServerMessage("Login", p.getUniqueId().toString(), p.getName());
 	}
 
 	@EventHandler
@@ -1202,12 +1224,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	public void sendServerMessage(String... messageData) {
 		for (ClientHandler h : clientHandles.values()) {
-			h.sendMessage(messageData);
-		}
-	}
-
-	public void sendMultiProxyServerMessage(String... messageData) {
-		for (ClientHandler h : multiproxyClientHandles.values()) {
 			h.sendMessage(messageData);
 		}
 	}
@@ -1414,7 +1430,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + config.getBroadcast(), "1", "1");
 						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
-							sendMultiProxyServerMessage("ClearVote", player, uuid);
+							multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
 						}
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
@@ -1443,14 +1459,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Seending global proxy vote message");
-					sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
+					multiProxyHandler.sendMultiProxyServerMessage("Vote", uuid, player, service, "" + votePartyVotes,
 							"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
 				} else {
 					// check if reward should've already been given
 					if (!(isOnline(p) && !config.getBlockedServers().contains(p.getServer().getInfo().getName()))) {
 						debug("Sending global proxy voteonline message");
-						sendMultiProxyServerMessage("VoteOnline", uuid, player, service, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired, "" + time, "" + realVote, text.toString());
+						multiProxyHandler.sendMultiProxyServerMessage("VoteOnline", uuid, player, service,
+								"" + votePartyVotes, "" + currentVotePartyVotesRequired, "" + time, "" + realVote,
+								text.toString());
 					} else {
 						debug("Not sending global proxy message for voteonline, player already got reward");
 					}

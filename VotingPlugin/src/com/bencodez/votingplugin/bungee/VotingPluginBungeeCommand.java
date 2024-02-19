@@ -61,7 +61,7 @@ public class VotingPluginBungeeCommand extends Command {
 					}
 				}
 				if (args[0].equalsIgnoreCase("multiproxystatus")) {
-					bungee.sendMultiProxyServerMessage("Status");
+					bungee.getMultiProxyHandler().sendMultiProxyServerMessage("Status");
 					sender.sendMessage(new TextComponent("&aSending status message"));
 				}
 				if (args[0].equalsIgnoreCase("help")) {
