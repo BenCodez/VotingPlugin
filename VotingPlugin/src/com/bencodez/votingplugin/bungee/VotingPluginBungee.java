@@ -807,6 +807,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							debug("Checking nonvotedplayers.yml...");
 							nonVotedPlayersCache.check();
 						}
+						if (voteCacheFile != null) {
+							voteCacheFile.save();
+						}
 					}
 				}, 1l, 60l, TimeUnit.MINUTES);
 			} else if (method.equals(BungeeMethod.SOCKETS)) {

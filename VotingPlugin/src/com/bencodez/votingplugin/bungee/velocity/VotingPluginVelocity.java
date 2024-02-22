@@ -881,6 +881,9 @@ public class VotingPluginVelocity {
 						debug("Checking nonvotedplayerscache.yml...");
 						nonVotedPlayersCache.check();
 					}
+					if (voteCacheFile != null) {
+						voteCacheFile.save();
+					}
 				}).delay(1L, TimeUnit.MINUTES).repeat(60l, TimeUnit.MINUTES).schedule();
 			} else if (method.equals(BungeeMethod.SOCKETS)) {
 				encryptionHandler = new EncryptionHandler(new File(dataDirectory.toFile(), "secretkey.key"));
