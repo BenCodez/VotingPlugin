@@ -52,7 +52,7 @@ public class Config extends VelocityYMLFile {
 	public String getBungeeMethod() {
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
 	}
-	
+
 	public String getRedisHost() {
 		return getString(getNode("Redis", "Host"), "");
 	}
@@ -60,11 +60,11 @@ public class Config extends VelocityYMLFile {
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
 	}
-	
+
 	public String getRedisUsername() {
 		return getString(getNode("Redis", "Username"), "");
 	}
-	
+
 	public String getRedisPassword() {
 		return getString(getNode("Redis", "Password"), "");
 	}
@@ -179,6 +179,38 @@ public class Config extends VelocityYMLFile {
 
 	public int getMultiProxySocketHostPort() {
 		return getInt(getNode("MultiProxySocketHost", "Port"), 1297);
+	}
+
+	public String getMultiProxyMethod() {
+		return getString(getNode("MultiProxyMethod"), "SOCKET");
+	}
+
+	public String getProxyServerName() {
+		return getString(getNode("ProxyServerName"), "SOCKET");
+	}
+
+	public List<String> getProxyServers() {
+		return getStringList(getNode("ProxyServers"), new ArrayList<String>());
+	}
+
+	public boolean getMultiProxyRedisUseExistingConnection() {
+		return getBoolean(getNode("MultiProxyRedis.UseExistingConnection"), false);
+	}
+
+	public String getMultiProxyRedisHost() {
+		return getString(getNode("MultiProxyRedis.Host"), "");
+	}
+
+	public int getMultiProxyRedisPort() {
+		return getInt(getNode("MultiProxyRedis.Port"), 6379);
+	}
+
+	public String getMultiProxyRedisUsername() {
+		return getString(getNode("MultiProxyRedis.Username"), "");
+	}
+
+	public String getMultiProxyRedisPassword() {
+		return getString(getNode("MultiProxyRedis.Password"), "");
 	}
 
 }

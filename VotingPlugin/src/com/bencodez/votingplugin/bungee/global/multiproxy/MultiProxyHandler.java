@@ -3,12 +3,17 @@ package com.bencodez.votingplugin.bungee.global.multiproxy;
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
+import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
+
+import lombok.Getter;
 
 public abstract class MultiProxyHandler {
 	public abstract boolean getMultiProxySupportEnabled();
@@ -29,80 +34,163 @@ public abstract class MultiProxyHandler {
 
 	private SocketHandler multiproxySocketHandler;
 
+	@Getter
+	private RedisHandler multiProxyRedis;
+
 	public MultiProxyHandler() {
 
 	}
 
 	public void sendMultiProxyServerMessage(String... messageData) {
-		for (ClientHandler h : multiproxyClientHandles.values()) {
-			h.sendMessage(messageData);
+		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
+			for (ClientHandler h : multiproxyClientHandles.values()) {
+				h.sendMessage(messageData);
+			}
+		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
+			for (String server : getProxyServers()) {
+				multiProxyRedis.sendMessage("VotingPluginProxy_" + server, messageData);
+			}
 		}
 	}
-	
+
+	public abstract List<String> getProxyServers();
+
 	public void close() {
 		if (multiproxySocketHandler != null) {
 			multiproxySocketHandler.closeConnection();
 			multiproxySocketHandler = null;
 		}
+		if (multiProxyRedis != null && !getMultiProxyRedisUseExistingConnection()) {
+			multiProxyRedis.close();
+		}
 	}
 
 	public void loadMultiProxySupport() {
 		if (getMultiProxySupportEnabled()) {
-			if (getEncryptionHandler() == null) {
-				setEncryptionHandler(new EncryptionHandler(new File(getPluginDataFolder(), "secretkey.key")));
-			}
-
-			if (multiproxySocketHandler != null) {
-				multiproxySocketHandler.closeConnection();
-				multiproxySocketHandler = null;
-			}
-			multiproxySocketHandler = new SocketHandler(getVersion(), getMultiProxySocketHostHost(),
-					getMultiProxySocketHostPort(), getEncryptionHandler(), getDebug()) {
-
-				@Override
-				public void log(String str) {
-					logInfo(str);
+			if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
+				if (getEncryptionHandler() == null) {
+					setEncryptionHandler(new EncryptionHandler(new File(getPluginDataFolder(), "secretkey.key")));
 				}
-			};
 
-			multiproxySocketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 0) {
-						if (data[0].equalsIgnoreCase("Status")) {
-							logInfo("Multi-proxy status message received");
-						} else if (data[0].equalsIgnoreCase("ClearVote")) {
-							clearVote(data[2]);
-							// cachedOnlineVotes.remove(data[2]);
-						} else if (data[0].equalsIgnoreCase("login")) {
-							addNonVotedPlayerCache(data[1], data[2]);
-							// nonVotedPlayersCache.addPlayer(data[1], data[2]);
-						}
-					}
-					if (data.length > 8) {
-						if (data[0].equalsIgnoreCase("Vote")) {
-							triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-									new BungeeMessageData(data[8]), data[1]);
-						} else if (data[0].equalsIgnoreCase("VoteOnline")) {
-							triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
-									new BungeeMessageData(data[8]), data[1]);
-						}
-					}
-
+				if (multiproxySocketHandler != null) {
+					multiproxySocketHandler.closeConnection();
+					multiproxySocketHandler = null;
 				}
-			});
+				multiproxySocketHandler = new SocketHandler(getVersion(), getMultiProxySocketHostHost(),
+						getMultiProxySocketHostPort(), getEncryptionHandler(), getDebug()) {
 
-			multiproxyClientHandles = new HashMap<String, ClientHandler>();
-			for (String s : getMultiProxyServers()) {
-				MultiProxyServerSocketConfiguration d = getMultiProxyServersConfiguration(s);
-				multiproxyClientHandles.put(s,
-						new ClientHandler(d.getHost(), d.getPort(), getEncryptionHandler(), getDebug()));
+					@Override
+					public void log(String str) {
+						logInfo(str);
+					}
+				};
+
+				multiproxySocketHandler.add(new SocketReceiver() {
+
+					@Override
+					public void onReceive(String[] data) {
+						if (data.length > 0) {
+							if (data[0].equalsIgnoreCase("Status")) {
+								logInfo("Multi-proxy status message received");
+							} else if (data[0].equalsIgnoreCase("ClearVote")) {
+								clearVote(data[2]);
+								// cachedOnlineVotes.remove(data[2]);
+							} else if (data[0].equalsIgnoreCase("login")) {
+								addNonVotedPlayerCache(data[1], data[2]);
+								// nonVotedPlayersCache.addPlayer(data[1], data[2]);
+							}
+						}
+						if (data.length > 8) {
+							if (data[0].equalsIgnoreCase("Vote")) {
+								triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+										new BungeeMessageData(data[8]), data[1]);
+							} else if (data[0].equalsIgnoreCase("VoteOnline")) {
+								triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+										new BungeeMessageData(data[8]), data[1]);
+							}
+						}
+
+					}
+				});
+
+				multiproxyClientHandles = new HashMap<String, ClientHandler>();
+				for (String s : getMultiProxyServers()) {
+					MultiProxyServerSocketConfiguration d = getMultiProxyServersConfiguration(s);
+					multiproxyClientHandles.put(s,
+							new ClientHandler(d.getHost(), d.getPort(), getEncryptionHandler(), getDebug()));
+				}
+
+			} else {
+				if (getMultiProxyRedisUseExistingConnection() && getRedisHandler() != null) {
+					multiProxyRedis = getRedisHandler();
+				} else {
+					multiProxyRedis = new RedisHandler(getMultiProxyRedisHost(), getMultiProxyRedisPort(),
+							getMultiProxyUsername(), getMultiProxyPassword()) {
+
+						@Override
+						public void onMessage(String channel, String[] data) {
+							if (data.length > 0) {
+								if (data[0].equalsIgnoreCase("Status")) {
+									logInfo("Multi-proxy status message received");
+								} else if (data[0].equalsIgnoreCase("ClearVote")) {
+									clearVote(data[2]);
+									// cachedOnlineVotes.remove(data[2]);
+								} else if (data[0].equalsIgnoreCase("login")) {
+									addNonVotedPlayerCache(data[1], data[2]);
+									// nonVotedPlayersCache.addPlayer(data[1], data[2]);
+								}
+							}
+							if (data.length > 8) {
+								if (data[0].equalsIgnoreCase("Vote")) {
+									triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+											new BungeeMessageData(data[8]), data[1]);
+								} else if (data[0].equalsIgnoreCase("VoteOnline")) {
+									triggerVote(data[2], data[3], Boolean.valueOf(data[7]), true, 0,
+											new BungeeMessageData(data[8]), data[1]);
+								}
+							}
+						}
+
+						@Override
+						public void debug(String message) {
+							if (getDebug()) {
+								logInfo("MultiProxyRedis: " + message);
+							}
+						}
+					};
+				}
+
+				runAsnc(new Runnable() {
+
+					@Override
+					public void run() {
+						multiProxyRedis.loadListener(
+								new RedisListener(multiProxyRedis, "VotingPluginProxy_" + getMultiProxyServerName()));
+					}
+				});
+
 			}
-
-			logInfo("Loaded multi-proxy support");
+			logInfo("Loaded multi-proxy support: " + getMultiProxyMethod().toString());
 		}
 	}
+
+	public abstract void runAsnc(Runnable runnable);
+
+	public abstract MultiProxyMethod getMultiProxyMethod();
+
+	public abstract RedisHandler getRedisHandler();
+
+	public abstract boolean getMultiProxyRedisUseExistingConnection();
+
+	public abstract String getMultiProxyPassword();
+
+	public abstract String getMultiProxyUsername();
+
+	public abstract String getMultiProxyServerName();
+
+	public abstract int getMultiProxyRedisPort();
+
+	public abstract String getMultiProxyRedisHost();
 
 	public abstract boolean getPrimaryServer();
 
@@ -116,18 +204,18 @@ public abstract class MultiProxyHandler {
 		sendMultiProxyServerMessage("Login", uuid, playerName);
 	}
 
-	protected abstract int getMultiProxySocketHostPort();
+	public abstract int getMultiProxySocketHostPort();
 
-	protected abstract String getMultiProxySocketHostHost();
+	public abstract String getMultiProxySocketHostHost();
 
-	protected abstract MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s);
+	public abstract MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s);
 
-	protected abstract Collection<String> getMultiProxyServers();
+	public abstract Collection<String> getMultiProxyServers();
 
-	protected abstract void triggerVote(String player, String service, boolean realVote, boolean timeQueue,
-			long queueTime, BungeeMessageData text, String uuid);
+	public abstract void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			BungeeMessageData text, String uuid);
 
-	protected abstract void addNonVotedPlayerCache(String string, String string2);
+	public abstract void addNonVotedPlayerCache(String string, String string2);
 
-	protected abstract void clearVote(String string);
+	public abstract void clearVote(String string);
 }

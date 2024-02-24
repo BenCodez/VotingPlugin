@@ -20,24 +20,22 @@ public class Config {
 	public Config(VotingPluginBungee bungee) {
 		this.bungee = bungee;
 	}
-	
+
 	public String getRedisHost() {
 		return getData().getString("Redis.Host", "");
 	}
-	
+
 	public int getRedisPort() {
 		return getData().getInt("Redis.Port", 6379);
 	}
-	
+
 	public String getRedisUsername() {
 		return getData().getString("Redis.Username", "");
 	}
-	
-	
+
 	public String getRedisPassword() {
 		return getData().getString("Redis.Password", "");
 	}
-	
 
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);
@@ -171,12 +169,44 @@ public class Config {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
 
+	public String getMultiProxyMethod() {
+		return getData().getString("MultiProxyMethod", "SOCKET");
+	}
+
+	public String getProxyServerName() {
+		return getData().getString("ProxyServerName", "SOCKET");
+	}
+
+	public List<String> getProxyServers() {
+		return getData().getStringList("ProxyServers");
+	}
+
+	public boolean getMultiProxyRedisUseExistingConnection() {
+		return getData().getBoolean("MultiProxyRedis.UseExistingConnection", false);
+	}
+
 	public List<String> getVotePartyServersToSend() {
 		return getData().getStringList("VoteParty.ServersToSend");
 	}
 
 	public List<String> getVotePartyBungeeCommands() {
 		return getData().getStringList("VoteParty.BungeeCommands");
+	}
+
+	public String getMultiProxyRedisHost() {
+		return getData().getString("MultiProxyRedis.Host", "");
+	}
+
+	public int getMultiProxyRedisPort() {
+		return getData().getInt("MultiProxyRedis.Port", 6379);
+	}
+
+	public String getMultiProxyRedisUsername() {
+		return getData().getString("MultiProxyRedis.Username", "");
+	}
+
+	public String getMultiProxyRedisPassword() {
+		return getData().getString("MultiProxyRedis.Password", "");
 	}
 
 	public void load() {

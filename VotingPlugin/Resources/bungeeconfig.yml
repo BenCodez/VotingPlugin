@@ -165,8 +165,7 @@ WaitForUserOnline: false
 # All servers should be on pluginmessaging or sockets setup
 ##########################################
 
-# Support for redis
-# experimental
+# Support for multiple proxies
 MultiProxySupport: false
 
 # Enable on primary proxy server with votifier
@@ -177,12 +176,46 @@ PrimaryServer: false
 # Must also disable sendtoallservers
 MultiProxyOneGlobalReward: false
 
+# Multi-proxy available methods:
+#  SOCKET
+#  REDIS
+MultiProxyMethod: SOCKET
+
+##########################################
+# REDIS Settings
+##########################################
+
+# Set multiproxymethod to REDIS to use redis
+MultiProxyRedis:
+  # If true the plugin will use the exsiting connection set above
+  # Must be on REDIS method to use this setting
+  UseExistingConnection: false
+  Host: localhost
+  Port: 6379
+  Username: ''
+  Password: ''
+  
+# Set each server it's own proxy name here (can be anything)
+ProxyServerName: proxy1
+
+# Set names of other proxy servers
+# Must match what's set as the proxy server name above from other servers
+# On non primary proxy server just set the primary proxy server name here
+ProxyServers:
+- proxy2
+- proxy3
+
+##########################################
+# SOCKET settings for mutli-proxy
+##########################################
+
 # Set this for each proxy
 MultiProxySocketHost:
   Host: 0.0.0.0
   Port: 1234
 
 # Set other sub proxies here
+# On non primary proxy only set primary proxy
 MultiProxyServers:
   secondproxy:
     Host: 0.0.0.0

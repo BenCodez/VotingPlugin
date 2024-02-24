@@ -38,6 +38,7 @@ VoteSites:
     VoteDelay: 24
     
     # Use to have a minute votedelay
+    # Must set a value on VoteDelay if you plan on only using this setting
     #VoteDelayMin: 30
     
     # Require waiting until votedelay time has pasted in order to accept vote

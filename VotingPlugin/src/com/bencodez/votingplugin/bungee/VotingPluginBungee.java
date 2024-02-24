@@ -52,6 +52,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -375,7 +376,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 
 						processQueue();
-						
 
 					}
 
@@ -961,6 +961,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
+	private void runAsyncNow(Runnable runnable) {
+		getProxy().getScheduler().runAsync(this, runnable);
+	}
+
 	private void loadMultiProxySupport() {
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();
@@ -994,22 +998,22 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			protected int getMultiProxySocketHostPort() {
+			public int getMultiProxySocketHostPort() {
 				return config.getMultiProxySocketHostPort();
 			}
 
 			@Override
-			protected String getMultiProxySocketHostHost() {
+			public String getMultiProxySocketHostHost() {
 				return config.getMultiProxySocketHostHost();
 			}
 
 			@Override
-			protected MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
+			public MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
 				return new MultiProxyServerSocketConfigurationBungee(s, config.getMultiProxyServersConfiguration(s));
 			}
 
 			@Override
-			protected Collection<String> getMultiProxyServers() {
+			public Collection<String> getMultiProxyServers() {
 				return config.getMultiProxyServers();
 			}
 
@@ -1029,18 +1033,68 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			protected void clearVote(String string) {
+			public void clearVote(String string) {
 				cachedOnlineVotes.remove(string);
 			}
 
 			@Override
-			protected void addNonVotedPlayerCache(String uuid, String player) {
+			public void addNonVotedPlayerCache(String uuid, String player) {
 				nonVotedPlayersCache.addPlayer(uuid, player);
 			}
 
 			@Override
 			public boolean getPrimaryServer() {
 				return config.getPrimaryServer();
+			}
+
+			@Override
+			public List<String> getProxyServers() {
+				return config.getProxyServers();
+			}
+
+			@Override
+			public void runAsnc(Runnable runnable) {
+				runAsyncNow(runnable);
+			}
+
+			@Override
+			public MultiProxyMethod getMultiProxyMethod() {
+				return MultiProxyMethod.getByName(config.getMultiProxyMethod());
+			}
+
+			@Override
+			public RedisHandler getRedisHandler() {
+				return redisHandler;
+			}
+
+			@Override
+			public boolean getMultiProxyRedisUseExistingConnection() {
+				return config.getMultiProxyRedisUseExistingConnection();
+			}
+
+			@Override
+			public String getMultiProxyPassword() {
+				return config.getMultiProxyRedisPassword();
+			}
+
+			@Override
+			public String getMultiProxyUsername() {
+				return config.getMultiProxyRedisUsername();
+			}
+
+			@Override
+			public int getMultiProxyRedisPort() {
+				return config.getMultiProxyRedisPort();
+			}
+
+			@Override
+			public String getMultiProxyRedisHost() {
+				return config.getMultiProxyRedisHost();
+			}
+
+			@Override
+			public String getMultiProxyServerName() {
+				return config.getProxyServerName();
 			}
 		};
 		multiProxyHandler.loadMultiProxySupport();
