@@ -91,6 +91,8 @@ Redis:
   Port: 6379
   Username: ''
   Password: ''
+  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  Prefix: ''
 
 # If false, votes will be checked if user is a valid player that has joined to server
 # Works for PLUGINMESSAGING and SOCKETS methods only

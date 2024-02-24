@@ -898,7 +898,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					@Override
 					public void run() {
-						redisHandler.loadListener(new RedisListener(redisHandler, "VotingPlugin"));
+						redisHandler.loadListener(
+								new RedisListener(redisHandler, getConfig().getRedisPrefix() + "VotingPlugin"));
 					}
 				});
 
@@ -1255,7 +1256,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(channel);
 		list.addAll(ArrayUtils.getInstance().convert(messageData));
-		redisHandler.sendMessage("VotingPlugin_" + server, ArrayUtils.getInstance().convert(list));
+		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server,
+				ArrayUtils.getInstance().convert(list));
 	}
 
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {

@@ -989,7 +989,8 @@ public class VotingPluginVelocity {
 				};
 
 				server.getScheduler().buildTask(this, () -> {
-					redisHandler.loadListener(new RedisListener(redisHandler, "VotingPlugin"));
+					redisHandler.loadListener(
+							new RedisListener(redisHandler, getConfig().getRedisPrefix() + "VotingPlugin"));
 				}).schedule();
 
 			}
@@ -1304,7 +1305,8 @@ public class VotingPluginVelocity {
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(channel);
 		list.addAll(ArrayUtils.getInstance().convert(messageData));
-		redisHandler.sendMessage("VotingPlugin_" + s.getServerInfo().getName(), ArrayUtils.getInstance().convert(list));
+		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + s.getServerInfo().getName(),
+				ArrayUtils.getInstance().convert(list));
 	}
 
 	public void sendPluginMessageServer(RegisteredServer s, String channel, String... messageData) {

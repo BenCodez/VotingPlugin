@@ -291,7 +291,8 @@ public class BungeeHandler implements Listener {
 					ArrayList<String> list = new ArrayList<String>();
 					list.add(subChannel);
 					list.addAll(ArrayUtils.getInstance().convert(messageData));
-					redisHandler.sendMessage("VotingPlugin", ArrayUtils.getInstance().convert(list));
+					redisHandler.sendMessage(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
+							ArrayUtils.getInstance().convert(list));
 				}
 			}
 		};
@@ -626,8 +627,9 @@ public class BungeeHandler implements Listener {
 				@Override
 				public void run() {
 					if (plugin.isEnabled()) {
-						redisHandler.loadListener(new RedisListener(redisHandler,
-								"VotingPlugin_" + plugin.getBungeeSettings().getServer()));
+						redisHandler.loadListener(
+								new RedisListener(redisHandler, plugin.getBungeeSettings().getRedisPrefix()
+										+ "VotingPlugin_" + plugin.getBungeeSettings().getServer()));
 					}
 				}
 			});

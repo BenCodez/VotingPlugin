@@ -23,6 +23,8 @@ Redis:
   Port: 6379
   Username: ''
   Password: ''
+  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  Prefix: ''
 
 # Enables more debug messages for communication between servers
 # Use /votingpluginbungee status for testing communication

@@ -33,6 +33,10 @@ public class Config {
 		return getData().getString("Redis.Username", "");
 	}
 
+	public String getRedisPrefix() {
+		return getData().getString("Redis.Prefix", "");
+	}
+
 	public String getRedisPassword() {
 		return getData().getString("Redis.Password", "");
 	}

@@ -64,6 +64,10 @@ public class Config extends VelocityYMLFile {
 	public String getRedisUsername() {
 		return getString(getNode("Redis", "Username"), "");
 	}
+	
+	public String getRedisPrefix() {
+		return getString(getNode("Redis", "Prefix"), "");
+	}
 
 	public String getRedisPassword() {
 		return getString(getNode("Redis", "Password"), "");

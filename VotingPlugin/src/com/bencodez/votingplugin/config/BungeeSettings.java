@@ -39,6 +39,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String RedisUsername = "";
 
+	@ConfigDataString(path = "Redis.Prefix")
+	@Getter
+	private String RedisPrefix = "";
+
 	@ConfigDataString(path = "Redis.Password")
 	@Getter
 	private String RedisPassword = "";
