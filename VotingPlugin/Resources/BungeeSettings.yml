@@ -14,16 +14,17 @@ UseBungeecord: false
 # SOCKETS
 # PLUGINMESSAGING (Recommended)
 # MYSQL
-# REDIS
+# REDIS (2nd Most Recommended)
 BungeeMethod: PLUGINMESSAGING
 
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
 Redis:
   Host: localhost
   Port: 6379
-  Username: ''
+# To get the user name, run redis-cli, if you set a password, run "auth <your password>" and if the out put is "OK" run "ACL USERS"
+  Username: 'default'
   Password: ''
-  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  # Set a prefix from an entire proxy network if using multi-proxy setup below
   Prefix: ''
 
 # Enables more debug messages for communication between servers
