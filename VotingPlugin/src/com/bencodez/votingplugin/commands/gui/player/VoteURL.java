@@ -114,6 +114,7 @@ public class VoteURL extends GUIHandler {
 
 	private ItemBuilder getItemVoteSite(VoteSite voteSite) {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteURLAlreadyVotedItemSection());
+		builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
 
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
@@ -201,11 +202,12 @@ public class VoteURL extends GUIHandler {
 						Player player = event.getPlayer();
 						if (player != null) {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-							user.sendMessage(StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
-									.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
-											plugin.getGui().getChestVoteURLURLText(), "voteurl", voteSite.getVoteURL()),
-											"sitename", voteSite.getDisplayName()),
-									"player", player.getName()));
+							HashMap<String, String> placeholders = new HashMap<String, String>();
+							placeholders.put("voteurl", voteSite.getVoteURL());
+							placeholders.put("sitename", voteSite.getDisplayName());
+							placeholders.put("player", player.getName());
+							placeholders.put("servicesite", voteSite.getServiceSite());
+							user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
 
 						}
 
