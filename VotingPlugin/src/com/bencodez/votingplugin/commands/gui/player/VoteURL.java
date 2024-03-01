@@ -114,10 +114,10 @@ public class VoteURL extends GUIHandler {
 
 	private ItemBuilder getItemVoteSite(VoteSite voteSite) {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteURLAlreadyVotedItemSection());
-		builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
 
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
+			builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
 			builder.setName(
 					plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
 		} else {
@@ -125,6 +125,7 @@ public class VoteURL extends GUIHandler {
 			builder.addLoreLine(
 					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
+		builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
 
 		return builder;
 	}
