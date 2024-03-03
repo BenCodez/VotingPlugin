@@ -94,7 +94,11 @@ public abstract class MultiProxyHandler {
 								logInfo("Multi-proxy status message received");
 							} else if (data[0].equalsIgnoreCase("ClearVote")) {
 								clearVote(data[2]);
-								// cachedOnlineVotes.remove(data[2]);
+								if (getPrimaryServer()) {
+									sendMultiProxyServerMessage("ClearVotePrimary", data[1], data[2]);
+								}
+							} else if (data[0].equalsIgnoreCase("ClearVotePrimary")) {
+								clearVote(data[2]);
 							} else if (data[0].equalsIgnoreCase("login")) {
 								addNonVotedPlayerCache(data[1], data[2]);
 								// nonVotedPlayersCache.addPlayer(data[1], data[2]);
@@ -134,7 +138,11 @@ public abstract class MultiProxyHandler {
 									logInfo("Multi-proxy status message received");
 								} else if (data[0].equalsIgnoreCase("ClearVote")) {
 									clearVote(data[2]);
-									// cachedOnlineVotes.remove(data[2]);
+									if (getPrimaryServer()) {
+										sendMultiProxyServerMessage("ClearVotePrimary", data[1], data[2]);
+									}
+								} else if (data[0].equalsIgnoreCase("ClearVotePrimary")) {
+									clearVote(data[2]);
 								} else if (data[0].equalsIgnoreCase("login")) {
 									addNonVotedPlayerCache(data[1], data[2]);
 									// nonVotedPlayersCache.addPlayer(data[1], data[2]);
