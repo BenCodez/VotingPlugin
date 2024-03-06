@@ -117,7 +117,6 @@ public class VoteURL extends GUIHandler {
 
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
-			builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
 			builder.setName(
 					plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
 		} else {
@@ -126,6 +125,8 @@ public class VoteURL extends GUIHandler {
 					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
 		builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
+		builder.addPlaceholder("VoteDelay", "" + voteSite.getVoteDelay());
+		builder.addPlaceholder("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 
 		return builder;
 	}
@@ -208,6 +209,8 @@ public class VoteURL extends GUIHandler {
 							placeholders.put("sitename", voteSite.getDisplayName());
 							placeholders.put("player", player.getName());
 							placeholders.put("servicesite", voteSite.getServiceSite());
+							placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
+							placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 							user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
 
 						}
