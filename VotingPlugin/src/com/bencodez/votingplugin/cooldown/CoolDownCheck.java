@@ -53,11 +53,19 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void check(UUID uuid) {
-		check(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+		if (!user.isOnline()) {
+			user.dontCache();
+		}
+		check(user);
 	}
 
 	public void checkPerSite(UUID uuid) {
-		checkPerSite(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+		if (!user.isOnline()) {
+			user.dontCache();
+		}
+		checkPerSite(user);
 	}
 
 	public void vote(VotingPluginUser user, VoteSite site) {
@@ -147,19 +155,19 @@ public class CoolDownCheck implements Listener {
 						check(uuid);
 					}
 				}
-			}, time+2, TimeUnit.SECONDS);
+			}, time + 2, TimeUnit.SECONDS);
 			allSiteTasks.put(uuid, scheduledFuture);
 		}
 
 	}
 
 	public void load() {
-
 		plugin.addUserStartup(new UserStartup() {
 
 			@Override
 			public void onStartUp(AdvancedCoreUser advancedcoreUser) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
+				user.dontCache();
 				if (cooldownCheckEnabled) {
 					check(user);
 				}
