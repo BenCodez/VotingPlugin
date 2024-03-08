@@ -505,6 +505,14 @@ public class PlaceHolders {
 			}
 		}.withDescription("How long until user can vote on anysite").updateDataKey("LastVotes"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("SitesAvailable") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				return "" + user.getSitesNotVotedOn();
+			}
+		}.withDescription("Get number of sites available to be voted on").updateDataKey("LastVotes"));
+
 		for (final VoteSite voteSite : plugin.getVoteSites()) {
 			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
 
