@@ -48,7 +48,7 @@ public class ConfigVoteSites extends YMLFile {
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, 24);
-			set(siteName, "DisplayItem.Material", "GRASS");
+			set(siteName, "DisplayItem.Material", "STONE");
 			set(siteName, "DisplayItem.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
 
