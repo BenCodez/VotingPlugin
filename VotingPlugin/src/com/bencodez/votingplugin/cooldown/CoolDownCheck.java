@@ -70,12 +70,12 @@ public class CoolDownCheck implements Listener {
 
 	public void vote(VotingPluginUser user, VoteSite site) {
 		if (cooldownCheckEnabled) {
-			schedule(user);
+			schedule(user, true);
 		}
 
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			user.setCoolDownCheckSite(site, Boolean.FALSE);
-			schedulePerSite(user);
+			schedulePerSite(user, true);
 		}
 	}
 
@@ -87,7 +87,7 @@ public class CoolDownCheck implements Listener {
 			plugin.getServer().getPluginManager().callEvent(event);
 			allSiteTasks.remove(user.getJavaUUID());
 		} else if (!coolDownCheck) {
-			schedule(user);
+			schedule(user, false);
 		}
 	}
 
@@ -109,14 +109,14 @@ public class CoolDownCheck implements Listener {
 			if (changed) {
 				user.setCoolDownCheckSite(coolDownChecks);
 			}
-		}
 
-		schedulePerSite(user);
+			schedulePerSite(user, false);
+		}
 
 	}
 
-	public void schedulePerSite(VotingPluginUser user) {
-		if (user.canVoteAny()) {
+	public void schedulePerSite(VotingPluginUser user, boolean force) {
+		if (user.getSitesVotedOn() > 0 || force) {
 			final UUID uuid = UUID.fromString(user.getUUID());
 			long time = user.getNextTimeFirstSiteAvailable();
 			if (perSiteTasks.containsKey(uuid)) {
@@ -139,8 +139,8 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
-	public void schedule(VotingPluginUser user) {
-		if (user.canVoteAny()) {
+	public void schedule(VotingPluginUser user, boolean force) {
+		if (user.getSitesVotedOn() > 0 || force) {
 			final UUID uuid = UUID.fromString(user.getUUID());
 			long time = user.getNextTimeAllSitesAvailable();
 			if (allSiteTasks.containsKey(uuid)) {
