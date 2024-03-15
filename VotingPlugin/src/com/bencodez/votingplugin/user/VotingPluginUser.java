@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -281,18 +282,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 						.withMinute(0).withSecond(0);
 				LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
-				if (lastVote.isBefore(resetTimeTomorrow)) {
-					if (lastVote.isBefore(resetTime)) {
-						if (now.isAfter(resetTime)) {
-							return true;
-						} else {
-							return false;
-						}
+				if (ChronoUnit.HOURS.between(lastVote, resetTime) > voteSite.getVoteDelay()) {
+					if (now.isAfter(resetTime)) {
+						return true;
 					}
+				} else {
 					if (now.isAfter(resetTimeTomorrow)) {
 						return true;
 					}
 				}
+
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
