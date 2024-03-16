@@ -133,6 +133,7 @@ public class VoteSite {
 						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 				placeholders.put("sitename", getDisplayName());
 				placeholders.put("servicesite", getServiceSite());
+				placeholders.put("votesrequired", "" + plugin.getVoteParty().getVotesRequired());
 				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
