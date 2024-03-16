@@ -278,8 +278,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 				return now.isAfter(nextvote);
 			} else {
-				LocalDateTime resetTime = plugin.getTimeChecker().getTime().withHour(voteSite.getVoteDelayDailyHour())
-						.withMinute(0).withSecond(0);
+				LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0)
+						.withSecond(0);
 				LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
 				if (ChronoUnit.HOURS.between(lastVote, resetTime) > 24) {
