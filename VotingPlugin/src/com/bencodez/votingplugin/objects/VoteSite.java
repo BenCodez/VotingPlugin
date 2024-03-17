@@ -134,6 +134,7 @@ public class VoteSite {
 				placeholders.put("sitename", getDisplayName());
 				placeholders.put("servicesite", getServiceSite());
 				placeholders.put("votesrequired", "" + plugin.getVoteParty().getVotesRequired());
+				placeholders.put("neededvotes", "" + plugin.getVoteParty().getNeededVotes());
 				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
 				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
