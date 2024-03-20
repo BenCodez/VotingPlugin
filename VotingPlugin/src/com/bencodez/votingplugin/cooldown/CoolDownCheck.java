@@ -81,13 +81,15 @@ public class CoolDownCheck implements Listener {
 
 	public synchronized void check(VotingPluginUser user) {
 		boolean coolDownCheck = user.getCoolDownCheck();
-		if (user.canVoteAll() && coolDownCheck) {
-			user.setCoolDownCheck(false);
-			PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
-			plugin.getServer().getPluginManager().callEvent(event);
-			allSiteTasks.remove(user.getJavaUUID());
-		} else if (!coolDownCheck) {
-			schedule(user, false);
+		if (coolDownCheck) {
+			if (user.canVoteAll()) {
+				user.setCoolDownCheck(false);
+				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
+				plugin.getServer().getPluginManager().callEvent(event);
+				allSiteTasks.remove(user.getJavaUUID());
+			} else {
+				schedulePerSite(user, false);
+			}
 		}
 	}
 
@@ -133,8 +135,10 @@ public class CoolDownCheck implements Listener {
 							checkPerSite(uuid);
 						}
 					}
-				}, time + 2, TimeUnit.SECONDS);
+				}, time / +2, TimeUnit.SECONDS);
 				perSiteTasks.put(uuid, scheduledFuture);
+			} else {
+				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
 			}
 		}
 	}
@@ -159,6 +163,8 @@ public class CoolDownCheck implements Listener {
 					}
 				}, time + 2, TimeUnit.SECONDS);
 				allSiteTasks.put(uuid, scheduledFuture);
+			} else {
+				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
 			}
 		}
 
