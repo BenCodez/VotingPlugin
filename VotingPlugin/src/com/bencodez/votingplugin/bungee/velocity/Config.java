@@ -64,7 +64,7 @@ public class Config extends VelocityYMLFile {
 	public String getRedisUsername() {
 		return getString(getNode("Redis", "Username"), "");
 	}
-	
+
 	public String getRedisPrefix() {
 		return getString(getNode("Redis", "Prefix"), "");
 	}
@@ -198,23 +198,23 @@ public class Config extends VelocityYMLFile {
 	}
 
 	public boolean getMultiProxyRedisUseExistingConnection() {
-		return getBoolean(getNode("MultiProxyRedis.UseExistingConnection"), false);
+		return getBoolean(getNode("MultiProxyRedis", "UseExistingConnection"), false);
 	}
 
 	public String getMultiProxyRedisHost() {
-		return getString(getNode("MultiProxyRedis.Host"), "");
+		return getString(getNode("MultiProxyRedis", "Host"), "");
 	}
 
 	public int getMultiProxyRedisPort() {
-		return getInt(getNode("MultiProxyRedis.Port"), 6379);
+		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
 	}
 
 	public String getMultiProxyRedisUsername() {
-		return getString(getNode("MultiProxyRedis.Username"), "");
+		return getString(getNode("MultiProxyRedis", "Username"), "");
 	}
 
 	public String getMultiProxyRedisPassword() {
-		return getString(getNode("MultiProxyRedis.Password"), "");
+		return getString(getNode("MultiProxyRedis", "Password"), "");
 	}
 
 }
