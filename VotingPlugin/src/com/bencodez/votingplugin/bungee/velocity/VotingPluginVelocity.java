@@ -1378,14 +1378,14 @@ public class VotingPluginVelocity {
 	public void status() {
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendServerMessage("status");
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
 			for (RegisteredServer s : getAvailableAllServers()) {
 				if (s.getPlayersConnected().size() == 0) {
 					getLogger().info("No players on server " + s + " to send test status message");
 				} else {
 					// send
 					getLogger().info("Sending request for status message on " + s);
-					sendPluginMessageServer(s, "Status", s.getServerInfo().getName());
+					sendMessageServer(s, "Status", s.getServerInfo().getName());
 				}
 
 			}

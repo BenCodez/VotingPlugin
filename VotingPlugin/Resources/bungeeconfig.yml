@@ -156,13 +156,14 @@ OnlineMode: true
 
 # Applies to PLUGINMESSAGING only
 # Votes will be forwarded when specific player is online
+# If set to false, rewards should still reward when player logs in (by default)
 WaitForUserOnline: false
 
 
 ##########################################
 # Multi-proxy setup
 # This is still a WIP, use with caution
-# Primary server  needs votifier and config option enabled
+# Primary server needs votifier and config option enabled
 # Set socket host on each proxy and primary server set sub proxies
 # All servers should be on pluginmessaging or sockets setup
 ##########################################
