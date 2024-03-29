@@ -77,7 +77,14 @@ public class VotiferEvent implements Listener {
 								"Ignoring vote from votifier since pluginmessaging or socket bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
 						return;
 					}
-					String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite);
+					String matchSite = "";
+					if (plugin.getConfigFile().isAdvancedServiceSiteHandling()) {
+						if (plugin.getServiceSiteHandler() != null) {
+							matchSite = plugin.getServiceSiteHandler().match(voteSite);
+						}
+					}
+
+					String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite, matchSite);
 
 					ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
 					boolean createSite = false;
@@ -88,6 +95,8 @@ public class VotiferEvent implements Listener {
 					} else {
 						createSite = true;
 					}
+
+					String serviceSite = voteSite;
 
 					if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
 						plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
@@ -107,7 +116,7 @@ public class VotiferEvent implements Listener {
 						return;
 					}
 
-					String voteSiteName = plugin.getVoteSiteName(true, voteSite);
+					String voteSiteName = plugin.getVoteSiteName(true, serviceSite, matchSite);
 
 					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true),
 							voteUsername, voteSite, true);

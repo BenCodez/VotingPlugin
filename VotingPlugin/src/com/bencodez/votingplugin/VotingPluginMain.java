@@ -82,6 +82,7 @@ import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
+import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.test.VoteTester;
@@ -354,26 +355,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
 		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
+
 		for (String url : urls) {
 			if (url == null) {
 				return null;
 			}
-			if (sites != null) {
-				for (String siteName : sites) {
-					String URL = getConfigVoteSites().getServiceSite(siteName);
-					if (URL != null) {
-						if (URL.equalsIgnoreCase(url)) {
+			if (!url.isEmpty()) {
+				if (sites != null) {
+					for (String siteName : sites) {
+						String URL = getConfigVoteSites().getServiceSite(siteName);
+						if (URL != null) {
+							if (URL.equalsIgnoreCase(url)) {
+								return siteName;
+							}
+						}
+						if (siteName.equalsIgnoreCase(url)) {
 							return siteName;
 						}
-					}
-					if (siteName.equalsIgnoreCase(url)) {
-						return siteName;
-					}
 
+					}
 				}
 			}
-			return url;
 		}
+
 		for (String url : urls) {
 			return url;
 		}
@@ -1241,9 +1245,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							"Detected an issue with voting sites, check the server startup log for more details: https://github.com/BenCodez/VotingPlugin/wiki/Votifier-Troubleshooting");
 				}
 			}, 5);
+
+			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+				@Override
+				public void run() {
+					serviceSiteHandler = new ServiceSiteHandler(plugin);
+				}
+			}, 10);
 		}
 
 	}
+
+	@Getter
+	private ServiceSiteHandler serviceSiteHandler;
 
 	/*
 	 * (non-Javadoc)

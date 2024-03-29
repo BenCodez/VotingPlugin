@@ -517,6 +517,12 @@ QueueVotesDuringTimeChange: false
 # Most cases this will work all the time
 AutoCreateVoteSites: true
 
+# Experiemtental feature
+# Uses https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists
+# Not all voting sites use the domain name as the service sites
+# This feature is an attempt to ease setup for new users by matching domain name to actual service site
+AdvancedServiceSiteHandling: false
+
 # Set this to false to disable the plugin adding totals
 # Not really recommended
 AddTotals: true

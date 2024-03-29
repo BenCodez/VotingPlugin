@@ -47,6 +47,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean queueVotesDuringTimeChange = false;
 
+	@ConfigDataBoolean(path = "AdvancedServiceSiteHandling")
+	@Getter
+	private boolean advancedServiceSiteHandling = false;
+
 	@ConfigDataBoolean(path = "AllowUnjoined")
 	@Getter
 	private boolean allowUnjoined = false;
