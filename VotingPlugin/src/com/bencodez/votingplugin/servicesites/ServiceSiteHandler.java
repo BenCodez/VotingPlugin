@@ -29,7 +29,7 @@ public class ServiceSiteHandler {
 	public ServiceSiteHandler(VotingPluginMain plugin) {
 		loadFromGithub();
 		for (Entry<String, String> entry : serviceSites.entrySet()) {
-			plugin.getLogger().info(entry.getKey() + " - " + entry.getValue());
+			plugin.extraDebug(entry.getKey() + " - " + entry.getValue());
 		}
 	}
 
