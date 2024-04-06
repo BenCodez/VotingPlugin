@@ -124,7 +124,7 @@ public class VoteURL extends GUIHandler {
 			builder.addLoreLine(
 					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
 		}
-		builder.addPlaceholder("SericeSite", voteSite.getServiceSite());
+		builder.addPlaceholder("ServiceSite", voteSite.getServiceSite());
 		builder.addPlaceholder("VoteDelay", "" + voteSite.getVoteDelay());
 		builder.addPlaceholder("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 
