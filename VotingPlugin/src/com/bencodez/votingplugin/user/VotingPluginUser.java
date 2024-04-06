@@ -1098,8 +1098,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			if (plugin.getConfigFile().isLimitMonthlyVotes()) {
 				LocalDateTime time = plugin.getTimeChecker().getTime();
 				int days = time.getDayOfMonth();
-				if (value >= days * plugin.getVoteSites().size()) {
-					value = days * plugin.getVoteSites().size();
+				if (value >= days * plugin.getVoteSitesEnabled().size()) {
+					value = days * plugin.getVoteSitesEnabled().size();
 				}
 			}
 			getData().setInt("MonthTotal", value);
