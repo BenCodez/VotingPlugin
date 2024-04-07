@@ -117,16 +117,16 @@ public class VoteURL extends GUIHandler {
 
 		if (user.canVoteSite(voteSite)) {
 			builder = new ItemBuilder(plugin.getGui().getChestVoteURLCanVoteItemSection());
-			builder.setName(
-					plugin.getGui().getChestVoteURLGUISiteNameCanVote().replace("%Name%", voteSite.getDisplayName()));
+			builder.setName(plugin.getGui().getChestVoteURLGUISiteNameCanVote());
 		} else {
-			builder.setName(plugin.getGui().getChestVoteURLGUISiteName().replace("%Name%", voteSite.getDisplayName()));
-			builder.addLoreLine(
-					plugin.getGui().getChestVoteURLNextVote().replace("%Info%", user.voteCommandNextInfo(voteSite)));
+			builder.setName(plugin.getGui().getChestVoteURLGUISiteName());
+			builder.addLoreLine(plugin.getGui().getChestVoteURLNextVote());
 		}
 		builder.addPlaceholder("ServiceSite", voteSite.getServiceSite());
+		builder.addPlaceholder("Name", voteSite.getDisplayName());
 		builder.addPlaceholder("VoteDelay", "" + voteSite.getVoteDelay());
 		builder.addPlaceholder("VoteHour", "" + voteSite.getVoteDelayDailyHour());
+		builder.addPlaceholder("Info", user.voteCommandNextInfo(voteSite));
 
 		return builder;
 	}
