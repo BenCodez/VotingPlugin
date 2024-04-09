@@ -1323,7 +1323,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					Duration dur = Duration.between(now, resetTime);
 					return dur.getSeconds();
 				}
-			} else if (lastVote.isBefore(resetTimeTomorrow)) {
+			} else {
 				if (now.isBefore(resetTimeTomorrow)) {
 					Duration dur = Duration.between(now, resetTimeTomorrow);
 					return dur.getSeconds();

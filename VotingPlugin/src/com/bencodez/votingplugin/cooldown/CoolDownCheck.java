@@ -135,7 +135,7 @@ public class CoolDownCheck implements Listener {
 							checkPerSite(uuid);
 						}
 					}
-				}, time / +2, TimeUnit.SECONDS);
+				}, time + 2, TimeUnit.SECONDS);
 				perSiteTasks.put(uuid, scheduledFuture);
 			} else {
 				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
