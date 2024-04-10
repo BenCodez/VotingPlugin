@@ -518,6 +518,40 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "CorrectServiceSites" },
+						"VotingPlugin.Commands.AdminVote.CorrectServiceSites|" + adminPerm,
+						"Attempt to correct invalid services sites") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						int invalid = 0;
+						int fixed = 0;
+						for (VoteSite site : plugin.getVoteSitesEnabled()) {
+							if (!site.isVaidServiceSite()) {
+								invalid++;
+								if (plugin.getServiceSiteHandler().contains(site.getServiceSite())) {
+									fixed++;
+									plugin.getConfigVoteSites().setServiceSite(site.getKey(),
+											plugin.getServiceSiteHandler().match(site.getServiceSite()));
+									sendMessage(sender,
+											"&aChanging '" + site.getServiceSite() + "' to '"
+													+ plugin.getServiceSiteHandler().match(site.getServiceSite())
+													+ "' on site '" + site.getKey() + "'");
+								} else {
+									sendMessage(sender, "&cCouldn't find an valid service site for '"
+											+ site.getServiceSite() + "' on site '" + site.getKey() + "'");
+								}
+							}
+						}
+						if (fixed > 0) {
+							plugin.reload();
+						}
+						sendMessage(sender,
+								"&aDetected " + invalid + " service sites possibly invalid, fixed " + fixed);
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?", "(number)" },
 				"VotingPlugin.Commands.AdminVote.Help|" + adminPerm, "See this page") {
 

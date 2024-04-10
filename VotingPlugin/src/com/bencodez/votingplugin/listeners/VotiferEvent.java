@@ -80,7 +80,7 @@ public class VotiferEvent implements Listener {
 					String matchSite = "";
 					if (plugin.getConfigFile().isAdvancedServiceSiteHandling()) {
 						if (plugin.getServiceSiteHandler() != null) {
-							matchSite = plugin.getServiceSiteHandler().match(voteSite);
+							matchSite = plugin.getServiceSiteHandler().matchReverse(voteSite);
 						}
 					}
 

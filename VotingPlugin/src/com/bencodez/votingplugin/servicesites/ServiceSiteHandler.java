@@ -19,6 +19,15 @@ public class ServiceSiteHandler {
 
 	public String match(String service) {
 		for (Entry<String, String> entry : serviceSites.entrySet()) {
+			if (entry.getKey().equalsIgnoreCase(service)) {
+				return entry.getValue();
+			}
+		}
+		return service;
+	}
+
+	public String matchReverse(String service) {
+		for (Entry<String, String> entry : serviceSites.entrySet()) {
 			if (entry.getValue().equalsIgnoreCase(service)) {
 				return entry.getKey();
 			}
@@ -70,5 +79,14 @@ public class ServiceSiteHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public boolean contains(String service) {
+		for (Entry<String, String> entry : serviceSites.entrySet()) {
+			if (entry.getKey().equalsIgnoreCase(service)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
