@@ -487,7 +487,7 @@ public class PlaceHolders {
 				}
 				long smallest = -1;
 				HashMap<Long, VoteSite> times = new HashMap<Long, VoteSite>();
-				for (VoteSite site : plugin.getVoteSites()) {
+				for (VoteSite site : plugin.getVoteSitesEnabled()) {
 					long t = user.voteNextDurationTime(site);
 					if (smallest == -1) {
 						smallest = t;
@@ -515,7 +515,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get number of sites available to be voted on").updateDataKey("LastVotes"));
 
-		for (final VoteSite voteSite : plugin.getVoteSites()) {
+		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
 
 				@Override
@@ -979,8 +979,8 @@ public class PlaceHolders {
 				Duration dur = Duration.between(now, newWeek);
 
 				int diffDays = (int) (dur.getSeconds() / (60 * 60 * 24));
-				int diffHours = (int) (dur.getSeconds() / (60 * 60)-diffDays*24);
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60 - diffDays*24*60;
+				int diffHours = (int) (dur.getSeconds() / (60 * 60) - diffDays * 24);
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60 - diffDays * 24 * 60;
 
 				if (diffHours < 0) {
 					diffHours = diffHours * -1;
@@ -1000,22 +1000,21 @@ public class PlaceHolders {
 
 			}
 		}.withDescription("Time until plugin time week changes"));
-		
+
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("TimeUntilMonthReset") {
 
 			@Override
 			public String placeholderRequest(String identifier) {
 				LocalDateTime now = plugin.getTimeChecker().getTime();
-				LocalDateTime newMonth = plugin.getTimeChecker().getTime().plusMonths(1).withDayOfMonth(1).withHour(0).withMinute(0);
-
-				
+				LocalDateTime newMonth = plugin.getTimeChecker().getTime().plusMonths(1).withDayOfMonth(1).withHour(0)
+						.withMinute(0);
 
 				String timeMsg = "%days% Days %hours% Hours %minutes% Minutes";
 				Duration dur = Duration.between(now, newMonth);
 
 				int diffDays = (int) (dur.getSeconds() / (60 * 60 * 24));
-				int diffHours = (int) (dur.getSeconds() / (60 * 60)-diffDays*24);
-				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60 - diffDays*24*60;
+				int diffHours = (int) (dur.getSeconds() / (60 * 60) - diffDays * 24);
+				long diffMinutes = dur.getSeconds() / 60 - diffHours * 60 - diffDays * 24 * 60;
 
 				if (diffHours < 0) {
 					diffHours = diffHours * -1;

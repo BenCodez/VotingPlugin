@@ -59,7 +59,7 @@ public class VoteURL extends GUIHandler {
 		}
 		if (plugin.getConfigFile().isFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
-			for (VoteSite voteSite : plugin.getVoteSites()) {
+			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
 					counter++;
 					String voteURL = voteSite.getVoteURL(json);
@@ -140,7 +140,7 @@ public class VoteURL extends GUIHandler {
 			book.addLayout(layout);
 		}
 		int i = 1;
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
 					site.getDisplayName());
 			String text = plugin.getGui().getBookVoteURLBookGUIAlreadyVotedText();
@@ -189,7 +189,7 @@ public class VoteURL extends GUIHandler {
 		}
 
 		int startSlot = plugin.getGui().getChestVoteURLAllUrlsButtonStartSlot();
-		for (final VoteSite voteSite : plugin.getVoteSites()) {
+		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				ItemBuilder builder = getItemVoteSite(voteSite);
 				if (startSlot >= 0) {

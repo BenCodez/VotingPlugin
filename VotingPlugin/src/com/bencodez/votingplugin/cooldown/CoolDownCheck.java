@@ -97,7 +97,7 @@ public class CoolDownCheck implements Listener {
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
 			boolean changed = false;
-			for (VoteSite site : plugin.getVoteSites()) {
+			for (VoteSite site : plugin.getVoteSitesEnabled()) {
 				if (!coolDownChecks.containsKey(site.getKey()) || !coolDownChecks.get(site.getKey()).booleanValue()) {
 					if (user.canVoteSite(site)) {
 						coolDownChecks.put(site.getKey(), Boolean.TRUE);

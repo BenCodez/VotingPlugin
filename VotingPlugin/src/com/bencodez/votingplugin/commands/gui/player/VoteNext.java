@@ -43,7 +43,7 @@ public class VoteNext extends GUIHandler {
 		msg.add(StringParser.getInstance().colorize(StringParser.getInstance()
 				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
 
@@ -63,7 +63,7 @@ public class VoteNext extends GUIHandler {
 		BookWrapper book = new BookWrapper(plugin.getGui().getBookVoteURLBookGUITitle());
 
 		// add colors/config options
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
 				nextLayout.replaceTextComponent("[Json]",
@@ -87,7 +87,7 @@ public class VoteNext extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteNextName());
 		inv.addPlaceholder("player", user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
 				if (siteNameDisplay.isEmpty()) {

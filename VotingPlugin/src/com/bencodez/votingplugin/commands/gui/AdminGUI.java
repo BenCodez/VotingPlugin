@@ -242,7 +242,9 @@ public class AdminGUI {
 		int count = 0;
 		for (VoteSite voteSite : plugin.getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<String>();
+			lore.add("Enabled: " + voteSite.isEnabled());
 			lore.add("Priority: " + voteSite.getPriority());
+
 			lore.add("Name: " + voteSite.getDisplayName());
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());

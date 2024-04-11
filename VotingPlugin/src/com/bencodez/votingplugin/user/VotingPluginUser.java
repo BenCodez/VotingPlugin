@@ -225,7 +225,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if successful
 	 */
 	public boolean canVoteAll() {
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				boolean canVote = canVoteSite(voteSite);
 				if (!canVote) {
@@ -237,7 +237,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public boolean canVoteAny() {
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isIgnoreCanVote() && !voteSite.isHidden()) {
 				boolean canVote = canVoteSite(voteSite);
 				if (canVote) {
@@ -318,7 +318,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<Integer> months = new ArrayList<Integer>();
 		ArrayList<Integer> days = new ArrayList<Integer>();
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (voteSite.isEnabled() && !voteSite.isHidden()) {
 				long time = user.getTime(voteSite);
 				if (time != 0) {
@@ -518,7 +518,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
 
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			times.put(voteSite, getTime(voteSite));
 		}
 		LinkedHashMap<VoteSite, Long> sorted = new LinkedHashMap<>(
@@ -571,7 +571,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getSitesVotedOn() {
 		int amount = 0;
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!canVoteSite(site)) {
 				amount++;
 			}
@@ -1340,7 +1340,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getSitesNotVotedOn() {
 		int amount = 0;
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				if (canVoteSite(site)) {
 					amount++;
@@ -1356,7 +1356,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public long getNextTimeAllSitesAvailable() {
 		long longest = 0;
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			long seconds = voteNextDurationTime(site);
 			if (seconds > longest) {
 				longest = seconds;
@@ -1368,7 +1368,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public long getNextTimeFirstSiteAvailable() {
 		long shortest = 0;
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!canVoteSite(site)) {
 				long seconds = voteNextDurationTime(site);
 				if (shortest == 0 || seconds < shortest) {

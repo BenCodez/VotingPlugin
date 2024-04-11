@@ -124,7 +124,7 @@ public class VoteTester {
 						.info("Time to process votes (" + amount + "): " + time + " ms, average per vote "
 								+ timePerVoteAvg + " ms. " + VotingPluginMain.plugin.getStorageType() + ", "
 								+ plugin.getVotingPluginUserManager().getAllUUIDs().size() + " users. "
-								+ VotingPluginMain.plugin.getVoteSites().size() + " votesites");
+								+ plugin.getVoteSitesEnabled().size() + " votesites");
 			}
 
 		});

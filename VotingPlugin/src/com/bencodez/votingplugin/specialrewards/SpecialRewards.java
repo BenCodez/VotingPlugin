@@ -51,7 +51,7 @@ public class SpecialRewards {
 
 	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
 		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
-			int numberOfSites = plugin.getVoteSites().size();
+			int numberOfSites = plugin.getVoteSitesEnabled().size();
 			if (numberOfVotes >= numberOfSites * 2) {
 				if (num > numberOfSites) {
 					if (num % numberOfSites == 0) {

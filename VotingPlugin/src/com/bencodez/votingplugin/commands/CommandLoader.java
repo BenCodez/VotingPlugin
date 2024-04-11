@@ -1058,7 +1058,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
-				for (VoteSite site : plugin.getVoteSites()) {
+				for (VoteSite site : plugin.getVoteSitesEnabled()) {
 					plugin.getVoteTimer().submit(new Runnable() {
 
 						@Override
@@ -1171,7 +1171,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cTriggering vote for all voting sites...");
-						for (VoteSite site : plugin.getVoteSites()) {
+						for (VoteSite site : plugin.getVoteSitesEnabled()) {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
 									false);
 							if (voteEvent.getVoteSite() != null) {
@@ -1307,7 +1307,7 @@ public class CommandLoader {
 
 							@Override
 							public void run() {
-								for (VoteSite site : plugin.getVoteSites()) {
+								for (VoteSite site : plugin.getVoteSitesEnabled()) {
 									if (site.isVoteDelayDaily()) {
 										plugin.getCoolDownCheck().checkAllVoteSite(site);
 									}
@@ -1945,7 +1945,7 @@ public class CommandLoader {
 							public void onClick(ClickEvent clickEvent) {
 								Player player = clickEvent.getPlayer();
 								ArrayList<String> voteSites = new ArrayList<String>();
-								for (VoteSite voteSite : plugin.getVoteSites()) {
+								for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 									voteSites.add(voteSite.getKey());
 								}
 								new ValueRequest().requestString(player, "",
@@ -2038,7 +2038,7 @@ public class CommandLoader {
 	 */
 	public void loadTabComplete() {
 		ArrayList<String> sites = new ArrayList<String>();
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			sites.add(site.getKey());
 		}
 
@@ -2047,7 +2047,7 @@ public class CommandLoader {
 			@Override
 			public void reload() {
 				ArrayList<String> sites = new ArrayList<String>();
-				for (VoteSite site : plugin.getVoteSites()) {
+				for (VoteSite site : plugin.getVoteSitesEnabled()) {
 					sites.add(site.getKey());
 				}
 				setReplace(sites);

@@ -91,7 +91,7 @@ public class PlayerVoteListener implements Listener {
 					services.add(site.getServiceSite());
 				}
 				plugin.getLogger()
-						.warning("Current known service sites: " + ArrayUtils.getInstance().makeStringList(services));
+						.warning("Currently set service sites: " + ArrayUtils.getInstance().makeStringList(services));
 			}
 			return;
 		}
@@ -116,8 +116,7 @@ public class PlayerVoteListener implements Listener {
 
 		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
 			if (!event.isRealVote()) {
-				plugin.getLogger()
-				.info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
+				plugin.getLogger().info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
 			} else {
 				if (user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
 					plugin.getLogger()
@@ -228,8 +227,8 @@ public class PlayerVoteListener implements Listener {
 			}
 			LocalDateTime cTime = plugin.getTimeChecker().getTime();
 			int days = cTime.getDayOfMonth();
-			if (value >= days * plugin.getVoteSites().size()) {
-				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSites().size());
+			if (value >= days * plugin.getVoteSitesEnabled().size()) {
+				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSitesEnabled().size());
 			}
 		}
 
