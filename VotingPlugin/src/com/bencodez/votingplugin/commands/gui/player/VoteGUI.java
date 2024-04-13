@@ -162,13 +162,19 @@ public class VoteGUI extends GUIHandler {
 					} else {
 						plugin.getCommandLoader().processSlotClick(player, user, slot);
 					}
+					String prefix = "";
+					if (event.getButton().getBuilder().isConditional()) {
+						prefix = "Item.";
+					}
 
-					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(), plugin.getGui()
-							.getChestVoteGUISlotRewardsPath(slot, event.getButton().getLastRewardsPath(player)))) {
-						plugin.getRewardHandler().giveReward(plugin.getVotingPluginUserManager().getVotingPluginUser(player),
+					if (plugin.getRewardHandler().hasRewards(plugin.getGui().getData(),
+							plugin.getGui().getChestVoteGUISlotRewardsPath(slot,
+									prefix + event.getButton().getLastRewardsPath(player)))) {
+						plugin.getRewardHandler().giveReward(
+								plugin.getVotingPluginUserManager().getVotingPluginUser(player),
 								plugin.getGui().getData(),
 								plugin.getGui().getChestVoteGUISlotRewardsPath(slot,
-										event.getButton().getLastRewardsPath(player)),
+										prefix + event.getButton().getLastRewardsPath(player)),
 								new RewardOptions().addPlaceholder("identifier", slot));
 					}
 				}

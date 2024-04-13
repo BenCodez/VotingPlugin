@@ -71,7 +71,7 @@ CHEST:
         Name: '&4Vote Shop'
         Lore:
         - '&aYou currently have %points% points'
-    # 'ExtraName' below is an identifier, can be whatever
+    # 'ExtraItem' below is an identifier, can be whatever
     # ExtraItem:
       # Item:
         # Material: 'DIRT'
