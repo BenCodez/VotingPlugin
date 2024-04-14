@@ -68,6 +68,7 @@ public class SpecialRewards {
 
 	public boolean checkAlmostAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAlmostAllVotes();
+		plugin.extraDebug("Checking almostallsites reward: " + checkAllVotes + "/" + user.getSitesNotVotedOn());
 		if (checkAllVotes) {
 			int currentDay = LocalDateTime.now().getDayOfYear();
 			int day = user.getGottenAlmostAllSitesDay();
