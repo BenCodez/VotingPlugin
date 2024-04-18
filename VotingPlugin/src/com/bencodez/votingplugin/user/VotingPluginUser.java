@@ -301,7 +301,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public boolean checkAlmostAllVotes() {
-		if (getSitesNotVotedOn() == 1) {
+		if (getSitesNotVotedOn() <= 1) {
 			return true;
 		}
 		return false;
