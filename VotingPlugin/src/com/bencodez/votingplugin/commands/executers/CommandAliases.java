@@ -91,9 +91,11 @@ public class CommandAliases implements CommandExecutor {
 
 		// invalid command
 		if (adminCommand) {
-			sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
+			sender.sendMessage(
+					StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 		} else {
-			sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
+			sender.sendMessage(
+					StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
 		}
 		return true;
 	}
