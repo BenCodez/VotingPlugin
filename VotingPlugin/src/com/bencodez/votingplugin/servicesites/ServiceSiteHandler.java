@@ -16,6 +16,7 @@ import lombok.Getter;
 public class ServiceSiteHandler {
 	@Getter
 	private HashMap<String, String> serviceSites = new HashMap<String, String>();
+	private VotingPluginMain plugin;
 
 	public String match(String service) {
 		for (Entry<String, String> entry : serviceSites.entrySet()) {
@@ -36,10 +37,12 @@ public class ServiceSiteHandler {
 	}
 
 	public ServiceSiteHandler(VotingPluginMain plugin) {
+		this.plugin = plugin;
 		loadFromGithub();
 		for (Entry<String, String> entry : serviceSites.entrySet()) {
 			plugin.extraDebug(entry.getKey() + " - " + entry.getValue());
 		}
+
 	}
 
 	public void readFromWeb(String webURL) throws IOException {
@@ -64,11 +67,13 @@ public class ServiceSiteHandler {
 				}
 			}
 		} catch (MalformedURLException e) {
-			e.printStackTrace();
-			throw new MalformedURLException("URL is malformed!!");
+			plugin.debug(e);
+			// e.printStackTrace();
+			// throw new MalformedURLException("URL is malformed!!");
 		} catch (IOException e) {
-			e.printStackTrace();
-			throw new IOException();
+			plugin.debug(e);
+			// e.printStackTrace();
+			// throw new IOException();
 		}
 
 	}
