@@ -593,6 +593,7 @@ public class VotingPluginVelocity {
 		if (mysql != null) {
 			mysql.shutDown();
 		}
+		timer.shutdownNow();
 		enabled = false;
 		logger.info("VotingPlugin disabled");
 	}

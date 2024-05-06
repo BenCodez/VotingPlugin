@@ -547,6 +547,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				num++;
 			}
 		}
+		
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
