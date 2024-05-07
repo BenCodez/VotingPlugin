@@ -12,7 +12,7 @@ import org.bukkit.block.data.Directional;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
-import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;

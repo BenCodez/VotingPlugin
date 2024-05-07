@@ -19,7 +19,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -122,22 +122,17 @@ public class VoteToday extends GUIHandler {
 			inv.addButton(
 					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
 
-						@Override
-						public void onClick(ClickEvent clickEvent) {
-							new RewardBuilder(plugin.getGui().getData(),
-									"CHEST." + guiPath + ".ExtraItems." + str + "."
-											+ clickEvent.getButton().getLastRewardsPath(player))
-									.setGiveOffline(false).send(clickEvent.getPlayer());
+	@Override
+	public void onClick(ClickEvent clickEvent) {
+		new RewardBuilder(plugin.getGui().getData(),
+				"CHEST." + guiPath + ".ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
+				.setGiveOffline(false).send(clickEvent.getPlayer());
 
-						}
-					});
-		}
-
-		if (plugin.getGui().isChestVoteTodayBackButton()) {
-			inv.addButton(plugin.getCommandLoader().getBackButton(user));
-		}
-		inv.openInventory(player);
 	}
+
+	});}
+
+	if(plugin.getGui().isChestVoteTodayBackButton()){inv.addButton(plugin.getCommandLoader().getBackButton(user));}inv.openInventory(player);}
 
 	@Override
 	public void open() {

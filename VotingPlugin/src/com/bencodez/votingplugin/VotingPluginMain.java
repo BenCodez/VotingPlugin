@@ -56,7 +56,7 @@ import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.yml.YMLConfig;
 import com.bencodez.advancedcore.logger.Logger;
-import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;

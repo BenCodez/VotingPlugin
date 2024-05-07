@@ -11,7 +11,7 @@ import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.nms.NMSManager;
+import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import net.md_5.bungee.api.ChatColor;
