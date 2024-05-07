@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>${version.art}</artifactId>
@@ -103,7 +105,8 @@
 					<relocations>
 						<relocation>
 							<pattern>com.bencodez.advancedcore</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.advancedcore</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.advancedcore</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>net.pl3x.bukkit.chatapi</pattern>
@@ -111,23 +114,33 @@
 						</relocation>
 						<relocation>
 							<pattern>me.mrten.mysqlapi</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.mysqlapi</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.mysqlapi</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.HikariCP</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.HikariCP</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.HikariCP</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.hikari</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.hikari</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.hikari</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.bstats</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.bstats</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.bstats</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>xyz.upperlevel.spigot</pattern>
-							<shadedPattern>${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
+							<shadedPattern>
+								${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>com.bencodez.simpleapi</pattern>
+							<shadedPattern>
+								${project.groupId}.advancedcore.simpleapi</shadedPattern>
 						</relocation>
 					</relocations>
 				</configuration>
@@ -139,7 +152,8 @@
 						</goals>
 						<configuration>
 							<artifactSet>
-								<!-- Lets exclude google code, because the server already has this 
+								<!-- Lets exclude google code, because the
+								server already has this 
 									code in it (guava, etc) -->
 								<excludes>
 									<exclude>com.google.*:*</exclude>
@@ -171,7 +185,8 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${user.home}/Documents/Test Server/plugins</outputDirectory>
+							<outputDirectory>${user.home}/Documents/Test
+								Server/plugins</outputDirectory>
 							<resources>
 								<resource>
 									<directory>${basedir}/target</directory>
@@ -214,7 +229,8 @@
 		</repository>
 		<repository>
 			<id>placeholderapi</id>
-			<url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+			<url>
+				https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
 		</repository>
 	</repositories>
 	<dependencies>
@@ -424,8 +440,10 @@
 								</goals>
 								<phase>deploy</phase>
 								<configuration>
-									<sourcepath>${project.basedir}/target/delombok</sourcepath>
-									<outputDirectory>${project.basedir}/target/apidocs</outputDirectory>
+									<sourcepath>
+										${project.basedir}/target/delombok</sourcepath>
+									<outputDirectory>
+										${project.basedir}/target/apidocs</outputDirectory>
 								</configuration>
 							</execution>
 						</executions>
@@ -474,7 +492,8 @@
 								</goals>
 								<phase>deploy</phase>
 								<configuration>
-									<sourcepath>${project.basedir}/target/delombok</sourcepath>
+									<sourcepath>
+										${project.basedir}/target/delombok</sourcepath>
 								</configuration>
 							</execution>
 						</executions>
