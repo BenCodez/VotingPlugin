@@ -24,8 +24,6 @@ import org.bukkit.permissions.Permission;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
-import com.bencodez.advancedcore.api.command.TabCompleteHandle;
-import com.bencodez.advancedcore.api.command.TabCompleteHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
@@ -44,6 +42,8 @@ import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
+import com.bencodez.simpleapi.command.TabCompleteHandle;
+import com.bencodez.simpleapi.command.TabCompleteHandler;
 import com.bencodez.simpleapi.debug.DebugLevel;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.updater.Updater;
