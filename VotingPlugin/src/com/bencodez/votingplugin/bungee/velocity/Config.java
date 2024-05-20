@@ -7,7 +7,7 @@ import java.util.List;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
+import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 
 import ninja.leaping.configurate.ConfigurationNode;
 

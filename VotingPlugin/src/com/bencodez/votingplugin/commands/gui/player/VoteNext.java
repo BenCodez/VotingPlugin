@@ -41,18 +41,16 @@ public class VoteNext extends GUIHandler {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(MessageAPI.colorize(StringParser.getInstance()
+		msg.add(MessageAPI.colorize(MessageAPI
 				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
 
-				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%info%",
-						user.voteCommandNextInfo(voteSite));
+				msgLine = MessageAPI.replaceIgnoreCase(msgLine, "%info%", user.voteCommandNextInfo(voteSite));
 
-				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%",
-						voteSite.getDisplayName());
+				msgLine = MessageAPI.replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
 				msg.add(MessageAPI.colorize(msgLine));
 			}
 		}

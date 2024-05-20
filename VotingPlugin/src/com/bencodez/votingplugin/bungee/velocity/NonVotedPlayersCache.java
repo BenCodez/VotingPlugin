@@ -2,7 +2,7 @@ package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
 
-import com.bencodez.advancedcore.bungeeapi.velocity.VelocityJSONFile;
+import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
 import com.velocitypowered.api.proxy.Player;
 
 public class NonVotedPlayersCache extends VelocityJSONFile {

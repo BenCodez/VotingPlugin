@@ -3,7 +3,7 @@ package com.bencodez.votingplugin.bungee.velocity;
 import java.io.File;
 import java.util.Collection;
 
-import com.bencodez.advancedcore.bungeeapi.velocity.VelocityJSONFile;
+import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
 import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 

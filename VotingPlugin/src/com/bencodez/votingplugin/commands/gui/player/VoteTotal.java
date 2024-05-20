@@ -8,13 +8,13 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -40,11 +40,11 @@ public class VoteTotal extends GUIHandler {
 		int all = user.getTotal(TopVoter.AllTime);
 
 		for (String s : plugin.getConfigFile().getFormatCommandsVoteTotal()) {
-			String str = StringParser.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
-			str = StringParser.getInstance().replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
-			str = StringParser.getInstance().replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
-			str = StringParser.getInstance().replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
-			str = StringParser.getInstance().replaceIgnoreCase(str, "%player%", user.getPlayerName());
+			String str = MessageAPI.replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
+			str = MessageAPI.replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
+			str = MessageAPI.replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
+			str = MessageAPI.replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
+			str = MessageAPI.replaceIgnoreCase(str, "%player%", user.getPlayerName());
 			msg.add(str);
 		}
 

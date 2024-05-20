@@ -3,7 +3,7 @@ package com.bencodez.votingplugin.updater;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.bencodez.advancedcore.api.updater.Updater;
+import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc

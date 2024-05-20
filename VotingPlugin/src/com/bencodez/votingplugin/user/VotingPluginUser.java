@@ -1283,8 +1283,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 
 			String timeMsg = plugin.getConfigFile().getFormatCommandsVoteNextInfoVoteDelayDaily();
-			timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-			timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
+			timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+			timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 			info = timeMsg;
 		}
 

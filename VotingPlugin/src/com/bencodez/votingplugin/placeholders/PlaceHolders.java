@@ -968,9 +968,8 @@ public class PlaceHolders {
 					diffMinutes = diffMinutes * -1;
 				}
 
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-						Long.toString(diffMinutes));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 				return timeMsg;
 
 			}
@@ -1009,10 +1008,9 @@ public class PlaceHolders {
 					diffMinutes = diffMinutes * -1;
 				}
 
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%days%", Integer.toString(diffDays));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-						Long.toString(diffMinutes));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%days%", Integer.toString(diffDays));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 				return timeMsg;
 
 			}
@@ -1043,10 +1041,9 @@ public class PlaceHolders {
 					diffMinutes = diffMinutes * -1;
 				}
 
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%days%", Integer.toString(diffDays));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
-				timeMsg = StringParser.getInstance().replaceIgnoreCase(timeMsg, "%minutes%",
-						Long.toString(diffMinutes));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%days%", Integer.toString(diffDays));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%hours%", Integer.toString(diffHours));
+				timeMsg = MessageAPI.replaceIgnoreCase(timeMsg, "%minutes%", Long.toString(diffMinutes));
 				return timeMsg;
 
 			}

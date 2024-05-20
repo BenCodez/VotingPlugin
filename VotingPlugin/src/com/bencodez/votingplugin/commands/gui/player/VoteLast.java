@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -36,8 +37,8 @@ public class VoteLast extends GUIHandler {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringParser.getInstance().replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteLastTitle(),
-				"%player%", playerName));
+		msg.add(MessageAPI.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteLastTitle(), "%player%",
+				playerName));
 
 		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
@@ -73,7 +74,8 @@ public class VoteLast extends GUIHandler {
 								if (plugin.getGui().isChestVoteLastClickableLinks()) {
 									Player player = event.getPlayer();
 									if (player != null) {
-										VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+										VotingPluginUser user = plugin.getVotingPluginUserManager()
+												.getVotingPluginUser(player);
 										user.sendMessage(
 												StringParser.getInstance()
 														.replacePlaceHolder(

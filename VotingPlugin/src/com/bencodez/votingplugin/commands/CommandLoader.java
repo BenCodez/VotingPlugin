@@ -22,7 +22,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.Permission;
 
-import com.bencodez.advancedcore.DebugLevel;
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
 import com.bencodez.advancedcore.api.command.TabCompleteHandle;
@@ -36,7 +35,6 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
@@ -46,7 +44,9 @@ import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
+import com.bencodez.simpleapi.debug.DebugLevel;
 import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
@@ -293,16 +293,14 @@ public class CommandLoader {
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setPoints(Integer.parseInt(args[3]));
-						sender.sendMessage(
-								MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
+						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
 					}
 
 					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
 
-						sender.sendMessage(
-								MessageAPI.colorize("&cSetting all players points to " + args[3]));
+						sender.sendMessage(MessageAPI.colorize("&cSetting all players points to " + args[3]));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -311,8 +309,7 @@ public class CommandLoader {
 							plugin.getSpecialRewards().checkMilestone(user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-						sender.sendMessage(
-								MessageAPI.colorize("&cDone setting all players points to " + args[3]));
+						sender.sendMessage(MessageAPI.colorize("&cDone setting all players points to " + args[3]));
 					}
 				});
 
@@ -446,8 +443,8 @@ public class CommandLoader {
 							user.cache();
 							int newTotal = 0;
 							newTotal = user.addPoints(Integer.parseInt(args[3]));
-							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3]
-									+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
+							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points"
+									+ ", " + args[1] + " now has " + newTotal + " points"));
 						}
 					}
 
@@ -455,8 +452,8 @@ public class CommandLoader {
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
 
-						sender.sendMessage(MessageAPI
-								.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
+						sender.sendMessage(
+								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -465,8 +462,7 @@ public class CommandLoader {
 							plugin.getSpecialRewards().checkMilestone(user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-						sender.sendMessage(MessageAPI
-								.colorize("&cGave " + "all players" + " " + args[3] + " points"));
+						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
 					}
 				});
 
@@ -479,8 +475,8 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
-						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
-								+ args[1] + ", " + args[1] + " now has " + user.getPoints() + " points"));
+						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1] + ", "
+								+ args[1] + " now has " + user.getPoints() + " points"));
 					}
 				});
 
@@ -832,8 +828,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
-					sender.sendMessage(
-							MessageAPI.colorize("&cThis command can not be done from ingame"));
+					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 
@@ -852,8 +847,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
-					sender.sendMessage(
-							MessageAPI.colorize("&cThis command can not be done from ingame"));
+					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
@@ -872,8 +866,8 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 								.setDayVoteStreak(Integer.parseInt(args[4]));
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet votestreak day for '" + args[1] + "' to " + args[4]));
+						sender.sendMessage(
+								MessageAPI.colorize("&cSet votestreak day for '" + args[1] + "' to " + args[4]));
 					}
 				});
 
@@ -885,8 +879,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 						.setWeekVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(MessageAPI
-						.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
+				sender.sendMessage(MessageAPI.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
 			}
 		});
 
@@ -898,8 +891,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 						.setMonthVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(MessageAPI
-						.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
+				sender.sendMessage(MessageAPI.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
 			}
 		});
 
@@ -929,8 +921,8 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 							user.setTotal(top, user.getTotal(top) + Integer.parseInt(args[4]));
-							sender.sendMessage(MessageAPI
-									.colorize("&cAdded " + top.toString() + " total for " + args[1]));
+							sender.sendMessage(
+									MessageAPI.colorize("&cAdded " + top.toString() + " total for " + args[1]));
 						}
 					});
 		}
@@ -956,8 +948,7 @@ public class CommandLoader {
 						user.resetLastVoted();
 						plugin.getCoolDownCheck().check(user);
 						plugin.getCoolDownCheck().checkPerSite(user);
-						sender.sendMessage(
-								MessageAPI.colorize("&cVoted sites reset for '" + args[1] + "'"));
+						sender.sendMessage(MessageAPI.colorize("&cVoted sites reset for '" + args[1] + "'"));
 					}
 				});
 
@@ -971,8 +962,8 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.resetLastVoted(plugin.getVoteSite(args[3], false));
 						plugin.getCoolDownCheck().checkPerSite(user);
-						sender.sendMessage(MessageAPI
-								.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
+						sender.sendMessage(
+								MessageAPI.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
 					}
 				});
 
@@ -987,16 +978,14 @@ public class CommandLoader {
 						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
 						plugin.getSpecialRewards().checkMilestone(user, null,
 								plugin.getBungeeSettings().isUseBungeecoord());
-						sender.sendMessage(
-								MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
+						sender.sendMessage(MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
 					}
 
 					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int toAdd = Integer.parseInt(args[3]);
 
-						sender.sendMessage(
-								MessageAPI.colorize("&cAdding milestonecount for all players..."));
+						sender.sendMessage(MessageAPI.colorize("&cAdding milestonecount for all players..."));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -1005,8 +994,7 @@ public class CommandLoader {
 							plugin.getSpecialRewards().checkMilestone(user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-						sender.sendMessage(MessageAPI
-								.colorize("&cFinished adding milestonecount for all players"));
+						sender.sendMessage(MessageAPI.colorize("&cFinished adding milestonecount for all players"));
 					}
 				});
 
@@ -1018,8 +1006,8 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[3]));
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
+						sender.sendMessage(
+								MessageAPI.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
 					}
 				});
 
@@ -1032,8 +1020,7 @@ public class CommandLoader {
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setHasGottenMilestone(new HashMap<String, Boolean>());
-						sender.sendMessage(
-								MessageAPI.colorize("&cClearing gotten milestones for " + args[1]));
+						sender.sendMessage(MessageAPI.colorize("&cClearing gotten milestones for " + args[1]));
 					}
 
 					@Override
@@ -1042,14 +1029,13 @@ public class CommandLoader {
 						if (plugin.getBungeeSettings().isPerServerMilestones()) {
 							path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 						}
-						sender.sendMessage(
-								MessageAPI.colorize("&cClearing gotten milestones for all players..."));
+						sender.sendMessage(MessageAPI.colorize("&cClearing gotten milestones for all players..."));
 						plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
 						for (Player p : Bukkit.getOnlinePlayers()) {
 							plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
 						}
-						sender.sendMessage(MessageAPI
-								.colorize("&cFinished clearing gotten milestones for all players"));
+						sender.sendMessage(
+								MessageAPI.colorize("&cFinished clearing gotten milestones for all players"));
 					}
 				});
 
@@ -1315,8 +1301,7 @@ public class CommandLoader {
 								}
 							}
 						}, 5, TimeUnit.SECONDS);
-						sender.sendMessage(
-								MessageAPI.colorize("&cForce checking on vote cooldown rewards"));
+						sender.sendMessage(MessageAPI.colorize("&cForce checking on vote cooldown rewards"));
 					}
 				});
 
@@ -1329,8 +1314,8 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						String url = args[3];
 						plugin.getConfigVoteSites().setVoteURL(voteSite, url);
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
+						sender.sendMessage(
+								MessageAPI.colorize("&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 					}
 				});
 
@@ -1343,8 +1328,8 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int value = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setPriority(voteSite, value);
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
+						sender.sendMessage(
+								MessageAPI.colorize("&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 
 					}
 				});
@@ -1358,8 +1343,8 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int delay = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setVoteDelay(voteSite, delay);
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
+						sender.sendMessage(
+								MessageAPI.colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
 
 					}
 				});
@@ -1415,8 +1400,7 @@ public class CommandLoader {
 						boolean value = Boolean.parseBoolean(args[3]);
 
 						plugin.getConfigVoteSites().setEnabled(voteSite, value);
-						sender.sendMessage(MessageAPI
-								.colorize("&cSet votesite " + voteSite + " enabled to " + value));
+						sender.sendMessage(MessageAPI.colorize("&cSet votesite " + voteSite + " enabled to " + value));
 
 					}
 				});
@@ -1428,16 +1412,15 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				String siteName = args[1];
 				if (!plugin.getConfigVoteSites().isServiceSiteGood(siteName)) {
-					sender.sendMessage(MessageAPI
-							.colorize("&cServiceSite is invalid, votes may not work properly"));
+					sender.sendMessage(MessageAPI.colorize("&cServiceSite is invalid, votes may not work properly"));
 				} else {
 					String service = plugin.getConfigVoteSites().getServiceSite(siteName);
 					if (plugin.getServerData().getServiceSites().contains(service)) {
 						sender.sendMessage(MessageAPI.colorize("&aServiceSite is properly setup"));
 					} else {
-						sender.sendMessage(MessageAPI
-								.colorize("&cService may not be valid, haven't recieved a vote from " + service
-										+ ", see /av servicesites"));
+						sender.sendMessage(
+								MessageAPI.colorize("&cService may not be valid, haven't recieved a vote from "
+										+ service + ", see /av servicesites"));
 					}
 
 				}
@@ -1991,8 +1974,8 @@ public class CommandLoader {
 
 													@Override
 													public void onClick(ClickEvent clickEvent) {
-														if (MessageAPI.isInt(clickEvent.getClickedItem()
-																.getItemMeta().getDisplayName())) {
+														if (MessageAPI.isInt(clickEvent.getClickedItem().getItemMeta()
+																.getDisplayName())) {
 															Player player = clickEvent.getPlayer();
 															int mileStone = Integer.parseInt(clickEvent.getClickedItem()
 																	.getItemMeta().getDisplayName());
@@ -2545,10 +2528,10 @@ public class CommandLoader {
 				}
 
 				for (String s : plugin.getConfigFile().getFormatCommandsVoteTotalAll()) {
-					String str = StringParser.getInstance().replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
-					str = StringParser.getInstance().replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
-					str = StringParser.getInstance().replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
-					str = StringParser.getInstance().replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
+					String str = MessageAPI.replaceIgnoreCase(s, "%DailyTotal%", "" + daily);
+					str = MessageAPI.replaceIgnoreCase(str, "%WeeklyTotal%", "" + weekly);
+					str = MessageAPI.replaceIgnoreCase(str, "%MonthlyTotal%", "" + month);
+					str = MessageAPI.replaceIgnoreCase(str, "%AllTimeTotal%", "" + all);
 					msg.add(str);
 				}
 

@@ -4,11 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 
 import com.bencodez.advancedcore.api.yml.YMLFile;
-import com.bencodez.advancedcore.api.yml.annotation.AnnotationHandler;
-import com.bencodez.advancedcore.api.yml.annotation.ConfigDataBoolean;
-import com.bencodez.advancedcore.api.yml.annotation.ConfigDataInt;
-import com.bencodez.advancedcore.api.yml.annotation.ConfigDataListString;
-import com.bencodez.advancedcore.api.yml.annotation.ConfigDataString;
+import com.bencodez.simpleapi.file.annotation.AnnotationHandler;
+import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
+import com.bencodez.simpleapi.file.annotation.ConfigDataInt;
+import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
+import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
