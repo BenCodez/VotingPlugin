@@ -104,16 +104,6 @@
 					</filters>
 					<relocations>
 						<relocation>
-							<pattern>com.bencodez.simpleapi</pattern>
-							<shadedPattern>
-								${project.groupId}.votingplugin.advancedcore.simpleapi</shadedPattern>
-						</relocation>
-						<relocation>
-							<pattern>com.bencodez.advancedcore.simpleapi</pattern>
-							<shadedPattern>
-								${project.groupId}.votingplugin.advancedcore.simpleapi</shadedPattern>
-						</relocation>
-						<relocation>
 							<pattern>com.bencodez.advancedcore</pattern>
 							<shadedPattern>
 								${project.groupId}.votingplugin.advancedcore</shadedPattern>

@@ -10,7 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
-import com.bencodez.simpleapi.command.TabCompleteHandler;
+import com.bencodez.advancedcore.api.command.AdvancedCoreTabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -37,7 +37,7 @@ public class VoteTabCompleter implements TabCompleter {
 
 		Set<String> cmds = new HashSet<String>();
 
-		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getVoteCommand(), sender, args,
+		cmds.addAll(AdvancedCoreTabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getVoteCommand(), sender, args,
 				args.length - 1));
 
 		for (String str : cmds) {

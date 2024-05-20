@@ -10,7 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
-import com.bencodez.simpleapi.command.TabCompleteHandler;
+import com.bencodez.advancedcore.api.command.AdvancedCoreTabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -36,8 +36,8 @@ public class AdminVoteTabCompleter implements TabCompleter {
 
 		Set<String> cmds = new HashSet<String>();
 
-		cmds.addAll(TabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getAdminVoteCommand(), sender, args,
-				args.length - 1));
+		cmds.addAll(AdvancedCoreTabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getAdminVoteCommand(),
+				sender, args, args.length - 1));
 
 		for (String str : cmds) {
 			if (MessageAPI.startsWithIgnoreCase(str, args[args.length - 1])) {

@@ -1236,7 +1236,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginMain.plugin.getOptions().setDebug(DebugLevel.INFO);
+						plugin.getOptions().setDebug(DebugLevel.INFO);
 					}
 				});
 
@@ -1247,7 +1247,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						VotingPluginMain.plugin.getOptions().setDebug(DebugLevel.EXTRA);
+						plugin.getOptions().setDebug(DebugLevel.EXTRA);
 					}
 				});
 
