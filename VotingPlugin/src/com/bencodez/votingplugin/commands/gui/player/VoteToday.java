@@ -17,8 +17,9 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.misc.ArrayUtils1;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -66,7 +67,7 @@ public class VoteToday extends GUIHandler {
 			msg.add(voteToday[i]);
 		}
 
-		return ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
+		return ArrayUtils.colorize(ArrayUtils1.getInstance().replacePlaceHolder(msg, placeholders));
 	}
 
 	@Override
@@ -156,8 +157,8 @@ public class VoteToday extends GUIHandler {
 				// timeString);
 			}
 		}
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	public String[] voteTodayGUI() {
@@ -183,8 +184,8 @@ public class VoteToday extends GUIHandler {
 						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 			}
 		}
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 }

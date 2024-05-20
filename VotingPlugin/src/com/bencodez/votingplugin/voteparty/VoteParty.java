@@ -14,13 +14,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
@@ -115,13 +115,14 @@ public class VoteParty implements Listener {
 			placeholders.put("votesrequired", "" + votesRequired);
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
-			msg = ArrayUtils.getInstance().colorize(ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders));
+			msg = ArrayUtils.colorize(
+					com.bencodez.advancedcore.api.misc.ArrayUtils1.getInstance().replacePlaceHolder(msg, placeholders));
 			if (sender instanceof Player) {
 				Player p = (Player) sender;
-				sender.sendMessage(
-						ArrayUtils.getInstance().convert(ArrayUtils.getInstance().replacePlaceHolders(msg, p)));
+				sender.sendMessage(ArrayUtils.convert(
+						com.bencodez.advancedcore.api.misc.ArrayUtils1.getInstance().replacePlaceHolders(msg, p)));
 			} else {
-				sender.sendMessage(ArrayUtils.getInstance().convert(msg));
+				sender.sendMessage(ArrayUtils.convert(msg));
 			}
 		} else {
 			sender.sendMessage(MessageAPI.colorize("&cVoteParty not enabled"));
@@ -265,7 +266,7 @@ public class VoteParty implements Listener {
 			}
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
-			plugin.debug(ArrayUtils.getInstance().makeStringList(getVotedUsers()));
+			plugin.debug(ArrayUtils.makeStringList(getVotedUsers()));
 			for (String uuid : getVotedUsers()) {
 				VotingPluginUser user;
 				if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
@@ -306,7 +307,7 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
 			reset(true);
 		}
-		
+
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly()) {
 			plugin.getServerData().setVotePartyExtraRequired(0);
 		}

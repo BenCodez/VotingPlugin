@@ -19,8 +19,9 @@ import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.MessageBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.misc.ArrayUtils1;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -81,10 +82,10 @@ public class VoteURL extends GUIHandler {
 			phs.put("MonthTotal", "" + user.getTotal(TopVoter.Monthly));
 			phs.put("Total", "" + user.getTotal(TopVoter.AllTime));
 
-			sites = ArrayUtils.getInstance().replacePlaceHolder(sites, phs);
+			sites = ArrayUtils1.getInstance().replacePlaceHolder(sites, phs);
 		}
 
-		return ArrayUtils.getInstance().colorize(sites);
+		return ArrayUtils.colorize(sites);
 	}
 
 	private ItemBuilder getItemAll() {

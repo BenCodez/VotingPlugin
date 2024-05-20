@@ -10,8 +10,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -91,7 +91,7 @@ public class PlayerVoteListener implements Listener {
 					services.add(site.getServiceSite());
 				}
 				plugin.getLogger()
-						.warning("Currently set service sites: " + ArrayUtils.getInstance().makeStringList(services));
+						.warning("Currently set service sites: " + ArrayUtils.makeStringList(services));
 			}
 			return;
 		}

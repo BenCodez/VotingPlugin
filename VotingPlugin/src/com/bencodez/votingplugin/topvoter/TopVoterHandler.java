@@ -17,7 +17,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
@@ -28,6 +27,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -59,8 +59,8 @@ public class TopVoterHandler implements Listener {
 					.replace("%votes%", "" + plugin.getTopVoter(TopVoter.Weekly).get(users.get(i)));
 			msg.add(line);
 		}
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	private HashMap<Integer, String> handlePlaces(Set<String> places) {
@@ -603,8 +603,8 @@ public class TopVoterHandler implements Listener {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -642,8 +642,8 @@ public class TopVoterHandler implements Listener {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -681,8 +681,8 @@ public class TopVoterHandler implements Listener {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -709,8 +709,8 @@ public class TopVoterHandler implements Listener {
 			i++;
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -734,8 +734,8 @@ public class TopVoterHandler implements Listener {
 			msg.add(line);
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -762,8 +762,8 @@ public class TopVoterHandler implements Listener {
 			i++;
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	/**
@@ -801,8 +801,8 @@ public class TopVoterHandler implements Listener {
 			msg.add(topVoters.get(i));
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
-		return ArrayUtils.getInstance().convert(msg);
+		msg = ArrayUtils.colorize(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	public synchronized void updateTopVoters(

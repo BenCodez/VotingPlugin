@@ -12,7 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -32,7 +32,7 @@ public class ServerData {
 	public void addAutoCachedPlaceholder(String placeholder) {
 		List<String> p = getAutoCachedPlaceholder();
 
-		if (!ArrayUtils.getInstance().containsIgnoreCase(p, placeholder)) {
+		if (!ArrayUtils.containsIgnoreCase(p, placeholder)) {
 			p.add(placeholder);
 			setAutoCachedPlaceholder(p);
 		}
@@ -82,7 +82,7 @@ public class ServerData {
 		if (!getServiceSites().contains(site)) {
 			l.add(site);
 		}
-		setServiceSites(ArrayUtils.getInstance().removeDuplicates(l));
+		setServiceSites(ArrayUtils.removeDuplicates(l));
 	}
 
 	/**

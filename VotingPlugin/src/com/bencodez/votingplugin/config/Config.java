@@ -7,8 +7,8 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.annotation.AnnotationHandler;
 import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataInt;
@@ -217,7 +217,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "Format.Commands.Vote.Today.Title")
 	@Getter
-	private ArrayList<String> formatCommandsVoteTodayTitle = ArrayUtils.getInstance()
+	private ArrayList<String> formatCommandsVoteTodayTitle = ArrayUtils
 			.convert(new String[] { "&cToday's Votes %page%/%maxpage%", "&cPlayerName : VoteSite : Time" });
 
 	@ConfigDataString(path = "Format.Commands.Vote.ToggleBroadcasts.Disabled")

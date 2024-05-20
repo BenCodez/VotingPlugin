@@ -10,8 +10,8 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Directional;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -227,7 +227,7 @@ public class SignHandler {
 				lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
 			}
 
-			lines = ArrayUtils.getInstance().colorize(lines);
+			lines = ArrayUtils.colorize(lines);
 
 		}
 

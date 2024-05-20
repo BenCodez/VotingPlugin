@@ -19,13 +19,13 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueLi
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
@@ -251,7 +251,7 @@ public class AdminGUI {
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
 			lore.add("VoteDelayMin: " + voteSite.getVoteDelayMin());
 
-			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.getInstance().convert(lore),
+			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.convert(lore),
 					new ItemStack(Material.STONE)) {
 
 				@Override
@@ -302,7 +302,7 @@ public class AdminGUI {
 							});
 						}
 					}
-				}, ArrayUtils.getInstance().convert(playerNames)).usingMethod(InputMethod.INVENTORY)
+				}, ArrayUtils.convert(playerNames)).usingMethod(InputMethod.INVENTORY)
 						.allowCustomOption(true).request(event.getWhoClicked());
 			}
 		});

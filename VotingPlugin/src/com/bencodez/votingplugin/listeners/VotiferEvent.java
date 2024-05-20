@@ -6,7 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -89,7 +89,7 @@ public class VotiferEvent implements Listener {
 					ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
 					boolean createSite = false;
 					if (sites != null) {
-						if (!ArrayUtils.getInstance().containsIgnoreCase(sites, voteSiteNameStr)) {
+						if (!ArrayUtils.containsIgnoreCase(sites, voteSiteNameStr)) {
 							createSite = true;
 						}
 					} else {
@@ -104,7 +104,7 @@ public class VotiferEvent implements Listener {
 						plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
 
 						plugin.getLogger().info("Current known service sites: "
-								+ ArrayUtils.getInstance().makeStringList(plugin.getServerData().getServiceSites()));
+								+ ArrayUtils.makeStringList(plugin.getServerData().getServiceSites()));
 					}
 
 					if (plugin.getTimeChecker().isActiveProcessing()

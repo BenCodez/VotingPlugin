@@ -13,9 +13,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -278,7 +278,7 @@ public class ConfigVoteSites extends YMLFile {
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
 		ArrayList<String> siteNames = new ArrayList<String>();
 		if (getData().isConfigurationSection("VoteSites")) {
-			siteNames = ArrayUtils.getInstance().convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+			siteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
 		}
 
 		for (int i = siteNames.size() - 1; i >= 0; i--) {

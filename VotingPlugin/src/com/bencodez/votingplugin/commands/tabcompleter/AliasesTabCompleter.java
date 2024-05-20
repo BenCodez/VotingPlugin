@@ -12,7 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.command.TabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -45,7 +45,7 @@ public class AliasesTabCompleter implements TabCompleter {
 			msgArray.add(arg);
 		}
 
-		String[] args = ArrayUtils.getInstance().convert(msgArray);
+		String[] args = ArrayUtils.convert(msgArray);
 
 		ArrayList<String> tab = new ArrayList<String>();
 

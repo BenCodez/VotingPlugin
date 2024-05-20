@@ -12,7 +12,7 @@ import org.bukkit.permissions.Permission;
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class AdminVotePerms extends GUIHandler {
@@ -108,9 +108,9 @@ public class AdminVotePerms extends GUIHandler {
 			text.add(msg.get(i));
 		}
 
-		text = ArrayUtils.getInstance().colorize(text);
+		text = ArrayUtils.colorize(text);
 
-		return ArrayUtils.getInstance().convert(text);
+		return ArrayUtils.convert(text);
 	}
 
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {
@@ -158,7 +158,7 @@ public class AdminVotePerms extends GUIHandler {
 				}
 			}
 
-			msg = ArrayUtils.getInstance().colorize(msg);
+			msg = ArrayUtils.colorize(msg);
 
 			int pagesize = plugin.getConfigFile().getFormatPageSize();
 
@@ -175,7 +175,7 @@ public class AdminVotePerms extends GUIHandler {
 		} else {
 			text.add("&cPlayer not online: " + player);
 		}
-		return ArrayUtils.getInstance().colorize(text);
+		return ArrayUtils.colorize(text);
 
 	}
 
@@ -202,9 +202,9 @@ public class AdminVotePerms extends GUIHandler {
 			msg.add(perm.getName() + " : " + perm.getDescription());
 		}
 
-		msg = ArrayUtils.getInstance().colorize(msg);
+		msg = ArrayUtils.colorize(msg);
 
-		return ArrayUtils.getInstance().convert(msg);
+		return ArrayUtils.convert(msg);
 	}
 
 	@Override

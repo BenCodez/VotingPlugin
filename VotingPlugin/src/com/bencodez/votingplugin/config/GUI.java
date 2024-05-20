@@ -7,8 +7,8 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.annotation.AnnotationHandler;
 import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataConfigurationSection;
@@ -45,7 +45,7 @@ public class GUI extends YMLFile {
 
 	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.Layout")
 	@Getter
-	private ArrayList<String> bookVoteURLBookGUILayout = ArrayUtils.getInstance()
+	private ArrayList<String> bookVoteURLBookGUILayout = ArrayUtils
 			.convert(new String[] { "&c%Sitename%", "[UrlText]" });
 
 	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.TopLayout")

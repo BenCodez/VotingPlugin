@@ -12,9 +12,9 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -39,18 +39,18 @@ public class VoteGUI extends GUIHandler {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteGUISlotSection(slot));
 
 		String[] lore = new String[1];
-		lore = ArrayUtils.getInstance().convert(plugin.getGui().getChestVoteGUISlotLore(slot));
+		lore = ArrayUtils.convert(plugin.getGui().getChestVoteGUISlotLore(slot));
 
 		String str = plugin.getConfigFile().getVoteTopDefault();
 		if (lore.length == 0) {
 			if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
 				lore = new String[] { "&aClick me" };
 			} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
-				lore = ArrayUtils.getInstance().convert(new VoteNext(plugin, player, user).getChat(player));
+				lore = ArrayUtils.convert(new VoteNext(plugin, player, user).getChat(player));
 			} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
-				lore = ArrayUtils.getInstance().convert(new VoteLast(plugin, player, user).getChat(player));
+				lore = ArrayUtils.convert(new VoteLast(plugin, player, user).getChat(player));
 			} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
-				lore = ArrayUtils.getInstance().convert(new VoteTotal(plugin, player, user).getChat(player));
+				lore = ArrayUtils.convert(new VoteTotal(plugin, player, user).getChat(player));
 			} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
 
 				if (str.equalsIgnoreCase("monthly")) {
@@ -70,12 +70,12 @@ public class VoteGUI extends GUIHandler {
 						list.add(today[i]);
 					}
 				}
-				lore = ArrayUtils.getInstance().convert(list);
+				lore = ArrayUtils.convert(list);
 			} else if (slot.equalsIgnoreCase("help")) {
 				lore = new String[] { "Click to view help" };
 			}
 		}
-		builder.setLore(ArrayUtils.getInstance().convert(lore));
+		builder.setLore(ArrayUtils.convert(lore));
 		return builder;
 	}
 

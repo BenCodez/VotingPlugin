@@ -11,9 +11,9 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -239,7 +239,7 @@ public class VoteSite {
 	}
 
 	public boolean isVaidServiceSite() {
-		return ArrayUtils.getInstance().containsIgnoreCase(plugin.getServerData().getServiceSites(), getServiceSite());
+		return ArrayUtils.containsIgnoreCase(plugin.getServerData().getServiceSites(), getServiceSite());
 	}
 
 	public String loadingDebug() {

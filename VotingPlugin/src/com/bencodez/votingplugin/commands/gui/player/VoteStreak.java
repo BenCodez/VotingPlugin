@@ -12,8 +12,9 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.advancedcore.api.misc.ArrayUtils1;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -46,9 +47,9 @@ public class VoteStreak extends GUIHandler {
 
 		placeholders.put("player", user.getPlayerName());
 
-		msg = ArrayUtils.getInstance().replacePlaceHolder(msg, placeholders);
+		msg = ArrayUtils1.getInstance().replacePlaceHolder(msg, placeholders);
 
-		return ArrayUtils.getInstance().colorize(msg);
+		return ArrayUtils.colorize(msg);
 	}
 
 	@Override

@@ -42,7 +42,6 @@ import org.bstats.charts.SimplePie;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
@@ -60,6 +59,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.simpleapi.json.JsonParser;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
@@ -1305,9 +1305,9 @@ public class VotingPluginVelocity {
 	public void sendRedisMessageServer(RegisteredServer s, String channel, String... messageData) {
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(channel);
-		list.addAll(ArrayUtils.getInstance().convert(messageData));
+		list.addAll(ArrayUtils.convert(messageData));
 		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + s.getServerInfo().getName(),
-				ArrayUtils.getInstance().convert(list));
+				ArrayUtils.convert(list));
 	}
 
 	public void sendPluginMessageServer(RegisteredServer s, String channel, String... messageData) {
@@ -1327,7 +1327,7 @@ public class VotingPluginVelocity {
 			e.printStackTrace();
 		}
 		debug("Sending plugin message " + s.getServerInfo().getName() + " " + channel + " "
-				+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(messageData)));
+				+ ArrayUtils.makeStringList(ArrayUtils.convert(messageData)));
 
 	}
 

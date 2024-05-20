@@ -14,7 +14,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
@@ -33,6 +32,7 @@ import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;
@@ -285,14 +285,14 @@ public class BungeeHandler implements Listener {
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
 					ArrayList<String> list = new ArrayList<String>();
 					list.add(subChannel);
-					list.addAll(ArrayUtils.getInstance().convert(messageData));
-					sendData(ArrayUtils.getInstance().convert(list));
+					list.addAll(ArrayUtils.convert(messageData));
+					sendData(ArrayUtils.convert(list));
 				} else if (method.equals(BungeeMethod.REDIS)) {
 					ArrayList<String> list = new ArrayList<String>();
 					list.add(subChannel);
-					list.addAll(ArrayUtils.getInstance().convert(messageData));
+					list.addAll(ArrayUtils.convert(messageData));
 					redisHandler.sendMessage(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
-							ArrayUtils.getInstance().convert(list));
+							ArrayUtils.convert(list));
 				}
 			}
 		};
@@ -604,8 +604,7 @@ public class BungeeHandler implements Listener {
 
 				@Override
 				protected void onMessage(String channel, String[] message) {
-					plugin.getLogger().info(channel
-							+ ArrayUtils.getInstance().makeStringList(ArrayUtils.getInstance().convert(message)));
+					plugin.getLogger().info(channel + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
 					if (message.length > 0) {
 						ArrayList<String> list = new ArrayList<String>();
 						for (int i = 1; i < message.length; i++) {

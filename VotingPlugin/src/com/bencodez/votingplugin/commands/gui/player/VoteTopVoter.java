@@ -20,8 +20,8 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -46,13 +46,13 @@ public class VoteTopVoter extends GUIHandler {
 	public ArrayList<String> getChat(CommandSender sender) {
 		switch (top) {
 		case AllTime:
-			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterAllTime(page));
+			return ArrayUtils.convert(plugin.getTopVoterHandler().topVoterAllTime(page));
 		case Daily:
-			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterDaily(page));
+			return ArrayUtils.convert(plugin.getTopVoterHandler().topVoterDaily(page));
 		case Monthly:
-			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterMonthly(page));
+			return ArrayUtils.convert(plugin.getTopVoterHandler().topVoterMonthly(page));
 		case Weekly:
-			return ArrayUtils.getInstance().convert(plugin.getTopVoterHandler().topVoterWeekly(page));
+			return ArrayUtils.convert(plugin.getTopVoterHandler().topVoterWeekly(page));
 		default:
 			break;
 		}

@@ -30,7 +30,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -42,6 +41,7 @@ import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.command.TabCompleteHandle;
 import com.bencodez.simpleapi.command.TabCompleteHandler;
 import com.bencodez.simpleapi.debug.DebugLevel;
@@ -663,8 +663,8 @@ public class CommandLoader {
 
 						@Override
 						public void execute(CommandSender sender, String[] args) {
-							sendMessage(sender, ArrayUtils.getInstance()
-									.convert(new AdminVotePerms(plugin, sender, 0).listPermsDev(sender)));
+							sendMessage(sender,
+									ArrayUtils.convert(new AdminVotePerms(plugin, sender, 0).listPermsDev(sender)));
 						}
 					});
 		}
@@ -1932,8 +1932,8 @@ public class CommandLoader {
 								for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 									voteSites.add(voteSite.getKey());
 								}
-								new ValueRequest().requestString(player, "",
-										ArrayUtils.getInstance().convert(voteSites), true, new StringListener() {
+								new ValueRequest().requestString(player, "", ArrayUtils.convert(voteSites), true,
+										new StringListener() {
 
 											@Override
 											public void onInput(Player player, String value) {
@@ -2172,7 +2172,7 @@ public class CommandLoader {
 
 					String identifier = args[1];
 					Set<String> identifiers = plugin.getGui().getChestShopIdentifiers();
-					if (ArrayUtils.getInstance().containsIgnoreCase(identifiers, identifier)) {
+					if (ArrayUtils.containsIgnoreCase(identifiers, identifier)) {
 						for (String ident : identifiers) {
 							if (ident.equalsIgnoreCase(args[1])) {
 								identifier = ident;
@@ -2535,7 +2535,7 @@ public class CommandLoader {
 					msg.add(str);
 				}
 
-				msg = ArrayUtils.getInstance().colorize(msg);
+				msg = ArrayUtils.colorize(msg);
 				sendMessage(sender, msg);
 
 			}
@@ -2704,7 +2704,7 @@ public class CommandLoader {
 			for (String ident : plugin.getConfigFile().getCustomCommands()) {
 				ConfigurationSection section = plugin.getConfigFile().getCustomCommands(ident);
 				@SuppressWarnings("unchecked")
-				String[] args = ArrayUtils.getInstance()
+				String[] args = ArrayUtils
 						.convert((ArrayList<String>) section.getList("Args", new ArrayList<String>()));
 				plugin.getVoteCommand().add(new CommandHandler(plugin, args, section.getString("Permission", ""),
 						section.getString("HelpMessage", "")) {
@@ -2747,8 +2747,7 @@ public class CommandLoader {
 			}
 
 			if (remove) {
-				plugin.debug("Disabling: " + ArrayUtils.getInstance()
-						.makeStringList(ArrayUtils.getInstance().convert(list.get(i).getArgs())));
+				plugin.debug("Disabling: " + ArrayUtils.makeStringList(ArrayUtils.convert(list.get(i).getArgs())));
 				list.remove(i);
 			}
 		}

@@ -7,7 +7,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
-import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -46,7 +46,7 @@ public class CommandAliases implements CommandExecutor {
 			argsNew.add(arg);
 		}
 		plugin.debug("Attempting cmd...");
-		plugin.debug("Inputed args: " + ArrayUtils.getInstance().makeStringList(argsNew));
+		plugin.debug("Inputed args: " + ArrayUtils.makeStringList(argsNew));
 
 		ArrayList<CommandHandler> handles = new ArrayList<CommandHandler>();
 		if (adminCommand) {
@@ -73,7 +73,7 @@ public class CommandAliases implements CommandExecutor {
 						}
 
 						if (argsMatch) {
-							if (cmdHandle.runCommand(sender, ArrayUtils.getInstance().convert(argsNew))) {
+							if (cmdHandle.runCommand(sender, ArrayUtils.convert(argsNew))) {
 								plugin.debug("cmd found, ran cmd");
 								return true;
 							}
