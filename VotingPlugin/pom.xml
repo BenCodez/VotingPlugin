@@ -104,6 +104,11 @@
 					</filters>
 					<relocations>
 						<relocation>
+							<pattern>com.bencodez.simpleapi</pattern>
+							<shadedPattern>
+								${project.groupId}.advancedcore.simpleapi</shadedPattern>
+						</relocation>
+						<relocation>
 							<pattern>com.bencodez.advancedcore</pattern>
 							<shadedPattern>
 								${project.groupId}.votingplugin.advancedcore</shadedPattern>
@@ -137,7 +142,7 @@
 							<shadedPattern>
 								${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
 						</relocation>
-						
+
 					</relocations>
 				</configuration>
 				<executions>
@@ -181,7 +186,8 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${user.home}/Documents/Test Server/plugins</outputDirectory>
+							<outputDirectory>${user.home}/Documents/Test
+								Server/plugins</outputDirectory>
 							<resources>
 								<resource>
 									<directory>${basedir}/target</directory>
