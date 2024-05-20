@@ -7,9 +7,9 @@ import java.util.Set;
 
 import org.bukkit.Bukkit;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
@@ -88,7 +88,7 @@ public class SpecialRewards {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
 		for (String vote : votes) {
-			if (StringParser.getInstance().isInt(vote)) {
+			if (MessageAPI.isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(votesRequired)
@@ -228,7 +228,7 @@ public class SpecialRewards {
 		boolean gotMilestone = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
 		for (String vote : votes) {
-			if (StringParser.getInstance().isInt(vote)) {
+			if (MessageAPI.isInt(vote)) {
 				int votesRequired = Integer.parseInt(vote);
 				if (votesRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(votesRequired)
@@ -266,7 +266,7 @@ public class SpecialRewards {
 
 			}
 			plugin.debug("Streak: " + streak + " multiple: " + multiple);
-			if (StringParser.getInstance().isInt(s)) {
+			if (MessageAPI.isInt(s)) {
 				int streakRequired = Integer.parseInt(s);
 				if (streakRequired != 0) {
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, streak)

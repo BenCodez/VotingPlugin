@@ -11,7 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -50,7 +50,7 @@ public class PlayerVoteListener implements Listener {
 		}
 		String playerName = event.getPlayer();
 		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
-		if (!PlayerUtils.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
+		if (!PlayerManager.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!plugin.getConfigFile().isAllowUnjoined()) {
 				plugin.getLogger().warning("Player " + playerName
 						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");

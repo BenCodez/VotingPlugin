@@ -12,12 +12,12 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class AdminVoteMilestones extends GUIHandler {
@@ -54,7 +54,7 @@ public class AdminVoteMilestones extends GUIHandler {
 					public void onClick(ClickEvent clickEvent) {
 						ArrayList<Integer> nums = new ArrayList<Integer>();
 						for (String num : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
-							if (StringParser.getInstance().isInt(num)) {
+							if (MessageAPI.isInt(num)) {
 								nums.add(Integer.parseInt(num));
 							}
 						}

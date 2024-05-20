@@ -17,7 +17,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
@@ -29,6 +28,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.yml.YMLFileHandler;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -597,7 +597,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterAllTime());
-		msg.add(StringParser.getInstance().colorize(title));
+		msg.add(MessageAPI.colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -636,7 +636,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterDaily());
-		msg.add(StringParser.getInstance().colorize(title));
+		msg.add(MessageAPI.colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -675,7 +675,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterMonthly());
-		msg.add(StringParser.getInstance().colorize(title));
+		msg.add(MessageAPI.colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));
@@ -795,7 +795,7 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%page%", "" + page);
 		title = title.replace("%maxpages%", "" + pageSize);
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterWeekly());
-		msg.add(StringParser.getInstance().colorize(title));
+		msg.add(MessageAPI.colorize(title));
 
 		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
 			msg.add(topVoters.get(i));

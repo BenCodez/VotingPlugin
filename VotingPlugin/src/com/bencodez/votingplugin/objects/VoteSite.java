@@ -14,6 +14,7 @@ import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -126,7 +127,7 @@ public class VoteSite {
 				}
 
 			} else {
-				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatBroadCastMsg());
+				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatBroadCastMsg());
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
@@ -185,8 +186,8 @@ public class VoteSite {
 	}
 
 	public String getVoteURLJsonStrip() {
-		String url = ChatColor.stripColor(StringParser.getInstance()
-				.colorize(StringParser.getInstance().parseJson(getVoteURL(false)).toPlainText()));
+		String url = ChatColor
+				.stripColor(MessageAPI.colorize(StringParser.getInstance().parseJson(getVoteURL(false)).toPlainText()));
 		if (!url.startsWith("http")) {
 			if (!url.startsWith("www.")) {
 				url = "https://www." + url;

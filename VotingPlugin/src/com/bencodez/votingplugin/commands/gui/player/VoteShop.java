@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -46,7 +47,7 @@ public class VoteShop extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		if (!plugin.getGui().isChestVoteShopEnabled()) {
-			player.sendMessage(StringParser.getInstance().colorize(plugin.getGui().getChestVoteShopDisabled()));
+			player.sendMessage(MessageAPI.colorize(plugin.getGui().getChestVoteShopDisabled()));
 			return;
 		}
 

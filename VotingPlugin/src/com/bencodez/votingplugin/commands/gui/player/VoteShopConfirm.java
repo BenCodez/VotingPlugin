@@ -13,8 +13,8 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -46,7 +46,7 @@ public class VoteShopConfirm extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		PlayerUtils.getInstance().setPlayerMeta(player, "ident", identifier);
+		PlayerUtils.setPlayerMeta(plugin, player, "ident", identifier);
 		BInventory inv = new BInventory(plugin.getGui().getChestShopConfirmPurchaseTitle());
 		inv.dontClose();
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopConfirmPurchaseYesItem())) {

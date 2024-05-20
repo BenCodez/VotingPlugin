@@ -2,7 +2,7 @@ package com.bencodez.votingplugin;
 
 import java.util.concurrent.Callable;
 
-import com.bencodez.advancedcore.api.metrics.BStatsMetrics;
+import com.bencodez.simpleapi.metrics.BStatsMetrics;
 
 public class VotingPluginMetrics {
 

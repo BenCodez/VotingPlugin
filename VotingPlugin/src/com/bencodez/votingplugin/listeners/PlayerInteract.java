@@ -9,7 +9,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.misc.PlayerManager;
+import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 
@@ -55,19 +56,19 @@ public class PlayerInteract implements Listener {
 									.sendMessage(sign.getRightClickMessage());
 
 							if (!sign.isSkullSet()) {
-								if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
+								if (PlayerManager.getInstance().hasServerPermission(event.getPlayer().getName(),
 										"VotingPlugin.Sign.Create")
-										|| PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
+										|| PlayerManager.getInstance().hasServerPermission(event.getPlayer().getName(),
 												"VotingPlugin.Admin")) {
 									player.sendMessage("Skull not set, click to set skull");
-									PlayerUtils.getInstance().setPlayerMeta(player, "skullset", sign.getSign());
+									PlayerUtils.setPlayerMeta(plugin, player, "skullset", sign.getSign());
 								}
 							}
 						}
 					}
 
 				} else if (event.getClickedBlock().getState() instanceof Skull) {
-					Object ob = PlayerUtils.getInstance().getPlayerMeta(player, "skullset");
+					Object ob = PlayerUtils.getPlayerMeta(plugin, player, "skullset");
 					if (ob != null) {
 						String sign1 = (String) ob;
 						for (SignHandler sign : plugin.getSigns().getSigns()) {
@@ -78,7 +79,7 @@ public class PlayerInteract implements Listener {
 								player.sendMessage("Skull set");
 							}
 						}
-						PlayerUtils.getInstance().setPlayerMeta(player, "skullset", null);
+						PlayerUtils.setPlayerMeta(plugin, player, "skullset", null);
 					}
 				}
 			}

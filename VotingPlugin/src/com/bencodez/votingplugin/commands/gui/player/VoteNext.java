@@ -11,12 +11,13 @@ import com.bencodez.advancedcore.api.bookgui.Layout;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.advancedcore.api.inventory.BInventory;
-import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
+import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -40,7 +41,7 @@ public class VoteNext extends GUIHandler {
 
 		String playerName = user.getPlayerName();
 
-		msg.add(StringParser.getInstance().colorize(StringParser.getInstance()
+		msg.add(MessageAPI.colorize(StringParser.getInstance()
 				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
 		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
@@ -52,7 +53,7 @@ public class VoteNext extends GUIHandler {
 
 				msgLine = StringParser.getInstance().replaceIgnoreCase(msgLine, "%SiteName%",
 						voteSite.getDisplayName());
-				msg.add(StringParser.getInstance().colorize(msgLine));
+				msg.add(MessageAPI.colorize(msgLine));
 			}
 		}
 		return msg;

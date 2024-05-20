@@ -13,10 +13,10 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 
@@ -103,7 +103,7 @@ public class ConfigVoteSites extends YMLFile {
 
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite") || p.isOp()) {
-					p.sendMessage(StringParser.getInstance().colorize("&cGenerating votesite for service site "
+					p.sendMessage(MessageAPI.colorize("&cGenerating votesite for service site "
 							+ siteName + ", please check console for details"));
 				}
 			}

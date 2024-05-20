@@ -12,10 +12,10 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -43,15 +43,15 @@ public class VoteGUI extends GUIHandler {
 
 		String str = plugin.getConfigFile().getVoteTopDefault();
 		if (lore.length == 0) {
-			if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
+			if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
 				lore = new String[] { "&aClick me" };
-			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
+			} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
 				lore = ArrayUtils.getInstance().convert(new VoteNext(plugin, player, user).getChat(player));
-			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
+			} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
 				lore = ArrayUtils.getInstance().convert(new VoteLast(plugin, player, user).getChat(player));
-			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
+			} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
 				lore = ArrayUtils.getInstance().convert(new VoteTotal(plugin, player, user).getChat(player));
-			} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
+			} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
 
 				if (str.equalsIgnoreCase("monthly")) {
 					lore = plugin.getTopVoterHandler().topVoterMonthly(1);

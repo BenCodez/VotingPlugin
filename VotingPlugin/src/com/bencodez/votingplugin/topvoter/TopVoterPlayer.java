@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import org.bukkit.inventory.ItemStack;
 
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -30,7 +30,7 @@ public class TopVoterPlayer {
 	}
 
 	public ItemStack getPlayerHead() {
-		return PlayerUtils.getInstance().getPlayerSkull(getPlayerName(), false);
+		return PlayerManager.getInstance().getPlayerSkull(getPlayerName(), false);
 	}
 
 	public VotingPluginUser getUser() {

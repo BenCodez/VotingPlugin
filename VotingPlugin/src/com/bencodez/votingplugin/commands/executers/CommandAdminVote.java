@@ -5,7 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -36,7 +36,7 @@ public class CommandAdminVote implements CommandExecutor {
 		}
 
 		// invalid command
-		sender.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
+		sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 
 		return true;
 	}

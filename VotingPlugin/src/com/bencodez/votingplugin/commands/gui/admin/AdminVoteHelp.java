@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import net.md_5.bungee.api.chat.TextComponent;
@@ -43,9 +43,9 @@ public class AdminVoteHelp extends GUIHandler {
 			maxPage++;
 		}
 
-		msg.add(StringParser.getInstance().stringToComp("&6&lVotingPlugin Admin Help " + (page) + "/" + maxPage));
-		msg.add(StringParser.getInstance().stringToComp("&6&l() = Needed"));
-		msg.add(StringParser.getInstance().stringToComp("&6&lAliases: adminvote, av"));
+		msg.add(MessageAPI.stringToComp("&6&lVotingPlugin Admin Help " + (page) + "/" + maxPage));
+		msg.add(MessageAPI.stringToComp("&6&l() = Needed"));
+		msg.add(MessageAPI.stringToComp("&6&lAliases: adminvote, av"));
 
 		for (int i = pagesize * (page - 1); (i < text.size()) && (i < ((page) * pagesize)); i++) {
 			msg.add(text.get(i));

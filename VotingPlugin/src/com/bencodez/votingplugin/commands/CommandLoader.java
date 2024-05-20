@@ -34,7 +34,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.updater.Updater;
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -46,6 +46,7 @@ import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.api.yml.updater.ConfigUpdater;
 import com.bencodez.advancedcore.command.gui.UserGUI;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
@@ -102,27 +103,27 @@ public class CommandLoader {
 	}
 
 	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
-		if (StringParser.getInstance().startsWithIgnoreCase(slot, "url")) {
+		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
 			new VoteURL(plugin, player, user, true).open();
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "next")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
 			new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "last")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
 			new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "total")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
 			new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "top")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
 			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "today")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "today")) {
 			new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "help")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "help")) {
 			player.performCommand("vote help");
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "shop")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "shop")) {
 			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "lastmonth")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "lastmonth")) {
 			new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "best")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "best")) {
 			new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (StringParser.getInstance().startsWithIgnoreCase(slot, "streak")) {
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
 			new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
 		}
 	}
@@ -293,7 +294,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setPoints(Integer.parseInt(args[3]));
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cSet " + args[1] + " points to " + args[3]));
+								MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
 					}
 
 					@Override
@@ -301,7 +302,7 @@ public class CommandLoader {
 						int num = Integer.parseInt(args[3]);
 
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cSetting all players points to " + args[3]));
+								MessageAPI.colorize("&cSetting all players points to " + args[3]));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -311,7 +312,7 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cDone setting all players points to " + args[3]));
+								MessageAPI.colorize("&cDone setting all players points to " + args[3]));
 					}
 				});
 
@@ -445,7 +446,7 @@ public class CommandLoader {
 							user.cache();
 							int newTotal = 0;
 							newTotal = user.addPoints(Integer.parseInt(args[3]));
-							sender.sendMessage(StringParser.getInstance().colorize("&cGave " + args[1] + " " + args[3]
+							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3]
 									+ " points" + ", " + args[1] + " now has " + newTotal + " points"));
 						}
 					}
@@ -454,7 +455,7 @@ public class CommandLoader {
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
 
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
@@ -464,7 +465,7 @@ public class CommandLoader {
 							plugin.getSpecialRewards().checkMilestone(user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cGave " + "all players" + " " + args[3] + " points"));
 					}
 				});
@@ -478,7 +479,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
-						sender.sendMessage(StringParser.getInstance().colorize("&cRemoved " + args[3] + " points from "
+						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
 								+ args[1] + ", " + args[1] + " now has " + user.getPoints() + " points"));
 					}
 				});
@@ -802,7 +803,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sender.sendMessage(ChatColor.GREEN + "UUID of player " + ChatColor.DARK_GREEN + args[1]
-						+ ChatColor.GREEN + " is: " + PlayerUtils.getInstance().getUUID(args[1]));
+						+ ChatColor.GREEN + " is: " + PlayerManager.getInstance().getUUID(args[1]));
 
 			}
 		});
@@ -815,7 +816,7 @@ public class CommandLoader {
 				try {
 					sender.sendMessage(ChatColor.GREEN + "PlayerName of player " + ChatColor.DARK_GREEN + args[1]
 							+ ChatColor.GREEN + " is: "
-							+ PlayerUtils.getInstance().getPlayerName(
+							+ PlayerManager.getInstance().getPlayerName(
 									plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(args[1])),
 									args[1]));
 				} catch (IllegalArgumentException e) {
@@ -832,7 +833,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					sender.sendMessage(
-							StringParser.getInstance().colorize("&cThis command can not be done from ingame"));
+							MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 
@@ -841,7 +842,7 @@ public class CommandLoader {
 				}
 				plugin.getUserManager().getDataManager().clearCache();
 				plugin.setUpdate(true);
-				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for everyone"));
+				sender.sendMessage(MessageAPI.colorize("&cCleared totals for everyone"));
 			}
 		});
 
@@ -852,14 +853,14 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
 					sender.sendMessage(
-							StringParser.getInstance().colorize("&cThis command can not be done from ingame"));
+							MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
 				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
 				plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(),
 						DataType.STRING);
 				plugin.getUserManager().getDataManager().clearCache();
-				sender.sendMessage(StringParser.getInstance().colorize("&cCleared offline votes/rewards"));
+				sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards"));
 			}
 		});
 
@@ -871,7 +872,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 								.setDayVoteStreak(Integer.parseInt(args[4]));
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet votestreak day for '" + args[1] + "' to " + args[4]));
 					}
 				});
@@ -884,7 +885,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 						.setWeekVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(StringParser.getInstance()
+				sender.sendMessage(MessageAPI
 						.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
 			}
 		});
@@ -897,7 +898,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
 						.setMonthVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(StringParser.getInstance()
+				sender.sendMessage(MessageAPI
 						.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
 			}
 		});
@@ -913,7 +914,7 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]).setTotal(top,
 									Integer.parseInt(args[4]));
-							sender.sendMessage(StringParser.getInstance().colorize(
+							sender.sendMessage(MessageAPI.colorize(
 									"&cSet " + top.toString() + " total for '" + args[1] + "' to " + args[4]));
 						}
 					});
@@ -928,7 +929,7 @@ public class CommandLoader {
 						public void execute(CommandSender sender, String[] args) {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 							user.setTotal(top, user.getTotal(top) + Integer.parseInt(args[4]));
-							sender.sendMessage(StringParser.getInstance()
+							sender.sendMessage(MessageAPI
 									.colorize("&cAdded " + top.toString() + " total for " + args[1]));
 						}
 					});
@@ -941,7 +942,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 				user.clearTotals();
-				sender.sendMessage(StringParser.getInstance().colorize("&cCleared totals for '" + args[1] + "'"));
+				sender.sendMessage(MessageAPI.colorize("&cCleared totals for '" + args[1] + "'"));
 			}
 		});
 
@@ -956,7 +957,7 @@ public class CommandLoader {
 						plugin.getCoolDownCheck().check(user);
 						plugin.getCoolDownCheck().checkPerSite(user);
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cVoted sites reset for '" + args[1] + "'"));
+								MessageAPI.colorize("&cVoted sites reset for '" + args[1] + "'"));
 					}
 				});
 
@@ -970,7 +971,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.resetLastVoted(plugin.getVoteSite(args[3], false));
 						plugin.getCoolDownCheck().checkPerSite(user);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
 					}
 				});
@@ -987,7 +988,7 @@ public class CommandLoader {
 						plugin.getSpecialRewards().checkMilestone(user, null,
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cAdded milestonecount for " + args[1]));
+								MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
 					}
 
 					@Override
@@ -995,7 +996,7 @@ public class CommandLoader {
 						int toAdd = Integer.parseInt(args[3]);
 
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cAdding milestonecount for all players..."));
+								MessageAPI.colorize("&cAdding milestonecount for all players..."));
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -1004,7 +1005,7 @@ public class CommandLoader {
 							plugin.getSpecialRewards().checkMilestone(user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cFinished adding milestonecount for all players"));
 					}
 				});
@@ -1017,7 +1018,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(Integer.parseInt(args[3]));
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet milestonecount for " + args[1] + " to " + args[3]));
 					}
 				});
@@ -1032,7 +1033,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setHasGottenMilestone(new HashMap<String, Boolean>());
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cClearing gotten milestones for " + args[1]));
+								MessageAPI.colorize("&cClearing gotten milestones for " + args[1]));
 					}
 
 					@Override
@@ -1042,12 +1043,12 @@ public class CommandLoader {
 							path = plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
 						}
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cClearing gotten milestones for all players..."));
+								MessageAPI.colorize("&cClearing gotten milestones for all players..."));
 						plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
 						for (Player p : Bukkit.getOnlinePlayers()) {
 							plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
 						}
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cFinished clearing gotten milestones for all players"));
 					}
 				});
@@ -1234,10 +1235,10 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				sender.sendMessage(StringParser.getInstance().colorize("&cCreating VoteSite..." + args[1]));
+				sender.sendMessage(MessageAPI.colorize("&cCreating VoteSite..." + args[1]));
 
 				plugin.getConfigVoteSites().generateVoteSite(args[1]);
-				sender.sendMessage(StringParser.getInstance().colorize("&cCreated VoteSite: &c&l" + args[1]));
+				sender.sendMessage(MessageAPI.colorize("&cCreated VoteSite: &c&l" + args[1]));
 
 			}
 		});
@@ -1291,7 +1292,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						String serviceSite = args[3];
 						plugin.getConfigVoteSites().setServiceSite(voteSite, serviceSite);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet ServiceSite to &c&l" + serviceSite + "&c on &c&l" + voteSite));
 					}
 				});
@@ -1315,7 +1316,7 @@ public class CommandLoader {
 							}
 						}, 5, TimeUnit.SECONDS);
 						sender.sendMessage(
-								StringParser.getInstance().colorize("&cForce checking on vote cooldown rewards"));
+								MessageAPI.colorize("&cForce checking on vote cooldown rewards"));
 					}
 				});
 
@@ -1328,7 +1329,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						String url = args[3];
 						plugin.getConfigVoteSites().setVoteURL(voteSite, url);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet VoteURL to &c&l" + url + "&c on &c&l" + voteSite));
 					}
 				});
@@ -1342,7 +1343,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int value = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setPriority(voteSite, value);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet priortiy to &c&l" + value + "&c on &c&l" + voteSite));
 
 					}
@@ -1357,7 +1358,7 @@ public class CommandLoader {
 						String voteSite = plugin.getVoteSiteName(true, args[1]);
 						int delay = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setVoteDelay(voteSite, delay);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
 
 					}
@@ -1373,22 +1374,22 @@ public class CommandLoader {
 
 					@Override
 					public void run() {
-						sender.sendMessage(StringParser.getInstance().colorize("&cChecking for update..."));
+						sender.sendMessage(MessageAPI.colorize("&cChecking for update..."));
 						plugin.setUpdater(new Updater(plugin, 15358, false));
 						final Updater.UpdateResult result = plugin.getUpdater().getResult();
 						switch (result) {
 						case FAIL_SPIGOT: {
-							sender.sendMessage(StringParser.getInstance()
+							sender.sendMessage(MessageAPI
 									.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
 							break;
 						}
 						case NO_UPDATE: {
-							sender.sendMessage(StringParser.getInstance().colorize("&c&l" + plugin.getName()
+							sender.sendMessage(MessageAPI.colorize("&c&l" + plugin.getName()
 									+ " &cis up to date! Version: &c&l" + plugin.getUpdater().getVersion()));
 							break;
 						}
 						case UPDATE_AVAILABLE: {
-							sender.sendMessage(StringParser.getInstance().colorize(
+							sender.sendMessage(MessageAPI.colorize(
 									"&c&l" + plugin.getName() + " &chas an update available! Your Version: &c&l"
 											+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
 											+ plugin.getUpdater().getVersion()));
@@ -1414,7 +1415,7 @@ public class CommandLoader {
 						boolean value = Boolean.parseBoolean(args[3]);
 
 						plugin.getConfigVoteSites().setEnabled(voteSite, value);
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cSet votesite " + voteSite + " enabled to " + value));
 
 					}
@@ -1427,23 +1428,23 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				String siteName = args[1];
 				if (!plugin.getConfigVoteSites().isServiceSiteGood(siteName)) {
-					sender.sendMessage(StringParser.getInstance()
+					sender.sendMessage(MessageAPI
 							.colorize("&cServiceSite is invalid, votes may not work properly"));
 				} else {
 					String service = plugin.getConfigVoteSites().getServiceSite(siteName);
 					if (plugin.getServerData().getServiceSites().contains(service)) {
-						sender.sendMessage(StringParser.getInstance().colorize("&aServiceSite is properly setup"));
+						sender.sendMessage(MessageAPI.colorize("&aServiceSite is properly setup"));
 					} else {
-						sender.sendMessage(StringParser.getInstance()
+						sender.sendMessage(MessageAPI
 								.colorize("&cService may not be valid, haven't recieved a vote from " + service
 										+ ", see /av servicesites"));
 					}
 
 				}
 				if (!plugin.getConfigVoteSites().isVoteURLGood(siteName)) {
-					sender.sendMessage(StringParser.getInstance().colorize("&cVoteURL is invalid"));
+					sender.sendMessage(MessageAPI.colorize("&cVoteURL is invalid"));
 				} else {
-					sender.sendMessage(StringParser.getInstance().colorize("&aVoteURL is properly setup"));
+					sender.sendMessage(MessageAPI.colorize("&aVoteURL is properly setup"));
 				}
 			}
 		});
@@ -1455,7 +1456,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.setUpdate(true);
 				plugin.update();
-				sender.sendMessage(StringParser.getInstance().colorize("&cUpdating..."));
+				sender.sendMessage(MessageAPI.colorize("&cUpdating..."));
 			}
 		});
 
@@ -1466,7 +1467,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
 				plugin.getUserManager().getDataManager().clearCache();
-				sender.sendMessage(StringParser.getInstance().colorize("&cOffline votes Cleared"));
+				sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared"));
 			}
 		});
 
@@ -1978,7 +1979,7 @@ public class CommandLoader {
 								String playerName = (String) event.getMeta(player, "Player");
 								BInventory inv = new BInventory("MileStones: " + playerName);
 								for (String mileStoneName : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
-									if (StringParser.getInstance().isInt(mileStoneName)) {
+									if (MessageAPI.isInt(mileStoneName)) {
 										int mileStone = Integer.parseInt(mileStoneName);
 
 										inv.addButton(inv.getNextSlot(),
@@ -1990,7 +1991,7 @@ public class CommandLoader {
 
 													@Override
 													public void onClick(ClickEvent clickEvent) {
-														if (StringParser.getInstance().isInt(clickEvent.getClickedItem()
+														if (MessageAPI.isInt(clickEvent.getClickedItem()
 																.getItemMeta().getDisplayName())) {
 															Player player = clickEvent.getPlayer();
 															int mileStone = Integer.parseInt(clickEvent.getClickedItem()
@@ -2115,7 +2116,7 @@ public class CommandLoader {
 					} else {
 						try {
 							user.setPrimaryAccount(
-									java.util.UUID.fromString(PlayerUtils.getInstance().getUUID(args[1])));
+									java.util.UUID.fromString(PlayerManager.getInstance().getUUID(args[1])));
 							sendMessage(sender, "&cPrimary account set");
 						} catch (Exception e) {
 							e.printStackTrace();
@@ -2182,7 +2183,7 @@ public class CommandLoader {
 				@Override
 				public void execute(CommandSender sender, String[] args) {
 					if (!plugin.getGui().isChestVoteShopEnabled()) {
-						sender.sendMessage(StringParser.getInstance().colorize("&cVote shop disabled"));
+						sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
 						return;
 					}
 
@@ -2351,7 +2352,7 @@ public class CommandLoader {
 					if (sender instanceof Player) {
 						plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender).sendMessage(msg);
 					} else {
-						sender.sendMessage(StringParser.getInstance().colorize(msg));
+						sender.sendMessage(MessageAPI.colorize(msg));
 					}
 				} else {
 					sendMessage(sender, StringParser.getInstance()

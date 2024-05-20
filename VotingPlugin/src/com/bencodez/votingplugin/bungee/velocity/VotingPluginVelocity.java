@@ -44,7 +44,6 @@ import org.slf4j.Logger;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
-import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
@@ -62,6 +61,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.advancedcore.bungeeapi.velocity.VelocityYMLFile;
+import com.bencodez.simpleapi.json.JsonParser;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.bungee.BungeeVersion;

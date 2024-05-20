@@ -20,13 +20,13 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNu
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
 import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
+import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
@@ -289,7 +289,7 @@ public class AdminGUI {
 
 					@Override
 					public void onInput(Player player, String value) {
-						Object ob = PlayerUtils.getInstance().getPlayerMeta(player, "VoteSite");
+						Object ob = PlayerUtils.getPlayerMeta(plugin, player, "VoteSite");
 						if (ob != null) {
 							VoteSite site = (VoteSite) ob;
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);

@@ -21,6 +21,7 @@ import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.userstorage.DataType;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -123,7 +124,7 @@ public class VoteParty implements Listener {
 				sender.sendMessage(ArrayUtils.getInstance().convert(msg));
 			}
 		} else {
-			sender.sendMessage(StringParser.getInstance().colorize("&cVoteParty not enabled"));
+			sender.sendMessage(MessageAPI.colorize("&cVoteParty not enabled"));
 		}
 	}
 
@@ -352,7 +353,7 @@ public class VoteParty implements Listener {
 		int neededVotes = getNeededVotes();
 
 		for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
-			if (StringParser.getInstance().isInt(str)) {
+			if (MessageAPI.isInt(str)) {
 				int num = Integer.parseInt(str);
 				if (neededVotes == num) {
 					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();

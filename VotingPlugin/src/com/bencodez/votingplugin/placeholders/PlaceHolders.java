@@ -25,6 +25,7 @@ import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataChanged;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -312,7 +313,7 @@ public class PlaceHolders {
 
 		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
 		for (String vote : mVotes) {
-			if (StringParser.getInstance().isInt(vote)) {
+			if (MessageAPI.isInt(vote)) {
 
 				final int num = Integer.parseInt(vote);
 				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
@@ -600,7 +601,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+				if (!MessageAPI.isInt(identifier.split("_")[2])) {
 					return null;
 				}
 				int num = 1;
@@ -651,7 +652,7 @@ public class PlaceHolders {
 
 				@Override
 				public String placeholderRequest(String identifier) {
-					if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+					if (!MessageAPI.isInt(identifier.split("_")[2])) {
 						return null;
 					}
 					int num = 1;
@@ -688,7 +689,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+				if (!MessageAPI.isInt(identifier.split("_")[2])) {
 					return null;
 				}
 				int num = 1;
@@ -739,7 +740,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+				if (!MessageAPI.isInt(identifier.split("_")[2])) {
 					return null;
 				}
 				int num = 1;
@@ -790,7 +791,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (!StringParser.getInstance().isInt(identifier.split("_")[2])) {
+				if (!MessageAPI.isInt(identifier.split("_")[2])) {
 					return null;
 				}
 				int num = 1;

@@ -26,6 +26,7 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.bungee.BungeeMethod;
@@ -796,7 +797,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 
 			} else {
-				String bc = StringParser.getInstance().colorize(plugin.getConfigFile().getFormatOfflineBroadcast());
+				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatOfflineBroadcast());
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
@@ -1040,7 +1041,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int mileStoneCount = getMilestoneCount();
 		HashMap<String, Boolean> gottenMileStones = getHasGottenMilestone();
 		for (String vote : mVotes) {
-			if (StringParser.getInstance().isInt(vote)) {
+			if (MessageAPI.isInt(vote)) {
 				final int num = Integer.parseInt(vote);
 				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
 					if (gottenMileStones.containsKey("" + num)) {

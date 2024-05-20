@@ -13,8 +13,8 @@ import org.bukkit.command.TabCompleter;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.command.TabCompleteHandler;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /**
@@ -88,7 +88,7 @@ public class AliasesTabCompleter implements TabCompleter {
 		}
 
 		for (String str : cmds) {
-			if (StringParser.getInstance().startsWithIgnoreCase(str, args[args.length - 1])) {
+			if (MessageAPI.startsWithIgnoreCase(str, args[args.length - 1])) {
 				tab.add(str);
 			}
 		}

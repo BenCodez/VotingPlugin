@@ -4,8 +4,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.SignChangeEvent;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.PlayerUtils;
+import com.bencodez.advancedcore.api.misc.PlayerManager;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -34,8 +34,8 @@ public class SignChange implements Listener {
 	@EventHandler(ignoreCancelled = true)
 	public void onSignChange(SignChangeEvent event) {
 		if (event.getLine(0).equalsIgnoreCase("[VotingPlugin]")) {
-			if (PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(), "VotingPlugin.Sign.Create")
-					|| PlayerUtils.getInstance().hasServerPermission(event.getPlayer().getName(),
+			if (PlayerManager.getInstance().hasServerPermission(event.getPlayer().getName(), "VotingPlugin.Sign.Create")
+					|| PlayerManager.getInstance().hasServerPermission(event.getPlayer().getName(),
 							"VotingPlugin.Admin")) {
 				String data = event.getLine(2);
 				if (!data.equalsIgnoreCase("all") && !data.equalsIgnoreCase("monthly")
@@ -45,7 +45,7 @@ public class SignChange implements Listener {
 				try {
 					plugin.getServerData().addSign(event.getBlock().getLocation(), event.getLine(2),
 							Integer.parseInt(event.getLine(1)));
-					event.getPlayer().sendMessage(StringParser.getInstance().colorize("&aAdded sign!"));
+					event.getPlayer().sendMessage(MessageAPI.colorize("&aAdded sign!"));
 					plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 						@Override
@@ -55,12 +55,11 @@ public class SignChange implements Listener {
 						}
 					});
 				} catch (Exception ex) {
-					event.getPlayer().sendMessage(StringParser.getInstance().colorize("&cError on sign creation!"));
+					event.getPlayer().sendMessage(MessageAPI.colorize("&cError on sign creation!"));
 					ex.printStackTrace();
 				}
 			} else {
-				event.getPlayer()
-						.sendMessage(StringParser.getInstance().colorize(plugin.getConfigFile().getFormatNoPerms()));
+				event.getPlayer().sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
 			}
 		}
 

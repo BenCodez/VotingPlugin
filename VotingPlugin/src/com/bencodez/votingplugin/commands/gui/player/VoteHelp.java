@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -121,7 +121,7 @@ public class VoteHelp extends GUIHandler {
 			maxPage++;
 		}
 
-		msg.add(StringParser.getInstance()
+		msg.add(MessageAPI
 				.stringToComp(plugin.getConfigFile().getFormatCommandsVoteHelpTitle() + " " + page + "/" + maxPage));
 
 		for (int i = pagesize * (page - 1); (i < text.size()) && (i < ((page) * pagesize)); i++) {

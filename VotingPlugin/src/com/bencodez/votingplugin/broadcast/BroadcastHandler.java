@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 public class BroadcastHandler {
@@ -30,8 +31,7 @@ public class BroadcastHandler {
 			for (int i = 0; i < size; i++) {
 				votedPlayers.poll();
 			}
-			String bc = StringParser.getInstance()
-					.colorize(plugin.getConfigFile().getFormatAlternateBroadcastBroadcast());
+			String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatAlternateBroadcastBroadcast());
 			String playersText = "";
 			while (!votedPlayers.isEmpty()) {
 				playersText += votedPlayers.remove();

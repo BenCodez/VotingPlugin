@@ -7,8 +7,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
-import com.bencodez.advancedcore.api.messages.StringParser;
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 // TODO: Auto-generated Javadoc
@@ -92,10 +92,10 @@ public class CommandAliases implements CommandExecutor {
 		// invalid command
 		if (adminCommand) {
 			sender.sendMessage(
-					StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
+					MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 		} else {
 			sender.sendMessage(
-					StringParser.getInstance().colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
+					MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
 		}
 		return true;
 	}

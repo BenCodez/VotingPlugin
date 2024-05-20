@@ -34,7 +34,6 @@ import java.util.zip.ZipInputStream;
 
 import com.bencodez.advancedcore.api.misc.ArrayUtils;
 import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
-import com.bencodez.advancedcore.api.misc.jsonparser.JsonParser;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
@@ -51,6 +50,7 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
+import com.bencodez.simpleapi.json.JsonParser;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfiguration;
@@ -547,7 +547,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				num++;
 			}
 		}
-		
+
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
