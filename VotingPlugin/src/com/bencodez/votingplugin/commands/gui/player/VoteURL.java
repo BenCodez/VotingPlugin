@@ -18,8 +18,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.MessageBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils1;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -82,7 +81,7 @@ public class VoteURL extends GUIHandler {
 			phs.put("MonthTotal", "" + user.getTotal(TopVoter.Monthly));
 			phs.put("Total", "" + user.getTotal(TopVoter.AllTime));
 
-			sites = ArrayUtils1.getInstance().replacePlaceHolder(sites, phs);
+			sites = PlaceholderUtils.replacePlaceHolder(sites, phs);
 		}
 
 		return ArrayUtils.colorize(sites);
@@ -150,7 +149,7 @@ public class VoteURL extends GUIHandler {
 				color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUICanVoteColor());
 				text = plugin.getGui().getBookVoteURLBookGUICanVoteText();
 			}
-			String url = StringParser.getInstance().replacePlaceHolder(StringParser.getInstance()
+			String url = PlaceholderUtils.replacePlaceHolder(PlaceholderUtils
 					.replacePlaceHolder(site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
 			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color)
 					.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url)).build());

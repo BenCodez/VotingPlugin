@@ -41,7 +41,7 @@ import com.bencodez.advancedcore.api.inventory.editgui.EditGUIButton;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.javascript.JavascriptPlaceholderRequest;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
@@ -1178,7 +1178,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					ConfigurationSection section, HashMap<String, String> placeholders) {
 				if (section.getBoolean("Enabled")) {
 					user.sendBossBar(
-							StringParser.getInstance().replacePlaceHolder(section.getString("Message", ""),
+							PlaceholderUtils.replacePlaceHolder(section.getString("Message", ""),
 									placeholders),
 							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
 							(double) getVotingPluginUserManager().getVotingPluginUser(user).getSitesVotedOn()

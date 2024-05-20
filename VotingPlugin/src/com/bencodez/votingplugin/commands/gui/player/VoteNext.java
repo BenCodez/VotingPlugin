@@ -15,7 +15,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -94,7 +94,7 @@ public class VoteNext extends GUIHandler {
 				}
 				inv.addButton(inv.getNextSlot(),
 						new UpdatingBInventoryButton(plugin, site.getItem().setName(siteNameDisplay)
-								.setLore(StringParser.getInstance().replacePlaceHolder(
+								.setLore(PlaceholderUtils.replacePlaceHolder(
 										plugin.getGui().getChestVoteNextLine(), "time", user.voteCommandNextInfo(site)))
 								.setAmountNone(1), 1000, 1000) {
 

@@ -10,7 +10,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
@@ -136,8 +136,8 @@ public class VoteSite {
 				placeholders.put("servicesite", getServiceSite());
 				placeholders.put("votesrequired", "" + plugin.getVoteParty().getVotesRequired());
 				placeholders.put("neededvotes", "" + plugin.getVoteParty().getNeededVotes());
-				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
-				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
+				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
+				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
@@ -175,7 +175,7 @@ public class VoteSite {
 
 	public String getVoteURL(boolean json) {
 		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json
-				|| StringParser.getInstance().containsJson(voteURL)) {
+				|| MessageAPI.containsJson(voteURL)) {
 			return voteURL;
 		} else {
 			if (!voteURL.startsWith("http")) {
@@ -187,7 +187,7 @@ public class VoteSite {
 
 	public String getVoteURLJsonStrip() {
 		String url = ChatColor
-				.stripColor(MessageAPI.colorize(StringParser.getInstance().parseJson(getVoteURL(false)).toPlainText()));
+				.stripColor(MessageAPI.colorize(PlaceholderUtils.parseJson(getVoteURL(false)).toPlainText()));
 		if (!url.startsWith("http")) {
 			if (!url.startsWith("www.")) {
 				url = "https://www." + url;

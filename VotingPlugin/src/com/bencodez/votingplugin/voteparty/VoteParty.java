@@ -13,7 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
@@ -116,11 +116,11 @@ public class VoteParty implements Listener {
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
 			msg = ArrayUtils.colorize(
-					com.bencodez.advancedcore.api.misc.ArrayUtils1.getInstance().replacePlaceHolder(msg, placeholders));
+					PlaceholderUtils.replacePlaceHolder(msg, placeholders));
 			if (sender instanceof Player) {
 				Player p = (Player) sender;
 				sender.sendMessage(ArrayUtils.convert(
-						com.bencodez.advancedcore.api.misc.ArrayUtils1.getInstance().replacePlaceHolders(msg, p)));
+						PlaceholderUtils.replacePlaceHolders(msg, p)));
 			} else {
 				sender.sendMessage(ArrayUtils.convert(msg));
 			}
@@ -211,7 +211,7 @@ public class VoteParty implements Listener {
 				@Override
 				public void run() {
 					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-							StringParser.getInstance().replacePlaceHolder(cmd, "randomonlineplayer", player));
+							PlaceholderUtils.replacePlaceHolder(cmd, "randomonlineplayer", player));
 				}
 
 			});
@@ -224,7 +224,7 @@ public class VoteParty implements Listener {
 				@Override
 				public void run() {
 					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-							StringParser.getInstance().replacePlaceHolder(
+							PlaceholderUtils.replacePlaceHolder(
 									list.get(ThreadLocalRandom.current().nextInt(list.size())), "randomonlineplayer",
 									player));
 				}
@@ -362,7 +362,7 @@ public class VoteParty implements Listener {
 					placeholders.put("player", user.getPlayerName());
 					placeholders.put("votesrequired", "" + neededVotes);
 					MiscUtils.getInstance()
-							.broadcast(StringParser.getInstance().replacePlaceHolder(broadcastMessage, placeholders));
+							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
 				}
 			}
 		}

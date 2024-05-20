@@ -12,7 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.messages.MessageAPI;
@@ -136,7 +136,7 @@ public class VoteShop extends GUIHandler {
 													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
-											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
 													plugin.getGui().getCHESTVoteShopPurchase(identifier),
 													placeholders));
 											if (limit > 0) {
@@ -144,7 +144,7 @@ public class VoteShop extends GUIHandler {
 														user.getVoteShopIdentifierLimit(identifier) + 1);
 											}
 										} else {
-											user.sendMessage(StringParser.getInstance().replacePlaceHolder(
+											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
 													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 										}
 									} else {

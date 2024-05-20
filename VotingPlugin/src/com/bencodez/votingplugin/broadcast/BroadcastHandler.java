@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -42,7 +42,7 @@ public class BroadcastHandler {
 			HashMap<String, String> placeholders = new HashMap<String, String>();
 			placeholders.put("numberofplayers", "" + size);
 			placeholders.put("players", playersText);
-			bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
+			bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
 			ArrayList<Player> players = new ArrayList<Player>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {

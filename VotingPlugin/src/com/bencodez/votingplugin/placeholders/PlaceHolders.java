@@ -19,7 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.placeholder.CalculatingPlaceholder;
 import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
@@ -112,7 +112,7 @@ public class PlaceHolders {
 	public String getPlaceholderValue(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
 			boolean useCache) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
-			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
 		}
 
 		if (!identifier.endsWith("Position")) {
@@ -245,7 +245,7 @@ public class PlaceHolders {
 
 	public String getPlaceHolder(Player p, String identifier) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
-			identifier = StringParser.getInstance().replaceJavascript(p, identifier);
+			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
 		}
 		return getPlaceHolder(p, identifier, false);
 	}

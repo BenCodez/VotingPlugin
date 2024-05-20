@@ -16,8 +16,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
-import com.bencodez.advancedcore.api.misc.ArrayUtils1;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.nms.NMSManager;
@@ -67,7 +66,7 @@ public class VoteToday extends GUIHandler {
 			msg.add(voteToday[i]);
 		}
 
-		return ArrayUtils.colorize(ArrayUtils1.getInstance().replacePlaceHolder(msg, placeholders));
+		return ArrayUtils.colorize(PlaceholderUtils.replacePlaceHolder(msg, placeholders));
 	}
 
 	@Override
@@ -95,14 +94,14 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("VoteSite", voteSite.getDisplayName());
 				placeholders.put("Time", timeString);
-				msg = StringParser.getInstance().replacePlaceHolder(msg, placeholders);
+				msg = PlaceholderUtils.replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
 				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
 					item = new ItemBuilder(user.getPlayerHead());
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
 				}
-				item.setName(StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
+				item.setName(PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
 						"player", user.getPlayerName()));
 				item.setLore(msg);
 				final UUID uuid = user.getUuid();
@@ -151,7 +150,7 @@ public class VoteToday extends GUIHandler {
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
 				placeholders.put("time", timeString);
-				msg.add(StringParser.getInstance()
+				msg.add(PlaceholderUtils
 						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 				// msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " +
 				// timeString);
@@ -180,7 +179,7 @@ public class VoteToday extends GUIHandler {
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
 				placeholders.put("time", timeString);
-				msg.add(StringParser.getInstance()
+				msg.add(PlaceholderUtils
 						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
 			}
 		}

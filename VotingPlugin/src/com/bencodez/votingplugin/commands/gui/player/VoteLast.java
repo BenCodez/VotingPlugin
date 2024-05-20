@@ -12,7 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
@@ -77,10 +77,10 @@ public class VoteLast extends GUIHandler {
 										VotingPluginUser user = plugin.getVotingPluginUserManager()
 												.getVotingPluginUser(player);
 										user.sendMessage(
-												StringParser.getInstance()
+												PlaceholderUtils
 														.replacePlaceHolder(
-																StringParser.getInstance().replacePlaceHolder(
-																		StringParser.getInstance()
+																PlaceholderUtils.replacePlaceHolder(
+																		PlaceholderUtils
 																				.replacePlaceHolder(plugin.getGui()
 																						.getChestVoteURLURLText(),
 																						"voteurl", site.getVoteURL()),

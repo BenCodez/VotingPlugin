@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.bencodez.advancedcore.api.messages.StringParser;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
@@ -803,8 +803,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				placeholders.put("nickname",
 						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 				placeholders.put("numberofvotes", "" + numberOfVotes);
-				bc = StringParser.getInstance().replacePlaceHolder(bc, placeholders);
-				bc = StringParser.getInstance().replacePlaceHolders(user.getOfflinePlayer(), bc);
+				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
+				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
 				ArrayList<Player> players = new ArrayList<Player>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
@@ -1150,7 +1150,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (time > 0) {
 			Date date = new Date(time);
 			String timeString = new SimpleDateFormat(plugin.getConfigFile().getFormatTimeFormat()).format(date);
-			if (StringParser.getInstance().containsIgnorecase(timeString, "YamlConfiguration")) {
+			if (MessageAPI.containsIgnorecase(timeString, "YamlConfiguration")) {
 				plugin.getLogger().warning("Detected issue parsing time, check time format");
 			}
 			return timeString;
@@ -1174,40 +1174,40 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			String info = "";
 			if (diffDays == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils
+						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 								plugin.getConfigFile().getFormatTimeFormatsDay()), "amount", "" + diffDays);
 				info += " ";
 			} else if (diffDays > 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils
+						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 								plugin.getConfigFile().getFormatTimeFormatsDays()), "amount", "" + diffDays);
 				info += " ";
 			}
 
 			if (diffHours == 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils
+						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 								plugin.getConfigFile().getFormatTimeFormatsHour()), "amount", "" + diffHours);
 				info += " ";
 			} else if (diffHours > 1) {
-				info += StringParser.getInstance()
-						.replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils
+						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 								plugin.getConfigFile().getFormatTimeFormatsHours()), "amount", "" + diffHours);
 				info += " ";
 			}
 
 			if (diffMinutes == 1) {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 						plugin.getConfigFile().getFormatTimeFormatsMinute()), "amount", "" + diffMinutes);
 				info += " ";
 			} else if (diffMinutes > 1) {
-				info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 						plugin.getConfigFile().getFormatTimeFormatsMinutes()), "amount", "" + diffMinutes);
 				info += " ";
@@ -1215,17 +1215,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			if (plugin.getConfigFile().isFormatCommandsVoteLastIncludeSeconds()) {
 				if (diffSeconds == 1) {
-					info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+					info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 							plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 							plugin.getConfigFile().getFormatTimeFormatsSecond()), "amount", "" + diffSeconds);
 				} else {
-					info += StringParser.getInstance().replacePlaceHolder(StringParser.getInstance().replacePlaceHolder(
+					info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 							plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
 							plugin.getConfigFile().getFormatTimeFormatsSeconds()), "amount", "" + diffSeconds);
 				}
 			}
 
-			info = StringParser.getInstance()
+			info = PlaceholderUtils
 					.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLastVoted(), "times", info);
 
 			return info;
@@ -1242,7 +1242,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
-		return StringParser.getInstance().replacePlaceHolder(plugin.getGui().getChestVoteLastLine(), placeholders);
+		return PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteLastLine(), placeholders);
 	}
 
 	public String voteCommandLastLine(VoteSite voteSite) {
@@ -1254,7 +1254,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
-		return StringParser.getInstance().replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),
+		return PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),
 				placeholders);
 	}
 
