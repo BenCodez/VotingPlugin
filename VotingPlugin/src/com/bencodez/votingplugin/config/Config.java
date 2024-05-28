@@ -38,6 +38,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AddTotalsOffline")
 	@Getter
 	private boolean addTotalsOffline = true;
+	
+	@ConfigDataBoolean(path = "LoadInteralExpansion")
+	@Getter
+	private boolean loadInteralExpansion = true;
 
 	@ConfigDataBoolean(path = "PerSiteCoolDownEvents")
 	@Getter

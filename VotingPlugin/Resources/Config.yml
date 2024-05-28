@@ -463,6 +463,9 @@ UseJavascriptPlaceholders: false
 #    'false': 'User does not have enough points'
 CustomPlaceholderReturns: {}
 
+# Load votingplugin internal expansion
+LoadInteralExpansion: true
+
 ###########################################
 # Login options
 ###########################################

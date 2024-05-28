@@ -1059,8 +1059,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-			new VotingPluginExpansion(this).register();
-			getLogger().info("Loading PlaceholderAPI expansion");
+			if (getConfigFile().isLoadInteralExpansion()) {
+				new VotingPluginExpansion(this).register();
+				getLogger().info("Loading PlaceholderAPI expansion");
+			}
 		}
 
 		registerCommands();
@@ -1178,8 +1180,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					ConfigurationSection section, HashMap<String, String> placeholders) {
 				if (section.getBoolean("Enabled")) {
 					user.sendBossBar(
-							PlaceholderUtils.replacePlaceHolder(section.getString("Message", ""),
-									placeholders),
+							PlaceholderUtils.replacePlaceHolder(section.getString("Message", ""), placeholders),
 							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
 							(double) getVotingPluginUserManager().getVotingPluginUser(user).getSitesVotedOn()
 									/ plugin.getVoteSites().size(),
