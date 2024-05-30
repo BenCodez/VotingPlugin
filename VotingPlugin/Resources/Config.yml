@@ -129,6 +129,9 @@ Format:
       # If you want to want to use the feature below where the plugin will
       # automaticly list the sites then set the message in the text above
       AutoInputSites: true
+      
+      # If true only show links on all urls that need to be voted on still
+      OnlyShowSitesToVote: false
       # For each VoteSite
       # make sure to set VoteURL in your VoteSites
       # Requires above to be true

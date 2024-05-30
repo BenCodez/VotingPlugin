@@ -61,16 +61,20 @@ public class VoteURL extends GUIHandler {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
-					counter++;
-					String voteURL = voteSite.getVoteURL(json);
-					MessageBuilder message = new MessageBuilder(plugin.getConfigFile().getFormatCommandsVoteURLS());
-					message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
-							.replacePlaceholder("SiteName", voteSite.getDisplayName());
-					if (user != null && user.getPlayerName() != null) {
-						message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
-								"" + user.voteCommandNextInfo(voteSite));
+					if (!plugin.getConfigFile().isFormatCommandsVoteOnlyShowSitesToVote()
+							|| user.canVoteSite(voteSite)) {
+						counter++;
+						String voteURL = voteSite.getVoteURL(json);
+						MessageBuilder message = new MessageBuilder(plugin.getConfigFile().getFormatCommandsVoteURLS());
+						message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
+								.replacePlaceholder("SiteName", voteSite.getDisplayName());
+						if (user != null && user.getPlayerName() != null) {
+							message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
+									"" + user.voteCommandNextInfo(voteSite));
+						}
+
+						sites.add(message.colorize().getText());
 					}
-					sites.add(message.colorize().getText());
 				}
 			}
 		}
@@ -149,8 +153,9 @@ public class VoteURL extends GUIHandler {
 				color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUICanVoteColor());
 				text = plugin.getGui().getBookVoteURLBookGUICanVoteText();
 			}
-			String url = PlaceholderUtils.replacePlaceHolder(PlaceholderUtils
-					.replacePlaceHolder(site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
+			String url = PlaceholderUtils.replacePlaceHolder(
+					PlaceholderUtils.replacePlaceHolder(site.getVoteURLJsonStrip(), "player", user.getPlayerName()),
+					"num", "" + i);
 			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color)
 					.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url)).build());
 			book.addLayout(layout);

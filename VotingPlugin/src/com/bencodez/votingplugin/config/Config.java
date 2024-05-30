@@ -38,7 +38,7 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "AddTotalsOffline")
 	@Getter
 	private boolean addTotalsOffline = true;
-	
+
 	@ConfigDataBoolean(path = "LoadInteralExpansion")
 	@Getter
 	private boolean loadInteralExpansion = true;
@@ -384,6 +384,10 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "Format.Commands.Vote.AutoInputSites")
 	@Getter
 	private boolean formatCommandsVoteAutoInputSites = true;
+
+	@ConfigDataBoolean(path = "Format.Commands.Vote.OnlyShowSitesToVote")
+	@Getter
+	private boolean formatCommandsVoteOnlyShowSitesToVote = false;
 
 	@ConfigDataListString(path = "Format.Commands.Vote.Best.Lines")
 	@Getter
