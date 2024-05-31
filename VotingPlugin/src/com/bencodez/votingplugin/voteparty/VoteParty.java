@@ -184,7 +184,7 @@ public class VoteParty implements Listener {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
 				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
-				.withPlaceHolder("FirstVoteParty", "" + !plugin.getServerData().isLastVotePartySameDay())
+				.withPlaceHolder("FirstVotePartyToday", "" + !plugin.getServerData().isLastVotePartySameDay())
 				.setServer(useBungee).send(user);
 	}
 
