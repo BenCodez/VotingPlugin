@@ -115,12 +115,10 @@ public class VoteParty implements Listener {
 			placeholders.put("votesrequired", "" + votesRequired);
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
-			msg = ArrayUtils.colorize(
-					PlaceholderUtils.replacePlaceHolder(msg, placeholders));
+			msg = ArrayUtils.colorize(PlaceholderUtils.replacePlaceHolder(msg, placeholders));
 			if (sender instanceof Player) {
 				Player p = (Player) sender;
-				sender.sendMessage(ArrayUtils.convert(
-						PlaceholderUtils.replacePlaceHolders(msg, p)));
+				sender.sendMessage(ArrayUtils.convert(PlaceholderUtils.replacePlaceHolders(msg, p)));
 			} else {
 				sender.sendMessage(ArrayUtils.convert(msg));
 			}
@@ -186,6 +184,7 @@ public class VoteParty implements Listener {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
 				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
+				.withPlaceHolder("FirstVoteParty", "" + !plugin.getServerData().isLastVotePartySameDay())
 				.setServer(useBungee).send(user);
 	}
 
@@ -223,10 +222,8 @@ public class VoteParty implements Listener {
 
 				@Override
 				public void run() {
-					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-							PlaceholderUtils.replacePlaceHolder(
-									list.get(ThreadLocalRandom.current().nextInt(list.size())), "randomonlineplayer",
-									player));
+					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), PlaceholderUtils.replacePlaceHolder(
+							list.get(ThreadLocalRandom.current().nextInt(list.size())), "randomonlineplayer", player));
 				}
 
 			});
