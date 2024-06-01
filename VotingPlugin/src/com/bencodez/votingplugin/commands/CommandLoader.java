@@ -327,6 +327,42 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "PauseRewards" },
+				"VotingPlugin.Commands.AdminVote.PauseRewards|" + adminPerm, "Pause rewards globally") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!plugin.getOptions().isPauseRewards()) {
+					plugin.getOptions().setPauseRewards(true);
+					sendMessage(sender,
+							"&cRewards paused, note server restart will reset pause, resume with /av resumerewards");
+				} else {
+					sendMessage(sender, "&cRewards already paused, use /av resumerewards to resume");
+				}
+
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ResumeRewards" },
+				"VotingPlugin.Commands.AdminVote.ResumeRewards|" + adminPerm, "Resume rewards globally") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (plugin.getOptions().isPauseRewards()) {
+					plugin.getOptions().setPauseRewards(false);
+					for (Player p : Bukkit.getOnlinePlayers()) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
+						user.offVote();
+					}
+					plugin.setUpdate(true);
+					sendMessage(sender, "&aRewards resumed");
+				} else {
+					sendMessage(sender, "&aRewards already resumed");
+				}
+
+			}
+		});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ResetMilestoneCount" },
 				"VotingPlugin.Commands.AdminVote.ResetMilestoneCount|" + adminPerm, "Resets milestone count to 0") {
 
@@ -2645,10 +2681,10 @@ public class CommandLoader {
 											placeholders.put("touser", "" + user.getPlayerName());
 											placeholders.put("fromuser", "" + cPlayer.getPlayerName());
 											sendMessage(sender,
-													PlaceholderUtils
-															.replacePlaceHolder(plugin.getConfigFile()
+													PlaceholderUtils.replacePlaceHolder(
+															plugin.getConfigFile()
 																	.getFormatCommandsVoteGivePointsTransferFrom(),
-																	placeholders));
+															placeholders));
 											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
 													plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
 													placeholders));
