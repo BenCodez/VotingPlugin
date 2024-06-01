@@ -46,12 +46,15 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardEditData;
+import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.rewards.RewardPlaceholderHandle;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInject;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationSection;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
+import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.skull.SkullHandler;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.yml.YMLConfig;
 import com.bencodez.advancedcore.logger.Logger;
@@ -1187,6 +1190,69 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							section.getInt("Delay", 30));
 				}
 				return null;
+			}
+		});
+
+		getRewardHandler().addInjectedRequirements(new RequirementInjectConfigurationSection("VoteTotal") {
+
+			@Override
+			public boolean onRequirementsRequested(Reward reward, AdvancedCoreUser acUser, ConfigurationSection section,
+					RewardOptions rewardOptions) {
+				boolean atleast = section.getBoolean("AtleastMode", false);
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(acUser);
+
+				for (TopVoter top : TopVoter.values()) {
+					int required = section.getInt(top.toString(), -1);
+					if (required >= 0) {
+						int total = user.getTotal(top);
+						if (atleast) {
+							if (total < required) {
+								debug("Failed requirement " + top.toString() + " " + total + "/" + required);
+								return false;
+							}
+						} else {
+							if (total != required) {
+								debug("Failed requirement " + top.toString() + " " + total + "!=" + required);
+								return false;
+							}
+						}
+					}
+				}
+
+				int milestoneCountRequired = section.getInt("MilestoneCount", -1);
+				if (milestoneCountRequired >= 0) {
+					int milestoneCount = user.getMilestoneCount();
+					if (atleast) {
+						if (milestoneCount < milestoneCountRequired) {
+							debug("Failed requirement milestonecount " + milestoneCount + "/" + milestoneCountRequired);
+							return false;
+						}
+					} else {
+						if (milestoneCount != milestoneCountRequired) {
+							debug("Failed requirement milestonecount " + milestoneCount + "!="
+									+ milestoneCountRequired);
+							return false;
+						}
+					}
+				}
+
+				int pointsRequired = section.getInt("Points", -1);
+				if (pointsRequired >= 0) {
+					int points = user.getPoints();
+					if (atleast) {
+						if (points < pointsRequired) {
+							debug("Failed requirement points " + points + "/" + pointsRequired);
+							return false;
+						}
+					} else {
+						if (points != pointsRequired) {
+							debug("Failed requirement points " + points + "!=" + pointsRequired);
+							return false;
+						}
+					}
+				}
+
+				return true;
 			}
 		});
 
