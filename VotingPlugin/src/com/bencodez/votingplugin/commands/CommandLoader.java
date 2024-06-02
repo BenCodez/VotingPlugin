@@ -353,6 +353,7 @@ public class CommandLoader {
 					for (Player p : Bukkit.getOnlinePlayers()) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
 						user.offVote();
+						user.checkOfflineRewards();
 					}
 					plugin.setUpdate(true);
 					sendMessage(sender, "&aRewards resumed");
