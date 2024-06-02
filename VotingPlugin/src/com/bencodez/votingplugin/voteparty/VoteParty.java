@@ -90,9 +90,7 @@ public class VoteParty implements Listener {
 					+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired());
 		}
 
-		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()) {
-			plugin.getServerData().updateLastVoteParty();
-		}
+		plugin.getServerData().updateLastVoteParty();
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
 			plugin.getServerData().updateLastVotePartyWeek();
