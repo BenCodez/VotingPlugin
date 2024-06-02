@@ -90,8 +90,7 @@ public class PlayerVoteListener implements Listener {
 				for (VoteSite site : plugin.getVoteSites()) {
 					services.add(site.getServiceSite());
 				}
-				plugin.getLogger()
-						.warning("Currently set service sites: " + ArrayUtils.makeStringList(services));
+				plugin.getLogger().warning("Currently set service sites: " + ArrayUtils.makeStringList(services));
 			}
 			return;
 		}
@@ -134,9 +133,6 @@ public class PlayerVoteListener implements Listener {
 		user.cache();
 
 		user.updateName(true);
-
-		// vote party
-		plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
 		if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
 			// broadcast vote if enabled in config
@@ -231,6 +227,9 @@ public class PlayerVoteListener implements Listener {
 				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSitesEnabled().size());
 			}
 		}
+
+		// vote party
+		plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
 		// other rewards
 		plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
