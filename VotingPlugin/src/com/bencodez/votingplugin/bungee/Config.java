@@ -64,6 +64,10 @@ public class Config {
 	public boolean getOnlineMode() {
 		return getData().getBoolean("OnlineMode", true);
 	}
+	
+	public boolean getUUIDLookup() {
+		return getData().getBoolean("UUIDLookup", true);
+	}
 
 	public boolean getGlobalDataEnabled() {
 		return getData().getBoolean("GlobalData.Enabled", false);

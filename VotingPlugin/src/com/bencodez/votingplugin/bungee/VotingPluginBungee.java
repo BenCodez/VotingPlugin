@@ -1257,8 +1257,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(channel);
 		list.addAll(ArrayUtils.convert(messageData));
-		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server,
-				ArrayUtils.convert(list));
+		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server, ArrayUtils.convert(list));
 	}
 
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {
@@ -1374,22 +1373,27 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					return;
 				}
 				if (config.getAllowUnJoined()) {
-					debug("Fetching UUID online, since allowunjoined is enabled");
-					UUID u = null;
-					try {
-						if (config.getOnlineMode()) {
-							u = fetchUUID(player);
+					if (config.getUUIDLookup()) {
+						debug("Fetching UUID online, since allowunjoined is enabled");
+						UUID u = null;
+						try {
+							if (config.getOnlineMode()) {
+								u = fetchUUID(player);
+							}
+						} catch (Exception e) {
+							if (getConfig().getDebug()) {
+								e.printStackTrace();
+							}
 						}
-					} catch (Exception e) {
-						if (getConfig().getDebug()) {
-							e.printStackTrace();
+						if (u == null) {
+							debug("Failed to get uuid for " + player);
+							return;
 						}
-					}
-					if (u == null) {
-						debug("Failed to get uuid for " + player);
+						uuid = u.toString();
+					} else {
+						getLogger().info("Failed to get uuid for " + player);
 						return;
 					}
-					uuid = u.toString();
 				} else {
 					getLogger().info("Ignoring vote from " + player + " since player hasn't joined before");
 					return;

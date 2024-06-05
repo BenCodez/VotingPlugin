@@ -148,7 +148,11 @@ VoteParty:
   
 # Online mode for UUIDS
 # Offline mode setups are not fully tested and are not supported currently
+# If using mixed uuids (premium and cracked players leave this enabled and disable UUIDLookup below)
 OnlineMode: true
+
+# If true plugin will atempt to lookup uuids if none exist
+UUIDLookup: true
 
 ##########################################
 # PLUGINMESSAGING Settings

@@ -36,6 +36,10 @@ public class Config extends VelocityYMLFile {
 	public boolean getOnlineMode() {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
+	
+	public boolean getUUIDLookup() {
+		return getBoolean(getNode("UUIDLookup"), true);
+	}
 
 	public boolean getGlobalDataEnabled() {
 		return getBoolean(getNode("GlobalData", "Enabled"), false);

@@ -558,6 +558,7 @@ CreateBackups: true
 AutoDownload: false
 
 # If false plugin will use offline player UUIDs
+# Keep enabled when mixing uuids (Premium and cracked)
 OnlineMode: true
 
 # Disable checking on world change
