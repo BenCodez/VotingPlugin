@@ -594,6 +594,7 @@ public class VotingPluginVelocity {
 			mysql.shutDown();
 		}
 		timer.shutdownNow();
+		bungeeTimeChecker.getTimer().shutdownNow();
 		enabled = false;
 		logger.info("VotingPlugin disabled");
 	}
