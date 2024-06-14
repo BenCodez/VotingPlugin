@@ -593,6 +593,9 @@ public class VotingPluginVelocity {
 		if (mysql != null) {
 			mysql.shutDown();
 		}
+		if (multiProxyHandler != null) {
+			multiProxyHandler.close();
+		}
 		timer.shutdownNow();
 		bungeeTimeChecker.getTimer().shutdownNow();
 		enabled = false;

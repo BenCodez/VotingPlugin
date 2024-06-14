@@ -553,6 +553,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (mysql != null) {
 			mysql.shutdown();
 		}
+		if (multiProxyHandler != null) {
+			multiProxyHandler.close();
+		}
 		getLogger().info("VotingPlugin disabled");
 		enabled = false;
 	}
