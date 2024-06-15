@@ -60,6 +60,10 @@ VoteSites:
     # This basiclly disables offline voting if set to true, don't misinterpret this option
     ForceOffline: false
     
+    # Requrie a permission to view site in GUI
+    # If empty or not set anyone can view (default)
+    #PermissionToView: 'Perm.here'
+    
     # VoteSite Material for some GUI's
     # Removing this may result in an error, required on each site
     DisplayItem:

@@ -84,6 +84,10 @@ public class VoteSite {
 
 	@Getter
 	@Setter
+	private String permissionToView;
+
+	@Getter
+	@Setter
 	private boolean waitUntilVoteDelay;
 
 	public VoteSite(VotingPluginMain plugin, String siteName) {
@@ -174,8 +178,7 @@ public class VoteSite {
 	}
 
 	public String getVoteURL(boolean json) {
-		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json
-				|| MessageAPI.containsJson(voteURL)) {
+		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json || MessageAPI.containsJson(voteURL)) {
 			return voteURL;
 		} else {
 			if (!voteURL.startsWith("http")) {
@@ -236,6 +239,7 @@ public class VoteSite {
 		voteDelayDailyHour = plugin.getConfigVoteSites().getVoteDelayDailyHour(key);
 		hidden = plugin.getConfigVoteSites().getVoteSiteHidden(key);
 		ignoreCanVote = plugin.getConfigVoteSites().getVoteSiteIgnoreCanVote(key);
+		permissionToView = plugin.getConfigVoteSites().getPermissionToView(key);
 	}
 
 	public boolean isVaidServiceSite() {

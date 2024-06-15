@@ -50,7 +50,7 @@ public class VoteURL extends GUIHandler {
 	}
 
 	@Override
-	public ArrayList<String> getChat(CommandSender arg0) {
+	public ArrayList<String> getChat(CommandSender sender) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = plugin.getConfigFile().getFormatCommandsVoteText();
@@ -61,19 +61,24 @@ public class VoteURL extends GUIHandler {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
-					if (!plugin.getConfigFile().isFormatCommandsVoteOnlyShowSitesToVote()
-							|| user.canVoteSite(voteSite)) {
-						counter++;
-						String voteURL = voteSite.getVoteURL(json);
-						MessageBuilder message = new MessageBuilder(plugin.getConfigFile().getFormatCommandsVoteURLS());
-						message.replacePlaceholder("num", Integer.toString(counter)).replacePlaceholder("url", voteURL)
-								.replacePlaceholder("SiteName", voteSite.getDisplayName());
-						if (user != null && user.getPlayerName() != null) {
-							message.replacePlaceholder("player", "" + user.getPlayerName()).replacePlaceholder("Next",
-									"" + user.voteCommandNextInfo(voteSite));
-						}
+					if (voteSite.getPermissionToView().isEmpty()
+							|| sender.hasPermission(voteSite.getPermissionToView())) {
+						if (!plugin.getConfigFile().isFormatCommandsVoteOnlyShowSitesToVote()
+								|| user.canVoteSite(voteSite)) {
+							counter++;
+							String voteURL = voteSite.getVoteURL(json);
+							MessageBuilder message = new MessageBuilder(
+									plugin.getConfigFile().getFormatCommandsVoteURLS());
+							message.replacePlaceholder("num", Integer.toString(counter))
+									.replacePlaceholder("url", voteURL)
+									.replacePlaceholder("SiteName", voteSite.getDisplayName());
+							if (user != null && user.getPlayerName() != null) {
+								message.replacePlaceholder("player", "" + user.getPlayerName())
+										.replacePlaceholder("Next", "" + user.voteCommandNextInfo(voteSite));
+							}
 
-						sites.add(message.colorize().getText());
+							sites.add(message.colorize().getText());
+						}
 					}
 				}
 			}
@@ -145,21 +150,25 @@ public class VoteURL extends GUIHandler {
 		}
 		int i = 1;
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {
-			Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
-					site.getDisplayName());
-			String text = plugin.getGui().getBookVoteURLBookGUIAlreadyVotedText();
-			ChatColor color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUIAlreadyVotedColor());
-			if (user.canVoteSite(site)) {
-				color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUICanVoteColor());
-				text = plugin.getGui().getBookVoteURLBookGUICanVoteText();
+			if (!site.isHidden()) {
+				if (site.getPermissionToView().isEmpty() || player.hasPermission(site.getPermissionToView())) {
+					Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
+							site.getDisplayName());
+					String text = plugin.getGui().getBookVoteURLBookGUIAlreadyVotedText();
+					ChatColor color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUIAlreadyVotedColor());
+					if (user.canVoteSite(site)) {
+						color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUICanVoteColor());
+						text = plugin.getGui().getBookVoteURLBookGUICanVoteText();
+					}
+					String url = PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
+							site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
+					layout.replaceTextComponent("[UrlText]",
+							BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
+									.onHover(BookUtil.HoverAction.showText(url)).build());
+					book.addLayout(layout);
+					i++;
+				}
 			}
-			String url = PlaceholderUtils.replacePlaceHolder(
-					PlaceholderUtils.replacePlaceHolder(site.getVoteURLJsonStrip(), "player", user.getPlayerName()),
-					"num", "" + i);
-			layout.replaceTextComponent("[UrlText]", BookUtil.TextBuilder.of(text).color(color)
-					.onClick(BookUtil.ClickAction.openUrl(url)).onHover(BookUtil.HoverAction.showText(url)).build());
-			book.addLayout(layout);
-			i++;
 		}
 
 		book.open(player);
@@ -196,42 +205,46 @@ public class VoteURL extends GUIHandler {
 		int startSlot = plugin.getGui().getChestVoteURLAllUrlsButtonStartSlot();
 		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
-				ItemBuilder builder = getItemVoteSite(voteSite);
-				if (startSlot >= 0) {
-					builder.setSlot(startSlot);
-					startSlot++;
-				}
+				if (voteSite.getPermissionToView().isEmpty() || player.hasPermission(voteSite.getPermissionToView())) {
+					ItemBuilder builder = getItemVoteSite(voteSite);
+					if (startSlot >= 0) {
+						builder.setSlot(startSlot);
+						startSlot++;
+					}
 
-				inv.addButton(new UpdatingBInventoryButton(plugin, builder, 5000, 5000) {
+					inv.addButton(new UpdatingBInventoryButton(plugin, builder, 5000, 5000) {
 
-					@Override
-					public void onClick(ClickEvent event) {
-						Player player = event.getPlayer();
-						if (player != null) {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-							HashMap<String, String> placeholders = new HashMap<String, String>();
-							placeholders.put("voteurl", voteSite.getVoteURL());
-							placeholders.put("sitename", voteSite.getDisplayName());
-							placeholders.put("player", player.getName());
-							placeholders.put("servicesite", voteSite.getServiceSite());
-							placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
-							placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
-							user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
+						@Override
+						public void onClick(ClickEvent event) {
+							Player player = event.getPlayer();
+							if (player != null) {
+								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+								HashMap<String, String> placeholders = new HashMap<String, String>();
+								placeholders.put("voteurl", voteSite.getVoteURL());
+								placeholders.put("sitename", voteSite.getDisplayName());
+								placeholders.put("player", player.getName());
+								placeholders.put("servicesite", voteSite.getServiceSite());
+								placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
+								placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
+								user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
+
+							}
 
 						}
 
-					}
+						@Override
+						public ItemBuilder onUpdate(Player player) {
+							return getItemVoteSite(voteSite);
+						}
 
-					@Override
-					public ItemBuilder onUpdate(Player player) {
-						return getItemVoteSite(voteSite);
-					}
-
-				});
+					});
+				}
 			}
 		}
 
-		for (final String str : plugin.getGui().getChestVoteURLExtraItems()) {
+		for (
+
+		final String str : plugin.getGui().getChestVoteURLExtraItems()) {
 			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestVoteURLExtraItemsItem(str))) {
 
 				@Override

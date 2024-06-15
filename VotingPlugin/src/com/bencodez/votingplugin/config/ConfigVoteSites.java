@@ -103,8 +103,8 @@ public class ConfigVoteSites extends YMLFile {
 
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				if (p.hasPermission("VotingPlugin.Admin.GenerateServiceSite") || p.isOp()) {
-					p.sendMessage(MessageAPI.colorize("&cGenerating votesite for service site "
-							+ siteName + ", please check console for details"));
+					p.sendMessage(MessageAPI.colorize("&cGenerating votesite for service site " + siteName
+							+ ", please check console for details"));
 				}
 			}
 		}
@@ -296,6 +296,10 @@ public class ConfigVoteSites extends YMLFile {
 		}
 
 		return siteNames;
+	}
+
+	public String getPermissionToView(String siteName) {
+		return getData(siteName).getString("PermissionToView", "");
 	}
 
 	/**
