@@ -7,6 +7,7 @@ import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 
 import com.bencodez.advancedcore.api.bookgui.BookWrapper;
 import com.bencodez.advancedcore.api.bookgui.Layout;
@@ -51,6 +52,10 @@ public class VoteURL extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
+		return getChat(sender, false);
+	}
+
+	public ArrayList<String> getChat(CommandSender sender, boolean bypassPermissionCheck) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = plugin.getConfigFile().getFormatCommandsVoteText();
@@ -61,7 +66,7 @@ public class VoteURL extends GUIHandler {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
-					if (voteSite.getPermissionToView().isEmpty()
+					if (voteSite.getPermissionToView().isEmpty() || bypassPermissionCheck
 							|| sender.hasPermission(voteSite.getPermissionToView())) {
 						if (!plugin.getConfigFile().isFormatCommandsVoteOnlyShowSitesToVote()
 								|| user.canVoteSite(voteSite)) {
@@ -192,7 +197,11 @@ public class VoteURL extends GUIHandler {
 				public void onClick(ClickEvent event) {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(event.getPlayer());
 					json = true;
-					user.sendMessage(getChat(player));
+					if (event.getClick().equals(ClickType.LEFT)) {
+						user.sendMessage(getChat(player, true));
+					} else {
+						user.sendMessage(getChat(player, false));
+					}
 				}
 
 				@Override
