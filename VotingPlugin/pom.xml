@@ -63,6 +63,11 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.4.1</version>
 				<configuration>
+					<archive>
+						<manifestEntries>
+							<paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+						</manifestEntries>
+					</archive>
 					<source>1.8</source>
 					<target>1.8</target>
 					<finalName>${project.name}</finalName>
@@ -186,7 +191,8 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${user.home}/Documents/Test Server/plugins</outputDirectory>
+							<outputDirectory>${user.home}/Documents/Test
+								Server/plugins</outputDirectory>
 							<resources>
 								<resource>
 									<directory>${basedir}/target</directory>
