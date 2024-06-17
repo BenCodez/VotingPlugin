@@ -55,7 +55,7 @@ public class VoteURL extends GUIHandler {
 		return getChat(sender, false);
 	}
 
-	public ArrayList<String> getChat(CommandSender sender, boolean bypassPermissionCheck) {
+	public ArrayList<String> getChat(CommandSender sender, boolean bypassCanVote) {
 		ArrayList<String> sites = new ArrayList<String>();
 
 		List<String> title = plugin.getConfigFile().getFormatCommandsVoteText();
@@ -66,10 +66,10 @@ public class VoteURL extends GUIHandler {
 			int counter = 0;
 			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
-					if (voteSite.getPermissionToView().isEmpty() || bypassPermissionCheck
+					if (voteSite.getPermissionToView().isEmpty()
 							|| sender.hasPermission(voteSite.getPermissionToView())) {
 						if (!plugin.getConfigFile().isFormatCommandsVoteOnlyShowSitesToVote()
-								|| user.canVoteSite(voteSite)) {
+								|| user.canVoteSite(voteSite) || bypassCanVote) {
 							counter++;
 							String voteURL = voteSite.getVoteURL(json);
 							MessageBuilder message = new MessageBuilder(
