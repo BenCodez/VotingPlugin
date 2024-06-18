@@ -197,7 +197,8 @@ public class VoteURL extends GUIHandler {
 				public void onClick(ClickEvent event) {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(event.getPlayer());
 					json = true;
-					if (event.getClick().equals(ClickType.LEFT)) {
+					if (event.getClick().equals(ClickType.SHIFT_LEFT)
+							|| event.getClick().equals(ClickType.SHIFT_RIGHT)) {
 						user.sendMessage(getChat(player, true));
 					} else {
 						user.sendMessage(getChat(player, false));
