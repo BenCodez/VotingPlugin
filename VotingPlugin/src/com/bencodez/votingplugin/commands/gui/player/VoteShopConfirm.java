@@ -47,15 +47,15 @@ public class VoteShopConfirm extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		PlayerUtils.setPlayerMeta(plugin, player, "ident", identifier);
-		BInventory inv = new BInventory(plugin.getGui().getChestShopConfirmPurchaseTitle());
+		BInventory inv = new BInventory(plugin.getShopFile().getShopConfirmPurchaseTitle());
 		inv.dontClose();
-		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopConfirmPurchaseYesItem())) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseYesItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {
 				user.cache();
-				int points = plugin.getGui().getChestShopIdentifierCost(identifier);
-				int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
+				int points = plugin.getShopFile().getShopIdentifierCost(identifier);
+				int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
 				HashMap<String, String> placeholders = new HashMap<String, String>();
 				placeholders.put("identifier", identifier);
 				placeholders.put("points", "" + points);
@@ -67,12 +67,12 @@ public class VoteShopConfirm extends GUIHandler {
 						plugin.getServerData().addVoteShopPurchase(identifier);
 					}
 
-					plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
-							plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
+					plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
+							plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
 							new RewardOptions().setPlaceholders(placeholders));
 
 					user.sendMessage(PlaceholderUtils
-							.replacePlaceHolder(plugin.getGui().getCHESTVoteShopPurchase(identifier), placeholders));
+							.replacePlaceHolder(plugin.getShopFile().getVoteShopPurchase(identifier), placeholders));
 					if (limit > 0) {
 						user.setVoteShopIdentifierLimit(identifier, user.getVoteShopIdentifierLimit(identifier) + 1);
 					}
@@ -80,7 +80,7 @@ public class VoteShopConfirm extends GUIHandler {
 					user.sendMessage(PlaceholderUtils
 							.replacePlaceHolder(plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 				}
-				if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
+				if (plugin.getShopFile().getVoteShopCloseGUI(identifier)) {
 					event.getButton().getInv().closeInv(player, null);
 				} else {
 					new VoteShop(plugin, event.getPlayer(), user).open();
@@ -88,11 +88,11 @@ public class VoteShopConfirm extends GUIHandler {
 
 			}
 		});
-		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopConfirmPurchaseNoItem())) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
+				if (plugin.getShopFile().getVoteShopCloseGUI(identifier)) {
 					event.getButton().getInv().closeInv(player, null);
 				} else {
 					new VoteShop(plugin, event.getPlayer(), user).open();

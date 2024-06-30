@@ -41,9 +41,9 @@ public class AdminVoteVoteShopItems extends GUIHandler {
 		BInventory inv = new BInventory("Edit VoteShop Items");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
 
-		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
+		for (String identifier : plugin.getShopFile().getShopIdentifiers()) {
 			inv.addButton(
-					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier))) {
+					new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopIdentifierSection(identifier))) {
 
 						@Override
 						public void onClick(ClickEvent clickEvent) {

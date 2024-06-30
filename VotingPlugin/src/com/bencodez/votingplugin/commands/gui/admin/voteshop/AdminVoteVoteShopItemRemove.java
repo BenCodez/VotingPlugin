@@ -42,9 +42,9 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 		BInventory inv = new BInventory("Edit VoteShop Remove Item");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
 
-		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
+		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
 			inv.addButton(
-					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestShopIdentifierSection(identifier))
+					new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopIdentifierSection(identifier))
 							.addLoreLine("&c&lClick to remove")) {
 
 						@Override
@@ -54,7 +54,7 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 
 								@Override
 								public void onConfirm(Player p) {
-									plugin.getGui().removeShop(identifier);
+									plugin.getShopFile().removeShop(identifier);
 									p.sendMessage("Removed " + identifier);
 									plugin.reload();
 								}
@@ -64,7 +64,6 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 									new AdminVoteVoteShop(plugin, p).open();
 								}
 							}.open();
-
 
 						}
 					}.addData("ident", identifier));

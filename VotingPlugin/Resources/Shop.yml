@@ -1,0 +1,77 @@
+VoteShop:
+  Enabled: true
+  Name: 'VoteShop'
+  BackButton: true
+  # Hide items in vote shop which user can not buy
+  HideLimitedReached: true
+  # Requires above to be false
+  LimitReached: '&aYou reached your limit'
+  RequireConfirmation: false
+  Disabled: '&cVote shop disabled'
+  # If true, shop gui will reopen, updating all placeholders
+  ReopenGUIOnPurchase: false
+  
+Shop:
+  # Identifier
+  # Used in placeholders for formats
+  # Do not have spaces in the identifier
+  # Change the identifier for each shop item
+  Diamond:
+    Identifier_Name: 'Diamond'
+    # Item
+    Material: 'DIAMOND'
+    Amount: 1
+    Name: '&4Buy A Diamond'
+    # You can set skulls of the player using the following
+    # Remove the # to enable
+    #Skull: '%Player%'
+    Lore:
+    - '&c&lCost: &c3 Voting Points'
+    # Number of voting points this cost
+    Cost: 3
+    # Permission required, leave blank for no permission
+    Permission: ''
+    # Hide if player doesn't have permission (only if permission is set)
+    HideOnNoPermission: true
+    # Whether or not to keep GUI open after purchase
+    CloseGUI: true
+    # Require confirmation on purchase, overrides global option above
+    RequireConfirmation: false
+    # Overrides other purchase message
+    #PurchaseMessage: 'Thanks for the purchase'
+    # Limit how many times you can buy this
+    #Limit: 3
+    # Reset limit daily/weekly/monthly
+    #Reset:
+      #Daily: false
+      #Weekly: false
+      #Monthly: false
+    # If true, item is not buyable
+    #NotBuyable: false
+    # Rewards to run if player buys successfully
+    Rewards:
+      # Run command on purchase
+      #Commands:
+      #- 'command here'
+      Items:
+        Diamond:
+          Material: 'DIAMOND'
+          Amount: 1    
+            
+# VoteShop extra items for display only
+#ExtraItems:
+  #ItemIdentifier:
+    #...
+      
+ShopConfirmPurchase:
+  Title: 'Confirm Purchase?'
+  YesItem:
+    Material: EMERALD_BLOCK
+    Amount: 1
+    Name: '&aYes'
+  NoItem:
+    Material: BARRIER
+    Amount: 1
+    Name: '&cNo'
+      
+      

@@ -352,8 +352,8 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get number of votes until next available milestone").updateDataKey("MilestoneCount"));
 
-		for (final String identifier : plugin.getGui().getChestShopIdentifiers()) {
-			if (plugin.getGui().getChestShopIdentifierLimit(identifier) > 0) {
+		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
+			if (plugin.getShopFile().getShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {
 
 					@Override

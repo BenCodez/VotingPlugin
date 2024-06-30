@@ -53,7 +53,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteShop");
 		// to add
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1), new EditGUIValueString("Identifier_Name",
-				plugin.getGui().getChestShopIdentifierIdentifierName(identifier)) {
+				plugin.getShopFile().getShopIdentifierIdentifierName(identifier)) {
 
 			@Override
 			public void setValue(Player player, String name) {
@@ -61,7 +61,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 			}
 		}));
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.OAK_DOOR, 1),
-				new EditGUIValueString("Permission", plugin.getGui().getChestVoteShopPermission(identifier)) {
+				new EditGUIValueString("Permission", plugin.getShopFile().getVoteShopPermission(identifier)) {
 
 					@Override
 					public void setValue(Player player, String name) {
@@ -69,7 +69,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 					}
 				}));
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.EMERALD, 1),
-				new EditGUIValueNumber("Cost", plugin.getGui().getChestShopIdentifierCost(identifier)) {
+				new EditGUIValueNumber("Cost", plugin.getShopFile().getShopIdentifierCost(identifier)) {
 
 					@Override
 					public void setValue(Player player, Number num) {
@@ -77,7 +77,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 					}
 				}));
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.BARRIER, 1),
-				new EditGUIValueNumber("Limit", plugin.getGui().getChestShopIdentifierLimit(identifier)) {
+				new EditGUIValueNumber("Limit", plugin.getShopFile().getShopIdentifierLimit(identifier)) {
 
 					@Override
 					public void setValue(Player player, Number num) {
@@ -86,7 +86,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 				}));
 
 		// display item
-		ConfigurationSection displayItemData = plugin.getGui().getChestShopIdentifierSection(identifier);
+		ConfigurationSection displayItemData = plugin.getShopFile().getShopIdentifierSection(identifier);
 		inv.addButton(new EditGUIButton(new ItemBuilder(displayItemData.getString("Material")).setAmount(1),
 				new EditGUIValueString("Material", displayItemData.getString("Material")) {
 
@@ -156,8 +156,8 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 	}
 
 	private void setPathData(String path, Object value) {
-		plugin.getGui().getData().set("CHEST.Shop." + identifier + "." + path, value);
-		plugin.getGui().saveData();
+		plugin.getShopFile().getData().set("Shop." + identifier + "." + path, value);
+		plugin.getShopFile().saveData();
 		plugin.reload();
 	}
 

@@ -1600,7 +1600,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						plugin.getRewardHandler().giveReward(user, plugin.getConfigFile().getData(),
-								plugin.getGui().getChestShopIdentifierRewardsPath(args[3]), new RewardOptions());
+								plugin.getShopFile().getShopIdentifierRewardsPath(args[3]), new RewardOptions());
 						sendMessage(sender, "&cVoteShop " + args[3] + " forced");
 					}
 				});
@@ -2106,7 +2106,7 @@ public class CommandLoader {
 			@Override
 			public void reload() {
 				ArrayList<String> sites = new ArrayList<String>();
-				for (String str : plugin.getGui().getChestShopIdentifiers()) {
+				for (String str : plugin.getShopFile().getShopIdentifiers()) {
 					sites.add(str);
 				}
 				setReplace(sites);
@@ -2187,7 +2187,7 @@ public class CommandLoader {
 			}
 		});
 
-		if (plugin.getGui().isChestVoteShopEnabled()) {
+		if (plugin.getShopFile().isVoteShopEnabled()) {
 			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop" },
 					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
 
@@ -2202,13 +2202,13 @@ public class CommandLoader {
 
 				@Override
 				public void execute(CommandSender sender, String[] args) {
-					if (!plugin.getGui().isChestVoteShopEnabled()) {
+					if (!plugin.getShopFile().isVoteShopEnabled()) {
 						sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
 						return;
 					}
 
 					String identifier = args[1];
-					Set<String> identifiers = plugin.getGui().getChestShopIdentifiers();
+					Set<String> identifiers = plugin.getShopFile().getShopIdentifiers();
 					if (ArrayUtils.containsIgnoreCase(identifiers, identifier)) {
 						for (String ident : identifiers) {
 							if (ident.equalsIgnoreCase(args[1])) {
@@ -2216,7 +2216,7 @@ public class CommandLoader {
 							}
 						}
 
-						String perm = plugin.getGui().getChestVoteShopPermission(identifier);
+						String perm = plugin.getShopFile().getVoteShopPermission(identifier);
 						boolean hasPerm = false;
 						if (perm.isEmpty()) {
 							hasPerm = true;
@@ -2224,7 +2224,7 @@ public class CommandLoader {
 							hasPerm = sender.hasPermission(perm);
 						}
 
-						int limit = plugin.getGui().getChestShopIdentifierLimit(identifier);
+						int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
 
 						VotingPluginUser user = plugin.getVotingPluginUserManager()
 								.getVotingPluginUser(sender.getName());
@@ -2236,12 +2236,12 @@ public class CommandLoader {
 							}
 						}
 
-						if (!plugin.getGui().getChestVoteShopNotBuyable(identifier)) {
+						if (!plugin.getShopFile().getVoteShopNotBuyable(identifier)) {
 							if (hasPerm) {
 								if (plugin.getConfigFile().isExtraVoteShopCheck()) {
 									user.cache();
 								}
-								int points = plugin.getGui().getChestShopIdentifierCost(identifier);
+								int points = plugin.getShopFile().getShopIdentifierCost(identifier);
 								if (identifier != null) {
 
 									if (limitPass) {
@@ -2252,7 +2252,7 @@ public class CommandLoader {
 										if (user.removePoints(points, true)) {
 
 											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
-													plugin.getGui().getChestShopIdentifierRewardsPath(identifier),
+													plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
 											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
@@ -2266,7 +2266,7 @@ public class CommandLoader {
 													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 										}
 									} else {
-										user.sendMessage(plugin.getGui().getChestVoteShopLimitReached());
+										user.sendMessage(plugin.getShopFile().getVoteShopLimitReached());
 									}
 								}
 

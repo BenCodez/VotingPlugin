@@ -71,6 +71,7 @@ import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.config.GUI;
+import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.data.ServerData;
@@ -143,6 +144,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private GUI gui;
+
+	@Getter
+	private ShopFile shopFile;
 
 	@Getter
 	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoter;
@@ -899,27 +903,27 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					});
 		}
 
-		for (String identifier : plugin.getGui().getChestShopIdentifiers()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("CHEST.Shop." + identifier + ".Rewards") {
+		for (String identifier : plugin.getShopFile().getShopIdentifiers()) {
+			addDirectlyDefinedRewards(new DirectlyDefinedReward("Shop." + identifier + ".Rewards") {
 
 				@Override
 				public void createSection(String key) {
-					getGui().createSection(key);
+					getShopFile().createSection(key);
 				}
 
 				@Override
 				public ConfigurationSection getFileData() {
-					return getGui().getData();
+					return getShopFile().getData();
 				}
 
 				@Override
 				public void save() {
-					getGui().saveData();
+					getShopFile().saveData();
 				}
 
 				@Override
 				public void setData(String path, Object value) {
-					getGui().setValue(path, value);
+					getShopFile().setValue(path, value);
 				}
 			});
 		}
@@ -1541,6 +1545,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		gui = new GUI(this);
 		gui.setup();
+		
+		shopFile = new ShopFile(this);
+		shopFile.setup();
 
 		serverData = new ServerData(this);
 

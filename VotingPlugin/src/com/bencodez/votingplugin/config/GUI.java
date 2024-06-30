@@ -56,34 +56,6 @@ public class GUI extends YMLFile {
 	@Getter
 	private String bookVoteURLBookGUITitle = "&cVoteURL";
 
-	@Getter
-	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.NoItem")
-	private ConfigurationSection chestShopConfirmPurchaseNoItem;
-
-	@Getter
-	@ConfigDataString(path = "CHEST.ShopConfirmPurchase.Title")
-	private String chestShopConfirmPurchaseTitle = "Confirm Purchase?";
-
-	@Getter
-	@ConfigDataConfigurationSection(path = "CHEST.ShopConfirmPurchase.YesItem")
-	private ConfigurationSection chestShopConfirmPurchaseYesItem;
-
-	@Getter
-	@ConfigDataString(path = "CHEST.VoteShopDisabled")
-	private String chestVoteShopDisabled = "&cVote shop disabled";
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopHideLimitedReached")
-	@Getter
-	private boolean chestVoteShopHideLimitedReached = true;
-
-	@ConfigDataString(path = "CHEST.VoteShopLimitReached")
-	@Getter
-	private String chestVoteShopLimitReached = "&aYou reached your limit";
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopRequireConfirmation")
-	@Getter
-	private boolean chestVoteShopRequireConfirmation = false;
-
 	@ConfigDataBoolean(path = "CHEST.VoteBest.BackButton")
 	@Getter
 	private boolean chestVoteBestBackButton = true;
@@ -167,53 +139,9 @@ public class GUI extends YMLFile {
 		this.plugin = plugin;
 	}
 
-	public void createShop(String value) {
-		ConfigurationSection shopData = getData().createSection("CHEST.Shop." + value);
-		shopData.set("Identifier_Name", value);
-		shopData.set("Material", "STONE");
-		shopData.set("Amount", 1);
-		shopData.set("Name", "&cPlaceholder item");
-		shopData.set("Cost", 1);
-		shopData.set("Permission", "");
-		shopData.set("CloseGUI", true);
-		shopData.set("RequireConfirmation", false);
-
-		shopData.set("Rewards.Items.Item1.Material", "STONE");
-		shopData.set("Rewards.Items.Item1.Amount", 1);
-		saveData();
-	}
-
 	@ConfigDataConfigurationSection(path = "CHEST.BackButton")
 	@Getter
 	private ConfigurationSection CHESTBackButton;
-
-	public int getChestShopIdentifierCost(String identifier) {
-		return getData().getInt("CHEST.Shop." + identifier + ".Cost");
-	}
-
-	public String getChestShopIdentifierIdentifierName(String identifier) {
-		return getData().getString("CHEST.Shop." + identifier + ".Identifier_Name", identifier);
-	}
-
-	public int getChestShopIdentifierLimit(String identifier) {
-		return getData().getInt("CHEST.Shop." + identifier + ".Limit", -1);
-	}
-
-	public String getChestShopIdentifierRewardsPath(String identifier) {
-		return "CHEST.Shop." + identifier + ".Rewards";
-	}
-
-	public Set<String> getChestShopIdentifiers() {
-		ConfigurationSection shop = getData().getConfigurationSection("CHEST.Shop");
-		if (shop != null) {
-			return shop.getKeys(false);
-		}
-		return new HashSet<String>();
-	}
-
-	public ConfigurationSection getChestShopIdentifierSection(String identifier) {
-		return getData().getConfigurationSection("CHEST.Shop." + identifier);
-	}
 
 	@ConfigDataConfigurationSection(path = "CHEST.VoteBest.DayBest.Item")
 	@Getter
@@ -244,6 +172,10 @@ public class GUI extends YMLFile {
 
 	public String getChestVoteGUISlotCommand(String slot) {
 		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
+	}
+
+	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
+		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
 	}
 
 	/**
@@ -314,55 +246,6 @@ public class GUI extends YMLFile {
 	@ConfigDataString(path = "CHEST.VoteRewardName")
 	@Getter
 	private String chestVoteRewardName = "VoteReward";
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopBackButton")
-	@Getter
-	private boolean chestVoteShopBackButton = true;
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopReopenGUIOnPurchase")
-	@Getter
-	private boolean chestVoteShopReopenGUIOnPurchase = true;
-
-	public boolean getChestVoteShopCloseGUI(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".CloseGUI", true);
-	}
-	
-	public boolean getChestVoteShopHideOnNoPermission(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".HideOnNoPermission", true);
-	}
-
-	@ConfigDataBoolean(path = "CHEST.VoteShopEnabled")
-	@Getter
-	private boolean chestVoteShopEnabled = true;
-
-	@ConfigDataString(path = "CHEST.VoteShopName")
-	@Getter
-	private String chestVoteShopName = "VoteShop";
-
-	public boolean getChestVoteShopNotBuyable(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".NotBuyable", false);
-	}
-
-	public String getChestVoteShopPermission(String ident) {
-		return getData().getString("CHEST.Shop." + ident + ".Permission", "");
-	}
-
-	public String getCHESTVoteShopPurchase(String identifier) {
-		return getData().getString("CHEST.Shop." + identifier + ".PurchaseMessage",
-				plugin.getConfigFile().getFormatShopPurchaseMsg());
-	}
-
-	public boolean getChestVoteShopResetDaily(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Daily", false);
-	}
-
-	public boolean getChestVoteShopResetMonthly(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Monthly", false);
-	}
-
-	public boolean getChestVoteShopResetWeekly(String shop) {
-		return getData().getBoolean("CHEST.Shop." + shop + ".Reset.Weekly", false);
-	}
 
 	@ConfigDataBoolean(path = "CHEST.VoteStreak.BackButton")
 	@Getter
@@ -523,18 +406,6 @@ public class GUI extends YMLFile {
 		return new HashSet<String>();
 	}
 
-	public ConfigurationSection getChestGUIVoteShopExtraItems(String item) {
-		return getData().getConfigurationSection("CHEST.VoteShopExtraItems." + item);
-	}
-
-	@ConfigDataKeys(path = "CHEST.VoteShopExtraItems")
-	@Getter
-	private Set<String> chestGUIVoteShopExtraItems = new HashSet<String>();
-
-	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
-		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
-	}
-
 	@ConfigDataString(path = "CHEST.VoteURL.SiteName")
 	@Getter
 	private String chestVoteURLGUISiteName = "&c%Name%";
@@ -567,11 +438,6 @@ public class GUI extends YMLFile {
 	@Getter
 	private boolean chestVoteURLViewAllUrlsButtonEnabled = false;
 
-	public boolean isChestVoteShopRequireConfirmation(String identifier) {
-		return getData().getBoolean("CHEST.Shop." + identifier + ".RequireConfirmation",
-				isChestVoteShopRequireConfirmation());
-	}
-
 	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
@@ -580,10 +446,5 @@ public class GUI extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("GUI.yml", true);
-	}
-
-	public void removeShop(String value) {
-		getData().set("CHEST.Shop." + value, null);
-		saveData();
 	}
 }

@@ -198,8 +198,8 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
-			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-				if (plugin.getGui().getChestVoteShopResetDaily(shopIdent)) {
+			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
+				if (plugin.getShopFile().getVoteShopResetDaily(shopIdent)) {
 					resetVoteShopLimit(shopIdent);
 				}
 			}
@@ -315,8 +315,8 @@ public class TopVoterHandler implements Listener {
 				resetGottenMilestones();
 			}
 
-			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-				if (plugin.getGui().getChestVoteShopResetMonthly(shopIdent)) {
+			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
+				if (plugin.getShopFile().getVoteShopResetMonthly(shopIdent)) {
 					resetVoteShopLimit(shopIdent);
 				}
 			}
@@ -425,8 +425,8 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
-			for (String shopIdent : plugin.getGui().getChestShopIdentifiers()) {
-				if (plugin.getGui().getChestVoteShopResetWeekly(shopIdent)) {
+			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
+				if (plugin.getShopFile().getVoteShopResetWeekly(shopIdent)) {
 					resetVoteShopLimit(shopIdent);
 				}
 			}

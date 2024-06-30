@@ -59,7 +59,7 @@ public class AdminVoteVoteShop extends GUIHandler {
 
 					@Override
 					public void onInput(Player player, String value) {
-						plugin.getGui().createShop(value);
+						plugin.getShopFile().createShop(value);
 						plugin.reload();
 					}
 				});
