@@ -172,10 +172,11 @@ public class ShopFile extends YMLFile {
 		plugin.saveResource("Shop.yml", true);
 		reloadData();
 		// auto conversion
-		if (!plugin.getGui().isJustCreated()) {
+		if (!plugin.getGui().isJustCreated() && !plugin.getServerData().isVoteShopConverted()) {
 			plugin.getLogger().warning("Converting VoteShop configuration to Shop.yml from GUI.yml");
 			convertFromGUIFile();
 		}
+		plugin.getServerData().setShopConverted(true);
 	}
 
 	public void convertFromGUIFile() {

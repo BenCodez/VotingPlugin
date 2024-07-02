@@ -38,6 +38,15 @@ public class ServerData {
 		}
 	}
 
+	public void setShopConverted(boolean value) {
+		getData().set("VoteShopConverted", value);
+		saveData();
+	}
+
+	public boolean isVoteShopConverted() {
+		return getData().getBoolean("VoteShopConverted");
+	}
+
 	public void updatePlaceholders() {
 		boolean data = getData().getBoolean("AutoCacheUpdated", false);
 		if (!data) {
