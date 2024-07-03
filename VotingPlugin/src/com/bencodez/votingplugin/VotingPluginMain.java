@@ -1543,13 +1543,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		bungeeSettings = new BungeeSettings(this);
 		bungeeSettings.setup();
 
+		serverData = new ServerData(this);
+
 		gui = new GUI(this);
 		gui.setup();
-		
+
 		shopFile = new ShopFile(this);
 		shopFile.setup();
-
-		serverData = new ServerData(this);
 
 		checkYMLError();
 
