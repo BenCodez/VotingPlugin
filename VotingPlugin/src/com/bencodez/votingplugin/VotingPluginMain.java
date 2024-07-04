@@ -1050,6 +1050,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		// auto conversion for Shop.yml
+		if (plugin.getShopFile().isJustCreated()) {
+			if (!plugin.getGui().isJustCreated() && !getServerData().isVoteShopConverted()) {
+				plugin.getLogger().warning("Converting VoteShop configuration to Shop.yml from GUI.yml");
+				plugin.getShopFile().convertFromGUIFile();
+			}
+			getServerData().setShopConverted(true);
+		} else if (!getServerData().isVoteShopConverted()) {
+			getServerData().setShopConverted(true);
+		}
+
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
 
