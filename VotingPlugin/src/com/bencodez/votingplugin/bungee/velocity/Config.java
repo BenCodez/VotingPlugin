@@ -36,7 +36,7 @@ public class Config extends VelocityYMLFile {
 	public boolean getOnlineMode() {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
-	
+
 	public boolean getUUIDLookup() {
 		return getBoolean(getNode("UUIDLookup"), true);
 	}
@@ -63,6 +63,10 @@ public class Config extends VelocityYMLFile {
 
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
+	}
+
+	public int getLimitVotePoints() {
+		return getInt(getNode("LimitVotePoints"), -1);
 	}
 
 	public String getRedisUsername() {

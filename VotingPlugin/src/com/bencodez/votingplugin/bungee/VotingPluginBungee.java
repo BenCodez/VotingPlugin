@@ -1436,6 +1436,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							monthTotal = days * maxVotes;
 						}
 					}
+
+					if (getConfig().getLimitVotePoints() > 0) {
+						if (points > getConfig().getLimitVotePoints()) {
+							points = getConfig().getLimitVotePoints();
+						}
+					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 							milestoneCount, votePartyVotes, currentVotePartyVotesRequired);
 					ArrayList<Column> update = new ArrayList<Column>();

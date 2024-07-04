@@ -582,6 +582,9 @@ OfflineVotesLimit:
   # Limit of votes per votesite
   Amount: 5
   
+# Maxium amount of vote points possible, -1 to disable
+LimitVotePoints: -1
+  
 # Default worlds set for all rewards
 DefaultRewardWorlds: []
 

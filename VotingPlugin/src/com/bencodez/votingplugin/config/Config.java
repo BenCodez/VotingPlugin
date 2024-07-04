@@ -47,6 +47,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean perSiteCoolDownEvents = false;
 
+	@ConfigDataInt(path = "LimitVotePoints")
+	@Getter
+	private int limitVotePoints = -1;
+
 	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")
 	@Getter
 	private boolean queueVotesDuringTimeChange = false;

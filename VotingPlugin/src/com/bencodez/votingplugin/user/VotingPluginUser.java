@@ -110,6 +110,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (points != 0) {
 			addPoints(points);
 		}
+		if (plugin.getConfigFile().getLimitVotePoints() > 0) {
+			if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
+				setPoints(plugin.getConfigFile().getLimitVotePoints());
+			}
+		}
 	}
 
 	/**
@@ -1174,30 +1179,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			String info = "";
 			if (diffDays == 1) {
-				info += PlaceholderUtils
-						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
-								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								plugin.getConfigFile().getFormatTimeFormatsDay()), "amount", "" + diffDays);
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsDay()), "amount", "" + diffDays);
 				info += " ";
 			} else if (diffDays > 1) {
-				info += PlaceholderUtils
-						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
-								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								plugin.getConfigFile().getFormatTimeFormatsDays()), "amount", "" + diffDays);
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsDays()), "amount", "" + diffDays);
 				info += " ";
 			}
 
 			if (diffHours == 1) {
-				info += PlaceholderUtils
-						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
-								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								plugin.getConfigFile().getFormatTimeFormatsHour()), "amount", "" + diffHours);
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsHour()), "amount", "" + diffHours);
 				info += " ";
 			} else if (diffHours > 1) {
-				info += PlaceholderUtils
-						.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
-								plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
-								plugin.getConfigFile().getFormatTimeFormatsHours()), "amount", "" + diffHours);
+				info += PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
+						plugin.getConfigFile().getFormatCommandsVoteLastTimeFormat(), "TimeType",
+						plugin.getConfigFile().getFormatTimeFormatsHours()), "amount", "" + diffHours);
 				info += " ";
 			}
 
@@ -1225,8 +1226,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 			}
 
-			info = PlaceholderUtils
-					.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLastVoted(), "times", info);
+			info = PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLastVoted(),
+					"times", info);
 
 			return info;
 		}

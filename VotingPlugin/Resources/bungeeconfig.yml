@@ -128,6 +128,9 @@ VoteCacheTime: -1
 # Set to -1 to disable
 MaxAmountOfVotesPerDay: -1
 
+# Maxium amount of vote points possible, -1 to disable
+LimitVotePoints: -1
+
 VoteParty:
   # If enabled, will trigger vote party reward 
   # in BungeeSettings.yml under BungeeVotePartyReward
