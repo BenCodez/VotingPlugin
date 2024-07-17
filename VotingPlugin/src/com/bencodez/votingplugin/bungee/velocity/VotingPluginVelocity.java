@@ -849,7 +849,7 @@ public class VotingPluginVelocity {
 							OfflineBungeeVote votes = new OfflineBungeeVote(data.getNode("Name").getString(),
 									data.getNode("UUID").getString(), data.getNode("Service").getString(),
 									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
-									data.getNode("TEXT").getString());
+									data.getNode("Text").getString());
 							debug("Adding vote cache: " + vote.toString());
 							vote.add(votes);
 						}
@@ -867,7 +867,7 @@ public class VotingPluginVelocity {
 							vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
 									data.getNode("UUID").getString(), data.getNode("Service").getString(),
 									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
-									data.getNode("TEXT").getString()));
+									data.getNode("Text").getString()));
 						}
 						cachedOnlineVotes.put(player, vote);
 					}
