@@ -515,6 +515,8 @@ public class VotingPluginVelocity {
 
 								@Override
 								public void run() {
+									debug("Checking offline votes for " + p.getUsername() + "/"
+											+ p.getUniqueId().toString());
 									checkCachedVotes(server);
 									checkOnlineVotes(p1, p.getUniqueId().toString(), server);
 									getMultiProxyHandler().login(p1.getUniqueId().toString(), p1.getUsername());
