@@ -499,7 +499,12 @@ public class VotingPluginVelocity {
 					return;
 				} else if (subchannel.equalsIgnoreCase("login")) {
 					String player = in.readUTF();
-					debug("Login: " + player);
+					String uuid = in.readUTF();
+					String serverName = "";
+					if (size > 2) {
+						serverName = in.readUTF();
+					}
+					debug("Login: " + player + "/" + uuid + " " + serverName);
 					if (server.getPlayer(player).isPresent()
 							&& (getGlobalDataHandler() == null || !getGlobalDataHandler().isTimeChangedHappened())) {
 						Player p = server.getPlayer(player).get();
