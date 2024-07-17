@@ -96,7 +96,7 @@ public class VoteCache extends VelocityJSONFile {
 	}
 
 	public Collection<String> getServerVotes(String server) {
-		return getKeys(getNode("OnlineCache", server));
+		return getKeys(getNode("VoteCache", server));
 	}
 
 	public ConfigurationNode getServerVotes(String server, String num) {
