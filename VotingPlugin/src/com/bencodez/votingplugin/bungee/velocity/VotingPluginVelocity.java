@@ -846,10 +846,12 @@ public class VotingPluginVelocity {
 						for (String num : voteCacheFile.getServerVotes(serverToCheck)) {
 							ConfigurationNode data = voteCacheFile.getServerVotes(serverToCheck, num);
 
-							vote.add(new OfflineBungeeVote(data.getNode("Name").getString(),
+							OfflineBungeeVote votes = new OfflineBungeeVote(data.getNode("Name").getString(),
 									data.getNode("UUID").getString(), data.getNode("Service").getString(),
 									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
-									data.getNode("TEXT").getString()));
+									data.getNode("TEXT").getString());
+							debug("Adding vote cache: " + vote.toString());
+							vote.add(votes);
 						}
 						cachedVotes.put(server.getServer(serverToCheck).get(), vote);
 					}
