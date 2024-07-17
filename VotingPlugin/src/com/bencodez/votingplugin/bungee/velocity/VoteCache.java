@@ -40,32 +40,29 @@ public class VoteCache extends VelocityJSONFile {
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
-		ConfigurationNode path = getNode("VoteCache", server, "" + num);
 
-		getNode(path, "Name").setValue(voteData.getPlayerName());
-		getNode(path, "Service").setValue(voteData.getService());
-		getNode(path, "UUID").setValue(voteData.getUuid());
-		getNode(path, "Time").setValue(voteData.getTime());
-		getNode(path, "Real").setValue(voteData.isRealVote());
-		getNode(path, "Text").setValue(voteData.getText());
+		getNode("VoteCache", server, "" + num, "Name").setValue(voteData.getPlayerName());
+		getNode("VoteCache", server, "" + num, "Service").setValue(voteData.getService());
+		getNode("VoteCache", server, "" + num, "UUID").setValue(voteData.getUuid());
+		getNode("VoteCache", server, "" + num, "Time").setValue(voteData.getTime());
+		getNode("VoteCache", server, "" + num, "Real").setValue(voteData.isRealVote());
+		getNode("VoteCache", server, "" + num, "Text").setValue(voteData.getText());
 	}
 
 	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
-		ConfigurationNode path = getNode("TimedVoteCache", "" + num);
-		getNode(path, "Name").setValue(voteTimedQueue.getName());
-		getNode(path, "Service").setValue(voteTimedQueue.getService());
-		getNode(path, "Time").setValue(voteTimedQueue.getTime());
+		getNode("TimedVoteCache", "" + num, "Name").setValue(voteTimedQueue.getName());
+		getNode("TimedVoteCache", "" + num, "Service").setValue(voteTimedQueue.getService());
+		getNode("TimedVoteCache", "" + num, "Time").setValue(voteTimedQueue.getTime());
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
-		ConfigurationNode path = getNode("OnlineCache", player, "" + num);
 
-		getNode(path, "Name").setValue(voteData.getPlayerName());
-		getNode(path, "Service").setValue(voteData.getService());
-		getNode(path, "UUID").setValue(voteData.getUuid());
-		getNode(path, "Time").setValue(voteData.getTime());
-		getNode(path, "Real").setValue(voteData.isRealVote());
-		getNode(path, "Text").setValue(voteData.getText());
+		getNode("OnlineCache", player, "" + num, "Name").setValue(voteData.getPlayerName());
+		getNode("OnlineCache", player, "" + num, "Service").setValue(voteData.getService());
+		getNode("OnlineCache", player, "" + num, "UUID").setValue(voteData.getUuid());
+		getNode("OnlineCache", player, "" + num, "Time").setValue(voteData.getTime());
+		getNode("OnlineCache", player, "" + num, "Real").setValue(voteData.isRealVote());
+		getNode("OnlineCache", player, "" + num, "Text").setValue(voteData.getText());
 	}
 
 	public void clearData() {
