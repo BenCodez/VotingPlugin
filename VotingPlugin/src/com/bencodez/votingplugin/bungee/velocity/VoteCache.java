@@ -40,7 +40,7 @@ public class VoteCache extends VelocityJSONFile {
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
-		String[] path = new String[] { "VoteCache", server, "" + num };
+		ConfigurationNode path = getNode("VoteCache", server, "" + num);
 
 		getNode(path, "Name").setValue(voteData.getPlayerName());
 		getNode(path, "Service").setValue(voteData.getService());
@@ -51,14 +51,14 @@ public class VoteCache extends VelocityJSONFile {
 	}
 
 	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
-		String[] path = new String[] { "TimedVoteCache", "" + num };
+		ConfigurationNode path = getNode("TimedVoteCache", "" + num);
 		getNode(path, "Name").setValue(voteTimedQueue.getName());
 		getNode(path, "Service").setValue(voteTimedQueue.getService());
 		getNode(path, "Time").setValue(voteTimedQueue.getTime());
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
-		String[] path = new String[] { "OnlineCache", player, "" + num };
+		ConfigurationNode path = getNode("OnlineCache", player, "" + num);
 
 		getNode(path, "Name").setValue(voteData.getPlayerName());
 		getNode(path, "Service").setValue(voteData.getService());
