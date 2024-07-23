@@ -2251,7 +2251,7 @@ public class CommandLoader {
 										placeholders.put("limit", "" + limit);
 										if (user.removePoints(points, true)) {
 
-											plugin.getRewardHandler().giveReward(user, plugin.getGui().getData(),
+											plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
 													plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
 													new RewardOptions().setPlaceholders(placeholders));
 
