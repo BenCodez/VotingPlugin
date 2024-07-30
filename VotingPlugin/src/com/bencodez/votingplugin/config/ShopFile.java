@@ -69,10 +69,6 @@ public class ShopFile extends YMLFile {
 		saveData();
 	}
 
-	@ConfigDataConfigurationSection(path = "CHEST.BackButton")
-	@Getter
-	private ConfigurationSection CHESTBackButton;
-
 	public int getShopIdentifierCost(String identifier) {
 		return getData().getInt("Shop." + identifier + ".Cost");
 	}
@@ -151,10 +147,10 @@ public class ShopFile extends YMLFile {
 	}
 
 	public ConfigurationSection getGUIVoteShopExtraItems(String item) {
-		return getData().getConfigurationSection("VoteShopExtraItems." + item);
+		return getData().getConfigurationSection("ExtraItems." + item);
 	}
 
-	@ConfigDataKeys(path = "VoteShopExtraItems")
+	@ConfigDataKeys(path = "ExtraItems")
 	@Getter
 	private Set<String> voteShopExtraItems = new HashSet<String>();
 
