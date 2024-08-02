@@ -54,9 +54,6 @@ commands:
   voteurl:
     description: Open VoteURL
     aliases: vurl
-  votereward:
-    description: Open VoteReward GUI
-    aliases: vreward
   voteparty:
     description: A command
     aliases: vparty
