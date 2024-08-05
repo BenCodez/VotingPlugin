@@ -1495,6 +1495,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		specialRewardsConfig.reloadData();
 
 		gui.reloadData();
+		shopFile.reloadData();
 
 		bungeeSettings.reloadData();
 
