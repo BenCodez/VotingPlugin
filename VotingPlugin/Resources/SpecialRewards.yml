@@ -26,16 +26,16 @@ AllSites:
 #    Player: '&aYou almost voted on all sites in 1 day!'
 
 
-# If true only cumulative reward at a time can be given
-# The cumulative rewards will go in order as listed under Cumulative, so if true
-# the first cumulative (in the order as listed) that can be given will, then will ignore the rest
+# If true only Cummulative reward at a time can be given
+# The Cummulative rewards will go in order as listed under Cumulative, so if true
+# the first Cummulative (in the order as listed) that can be given will, then will ignore the rest
 OnlyOneCumulative: false
 # NOTE: This is not a 1 time reward, that's what milestones are for!
-# If total votes (Can be changed) divided by cumulative amount 
+# If total votes (Can be changed) divided by Cummulative amount 
 # and with no remainder (So divides perfectly) then a reward is given
-Cumulative:
+Cummulative:
   # Number of votes required
-  # Allows multiple cumulative rewards
+  # Allows multiple Cummulative rewards
   # Number be be around ' (E.g. '1')
   # Can have multiple listed here
   '20':
