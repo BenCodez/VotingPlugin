@@ -192,7 +192,7 @@ public class VoteShop extends GUIHandler {
 				public void onClick(ClickEvent clickEvent) {
 					plugin.getCommandLoader().processSlotClick(player, user, str);
 					new RewardBuilder(plugin.getShopFile().getData(),
-							"CHEST.VoteShopExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
+							"ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
 							.setGiveOffline(false).send(clickEvent.getPlayer());
 				}
 			});
