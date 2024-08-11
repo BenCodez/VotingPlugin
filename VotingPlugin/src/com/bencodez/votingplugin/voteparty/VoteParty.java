@@ -346,18 +346,20 @@ public class VoteParty implements Listener {
 	}
 
 	public void checkVoteReminder(VotingPluginUser user) {
-		int neededVotes = getNeededVotes();
+		if (!user.isVanished() || !plugin.getOptions().isTreatVanishAsOffline()) {
+			int neededVotes = getNeededVotes();
 
-		for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
-			if (MessageAPI.isInt(str)) {
-				int num = Integer.parseInt(str);
-				if (neededVotes == num) {
-					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
-					HashMap<String, String> placeholders = new HashMap<String, String>();
-					placeholders.put("player", user.getPlayerName());
-					placeholders.put("votesrequired", "" + neededVotes);
-					MiscUtils.getInstance()
-							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+			for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
+				if (MessageAPI.isInt(str)) {
+					int num = Integer.parseInt(str);
+					if (neededVotes == num) {
+						String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
+						HashMap<String, String> placeholders = new HashMap<String, String>();
+						placeholders.put("player", user.getPlayerName());
+						placeholders.put("votesrequired", "" + neededVotes);
+						MiscUtils.getInstance()
+								.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+					}
 				}
 			}
 		}
