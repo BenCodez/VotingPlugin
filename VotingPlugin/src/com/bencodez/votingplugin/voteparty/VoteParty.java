@@ -346,7 +346,7 @@ public class VoteParty implements Listener {
 	}
 
 	public void checkVoteReminder(VotingPluginUser user) {
-		if (!user.isVanished() || !plugin.getOptions().isTreatVanishAsOffline()) {
+		if (!user.isVanished()) {
 			int neededVotes = getNeededVotes();
 
 			for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
