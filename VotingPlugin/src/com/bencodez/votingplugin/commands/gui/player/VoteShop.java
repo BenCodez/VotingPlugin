@@ -71,9 +71,9 @@ public class VoteShop extends GUIHandler {
 				hasPerm = true;
 			} else {
 				if (perm.startsWith("!")) {
-					hasPerm = !player.hasPermission(perm.substring(1));
+					hasPerm = !player.hasPermission(PlaceholderUtils.replacePlaceHolders(player, perm.substring(1)));
 				} else {
-					hasPerm = player.hasPermission(perm);
+					hasPerm = player.hasPermission(PlaceholderUtils.replacePlaceHolders(player, perm));
 				}
 			}
 
