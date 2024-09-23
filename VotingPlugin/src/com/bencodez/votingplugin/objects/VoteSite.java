@@ -202,15 +202,16 @@ public class VoteSite {
 	}
 
 	public void giveRewards(VotingPluginUser user, boolean online, boolean bungee) {
+		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getEverySiteRewardPath())
+				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
+				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
+				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
+
 		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getRewardsPath(key))
 				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
 				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
 				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 
-		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getEverySiteRewardPath())
-				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
-				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
-				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 	}
 
 	public boolean hasRewards() {
