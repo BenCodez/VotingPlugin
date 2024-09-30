@@ -42,6 +42,8 @@ public class PlayerJoinEvent implements Listener {
 		if (data) {
 			// give offline vote (if they voted offline)
 			user.offVote();
+		} else {
+			plugin.debug("No data detected for " + player.getUniqueId().toString() + "/" + player.getName());
 		}
 
 		user.loginRewards();
