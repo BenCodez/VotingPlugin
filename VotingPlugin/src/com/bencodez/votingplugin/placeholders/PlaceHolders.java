@@ -574,7 +574,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				if (!MessageAPI.isInt(identifier.split("_")[1])) {
-					return null;
+					return "invalid";
 				}
 				int number = Integer.parseInt(identifier.split("_")[1]);
 				if (user.getPoints() >= number) {
@@ -605,7 +605,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(String identifier) {
 				if (!MessageAPI.isInt(identifier.split("_")[2])) {
-					return null;
+					return "invalid";
 				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
@@ -656,7 +656,7 @@ public class PlaceHolders {
 				@Override
 				public String placeholderRequest(String identifier) {
 					if (!MessageAPI.isInt(identifier.split("_")[2])) {
-						return null;
+						return "invalid";
 					}
 					int num = 1;
 					int number = Integer.parseInt(identifier.split("_")[2]);
@@ -693,7 +693,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(String identifier) {
 				if (!MessageAPI.isInt(identifier.split("_")[2])) {
-					return null;
+					return "invalid";
 				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
@@ -744,7 +744,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(String identifier) {
 				if (!MessageAPI.isInt(identifier.split("_")[2])) {
-					return null;
+					return "invalid";
 				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
@@ -795,7 +795,7 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(String identifier) {
 				if (!MessageAPI.isInt(identifier.split("_")[2])) {
-					return null;
+					return "invalid";
 				}
 				int num = 1;
 				int number = Integer.parseInt(identifier.split("_")[2]);
