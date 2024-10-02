@@ -66,7 +66,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesMonthly")
 	@Getter
 	private boolean votePartyResetExtraVotesMonthly = false;
-	
+
 	@ConfigDataBoolean(path = "VoteParty.ResetExtraVotesWeekly")
 	@Getter
 	private boolean votePartyResetExtraVotesWeekly = false;
@@ -232,9 +232,22 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyGiveAllPlayers = false;
 
+	@Deprecated
 	@ConfigDataInt(path = "VoteParty.IncreaseVotesRquired")
 	@Getter
+	private int votePartyIncreaseVotesRquired = 0;
+
+	@ConfigDataInt(path = "VoteParty.IncreaseVotesRequired")
+	@Getter
 	private int votePartyIncreaseVotesRequired = 0;
+
+	public int getVotePartyIncreaseVotesRequiredWithTypo() {
+		int increase = getVotePartyIncreaseVotesRequired();
+		if (increase > 0) {
+			return increase;
+		}
+		return getVotePartyIncreaseVotesRquired();
+	}
 
 	@ConfigDataBoolean(path = "VoteParty.OnlyOncePerDay")
 	@Getter
