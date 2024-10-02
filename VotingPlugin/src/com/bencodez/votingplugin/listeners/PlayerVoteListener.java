@@ -226,7 +226,10 @@ public class PlayerVoteListener implements Listener {
 			}
 			LocalDateTime cTime = plugin.getTimeChecker().getTime();
 			int days = cTime.getDayOfMonth();
+			plugin.extraDebug("Current day of month: " + days + " Current total: " + value);
 			if (value >= days * plugin.getVoteSitesEnabled().size()) {
+				plugin.debug("Detected higher month total, changing. Current Total: " + value + " Days: " + days
+						+ " New Total: " + days * plugin.getVoteSitesEnabled().size());
 				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSitesEnabled().size());
 			}
 		}
