@@ -97,7 +97,7 @@ public class VoteToday extends GUIHandler {
 				msg = PlaceholderUtils.replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
 				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
-					item = new ItemBuilder(user.getPlayerHead());
+					item = new ItemBuilder(user.getPlayerHead(plugin.getConfigFile().isForceLoadSkulls()));
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
 				}

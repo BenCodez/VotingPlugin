@@ -29,8 +29,8 @@ public class TopVoterPlayer {
 		this.lastVoteTime = lastVoteTime;
 	}
 
-	public ItemStack getPlayerHead() {
-		return PlayerManager.getInstance().getPlayerSkull(getPlayerName(), false);
+	public ItemStack getPlayerHead(boolean force) {
+		return PlayerManager.getInstance().getPlayerSkull(getPlayerName(), force);
 	}
 
 	public VotingPluginUser getUser() {

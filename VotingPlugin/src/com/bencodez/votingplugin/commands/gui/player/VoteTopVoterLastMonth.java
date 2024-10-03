@@ -60,7 +60,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 			ItemBuilder playerItem;
 
 			if (plugin.getGui().isChestVoteTopUseSkull()) {
-				playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
+				playerItem = new ItemBuilder(entry.getKey().getPlayerHead(plugin.getConfigFile().isForceLoadSkulls()));
 			} else {
 				playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 			}

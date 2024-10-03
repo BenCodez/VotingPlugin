@@ -47,6 +47,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean perSiteCoolDownEvents = false;
 
+	@ConfigDataBoolean(path = "ForceLoadSkulls")
+	@Getter
+	private boolean forceLoadSkulls = false;
+
 	@ConfigDataInt(path = "LimitVotePoints")
 	@Getter
 	private int limitVotePoints = -1;
