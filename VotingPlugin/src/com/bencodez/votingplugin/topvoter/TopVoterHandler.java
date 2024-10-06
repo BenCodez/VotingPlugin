@@ -13,6 +13,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -344,6 +346,12 @@ public class TopVoterHandler implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
+		if (event.getTimeType().equals(TimeType.DAY)) {
+			plugin.getBannedPlayers().clear();
+			for (OfflinePlayer p : Bukkit.getBannedPlayers()) {
+				plugin.getBannedPlayers().add(p.getUniqueId().toString());
+			}
+		}
 		plugin.setUpdate(true);
 		plugin.update();
 	}
