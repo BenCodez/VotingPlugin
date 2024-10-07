@@ -167,6 +167,8 @@ public class BungeeHandler implements Listener {
 				plugin.debug("Detected time change from bungee: " + type.toString());
 				plugin.getTimeChecker().forceChanged(type, false, true, true);
 				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
+				getGlobalMessageHandler().sendMessage("TimeChangeFinished",
+						"" + plugin.getBungeeSettings().getServer());
 			}
 		}
 		return isProcessing;

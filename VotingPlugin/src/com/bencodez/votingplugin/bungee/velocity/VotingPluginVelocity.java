@@ -497,7 +497,12 @@ public class VotingPluginVelocity {
 					String server = in.readUTF();
 					logger.info("Status okay for " + server);
 					return;
+				} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
+					if (getConfig().getGlobalDataEnabled()) {
+						getGlobalDataHandler().checkForFinishedTimeChanges();
+					}
 				} else if (subchannel.equalsIgnoreCase("login")) {
+
 					String player = in.readUTF();
 					String uuid = in.readUTF();
 					String serverName = "";
@@ -959,6 +964,10 @@ public class VotingPluginVelocity {
 							if (message[0].equalsIgnoreCase("statusokay")) {
 								String server = message[1];
 								getLogger().info("Status okay for " + server);
+							} else if (message[0].equalsIgnoreCase("TimeChangeFinished")) {
+								if (getConfig().getGlobalDataEnabled()) {
+									getGlobalDataHandler().checkForFinishedTimeChanges();
+								}
 							} else if (message[0].equalsIgnoreCase("login")) {
 								String player = message[1];
 								String uuid = message[2];
