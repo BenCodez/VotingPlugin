@@ -70,10 +70,17 @@ public class VoteShop extends GUIHandler {
 			if (perm.isEmpty()) {
 				hasPerm = true;
 			} else {
+				String p = "";
 				if (perm.startsWith("!")) {
-					hasPerm = !player.hasPermission(PlaceholderUtils.replacePlaceHolders(player, perm.substring(1)));
+					p = PlaceholderUtils.replacePlaceHolders(player, perm.substring(1));
+					hasPerm = !player.hasPermission(p);
 				} else {
-					hasPerm = player.hasPermission(PlaceholderUtils.replacePlaceHolders(player, perm));
+					p = PlaceholderUtils.replacePlaceHolders(player, perm);
+					hasPerm = player.hasPermission(p);
+				}
+				if (!hasPerm) {
+					plugin.extraDebug("VoteShop: " + player.getName() + "/" + player.getUniqueId()
+							+ " does not have permission `" + p + "` for " + identifier);
 				}
 			}
 
