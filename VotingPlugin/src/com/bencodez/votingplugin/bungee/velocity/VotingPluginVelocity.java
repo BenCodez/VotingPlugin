@@ -498,9 +498,7 @@ public class VotingPluginVelocity {
 					logger.info("Status okay for " + server);
 					return;
 				} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-					if (getConfig().getGlobalDataEnabled()) {
-						getGlobalDataHandler().checkForFinishedTimeChanges();
-					}
+				
 				} else if (subchannel.equalsIgnoreCase("login")) {
 
 					String player = in.readUTF();
@@ -706,6 +704,7 @@ public class VotingPluginVelocity {
 					}
 
 				}
+				globalDataHandler.onTimeChange(type);
 			}
 
 			@Override
@@ -965,9 +964,7 @@ public class VotingPluginVelocity {
 								String server = message[1];
 								getLogger().info("Status okay for " + server);
 							} else if (message[0].equalsIgnoreCase("TimeChangeFinished")) {
-								if (getConfig().getGlobalDataEnabled()) {
-									getGlobalDataHandler().checkForFinishedTimeChanges();
-								}
+								
 							} else if (message[0].equalsIgnoreCase("login")) {
 								String player = message[1];
 								String uuid = message[2];
