@@ -387,6 +387,8 @@ public class VotingPluginVelocity {
 					@Override
 					public void onTimeChangedFailed(String server, TimeType type) {
 						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
+						getGlobalDataHandler().setBoolean(server, "Processing", false);
 					}
 				};
 			} else {
@@ -498,7 +500,7 @@ public class VotingPluginVelocity {
 					logger.info("Status okay for " + server);
 					return;
 				} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-				
+
 				} else if (subchannel.equalsIgnoreCase("login")) {
 
 					String player = in.readUTF();
@@ -964,7 +966,7 @@ public class VotingPluginVelocity {
 								String server = message[1];
 								getLogger().info("Status okay for " + server);
 							} else if (message[0].equalsIgnoreCase("TimeChangeFinished")) {
-								
+
 							} else if (message[0].equalsIgnoreCase("login")) {
 								String player = message[1];
 								String uuid = message[2];
