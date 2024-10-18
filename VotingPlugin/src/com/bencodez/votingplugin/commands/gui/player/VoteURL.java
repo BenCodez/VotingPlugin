@@ -167,6 +167,7 @@ public class VoteURL extends GUIHandler {
 					}
 					String url = PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 							site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
+					layout.replaceTextComponent("%num%", BookUtil.TextBuilder.of(text).build());
 					layout.replaceTextComponent("[UrlText]",
 							BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
 									.onHover(BookUtil.HoverAction.showText(url)).build());
