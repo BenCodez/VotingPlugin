@@ -157,8 +157,8 @@ public class VoteURL extends GUIHandler {
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				if (site.getPermissionToView().isEmpty() || player.hasPermission(site.getPermissionToView())) {
-					Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout()).addPlaceholder("sitename",
-							site.getDisplayName());
+					Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout())
+							.addPlaceholder("sitename", site.getDisplayName()).addPlaceholder("num", "" + i);
 					String text = plugin.getGui().getBookVoteURLBookGUIAlreadyVotedText();
 					ChatColor color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUIAlreadyVotedColor());
 					if (user.canVoteSite(site)) {
@@ -167,7 +167,6 @@ public class VoteURL extends GUIHandler {
 					}
 					String url = PlaceholderUtils.replacePlaceHolder(PlaceholderUtils.replacePlaceHolder(
 							site.getVoteURLJsonStrip(), "player", user.getPlayerName()), "num", "" + i);
-					layout.replaceTextComponent("[num]", BookUtil.TextBuilder.of("" + i).build());
 					layout.replaceTextComponent("[UrlText]",
 							BookUtil.TextBuilder.of(text).color(color).onClick(BookUtil.ClickAction.openUrl(url))
 									.onHover(BookUtil.HoverAction.showText(url)).build());

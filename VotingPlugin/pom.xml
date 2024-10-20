@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>${version.art}</artifactId>
-	<version>6.17.1</version>
+	<version>6.17.2</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -196,7 +196,7 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${user.home}/Documents/Test Server/plugins</outputDirectory>
+							<outputDirectory>${user.home}/Documents/Test_Server/plugins</outputDirectory>
 							<resources>
 								<resource>
 									<directory>${basedir}/target</directory>
