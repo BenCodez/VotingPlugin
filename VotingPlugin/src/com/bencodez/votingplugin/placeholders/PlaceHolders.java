@@ -115,7 +115,7 @@ public class PlaceHolders {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
 		}
 
-		if (!identifier.endsWith("Position")) {
+		if (!identifier.toLowerCase().endsWith("position")) {
 			for (NonPlayerPlaceHolder<VotingPluginUser> placeholder : nonPlayerPlaceholders) {
 				if (placeholder.matches(identifier)) {
 					String str = placeholder.placeholderRequest(identifier);
