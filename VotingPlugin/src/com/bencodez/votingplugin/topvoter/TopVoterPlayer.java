@@ -28,7 +28,7 @@ public class TopVoterPlayer {
 		this.lastVoteTime = lastVoteTime;
 	}
 
-	public ItemStack getPlayerHead(boolean force) {
+	public ItemStack getPlayerHead() {
 		return VotingPluginMain.plugin.getSkullCacheHandler().getSkull(uuid, playerName);
 	}
 

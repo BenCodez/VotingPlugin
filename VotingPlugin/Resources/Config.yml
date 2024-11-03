@@ -598,16 +598,7 @@ DefaultRewardBlackListedWorlds: []
 # Preload skulls to improve performance for vote top
 # when using skulls as the item to display players
 # If false, skulls will be cached as they are used
-# assuming loadskulls is enabled
-PreloadSkulls: false
-
-# Setting to false disables saving skulls in a cache to improve speeds
-# Will reduce ram usage (very little) if disabled, but slow GUI speeds when using skulls
-LoadSkulls: true
-
-# If true, skulls will be loaded on GUI even if not cached
-# May result in GUI taking longer to open until skulls are cached
-ForceLoadSkulls: false
+PreloadSkulls: true
 
 ###########################################
 # Extra checks on vote

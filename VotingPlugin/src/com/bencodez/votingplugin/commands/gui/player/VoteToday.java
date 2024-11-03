@@ -97,12 +97,12 @@ public class VoteToday extends GUIHandler {
 				msg = PlaceholderUtils.replacePlaceHolder(msg, placeholders);
 				ItemBuilder item = null;
 				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
-					item = new ItemBuilder(user.getPlayerHead(plugin.getConfigFile().isForceLoadSkulls()));
+					item = new ItemBuilder(user.getPlayerHead());
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
 				}
-				item.setName(PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
-						"player", user.getPlayerName()));
+				item.setName(PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(), "player",
+						user.getPlayerName()));
 				item.setLore(msg);
 				final UUID uuid = user.getUuid();
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
@@ -116,23 +116,29 @@ public class VoteToday extends GUIHandler {
 				});
 			}
 		}
-		
+
 		String guiPath = "VoteToday";
 		for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
 			inv.addButton(
 					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
 
-	@Override
-	public void onClick(ClickEvent clickEvent) {
-		new RewardBuilder(plugin.getGui().getData(),
-				"CHEST." + guiPath + ".ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
-				.setGiveOffline(false).send(clickEvent.getPlayer());
+						@Override
+						public void onClick(ClickEvent clickEvent) {
+							new RewardBuilder(plugin.getGui().getData(),
+									"CHEST." + guiPath + ".ExtraItems." + str + "."
+											+ clickEvent.getButton().getLastRewardsPath(player))
+									.setGiveOffline(false).send(clickEvent.getPlayer());
 
+						}
+
+					});
+		}
+
+		if (plugin.getGui().isChestVoteTodayBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(user));
+		}
+		inv.openInventory(player);
 	}
-
-	});}
-
-	if(plugin.getGui().isChestVoteTodayBackButton()){inv.addButton(plugin.getCommandLoader().getBackButton(user));}inv.openInventory(player);}
 
 	@Override
 	public void open() {
@@ -150,8 +156,8 @@ public class VoteToday extends GUIHandler {
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
 				placeholders.put("time", timeString);
-				msg.add(PlaceholderUtils
-						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
+				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
+						placeholders));
 				// msg.add("&6" + user.getPlayerName() + " : " + voteSite.getKey() + " : " +
 				// timeString);
 			}
@@ -179,8 +185,8 @@ public class VoteToday extends GUIHandler {
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
 				placeholders.put("time", timeString);
-				msg.add(PlaceholderUtils
-						.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(), placeholders));
+				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
+						placeholders));
 			}
 		}
 		msg = ArrayUtils.colorize(msg);
