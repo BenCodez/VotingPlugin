@@ -53,7 +53,6 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationS
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
-import com.bencodez.advancedcore.api.skull.SkullHandler;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.api.yml.YMLConfig;
@@ -1724,7 +1723,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
 					for (TopVoterPlayer p : players) {
 						if (num <= maxToLoad) {
-							SkullHandler.getInstance().loadSkull(p.getPlayerName());
+							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
 						}
 						num++;
 					}
