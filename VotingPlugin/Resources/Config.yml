@@ -600,6 +600,11 @@ DefaultRewardBlackListedWorlds: []
 # If false, skulls will be cached as they are used
 PreloadSkulls: true
 
+# Number of miliseconds between skull caching
+# Default about 2 seconds is good
+# Used to avoid rate limit
+SkullLoadDelay: 2000
+
 ###########################################
 # Extra checks on vote
 ###########################################
