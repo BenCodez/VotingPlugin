@@ -14,7 +14,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
-import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;

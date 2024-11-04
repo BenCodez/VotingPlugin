@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.bencodez.advancedcore.api.yml.YMLFile;
+import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.file.annotation.AnnotationHandler;
 import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataDouble;
