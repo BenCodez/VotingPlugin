@@ -857,7 +857,9 @@ public class VotingPluginVelocity {
 									data.getNode("Time").getLong(), data.getNode("Real").getBoolean(),
 									data.getNode("Text").getString()));
 						}
-						cachedVotes.put(server.getServer(serverToCheck).get(), vote);
+						if (server.getServer(serverToCheck).isPresent()) {
+							cachedVotes.put(server.getServer(serverToCheck).get(), vote);
+						}
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
