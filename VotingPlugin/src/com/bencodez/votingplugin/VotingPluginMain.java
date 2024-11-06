@@ -58,6 +58,7 @@ import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.nms.NMSManager;
+import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.commands.CommandLoader;
@@ -1580,6 +1581,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					synchronized (plugin) {
 						if (plugin != null && plugin.isEnabled()) {
 							getUserManager().getDataManager().clearCacheBasic();
+							SkullCache.flushWeek();
 
 							plugin.debug("Starting background task, current cached users: "
 									+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
