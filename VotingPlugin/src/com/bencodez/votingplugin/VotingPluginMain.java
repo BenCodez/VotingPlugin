@@ -1498,6 +1498,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		shopFile.reloadData();
 
 		bungeeSettings.reloadData();
+		updateAdvancedCoreHook();
+
+		reloadAdvancedCore(userStorage);
 
 		if (bungeeSettings.isUseBungeecoord()) {
 			if (getBungeeHandler() == null) {
@@ -1513,10 +1516,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			broadcastHandler.schedule(getConfigFile().getFormatAlternateBroadcastDelay());
 		}
 
-		updateAdvancedCoreHook();
 		plugin.loadVoteSites();
 
-		reloadAdvancedCore(userStorage);
 		getOptions().setServer(bungeeSettings.getServer());
 		if (userStorage) {
 			placeholders.load();
