@@ -3,7 +3,7 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
-	<artifactId>${version.art}</artifactId>
+	<artifactId>votingplugin</artifactId>
 	<version>6.17.2</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
@@ -196,7 +196,8 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>${user.home}/Documents/Test_Server/plugins</outputDirectory>
+							<outputDirectory>
+								${user.home}/Documents/Test_Server/plugins</outputDirectory>
 							<resources>
 								<resource>
 									<directory>${basedir}/target</directory>
@@ -292,45 +293,14 @@
 			<version>2.11.6</version>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.bencodez</groupId>
+			<artifactId>advancedcore</artifactId>
+			<version>LATEST</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 	<profiles>
-		<profile>
-			<id>normal</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<properties>
-				<build.profile.id>normal</build.profile.id>
-				<version.art>votingplugin</version.art>
-				<maven.compiler.source>1.8</maven.compiler.source>
-				<maven.compiler.target>1.8</maven.compiler.target>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
-		<profile>
-			<id>normal-folia</id>
-			<properties>
-				<build.profile.id>normal</build.profile.id>
-				<version.art>votingplugin-folia</version.art>
-				<maven.compiler.source>17</maven.compiler.source>
-				<maven.compiler.target>17</maven.compiler.target>
-			</properties>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore-folia</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
 		<profile>
 			<id>prod2</id>
 			<properties>
@@ -358,9 +328,6 @@
 		<profile>
 			<id>deploy-snapshot</id>
 			<properties>
-				<version.art>votingplugin</version.art>
-				<maven.compiler.source>1.8</maven.compiler.source>
-				<maven.compiler.target>1.8</maven.compiler.target>
 				<build.profile.id>deploy-snapshot</build.profile.id>
 			</properties>
 			<distributionManagement>
@@ -373,14 +340,6 @@
 					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
 				</repository>
 			</distributionManagement>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 			<build>
 				<plugins>
 					<plugin>
@@ -416,9 +375,6 @@
 		<profile>
 			<id>javadoc</id>
 			<properties>
-				<version.art>votingplugin</version.art>
-				<maven.compiler.source>1.8</maven.compiler.source>
-				<maven.compiler.target>1.8</maven.compiler.target>
 				<build.profile.id>javadoc</build.profile.id>
 			</properties>
 			<distributionManagement>
@@ -428,14 +384,6 @@
 					<url>file://${project.build.directory}/mvn-repo</url>
 				</repository>
 			</distributionManagement>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 			<build>
 				<plugins>
 					<plugin>
@@ -464,20 +412,8 @@
 		<profile>
 			<id>deploy</id>
 			<properties>
-				<version.art>votingplugin</version.art>
-				<maven.compiler.source>1.8</maven.compiler.source>
-				<maven.compiler.target>1.8</maven.compiler.target>
 				<build.profile.id>deploy</build.profile.id>
 			</properties>
-
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
 			<distributionManagement>
 				<snapshotRepository>
 					<id>nexus</id>
