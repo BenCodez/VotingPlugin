@@ -11,8 +11,8 @@
 		<github.global.server>github</github.global.server>
 		<project.build.sourceEncoding>Cp1252</project.build.sourceEncoding>
 		<build.number>NOTSET</build.number>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
 	</properties>
 	<build>
 		<resources>
