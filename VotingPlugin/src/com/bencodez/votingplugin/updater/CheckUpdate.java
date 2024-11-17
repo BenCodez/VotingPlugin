@@ -22,7 +22,8 @@ public class CheckUpdate {
 	 * Check update.
 	 */
 	public void checkUpdate() {
-		if (plugin.getConfigFile().isDisableUpdateChecking()) {
+		if (plugin.getConfigFile().isDisableUpdateChecking()
+				|| plugin.getDescription().getVersion().endsWith("SNAPSHOT")) {
 			return;
 		}
 		plugin.setUpdater(new Updater(plugin, 15358, false));
@@ -69,7 +70,8 @@ public class CheckUpdate {
 	 * Start up.
 	 */
 	public void startUp() {
-		if (plugin.getConfigFile().isDisableUpdateChecking()) {
+		if (plugin.getConfigFile().isDisableUpdateChecking()
+				|| plugin.getDescription().getVersion().endsWith("SNAPSHOT")) {
 			return;
 		}
 		plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
