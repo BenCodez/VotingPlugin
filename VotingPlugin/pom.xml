@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>votingplugin</artifactId>
-	<version>6.17.2</version>
+	<version>6.17.3-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -304,20 +304,34 @@
 		<profile>
 			<id>deploy-snapshot</id>
 			<properties>
-				<build.profile.id>deploy-snapshot</build.profile.id>
+				<build.profile.id>dev-snapshot</build.profile.id>
 			</properties>
 			<distributionManagement>
 				<snapshotRepository>
 					<id>nexus</id>
 					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
 				</snapshotRepository>
-				<repository>
-					<id>nexus</id>
-					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
-				</repository>
 			</distributionManagement>
 			<build>
 				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<version>3.11.1</version>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+								<phase>install</phase>
+								<configuration>
+									<sourcepath>
+										${project.basedir}/target/delombok</sourcepath>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-deploy-plugin</artifactId>
@@ -333,7 +347,7 @@
 						<executions>
 							<execution>
 								<id>default-deploy</id>
-								<phase>deploy</phase>
+								<phase>install</phase>
 								<goals>
 									<goal>deploy</goal>
 								</goals>
@@ -372,7 +386,7 @@
 								<goals>
 									<goal>jar</goal>
 								</goals>
-								<phase>deploy</phase>
+								<phase>install</phase>
 								<configuration>
 									<sourcepath>
 										${project.basedir}/target/delombok</sourcepath>
