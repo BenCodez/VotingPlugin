@@ -1511,7 +1511,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 		checkYMLError();
-
+		
 		if (broadcastHandler != null) {
 			broadcastHandler.schedule(getConfigFile().getFormatAlternateBroadcastDelay());
 		}
