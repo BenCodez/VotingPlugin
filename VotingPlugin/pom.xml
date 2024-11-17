@@ -70,8 +70,6 @@
 							<paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
 						</manifestEntries>
 					</archive>
-					<source>1.8</source>
-					<target>1.8</target>
 					<finalName>${project.name}</finalName>
 				</configuration>
 			</plugin>
@@ -304,30 +302,6 @@
 	</dependencies>
 	<profiles>
 		<profile>
-			<id>prod2</id>
-			<properties>
-				<version.art>votingplugin</version.art>
-				<maven.compiler.source>1.8</maven.compiler.source>
-				<maven.compiler.target>1.8</maven.compiler.target>
-				<build.profile.id>prod2</build.profile.id>
-			</properties>
-			<distributionManagement>
-				<repository>
-					<id>internal.repo</id>
-					<name>Temporary Staging Repository</name>
-					<url>file://${project.build.directory}/mvn-repo</url>
-				</repository>
-			</distributionManagement>
-			<dependencies>
-				<dependency>
-					<groupId>com.bencodez</groupId>
-					<artifactId>advancedcore</artifactId>
-					<version>LATEST</version>
-					<scope>compile</scope>
-				</dependency>
-			</dependencies>
-		</profile>
-		<profile>
 			<id>deploy-snapshot</id>
 			<properties>
 				<build.profile.id>deploy-snapshot</build.profile.id>
@@ -473,33 +447,6 @@
 							<skipStaging>true</skipStaging>
 						</configuration>
 					</plugin>
-					<!--<plugin>
-						<groupId>com.github.github</groupId>
-						<artifactId>site-maven-plugin</artifactId>
-						<version>0.12</version>
-						<executions>
-							<execution>
-								<id>javadoc</id>
-								<goals>
-									<goal>site</goal>
-								</goals>
-								<phase>deploy</phase>
-								<configuration>
-									<message>Maven javadoc for ${project.version}</message>
-									<noJekyll>true</noJekyll>
-									<outputDirectory>${project.build.directory}/apidocs
-									</outputDirectory>
-									<branch>refs/heads/gh-pages</branch>
-									<includes>
-										<include>**/*</include>
-									</includes>
-									<repositoryName>VotingPlugin</repositoryName>
-									<repositoryOwner>BenCodez</repositoryOwner>
-									<server>github</server>
-								</configuration>
-							</execution>
-						</executions>
-					</plugin>-->
 				</plugins>
 			</build>
 		</profile>
