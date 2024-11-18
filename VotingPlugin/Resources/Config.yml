@@ -716,7 +716,7 @@ ExtraBackgroundUpdate: false
 # Click sound when using gui
 # Set to none for no sound
 ClickSound: 
-  Sound: 'UI_BUTTON_CLICK'
+  Sound: 'ui.button.click'
   Volume: 1.0
   Pitch: 1.0
 
