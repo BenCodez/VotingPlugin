@@ -601,9 +601,10 @@ DefaultRewardBlackListedWorlds: []
 PreloadSkulls: true
 
 # Number of miliseconds between skull caching
-# Default about 2 seconds is good
-# Used to avoid rate limit
-SkullLoadDelay: 2000
+# Default about 3 seconds is good for most servers
+# Used to avoid rate limit, increase if needed
+# If rate limit is hit caching will pause for 15 minutes
+SkullLoadDelay: 3000
 
 ###########################################
 # Extra checks on vote
