@@ -1087,7 +1087,8 @@ public class CommandLoader {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
 									false);
 							if (voteEvent.getVoteSite() != null) {
-								if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+								if (!voteEvent.getVoteSite().isVaidServiceSite()
+										&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 									sendMessage(sender,
 											"&cPossible issue with service site, has the server gotten the vote from "
 													+ voteEvent.getServiceSite() + "?");
@@ -1113,7 +1114,8 @@ public class CommandLoader {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1], args[2],
 						false);
 				if (voteEvent.getVoteSite() != null) {
-					if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+					if (!voteEvent.getVoteSite().isVaidServiceSite()
+							&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 						sendMessage(sender, "&cPossible issue with service site, has the server gotten the vote from "
 								+ voteEvent.getServiceSite() + "?");
 					}
@@ -1146,7 +1148,8 @@ public class CommandLoader {
 								args[2], false);
 						sendMessage(sender, "&cTriggering vote...");
 						if (voteEvent.getVoteSite() != null) {
-							if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+							if (!voteEvent.getVoteSite().isVaidServiceSite()
+									&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 								sendMessage(sender,
 										"&cPossible issue with service site, has the server gotten the vote from "
 												+ voteEvent.getServiceSite() + "?");
@@ -1196,7 +1199,8 @@ public class CommandLoader {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
 									false);
 							if (voteEvent.getVoteSite() != null) {
-								if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+								if (!voteEvent.getVoteSite().isVaidServiceSite()
+										&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 									sendMessage(sender,
 											"&cPossible issue with service site, has the server gotten the vote from "
 													+ voteEvent.getServiceSite() + "?");
@@ -1222,7 +1226,8 @@ public class CommandLoader {
 								args[3], false);
 						sendMessage(sender, "&cTriggering vote...");
 						if (voteEvent.getVoteSite() != null) {
-							if (!voteEvent.getVoteSite().isVaidServiceSite()) {
+							if (!voteEvent.getVoteSite().isVaidServiceSite()
+									&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 								sendMessage(sender,
 										"&cPossible issue with service site, has the server gotten the vote from "
 												+ voteEvent.getServiceSite() + "?");
