@@ -78,7 +78,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@ConfigDataListInt(path = "VoteParty.VoteReminderAtVotes")
 	@Getter
-	private ArrayList<String> votePartyVoteReminderAtVotes = new ArrayList<String>();
+	private ArrayList<Integer> votePartyVoteReminderAtVotes = new ArrayList<Integer>();
 
 	@ConfigDataListString(path = "VoteParty.GlobalRandomCommand")
 	@Getter

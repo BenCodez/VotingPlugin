@@ -229,6 +229,7 @@ public class VoteParty implements Listener {
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
+
 			ArrayList<String> alreadyGotten = new ArrayList<String>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				VotingPluginUser user;
@@ -262,7 +263,9 @@ public class VoteParty implements Listener {
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
 			plugin.debug(ArrayUtils.makeStringList(getVotedUsers()));
-			for (String uuid : getVotedUsers()) {
+			for (String uuid :
+
+			getVotedUsers()) {
 				VotingPluginUser user;
 				if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
 					user = orgUser;
@@ -276,6 +279,7 @@ public class VoteParty implements Listener {
 
 			}
 		}
+
 		reset(false);
 	}
 
@@ -349,20 +353,19 @@ public class VoteParty implements Listener {
 		if (!user.isVanished()) {
 			int neededVotes = getNeededVotes();
 
-			for (String str : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
-				if (MessageAPI.isInt(str)) {
-					int num = Integer.parseInt(str);
-					if (neededVotes == num) {
-						String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
-						HashMap<String, String> placeholders = new HashMap<String, String>();
-						placeholders.put("player", user.getPlayerName());
-						placeholders.put("votesrequired", "" + neededVotes);
-						MiscUtils.getInstance()
-								.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
-					}
+			for (Integer num1 : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
+				int num = num1.intValue();
+				if (neededVotes == num) {
+					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
+					HashMap<String, String> placeholders = new HashMap<String, String>();
+					placeholders.put("player", user.getPlayerName());
+					placeholders.put("votesrequired", "" + neededVotes);
+					MiscUtils.getInstance()
+							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
 				}
 			}
 		}
+
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
