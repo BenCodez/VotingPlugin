@@ -12,6 +12,7 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataDouble;
 import com.bencodez.simpleapi.file.annotation.ConfigDataInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataKeys;
+import com.bencodez.simpleapi.file.annotation.ConfigDataListInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
 import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -75,7 +76,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private String votePartyVoteReminderBroadcast = "%votesrequired% left to go, go vote!";
 
-	@ConfigDataListString(path = "VoteParty.VoteReminderAtVotes")
+	@ConfigDataListInt(path = "VoteParty.VoteReminderAtVotes")
 	@Getter
 	private ArrayList<String> votePartyVoteReminderAtVotes = new ArrayList<String>();
 
