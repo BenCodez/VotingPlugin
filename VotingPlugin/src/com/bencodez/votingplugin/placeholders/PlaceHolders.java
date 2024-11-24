@@ -352,6 +352,18 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get number of votes until next available milestone").updateDataKey("MilestoneCount"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("lastmilestone_votes_since") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				int toGo = user.getMilestoneCount() - user.getLastGottenMilestone();
+				if (toGo >= 0) {
+					return "" + toGo;
+				}
+				return "0";
+			}
+		}.withDescription("Get number of votes since last milestone").updateDataKey("MilestoneCount"));
+
 		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
 			if (plugin.getShopFile().getShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {

@@ -1074,6 +1074,33 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	}
 
+	public int getLastGottenMilestone() {
+		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
+		ArrayList<Integer> nums = new ArrayList<Integer>();
+		int mileStoneCount = getMilestoneCount();
+		for (String vote : mVotes) {
+			if (MessageAPI.isInt(vote)) {
+				final int num = Integer.parseInt(vote);
+				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
+					nums.add(Integer.valueOf(num));
+				}
+			}
+		}
+
+		int highestNum = -1;
+
+		for (Integer num : nums) {
+			if (mileStoneCount > num.intValue()) {
+				if (highestNum == -1 || num.intValue() > highestNum) {
+					highestNum = num.intValue();
+				}
+			}
+		}
+
+		return highestNum;
+
+	}
+
 	public void setReminded(boolean reminded) {
 		getUserData().setString("Reminded", "" + reminded);
 	}
