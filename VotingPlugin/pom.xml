@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>votingplugin</artifactId>
-	<version>6.17.3-SNAPSHOT</version>
+	<version>6.17.3</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -311,6 +311,10 @@
 					<id>nexus</id>
 					<url>https://nexus.bencodez.com/repository/maven-snapshots/</url>
 				</snapshotRepository>
+				<repository>
+					<id>nexus</id>
+					<url>https://nexus.bencodez.com/repository/maven-releases/</url>
+				</repository>
 			</distributionManagement>
 			<build>
 				<plugins>

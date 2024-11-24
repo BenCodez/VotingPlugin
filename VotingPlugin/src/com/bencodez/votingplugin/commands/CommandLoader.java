@@ -792,7 +792,7 @@ public class CommandLoader {
 					sendMessage(sender, "AdvancedCore Jenkins build number: " + plugin.getAdvancedCoreBuildNumber());
 				}
 				if (!plugin.getBuildNumber().equals("NOTSET")) {
-					sendMessage(sender, "Using votingplugin jenkins build: " + plugin.getBuildNumber());
+					sendMessage(sender, "Using VotingPlugin jenkins build: " + plugin.getBuildNumber());
 				}
 			}
 		});
