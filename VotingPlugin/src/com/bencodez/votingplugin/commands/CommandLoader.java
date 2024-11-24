@@ -723,6 +723,7 @@ public class CommandLoader {
 							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
 				}
 				if (!plugin.getConfigFile().isDisableUpdateChecking()
+						&& !plugin.getDescription().getVersion().endsWith("SNAPSHOT") && plugin.getUpdater() != null
 						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
 					sendMessage(sender,
 							"&3Plugin has update available! https://www.spigotmc.org/resources/votingplugin.15358/");
@@ -750,6 +751,7 @@ public class CommandLoader {
 							+ "Detected that server hasn't received any votes from votifier, please check votifier connection");
 				}
 				if (!plugin.getConfigFile().isDisableUpdateChecking()
+						&& !plugin.getDescription().getVersion().endsWith("SNAPSHOT") && plugin.getUpdater() != null
 						&& plugin.getUpdater().getResult().equals(Updater.UpdateResult.UPDATE_AVAILABLE)) {
 					sendMessage(sender,
 							"&3Plugin has update available! https://www.spigotmc.org/resources/votingplugin.15358/");
