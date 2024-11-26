@@ -747,8 +747,19 @@ CloseGUIOnShiftClick: false
 # Purge settings
 ###########################################
 # Remove old player files
-# Happens on startup or /av purge
+# Recommend leaving this disabled
+# When disabled it also disables the commands to manually purge
 PurgeOldData: false
+
+# Enable auto purging data on startup
+# Do not enable unless you know what you are doing
+# Purges players with vote totals
+# Requires PurgeOldData to be enabled
+PurgeDataOnStartup: false
+
+# Same as above, but checks players have no vote total before purging
+# Requires PurgeOldData to be enabled
+PurgeNoDataOnStartup: false
 
 # Minimum number of days offline in order to purge
 PurgeMin: 90

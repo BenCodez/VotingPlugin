@@ -663,13 +663,9 @@ public class Config extends YMLFile {
 	@Getter
 	private int pointsOnVote = 1;
 
-	@ConfigDataInt(path = "PurgeMin")
+	@ConfigDataBoolean(path = "PurgeNoDataOnStartup")
 	@Getter
-	private int purgeMin = 90;
-
-	@ConfigDataBoolean(path = "PurgeOldData")
-	@Getter
-	private boolean purgeOldData = false;
+	private boolean purgeNoDataOnStartup = false;
 
 	@ConfigDataString(path = "RequestAPI.DefaultMethod")
 	@Getter

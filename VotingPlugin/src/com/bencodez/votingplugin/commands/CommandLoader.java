@@ -1739,6 +1739,17 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "PurgeNoData" },
+				"VotingPlugin.PurgeNoData",
+				"Purge players from database with no data and haven't been online for a number of days (Set in Config.yml)") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				plugin.getVotingPluginUserManager().purgeOldPlayersNowNoData();
+				sendMessage(sender, "&cPurged players with no data");
+			}
+		});
+
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "RemoveOfflineUUIDs" },
 						"VotingPlugin.Commands.AdminVote.RemoveOfflineUUIDs|" + adminPerm,

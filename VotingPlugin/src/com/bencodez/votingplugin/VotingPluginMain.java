@@ -1063,6 +1063,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
+		
+		// only purges if enabled in config
+		getVotingPluginUserManager().purgeOldPlayersNoData();
 
 		voteTester = new VoteTester(plugin);
 

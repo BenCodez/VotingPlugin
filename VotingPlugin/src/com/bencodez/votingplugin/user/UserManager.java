@@ -1,16 +1,22 @@
 package com.bencodez.votingplugin.user;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.UUID;
 
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
+import com.bencodez.advancedcore.api.user.userstorage.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class UserManager {
 	private VotingPluginMain plugin;
@@ -123,5 +129,82 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
 		return new VotingPluginUser(plugin, uuid, loadName);
+	}
+
+	public void purgeOldPlayersNoData() {
+		if (plugin.getOptions().isPurgeOldData() && plugin.getConfigFile().isPurgeNoDataOnStartup()) {
+			plugin.addUserStartup(new UserStartup() {
+
+				@Override
+				public void onFinish() {
+					plugin.debug("Finished no data purging");
+				}
+
+				@Override
+				public void onStart() {
+
+				}
+
+				@Override
+				public void onStartUp(AdvancedCoreUser acUser) {
+					VotingPluginUser user = getVotingPluginUser(acUser);
+					user.dontCache();
+					int daysOld = plugin.getOptions().getPurgeMinimumDays();
+					int days = user.getNumberOfDaysSinceLogin();
+					if (days == -1) {
+						// fix ones with no last online
+						user.setLastOnline(System.currentTimeMillis());
+					} else if (days > daysOld) {
+						if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
+								&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
+								&& user.getTotal(TopVoter.Daily) == 0) {
+							plugin.debug("Removing " + user.getUUID() + " because of no data purge");
+							user.remove();
+						}
+					}
+
+				}
+			});
+
+		}
+
+		plugin.getUserManager().getDataManager().clearCache();
+	}
+
+	public void purgeOldPlayersNowNoData() {
+		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+			String uuid = playerData.getKey().toString();
+			if (plugin.isEnabled()) {
+				if (uuid != null) {
+					VotingPluginUser user = getVotingPluginUser(UUID.fromString(uuid), false);
+					if (user != null) {
+						user.dontCache();
+						user.updateTempCacheWithColumns(playerData.getValue());
+						int daysOld = plugin.getOptions().getPurgeMinimumDays();
+						int days = user.getNumberOfDaysSinceLogin();
+						if (days == -1) {
+							// fix ones with no last online
+							user.setLastOnline(System.currentTimeMillis());
+						} else if (days > daysOld) {
+							if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
+									&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
+									&& user.getTotal(TopVoter.Daily) == 0)
+								plugin.debug("Removing " + user.getUUID() + " because of no data purge");
+							user.remove();
+						}
+
+						user.clearTempCache();
+						cols.put(playerData.getKey(), null);
+						user = null;
+					}
+				}
+			}
+		}
+		cols.clear();
+		cols = null;
+
+		plugin.getUserManager().getDataManager().clearCache();
+		plugin.setUpdate(true);
 	}
 }
