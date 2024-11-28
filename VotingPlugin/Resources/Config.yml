@@ -606,6 +606,11 @@ PreloadSkulls: true
 # If rate limit is hit caching will pause for 15 minutes
 SkullLoadDelay: 3000
 
+# Set a skull profile URL
+# Default: https://sessionserver.mojang.com/session/minecraft/profile/
+# Other examples: https://crafthead.net/profile/
+SkullProfileAPIURL: ''
+
 ###########################################
 # Extra checks on vote
 ###########################################
