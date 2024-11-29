@@ -607,6 +607,7 @@ PreloadSkulls: true
 SkullLoadDelay: 3000
 
 # Set a skull profile URL
+# This is what gets used to cache skulls
 # Default: https://sessionserver.mojang.com/session/minecraft/profile/
 # Other examples: https://crafthead.net/profile/
 SkullProfileAPIURL: ''
