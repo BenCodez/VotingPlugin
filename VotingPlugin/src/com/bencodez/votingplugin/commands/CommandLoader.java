@@ -867,7 +867,6 @@ public class CommandLoader {
 					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
-
 				for (TopVoter top : TopVoter.values()) {
 					plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
 				}
@@ -876,6 +875,31 @@ public class CommandLoader {
 				sender.sendMessage(MessageAPI.colorize("&cCleared totals for everyone"));
 			}
 		});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "ResetTotal", "(TopVoter)" },
+						"VotingPlugin.Commands.AdminVote.ResetTotal.All|" + adminPerm,
+						"Reset specific totals for all players (DAY/WEEK/MONTH)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						if (sender instanceof Player) {
+							sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
+							return;
+						}
+
+						TopVoter top = TopVoter.getTopVoter(args[1]);
+						if (top.equals(TopVoter.AllTime)) {
+							sendMessage(sender, "&cCan't reset all time total or invalid argument: " + args[1]);
+							return;
+						}
+						plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
+
+						plugin.getUserManager().getDataManager().clearCache();
+						plugin.setUpdate(true);
+						sender.sendMessage(MessageAPI.colorize("&cCleared totals of " + top.getColumnName()));
+					}
+				});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVoteRewards" },
 				"VotingPlugin.Commands.AdminVote.ClearOfflineVoteRewards|" + adminPerm, "Reset offline votes/rewards") {
