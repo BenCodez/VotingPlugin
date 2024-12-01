@@ -441,6 +441,8 @@ public class VotingPluginVelocity {
 					@Override
 					public void onTimeChangedFailed(String server, TimeType type) {
 						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
+						getGlobalDataHandler().setBoolean(server, "Processing", false);
 					}
 
 				};
