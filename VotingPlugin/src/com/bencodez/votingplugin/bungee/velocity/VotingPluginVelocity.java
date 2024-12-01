@@ -49,6 +49,7 @@ import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueString;
 import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigVelocity;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
@@ -370,7 +371,7 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
 						}
-						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
+						getMysql().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
 
 						for (RegisteredServer s : getAvailableAllServers()) {
 							getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
@@ -423,7 +424,7 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getMysql().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
 						}
-						getMysql().wipeColumnData(TopVoter.of(type).getColumnName());
+						getMysql().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
 
 						for (RegisteredServer s : getAvailableAllServers()) {
 							getGlobalDataHandler().setBoolean(s.getServerInfo().getName(), "ForceUpdate", true);
