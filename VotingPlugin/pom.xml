@@ -326,7 +326,7 @@
 						<executions>
 							<execution>
 								<id>copy-file</id>
-								<phase>deploy</phase>
+								<phase>install</phase>
 								<goals>
 									<goal>copy</goal>
 								</goals>
