@@ -619,6 +619,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return 0;
 	}
 
+	public int getTotal(TopVoter top, LocalDateTime atTime) {
+		switch (top) {
+		case AllTime:
+			return getUserData().getInt("AllTimeTotal", isCacheData(), isWaitForCache());
+		case Daily:
+			return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
+		case Monthly:
+			if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(atTime),
+						isCacheData(), isWaitForCache());
+			}
+			return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
+		case Weekly:
+			return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
+		default:
+			break;
+		}
+		return 0;
+	}
+
 	public int getVotePartyVotes() {
 		return getUserData().getInt("VotePartyVotes", isCacheData(), isWaitForCache());
 	}
@@ -693,7 +713,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
-		int total = getTotal(top);
+		int total = getTotal(top, time);
 		switch (top) {
 		case Daily:
 			return (double) total / (double) plugin.getVoteSitesEnabled().size() * 100 > percentage;

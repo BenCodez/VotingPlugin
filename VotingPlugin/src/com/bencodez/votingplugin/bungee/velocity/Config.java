@@ -37,6 +37,14 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
 
+	public boolean getStoreMonthTotalsWithDate() {
+		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
+	}
+
+	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
+		return getBoolean(getNode("UseMonthDateTotalsAsPrimaryTotal"), false);
+	}
+
 	public boolean getUUIDLookup() {
 		return getBoolean(getNode("UUIDLookup"), true);
 	}

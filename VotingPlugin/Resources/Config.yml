@@ -593,9 +593,16 @@ DefaultRewardBlackListedWorlds: []
 
 
 # Experimental
+# Stores month votes with date formatting
+# MonthTotal-MONTH-YEAR
+# This setting only enables setting totals, not using them
+# Enabling this is pretty safe and harmless with just this setting
 StoreMonthTotalsWithDate: false
 
-# ?
+# Experimental
+# This setting uses month votes with date formatting
+# If using this StoreMonthTotalsWithDate must be enabled
+# This setting may be very buggy as it's in early stages
 UseMonthDateTotalsAsPrimaryTotal: false
 
 

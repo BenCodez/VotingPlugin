@@ -110,7 +110,11 @@ public class SpecialRewards {
 								total = bungeeMessageData.getDailyTotal();
 								break;
 							case Monthly:
-								total = bungeeMessageData.getMonthTotal();
+								if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+									total = bungeeMessageData.getDateMonthTotal();
+								} else {
+									total = bungeeMessageData.getMonthTotal();
+								}
 								break;
 							case Weekly:
 								total = bungeeMessageData.getWeeklyTotal();
@@ -164,6 +168,7 @@ public class SpecialRewards {
 			}
 		}
 		return gotCumulativeAny;
+
 	}
 
 	public boolean checkFirstVote(VotingPluginUser user, boolean forceBungee) {

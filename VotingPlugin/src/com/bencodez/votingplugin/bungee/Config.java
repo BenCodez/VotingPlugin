@@ -57,6 +57,14 @@ public class Config {
 		return getData().getBoolean("Broadcast", false);
 	}
 
+	public boolean getStoreMonthTotalsWithDate() {
+		return getData().getBoolean("StoreMonthTotalsWithDate", false);
+	}
+
+	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
+		return getData().getBoolean("UseMonthDateTotalsAsPrimaryTotal", false);
+	}
+
 	public String getBedrockPlayerPrefix() {
 		return getData().getString("BedrockPlayerPrefix", ".");
 	}

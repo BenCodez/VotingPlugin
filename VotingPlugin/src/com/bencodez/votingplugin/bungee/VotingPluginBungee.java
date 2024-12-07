@@ -1355,6 +1355,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	public String getMonthTotalsWithDatePath() {
+		LocalDateTime cTime = bungeeTimeChecker.getTime();
+		return getMonthTotalsWithDatePath(cTime);
+	}
+
+	public String getMonthTotalsWithDatePath(LocalDateTime cTime) {
+		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
+	}
+
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			BungeeMessageData text, String uuid) {
 		try {
@@ -1432,6 +1441,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 					int allTimeTotal = getValue(data, "AllTimeTotal", 1);
 					int monthTotal = getValue(data, "MonthTotal", 1);
+					int dateMonthTotal = -1;
+					if (config.getStoreMonthTotalsWithDate()) {
+						if (config.getUseMonthDateTotalsAsPrimaryTotal()) {
+							dateMonthTotal = getValue(data, getMonthTotalsWithDatePath(), 1);
+						} else {
+							dateMonthTotal = monthTotal;
+						}
+					}
 					int weeklyTotal = getValue(data, "WeeklyTotal", 1);
 					int dailyTotal = getValue(data, "DailyTotal", 1);
 					int points = getValue(data, "Points", getConfig().getPointsOnVote());
@@ -1452,10 +1469,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
-							milestoneCount, votePartyVotes, currentVotePartyVotesRequired);
+							milestoneCount, votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal);
 					ArrayList<Column> update = new ArrayList<Column>();
 					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
+					if (config.getStoreMonthTotalsWithDate()) {
+						update.add(new Column(getMonthTotalsWithDatePath(), new DataValueInt(dateMonthTotal)));
+					}
 					update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
 					update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
 					update.add(new Column("Points", new DataValueInt(points)));
@@ -1463,7 +1483,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					debug("Setting totals " + text.toString());
 					mysql.update(uuid, update);
 				} else {
-					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired);
+					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 				}
 			}
 

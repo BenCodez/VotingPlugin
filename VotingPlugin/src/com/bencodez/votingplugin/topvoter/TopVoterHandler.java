@@ -238,6 +238,7 @@ public class TopVoterHandler implements Listener {
 				plugin.getUserManager().copyColumnData(TopVoter.Monthly.getColumnName(),
 						TopVoter.Monthly.getLastColumnName());
 			}
+			LocalDateTime lastMonthTime = plugin.getTimeChecker().getTime().minusMonths(1);
 			if (plugin.getConfigFile().isUseHighestTotals() || plugin.getConfigFile().isUseVoteStreaks()) {
 				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
 				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
@@ -247,7 +248,7 @@ public class TopVoterHandler implements Listener {
 					user.updateTempCacheWithColumns(playerData.getValue());
 					cols.put(playerData.getKey(), null);
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
-						if (user.getTotal(TopVoter.Monthly) == 0 && user.getMonthVoteStreak() != 0) {
+						if (user.getTotal(TopVoter.Monthly, lastMonthTime) == 0 && user.getMonthVoteStreak() != 0) {
 							user.setMonthVoteStreak(0);
 						} else {
 							if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
@@ -265,8 +266,8 @@ public class TopVoterHandler implements Listener {
 					// user.setLastMonthTotal(user.getTotal(TopVoter.Monthly));
 
 					if (plugin.getConfigFile().isUseHighestTotals()) {
-						if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly)) {
-							user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly));
+						if (user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly, lastMonthTime)) {
+							user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly, lastMonthTime));
 						}
 					}
 					user.clearTempCache();

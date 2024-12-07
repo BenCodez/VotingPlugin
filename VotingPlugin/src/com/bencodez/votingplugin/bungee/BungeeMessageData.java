@@ -8,7 +8,7 @@ import lombok.Setter;
 public class BungeeMessageData {
 
 	// Message string
-	// alltimetotal//monthtotal//weeklytotal//dailytotal//points//milestonecount//votepartycurrent//votepartyrequired
+	// alltimetotal//monthtotal//weeklytotal//dailytotal//points//milestonecount//votepartycurrent//votepartyrequired//datemonthtotal
 
 	@Getter
 	@Setter
@@ -24,6 +24,9 @@ public class BungeeMessageData {
 	private int monthTotal = 0;
 	@Getter
 	@Setter
+	private int dateMonthTotal = 0;
+	@Getter
+	@Setter
 	private int points = 0;
 	@Getter
 	@Setter
@@ -36,7 +39,7 @@ public class BungeeMessageData {
 	private int votePartyRequired = 0;
 
 	public BungeeMessageData(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
-			int milestoneCount, int votePartyCurrent, int votePartyRequired) {
+			int milestoneCount, int votePartyCurrent, int votePartyRequired, int dateMonthTotal) {
 		this.allTimeTotal = allTimeTotal;
 		this.monthTotal = monthTotal;
 		this.weeklyTotal = weeklyTotal;
@@ -45,6 +48,7 @@ public class BungeeMessageData {
 		this.milestoneCount = milestoneCount;
 		this.votePartyCurrent = votePartyCurrent;
 		this.votePartyRequired = votePartyRequired;
+		this.dateMonthTotal = dateMonthTotal;
 	}
 
 	public BungeeMessageData(String str) {
@@ -60,6 +64,9 @@ public class BungeeMessageData {
 		if (data.length >= 8) {
 			votePartyCurrent = Integer.parseInt(data[6]);
 			votePartyRequired = Integer.parseInt(data[7]);
+		}
+		if (data.length >= 9) {
+			dateMonthTotal = Integer.parseInt(data[8]);
 		}
 	}
 
