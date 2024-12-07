@@ -1098,7 +1098,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		return highestNum;
-
 	}
 
 	public void setReminded(boolean reminded) {
