@@ -591,6 +591,15 @@ DefaultRewardWorlds: []
 # Default blackedlisted worlds set for all rewards
 DefaultRewardBlackListedWorlds: []
 
+
+# Experimental
+StoreMonthTotalsWithDate: false
+
+# ?
+UseMonthDateTotalsAsPrimaryTotal: false
+
+
+
 ###########################################
 # Skull settings
 ###########################################

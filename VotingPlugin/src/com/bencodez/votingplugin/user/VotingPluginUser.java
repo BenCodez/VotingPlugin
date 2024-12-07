@@ -539,7 +539,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	@Deprecated
 	public int getMonthTotal() {
-		return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
+		return getTotal(TopVoter.Monthly);
 	}
 
 	public int getMonthVoteStreak() {
@@ -606,6 +606,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		case Daily:
 			return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
 		case Monthly:
+			if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(), isCacheData(),
+						isWaitForCache());
+			}
 			return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
 		case Weekly:
 			return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
@@ -1135,6 +1139,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 			}
 			getData().setInt("MonthTotal", value);
+			if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
+				getData().setInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(), value);
+			}
 			break;
 		case Weekly:
 			getUserData().setInt("WeeklyTotal", value);

@@ -667,6 +667,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean purgeNoDataOnStartup = false;
 
+	@ConfigDataBoolean(path = "StoreMonthTotalsWithDate")
+	@Getter
+	private boolean storeMonthTotalsWithDate = false;
+
+	@ConfigDataBoolean(path = "UseMonthDateTotalsAsPrimaryTotal")
+	@Getter
+	private boolean useMonthDateTotalsAsPrimaryTotal = false;
+
 	@ConfigDataString(path = "RequestAPI.DefaultMethod")
 	@Getter
 	private String requestAPIDefaultMethod = "ANVIL";

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.user;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -34,6 +35,12 @@ public class UserManager {
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
 		manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
+
+		if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now())));
+			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1))));
+		}
+
 		manager.addKey(new UserDataKeyInt("AllTimeTotal"));
 		manager.addKey(new UserDataKeyInt("DailyTotal"));
 		manager.addKey(new UserDataKeyInt("WeeklyTotal"));
@@ -93,6 +100,15 @@ public class UserManager {
 		} else {
 			return "CoolDownCheck";
 		}
+	}
+
+	public String getMonthTotalsWithDatePath() {
+		LocalDateTime cTime = plugin.getTimeChecker().getTime();
+		return getMonthTotalsWithDatePath(cTime);
+	}
+
+	public String getMonthTotalsWithDatePath(LocalDateTime cTime) {
+		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
 	}
 
 	public ArrayList<String> getAllUUIDs() {
