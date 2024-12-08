@@ -484,6 +484,11 @@ public class VotingPluginVelocity {
 		getMysql().alterColumnType("LastDailyTotal", "INT DEFAULT '0'");
 		getMysql().alterColumnType("OfflineRewards", "MEDIUMTEXT");
 		getMysql().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+		if (config.getStoreMonthTotalsWithDate()) {
+			getMysql().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now()), "INT DEFAULT '0'");
+			getMysql().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1)),
+					"INT DEFAULT '0'");
+		}
 	}
 
 	@Subscribe
