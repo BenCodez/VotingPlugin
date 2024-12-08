@@ -263,13 +263,14 @@ public class SpecialRewards {
 
 		Set<String> streaks = plugin.getSpecialRewardsConfig().getVoteStreakVotes(type);
 		for (String streak : streaks) {
-			String s = streak.replaceAll("-", "");
 			boolean multiple = false;
 			if (streak.contains("-")) {
 				// multiple
 				multiple = true;
 
 			}
+			String s = streak.replaceAll("-", "");
+
 			plugin.debug("Streak: " + streak + " multiple: " + multiple);
 			if (MessageAPI.isInt(s)) {
 				int streakRequired = Integer.parseInt(s);
