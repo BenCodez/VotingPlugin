@@ -1683,15 +1683,19 @@ public class CommandLoader {
 
 			plugin.getAdminVoteCommand()
 					.add(new CommandHandler(plugin,
-							new String[] { "User", "(player)", "ForceVoteStreak", str, "(Number)" },
+							new String[] { "User", "(player)", "ForceVoteStreak", str, "(Text)" },
 							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 							"Force a votestreak reward for " + str) {
 
 						@Override
 						public void execute(CommandSender sender, String[] args) {
+							String num = args[4];
+							if (num.contains("-")) {
+								num = num.replaceAll("-", "");
+							}
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 							plugin.getSpecialRewards().giveVoteStreakReward(user, user.isOnline(), str, args[4],
-									parseInt(args[4]), plugin.getBungeeSettings().isUseBungeecoord());
+									parseInt(num), plugin.getBungeeSettings().isUseBungeecoord());
 							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
 						}
 					});
