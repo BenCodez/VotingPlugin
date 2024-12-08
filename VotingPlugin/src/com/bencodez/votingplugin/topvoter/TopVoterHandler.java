@@ -90,6 +90,7 @@ public class TopVoterHandler implements Listener {
 			plugin.getLastMonthTopVoter().clear();
 			LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<TopVoterPlayer, Integer>();
 			HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+			LocalDateTime lastMonthTime = plugin.getTimeChecker().getTime().minusMonths(1);
 			for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
 				String uuid = playerData.getKey().toString();
@@ -100,7 +101,12 @@ public class TopVoterHandler implements Listener {
 						user.dontCache();
 						user.updateTempCacheWithColumns(playerData.getValue());
 						cols.put(playerData.getKey(), null);
-						int total = user.getLastMonthTotal();
+						int total = 0;
+						if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+							total = user.getTotal(TopVoter.Monthly, lastMonthTime);
+						} else {
+							total = user.getLastMonthTotal();
+						}
 						if (total > 0) {
 							totals.put(user.getTopVoterPlayer(), total);
 						}
@@ -284,10 +290,17 @@ public class TopVoterHandler implements Listener {
 					int i = 0;
 					int lastTotal = -1;
 
-					@SuppressWarnings("unchecked")
-					LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
-							.getTopVoter(TopVoter.Monthly).clone();
-					for (Entry<TopVoterPlayer, Integer> entry : clone.entrySet()) {
+					LinkedHashMap<TopVoterPlayer, Integer> topVoters = null;
+					if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+						topVoters = getMonthlyTopVotersAtTime(lastMonthTime);
+					} else {
+						@SuppressWarnings("unchecked")
+						LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
+								.getTopVoter(TopVoter.Monthly).clone();
+						topVoters = clone;
+					}
+
+					for (Entry<TopVoterPlayer, Integer> entry : topVoters.entrySet()) {
 						if (plugin.getConfigFile().isTopVoterAwardsTies()) {
 							if (entry.getValue().intValue() != lastTotal) {
 								i++;
@@ -812,6 +825,37 @@ public class TopVoterHandler implements Listener {
 
 		msg = ArrayUtils.colorize(msg);
 		return ArrayUtils.convert(msg);
+	}
+
+	public LinkedHashMap<TopVoterPlayer, Integer> getMonthlyTopVotersAtTime(LocalDateTime atTime) {
+		// int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
+
+		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+
+		LinkedHashMap<TopVoterPlayer, Integer> topVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
+
+		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+			String uuid = playerData.getKey().toString();
+			if (plugin != null && plugin.isEnabled()) {
+				if (uuid != null && !uuid.isEmpty()) {
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.updateTempCacheWithColumns(playerData.getValue());
+					cols.put(playerData.getKey(), null);
+
+					int total = user.getTotal(TopVoter.Monthly, atTime);
+					if (total > 0) {
+						topVoter.put(user.getTopVoterPlayer(), total);
+					}
+
+				}
+			}
+		}
+
+		return sortByValues(topVoter, false);
+
 	}
 
 	public synchronized void updateTopVoters(
