@@ -486,6 +486,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			getMysql().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now()), "INT DEFAULT '0'");
 			getMysql().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1)),
 					"INT DEFAULT '0'");
+			getMysql().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(2)),
+					"INT DEFAULT '0'");
 		}
 	}
 

@@ -37,8 +37,10 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
 
 		if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now().minusMonths(1))));
 			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now())));
 			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1))));
+			manager.addKey(new UserDataKeyInt(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(2))));
 		}
 
 		manager.addKey(new UserDataKeyInt("AllTimeTotal"));
