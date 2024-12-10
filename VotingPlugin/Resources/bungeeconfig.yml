@@ -158,6 +158,11 @@ OnlineMode: true
 # If true plugin will atempt to lookup uuids if none exist
 UUIDLookup: true
 
+###########################################
+# Month Date Totals
+# Experimental feature
+###########################################
+
 # Experimental
 # Stores month votes with date formatting
 # MonthTotal-MONTH-YEAR
