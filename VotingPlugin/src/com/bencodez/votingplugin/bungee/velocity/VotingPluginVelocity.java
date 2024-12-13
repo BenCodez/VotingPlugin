@@ -1468,7 +1468,7 @@ public class VotingPluginVelocity {
 			if (getConfig().getGlobalDataEnabled()) {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
-					if (timeQueue) {
+					if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
 						timeChangeQueue.add(new VoteTimeQueue(player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 						getLogger().info("Cachcing vote from " + player + "/" + service
