@@ -66,6 +66,7 @@ import com.bencodez.votingplugin.commands.gui.player.VoteStreak;
 import com.bencodez.votingplugin.commands.gui.player.VoteToday;
 import com.bencodez.votingplugin.commands.gui.player.VoteTopVoter;
 import com.bencodez.votingplugin.commands.gui.player.VoteTopVoterLastMonth;
+import com.bencodez.votingplugin.commands.gui.player.VoteTopVoterPreviousMonths;
 import com.bencodez.votingplugin.commands.gui.player.VoteTotal;
 import com.bencodez.votingplugin.commands.gui.player.VoteURL;
 import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
@@ -2475,6 +2476,18 @@ public class CommandLoader {
 						}
 					});
 		}
+
+		plugin.getVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "PreviousMonthsVoters" },
+						"VotingPlugin.Commands.Vote.PreviousMonthsVoters",
+						"Open list of Top Voters from all known previous months") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						new VoteTopVoterPreviousMonths(plugin, sender,
+								plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), 0).open();
+					}
+				});
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Top" },
 				"VotingPlugin.Commands.Vote.Top|" + playerPerm, "Open list of Top Voters") {

@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.topvoter;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -83,6 +85,61 @@ public class TopVoterHandler implements Listener {
 		}
 
 		return place;
+	}
+
+	public void loadPreviousMonthTopVoters() {
+		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
+			HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+			LocalDateTime now = plugin.getTimeChecker().getTime();
+			for (String column : plugin.getUserManager().getAllColumns()) {
+				if (column.startsWith("MonthTotal-")) {
+					String[] data = column.split("-");
+					if (data.length > 2) {
+						String year = data[2];
+						String month = data[1];
+						if (MessageAPI.isInt(year)) {
+							YearMonth yearMonth = YearMonth.of(Integer.parseInt(year), Month.valueOf(month));
+							if (yearMonth.atDay(now.getDayOfMonth()).atTime(23, 59).isBefore(now)) {
+								plugin.debug("Loading previous month top voters of " + yearMonth.toString());
+								plugin.getPreviousMonthsTopVoters().put(yearMonth,
+										getTopVotersOfMonth(yearMonth, cols));
+							}
+						}
+					}
+				}
+			}
+			cols.clear();
+			cols = null;
+		}
+	}
+
+	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,
+			HashMap<UUID, ArrayList<Column>> cols) {
+
+		LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<TopVoterPlayer, Integer>();
+		LocalDateTime atTime = month.atDay(15).atTime(0, 0);
+		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+			String uuid = playerData.getKey().toString();
+			if (plugin != null && plugin.isEnabled()) {
+				if (uuid != null && !uuid.isEmpty()) {
+					VotingPluginUser user = plugin.getVotingPluginUserManager()
+							.getVotingPluginUser(UUID.fromString(uuid), false);
+					user.dontCache();
+					user.updateTempCacheWithColumns(playerData.getValue());
+					cols.put(playerData.getKey(), null);
+					int total = 0;
+					total = user.getTotal(TopVoter.Monthly, atTime);
+
+					if (total > 0) {
+						totals.put(user.getTopVoterPlayer(), total);
+					}
+					user.clearTempCache();
+				}
+			}
+		}
+
+		return sortByValues(totals, false);
 	}
 
 	public void loadLastMonth() {

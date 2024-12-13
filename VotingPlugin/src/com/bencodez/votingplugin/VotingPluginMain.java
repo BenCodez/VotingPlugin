@@ -7,6 +7,7 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -150,6 +151,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoter;
+
+	@Getter
+	@Setter
+	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters;
 
 	@Getter
 	private MVdWPlaceholders mvdwPlaceholders;
@@ -1063,7 +1068,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
-		
+
 		// only purges if enabled in config
 		getVotingPluginUserManager().purgeOldPlayersNoData();
 
@@ -1111,12 +1116,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		topVoterHandler = new TopVoterHandler(this);
 		lastMonthTopVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
+		previousMonthsTopVoters = new LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>>();
 		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				topVoterHandler.loadLastMonth();
 				debug("Loaded last month top voters");
+				
+				topVoterHandler.loadPreviousMonthTopVoters();
 			}
 		});
 		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
@@ -1514,7 +1522,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 		checkYMLError();
-		
+
 		if (broadcastHandler != null) {
 			broadcastHandler.schedule(getConfigFile().getFormatAlternateBroadcastDelay());
 		}
