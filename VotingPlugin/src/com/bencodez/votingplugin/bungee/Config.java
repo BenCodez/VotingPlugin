@@ -72,6 +72,10 @@ public class Config {
 	public boolean getOnlineMode() {
 		return getData().getBoolean("OnlineMode", true);
 	}
+	
+	public boolean getTimeChangeFailSafeBypass() {
+		return getData().getBoolean("TimeChangeFailSafeBypass", false);
+	}
 
 	public boolean getUUIDLookup() {
 		return getData().getBoolean("UUIDLookup", true);

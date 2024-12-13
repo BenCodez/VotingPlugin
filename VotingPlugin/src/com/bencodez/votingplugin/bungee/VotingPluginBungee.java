@@ -749,7 +749,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			voteCacheFile = new VoteCache(this);
 			voteCacheFile.load();
 
+			bungeeTimeChecker.setTimeChangeFailSafeBypass(config.getTimeChangeFailSafeBypass());
 			bungeeTimeChecker.loadTimer();
+			
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();

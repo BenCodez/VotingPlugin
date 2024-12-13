@@ -37,6 +37,10 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
 
+	public boolean getTimeChangeFailSafeBypass() {
+		return getBoolean(getNode("TimeChangeFailSafeBypass"), false);
+	}
+
 	public boolean getStoreMonthTotalsWithDate() {
 		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
 	}

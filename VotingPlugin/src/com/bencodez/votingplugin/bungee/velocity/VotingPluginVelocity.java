@@ -844,6 +844,7 @@ public class VotingPluginVelocity {
 				voteCacheFile.save();
 			}
 
+			bungeeTimeChecker.setTimeChangeFailSafeBypass(config.getTimeChangeFailSafeBypass());
 			bungeeTimeChecker.loadTimer();
 
 			try {
