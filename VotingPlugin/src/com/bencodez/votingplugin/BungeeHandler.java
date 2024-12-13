@@ -228,6 +228,11 @@ public class BungeeHandler implements Listener {
 							public void debug(String text) {
 								plugin.debug(text);
 							}
+
+							@Override
+							public void info(String text) {
+								plugin.getLogger().info(text);
+							}
 						});
 			} else {
 				globalDataHandler = new GlobalDataHandler(
@@ -252,6 +257,11 @@ public class BungeeHandler implements Listener {
 							@Override
 							public void debug(String text) {
 								plugin.debug(text);
+							}
+
+							@Override
+							public void info(String text) {
+								plugin.getLogger().info(text);
 							}
 						});
 			}

@@ -355,6 +355,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							public void debug(String text) {
 								debug2(text);
 							}
+
+							@Override
+							public void info(String text) {
+								getLogger().info(text);
+
+							}
 						}, servers) {
 
 					@Override
@@ -411,6 +417,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					@Override
 					public void debug(String text) {
 						debug2(text);
+					}
+
+					@Override
+					public void info(String text) {
+						getLogger().info(text);
+
 					}
 				}, servers) {
 
@@ -632,6 +644,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					checkVoteCacheTime();
 				}
 				if (!config.getGlobalDataEnabled()) {
+					getLogger().warning("Global data not enabled, ignoring time change event");
 					return;
 				}
 				for (String s : getAvailableAllServers()) {
@@ -751,7 +764,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			bungeeTimeChecker.setTimeChangeFailSafeBypass(config.getTimeChangeFailSafeBypass());
 			bungeeTimeChecker.loadTimer();
-			
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();
@@ -1380,10 +1392,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				getLogger().info("No name from vote on " + service);
 				return;
 			}
-
-			if (timeQueue) {
-				if (getConfig().getGlobalDataEnabled()) {
-					if (getGlobalDataHandler().isTimeChangedHappened()) {
+			if (getConfig().getGlobalDataEnabled()) {
+				if (getGlobalDataHandler().isTimeChangedHappened()) {
+					getGlobalDataHandler().checkForFinishedTimeChanges();
+					if (timeQueue) {
 						timeChangeQueue.add(new VoteTimeQueue(player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 						getLogger().info("Cachcing vote from " + player + "/" + service

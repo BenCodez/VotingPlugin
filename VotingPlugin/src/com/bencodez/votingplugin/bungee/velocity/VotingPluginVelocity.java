@@ -364,6 +364,11 @@ public class VotingPluginVelocity {
 							public void debug(String text) {
 								debug2(text);
 							}
+
+							@Override
+							public void info(String text) {
+								logger.info(text);
+							}
 						}, servers) {
 
 					@Override
@@ -416,6 +421,11 @@ public class VotingPluginVelocity {
 							@Override
 							public void debug(String text) {
 								debug2(text);
+							}
+
+							@Override
+							public void info(String text) {
+								logger.info(text);
 							}
 						}, servers) {
 
@@ -683,6 +693,7 @@ public class VotingPluginVelocity {
 					checkVoteCacheTime();
 				}
 				if (!config.getGlobalDataEnabled()) {
+					getLogger().warn("Global data not enabled, ignoring time change event");
 					return;
 				}
 				for (RegisteredServer s : getAvailableAllServers()) {
@@ -1454,10 +1465,10 @@ public class VotingPluginVelocity {
 				logger.info("No name from vote on " + service);
 				return;
 			}
-
-			if (timeQueue) {
-				if (getConfig().getGlobalDataEnabled()) {
-					if (getGlobalDataHandler().isTimeChangedHappened()) {
+			if (getConfig().getGlobalDataEnabled()) {
+				if (getGlobalDataHandler().isTimeChangedHappened()) {
+					getGlobalDataHandler().checkForFinishedTimeChanges();
+					if (timeQueue) {
 						timeChangeQueue.add(new VoteTimeQueue(player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 						getLogger().info("Cachcing vote from " + player + "/" + service
