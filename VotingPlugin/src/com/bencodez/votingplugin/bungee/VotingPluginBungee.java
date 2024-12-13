@@ -1173,6 +1173,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				@Override
 				public void run() {
 					if (isOnline(p)) {
+						if (getConfig().getGlobalDataEnabled()) {
+							if (getGlobalDataHandler().isTimeChangedHappened()) {
+								getGlobalDataHandler().checkForFinishedTimeChanges();
+							}
+						}
+
 						checkCachedVotes(server);
 						checkOnlineVotes(proxiedPlayer, proxiedPlayer.getUniqueId().toString(), server);
 						multiProxyHandler.login(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());

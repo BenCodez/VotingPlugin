@@ -543,6 +543,12 @@ public class VotingPluginVelocity {
 
 								@Override
 								public void run() {
+									if (getConfig().getGlobalDataEnabled()) {
+										if (getGlobalDataHandler().isTimeChangedHappened()) {
+											getGlobalDataHandler().checkForFinishedTimeChanges();
+										}
+									}
+
 									debug("Checking offline votes for " + p.getUsername() + "/"
 											+ p.getUniqueId().toString());
 									checkCachedVotes(server);
@@ -1015,6 +1021,12 @@ public class VotingPluginVelocity {
 
 											@Override
 											public void run() {
+												if (getConfig().getGlobalDataEnabled()) {
+													if (getGlobalDataHandler().isTimeChangedHappened()) {
+														getGlobalDataHandler().checkForFinishedTimeChanges();
+													}
+												}
+
 												checkCachedVotes(server);
 												checkOnlineVotes(p1, p.getUniqueId().toString(), server);
 												getMultiProxyHandler().login(p1.getUniqueId().toString(),
