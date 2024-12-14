@@ -2477,17 +2477,20 @@ public class CommandLoader {
 					});
 		}
 
-		plugin.getVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "PreviousMonthsVoters" },
-						"VotingPlugin.Commands.Vote.PreviousMonthsVoters",
-						"Open list of Top Voters from all known previous months") {
+		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()
+				|| plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
+			plugin.getVoteCommand()
+					.add(new CommandHandler(plugin, new String[] { "PreviousMonthsVoters" },
+							"VotingPlugin.Commands.Vote.PreviousMonthsVoters",
+							"Open list of Top Voters from all known previous months") {
 
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						new VoteTopVoterPreviousMonths(plugin, sender,
-								plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), 0).open();
-					}
-				});
+						@Override
+						public void execute(CommandSender sender, String[] args) {
+							new VoteTopVoterPreviousMonths(plugin, sender,
+									plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), 0).open();
+						}
+					});
+		}
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Top" },
 				"VotingPlugin.Commands.Vote.Top|" + playerPerm, "Open list of Top Voters") {

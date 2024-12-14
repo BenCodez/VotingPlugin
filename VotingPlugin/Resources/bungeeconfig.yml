@@ -161,6 +161,7 @@ UUIDLookup: true
 ###########################################
 # Month Date Totals
 # Experimental feature
+# Settings must match on backend servers
 ###########################################
 
 # Experimental

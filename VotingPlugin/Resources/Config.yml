@@ -602,6 +602,7 @@ DefaultRewardBlackListedWorlds: []
 # This setting only enables setting totals, not using them
 # Enabling this is pretty safe and harmless with just this setting
 # Essentially will just copy MonthTotal to MonthTotal-MONTH-YEAR
+# Can use command /vote PreviousMonthsVoters after this is enabled
 StoreMonthTotalsWithDate: false
 
 # Experimental
