@@ -2480,8 +2480,8 @@ public class CommandLoader {
 		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()
 				|| plugin.getOptions().getDebug().equals(DebugLevel.DEV)) {
 			plugin.getVoteCommand()
-					.add(new CommandHandler(plugin, new String[] { "PreviousMonthsVoters" },
-							"VotingPlugin.Commands.Vote.PreviousMonthsVoters",
+					.add(new CommandHandler(plugin, new String[] { "PreviousMonthsTotals" },
+							"VotingPlugin.Commands.Vote.PreviousMonthsTotals",
 							"Open list of Top Voters from all known previous months") {
 
 						@Override
