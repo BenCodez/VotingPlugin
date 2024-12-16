@@ -58,16 +58,13 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		Set<Entry<TopVoterPlayer, Integer>> users = null;
-
-		users = plugin.getLastMonthTopVoter().entrySet();
 
 		Set<YearMonth> months = plugin.getPreviousMonthsTopVoters().keySet();
 
 		List<YearMonth> yearMonthList = months.stream().sorted(Collections.reverseOrder()).collect(Collectors.toList());
 		YearMonth yearMonth = null;
 
-		if (index == -1) {
+		if (index < 0) {
 			if (!yearMonthList.isEmpty()) {
 				yearMonth = yearMonthList.get(0);
 			}
@@ -77,9 +74,17 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			if (yearMonthList.size() > index) {
 				yearMonth = yearMonthList.get(index);
 			} else {
-				player.sendMessage(ChatColor.RED + "Can't open previous months, no data for index");
+				player.sendMessage(ChatColor.RED + "Can't open previous months, no data for requested index");
 				return;
 			}
+		}
+
+		Set<Entry<TopVoterPlayer, Integer>> users = null;
+		if (plugin.getPreviousMonthsTopVoters().containsKey(yearMonth)) {
+			users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
+		} else {
+			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
+			return;
 		}
 
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
@@ -121,9 +126,9 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				if (!clickEvent.getClick().equals(ClickType.RIGHT)) {
-					new VoteTopVoterPreviousMonths(plugin, player, user, index++).open(GUIMethod.CHEST);
+					new VoteTopVoterPreviousMonths(plugin, player, user, index + 1).open(GUIMethod.CHEST);
 				} else {
-					new VoteTopVoterPreviousMonths(plugin, player, user, index--).open(GUIMethod.CHEST);
+					new VoteTopVoterPreviousMonths(plugin, player, user, index - 1).open(GUIMethod.CHEST);
 				}
 			}
 		});

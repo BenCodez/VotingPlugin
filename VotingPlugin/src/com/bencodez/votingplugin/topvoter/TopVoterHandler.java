@@ -89,8 +89,9 @@ public class TopVoterHandler implements Listener {
 
 	public void loadPreviousMonthTopVoters() {
 		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
-			HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+
 			LocalDateTime now = plugin.getTimeChecker().getTime();
+
 			for (String column : plugin.getUserManager().getAllColumns()) {
 				if (column.startsWith("MonthTotal-")) {
 					String[] data = column.split("-");
@@ -102,14 +103,55 @@ public class TopVoterHandler implements Listener {
 							if (yearMonth.atDay(now.getDayOfMonth()).atTime(23, 59).isBefore(now)) {
 								plugin.debug("Loading previous month top voters of " + yearMonth.toString());
 								plugin.getPreviousMonthsTopVoters().put(yearMonth,
-										getTopVotersOfMonth(yearMonth, cols));
+										new LinkedHashMap<TopVoterPlayer, Integer>());
 							}
 						}
 					}
 				}
 			}
-			cols.clear();
-			cols = null;
+
+			if (plugin.getPreviousMonthsTopVoters().size() > 0) {
+				HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
+				for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
+
+					String uuid = playerData.getKey().toString();
+					if (uuid != null && !uuid.isEmpty()) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager()
+								.getVotingPluginUser(UUID.fromString(uuid), false);
+						user.dontCache();
+						user.updateTempCacheWithColumns(playerData.getValue());
+
+						for (YearMonth month : plugin.getPreviousMonthsTopVoters().keySet()) {
+							LocalDateTime atTime = month.atDay(15).atTime(0, 0);
+							int total = user.getTotal(TopVoter.Monthly, atTime);
+							if (total > 0) {
+								plugin.getPreviousMonthsTopVoters().get(month).put(user.getTopVoterPlayer(), total);
+							}
+						}
+
+						cols.put(playerData.getKey(), null);
+						user.clearTempCache();
+					}
+				}
+
+				cols.clear();
+				cols = null;
+			}
+
+			for (YearMonth month : plugin.getPreviousMonthsTopVoters().keySet()) {
+				plugin.getPreviousMonthsTopVoters().put(month,
+						sortByValues(plugin.getPreviousMonthsTopVoters().get(month), false));
+			}
+
+			plugin.extraDebug("Previous Months: " + plugin.getPreviousMonthsTopVoters().keySet().toString());
+
+			for (Entry<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> entry : plugin.getPreviousMonthsTopVoters()
+					.entrySet()) {
+				for (Entry<TopVoterPlayer, Integer> entry2 : entry.getValue().entrySet()) {
+					plugin.extraDebug(entry.getKey().toString() + ": " + entry2.getKey().getUser().getPlayerName() + ":"
+							+ entry2.getValue().intValue());
+				}
+			}
 		}
 	}
 
@@ -121,21 +163,18 @@ public class TopVoterHandler implements Listener {
 		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
 			String uuid = playerData.getKey().toString();
-			if (plugin != null && plugin.isEnabled()) {
-				if (uuid != null && !uuid.isEmpty()) {
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), false);
-					user.dontCache();
-					user.updateTempCacheWithColumns(playerData.getValue());
-					cols.put(playerData.getKey(), null);
-					int total = 0;
-					total = user.getTotal(TopVoter.Monthly, atTime);
+			if (uuid != null && !uuid.isEmpty()) {
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
+						false);
+				user.dontCache();
+				user.updateTempCacheWithColumns(playerData.getValue());
+				int total = 0;
+				total = user.getTotal(TopVoter.Monthly, atTime);
 
-					if (total > 0) {
-						totals.put(user.getTopVoterPlayer(), total);
-					}
-					user.clearTempCache();
+				if (total > 0) {
+					totals.put(user.getTopVoterPlayer(), total);
 				}
+				user.clearTempCache();
 			}
 		}
 
