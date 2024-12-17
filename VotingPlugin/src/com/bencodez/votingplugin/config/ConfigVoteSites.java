@@ -309,7 +309,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote URL
 	 */
 	public String getVoteURL(String siteName) {
-		return getData(siteName).getString("VoteURL");
+		return getData(siteName).getString("VoteURL", "");
 	}
 
 	public boolean getWaitUntilVoteDelay(String siteName) {
