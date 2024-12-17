@@ -356,7 +356,7 @@ public class TopVoterHandler implements Listener {
 							if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
 									|| user.hasPercentageTotal(TopVoter.Monthly,
 											plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
-											LocalDateTime.now().minusDays(1))) {
+											lastMonthTime)) {
 								user.addMonthVoteStreak();
 								plugin.getSpecialRewards().checkVoteStreak(user, "Month",
 										plugin.getBungeeSettings().isUseBungeecoord());
