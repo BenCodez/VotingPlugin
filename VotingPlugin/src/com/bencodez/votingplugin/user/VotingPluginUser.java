@@ -1397,8 +1397,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int amount = 0;
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
-				if (canVoteSite(site)) {
-					amount++;
+				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView())) {
+					if (canVoteSite(site)) {
+						amount++;
+					}
 				}
 			}
 		}
