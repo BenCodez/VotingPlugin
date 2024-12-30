@@ -35,7 +35,7 @@ public class AdminVoteHelp extends GUIHandler {
 	 */
 	public ArrayList<TextComponent> adminHelp(CommandSender sender, int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
+		ArrayList<TextComponent> msg = new ArrayList<>();
 		ArrayList<TextComponent> text = adminHelpText(sender);
 
 		int maxPage = text.size() / pagesize;
@@ -61,8 +61,8 @@ public class AdminVoteHelp extends GUIHandler {
 	 * @return the array list
 	 */
 	public ArrayList<TextComponent> adminHelpText(CommandSender sender) {
-		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
+		ArrayList<TextComponent> msg = new ArrayList<>();
+		HashMap<String, TextComponent> unsorted = new HashMap<>();
 
 		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
@@ -71,7 +71,7 @@ public class AdminVoteHelp extends GUIHandler {
 				unsorted.put(cmdHandle.getHelpLineCommand("/adminvote"), cmdHandle.getHelpLine("/adminvote"));
 			}
 		}
-		ArrayList<String> unsortedList = new ArrayList<String>();
+		ArrayList<String> unsortedList = new ArrayList<>();
 		unsortedList.addAll(unsorted.keySet());
 		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
 		for (String cmd : unsortedList) {

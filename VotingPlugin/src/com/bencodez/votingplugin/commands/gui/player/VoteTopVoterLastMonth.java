@@ -65,7 +65,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 				playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 			}
 
-			playerItem.setLore(new ArrayList<String>());
+			playerItem.setLore(new ArrayList<>());
 
 			inv.addButton(new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
 					.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)

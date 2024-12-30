@@ -63,7 +63,6 @@ public class AdminVoteCumulativeRemove extends GUIHandler {
 						}
 					}.open();
 
-
 				}
 			});
 		}

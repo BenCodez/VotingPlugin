@@ -117,7 +117,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private ArrayList<CommandHandler> adminVoteCommand;
 
 	@Getter
-	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<java.util.UUID, ArrayList<String>>();
+	private LinkedHashMap<java.util.UUID, ArrayList<String>> advancedTab = new LinkedHashMap<>();
 
 	@Getter
 	private BroadcastHandler broadcastHandler;
@@ -236,6 +236,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private UserManager votingPluginUserManager;
 
+	@Getter
+	private TimeQueueHandler timeQueueHandler;
+
+	@Getter
+	private ServiceSiteHandler serviceSiteHandler;
+
+	@Getter
+	private long lastBackgroundTaskTimeTaken = -1;
+
+	private boolean firstTimeLoaded = false;
+
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
 	}
@@ -247,6 +258,26 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			user.offVote();
 			user.checkOfflineRewards();
 		}
+	}
+
+	public void checkFirstTimeLoaded() {
+		if (!firstTimeLoaded) {
+
+			if (getGui().isChestVoteTopUseSkull()) {
+				int maxToLoad = 200;
+				for (TopVoter top : topVoter.keySet()) {
+					int num = 1;
+					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
+					for (TopVoterPlayer p : players) {
+						if (num <= maxToLoad) {
+							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
+						}
+						num++;
+					}
+				}
+			}
+		}
+		firstTimeLoaded = true;
 	}
 
 	/**
@@ -286,7 +317,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
-		return new ArrayList<TopVoterPlayer>(set);
+		return new ArrayList<>(set);
 	}
 
 	@Override
@@ -297,7 +328,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoter(TopVoter top) {
 		LinkedHashMap<TopVoterPlayer, Integer> top1 = topVoter.get(top);
 		if (top1 == null) {
-			top1 = new LinkedHashMap<TopVoterPlayer, Integer>();
+			top1 = new LinkedHashMap<>();
 		}
 		return top1;
 	}
@@ -355,16 +386,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	public ArrayList<VoteSite> getVoteSitesEnabled() {
-		ArrayList<VoteSite> sites = new ArrayList<VoteSite>();
-		for (VoteSite site : getVoteSites()) {
-			if (site.isEnabled()) {
-				sites.add(site);
-			}
-		}
-		return sites;
-	}
-
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
 		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
 
@@ -397,6 +418,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
+	public ArrayList<VoteSite> getVoteSitesEnabled() {
+		ArrayList<VoteSite> sites = new ArrayList<>();
+		for (VoteSite site : getVoteSites()) {
+			if (site.isEnabled()) {
+				sites.add(site);
+			}
+		}
+		return sites;
+	}
+
 	public String getVoteSiteServiceSite(String name) {
 		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(true);
 		if (name == null) {
@@ -406,10 +437,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			for (String siteName : sites) {
 				String URL = getConfigVoteSites().getServiceSite(siteName);
 				if (URL != null) {
-					if (URL.equalsIgnoreCase(name)) {
-						return URL;
-					}
-					if (name.equalsIgnoreCase(siteName)) {
+					if (URL.equalsIgnoreCase(name) || name.equalsIgnoreCase(siteName)) {
 						return URL;
 					}
 				}
@@ -436,6 +464,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 		return false;
+	}
+
+	private void loadBungeeHandler() {
+		bungeeHandler = new BungeeHandler(this);
+		bungeeHandler.load();
+
+		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
+			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
+		}
 	}
 
 	public void loadDirectlyDefined() {
@@ -1015,6 +1052,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
+	private void loadVoteTimer() {
+		voteTimer = Executors.newSingleThreadScheduledExecutor();
+	}
+
 	/**
 	 * Log vote.
 	 *
@@ -1035,22 +1076,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	private void metrics() {
 		new VotingPluginMetrics().load(plugin);
-	}
-
-	private void loadVoteTimer() {
-		voteTimer = Executors.newSingleThreadScheduledExecutor();
-	}
-
-	@Getter
-	private TimeQueueHandler timeQueueHandler;
-
-	private void loadBungeeHandler() {
-		bungeeHandler = new BungeeHandler(this);
-		bungeeHandler.load();
-
-		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
-			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
-		}
 	}
 
 	@Override
@@ -1115,23 +1140,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 
 		topVoterHandler = new TopVoterHandler(this);
-		lastMonthTopVoter = new LinkedHashMap<TopVoterPlayer, Integer>();
-		previousMonthsTopVoters = new LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>>();
+		lastMonthTopVoter = new LinkedHashMap<>();
+		previousMonthsTopVoters = new LinkedHashMap<>();
 		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
 				topVoterHandler.loadLastMonth();
 				debug("Loaded last month top voters");
-				
+
 				topVoterHandler.loadPreviousMonthTopVoters();
 			}
 		});
-		topVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
+		topVoter = new LinkedHashMap<>();
 		for (TopVoter top : TopVoter.values()) {
-			topVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
+			topVoter.put(top, new LinkedHashMap<>());
 		}
-		voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
+		voteToday = new LinkedHashMap<>();
 		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
 
 		new AdminGUI(this).loadHook();
@@ -1350,9 +1375,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	@Getter
-	private ServiceSiteHandler serviceSiteHandler;
-
 	/*
 	 * (non-Javadoc)
 	 *
@@ -1370,9 +1392,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!configFile.isOverrideVersionDisable()) {
 				Bukkit.getPluginManager().disablePlugin(this);
 				return;
-			} else {
-				plugin.getLogger().warning("Overriding version disable, beware of using this! This may cause issues!");
 			}
+			plugin.getLogger().warning("Overriding version disable, beware of using this! This may cause issues!");
 		}
 
 		setupFiles();
@@ -1580,9 +1601,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.debug("Loaded Files");
 	}
 
-	@Getter
-	private long lastBackgroundTaskTimeTaken = -1;
-
 	public void update() {
 		if (update || configFile.isAlwaysUpdate()) {
 			if (!updateStarted && plugin != null) {
@@ -1602,17 +1620,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
 								long startTime = System.currentTimeMillis();
 
-								LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>>();
-								LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>>();
+								LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<>();
+								LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<>();
 
-								ArrayList<TopVoter> topVotersToCheck = new ArrayList<TopVoter>();
+								ArrayList<TopVoter> topVotersToCheck = new ArrayList<>();
 								for (TopVoter top : TopVoter.values()) {
 									if (plugin == null) {
 										return;
 									}
 									if (plugin.getConfigFile().getLoadTopVoter(top)) {
 										topVotersToCheck.add(top);
-										tempTopVoter.put(top, new LinkedHashMap<TopVoterPlayer, Integer>());
+										tempTopVoter.put(top, new LinkedHashMap<>());
 									}
 								}
 								boolean topVoterIgnorePermissionUse = plugin.getConfigFile()
@@ -1629,60 +1647,58 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
 									String uuid = playerData.getKey().toString();
-									if (plugin != null && plugin.isEnabled()) {
-										if (uuid != null && !uuid.isEmpty()) {
-											VotingPluginUser user = getVotingPluginUserManager()
-													.getVotingPluginUser(UUID.fromString(uuid), false);
-											user.dontCache();
-											user.updateTempCacheWithColumns(playerData.getValue());
-											cols.put(playerData.getKey(), null);
-											if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
-
-												if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
-													for (TopVoter top : topVotersToCheck) {
-														int total = user.getTotal(top);
-														if (total > 0) {
-															tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
-														}
-													}
-												}
-
-												HashMap<VoteSite, LocalDateTime> times = new HashMap<VoteSite, LocalDateTime>();
-												for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-													if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
-														long time = entry.getValue();
-														if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
-																&& (LocalDateTime.now().getMonthValue() == MiscUtils
-																		.getInstance().getMonthFromMili(time))
-																&& (LocalDateTime.now().getYear() == MiscUtils
-																		.getInstance().getYearFromMili(time))) {
-
-															times.put(entry.getKey(),
-																	LocalDateTime.ofInstant(Instant.ofEpochMilli(time),
-																			ZoneId.systemDefault()));
-														}
-													}
-												}
-												if (times.keySet().size() > 0) {
-													voteToday.put(user.getTopVoterPlayer(), times);
-												}
-											}
-											if (extraBackgroundUpdate) {
-												if (user.isOnline()) {
-													user.offVote();
-												}
-											}
-											if (plugin != null) {
-												if (!plugin.getPlaceholders().getCacheLevel().onlineOnly()
-														|| user.isOnline()) {
-													plugin.getPlaceholders().onUpdate(user, false);
-												}
-											}
-											user.clearTempCache();
-											user = null;
-										}
-									} else {
+									if ((plugin == null) || !plugin.isEnabled()) {
 										return;
+									}
+									if (uuid != null && !uuid.isEmpty()) {
+										VotingPluginUser user = getVotingPluginUserManager()
+												.getVotingPluginUser(UUID.fromString(uuid), false);
+										user.dontCache();
+										user.updateTempCacheWithColumns(playerData.getValue());
+										cols.put(playerData.getKey(), null);
+										if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
+
+											if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
+												for (TopVoter top : topVotersToCheck) {
+													int total = user.getTotal(top);
+													if (total > 0) {
+														tempTopVoter.get(top).put(user.getTopVoterPlayer(), total);
+													}
+												}
+											}
+
+											HashMap<VoteSite, LocalDateTime> times = new HashMap<>();
+											for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
+												if (entry.getKey().isEnabled() && !entry.getKey().isHidden()) {
+													long time = entry.getValue();
+													if ((currentDay == MiscUtils.getInstance().getDayFromMili(time))
+															&& (LocalDateTime.now().getMonthValue() == MiscUtils
+																	.getInstance().getMonthFromMili(time))
+															&& (LocalDateTime.now().getYear() == MiscUtils.getInstance()
+																	.getYearFromMili(time))) {
+
+														times.put(entry.getKey(), LocalDateTime.ofInstant(
+																Instant.ofEpochMilli(time), ZoneId.systemDefault()));
+													}
+												}
+											}
+											if (times.keySet().size() > 0) {
+												voteToday.put(user.getTopVoterPlayer(), times);
+											}
+										}
+										if (extraBackgroundUpdate) {
+											if (user.isOnline()) {
+												user.offVote();
+											}
+										}
+										if (plugin != null) {
+											if (!plugin.getPlaceholders().getCacheLevel().onlineOnly()
+													|| user.isOnline()) {
+												plugin.getPlaceholders().onUpdate(user, false);
+											}
+										}
+										user.clearTempCache();
+										user = null;
 									}
 								}
 								cols.clear();
@@ -1725,36 +1741,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	private boolean firstTimeLoaded = false;
-
-	public void checkFirstTimeLoaded() {
-		if (!firstTimeLoaded) {
-
-			if (getGui().isChestVoteTopUseSkull()) {
-				int maxToLoad = 200;
-				for (TopVoter top : topVoter.keySet()) {
-					int num = 1;
-					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
-					for (TopVoterPlayer p : players) {
-						if (num <= maxToLoad) {
-							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
-						}
-						num++;
-					}
-				}
-			}
-		}
-		firstTimeLoaded = true;
-	}
-
 	public void updateAdvancedCoreHook() {
 		getJavascriptEngine().put("VotingPlugin", this);
 		allowDownloadingFromSpigot(15358);
 		setConfigData(new YMLConfig(this, configFile.getData()) {
 
 			@Override
-			public void setValue(String path, Object value) {
-				configFile.setValue(path, value);
+			public void createSection(String key) {
+				configFile.createSection(key);
 			}
 
 			@Override
@@ -1763,8 +1757,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 
 			@Override
-			public void createSection(String key) {
-				configFile.createSection(key);
+			public void setValue(String path, Object value) {
+				configFile.setValue(path, value);
 			}
 		});
 		if (bungeeSettings.isUseBungeecoord()) {

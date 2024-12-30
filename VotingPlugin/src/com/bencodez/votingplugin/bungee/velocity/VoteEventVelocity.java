@@ -9,7 +9,7 @@ public class VoteEventVelocity {
 	public VoteEventVelocity(VotingPluginVelocity plugin) {
 		this.plugin = plugin;
 	}
-	
+
 	@Subscribe
 	public void onVotifierEvent(VotifierEvent event) {
 		final String serviceSiteVote = event.getVote().getServiceName();

@@ -21,44 +21,20 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("AllowUnJoined"), false);
 	}
 
-	public List<String> getBlockedServers() {
-		return getStringList(getNode("BlockedServers"), new ArrayList<String>());
+	public String getBedrockPlayerPrefix() {
+		return getString(getNode("BedrockPlayerPrefix"), ".");
 	}
 
-	public List<String> getWhiteListedServers() {
-		return getStringList(getNode("WhiteListedServers"), new ArrayList<String>());
+	public List<String> getBlockedServers() {
+		return getStringList(getNode("BlockedServers"), new ArrayList<>());
 	}
 
 	public boolean getBroadcast() {
 		return getBoolean(getNode("Broadcast"), false);
 	}
 
-	public boolean getOnlineMode() {
-		return getBoolean(getNode("OnlineMode"), true);
-	}
-
-	public boolean getTimeChangeFailSafeBypass() {
-		return getBoolean(getNode("TimeChangeFailSafeBypass"), false);
-	}
-
-	public boolean getStoreMonthTotalsWithDate() {
-		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
-	}
-
-	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
-		return getBoolean(getNode("UseMonthDateTotalsAsPrimaryTotal"), false);
-	}
-
-	public boolean getUUIDLookup() {
-		return getBoolean(getNode("UUIDLookup"), true);
-	}
-
-	public boolean getGlobalDataEnabled() {
-		return getBoolean(getNode("GlobalData", "Enabled"), false);
-	}
-
-	public boolean getGlobalDataUseMainMySQL() {
-		return getBoolean(getNode("GlobalData", "UseMainMySQL"), true);
+	public String getBungeeHost() {
+		return getString(getNode("BungeeServer", "Host"), "");
 	}
 
 	public boolean getBungeeManageTotals() {
@@ -69,44 +45,8 @@ public class Config extends VelocityYMLFile {
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
 	}
 
-	public String getRedisHost() {
-		return getString(getNode("Redis", "Host"), "");
-	}
-
-	public int getRedisPort() {
-		return getInt(getNode("Redis", "Port"), 6379);
-	}
-
-	public int getLimitVotePoints() {
-		return getInt(getNode("LimitVotePoints"), -1);
-	}
-
-	public String getRedisUsername() {
-		return getString(getNode("Redis", "Username"), "");
-	}
-
-	public String getRedisPrefix() {
-		return getString(getNode("Redis", "Prefix"), "");
-	}
-
-	public String getRedisPassword() {
-		return getString(getNode("Redis", "Password"), "");
-	}
-
-	public String getBungeeHost() {
-		return getString(getNode("BungeeServer", "Host"), "");
-	}
-
 	public int getBungeePort() {
 		return getInt(getNode("BungeeServer", "Port"), 1297);
-	}
-
-	public int getMaxAmountOfVotesPerDay() {
-		return getInt(getNode("MaxAmountOfVotesPerDay"), -1);
-	}
-
-	public int getVoteCacheTime() {
-		return getInt(getNode("VoteCacheTime"), -1);
 	}
 
 	public boolean getDebug() {
@@ -117,84 +57,56 @@ public class Config extends VelocityYMLFile {
 		return getString(getNode("FallBackServer"), "");
 	}
 
-	public ConfigurationNode getMysqlNode() {
-		return getNode("MySQL");
+	public boolean getGlobalDataEnabled() {
+		return getBoolean(getNode("GlobalData", "Enabled"), false);
 	}
 
-	public int getPointsOnVote() {
-		return getInt(getNode("PointsOnVote"), 1);
+	public boolean getGlobalDataUseMainMySQL() {
+		return getBoolean(getNode("GlobalData", "UseMainMySQL"), true);
 	}
 
-	public boolean getSendVotesToAllServers() {
-		return getBoolean(getNode("SendVotesToAllServers"), true);
+	public int getLimitVotePoints() {
+		return getInt(getNode("LimitVotePoints"), -1);
 	}
 
-	public boolean getVotePartyEnabled() {
-		return getBoolean(getVotePartyNode().getNode("Enabled"), false);
+	public int getMaxAmountOfVotesPerDay() {
+		return getInt(getNode("MaxAmountOfVotesPerDay"), -1);
 	}
 
-	public ConfigurationNode getVotePartyNode() {
-		return getNode("VoteParty");
-	}
-
-	public boolean getVotePartySendToAllServers() {
-		return getBoolean(getVotePartyNode().getNode("SendToAllServers"), false);
-	}
-
-	public int getVotePartyVotesRequired() {
-		return getInt(getVotePartyNode().getNode("VotesRequired"), 100);
-	}
-
-	public int getVotePartyIncreaseVotesRequired() {
-		return getInt(getVotePartyNode().getNode("IncreaseVotesRequired"), 0);
-	}
-
-	public String getVotePartyBroadcast() {
-		return getString(getVotePartyNode().getNode("Broadcast"), "");
-	}
-
-	public List<String> getVotePartyServersToSend() {
-		return getStringList(getVotePartyNode().getNode("ServersToSend"), new ArrayList<String>());
-	}
-
-	public List<String> getVotePartyBungeeCommands() {
-		return getStringList(getVotePartyNode().getNode("BungeeCommands"), new ArrayList<String>());
-	}
-
-	public ConfigurationNode getSpigotServerConfiguration(String s) {
-		return getNode("SpigotServers", s);
-	}
-
-	public @NonNull Collection<? extends ConfigurationNode> getSpigotServers() {
-		return getNode("SpigotServers").getChildrenMap().values();
-	}
-
-	public boolean getWaitForUserOnline() {
-		return getBoolean(getNode("WaitForUserOnline"), false);
-	}
-
-	public boolean getMultiProxySupport() {
-		return getBoolean(getNode("MultiProxySupport"), false);
+	public String getMultiProxyMethod() {
+		return getString(getNode("MultiProxyMethod"), "SOCKET");
 	}
 
 	public boolean getMultiProxyOneGlobalReward() {
 		return getBoolean(getNode("MultiProxyOneGlobalReward"), false);
 	}
 
-	public boolean getPrimaryServer() {
-		return getBoolean(getNode("PrimaryServer"), false);
+	public String getMultiProxyRedisHost() {
+		return getString(getNode("MultiProxyRedis", "Host"), "");
 	}
 
-	public String getBedrockPlayerPrefix() {
-		return getString(getNode("BedrockPlayerPrefix"), ".");
+	public String getMultiProxyRedisPassword() {
+		return getString(getNode("MultiProxyRedis", "Password"), "");
 	}
 
-	public ConfigurationNode getMultiProxyServers(String s) {
-		return getNode("MultiProxyServers", s);
+	public int getMultiProxyRedisPort() {
+		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
+	}
+
+	public boolean getMultiProxyRedisUseExistingConnection() {
+		return getBoolean(getNode("MultiProxyRedis", "UseExistingConnection"), false);
+	}
+
+	public String getMultiProxyRedisUsername() {
+		return getString(getNode("MultiProxyRedis", "Username"), "");
 	}
 
 	public @NonNull Collection<? extends ConfigurationNode> getMultiProxyServers() {
 		return getNode("MultiProxyServers").getChildrenMap().values();
+	}
+
+	public ConfigurationNode getMultiProxyServers(String s) {
+		return getNode("MultiProxyServers", s);
 	}
 
 	public String getMultiProxySocketHostHost() {
@@ -205,8 +117,24 @@ public class Config extends VelocityYMLFile {
 		return getInt(getNode("MultiProxySocketHost", "Port"), 1297);
 	}
 
-	public String getMultiProxyMethod() {
-		return getString(getNode("MultiProxyMethod"), "SOCKET");
+	public boolean getMultiProxySupport() {
+		return getBoolean(getNode("MultiProxySupport"), false);
+	}
+
+	public ConfigurationNode getMysqlNode() {
+		return getNode("MySQL");
+	}
+
+	public boolean getOnlineMode() {
+		return getBoolean(getNode("OnlineMode"), true);
+	}
+
+	public int getPointsOnVote() {
+		return getInt(getNode("PointsOnVote"), 1);
+	}
+
+	public boolean getPrimaryServer() {
+		return getBoolean(getNode("PrimaryServer"), false);
 	}
 
 	public String getProxyServerName() {
@@ -214,27 +142,99 @@ public class Config extends VelocityYMLFile {
 	}
 
 	public List<String> getProxyServers() {
-		return getStringList(getNode("ProxyServers"), new ArrayList<String>());
+		return getStringList(getNode("ProxyServers"), new ArrayList<>());
 	}
 
-	public boolean getMultiProxyRedisUseExistingConnection() {
-		return getBoolean(getNode("MultiProxyRedis", "UseExistingConnection"), false);
+	public String getRedisHost() {
+		return getString(getNode("Redis", "Host"), "");
 	}
 
-	public String getMultiProxyRedisHost() {
-		return getString(getNode("MultiProxyRedis", "Host"), "");
+	public String getRedisPassword() {
+		return getString(getNode("Redis", "Password"), "");
 	}
 
-	public int getMultiProxyRedisPort() {
-		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
+	public int getRedisPort() {
+		return getInt(getNode("Redis", "Port"), 6379);
 	}
 
-	public String getMultiProxyRedisUsername() {
-		return getString(getNode("MultiProxyRedis", "Username"), "");
+	public String getRedisPrefix() {
+		return getString(getNode("Redis", "Prefix"), "");
 	}
 
-	public String getMultiProxyRedisPassword() {
-		return getString(getNode("MultiProxyRedis", "Password"), "");
+	public String getRedisUsername() {
+		return getString(getNode("Redis", "Username"), "");
+	}
+
+	public boolean getSendVotesToAllServers() {
+		return getBoolean(getNode("SendVotesToAllServers"), true);
+	}
+
+	public ConfigurationNode getSpigotServerConfiguration(String s) {
+		return getNode("SpigotServers", s);
+	}
+
+	public @NonNull Collection<? extends ConfigurationNode> getSpigotServers() {
+		return getNode("SpigotServers").getChildrenMap().values();
+	}
+
+	public boolean getStoreMonthTotalsWithDate() {
+		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
+	}
+
+	public boolean getTimeChangeFailSafeBypass() {
+		return getBoolean(getNode("TimeChangeFailSafeBypass"), false);
+	}
+
+	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
+		return getBoolean(getNode("UseMonthDateTotalsAsPrimaryTotal"), false);
+	}
+
+	public boolean getUUIDLookup() {
+		return getBoolean(getNode("UUIDLookup"), true);
+	}
+
+	public int getVoteCacheTime() {
+		return getInt(getNode("VoteCacheTime"), -1);
+	}
+
+	public String getVotePartyBroadcast() {
+		return getString(getVotePartyNode().getNode("Broadcast"), "");
+	}
+
+	public List<String> getVotePartyBungeeCommands() {
+		return getStringList(getVotePartyNode().getNode("BungeeCommands"), new ArrayList<>());
+	}
+
+	public boolean getVotePartyEnabled() {
+		return getBoolean(getVotePartyNode().getNode("Enabled"), false);
+	}
+
+	public int getVotePartyIncreaseVotesRequired() {
+		return getInt(getVotePartyNode().getNode("IncreaseVotesRequired"), 0);
+	}
+
+	public ConfigurationNode getVotePartyNode() {
+		return getNode("VoteParty");
+	}
+
+	public boolean getVotePartySendToAllServers() {
+		return getBoolean(getVotePartyNode().getNode("SendToAllServers"), false);
+	}
+
+	public List<String> getVotePartyServersToSend() {
+		return getStringList(getVotePartyNode().getNode("ServersToSend"), new ArrayList<>());
+	}
+
+	public int getVotePartyVotesRequired() {
+		return getInt(getVotePartyNode().getNode("VotesRequired"), 100);
+	}
+
+	public boolean getWaitForUserOnline() {
+		return getBoolean(getNode("WaitForUserOnline"), false);
+	}
+
+	public List<String> getWhiteListedServers() {
+		return getStringList(getNode("WhiteListedServers"), new ArrayList<>());
 	}
 
 }

@@ -32,11 +32,11 @@ public class VoteStreak extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 		msg.add(plugin.getConfigFile().getFormatCommandsVoteStreakTitle());
 		msg.addAll(plugin.getConfigFile().getFormatCommandsVoteStreakLines());
 
-		HashMap<String, String> placeholders = new HashMap<String, String>();
+		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("DailyStreak", "" + user.getDayVoteStreak());
 		placeholders.put("WeeklyStreak", "" + user.getWeekVoteStreak());
 		placeholders.put("MonthlyStreak", "" + user.getMonthVoteStreak());

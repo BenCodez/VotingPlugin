@@ -7,8 +7,8 @@ import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.file.annotation.AnnotationHandler;
 import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataConfigurationSection;
@@ -50,7 +50,7 @@ public class GUI extends YMLFile {
 
 	@ConfigDataListString(path = "BOOK.VoteURLBookGUI.TopLayout")
 	@Getter
-	private ArrayList<String> bookVoteURLBookGUITopLayout = new ArrayList<String>();
+	private ArrayList<String> bookVoteURLBookGUITopLayout = new ArrayList<>();
 
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.Title")
 	@Getter
@@ -134,11 +134,6 @@ public class GUI extends YMLFile {
 
 	private VotingPluginMain plugin;
 
-	public GUI(VotingPluginMain plugin) {
-		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
-		this.plugin = plugin;
-	}
-
 	@ConfigDataConfigurationSection(path = "CHEST.BackButton")
 	@Getter
 	private ConfigurationSection CHESTBackButton;
@@ -163,57 +158,13 @@ public class GUI extends YMLFile {
 	@Getter
 	private String chestVoteGUIName = "&cVoteGUI: &c&l%player%";
 
-	/**
-	 * Gets the vote GUI slot command.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot command
-	 */
-
-	public String getChestVoteGUISlotCommand(String slot) {
-		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
-	}
-
-	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
-		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
-	}
-
-	/**
-	 * Gets the vote GUI slot lore.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot lore
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
-		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<String>());
-	}
-
-	public String getChestVoteGUISlotRewardsPath(String slot, String lastPath) {
-		return "CHEST.VoteGUI." + slot + "." + lastPath;
-	}
-
 	@ConfigDataKeys(path = "CHEST.VoteGUI")
 	@Getter
-	private Set<String> chestVoteGUISlots = new HashSet<String>();
-
-	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
-		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
-	}
+	private Set<String> chestVoteGUISlots = new HashSet<>();
 
 	@ConfigDataConfigurationSection(path = "CHEST.VoteTop.Customization")
 	@Getter
 	private ConfigurationSection chestVoteTopCustomization;
-
-	/**
-	 * Gets the vote GUI slot slot.
-	 *
-	 * @param slot the slot
-	 * @return the vote GUI slot slot
-	 */
-	public int getChestVoteGUISlotSlot(String slot) {
-		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
-	}
 
 	@ConfigDataBoolean(path = "CHEST.VoteLast.BackButton")
 	@Getter
@@ -238,10 +189,6 @@ public class GUI extends YMLFile {
 	@ConfigDataString(path = "CHEST.VoteNext.Line")
 	@Getter
 	private String chestVoteNextLine = "%time%";
-
-	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
-		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
-	}
 
 	@ConfigDataString(path = "CHEST.VoteRewardName")
 	@Getter
@@ -321,7 +268,7 @@ public class GUI extends YMLFile {
 
 	@ConfigDataListString(path = "CHEST.VoteTop.SwitchItem.TopVoters")
 	@Getter
-	private ArrayList<String> chestVoteTopSwitchItemTopVoters = new ArrayList<String>();
+	private ArrayList<String> chestVoteTopSwitchItemTopVoters = new ArrayList<>();
 
 	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.AllTimeTotal.Item")
 	@Getter
@@ -334,22 +281,6 @@ public class GUI extends YMLFile {
 	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.DayTotal.Item")
 	@Getter
 	private ConfigurationSection chestVoteTotalDayTotalItem;
-
-	public ConfigurationSection getChestVoteTotalItem(TopVoter top) {
-		switch (top) {
-		case AllTime:
-			return getChestVoteTotalAllTimeTotalItem();
-		case Daily:
-			return getChestVoteTotalDayTotalItem();
-		case Monthly:
-			return getChestVoteTotalMonthTotalItem();
-		case Weekly:
-			return getChestVoteTotalWeekTotalItem();
-		default:
-			return getChestVoteTotalAllTimeTotalItem();
-
-		}
-	}
 
 	@ConfigDataConfigurationSection(path = "CHEST.VoteTotal.MonthTotal.Item")
 	@Getter
@@ -393,18 +324,7 @@ public class GUI extends YMLFile {
 
 	@ConfigDataKeys(path = "CHEST.VoteURL.ExtraItems")
 	@Getter
-	private Set<String> chestVoteURLExtraItems = new HashSet<String>();
-
-	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
-		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
-	}
-
-	public Set<String> getChestGUIExtraItems(String gui) {
-		if (getData().isConfigurationSection("CHEST." + gui + ".ExtraItems")) {
-			return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems").getKeys(false);
-		}
-		return new HashSet<String>();
-	}
+	private Set<String> chestVoteURLExtraItems = new HashSet<>();
 
 	@ConfigDataString(path = "CHEST.VoteURL.SiteName")
 	@Getter
@@ -437,6 +357,86 @@ public class GUI extends YMLFile {
 	@ConfigDataBoolean(path = "CHEST.VoteURL.ViewAllUrlsButtonEnabled")
 	@Getter
 	private boolean chestVoteURLViewAllUrlsButtonEnabled = false;
+
+	public GUI(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
+		this.plugin = plugin;
+	}
+
+	public Set<String> getChestGUIExtraItems(String gui) {
+		if (getData().isConfigurationSection("CHEST." + gui + ".ExtraItems")) {
+			return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems").getKeys(false);
+		}
+		return new HashSet<>();
+	}
+
+	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
+		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
+	}
+
+	/**
+	 * Gets the vote GUI slot command.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot command
+	 */
+
+	public String getChestVoteGUISlotCommand(String slot) {
+		return getData().getString("CHEST.VoteGUI." + slot + ".Command", "");
+	}
+
+	/**
+	 * Gets the vote GUI slot lore.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot lore
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getChestVoteGUISlotLore(String slot) {
+		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<>());
+	}
+
+	public String getChestVoteGUISlotRewardsPath(String slot, String lastPath) {
+		return "CHEST.VoteGUI." + slot + "." + lastPath;
+	}
+
+	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
+		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
+	}
+
+	/**
+	 * Gets the vote GUI slot slot.
+	 *
+	 * @param slot the slot
+	 * @return the vote GUI slot slot
+	 */
+	public int getChestVoteGUISlotSlot(String slot) {
+		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
+	}
+
+	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
+		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
+	}
+
+	public ConfigurationSection getChestVoteTotalItem(TopVoter top) {
+		switch (top) {
+		case AllTime:
+			return getChestVoteTotalAllTimeTotalItem();
+		case Daily:
+			return getChestVoteTotalDayTotalItem();
+		case Monthly:
+			return getChestVoteTotalMonthTotalItem();
+		case Weekly:
+			return getChestVoteTotalWeekTotalItem();
+		default:
+			return getChestVoteTotalAllTimeTotalItem();
+
+		}
+	}
+
+	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
+		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
+	}
 
 	@Override
 	public void loadValues() {

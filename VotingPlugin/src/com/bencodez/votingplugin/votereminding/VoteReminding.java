@@ -30,39 +30,10 @@ public class VoteReminding {
 	private ScheduledExecutorService timer;
 
 	@Getter
-	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<UUID, Boolean>();
+	private ConcurrentHashMap<UUID, Boolean> remindersEnabled = new ConcurrentHashMap<>();
 
 	public VoteReminding(VotingPluginMain plugin) {
 		this.plugin = plugin;
-	}
-
-	public void loadReminds() {
-		List<String> uuidsStr = plugin.getServerData().getDisabledReminders();
-
-		for (String str : uuidsStr) {
-			remindersEnabled.put(UUID.fromString(str), Boolean.FALSE);
-		}
-
-		plugin.getTimer().scheduleAtFixedRate(new Runnable() {
-
-			@Override
-			public void run() {
-				saveReminds();
-			}
-		}, 24, 24, TimeUnit.HOURS);
-	}
-
-	public void saveReminds() {
-		ArrayList<UUID> remindersDisabled = new ArrayList<UUID>();
-		for (Entry<UUID, Boolean> entry : remindersEnabled.entrySet()) {
-			if (remindersEnabled.containsKey(entry.getKey())) {
-				if (!remindersEnabled.get(entry.getKey()).booleanValue()) {
-					remindersDisabled.add(entry.getKey());
-				}
-			}
-		}
-
-		plugin.getServerData().saveDisabledReminders(remindersDisabled);
 	}
 
 	/**
@@ -117,6 +88,22 @@ public class VoteReminding {
 		}
 	}
 
+	public void loadReminds() {
+		List<String> uuidsStr = plugin.getServerData().getDisabledReminders();
+
+		for (String str : uuidsStr) {
+			remindersEnabled.put(UUID.fromString(str), Boolean.FALSE);
+		}
+
+		plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+
+			@Override
+			public void run() {
+				saveReminds();
+			}
+		}, 24, 24, TimeUnit.HOURS);
+	}
+
 	/**
 	 * Run remind.
 	 *
@@ -133,26 +120,6 @@ public class VoteReminding {
 			}
 
 			plugin.debug(user.getPlayerName() + " was reminded!");
-		}
-	}
-
-	public boolean shouldRemind(VotingPluginUser user) {
-		if (remindersEnabled.containsKey(user.getJavaUUID())) {
-			if (!remindersEnabled.get(user.getJavaUUID()).booleanValue()) {
-
-				return false;
-			}
-		}
-		if (user.shouldBeReminded()) {
-			boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
-			if (hasPermAll) {
-				return user.canVoteAll();
-			} else {
-				return user.canVoteAny();
-			}
-		} else {
-			plugin.debug(user.getUUID() + " no need to remind because player has VotingPlugin.NoRemind");
-			return false;
 		}
 	}
 
@@ -176,6 +143,38 @@ public class VoteReminding {
 			} else {
 				plugin.debug(user.getUUID() + " has no permission for reminders");
 			}
+		}
+	}
+
+	public void saveReminds() {
+		ArrayList<UUID> remindersDisabled = new ArrayList<>();
+		for (Entry<UUID, Boolean> entry : remindersEnabled.entrySet()) {
+			if (remindersEnabled.containsKey(entry.getKey())) {
+				if (!remindersEnabled.get(entry.getKey()).booleanValue()) {
+					remindersDisabled.add(entry.getKey());
+				}
+			}
+		}
+
+		plugin.getServerData().saveDisabledReminders(remindersDisabled);
+	}
+
+	public boolean shouldRemind(VotingPluginUser user) {
+		if (remindersEnabled.containsKey(user.getJavaUUID())) {
+			if (!remindersEnabled.get(user.getJavaUUID()).booleanValue()) {
+
+				return false;
+			}
+		}
+		if (!user.shouldBeReminded()) {
+			plugin.debug(user.getUUID() + " no need to remind because player has VotingPlugin.NoRemind");
+			return false;
+		}
+		boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
+		if (hasPermAll) {
+			return user.canVoteAll();
+		} else {
+			return user.canVoteAny();
 		}
 	}
 }

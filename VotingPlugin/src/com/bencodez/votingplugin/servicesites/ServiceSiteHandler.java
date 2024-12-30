@@ -15,8 +15,34 @@ import lombok.Getter;
 
 public class ServiceSiteHandler {
 	@Getter
-	private HashMap<String, String> serviceSites = new HashMap<String, String>();
+	private HashMap<String, String> serviceSites = new HashMap<>();
 	private VotingPluginMain plugin;
+
+	public ServiceSiteHandler(VotingPluginMain plugin) {
+		this.plugin = plugin;
+		loadFromGithub();
+		for (Entry<String, String> entry : serviceSites.entrySet()) {
+			plugin.extraDebug(entry.getKey() + " - " + entry.getValue());
+		}
+
+	}
+
+	public boolean contains(String service) {
+		for (Entry<String, String> entry : serviceSites.entrySet()) {
+			if (entry.getKey().equalsIgnoreCase(service)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void loadFromGithub() {
+		try {
+			readFromWeb("https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
 	public String match(String service) {
 		for (Entry<String, String> entry : serviceSites.entrySet()) {
@@ -34,15 +60,6 @@ public class ServiceSiteHandler {
 			}
 		}
 		return service;
-	}
-
-	public ServiceSiteHandler(VotingPluginMain plugin) {
-		this.plugin = plugin;
-		loadFromGithub();
-		for (Entry<String, String> entry : serviceSites.entrySet()) {
-			plugin.extraDebug(entry.getKey() + " - " + entry.getValue());
-		}
-
 	}
 
 	public void readFromWeb(String webURL) throws IOException {
@@ -76,22 +93,5 @@ public class ServiceSiteHandler {
 			// throw new IOException();
 		}
 
-	}
-
-	public void loadFromGithub() {
-		try {
-			readFromWeb("https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public boolean contains(String service) {
-		for (Entry<String, String> entry : serviceSites.entrySet()) {
-			if (entry.getKey().equalsIgnoreCase(service)) {
-				return true;
-			}
-		}
-		return false;
 	}
 }

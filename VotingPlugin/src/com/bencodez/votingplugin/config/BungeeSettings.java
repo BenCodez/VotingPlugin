@@ -117,7 +117,7 @@ public class BungeeSettings extends YMLFile {
 
 	@ConfigDataListString(path = "BungeeVotePartyGlobalCommands")
 	@Getter
-	private ArrayList<String> bungeeVotePartyGlobalCommands = new ArrayList<String>();
+	private ArrayList<String> bungeeVotePartyGlobalCommands = new ArrayList<>();
 
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));

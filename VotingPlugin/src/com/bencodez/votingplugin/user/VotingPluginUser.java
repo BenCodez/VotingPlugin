@@ -45,6 +45,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/** The plugin. */
 	private VotingPluginMain plugin;
 
+	public VotingPluginUser(VotingPluginMain plugin, AdvancedCoreUser user) {
+		super(plugin, user);
+		this.plugin = plugin;
+	}
+
 	@Deprecated
 	public VotingPluginUser(VotingPluginMain plugin, Player player) {
 		super(plugin, player);
@@ -72,11 +77,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	@Deprecated
 	public VotingPluginUser(VotingPluginMain plugin, UUID uuid, String playerName) {
 		super(plugin, uuid, playerName);
-		this.plugin = plugin;
-	}
-
-	public VotingPluginUser(VotingPluginMain plugin, AdvancedCoreUser user) {
-		super(plugin, user);
 		this.plugin = plugin;
 	}
 
@@ -282,35 +282,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				LocalDateTime nextvote = lastVote.plusHours((long) votedelay).plusMinutes((long) voteDelayMin);
 
 				return now.isAfter(nextvote);
-			} else {
-				LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0)
-						.withSecond(0);
-				LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
+			}
+			LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0).withSecond(0);
+			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
-				// if (ChronoUnit.HOURS.between(lastVote, resetTime) > 24) {
-				if (lastVote.isBefore(resetTime)) {
-					if (now.isAfter(resetTime)) {
-						return true;
-					}
-				} else {
-					if (now.isAfter(resetTimeTomorrow)) {
-						return true;
-					}
+			// if (ChronoUnit.HOURS.between(lastVote, resetTime) > 24) {
+			if (lastVote.isBefore(resetTime)) {
+				if (now.isAfter(resetTime)) {
+					return true;
 				}
-
+			} else {
+				if (now.isAfter(resetTimeTomorrow)) {
+					return true;
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return false;
 
-	}
-
-	public boolean checkAlmostAllVotes() {
-		if (getSitesNotVotedOn() <= 1) {
-			return true;
-		}
-		return false;
 	}
 
 	/**
@@ -321,36 +311,42 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public boolean checkAllVotes() {
 		VotingPluginUser user = this;
 
-		ArrayList<Integer> months = new ArrayList<Integer>();
-		ArrayList<Integer> days = new ArrayList<Integer>();
+		ArrayList<Integer> months = new ArrayList<>();
+		ArrayList<Integer> days = new ArrayList<>();
 
 		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			if (voteSite.isEnabled() && !voteSite.isHidden()) {
 				long time = user.getTime(voteSite);
-				if (time != 0) {
-					months.add(MiscUtils.getInstance().getMonthFromMili(time));
-					days.add(MiscUtils.getInstance().getDayFromMili(time));
-				} else {
+				if (time == 0) {
 					return false;
 				}
+				months.add(MiscUtils.getInstance().getMonthFromMili(time));
+				days.add(MiscUtils.getInstance().getDayFromMili(time));
 			}
 		}
 
 		// check months
-		for (int i = 0; i < months.size(); i++) {
-			if (!months.get(0).equals(months.get(i))) {
+		for (Integer month : months) {
+			if (!months.get(0).equals(month)) {
 				return false;
 			}
 		}
 
 		// check days
-		for (int i = 0; i < days.size(); i++) {
-			if (!days.get(0).equals(days.get(i))) {
+		for (Integer day : days) {
+			if (!days.get(0).equals(day)) {
 				return false;
 			}
 		}
 
 		return true;
+	}
+
+	public boolean checkAlmostAllVotes() {
+		if (getSitesNotVotedOn() <= 1) {
+			return true;
+		}
+		return false;
 	}
 
 	public void checkDayVoteStreak(boolean forceBungee) {
@@ -369,8 +365,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void clearOfflineVotes() {
-		setOfflineVotes(new ArrayList<String>());
-		setOfflineRewards(new ArrayList<String>());
+		setOfflineVotes(new ArrayList<>());
+		setOfflineRewards(new ArrayList<>());
 	}
 
 	public void clearTotals() {
@@ -394,6 +390,49 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getBestWeekVoteStreak() {
 		return getData().getInt("BestWeekVoteStreak", isCacheData(), isWaitForCache());
+	}
+
+	public boolean getCoolDownCheck() {
+		return getData().getBoolean(getCoolDownCheckPath(), isCacheData(), isWaitForCache());
+	}
+
+	public String getCoolDownCheckPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
+		}
+		return "CoolDownCheck";
+	}
+
+	public boolean getCoolDownCheckSite(VoteSite site) {
+		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		if (coolDownChecks.containsKey(site.getKey())) {
+			return coolDownChecks.get(site.getKey()).booleanValue();
+		}
+		return false;
+	}
+
+	public HashMap<String, Boolean> getCoolDownCheckSiteList() {
+		HashMap<String, Boolean> coolDownChecks = new HashMap<>();
+		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath(), isCacheData(),
+				isWaitForCache());
+		for (String str : coolDownCheck) {
+			String[] data = str.split("//");
+			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
+				VoteSite site = plugin.getVoteSite(data[0], true);
+				if (site != null) {
+					Boolean b = Boolean.valueOf(data[1]);
+					coolDownChecks.put(site.getKey(), b);
+				}
+			}
+		}
+		return coolDownChecks;
+	}
+
+	public String getCoolDownCheckSitePath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
+		}
+		return "CoolDownCheck" + "_Sites";
 	}
 
 	@Deprecated
@@ -430,8 +469,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				isWaitForCache());
 	}
 
+	public String getGottenMilestonesPath() {
+		if (plugin.getBungeeSettings().isPerServerMilestones()) {
+			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
+		}
+		return "GottenMileStones";
+	}
+
 	public HashMap<String, Boolean> getHasGottenMilestone() {
-		HashMap<String, Boolean> hasGottenMilestone = new HashMap<String, Boolean>();
+		HashMap<String, Boolean> hasGottenMilestone = new HashMap<>();
 		ArrayList<String> milestoneList = getUserData().getStringList(getGottenMilestonesPath());
 		for (String str : milestoneList) {
 			String[] data = str.split("//");
@@ -455,37 +501,38 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("HighestWeeklyTotal", isCacheData(), isWaitForCache());
 	}
 
+	public int getLastGottenMilestone() {
+		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
+		ArrayList<Integer> nums = new ArrayList<>();
+		int mileStoneCount = getMilestoneCount();
+		for (String vote : mVotes) {
+			if (MessageAPI.isInt(vote)) {
+				final int num = Integer.parseInt(vote);
+				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
+					nums.add(Integer.valueOf(num));
+				}
+			}
+		}
+
+		int highestNum = -1;
+
+		for (Integer num : nums) {
+			if (mileStoneCount > num.intValue()) {
+				if (highestNum == -1 || num.intValue() > highestNum) {
+					highestNum = num.intValue();
+				}
+			}
+		}
+
+		return highestNum;
+	}
+
 	public int getLastMonthTotal() {
 		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
 	}
 
-	public HashMap<String, Boolean> getCoolDownCheckSiteList() {
-		HashMap<String, Boolean> coolDownChecks = new HashMap<String, Boolean>();
-		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath(), isCacheData(),
-				isWaitForCache());
-		for (String str : coolDownCheck) {
-			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0], true);
-				if (site != null) {
-					Boolean b = Boolean.valueOf(data[1]);
-					coolDownChecks.put(site.getKey(), b);
-				}
-			}
-		}
-		return coolDownChecks;
-	}
-
-	public boolean getCoolDownCheckSite(VoteSite site) {
-		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
-		if (coolDownChecks.containsKey(site.getKey())) {
-			return coolDownChecks.get(site.getKey()).booleanValue();
-		}
-		return false;
-	}
-
 	public HashMap<VoteSite, Long> getLastVotes() {
-		HashMap<VoteSite, Long> lastVotes = new HashMap<VoteSite, Long>();
+		HashMap<VoteSite, Long> lastVotes = new HashMap<>();
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
@@ -516,13 +563,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return time;
 	}
 
+	public long getLastVoteTimer(VoteSite voteSite) {
+		HashMap<VoteSite, Long> times = getLastVotes();
+		if (times.containsKey(voteSite)) {
+			return times.get(voteSite).longValue();
+		}
+		return 0;
+
+	}
+
 	/**
 	 * Gets the last vote times sorted.
 	 *
 	 * @return the last vote times sorted
 	 */
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
-		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<VoteSite, Long>();
+		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<>();
 
 		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			times.put(voteSite, getTime(voteSite));
@@ -546,6 +602,77 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("MonthVoteStreak", isCacheData(), isWaitForCache());
 	}
 
+	public int getNextAvailableMileStone() {
+		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
+		ArrayList<Integer> nums = new ArrayList<>();
+		int mileStoneCount = getMilestoneCount();
+		HashMap<String, Boolean> gottenMileStones = getHasGottenMilestone();
+		for (String vote : mVotes) {
+			if (MessageAPI.isInt(vote)) {
+				final int num = Integer.parseInt(vote);
+				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
+					if (gottenMileStones.containsKey("" + num)) {
+						if (!gottenMileStones.get("" + num).booleanValue()) {
+							nums.add(Integer.valueOf(num));
+						}
+					} else {
+						nums.add(Integer.valueOf(num));
+					}
+				}
+			}
+		}
+
+		int lowestNum = -1;
+
+		for (Integer num : nums) {
+			if (mileStoneCount < num.intValue()) {
+				if (lowestNum == -1 || num.intValue() < lowestNum) {
+					lowestNum = num.intValue();
+				}
+			}
+		}
+
+		return lowestNum;
+
+	}
+
+	public long getNextTimeAllSitesAvailable() {
+		long longest = 0;
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			long seconds = voteNextDurationTime(site);
+			if (seconds > longest) {
+				longest = seconds;
+			}
+		}
+
+		return longest;
+	}
+
+	public long getNextTimeFirstSiteAvailable() {
+		long shortest = 0;
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			if (!canVoteSite(site)) {
+				long seconds = voteNextDurationTime(site);
+				if (shortest == 0 || seconds < shortest) {
+					shortest = seconds;
+				}
+			}
+		}
+
+		return shortest;
+	}
+
+	public int getNumberOfOfflineVotes(VoteSite site) {
+		ArrayList<String> offlineVotes = getOfflineVotes();
+		int num = 0;
+		for (String str : offlineVotes) {
+			if (str.equals(site.getKey())) {
+				num++;
+			}
+		}
+		return num;
+	}
+
 	public ArrayList<String> getOfflineVotes() {
 		return getUserData().getStringList("OfflineVotes", isCacheData(), isWaitForCache());
 	}
@@ -562,9 +689,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public String getPointsPath() {
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			return plugin.getBungeeSettings().getServerNameStorage() + "_Points";
-		} else {
-			return "Points";
 		}
+		return "Points";
 	}
 
 	public java.util.UUID getPrimaryAccount() {
@@ -573,6 +699,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return java.util.UUID.fromString(s);
 		}
 		return null;
+	}
+
+	public int getSitesNotVotedOn() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			if (!site.isHidden()) {
+				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView())) {
+					if (canVoteSite(site)) {
+						amount++;
+					}
+				}
+			}
+		}
+		return amount;
 	}
 
 	public int getSitesVotedOn() {
@@ -597,6 +737,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return lastVotes.get(voteSite);
 		}
 		return 0;
+	}
+
+	public TopVoterPlayer getTopVoterPlayer() {
+		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName(), getLastOnline());
 	}
 
 	public int getTotal(TopVoter top) {
@@ -718,10 +862,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		case Daily:
 			return (double) total / (double) plugin.getVoteSitesEnabled().size() * 100 > percentage;
 		case Monthly:
-			return (double) total / ((double) plugin.getVoteSitesEnabled().size() * time.getMonth().length(false))
+			return total / ((double) plugin.getVoteSitesEnabled().size() * time.getMonth().length(false))
 					* 100 > percentage;
 		case Weekly:
-			return (double) total / ((double) plugin.getVoteSitesEnabled().size() * 7) * 100 > percentage;
+			return total / ((double) plugin.getVoteSitesEnabled().size() * 7) * 100 > percentage;
 		default:
 			return false;
 		}
@@ -760,45 +904,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
-	/**
-	 * Off vote.
-	 */
-	public void offVote() {
-		if (!plugin.getOptions().isProcessRewards()) {
-			plugin.debug("Processing rewards is disabled");
-			return;
+	public void mergeData(HashMap<String, DataValue> toAdd) {
+		HashMap<String, DataValue> currentData = getData().getValues();
+		HashMap<String, DataValue> newData = new HashMap<>();
+
+		for (TopVoter top : TopVoter.values()) {
+			if (toAdd.containsKey(top.getColumnName()) && currentData.containsKey(top.getColumnName())) {
+				newData.put(top.getColumnName(), new DataValueInt(
+						currentData.get(top.getColumnName()).getInt() + toAdd.get(top.getColumnName()).getInt()));
+			}
 		}
 
-		Player player = getPlayer();
-		if (player != null) {
-			plugin.extraDebug("Checking offline votes for " + player.getName());
-
-			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
-			if (isTopVoterIgnore() != topVoterIngorePerm) {
-				setTopVoterIgnore(topVoterIngorePerm);
-			}
-			ArrayList<String> offlineVotes = getOfflineVotes();
-			// plugin.debug("Offvotes: " +
-			// ArrayUtils.getInstance().makeStringList(offlineVotes));
-			if (offlineVotes.size() > 0) {
-				sendVoteEffects(false);
-				setOfflineVotes(new ArrayList<String>());
-			}
-
-			boolean offlineBroadcast = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
-
-			if (offlineBroadcast && offlineVotes.size() > 0) {
-				offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
-			}
-
-			for (int i = 0; i < offlineVotes.size(); i++) {
-				if (plugin.hasVoteSite(offlineVotes.get(i))) {
-					plugin.debug("Giving offline site reward: " + offlineVotes.get(i));
-					playerVote(plugin.getVoteSite(offlineVotes.get(i), true), false, !offlineBroadcast, false);
-				} else {
-					plugin.debug("Site doesn't exist: " + offlineVotes.get(i));
-				}
-			}
+		if (newData.size() > 0) {
+			getData().setValues(newData);
 		}
 	}
 
@@ -827,14 +945,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 			} else {
 				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatOfflineBroadcast());
-				HashMap<String, String> placeholders = new HashMap<String, String>();
+				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
 						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
 				placeholders.put("numberofvotes", "" + numberOfVotes);
 				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
 				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
-				ArrayList<Player> players = new ArrayList<Player>();
+				ArrayList<Player> players = new ArrayList<>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
 						players.add(p);
@@ -845,6 +963,48 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 		} else {
 			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
+		}
+	}
+
+	/**
+	 * Off vote.
+	 */
+	public void offVote() {
+		if (!plugin.getOptions().isProcessRewards()) {
+			plugin.debug("Processing rewards is disabled");
+			return;
+		}
+
+		Player player = getPlayer();
+		if (player != null) {
+			plugin.extraDebug("Checking offline votes for " + player.getName());
+
+			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
+			if (isTopVoterIgnore() != topVoterIngorePerm) {
+				setTopVoterIgnore(topVoterIngorePerm);
+			}
+			ArrayList<String> offlineVotes = getOfflineVotes();
+			// plugin.debug("Offvotes: " +
+			// ArrayUtils.getInstance().makeStringList(offlineVotes));
+			if (offlineVotes.size() > 0) {
+				sendVoteEffects(false);
+				setOfflineVotes(new ArrayList<>());
+			}
+
+			boolean offlineBroadcast = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
+
+			if (offlineBroadcast && offlineVotes.size() > 0) {
+				offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
+			}
+
+			for (String offlineVote : offlineVotes) {
+				if (plugin.hasVoteSite(offlineVote)) {
+					plugin.debug("Giving offline site reward: " + offlineVote);
+					playerVote(plugin.getVoteSite(offlineVote, true), false, !offlineBroadcast, false);
+				} else {
+					plugin.debug("Site doesn't exist: " + offlineVote);
+				}
+			}
 		}
 	}
 
@@ -878,6 +1038,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return false;
 	}
 
+	public void resetLastVoted() {
+		HashMap<VoteSite, Long> map = getLastVotes();
+		for (Entry<VoteSite, Long> e : map.entrySet()) {
+			e.setValue(0l);
+		}
+		setLastVotes(map);
+	}
+
+	public void resetLastVoted(VoteSite site) {
+		HashMap<VoteSite, Long> map = getLastVotes();
+		map.put(site, 0l);
+		setLastVotes(map);
+	}
+
 	public void resetTotals(TopVoter topVoter) {
 		setTotal(topVoter, 0);
 	}
@@ -907,6 +1081,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setBestWeekVoteStreak(int streak) {
 		getData().setInt("BestWeekVoteStreak", streak);
+	}
+
+	public void setCoolDownCheck(boolean coolDownCheck) {
+		getData().setBoolean(getCoolDownCheckPath(), coolDownCheck);
+	}
+
+	public void setCoolDownCheckSite(HashMap<String, Boolean> coolDownChecks) {
+		ArrayList<String> data = new ArrayList<>();
+		for (Entry<String, Boolean> entry : coolDownChecks.entrySet()) {
+			String str = entry.getKey() + "//" + entry.getValue().toString();
+			data.add(str);
+		}
+		getUserData().setStringList(getCoolDownCheckSitePath(), data);
+	}
+
+	public void setCoolDownCheckSite(VoteSite site, boolean value) {
+		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
+		coolDownChecks.put(site.getKey(), Boolean.valueOf(value));
+		setCoolDownCheckSite(coolDownChecks);
 	}
 
 	@Deprecated
@@ -944,19 +1137,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
-		ArrayList<String> data = new ArrayList<String>();
+		ArrayList<String> data = new ArrayList<>();
 		for (Entry<String, Boolean> entry : hasGottenMilestone.entrySet()) {
 			String str = entry.getKey() + "//" + entry.getValue().booleanValue();
 			data.add(str);
 		}
 		getUserData().setStringList(getGottenMilestonesPath(), data);
-	}
-
-	public String getGottenMilestonesPath() {
-		if (plugin.getBungeeSettings().isPerServerMilestones()) {
-			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
-		}
-		return "GottenMileStones";
 	}
 
 	public void setHighestDailyTotal(int total) {
@@ -976,7 +1162,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void setLastVotes(HashMap<VoteSite, Long> lastVotes) {
-		ArrayList<String> data = new ArrayList<String>();
+		ArrayList<String> data = new ArrayList<>();
 		for (Entry<VoteSite, Long> entry : lastVotes.entrySet()) {
 			String str = entry.getKey().getKey() + "//" + entry.getValue().longValue();
 			data.add(str);
@@ -984,47 +1170,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setStringList("LastVotes", data);
 	}
 
-	public void setCoolDownCheckSite(HashMap<String, Boolean> coolDownChecks) {
-		ArrayList<String> data = new ArrayList<String>();
-		for (Entry<String, Boolean> entry : coolDownChecks.entrySet()) {
-			String str = entry.getKey() + "//" + entry.getValue().toString();
-			data.add(str);
-		}
-		getUserData().setStringList(getCoolDownCheckSitePath(), data);
-	}
-
-	public void setCoolDownCheckSite(VoteSite site, boolean value) {
-		HashMap<String, Boolean> coolDownChecks = getCoolDownCheckSiteList();
-		coolDownChecks.put(site.getKey(), Boolean.valueOf(value));
-		setCoolDownCheckSite(coolDownChecks);
-	}
-
 	public void setMilestoneCount(int value) {
 		getData().setInt("MilestoneCount", value);
-	}
-
-	public String getCoolDownCheckPath() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
-		} else {
-			return "CoolDownCheck";
-		}
-	}
-
-	public String getCoolDownCheckSitePath() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
-		} else {
-			return "CoolDownCheck" + "_Sites";
-		}
-	}
-
-	public void setCoolDownCheck(boolean coolDownCheck) {
-		getData().setBoolean(getCoolDownCheckPath(), coolDownCheck);
-	}
-
-	public boolean getCoolDownCheck() {
-		return getData().getBoolean(getCoolDownCheckPath(), isCacheData(), isWaitForCache());
 	}
 
 	@Deprecated
@@ -1062,66 +1209,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		} else {
 			getData().setString("PrimaryAccount", "");
 		}
-	}
-
-	public int getNextAvailableMileStone() {
-		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
-		ArrayList<Integer> nums = new ArrayList<Integer>();
-		int mileStoneCount = getMilestoneCount();
-		HashMap<String, Boolean> gottenMileStones = getHasGottenMilestone();
-		for (String vote : mVotes) {
-			if (MessageAPI.isInt(vote)) {
-				final int num = Integer.parseInt(vote);
-				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
-					if (gottenMileStones.containsKey("" + num)) {
-						if (!gottenMileStones.get("" + num).booleanValue()) {
-							nums.add(Integer.valueOf(num));
-						}
-					} else {
-						nums.add(Integer.valueOf(num));
-					}
-				}
-			}
-		}
-
-		int lowestNum = -1;
-
-		for (Integer num : nums) {
-			if (mileStoneCount < num.intValue()) {
-				if (lowestNum == -1 || num.intValue() < lowestNum) {
-					lowestNum = num.intValue();
-				}
-			}
-		}
-
-		return lowestNum;
-
-	}
-
-	public int getLastGottenMilestone() {
-		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
-		ArrayList<Integer> nums = new ArrayList<Integer>();
-		int mileStoneCount = getMilestoneCount();
-		for (String vote : mVotes) {
-			if (MessageAPI.isInt(vote)) {
-				final int num = Integer.parseInt(vote);
-				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
-					nums.add(Integer.valueOf(num));
-				}
-			}
-		}
-
-		int highestNum = -1;
-
-		for (Integer num : nums) {
-			if (mileStoneCount > num.intValue()) {
-				if (highestNum == -1 || num.intValue() > highestNum) {
-					highestNum = num.intValue();
-				}
-			}
-		}
-
-		return highestNum;
 	}
 
 	public void setReminded(boolean reminded) {
@@ -1291,7 +1378,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		String timeString = voteCommandLastDate(voteSite);
 		String timeSince = voteCommandLastDuration(voteSite);
 
-		HashMap<String, String> placeholders = new HashMap<String, String>();
+		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
@@ -1303,7 +1390,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		String timeString = voteCommandLastDate(voteSite);
 		String timeSince = voteCommandLastDuration(voteSite);
 
-		HashMap<String, String> placeholders = new HashMap<String, String>();
+		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
 		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
@@ -1370,121 +1457,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					return dur.getSeconds();
 				}
 			}
-		} else {
-			LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0).withSecond(0);
-			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
-			if (lastVote.isBefore(resetTime)) {
-				if (now.isBefore(resetTime)) {
-					Duration dur = Duration.between(now, resetTime);
-					return dur.getSeconds();
-				}
-			} else {
-				if (now.isBefore(resetTimeTomorrow)) {
-					Duration dur = Duration.between(now, resetTimeTomorrow);
-					return dur.getSeconds();
-				}
-			}
-
-			return 0;
 		}
+		LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0).withSecond(0);
+		LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
+		if (lastVote.isBefore(resetTime)) {
+			if (now.isBefore(resetTime)) {
+				Duration dur = Duration.between(now, resetTime);
+				return dur.getSeconds();
+			}
+		} else {
+			if (now.isBefore(resetTimeTomorrow)) {
+				Duration dur = Duration.between(now, resetTimeTomorrow);
+				return dur.getSeconds();
+			}
+		}
+
+		return 0;
 	}
 
 	public boolean voteStreakUpdatedToday(LocalDateTime time) {
 		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
-	}
-
-	public int getSitesNotVotedOn() {
-		int amount = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
-			if (!site.isHidden()) {
-				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView())) {
-					if (canVoteSite(site)) {
-						amount++;
-					}
-				}
-			}
-		}
-		return amount;
-	}
-
-	public TopVoterPlayer getTopVoterPlayer() {
-		return new TopVoterPlayer(UUID.fromString(getUUID()), getPlayerName(), getLastOnline());
-	}
-
-	public long getNextTimeAllSitesAvailable() {
-		long longest = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
-			long seconds = voteNextDurationTime(site);
-			if (seconds > longest) {
-				longest = seconds;
-			}
-		}
-
-		return longest;
-	}
-
-	public long getNextTimeFirstSiteAvailable() {
-		long shortest = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
-			if (!canVoteSite(site)) {
-				long seconds = voteNextDurationTime(site);
-				if (shortest == 0 || seconds < shortest) {
-					shortest = seconds;
-				}
-			}
-		}
-
-		return shortest;
-	}
-
-	public void resetLastVoted() {
-		HashMap<VoteSite, Long> map = getLastVotes();
-		for (Entry<VoteSite, Long> e : map.entrySet()) {
-			e.setValue(0l);
-		}
-		setLastVotes(map);
-	}
-
-	public void resetLastVoted(VoteSite site) {
-		HashMap<VoteSite, Long> map = getLastVotes();
-		map.put(site, 0l);
-		setLastVotes(map);
-	}
-
-	public int getNumberOfOfflineVotes(VoteSite site) {
-		ArrayList<String> offlineVotes = getOfflineVotes();
-		int num = 0;
-		for (String str : offlineVotes) {
-			if (str.equals(site.getKey())) {
-				num++;
-			}
-		}
-		return num;
-	}
-
-	public long getLastVoteTimer(VoteSite voteSite) {
-		HashMap<VoteSite, Long> times = getLastVotes();
-		if (times.containsKey(voteSite)) {
-			return times.get(voteSite).longValue();
-		}
-		return 0;
-
-	}
-
-	public void mergeData(HashMap<String, DataValue> toAdd) {
-		HashMap<String, DataValue> currentData = getData().getValues();
-		HashMap<String, DataValue> newData = new HashMap<String, DataValue>();
-
-		for (TopVoter top : TopVoter.values()) {
-			if (toAdd.containsKey(top.getColumnName()) && currentData.containsKey(top.getColumnName())) {
-				newData.put(top.getColumnName(), new DataValueInt(
-						currentData.get(top.getColumnName()).getInt() + toAdd.get(top.getColumnName()).getInt()));
-			}
-		}
-
-		if (newData.size() > 0) {
-			getData().setValues(newData);
-		}
 	}
 
 }

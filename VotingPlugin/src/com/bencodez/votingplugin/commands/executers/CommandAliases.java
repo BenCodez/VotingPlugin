@@ -40,7 +40,7 @@ public class CommandAliases implements CommandExecutor {
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-		ArrayList<String> argsNew = new ArrayList<String>();
+		ArrayList<String> argsNew = new ArrayList<>();
 		argsNew.add(cmdHandle.getArgs()[0]);
 		for (String arg : args) {
 			argsNew.add(arg);
@@ -48,7 +48,7 @@ public class CommandAliases implements CommandExecutor {
 		plugin.debug("Attempting cmd...");
 		plugin.debug("Inputed args: " + ArrayUtils.makeStringList(argsNew));
 
-		ArrayList<CommandHandler> handles = new ArrayList<CommandHandler>();
+		ArrayList<CommandHandler> handles = new ArrayList<>();
 		if (adminCommand) {
 			handles.addAll(plugin.getAdminVoteCommand());
 		} else {
@@ -91,11 +91,9 @@ public class CommandAliases implements CommandExecutor {
 
 		// invalid command
 		if (adminCommand) {
-			sender.sendMessage(
-					MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
+			sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 		} else {
-			sender.sendMessage(
-					MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
+			sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
 		}
 		return true;
 	}

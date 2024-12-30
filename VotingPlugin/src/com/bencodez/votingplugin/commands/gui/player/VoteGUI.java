@@ -64,7 +64,7 @@ public class VoteGUI extends GUIHandler {
 				}
 			} else if (slot.equalsIgnoreCase("today")) {
 				String[] today = new VoteToday(plugin, player, user, 1).voteTodayGUI();
-				ArrayList<String> list = new ArrayList<String>();
+				ArrayList<String> list = new ArrayList<>();
 				if (today.length > 0) {
 					for (int i = today.length - 1; i < today.length && list.size() < 10 && i >= 0; i--) {
 						list.add(today[i]);
@@ -151,7 +151,8 @@ public class VoteGUI extends GUIHandler {
 					String cmd = plugin.getGui().getChestVoteGUISlotCommand(slot);
 					if (cmd.equalsIgnoreCase("none")) {
 						return;
-					} else if (!cmd.equals("")) {
+					}
+					if (!cmd.equals("")) {
 						event.runSync(new Runnable() {
 
 							@Override

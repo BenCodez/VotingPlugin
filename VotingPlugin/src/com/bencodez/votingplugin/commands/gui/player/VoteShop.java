@@ -127,7 +127,7 @@ public class VoteShop extends GUIHandler {
 
 								if (limitPass) {
 									if (!plugin.getShopFile().isVoteShopRequireConfirmation(identifier)) {
-										HashMap<String, String> placeholders = new HashMap<String, String>();
+										HashMap<String, String> placeholders = new HashMap<>();
 										placeholders.put("identifier",
 												plugin.getShopFile().getShopIdentifierIdentifierName(identifier));
 										placeholders.put("points", "" + points);

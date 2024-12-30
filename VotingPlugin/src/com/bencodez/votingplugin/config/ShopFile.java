@@ -48,9 +48,52 @@ public class ShopFile extends YMLFile {
 
 	private VotingPluginMain plugin;
 
+	@ConfigDataBoolean(path = "VoteShop.BackButton")
+	@Getter
+	private boolean voteShopBackButton = true;
+
+	@ConfigDataBoolean(path = "VoteShop.ReopenGUIOnPurchase")
+	@Getter
+	private boolean voteShopReopenGUIOnPurchase = true;
+
+	@ConfigDataBoolean(path = "VoteShop.Enabled")
+	@Getter
+	private boolean voteShopEnabled = true;
+
+	@ConfigDataString(path = "VoteShop.Name")
+	@Getter
+	private String voteShopName = "VoteShop";
+
+	@ConfigDataKeys(path = "ExtraItems")
+	@Getter
+	private Set<String> voteShopExtraItems = new HashSet<>();
+
 	public ShopFile(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Shop.yml"));
 		this.plugin = plugin;
+	}
+
+	public void convertFromGUIFile() {
+		// booleans
+		setValue("VoteShop.Enabled", plugin.getGui().getData().getBoolean("CHEST.VoteShopEnabled"));
+		setValue("VoteShop.BackButton", plugin.getGui().getData().getBoolean("CHEST.VoteShopBackButton"));
+		setValue("VoteShop.HideLimitReached", plugin.getGui().getData().getBoolean("CHEST.VoteShopHideLimitedReached"));
+		setValue("VoteShop.RequireConfirmation",
+				plugin.getGui().getData().getBoolean("CHEST.VoteShopRequireConfirmation"));
+		setValue("VoteShop.ReopenGUIOnPurchase",
+				plugin.getGui().getData().getBoolean("CHEST.VoteShopReopenGUIOnPurchase"));
+
+		// strings
+		setValue("VoteShop.Name", plugin.getGui().getData().getString("CHEST.VoteShopName"));
+		setValue("VoteShop.LimitReached", plugin.getGui().getData().getString("CHEST.VoteShopLimitReached"));
+		setValue("VoteShop.Disabled", plugin.getGui().getData().getString("CHEST.VoteShopDisabled"));
+
+		// sections
+		setValue("Shop", plugin.getGui().getData().getConfigurationSection("CHEST.Shop"));
+		setValue("ExtraItems", plugin.getGui().getData().getConfigurationSection("CHEST.VoteShopExtraItems"));
+		setValue("ShopConfirmPurchase", plugin.getGui().getData().getConfigurationSection("CHEST.ShopConfirmPurchase"));
+		saveData();
+
 	}
 
 	public void createShop(String value) {
@@ -67,6 +110,10 @@ public class ShopFile extends YMLFile {
 		shopData.set("Rewards.Items.Item1.Material", "STONE");
 		shopData.set("Rewards.Items.Item1.Amount", 1);
 		saveData();
+	}
+
+	public ConfigurationSection getGUIVoteShopExtraItems(String item) {
+		return getData().getConfigurationSection("ExtraItems." + item);
 	}
 
 	public int getShopIdentifierCost(String identifier) {
@@ -90,20 +137,12 @@ public class ShopFile extends YMLFile {
 		if (shop != null) {
 			return shop.getKeys(false);
 		}
-		return new HashSet<String>();
+		return new HashSet<>();
 	}
 
 	public ConfigurationSection getShopIdentifierSection(String identifier) {
 		return getData().getConfigurationSection("Shop." + identifier);
 	}
-
-	@ConfigDataBoolean(path = "VoteShop.BackButton")
-	@Getter
-	private boolean voteShopBackButton = true;
-
-	@ConfigDataBoolean(path = "VoteShop.ReopenGUIOnPurchase")
-	@Getter
-	private boolean voteShopReopenGUIOnPurchase = true;
 
 	public boolean getVoteShopCloseGUI(String shop) {
 		return getData().getBoolean("Shop." + shop + ".CloseGUI", true);
@@ -112,14 +151,6 @@ public class ShopFile extends YMLFile {
 	public boolean getVoteShopHideOnNoPermission(String shop) {
 		return getData().getBoolean("Shop." + shop + ".HideOnNoPermission", true);
 	}
-
-	@ConfigDataBoolean(path = "VoteShop.Enabled")
-	@Getter
-	private boolean voteShopEnabled = true;
-
-	@ConfigDataString(path = "VoteShop.Name")
-	@Getter
-	private String voteShopName = "VoteShop";
 
 	public boolean getVoteShopNotBuyable(String shop) {
 		return getData().getBoolean("Shop." + shop + ".NotBuyable", false);
@@ -146,14 +177,6 @@ public class ShopFile extends YMLFile {
 		return getData().getBoolean("Shop." + shop + ".Reset.Weekly", false);
 	}
 
-	public ConfigurationSection getGUIVoteShopExtraItems(String item) {
-		return getData().getConfigurationSection("ExtraItems." + item);
-	}
-
-	@ConfigDataKeys(path = "ExtraItems")
-	@Getter
-	private Set<String> voteShopExtraItems = new HashSet<String>();
-
 	public boolean isVoteShopRequireConfirmation(String identifier) {
 		return getData().getBoolean("Shop." + identifier + ".RequireConfirmation", isVoteShopRequireConfirmation());
 	}
@@ -166,29 +189,6 @@ public class ShopFile extends YMLFile {
 	@Override
 	public void onFileCreation() {
 		plugin.saveResource("Shop.yml", true);
-	}
-
-	public void convertFromGUIFile() {
-		// booleans
-		setValue("VoteShop.Enabled", plugin.getGui().getData().getBoolean("CHEST.VoteShopEnabled"));
-		setValue("VoteShop.BackButton", plugin.getGui().getData().getBoolean("CHEST.VoteShopBackButton"));
-		setValue("VoteShop.HideLimitReached", plugin.getGui().getData().getBoolean("CHEST.VoteShopHideLimitedReached"));
-		setValue("VoteShop.RequireConfirmation",
-				plugin.getGui().getData().getBoolean("CHEST.VoteShopRequireConfirmation"));
-		setValue("VoteShop.ReopenGUIOnPurchase",
-				plugin.getGui().getData().getBoolean("CHEST.VoteShopReopenGUIOnPurchase"));
-
-		// strings
-		setValue("VoteShop.Name", plugin.getGui().getData().getString("CHEST.VoteShopName"));
-		setValue("VoteShop.LimitReached", plugin.getGui().getData().getString("CHEST.VoteShopLimitReached"));
-		setValue("VoteShop.Disabled", plugin.getGui().getData().getString("CHEST.VoteShopDisabled"));
-
-		// sections
-		setValue("Shop", plugin.getGui().getData().getConfigurationSection("CHEST.Shop"));
-		setValue("ExtraItems", plugin.getGui().getData().getConfigurationSection("CHEST.VoteShopExtraItems"));
-		setValue("ShopConfirmPurchase", plugin.getGui().getData().getConfigurationSection("CHEST.ShopConfirmPurchase"));
-		saveData();
-
 	}
 
 	public void removeShop(String value) {

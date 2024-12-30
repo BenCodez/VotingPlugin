@@ -30,12 +30,12 @@ public class VotingPluginExpansion extends PlaceholderExpansion {
 	}
 
 	@Override
-	public boolean persist() {
-		return true;
+	public String onRequest(OfflinePlayer p, String indendifier) {
+		return plugin.getPlaceholders().getPlaceHolder(p, indendifier);
 	}
 
 	@Override
-	public String onRequest(OfflinePlayer p, String indendifier) {
-		return plugin.getPlaceholders().getPlaceHolder(p, indendifier);
+	public boolean persist() {
+		return true;
 	}
 }

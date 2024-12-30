@@ -33,12 +33,12 @@ public class VoteTabCompleter implements TabCompleter {
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
-		ArrayList<String> tab = new ArrayList<String>();
+		ArrayList<String> tab = new ArrayList<>();
 
-		Set<String> cmds = new HashSet<String>();
+		Set<String> cmds = new HashSet<>();
 
-		cmds.addAll(AdvancedCoreTabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getVoteCommand(), sender, args,
-				args.length - 1));
+		cmds.addAll(AdvancedCoreTabCompleteHandler.getInstance().getTabCompleteOptions(plugin.getVoteCommand(), sender,
+				args, args.length - 1));
 
 		for (String str : cmds) {
 			if (MessageAPI.startsWithIgnoreCase(str, args[args.length - 1])) {

@@ -106,6 +106,11 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 		}
 	}
 
+	@Override
+	public boolean hasPermission(final Invocation invocation) {
+		return invocation.source().hasPermission("votingpluginbungee.admin");
+	}
+
 	public boolean isInt(String st) {
 		if (st == null) {
 			return false;
@@ -118,10 +123,5 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 		} catch (NumberFormatException ex) {
 			return false;
 		}
-	}
-
-	@Override
-	public boolean hasPermission(final Invocation invocation) {
-		return invocation.source().hasPermission("votingpluginbungee.admin");
 	}
 }

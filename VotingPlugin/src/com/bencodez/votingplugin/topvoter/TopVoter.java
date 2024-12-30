@@ -27,9 +27,25 @@ public enum TopVoter {
 		return AllTime;
 	}
 
+	public static TopVoter of(TimeType type) {
+		switch (type) {
+		case DAY:
+			return Daily;
+		case MONTH:
+			return Monthly;
+		case WEEK:
+			return Weekly;
+		default:
+			return null;
+		}
+	}
+
 	public static TopVoter[] valuesMinusAllTime() {
 		return new TopVoter[] { TopVoter.Daily, TopVoter.Weekly, TopVoter.Monthly };
 	}
+
+	@Getter
+	private ArrayList<TopVoter> switchItems = new ArrayList<>();
 
 	public String getColumnName() {
 		switch (this) {
@@ -63,13 +79,11 @@ public enum TopVoter {
 		}
 	}
 
-	@Getter
-	private ArrayList<TopVoter> switchItems = new ArrayList<TopVoter>();
-
 	public String getName() {
 		if (this.equals(TopVoter.Monthly)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterMonthly();
-		} else if (this.equals(TopVoter.Weekly)) {
+		}
+		if (this.equals(TopVoter.Weekly)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterWeekly();
 		} else if (this.equals(TopVoter.Daily)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterDaily();
@@ -79,7 +93,7 @@ public enum TopVoter {
 	}
 
 	public TopVoter next() {
-		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
+		ArrayList<TopVoter> list = new ArrayList<>();
 		if (switchItems != null && !switchItems.isEmpty()) {
 			list.addAll(switchItems);
 		} else {
@@ -110,7 +124,7 @@ public enum TopVoter {
 	}
 
 	public TopVoter prev() {
-		ArrayList<TopVoter> list = new ArrayList<TopVoter>();
+		ArrayList<TopVoter> list = new ArrayList<>();
 		if (switchItems != null && !switchItems.isEmpty()) {
 			list.addAll(switchItems);
 		} else {
@@ -137,18 +151,5 @@ public enum TopVoter {
 			}
 		}
 		return TopVoter.AllTime;
-	}
-
-	public static TopVoter of(TimeType type) {
-		switch (type) {
-		case DAY:
-			return Daily;
-		case MONTH:
-			return Monthly;
-		case WEEK:
-			return Weekly;
-		default:
-			return null;
-		}
 	}
 }

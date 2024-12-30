@@ -49,7 +49,7 @@ public class AdminGUI {
 	 * @return ArrayList of buttons
 	 */
 	public ArrayList<BInventoryButton> adminGUIButtons() {
-		ArrayList<BInventoryButton> buttons = new ArrayList<BInventoryButton>();
+		ArrayList<BInventoryButton> buttons = new ArrayList<>();
 		buttons.add(new BInventoryButton("&cVoteSites",
 				new String[] { "&cOnly enabled sites are listed in this section", "&cMiddle Click to create" },
 				new ItemStack(Material.STONE)) {
@@ -241,7 +241,7 @@ public class AdminGUI {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
 		for (VoteSite voteSite : plugin.getVoteSites()) {
-			ArrayList<String> lore = new ArrayList<String>();
+			ArrayList<String> lore = new ArrayList<>();
 			lore.add("Enabled: " + voteSite.isEnabled());
 			lore.add("Priority: " + voteSite.getPriority());
 
@@ -251,17 +251,17 @@ public class AdminGUI {
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
 			lore.add("VoteDelayMin: " + voteSite.getVoteDelayMin());
 
-			inv.addButton(count, new BInventoryButton(voteSite.getKey(), ArrayUtils.convert(lore),
-					new ItemStack(Material.STONE)) {
+			inv.addButton(count,
+					new BInventoryButton(voteSite.getKey(), ArrayUtils.convert(lore), new ItemStack(Material.STONE)) {
 
-				@Override
-				public void onClick(ClickEvent event) {
+						@Override
+						public void onClick(ClickEvent event) {
 
-					Player player = event.getWhoClicked();
-					openAdminGUIVoteSiteSite(player, voteSite);
+							Player player = event.getWhoClicked();
+							openAdminGUIVoteSiteSite(player, voteSite);
 
-				}
-			});
+						}
+					});
 			count++;
 		}
 		inv.openInventory(player);
@@ -281,7 +281,7 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				ArrayList<String> playerNames = new ArrayList<String>();
+				ArrayList<String> playerNames = new ArrayList<>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					playerNames.add(p.getName());
 				}
@@ -302,8 +302,8 @@ public class AdminGUI {
 							});
 						}
 					}
-				}, ArrayUtils.convert(playerNames)).usingMethod(InputMethod.INVENTORY)
-						.allowCustomOption(true).request(event.getWhoClicked());
+				}, ArrayUtils.convert(playerNames)).usingMethod(InputMethod.INVENTORY).allowCustomOption(true)
+						.request(event.getWhoClicked());
 			}
 		});
 

@@ -100,32 +100,6 @@ public class CommandLoader {
 		this.plugin = plugin;
 	}
 
-	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
-		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
-			new VoteURL(plugin, player, user, true).open();
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
-			new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
-			new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
-			new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
-			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "today")) {
-			new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "help")) {
-			player.performCommand("vote help");
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "shop")) {
-			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "lastmonth")) {
-			new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "best")) {
-			new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
-		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
-			new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
-		}
-	}
-
 	/**
 	 * @return the adminPerm
 	 */
@@ -233,8 +207,6 @@ public class CommandLoader {
 					if (handle.hasPerm(player)) {
 						// plugin.debug("has perm");
 						return true;
-					} else {
-						// plugin.debug("no perm " + cmd);
 					}
 				}
 			}
@@ -246,8 +218,6 @@ public class CommandLoader {
 					if (handle.hasPerm(player)) {
 						// plugin.debug("has perm");
 						return true;
-					} else {
-						// plugin.debug("no perm " + cmd);
 					}
 				}
 			}
@@ -271,7 +241,7 @@ public class CommandLoader {
 	 * Load admin vote command.
 	 */
 	private void loadAdminVoteCommand() {
-		plugin.setAdminVoteCommand(new ArrayList<CommandHandler>());
+		plugin.setAdminVoteCommand(new ArrayList<>());
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
@@ -288,13 +258,6 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
 
 					@Override
-					public void executeSinglePlayer(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.setPoints(Integer.parseInt(args[3]));
-						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
-					}
-
-					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
 
@@ -308,6 +271,13 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cDone setting all players points to " + args[3]));
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.setPoints(Integer.parseInt(args[3]));
+						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
 					}
 				});
 
@@ -383,7 +353,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
-						ArrayList<Integer> nums = new ArrayList<Integer>();
+						ArrayList<Integer> nums = new ArrayList<>();
 
 						for (String str : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 							try {
@@ -472,18 +442,6 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
 					@Override
-					public void executeSinglePlayer(CommandSender sender, String[] args) {
-						synchronized (pointLock) {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							user.cache();
-							int newTotal = 0;
-							newTotal = user.addPoints(Integer.parseInt(args[3]));
-							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points"
-									+ ", " + args[1] + " now has " + newTotal + " points"));
-						}
-					}
-
-					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
 
@@ -498,6 +456,18 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						synchronized (pointLock) {
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+							user.cache();
+							int newTotal = 0;
+							newTotal = user.addPoints(Integer.parseInt(args[3]));
+							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points"
+									+ ", " + args[1] + " now has " + newTotal + " points"));
+						}
 					}
 				});
 
@@ -1034,15 +1004,6 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.AddMilestoneCount|" + adminPerm, "Add milestonecount") {
 
 					@Override
-					public void executeSinglePlayer(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
-						plugin.getSpecialRewards().checkMilestone(user, null,
-								plugin.getBungeeSettings().isUseBungeecoord());
-						sender.sendMessage(MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
-					}
-
-					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int toAdd = Integer.parseInt(args[3]);
 
@@ -1056,6 +1017,15 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cFinished adding milestonecount for all players"));
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
+						plugin.getSpecialRewards().checkMilestone(user, null,
+								plugin.getBungeeSettings().isUseBungeecoord());
+						sender.sendMessage(MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
 					}
 				});
 
@@ -1078,13 +1048,6 @@ public class CommandLoader {
 						"Clears received milestones") {
 
 					@Override
-					public void executeSinglePlayer(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.setHasGottenMilestone(new HashMap<String, Boolean>());
-						sender.sendMessage(MessageAPI.colorize("&cClearing gotten milestones for " + args[1]));
-					}
-
-					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						String path = "GottenMileStones";
 						if (plugin.getBungeeSettings().isPerServerMilestones()) {
@@ -1097,6 +1060,13 @@ public class CommandLoader {
 						}
 						sender.sendMessage(
 								MessageAPI.colorize("&cFinished clearing gotten milestones for all players"));
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.setHasGottenMilestone(new HashMap<>());
+						sender.sendMessage(MessageAPI.colorize("&cClearing gotten milestones for " + args[1]));
 					}
 				});
 
@@ -1830,7 +1800,7 @@ public class CommandLoader {
 
 						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager()
 								.getAllKeys(UserStorage.value(args[1]));
-						Queue<Entry<UUID, ArrayList<Column>>> players = new LinkedList<Entry<UUID, ArrayList<Column>>>(
+						Queue<Entry<UUID, ArrayList<Column>>> players = new LinkedList<>(
 								cols.entrySet());
 						ArrayList<String> uuids = plugin.getUserManager().getAllUUIDs();
 
@@ -1882,7 +1852,7 @@ public class CommandLoader {
 	 * Load aliases.
 	 */
 	public void loadAliases() {
-		commands = new HashMap<String, CommandHandler>();
+		commands = new HashMap<>();
 		if (!plugin.getConfigFile().isLoadCommandAliases()) {
 			return;
 		}
@@ -1997,7 +1967,7 @@ public class CommandLoader {
 							@Override
 							public void onClick(ClickEvent clickEvent) {
 								Player player = clickEvent.getPlayer();
-								ArrayList<String> voteSites = new ArrayList<String>();
+								ArrayList<String> voteSites = new ArrayList<>();
 								for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 									voteSites.add(voteSite.getKey());
 								}
@@ -2090,7 +2060,7 @@ public class CommandLoader {
 	 * Load tab complete.
 	 */
 	public void loadTabComplete() {
-		ArrayList<String> sites = new ArrayList<String>();
+		ArrayList<String> sites = new ArrayList<>();
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			sites.add(site.getKey());
 		}
@@ -2099,7 +2069,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> sites = new ArrayList<String>();
+				ArrayList<String> sites = new ArrayList<>();
 				for (VoteSite site : plugin.getVoteSitesEnabled()) {
 					sites.add(site.getKey());
 				}
@@ -2111,7 +2081,7 @@ public class CommandLoader {
 			}
 		});
 
-		ArrayList<String> topVoter = new ArrayList<String>();
+		ArrayList<String> topVoter = new ArrayList<>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.add(top.toString());
 		}
@@ -2120,7 +2090,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> topVoter = new ArrayList<String>();
+				ArrayList<String> topVoter = new ArrayList<>();
 				for (TopVoter top : TopVoter.values()) {
 					topVoter.add(top.toString());
 				}
@@ -2137,7 +2107,7 @@ public class CommandLoader {
 
 			@Override
 			public void reload() {
-				ArrayList<String> sites = new ArrayList<String>();
+				ArrayList<String> sites = new ArrayList<>();
 				for (String str : plugin.getShopFile().getShopIdentifiers()) {
 					sites.add(str);
 				}
@@ -2154,7 +2124,7 @@ public class CommandLoader {
 	 * Load vote command.
 	 */
 	private void loadVoteCommand() {
-		plugin.setVoteCommand(new ArrayList<CommandHandler>());
+		plugin.setVoteCommand(new ArrayList<>());
 		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()) {
 			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "SetPrimaryAccount", "(player)" },
 					"VotingPlugin.Commands.Vote.SetPrimaryAccount|" + modPerm, "Set primary account", false) {
@@ -2277,7 +2247,7 @@ public class CommandLoader {
 								if (identifier != null) {
 
 									if (limitPass) {
-										HashMap<String, String> placeholders = new HashMap<String, String>();
+										HashMap<String, String> placeholders = new HashMap<>();
 										placeholders.put("identifier", identifier);
 										placeholders.put("points", "" + points);
 										placeholders.put("limit", "" + limit);
@@ -2579,7 +2549,7 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				ArrayList<String> msg = new ArrayList<String>();
+				ArrayList<String> msg = new ArrayList<>();
 
 				int daily = 0;
 				int weekly = 0;
@@ -2724,7 +2694,7 @@ public class CommandLoader {
 										if (cPlayer.getPoints() >= pointsToGive) {
 											user.addPoints(pointsToGive);
 											cPlayer.removePoints(pointsToGive);
-											HashMap<String, String> placeholders = new HashMap<String, String>();
+											HashMap<String, String> placeholders = new HashMap<>();
 											placeholders.put("transfer", "" + pointsToGive);
 											placeholders.put("touser", "" + user.getPlayerName());
 											placeholders.put("fromuser", "" + cPlayer.getPlayerName());
@@ -2789,7 +2759,7 @@ public class CommandLoader {
 				ConfigurationSection section = plugin.getConfigFile().getCustomCommands(ident);
 				@SuppressWarnings("unchecked")
 				String[] args = ArrayUtils
-						.convert((ArrayList<String>) section.getList("Args", new ArrayList<String>()));
+						.convert((ArrayList<String>) section.getList("Args", new ArrayList<>()));
 				plugin.getVoteCommand().add(new CommandHandler(plugin, args, section.getString("Permission", ""),
 						section.getString("HelpMessage", "")) {
 
@@ -2797,7 +2767,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, section.getString("Message", ""));
-						for (String str : (ArrayList<String>) section.getList("Commands", new ArrayList<String>())) {
+						for (String str : (ArrayList<String>) section.getList("Commands", new ArrayList<>())) {
 							plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
 								@Override
@@ -2848,6 +2818,32 @@ public class CommandLoader {
 				plugin.debug("Disabling VotingPlugin.Player permission on " + cmd.getPerm());
 
 			}
+		}
+	}
+
+	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
+		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
+			new VoteURL(plugin, player, user, true).open();
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
+			new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
+			new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
+			new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
+			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "today")) {
+			new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "help")) {
+			player.performCommand("vote help");
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "shop")) {
+			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "lastmonth")) {
+			new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "best")) {
+			new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
+			new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
 		}
 	}
 

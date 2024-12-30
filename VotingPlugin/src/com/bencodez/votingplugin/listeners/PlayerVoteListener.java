@@ -86,7 +86,7 @@ public class PlayerVoteListener implements Listener {
 			if (!plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 				plugin.getLogger().warning("No voting site with the service site: '" + event.getServiceSite() + "'");
 
-				ArrayList<String> services = new ArrayList<String>();
+				ArrayList<String> services = new ArrayList<>();
 				for (VoteSite site : plugin.getVoteSites()) {
 					services.add(site.getServiceSite());
 				}
@@ -117,13 +117,12 @@ public class PlayerVoteListener implements Listener {
 			if (!event.isRealVote()) {
 				plugin.getLogger().info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
 			} else {
-				if (user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
-					plugin.getLogger()
-							.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
-				} else {
+				if (!user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
 					plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
 					return;
 				}
+				plugin.getLogger()
+						.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
 			}
 		}
 

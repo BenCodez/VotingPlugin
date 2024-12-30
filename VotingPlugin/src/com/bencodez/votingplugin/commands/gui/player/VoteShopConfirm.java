@@ -56,7 +56,7 @@ public class VoteShopConfirm extends GUIHandler {
 				user.cache();
 				int points = plugin.getShopFile().getShopIdentifierCost(identifier);
 				int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
-				HashMap<String, String> placeholders = new HashMap<String, String>();
+				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("identifier", identifier);
 				placeholders.put("points", "" + points);
 				placeholders.put("limit", "" + limit);

@@ -56,7 +56,7 @@ public class VoteURL extends GUIHandler {
 	}
 
 	public ArrayList<String> getChat(CommandSender sender, boolean bypassCanVote) {
-		ArrayList<String> sites = new ArrayList<String>();
+		ArrayList<String> sites = new ArrayList<>();
 
 		List<String> title = plugin.getConfigFile().getFormatCommandsVoteText();
 		if (title != null) {
@@ -89,7 +89,7 @@ public class VoteURL extends GUIHandler {
 			}
 		}
 		if (user != null) {
-			HashMap<String, String> phs = new HashMap<String, String>();
+			HashMap<String, String> phs = new HashMap<>();
 			phs.put("DailyTotal", "" + user.getTotal(TopVoter.Daily));
 			phs.put("WeekTotal", "" + user.getTotal(TopVoter.Weekly));
 			phs.put("MonthTotal", "" + user.getTotal(TopVoter.Monthly));
@@ -229,7 +229,7 @@ public class VoteURL extends GUIHandler {
 							Player player = event.getPlayer();
 							if (player != null) {
 								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-								HashMap<String, String> placeholders = new HashMap<String, String>();
+								HashMap<String, String> placeholders = new HashMap<>();
 								placeholders.put("voteurl", voteSite.getVoteURL());
 								placeholders.put("sitename", voteSite.getDisplayName());
 								placeholders.put("player", player.getName());

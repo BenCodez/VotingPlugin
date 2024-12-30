@@ -14,8 +14,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
-import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -138,6 +138,10 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(site).getConfigurationSection("Item");
 	}
 
+	public String getPermissionToView(String siteName) {
+		return getData(siteName).getString("PermissionToView", "");
+	}
+
 	/**
 	 * Gets the priority.
 	 *
@@ -168,10 +172,6 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
-	public int getVoteDelayDailyHour(String siteName) {
-		return getData(siteName).getInt("VoteDelayDailyHour", 0);
-	}
-
 	/**
 	 * Gets the vote delay.
 	 *
@@ -180,6 +180,10 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public double getVoteDelay(String siteName) {
 		return getData(siteName).getDouble("VoteDelay", 24);
+	}
+
+	public int getVoteDelayDailyHour(String siteName) {
+		return getData(siteName).getInt("VoteDelayDailyHour", 0);
 	}
 
 	public double getVoteDelayMin(String siteName) {
@@ -239,7 +243,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote sites load
 	 */
 	public ArrayList<VoteSite> getVoteSitesLoad() {
-		ArrayList<VoteSite> voteSites = new ArrayList<VoteSite>();
+		ArrayList<VoteSite> voteSites = new ArrayList<>();
 		ArrayList<String> voteSiteNames = getVoteSitesNames(true);
 		if (voteSiteNames != null) {
 			for (String site : voteSiteNames) {
@@ -276,7 +280,7 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
-		ArrayList<String> siteNames = new ArrayList<String>();
+		ArrayList<String> siteNames = new ArrayList<>();
 		if (getData().isConfigurationSection("VoteSites")) {
 			siteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
 		}
@@ -296,10 +300,6 @@ public class ConfigVoteSites extends YMLFile {
 		}
 
 		return siteNames;
-	}
-
-	public String getPermissionToView(String siteName) {
-		return getData(siteName).getString("PermissionToView", "");
 	}
 
 	/**

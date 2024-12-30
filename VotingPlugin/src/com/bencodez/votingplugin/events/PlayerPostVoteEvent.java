@@ -55,7 +55,7 @@ public class PlayerPostVoteEvent extends Event {
 	@Getter
 	@Setter
 	private VoteSite voteSite;
-	
+
 	@Getter
 	@Setter
 	private long voteTime = 0;
@@ -64,7 +64,8 @@ public class PlayerPostVoteEvent extends Event {
 	@Setter
 	private VotingPluginUser votingPluginUser;
 
-	public PlayerPostVoteEvent(VoteSite voteSite, VotingPluginUser user, boolean realVote, boolean forceBungee, long voteTime) {
+	public PlayerPostVoteEvent(VoteSite voteSite, VotingPluginUser user, boolean realVote, boolean forceBungee,
+			long voteTime) {
 		super(true);
 		this.user = user;
 		this.voteSite = voteSite;

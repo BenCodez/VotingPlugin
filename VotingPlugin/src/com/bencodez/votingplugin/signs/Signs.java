@@ -22,7 +22,7 @@ public class Signs {
 
 	public Signs(VotingPluginMain plugin) {
 		this.plugin = plugin;
-		this.signs = new ArrayList<SignHandler>();
+		this.signs = new ArrayList<>();
 	}
 
 	/**
@@ -45,7 +45,7 @@ public class Signs {
 	 * Load signs.
 	 */
 	public void loadSigns() {
-		setSigns(new ArrayList<SignHandler>());
+		setSigns(new ArrayList<>());
 		for (String sign : plugin.getServerData().getSigns()) {
 			// plugin.getLogger().info("Loading sign " + sign);
 			getSigns().add(new SignHandler(plugin, sign, plugin.getServerData().getSignLocation(sign),

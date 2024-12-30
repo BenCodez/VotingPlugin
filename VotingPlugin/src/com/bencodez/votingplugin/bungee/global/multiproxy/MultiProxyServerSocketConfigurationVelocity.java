@@ -16,11 +16,6 @@ public class MultiProxyServerSocketConfigurationVelocity implements MultiProxySe
 	}
 
 	@Override
-	public String getServerName() {
-		return server;
-	}
-
-	@Override
 	public String getHost() {
 		return host;
 	}
@@ -28,6 +23,11 @@ public class MultiProxyServerSocketConfigurationVelocity implements MultiProxySe
 	@Override
 	public int getPort() {
 		return port;
+	}
+
+	@Override
+	public String getServerName() {
+		return server;
 	}
 
 }

@@ -21,72 +21,20 @@ public class Config {
 		this.bungee = bungee;
 	}
 
-	public String getRedisHost() {
-		return getData().getString("Redis.Host", "");
-	}
-
-	public int getRedisPort() {
-		return getData().getInt("Redis.Port", 6379);
-	}
-
-	public String getRedisUsername() {
-		return getData().getString("Redis.Username", "");
-	}
-
-	public String getRedisPrefix() {
-		return getData().getString("Redis.Prefix", "");
-	}
-
-	public String getRedisPassword() {
-		return getData().getString("Redis.Password", "");
-	}
-
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);
-	}
-
-	public List<String> getBlockedServers() {
-		return getData().getStringList("BlockedServers");
-	}
-
-	public List<String> getWhiteListedServers() {
-		return getData().getStringList("WhiteListedServers");
-	}
-
-	public boolean getBroadcast() {
-		return getData().getBoolean("Broadcast", false);
-	}
-
-	public boolean getStoreMonthTotalsWithDate() {
-		return getData().getBoolean("StoreMonthTotalsWithDate", false);
-	}
-
-	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
-		return getData().getBoolean("UseMonthDateTotalsAsPrimaryTotal", false);
 	}
 
 	public String getBedrockPlayerPrefix() {
 		return getData().getString("BedrockPlayerPrefix", ".");
 	}
 
-	public boolean getOnlineMode() {
-		return getData().getBoolean("OnlineMode", true);
-	}
-	
-	public boolean getTimeChangeFailSafeBypass() {
-		return getData().getBoolean("TimeChangeFailSafeBypass", false);
+	public List<String> getBlockedServers() {
+		return getData().getStringList("BlockedServers");
 	}
 
-	public boolean getUUIDLookup() {
-		return getData().getBoolean("UUIDLookup", true);
-	}
-
-	public boolean getGlobalDataEnabled() {
-		return getData().getBoolean("GlobalData.Enabled", false);
-	}
-
-	public boolean getGlobalDataUseMainMySQL() {
-		return getData().getBoolean("GlobalData.UseMainMySQL", true);
+	public boolean getBroadcast() {
+		return getData().getBoolean("Broadcast", false);
 	}
 
 	public String getBungeeHost() {
@@ -105,52 +53,116 @@ public class Config {
 		return getData().getInt("BungeeServer.Port", 1297);
 	}
 
-	public int getLimitVotePoints() {
-		return getData().getInt("LimitVotePoints", -1);
-	}
-
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
-	}
-
-	public boolean getMultiProxySupport() {
-		return getData().getBoolean("MultiProxySupport", false);
-	}
-
-	public int getMaxAmountOfVotesPerDay() {
-		return getData().getInt("MaxAmountOfVotesPerDay", -1);
-	}
-
-	public int getMultiProxySocketHostPort() {
-		return getData().getInt("MultiProxySocketHost.Port", 1297);
-	}
-
-	public String getMultiProxySocketHostHost() {
-		return getData().getString("MultiProxySocketHost.Host", "");
-	}
-
-	public boolean getMultiProxyOneGlobalReward() {
-		return getData().getBoolean("MultiProxyOneGlobalReward", false);
-	}
-
-	public Configuration getMultiProxyServersConfiguration(String s) {
-		return getData().getSection("MultiProxyServers." + s);
-	}
-
-	public Collection<String> getMultiProxyServers() {
-		return getData().getSection("MultiProxyServers").getKeys();
-	}
-
-	public boolean getPrimaryServer() {
-		return getData().getBoolean("PrimaryServer", false);
 	}
 
 	public String getFallBack() {
 		return getData().getString("FallBackServer", "");
 	}
 
+	public boolean getGlobalDataEnabled() {
+		return getData().getBoolean("GlobalData.Enabled", false);
+	}
+
+	public boolean getGlobalDataUseMainMySQL() {
+		return getData().getBoolean("GlobalData.UseMainMySQL", true);
+	}
+
+	public int getLimitVotePoints() {
+		return getData().getInt("LimitVotePoints", -1);
+	}
+
+	public int getMaxAmountOfVotesPerDay() {
+		return getData().getInt("MaxAmountOfVotesPerDay", -1);
+	}
+
+	public String getMultiProxyMethod() {
+		return getData().getString("MultiProxyMethod", "SOCKET");
+	}
+
+	public boolean getMultiProxyOneGlobalReward() {
+		return getData().getBoolean("MultiProxyOneGlobalReward", false);
+	}
+
+	public String getMultiProxyRedisHost() {
+		return getData().getString("MultiProxyRedis.Host", "");
+	}
+
+	public String getMultiProxyRedisPassword() {
+		return getData().getString("MultiProxyRedis.Password", "");
+	}
+
+	public int getMultiProxyRedisPort() {
+		return getData().getInt("MultiProxyRedis.Port", 6379);
+	}
+
+	public boolean getMultiProxyRedisUseExistingConnection() {
+		return getData().getBoolean("MultiProxyRedis.UseExistingConnection", false);
+	}
+
+	public String getMultiProxyRedisUsername() {
+		return getData().getString("MultiProxyRedis.Username", "");
+	}
+
+	public Collection<String> getMultiProxyServers() {
+		return getData().getSection("MultiProxyServers").getKeys();
+	}
+
+	public Configuration getMultiProxyServersConfiguration(String s) {
+		return getData().getSection("MultiProxyServers." + s);
+	}
+
+	public String getMultiProxySocketHostHost() {
+		return getData().getString("MultiProxySocketHost.Host", "");
+	}
+
+	public int getMultiProxySocketHostPort() {
+		return getData().getInt("MultiProxySocketHost.Port", 1297);
+	}
+
+	public boolean getMultiProxySupport() {
+		return getData().getBoolean("MultiProxySupport", false);
+	}
+
+	public boolean getOnlineMode() {
+		return getData().getBoolean("OnlineMode", true);
+	}
+
 	public int getPointsOnVote() {
 		return getData().getInt("PointsOnVote", 1);
+	}
+
+	public boolean getPrimaryServer() {
+		return getData().getBoolean("PrimaryServer", false);
+	}
+
+	public String getProxyServerName() {
+		return getData().getString("ProxyServerName", "SOCKET");
+	}
+
+	public List<String> getProxyServers() {
+		return getData().getStringList("ProxyServers");
+	}
+
+	public String getRedisHost() {
+		return getData().getString("Redis.Host", "");
+	}
+
+	public String getRedisPassword() {
+		return getData().getString("Redis.Password", "");
+	}
+
+	public int getRedisPort() {
+		return getData().getInt("Redis.Port", 6379);
+	}
+
+	public String getRedisPrefix() {
+		return getData().getString("Redis.Prefix", "");
+	}
+
+	public String getRedisUsername() {
+		return getData().getString("Redis.Username", "");
 	}
 
 	public boolean getSendVotesToAllServers() {
@@ -165,24 +177,20 @@ public class Config {
 		return getData().getSection("SpigotServers").getKeys();
 	}
 
-	public boolean getWaitForUserOnline() {
-		return getData().getBoolean("WaitForUserOnline", false);
+	public boolean getStoreMonthTotalsWithDate() {
+		return getData().getBoolean("StoreMonthTotalsWithDate", false);
 	}
 
-	public boolean getVotePartyEnabled() {
-		return getData().getBoolean("VoteParty.Enabled", false);
+	public boolean getTimeChangeFailSafeBypass() {
+		return getData().getBoolean("TimeChangeFailSafeBypass", false);
 	}
 
-	public boolean getVotePartySendToAllServers() {
-		return getData().getBoolean("VoteParty.SendToAllServers", true);
+	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
+		return getData().getBoolean("UseMonthDateTotalsAsPrimaryTotal", false);
 	}
 
-	public int getVotePartyVotesRequired() {
-		return getData().getInt("VoteParty.VotesRequired", 100);
-	}
-
-	public int getVotePartyIncreaseVotesRequired() {
-		return getData().getInt("VoteParty.IncreaseVotesRequired", 0);
+	public boolean getUUIDLookup() {
+		return getData().getBoolean("UUIDLookup", true);
 	}
 
 	public int getVoteCacheTime() {
@@ -193,44 +201,36 @@ public class Config {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
 
-	public String getMultiProxyMethod() {
-		return getData().getString("MultiProxyMethod", "SOCKET");
+	public List<String> getVotePartyBungeeCommands() {
+		return getData().getStringList("VoteParty.BungeeCommands");
 	}
 
-	public String getProxyServerName() {
-		return getData().getString("ProxyServerName", "SOCKET");
+	public boolean getVotePartyEnabled() {
+		return getData().getBoolean("VoteParty.Enabled", false);
 	}
 
-	public List<String> getProxyServers() {
-		return getData().getStringList("ProxyServers");
+	public int getVotePartyIncreaseVotesRequired() {
+		return getData().getInt("VoteParty.IncreaseVotesRequired", 0);
 	}
 
-	public boolean getMultiProxyRedisUseExistingConnection() {
-		return getData().getBoolean("MultiProxyRedis.UseExistingConnection", false);
+	public boolean getVotePartySendToAllServers() {
+		return getData().getBoolean("VoteParty.SendToAllServers", true);
 	}
 
 	public List<String> getVotePartyServersToSend() {
 		return getData().getStringList("VoteParty.ServersToSend");
 	}
 
-	public List<String> getVotePartyBungeeCommands() {
-		return getData().getStringList("VoteParty.BungeeCommands");
+	public int getVotePartyVotesRequired() {
+		return getData().getInt("VoteParty.VotesRequired", 100);
 	}
 
-	public String getMultiProxyRedisHost() {
-		return getData().getString("MultiProxyRedis.Host", "");
+	public boolean getWaitForUserOnline() {
+		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
-	public int getMultiProxyRedisPort() {
-		return getData().getInt("MultiProxyRedis.Port", 6379);
-	}
-
-	public String getMultiProxyRedisUsername() {
-		return getData().getString("MultiProxyRedis.Username", "");
-	}
-
-	public String getMultiProxyRedisPassword() {
-		return getData().getString("MultiProxyRedis.Password", "");
+	public List<String> getWhiteListedServers() {
+		return getData().getStringList("WhiteListedServers");
 	}
 
 	public void load() {

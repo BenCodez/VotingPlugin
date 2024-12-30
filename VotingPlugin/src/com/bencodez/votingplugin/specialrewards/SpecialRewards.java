@@ -29,6 +29,23 @@ public class SpecialRewards {
 		this.plugin = plugin;
 	}
 
+	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
+		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
+			int numberOfSites = plugin.getVoteSitesEnabled().size();
+			if (numberOfVotes >= numberOfSites * 2) {
+				if (num > numberOfSites) {
+					if (num % numberOfSites == 0) {
+						// should give extra allsites?
+						if (user.checkAllVotes()) {
+							plugin.debug("Giving extra allsites reward from bungee");
+							giveAllSitesRewards(user, user.isOnline(), true);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes
@@ -47,23 +64,6 @@ public class SpecialRewards {
 			giveAllSitesRewards(user, user.isOnline(), forceBungee);
 		}
 		return checkAllVotes;
-	}
-
-	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
-		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
-			int numberOfSites = plugin.getVoteSitesEnabled().size();
-			if (numberOfVotes >= numberOfSites * 2) {
-				if (num > numberOfSites) {
-					if (num % numberOfSites == 0) {
-						// should give extra allsites?
-						if (user.checkAllVotes()) {
-							plugin.debug("Giving extra allsites reward from bungee");
-							giveAllSitesRewards(user, user.isOnline(), true);
-						}
-					}
-				}
-			}
-		}
 	}
 
 	public boolean checkAlmostAllSites(VotingPluginUser user, boolean forceBungee) {
@@ -206,7 +206,7 @@ public class SpecialRewards {
 			}
 		}
 		if (plugin.getConfigFile().isPreventRepeatMilestones()) {
-			ArrayList<Integer> nums = new ArrayList<Integer>();
+			ArrayList<Integer> nums = new ArrayList<>();
 
 			for (String str : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
 				try {

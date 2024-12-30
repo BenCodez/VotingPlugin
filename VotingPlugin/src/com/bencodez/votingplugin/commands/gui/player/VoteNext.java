@@ -37,7 +37,7 @@ public class VoteNext extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 
 		String playerName = user.getPlayerName();
 
@@ -64,7 +64,7 @@ public class VoteNext extends GUIHandler {
 		// add colors/config options
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
-				Layout nextLayout = new Layout(new ArrayList<String>(Arrays.asList("[Json]")));
+				Layout nextLayout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
 				nextLayout.replaceTextComponent("[Json]",
 						BookUtil.TextBuilder.of(book.colorize(site.getDisplayName()))
 								.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
@@ -93,10 +93,13 @@ public class VoteNext extends GUIHandler {
 					siteNameDisplay = site.getDisplayName();
 				}
 				inv.addButton(inv.getNextSlot(),
-						new UpdatingBInventoryButton(plugin, site.getItem().setName(siteNameDisplay)
-								.setLore(PlaceholderUtils.replacePlaceHolder(
-										plugin.getGui().getChestVoteNextLine(), "time", user.voteCommandNextInfo(site)))
-								.setAmountNone(1), 1000, 1000) {
+						new UpdatingBInventoryButton(plugin,
+								site.getItem().setName(siteNameDisplay)
+										.setLore(PlaceholderUtils.replacePlaceHolder(
+												plugin.getGui().getChestVoteNextLine(), "time",
+												user.voteCommandNextInfo(site)))
+										.setAmountNone(1),
+								1000, 1000) {
 
 							@Override
 							public void onClick(ClickEvent clickEvent) {

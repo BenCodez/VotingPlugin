@@ -13,10 +13,7 @@ public enum PlaceholderCacheLevel {
 	}
 
 	public boolean onlineOnly() {
-		if (this == AUTOALL) {
-			return false;
-		}
-		if (this == SPECIFICALL) {
+		if ((this == AUTOALL) || (this == SPECIFICALL)) {
 			return false;
 		}
 		return true;

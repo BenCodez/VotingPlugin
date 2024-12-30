@@ -63,7 +63,6 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 						}
 					}.open();
 
-
 				}
 			});
 		}

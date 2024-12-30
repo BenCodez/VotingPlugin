@@ -70,7 +70,7 @@ public class SignHandler {
 		setData(data);
 		this.position = position;
 		setValid(true);
-		lines = new ArrayList<String>();
+		lines = new ArrayList<>();
 		checkValidSign();
 		playerName = "";
 	}
@@ -174,7 +174,7 @@ public class SignHandler {
 	 * Update lines.
 	 */
 	public void updateLines() {
-		lines = new ArrayList<String>();
+		lines = new ArrayList<>();
 		checkValidSign();
 		if (position != 0) {
 			String line1 = plugin.getConfigFile().getFormatSignTopVoterSignLine1();

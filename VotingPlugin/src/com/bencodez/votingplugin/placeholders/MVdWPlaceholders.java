@@ -44,7 +44,8 @@ public class MVdWPlaceholders {
 											.getVotingPluginUser(event.getOfflinePlayer());
 									if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()
 											&& user.hasPrimaryAccount()) {
-										user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
+										user = plugin.getVotingPluginUserManager()
+												.getVotingPluginUser(user.getPrimaryAccount());
 									}
 									return place.placeholderRequest(user,
 											event.getPlaceholder().substring("VotingPlugin_".length()));
@@ -55,7 +56,8 @@ public class MVdWPlaceholders {
 
 			}
 
-			for (final NonPlayerPlaceHolder<VotingPluginUser> place : plugin.getPlaceholders().getNonPlayerPlaceholders()) {
+			for (final NonPlayerPlaceHolder<VotingPluginUser> place : plugin.getPlaceholders()
+					.getNonPlayerPlaceholders()) {
 				String str = place.getIdentifier();
 				if (!str.endsWith("_")) {
 					PlaceholderAPI.registerPlaceholder(VotingPluginMain.plugin, "VotingPlugin_" + str,

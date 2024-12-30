@@ -78,11 +78,11 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	@ConfigDataListInt(path = "VoteParty.VoteReminderAtVotes")
 	@Getter
-	private ArrayList<Integer> votePartyVoteReminderAtVotes = new ArrayList<Integer>();
+	private ArrayList<Integer> votePartyVoteReminderAtVotes = new ArrayList<>();
 
 	@ConfigDataListString(path = "VoteParty.GlobalRandomCommand")
 	@Getter
-	private ArrayList<String> votePartyGlobalRandomCommand = new ArrayList<String>();
+	private ArrayList<String> votePartyGlobalRandomCommand = new ArrayList<>();
 
 	@Getter
 	private String votePartyRewardsPath = "VoteParty.Rewards";
@@ -103,119 +103,29 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private double voteStreakRequirementWeek = 50;
 
-	public SpecialRewardsConfig(VotingPluginMain plugin) {
-		super(plugin, new File(plugin.getDataFolder(), "SpecialRewards.yml"));
-		this.plugin = plugin;
-	}
-
-	public boolean getCumulativeRewardEnabled(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
-	}
-
-	public String getCumulativeRewardsPath(int cumulative) {
-		return "Cumulative." + cumulative + ".Rewards";
-	}
-
-	public List<Integer> getCumulativeBlackList(int cumulative) {
-		return getData().getIntegerList("Cumulative." + cumulative + ".BlackList");
-	}
-
-	public boolean getCumulativeRecurring(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Recurring", true);
-	}
-
 	@ConfigDataKeys(path = "Cumulative")
 	@Getter
-	private Set<String> cumulativeVotes = new HashSet<String>();
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
-	}
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameMonth(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
-	}
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
-	}
-
-	public String getCumulativeVotesTotal(int cumulative) {
-		String str = getData().getString("Cumulative." + cumulative + ".TotalToUse", "");
-		if (str.isEmpty()) {
-			if (getCumulativeVotesInSameMonth(cumulative)) {
-				return TopVoter.Monthly.toString();
-			} else if (getCumulativeVotesInSameWeek(cumulative)) {
-				return TopVoter.Weekly.toString();
-			} else if (getCumulativeVotesInSameDay(cumulative)) {
-				return TopVoter.Daily.toString();
-			}
-		}
-		return str;
-	}
-
-	public String getDailyAwardRewardsPath(String path) {
-		return "DailyAwards." + path + ".Rewards";
-	}
+	private Set<String> cumulativeVotes = new HashSet<>();
 
 	@ConfigDataKeys(path = "DailyAwards")
 	@Getter
-	private Set<String> dailyPossibleRewardPlaces = new HashSet<String>();
-
-	/**
-	 * Gets the milestone reward enabled.
-	 *
-	 * @param milestones the milestones
-	 * @return the milestone reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".Enabled");
-	}
-
-	/**
-	 * Gets the milestone rewards.
-	 *
-	 * @param milestones the milestones
-	 * @return the milestone rewards
-	 */
-	public String getMilestoneRewardsPath(int milestones) {
-		return "MileStones." + milestones + ".Rewards";
-	}
+	private Set<String> dailyPossibleRewardPlaces = new HashSet<>();
 
 	@ConfigDataKeys(path = "MileStones")
 	@Getter
-	private Set<String> milestoneVotes = new HashSet<String>();
-
-	public String getMonthlyAwardRewardsPath(String path) {
-		return "MonthlyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the monthly possible reward places.
-	 *
-	 * @return the monthly possible reward places
-	 */
-	public Set<String> getMonthlyPossibleRewardPlaces() {
-		try {
-			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
-		} catch (Exception ex) {
-			return new HashSet<String>();
-		}
-	}
+	private Set<String> milestoneVotes = new HashSet<>();
 
 	@ConfigDataBoolean(path = "ResetMilestonesMonthly")
 	@Getter
 	private boolean resetMilestonesMonthly = false;
+
 	@ConfigDataString(path = "VoteParty.Broadcast")
 	@Getter
 	private String votePartyBroadcast = "";
 
 	@ConfigDataListString(path = "VoteParty.GlobalCommands", secondPath = "VoteParty.Commands")
 	@Getter
-	private ArrayList<String> votePartyGlobalCommands = new ArrayList<String>();
+	private ArrayList<String> votePartyGlobalCommands = new ArrayList<>();
 
 	@ConfigDataBoolean(path = "VoteParty.CountFakeVotes")
 	@Getter
@@ -242,14 +152,6 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private int votePartyIncreaseVotesRequired = 0;
 
-	public int getVotePartyIncreaseVotesRequiredWithTypo() {
-		int increase = getVotePartyIncreaseVotesRequired();
-		if (increase > 0) {
-			return increase;
-		}
-		return getVotePartyIncreaseVotesRquired();
-	}
-
 	@ConfigDataBoolean(path = "VoteParty.OnlyOncePerDay")
 	@Getter
 	private boolean votePartyOnlyOncePerDay = false;
@@ -273,10 +175,113 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataInt(path = "VoteParty.UserVotesRequired")
 	@Getter
 	private int votePartyUserVotesRequired = 0;
-
 	@ConfigDataInt(path = "VoteParty.VotesRequired")
 	@Getter
 	private int votePartyVotesRequired = 0;
+
+	@ConfigDataKeys(path = "WeeklyAwards")
+	@Getter
+	private Set<String> weeklyPossibleRewardPlaces = new HashSet<>();
+
+	public SpecialRewardsConfig(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "SpecialRewards.yml"));
+		this.plugin = plugin;
+	}
+
+	public List<Integer> getCumulativeBlackList(int cumulative) {
+		return getData().getIntegerList("Cumulative." + cumulative + ".BlackList");
+	}
+
+	public boolean getCumulativeRecurring(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Recurring", true);
+	}
+
+	public boolean getCumulativeRewardEnabled(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
+	}
+
+	public String getCumulativeRewardsPath(int cumulative) {
+		return "Cumulative." + cumulative + ".Rewards";
+	}
+
+	@Deprecated
+	public boolean getCumulativeVotesInSameDay(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
+	}
+
+	@Deprecated
+	public boolean getCumulativeVotesInSameMonth(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
+	}
+
+	@Deprecated
+	public boolean getCumulativeVotesInSameWeek(int cumulative) {
+		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
+	}
+
+	public String getCumulativeVotesTotal(int cumulative) {
+		String str = getData().getString("Cumulative." + cumulative + ".TotalToUse", "");
+		if (str.isEmpty()) {
+			if (getCumulativeVotesInSameMonth(cumulative)) {
+				return TopVoter.Monthly.toString();
+			}
+			if (getCumulativeVotesInSameWeek(cumulative)) {
+				return TopVoter.Weekly.toString();
+			} else if (getCumulativeVotesInSameDay(cumulative)) {
+				return TopVoter.Daily.toString();
+			}
+		}
+		return str;
+	}
+
+	public String getDailyAwardRewardsPath(String path) {
+		return "DailyAwards." + path + ".Rewards";
+	}
+
+	/**
+	 * Gets the milestone reward enabled.
+	 *
+	 * @param milestones the milestones
+	 * @return the milestone reward enabled
+	 */
+	public boolean getMilestoneRewardEnabled(int milestones) {
+		return getData().getBoolean("MileStones." + milestones + ".Enabled");
+	}
+
+	/**
+	 * Gets the milestone rewards.
+	 *
+	 * @param milestones the milestones
+	 * @return the milestone rewards
+	 */
+	public String getMilestoneRewardsPath(int milestones) {
+		return "MileStones." + milestones + ".Rewards";
+	}
+
+	public String getMonthlyAwardRewardsPath(String path) {
+		return "MonthlyAwards." + path + ".Rewards";
+	}
+
+	/**
+	 * Gets the monthly possible reward places.
+	 *
+	 * @return the monthly possible reward places
+	 */
+	public Set<String> getMonthlyPossibleRewardPlaces() {
+		try {
+			return getData().getConfigurationSection("MonthlyAwards").getKeys(false);
+		} catch (Exception ex) {
+			return new HashSet<>();
+		}
+	}
+
+	public int getVotePartyIncreaseVotesRequiredWithTypo() {
+		int increase = getVotePartyIncreaseVotesRequired();
+		if (increase > 0) {
+			return increase;
+		}
+		return getVotePartyIncreaseVotesRquired();
+	}
 
 	public boolean getVoteStreakRewardEnabled(String type, String s) {
 		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
@@ -292,19 +297,15 @@ public class SpecialRewardsConfig extends YMLFile {
 			if (set != null) {
 				return set;
 			}
-			return new HashSet<String>();
+			return new HashSet<>();
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
 	public String getWeeklyAwardRewardsPath(String path) {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
-
-	@ConfigDataKeys(path = "WeeklyAwards")
-	@Getter
-	private Set<String> weeklyPossibleRewardPlaces = new HashSet<String>();
 
 	@Override
 	public void loadValues() {

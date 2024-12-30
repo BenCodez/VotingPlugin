@@ -16,9 +16,8 @@ public class VotingPluginMetrics {
 				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 					return "True";
-				} else {
-					return "False";
 				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_everysite", new Callable<String>() {
@@ -28,9 +27,8 @@ public class VotingPluginMetrics {
 				if (plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 						plugin.getConfigVoteSites().getEverySiteRewardPath())) {
 					return "True";
-				} else {
-					return "False";
 				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_allsites", new Callable<String>() {
@@ -40,9 +38,8 @@ public class VotingPluginMetrics {
 				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getAllSitesRewardPath())) {
 					return "True";
-				} else {
-					return "False";
 				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_cumulative", new Callable<String>() {
@@ -51,14 +48,13 @@ public class VotingPluginMetrics {
 			public String call() throws Exception {
 				if (plugin.getSpecialRewardsConfig().getCumulativeVotes().size() == 0) {
 					return "False";
-				} else {
-					for (String cum : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
-						if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
-							return "True";
-						}
-					}
-					return "False";
 				}
+				for (String cum : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
+					if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
+						return "True";
+					}
+				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_voteparty", new Callable<String>() {
@@ -67,9 +63,8 @@ public class VotingPluginMetrics {
 			public String call() throws Exception {
 				if (!plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 					return "False";
-				} else {
-					return "True";
 				}
+				return "True";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("placeholder_cache_level", new Callable<String>() {
@@ -85,14 +80,13 @@ public class VotingPluginMetrics {
 			public String call() throws Exception {
 				if (plugin.getSpecialRewardsConfig().getMilestoneVotes().size() == 0) {
 					return "False";
-				} else {
-					for (String milestone : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
-						if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
-							return "True";
-						}
-					}
-					return "False";
 				}
+				for (String milestone : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
+					if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
+						return "True";
+					}
+				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward", new Callable<String>() {
@@ -102,9 +96,8 @@ public class VotingPluginMetrics {
 				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						plugin.getSpecialRewardsConfig().getAnySiteRewardsPath())) {
 					return "True";
-				} else {
-					return "False";
 				}
+				return "False";
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakday", new Callable<String>() {
@@ -186,7 +179,8 @@ public class VotingPluginMetrics {
 				int total = plugin.getUserManager().getAllUUIDs().size();
 				if (total > 800000) {
 					return ">800000";
-				} else if (total > 700000) {
+				}
+				if (total > 700000) {
 					return "700000-800000";
 				} else if (total > 600000) {
 					return "600000-700000";
@@ -255,9 +249,8 @@ public class VotingPluginMetrics {
 			public String call() throws Exception {
 				if (plugin.getBungeeSettings().isUseBungeecoord()) {
 					return "" + plugin.getBungeeHandler().getMethod().toString();
-				} else {
-					return "Disabled";
 				}
+				return "Disabled";
 			}
 		}));
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {

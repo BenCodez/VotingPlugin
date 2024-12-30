@@ -132,7 +132,7 @@ public class VoteSite {
 
 			} else {
 				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatBroadCastMsg());
-				HashMap<String, String> placeholders = new HashMap<String, String>();
+				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", playerName);
 				placeholders.put("nickname",
 						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
@@ -142,7 +142,7 @@ public class VoteSite {
 				placeholders.put("neededvotes", "" + plugin.getVoteParty().getNeededVotes());
 				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
 				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
-				ArrayList<Player> players = new ArrayList<Player>();
+				ArrayList<Player> players = new ArrayList<>();
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
 						players.add(p);
@@ -164,9 +164,8 @@ public class VoteSite {
 			plugin.getLogger().warning("Invalid display item section in site: " + key);
 			return new ItemBuilder(Material.STONE, 1).setName("&cInvalid display item for site: " + key)
 					.setLore("&cInvalid display item for site: " + key);
-		} else {
-			return new ItemBuilder(item);
 		}
+		return new ItemBuilder(item);
 	}
 
 	public ConfigurationSection getSiteData() {
@@ -180,12 +179,11 @@ public class VoteSite {
 	public String getVoteURL(boolean json) {
 		if (!plugin.getConfigFile().isFormatCommandsVoteForceLinks() || !json || MessageAPI.containsJson(voteURL)) {
 			return voteURL;
-		} else {
-			if (!voteURL.startsWith("http")) {
-				return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
-			}
-			return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
 		}
+		if (!voteURL.startsWith("http")) {
+			return "[Text=\"" + voteURL + "\",url=\"http://" + voteURL + "\"]";
+		}
+		return "[Text=\"" + voteURL + "\",url=\"" + voteURL + "\"]";
 	}
 
 	public String getVoteURLJsonStrip() {

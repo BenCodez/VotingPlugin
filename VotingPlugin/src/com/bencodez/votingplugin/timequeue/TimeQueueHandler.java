@@ -19,7 +19,7 @@ import lombok.Getter;
 
 public class TimeQueueHandler implements Listener {
 	@Getter
-	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<VoteTimeQueue>();
+	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
 	private VotingPluginMain plugin;
 
@@ -28,36 +28,9 @@ public class TimeQueueHandler implements Listener {
 		load();
 	}
 
-	public void processQueue() {
-		while (getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getTimeChangeQueue().remove();
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-					plugin.getVoteSite(plugin.getVoteSiteName(true, vote.getService()), true), vote.getName(),
-					vote.getService(), true);
-			voteEvent.setTime(voteEvent.getTime());
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-			if (voteEvent.isCancelled()) {
-				plugin.debug("Vote cancelled");
-				return;
-			}
-		}
-	}
-
 	public void addVote(String voteUsername, String voteSiteName) {
 		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
-	}
-
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-	public void postTimeChange(DateChangedEvent event) {
-		plugin.getVoteTimer().schedule(new Runnable() {
-
-			@Override
-			public void run() {
-				processQueue();
-			}
-		}, 5, TimeUnit.SECONDS);
 	}
 
 	public void load() {
@@ -74,6 +47,33 @@ public class TimeQueueHandler implements Listener {
 				processQueue();
 			}
 		}, 120, TimeUnit.SECONDS);
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void postTimeChange(DateChangedEvent event) {
+		plugin.getVoteTimer().schedule(new Runnable() {
+
+			@Override
+			public void run() {
+				processQueue();
+			}
+		}, 5, TimeUnit.SECONDS);
+	}
+
+	public void processQueue() {
+		while (getTimeChangeQueue().size() > 0) {
+			VoteTimeQueue vote = getTimeChangeQueue().remove();
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+					plugin.getVoteSite(plugin.getVoteSiteName(true, vote.getService()), true), vote.getName(),
+					vote.getService(), true);
+			voteEvent.setTime(voteEvent.getTime());
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+			if (voteEvent.isCancelled()) {
+				plugin.debug("Vote cancelled");
+				return;
+			}
+		}
 	}
 
 	public void save() {

@@ -14,11 +14,6 @@ public class MultiProxyServerSocketConfigurationBungee implements MultiProxyServ
 	}
 
 	@Override
-	public String getServerName() {
-		return server;
-	}
-
-	@Override
 	public String getHost() {
 		return host;
 	}
@@ -26,6 +21,11 @@ public class MultiProxyServerSocketConfigurationBungee implements MultiProxyServ
 	@Override
 	public int getPort() {
 		return port;
+	}
+
+	@Override
+	public String getServerName() {
+		return server;
 	}
 
 }

@@ -78,29 +78,6 @@ public class BungeeHandler implements Listener {
 		this.plugin = plugin;
 	}
 
-	public void close() {
-		if (socketHandler != null) {
-			socketHandler.closeConnection();
-		}
-		if (clientHandler != null) {
-			clientHandler.stopConnection();
-		}
-		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-		if (globalDataHandler != null) {
-			globalDataHandler.getGlobalMysql().close();
-		}
-	}
-
-	/*
-	 * @EventHandler public void onDateChange(DateChangedEvent event) { if
-	 * (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-	 * plugin.getPluginMessaging().sendPluginMessage("timeupdate",
-	 * plugin.getServerDataFile().getPrevMonth() + "//" +
-	 * plugin.getServerDataFile().getPrevDay() + "//" +
-	 * plugin.getServerDataFile().getPrevWeekDay()); } }
-	 */
-
 	public void checkGlobalData() {
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
 		// plugin.debug(data.toString());
@@ -131,19 +108,21 @@ public class BungeeHandler implements Listener {
 		}
 
 		if (forceUpdate) {
-			HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+			HashMap<String, DataValue> dataToSet = new HashMap<>();
 			dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
 			dataToSet.put("Processing", new DataValueBoolean(false));
 			globalDataHandler.setData(plugin.getBungeeSettings().getServer(), dataToSet);
 		}
 	}
 
-	public boolean checkGlobalDataTimeValue(DataValue data) {
-		if (data.isBoolean()) {
-			return data.getBoolean();
-		}
-		return Boolean.valueOf(data.getString());
-	}
+	/*
+	 * @EventHandler public void onDateChange(DateChangedEvent event) { if
+	 * (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+	 * plugin.getPluginMessaging().sendPluginMessage("timeupdate",
+	 * plugin.getServerDataFile().getPrevMonth() + "//" +
+	 * plugin.getServerDataFile().getPrevDay() + "//" +
+	 * plugin.getServerDataFile().getPrevWeekDay()); } }
+	 */
 
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
 		boolean isProcessing = false;
@@ -174,106 +153,24 @@ public class BungeeHandler implements Listener {
 		return isProcessing;
 	}
 
-	public void loadGlobalMysql() {
-		if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
-			if (timer != null) {
-				timer.shutdown();
-				try {
-					timer.awaitTermination(5, TimeUnit.SECONDS);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				timer.shutdownNow();
-			}
-			timer = Executors.newScheduledThreadPool(1);
-			timer.scheduleWithFixedDelay(new Runnable() {
+	public boolean checkGlobalDataTimeValue(DataValue data) {
+		if (data.isBoolean()) {
+			return data.getBoolean();
+		}
+		return Boolean.valueOf(data.getString());
+	}
 
-				@Override
-				public void run() {
-					checkGlobalData();
-				}
-			}, 60, 10, TimeUnit.SECONDS);
-			timer.scheduleWithFixedDelay(new Runnable() {
-
-				@Override
-				public void run() {
-					globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
-							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
-				}
-			}, 1, 60, TimeUnit.MINUTES);
-			if (globalDataHandler != null) {
-				globalDataHandler.getGlobalMysql().close();
-			}
-			if (plugin.getBungeeSettings().isGloblalDataUseMainMySQL()
-					&& plugin.getStorageType().equals(UserStorage.MYSQL)) {
-				globalDataHandler = new GlobalDataHandler(
-						new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
-
-							@Override
-							public void warning(String text) {
-								plugin.getLogger().warning(text);
-							}
-
-							@Override
-							public void severe(String text) {
-								plugin.getLogger().severe(text);
-							}
-
-							@Override
-							public void debug(Exception e) {
-								plugin.debug(e);
-							}
-
-							@Override
-							public void debug(String text) {
-								plugin.debug(text);
-							}
-
-							@Override
-							public void info(String text) {
-								plugin.getLogger().info(text);
-							}
-						});
-			} else {
-				globalDataHandler = new GlobalDataHandler(
-						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigSpigot(
-								plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
-
-							@Override
-							public void warning(String text) {
-								plugin.getLogger().warning(text);
-							}
-
-							@Override
-							public void severe(String text) {
-								plugin.getLogger().severe(text);
-							}
-
-							@Override
-							public void debug(Exception e) {
-								plugin.debug(e);
-							}
-
-							@Override
-							public void debug(String text) {
-								plugin.debug(text);
-							}
-
-							@Override
-							public void info(String text) {
-								plugin.getLogger().info(text);
-							}
-						});
-			}
-			globalDataHandler.getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
-			globalDataHandler.getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
-			globalDataHandler.getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
-			plugin.getTimeChecker().setProcessingEnabled(false);
+	public void close() {
+		if (socketHandler != null) {
+			socketHandler.closeConnection();
+		}
+		if (clientHandler != null) {
+			clientHandler.stopConnection();
+		}
+		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+		if (globalDataHandler != null) {
+			globalDataHandler.getGlobalMysql().close();
 		}
 	}
 
@@ -295,12 +192,12 @@ public class BungeeHandler implements Listener {
 				} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
-					ArrayList<String> list = new ArrayList<String>();
+					ArrayList<String> list = new ArrayList<>();
 					list.add(subChannel);
 					list.addAll(ArrayUtils.convert(messageData));
 					sendData(ArrayUtils.convert(list));
 				} else if (method.equals(BungeeMethod.REDIS)) {
-					ArrayList<String> list = new ArrayList<String>();
+					ArrayList<String> list = new ArrayList<>();
 					list.add(subChannel);
 					list.addAll(ArrayUtils.convert(messageData));
 					redisHandler.sendMessage(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
@@ -615,21 +512,21 @@ public class BungeeHandler implements Listener {
 					plugin.getBungeeSettings().getRedisPassword()) {
 
 				@Override
-				protected void onMessage(String channel, String[] message) {
-					plugin.getLogger().info(channel + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
-					if (message.length > 0) {
-						ArrayList<String> list = new ArrayList<String>();
-						for (int i = 1; i < message.length; i++) {
-							list.add(message[i]);
-						}
-						globalMessageHandler.onMessage(message[0], list);
+				public void debug(String message) {
+					if (plugin.getBungeeSettings().isBungeeDebug()) {
+						plugin.debug(message);
 					}
 				}
 
 				@Override
-				public void debug(String message) {
-					if (plugin.getBungeeSettings().isBungeeDebug()) {
-						plugin.debug(message);
+				protected void onMessage(String channel, String[] message) {
+					plugin.getLogger().info(channel + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
+					if (message.length > 0) {
+						ArrayList<String> list = new ArrayList<>();
+						for (int i = 1; i < message.length; i++) {
+							list.add(message[i]);
+						}
+						globalMessageHandler.onMessage(message[0], list);
 					}
 				}
 			};
@@ -893,6 +790,109 @@ public class BungeeHandler implements Listener {
 
 		}
 
+	}
+
+	public void loadGlobalMysql() {
+		if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
+			if (timer != null) {
+				timer.shutdown();
+				try {
+					timer.awaitTermination(5, TimeUnit.SECONDS);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				timer.shutdownNow();
+			}
+			timer = Executors.newScheduledThreadPool(1);
+			timer.scheduleWithFixedDelay(new Runnable() {
+
+				@Override
+				public void run() {
+					checkGlobalData();
+				}
+			}, 60, 10, TimeUnit.SECONDS);
+			timer.scheduleWithFixedDelay(new Runnable() {
+
+				@Override
+				public void run() {
+					globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
+							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+				}
+			}, 1, 60, TimeUnit.MINUTES);
+			if (globalDataHandler != null) {
+				globalDataHandler.getGlobalMysql().close();
+			}
+			if (plugin.getBungeeSettings().isGloblalDataUseMainMySQL()
+					&& plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
+
+							@Override
+							public void debug(Exception e) {
+								plugin.debug(e);
+							}
+
+							@Override
+							public void debug(String text) {
+								plugin.debug(text);
+							}
+
+							@Override
+							public void info(String text) {
+								plugin.getLogger().info(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								plugin.getLogger().severe(text);
+							}
+
+							@Override
+							public void warning(String text) {
+								plugin.getLogger().warning(text);
+							}
+						});
+			} else {
+				globalDataHandler = new GlobalDataHandler(
+						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigSpigot(
+								plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
+
+							@Override
+							public void debug(Exception e) {
+								plugin.debug(e);
+							}
+
+							@Override
+							public void debug(String text) {
+								plugin.debug(text);
+							}
+
+							@Override
+							public void info(String text) {
+								plugin.getLogger().info(text);
+							}
+
+							@Override
+							public void severe(String text) {
+								plugin.getLogger().severe(text);
+							}
+
+							@Override
+							public void warning(String text) {
+								plugin.getLogger().warning(text);
+							}
+						});
+			}
+			globalDataHandler.getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
+			globalDataHandler.getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
+			globalDataHandler.getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
+			plugin.getTimeChecker().setProcessingEnabled(false);
+		}
 	}
 
 	public void sendData(String... strings) {

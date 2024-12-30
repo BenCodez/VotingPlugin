@@ -121,15 +121,15 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "DisabledCommands")
 	@Getter
-	private ArrayList<String> disabledCommands = new ArrayList<String>();
+	private ArrayList<String> disabledCommands = new ArrayList<>();
 
 	@ConfigDataListString(path = "DisabledDefaultPermissions")
 	@Getter
-	private ArrayList<String> disabledDefaultPermissions = new ArrayList<String>();
+	private ArrayList<String> disabledDefaultPermissions = new ArrayList<>();
 
 	@ConfigDataListString(path = "CachedPlaceholders")
 	@Getter
-	private ArrayList<String> cachedPlaceholders = new ArrayList<String>();
+	private ArrayList<String> cachedPlaceholders = new ArrayList<>();
 
 	@ConfigDataBoolean(path = "DisableInteractEvent")
 	@Getter
@@ -337,45 +337,15 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "VotingBroadcastBlacklist")
 	@Getter
-	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<String>();
-
-	public Config(VotingPluginMain plugin) {
-		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
-	}
-
-	/**
-	 * Gets the black list.
-	 *
-	 * @return the black list
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getBlackList() {
-		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<String>());
-	}
+	private ArrayList<String> votingBroadcastBlacklist = new ArrayList<>();
 
 	@ConfigDataKeys(path = "CustomCommands")
 	@Getter
-	private Set<String> customCommands = new HashSet<String>();
+	private Set<String> customCommands = new HashSet<>();
 
 	@ConfigDataKeys(path = "CustomPlaceholderReturns")
 	@Getter
-	private Set<String> customPlaceholderReturns = new HashSet<String>();
-
-	public Set<String> getCustomPlaceholderReturns(String placeholder) {
-		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns." + placeholder).getKeys(false);
-		if (str == null) {
-			str = new HashSet<String>();
-		}
-		return str;
-	}
-
-	public String getCustomPlaceholderReturns(String placeholder, String returnString) {
-		return getData().getString("CustomPlaceholderReturns." + placeholder + "." + returnString, "");
-	}
-
-	public ConfigurationSection getCustomCommands(String ident) {
-		return getData().getConfigurationSection("CustomCommands." + ident);
-	}
+	private Set<String> customPlaceholderReturns = new HashSet<>();
 
 	@ConfigDataString(path = "Format.BroadcastMsg")
 	@Getter
@@ -395,7 +365,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "Format.Commands.Vote.Best.Lines")
 	@Getter
-	private ArrayList<String> formatCommandsVoteBestLines = new ArrayList<String>();
+	private ArrayList<String> formatCommandsVoteBestLines = new ArrayList<>();
 
 	@ConfigDataString(path = "Format.Commands.Vote.Best.Title")
 	@Getter
@@ -441,10 +411,6 @@ public class Config extends YMLFile {
 	@Getter
 	private String placeholderCacheLevelString = "AUTO";
 
-	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
-		return PlaceholderCacheLevel.getCache(getPlaceholderCacheLevelString());
-	}
-
 	@ConfigDataString(path = "Format.Commands.Vote.Next.Layout")
 	@Getter
 	private String formatCommandsVoteNextLayout = "&3%SiteName%: &6%info%";
@@ -453,68 +419,9 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteNextTitle = "&3&l%player% Next Votes:";
 
-	/**
-	 * Gets the commands vote party.
-	 *
-	 * @return the commands vote party
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteParty() {
-		ArrayList<String> msg = new ArrayList<String>();
-		msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Party", msg);
-
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteStreakLines() {
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<String>());
-	}
-
 	@ConfigDataString(path = "Format.Commands.Vote.Streak.Title")
 	@Getter
 	private String formatCommandsVoteStreakTitle = "&3&l%player% Vote Streak";
-
-	/**
-	 * Gets the commands vote text.
-	 *
-	 * @return the commands vote text
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteText() {
-		ArrayList<String> str = new ArrayList<String>();
-		str.add("&4&lVote for our server!");
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteTotal() {
-		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",
-				new ArrayList<String>());
-		if (list.isEmpty()) {
-			list.add("&3&l%player% Total Votes:");
-			list.add("&3&lDaily Total: &6&l%DailyTotal%");
-			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
-			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
-			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
-		}
-		return list;
-	}
-
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatCommandsVoteTotalAll() {
-
-		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.TotalAll",
-				new ArrayList<String>());
-		if (list.isEmpty()) {
-			list.add("&3&lServer Total Votes:");
-			list.add("&3&lDaily Total: &6&l%DailyTotal%");
-			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
-			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
-			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
-		}
-		return list;
-	}
 
 	@ConfigDataString(path = "Format.Commands.Vote.Sites")
 	@Getter
@@ -567,9 +474,11 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line2")
 	@Getter
 	private String formatSignTopVoterSignLine2 = "#%position%";
+
 	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line3")
 	@Getter
 	private String formatSignTopVoterSignLine3 = "%player%";
+
 	@ConfigDataString(path = "Format.Signs.TopVoterSign.Line4")
 	@Getter
 	private String formatSignTopVoterSignLine4 = "%votes% Votes";
@@ -609,39 +518,12 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "Format.InvalidCommand.Vote")
 	@Getter
 	private String formatInvalidCommandVote = "&4No valid arguments, see /vote help!";
-
 	@ConfigDataString(path = "Format.InvalidCommand.AdminVote")
 	@Getter
 	private String formatInvalidCommandAdminVote = "&4No valid arguments, see /adminvote help!";
-
-	/**
-	 * Gets the vote help.
-	 *
-	 * @return the vote help
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getFormatVoteHelp() {
-		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<String>());
-	}
-
 	@ConfigDataBoolean(path = "GiveDefaultPermission")
 	@Getter
 	private boolean giveDefaultPermission = true;
-
-	public boolean getLoadTopVoter(TopVoter top) {
-		switch (top) {
-		case AllTime:
-			return isLoadTopVoterAllTime();
-		case Daily:
-			return isLoadTopVoterDaily();
-		case Monthly:
-			return isLoadTopVoterMonthly();
-		case Weekly:
-			return isLoadTopVoterWeekly();
-		default:
-			return false;
-		}
-	}
 
 	@ConfigDataBoolean(path = "LoadTopVoter.AllTime")
 	@Getter
@@ -681,7 +563,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataListString(path = "RequestAPI.DisabledMethods")
 	@Getter
-	private ArrayList<String> requestAPIDisabledMethods = new ArrayList<String>();
+	private ArrayList<String> requestAPIDisabledMethods = new ArrayList<>();
 
 	@ConfigDataBoolean(path = "StoreTopVoters.Daily")
 	@Getter
@@ -715,6 +597,128 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean voteRemindingRemindOnlyOnce = false;
 
+	@ConfigDataString(path = "VoteTopDefault")
+	@Getter
+	private String voteTopDefault = "Monthly";
+
+	public Config(VotingPluginMain plugin) {
+		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
+	}
+
+	/**
+	 * Gets the black list.
+	 *
+	 * @return the black list
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getBlackList() {
+		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<>());
+	}
+
+	public ConfigurationSection getCustomCommands(String ident) {
+		return getData().getConfigurationSection("CustomCommands." + ident);
+	}
+
+	public Set<String> getCustomPlaceholderReturns(String placeholder) {
+		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns." + placeholder).getKeys(false);
+		if (str == null) {
+			str = new HashSet<>();
+		}
+		return str;
+	}
+
+	public String getCustomPlaceholderReturns(String placeholder, String returnString) {
+		return getData().getString("CustomPlaceholderReturns." + placeholder + "." + returnString, "");
+	}
+
+	/**
+	 * Gets the commands vote party.
+	 *
+	 * @return the commands vote party
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteParty() {
+		ArrayList<String> msg = new ArrayList<>();
+		msg.add("&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%");
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Party", msg);
+
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteStreakLines() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<>());
+	}
+
+	/**
+	 * Gets the commands vote text.
+	 *
+	 * @return the commands vote text
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteText() {
+		ArrayList<String> str = new ArrayList<>();
+		str.add("&4&lVote for our server!");
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteTotal() {
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",
+				new ArrayList<>());
+		if (list.isEmpty()) {
+			list.add("&3&l%player% Total Votes:");
+			list.add("&3&lDaily Total: &6&l%DailyTotal%");
+			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
+			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
+			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
+		}
+		return list;
+	}
+
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatCommandsVoteTotalAll() {
+
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.TotalAll",
+				new ArrayList<>());
+		if (list.isEmpty()) {
+			list.add("&3&lServer Total Votes:");
+			list.add("&3&lDaily Total: &6&l%DailyTotal%");
+			list.add("&3&lWeekly Total: &6&l%WeeklyTotal%");
+			list.add("&3&lMonthly Total: &6&l%MonthlyTotal%");
+			list.add("&3&lAllTime Total: &6&l%AllTimeTotal%");
+		}
+		return list;
+	}
+
+	/**
+	 * Gets the vote help.
+	 *
+	 * @return the vote help
+	 */
+	@SuppressWarnings("unchecked")
+	public ArrayList<String> getFormatVoteHelp() {
+		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<>());
+	}
+
+	public boolean getLoadTopVoter(TopVoter top) {
+		switch (top) {
+		case AllTime:
+			return isLoadTopVoterAllTime();
+		case Daily:
+			return isLoadTopVoterDaily();
+		case Monthly:
+			return isLoadTopVoterMonthly();
+		case Weekly:
+			return isLoadTopVoterWeekly();
+		default:
+			return false;
+		}
+	}
+
+	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
+		return PlaceholderCacheLevel.getCache(getPlaceholderCacheLevelString());
+	}
+
 	/**
 	 * Gets the rewards.
 	 *
@@ -723,10 +727,6 @@ public class Config extends YMLFile {
 	public String getVoteRemindingRewardsPath() {
 		return "VoteReminding.Rewards";
 	}
-
-	@ConfigDataString(path = "VoteTopDefault")
-	@Getter
-	private String voteTopDefault = "Monthly";
 
 	@Override
 	public void loadValues() {

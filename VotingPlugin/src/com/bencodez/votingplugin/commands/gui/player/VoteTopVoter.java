@@ -56,7 +56,7 @@ public class VoteTopVoter extends GUIHandler {
 		default:
 			break;
 		}
-		return new ArrayList<String>();
+		return new ArrayList<>();
 	}
 
 	@Override
@@ -85,7 +85,7 @@ public class VoteTopVoter extends GUIHandler {
 
 			ConfigurationSection customization = plugin.getGui().getChestVoteTopCustomization();
 			boolean customzationEnabled = false;
-			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<Integer>();
+			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<>();
 			if (customization != null) {
 				customzationEnabled = customization.getBoolean("Enabled");
 				List<Integer> customizationPlayerSlots = customization.getIntegerList("PlayerSlots");
@@ -109,7 +109,7 @@ public class VoteTopVoter extends GUIHandler {
 					playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 				}
 
-				playerItem.setLore(new ArrayList<String>());
+				playerItem.setLore(new ArrayList<>());
 
 				BInventoryButton button = new BInventoryButton(playerItem
 						.setName(plugin.getGui().getChestVoteTopItemName())

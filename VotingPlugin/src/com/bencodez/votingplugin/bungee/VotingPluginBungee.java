@@ -79,9 +79,9 @@ import net.md_5.bungee.event.EventHandler;
 
 public class VotingPluginBungee extends Plugin implements Listener {
 
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<>();
 
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>>();
+	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 
@@ -104,7 +104,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private boolean votifierEnabled = true;
 
-	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<UUID, String>();
+	private ConcurrentHashMap<UUID, String> uuidPlayerNameCache = new ConcurrentHashMap<>();
 
 	@Getter
 	private BungeeTimeChecker bungeeTimeChecker;
@@ -117,12 +117,43 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	@Getter
 	private RedisHandler redisHandler;
 
+	@Getter
+	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
+
+	private String buildNumber = "NOTSET";
+
+	private VoteEventBungee voteEventBungee;
+
+	@Getter
+	private MultiProxyHandler multiProxyHandler;
+
+	@Getter
+	private int votePartyVotes = 0;
+
+	@Getter
+	@Setter
+	private int currentVotePartyVotesRequired = 0;
+
+	public void addCurrentVotePartyVotes(int amount) {
+		votePartyVotes += amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
+
+	public void addVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
+			addCurrentVotePartyVotes(1);
+
+			checkVoteParty();
+		}
+	}
+
 	public synchronized void checkCachedVotes(String server) {
 		if (getProxy().getServerInfo(server) != null) {
 			if (!getProxy().getServerInfo(server).getPlayers().isEmpty()) {
 				if (cachedVotes.containsKey(server) && !config.getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
-					ArrayList<OfflineBungeeVote> newSet = new ArrayList<OfflineBungeeVote>();
+					ArrayList<OfflineBungeeVote> newSet = new ArrayList<>();
 					if (!c.isEmpty()) {
 						int num = 1;
 						int numberOfVotes = c.size();
@@ -178,7 +209,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								"" + numberOfVotes);
 						num++;
 					}
-					cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+					cachedOnlineVotes.put(uuid, new ArrayList<>());
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player.getName(), uuid);
 					}
@@ -205,6 +236,44 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					votes.remove(i);
 				}
 			}
+		}
+	}
+
+	public void checkVoteParty() {
+		if (getConfig().getVotePartyEnabled()) {
+			if (votePartyVotes >= currentVotePartyVotesRequired) {
+				debug("Vote party reached");
+				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
+
+				currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
+				voteCacheFile.setVotePartyInreaseVotesRequired(voteCacheFile.getVotePartyInreaseVotesRequired()
+						+ getConfig().getVotePartyIncreaseVotesRequired());
+
+				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
+					getProxy().broadcast(new TextComponent(
+							ChatColor.translateAlternateColorCodes('&', getConfig().getVotePartyBroadcast())));
+				}
+
+				for (String command : getConfig().getVotePartyBungeeCommands()) {
+					getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command);
+				}
+
+				if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+					if (getConfig().getVotePartySendToAllServers()) {
+						for (Entry<String, ServerInfo> entry : getProxy().getServers().entrySet()) {
+							sendVoteParty(entry.getKey(), entry.getValue());
+						}
+					} else {
+						for (String server : getConfig().getVotePartyServersToSend()) {
+							ServerInfo serverInfo = getProxy().getServerInfo(server);
+							if (serverInfo != null) {
+								sendVoteParty(server, serverInfo);
+							}
+						}
+					}
+				}
+			}
+			voteCacheFile.save();
 		}
 	}
 
@@ -244,6 +313,30 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return parseUUIDFromString(uuidAsString);
 	}
 
+	public Set<String> getAvailableAllServers() {
+		Set<String> servers = new HashSet<>();
+		if (config.getWhiteListedServers().isEmpty()) {
+			for (String s : getProxy().getServers().keySet()) {
+				if (!config.getBlockedServers().contains(s)) {
+					servers.add(s);
+				}
+			}
+		} else {
+			servers.addAll(config.getWhiteListedServers());
+		}
+
+		return servers;
+	}
+
+	public String getMonthTotalsWithDatePath() {
+		LocalDateTime cTime = bungeeTimeChecker.getTime();
+		return getMonthTotalsWithDatePath(cTime);
+	}
+
+	public String getMonthTotalsWithDatePath(LocalDateTime cTime) {
+		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
+	}
+
 	public String getProperName(String uuid, String currentName) {
 		ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(uuid));
 		if (p != null && p.isConnected()) {
@@ -253,33 +346,31 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	public String getUUID(String playerName) {
-		if (config.getOnlineMode()) {
-
-			ProxiedPlayer p = getProxy().getPlayer(playerName);
-			if (p != null && p.isConnected()) {
-				return p.getUniqueId().toString();
-			}
-
-			for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
-				if (entry.getValue().equalsIgnoreCase(playerName)) {
-					return entry.getKey().toString();
-				}
-			}
-
-			if (mysql != null) {
-				String str = mysql.getUUID(playerName);
-				if (str != null) {
-					return str;
-				}
-			}
-			if (nonVotedPlayersCache != null) {
-				return nonVotedPlayersCache.playerExists(playerName);
-			}
-
-			return "";
-		} else {
+		if (!config.getOnlineMode()) {
 			return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8)).toString();
 		}
+		ProxiedPlayer p = getProxy().getPlayer(playerName);
+		if (p != null && p.isConnected()) {
+			return p.getUniqueId().toString();
+		}
+
+		for (Entry<UUID, String> entry : uuidPlayerNameCache.entrySet()) {
+			if (entry.getValue().equalsIgnoreCase(playerName)) {
+				return entry.getKey().toString();
+			}
+		}
+
+		if (mysql != null) {
+			String str = mysql.getUUID(playerName);
+			if (str != null) {
+				return str;
+			}
+		}
+		if (nonVotedPlayersCache != null) {
+			return nonVotedPlayersCache.playerExists(playerName);
+		}
+
+		return "";
 
 	}
 
@@ -303,14 +394,178 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return toAdd;
 	}
 
-	@Getter
-	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<VoteTimeQueue>();
+	private Configuration getVersionFile() {
+		try {
+			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
+			if (src != null) {
+				URL jar = src.getLocation();
+				ZipInputStream zip = null;
+				zip = new ZipInputStream(jar.openStream());
+				while (true) {
+					ZipEntry e = zip.getNextEntry();
+					if (e != null) {
+						String name = e.getName();
+						if (name.equals("votingpluginversion.yml")) {
+							Reader defConfigStream = new InputStreamReader(zip);
+							if (defConfigStream != null) {
+								Configuration conf = ConfigurationProvider
+										.getProvider(net.md_5.bungee.config.YamlConfiguration.class)
+										.load(defConfigStream);
 
-	public void processQueue() {
-		while (getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getTimeChangeQueue().remove();
-			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
+								defConfigStream.close();
+								return conf;
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		return null;
+	}
+
+	public boolean isOnline(ProxiedPlayer p) {
+		if (p != null) {
+			return p.isConnected();
+		}
+
+		return false;
+	}
+
+	private void loadMultiProxySupport() {
+		if (multiProxyHandler != null) {
+			multiProxyHandler.close();
+		}
+		multiProxyHandler = new MultiProxyHandler() {
+
+			@Override
+			public void addNonVotedPlayerCache(String uuid, String player) {
+				nonVotedPlayersCache.addPlayer(uuid, player);
+			}
+
+			@Override
+			public void clearVote(String string) {
+				cachedOnlineVotes.remove(string);
+			}
+
+			@Override
+			public boolean getDebug() {
+				return config.getDebug();
+			}
+
+			@Override
+			public EncryptionHandler getEncryptionHandler() {
+				return encryptionHandler;
+			}
+
+			@Override
+			public MultiProxyMethod getMultiProxyMethod() {
+				return MultiProxyMethod.getByName(config.getMultiProxyMethod());
+			}
+
+			@Override
+			public String getMultiProxyPassword() {
+				return config.getMultiProxyRedisPassword();
+			}
+
+			@Override
+			public String getMultiProxyRedisHost() {
+				return config.getMultiProxyRedisHost();
+			}
+
+			@Override
+			public int getMultiProxyRedisPort() {
+				return config.getMultiProxyRedisPort();
+			}
+
+			@Override
+			public boolean getMultiProxyRedisUseExistingConnection() {
+				return config.getMultiProxyRedisUseExistingConnection();
+			}
+
+			@Override
+			public String getMultiProxyServerName() {
+				return config.getProxyServerName();
+			}
+
+			@Override
+			public Collection<String> getMultiProxyServers() {
+				return config.getMultiProxyServers();
+			}
+
+			@Override
+			public MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
+				return new MultiProxyServerSocketConfigurationBungee(s, config.getMultiProxyServersConfiguration(s));
+			}
+
+			@Override
+			public String getMultiProxySocketHostHost() {
+				return config.getMultiProxySocketHostHost();
+			}
+
+			@Override
+			public int getMultiProxySocketHostPort() {
+				return config.getMultiProxySocketHostPort();
+			}
+
+			@Override
+			public boolean getMultiProxySupportEnabled() {
+				return config.getMultiProxySupport();
+			}
+
+			@Override
+			public String getMultiProxyUsername() {
+				return config.getMultiProxyRedisUsername();
+			}
+
+			@Override
+			public File getPluginDataFolder() {
+				return getDataFolder();
+			}
+
+			@Override
+			public boolean getPrimaryServer() {
+				return config.getPrimaryServer();
+			}
+
+			@Override
+			public List<String> getProxyServers() {
+				return config.getProxyServers();
+			}
+
+			@Override
+			public RedisHandler getRedisHandler() {
+				return redisHandler;
+			}
+
+			@Override
+			public String getVersion() {
+				return getDescription().getVersion();
+			}
+
+			@Override
+			public void logInfo(String msg) {
+				getLogger().info(msg);
+			}
+
+			@Override
+			public void runAsnc(Runnable runnable) {
+				runAsyncNow(runnable);
+			}
+
+			@Override
+			public void setEncryptionHandler(EncryptionHandler encryptionHandler1) {
+				encryptionHandler = encryptionHandler1;
+			}
+
+			@Override
+			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+					BungeeMessageData text, String uuid) {
+				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
+			}
+		};
+		multiProxyHandler.loadMultiProxySupport();
 	}
 
 	private void loadMysql() {
@@ -324,7 +579,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 		};
 
-		ArrayList<String> servers = new ArrayList<String>();
+		ArrayList<String> servers = new ArrayList<>();
 		for (String s : getAvailableAllServers()) {
 			servers.add(s);
 		}
@@ -333,16 +588,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			if (config.getGlobalDataUseMainMySQL()) {
 				globalDataHandler = new GlobalDataHandlerProxy(
 						new GlobalMySQL("VotingPlugin_GlobalData", getMysql().getMysql()) {
-
-							@Override
-							public void warning(String text) {
-								getLogger().warning(text);
-							}
-
-							@Override
-							public void severe(String text) {
-								getLogger().severe(text);
-							}
 
 							@Override
 							public void debug(Exception e) {
@@ -361,7 +606,24 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								getLogger().info(text);
 
 							}
+
+							@Override
+							public void severe(String text) {
+								getLogger().severe(text);
+							}
+
+							@Override
+							public void warning(String text) {
+								getLogger().warning(text);
+							}
 						}, servers) {
+
+					@Override
+					public void onTimeChangedFailed(String server, TimeType type) {
+						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
+						getGlobalDataHandler().setBoolean(server, "Processing", false);
+					}
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
@@ -385,27 +647,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						processQueue();
 
 					}
-
-					@Override
-					public void onTimeChangedFailed(String server, TimeType type) {
-						getGlobalDataHandler().setBoolean(server, type.toString(), false);
-						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
-						getGlobalDataHandler().setBoolean(server, "Processing", false);
-					}
 				};
 			} else {
 				globalDataHandler = new GlobalDataHandlerProxy(new GlobalMySQL("VotingPlugin_GlobalData",
 						new MysqlConfigBungee(config.getData().getSection("GlobalData"))) {
-
-					@Override
-					public void warning(String text) {
-						getLogger().warning(text);
-					}
-
-					@Override
-					public void severe(String text) {
-						getLogger().severe(text);
-					}
 
 					@Override
 					public void debug(Exception e) {
@@ -424,7 +669,24 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						getLogger().info(text);
 
 					}
+
+					@Override
+					public void severe(String text) {
+						getLogger().severe(text);
+					}
+
+					@Override
+					public void warning(String text) {
+						getLogger().warning(text);
+					}
 				}, servers) {
+
+					@Override
+					public void onTimeChangedFailed(String server, TimeType type) {
+						getGlobalDataHandler().setBoolean(server, type.toString(), false);
+						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
+						getGlobalDataHandler().setBoolean(server, "Processing", false);
+					}
 
 					@Override
 					public void onTimeChangedFinished(TimeType type) {
@@ -447,13 +709,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 						processQueue();
 
-					}
-
-					@Override
-					public void onTimeChangedFailed(String server, TimeType type) {
-						getGlobalDataHandler().setBoolean(server, type.toString(), false);
-						getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
-						getGlobalDataHandler().setBoolean(server, "Processing", false);
 					}
 				};
 			}
@@ -503,8 +758,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	private String buildNumber = "NOTSET";
-
 	public void loadVersionFile() {
 		Configuration conf = getVersionFile();
 		if (conf != null) {
@@ -512,35 +765,29 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	private Configuration getVersionFile() {
-		try {
-			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
-			if (src != null) {
-				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
-				while (true) {
-					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								Configuration conf = ConfigurationProvider
-										.getProvider(net.md_5.bungee.config.YamlConfiguration.class)
-										.load(defConfigStream);
+	public void login(ProxiedPlayer p) {
+		if (p != null && p.getServer() != null && p.getServer().getInfo() != null) {
+			final String server = p.getServer().getInfo().getName();
+			final ProxiedPlayer proxiedPlayer = p;
+			getProxy().getScheduler().schedule(this, new Runnable() {
 
-								defConfigStream.close();
-								return conf;
+				@Override
+				public void run() {
+					if (isOnline(p)) {
+						if (getConfig().getGlobalDataEnabled()) {
+							if (getGlobalDataHandler().isTimeChangedHappened()) {
+								getGlobalDataHandler().checkForFinishedTimeChanges();
 							}
 						}
+
+						checkCachedVotes(server);
+						checkOnlineVotes(proxiedPlayer, proxiedPlayer.getUniqueId().toString(), server);
+						multiProxyHandler.login(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
 					}
 				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+			}, 1, TimeUnit.SECONDS);
 		}
-		return null;
+
 	}
 
 	@Override
@@ -583,11 +830,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		getLogger().info("VotingPlugin disabled");
 		enabled = false;
 	}
-
-	private VoteEventBungee voteEventBungee;
-
-	@Getter
-	private MultiProxyHandler multiProxyHandler;
 
 	@Override
 	public void onEnable() {
@@ -634,8 +876,73 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				config.getData().getInt("TimeHourOffSet")) {
 
 			@Override
-			public void warning(String text) {
-				getLogger().warning(text);
+			public void debug(String text) {
+				debug2(text);
+			}
+
+			@Override
+			public long getLastUpdated() {
+				return voteCacheFile.getData().getLong("Time.LastUpdated");
+			}
+
+			@Override
+			public int getPrevDay() {
+				return voteCacheFile.getData().getInt("Time.Day");
+			}
+
+			@Override
+			public String getPrevMonth() {
+				return voteCacheFile.getData().getString("Time.Month");
+			}
+
+			@Override
+			public int getPrevWeek() {
+				return voteCacheFile.getData().getInt("Time.Week");
+			}
+
+			@Override
+			public void info(String text) {
+				getLogger().info(text);
+			}
+
+			@Override
+			public boolean isEnabled() {
+				return enabled;
+			}
+
+			@Override
+			public boolean isIgnoreTime() {
+				return voteCacheFile.getData().getBoolean("Time.IgnoreTime");
+			}
+
+			@Override
+			public void setIgnoreTime(boolean ignore) {
+				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setLastUpdated() {
+				voteCacheFile.getData().set("Time.LastUpdated", System.currentTimeMillis());
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevDay(int day) {
+				voteCacheFile.getData().set("Time.Day", day);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevMonth(String text) {
+				voteCacheFile.getData().set("Time.Month", text);
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void setPrevWeek(int week) {
+				voteCacheFile.getData().set("Time.Week", week);
+				voteCacheFile.save();
 			}
 
 			@Override
@@ -660,7 +967,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastOnline < 1000
 								* 60 * 60 * 12) {
 							// server has been online within the 12 hours
-							HashMap<String, DataValue> dataToSet = new HashMap<String, DataValue>();
+							HashMap<String, DataValue> dataToSet = new HashMap<>();
 							dataToSet.put("LastUpdated", new DataValueString(
 									"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
 							dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
@@ -683,73 +990,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public void setPrevWeek(int week) {
-				voteCacheFile.getData().set("Time.Week", week);
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void setPrevMonth(String text) {
-				voteCacheFile.getData().set("Time.Month", text);
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void setPrevDay(int day) {
-				voteCacheFile.getData().set("Time.Day", day);
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void setLastUpdated() {
-				voteCacheFile.getData().set("Time.LastUpdated", System.currentTimeMillis());
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void setIgnoreTime(boolean ignore) {
-				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
-				voteCacheFile.save();
-			}
-
-			@Override
-			public boolean isIgnoreTime() {
-				return voteCacheFile.getData().getBoolean("Time.IgnoreTime");
-			}
-
-			@Override
-			public boolean isEnabled() {
-				return enabled;
-			}
-
-			@Override
-			public void info(String text) {
-				getLogger().info(text);
-			}
-
-			@Override
-			public int getPrevWeek() {
-				return voteCacheFile.getData().getInt("Time.Week");
-			}
-
-			@Override
-			public String getPrevMonth() {
-				return voteCacheFile.getData().getString("Time.Month");
-			}
-
-			@Override
-			public int getPrevDay() {
-				return voteCacheFile.getData().getInt("Time.Day");
-			}
-
-			@Override
-			public long getLastUpdated() {
-				return voteCacheFile.getData().getLong("Time.LastUpdated");
-			}
-
-			@Override
-			public void debug(String text) {
-				debug2(text);
+			public void warning(String text) {
+				getLogger().warning(text);
 			}
 		};
 
@@ -784,7 +1026,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				try {
 					for (String server : voteCacheFile.getServers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getServerVotes(server)) {
 							Configuration data = voteCacheFile.getServerVotes(server, num);
 							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
@@ -799,7 +1041,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 				try {
 					for (String player : voteCacheFile.getPlayers()) {
-						ArrayList<OfflineBungeeVote> vote = new ArrayList<OfflineBungeeVote>();
+						ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
 						for (String num : voteCacheFile.getOnlineVotes(player)) {
 							Configuration data = voteCacheFile.getOnlineVotes(player, num);
 							vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
@@ -883,7 +1125,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 				});
 
-				clientHandles = new HashMap<String, ClientHandler>();
+				clientHandles = new HashMap<>();
 				List<String> l = config.getBlockedServers();
 				for (String s : config.getSpigotServers()) {
 					if (!l.contains(s)) {
@@ -895,6 +1137,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} else if (method.equals(BungeeMethod.REDIS)) {
 				redisHandler = new RedisHandler(config.getRedisHost(), config.getRedisPort(), config.getRedisUsername(),
 						config.getRedisPassword()) {
+
+					@Override
+					public void debug(String message) {
+						debug2(message);
+					}
 
 					@Override
 					protected void onMessage(String channel, String[] message) {
@@ -919,11 +1166,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								login(p);
 							}
 						}
-					}
-
-					@Override
-					public void debug(String message) {
-						debug2(message);
 					}
 				};
 				getProxy().getScheduler().runAsync(this, new Runnable() {
@@ -994,154 +1236,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
-	private void runAsyncNow(Runnable runnable) {
-		getProxy().getScheduler().runAsync(this, runnable);
-	}
-
-	private void loadMultiProxySupport() {
-		if (multiProxyHandler != null) {
-			multiProxyHandler.close();
-		}
-		multiProxyHandler = new MultiProxyHandler() {
-
-			@Override
-			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
-					BungeeMessageData text, String uuid) {
-				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
-			}
-
-			@Override
-			public void setEncryptionHandler(EncryptionHandler encryptionHandler1) {
-				encryptionHandler = encryptionHandler1;
-			}
-
-			@Override
-			public void logInfo(String msg) {
-				getLogger().info(msg);
-			}
-
-			@Override
-			public String getVersion() {
-				return getDescription().getVersion();
-			}
-
-			@Override
-			public boolean getMultiProxySupportEnabled() {
-				return config.getMultiProxySupport();
-			}
-
-			@Override
-			public int getMultiProxySocketHostPort() {
-				return config.getMultiProxySocketHostPort();
-			}
-
-			@Override
-			public String getMultiProxySocketHostHost() {
-				return config.getMultiProxySocketHostHost();
-			}
-
-			@Override
-			public MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s) {
-				return new MultiProxyServerSocketConfigurationBungee(s, config.getMultiProxyServersConfiguration(s));
-			}
-
-			@Override
-			public Collection<String> getMultiProxyServers() {
-				return config.getMultiProxyServers();
-			}
-
-			@Override
-			public EncryptionHandler getEncryptionHandler() {
-				return encryptionHandler;
-			}
-
-			@Override
-			public boolean getDebug() {
-				return config.getDebug();
-			}
-
-			@Override
-			public File getPluginDataFolder() {
-				return getDataFolder();
-			}
-
-			@Override
-			public void clearVote(String string) {
-				cachedOnlineVotes.remove(string);
-			}
-
-			@Override
-			public void addNonVotedPlayerCache(String uuid, String player) {
-				nonVotedPlayersCache.addPlayer(uuid, player);
-			}
-
-			@Override
-			public boolean getPrimaryServer() {
-				return config.getPrimaryServer();
-			}
-
-			@Override
-			public List<String> getProxyServers() {
-				return config.getProxyServers();
-			}
-
-			@Override
-			public void runAsnc(Runnable runnable) {
-				runAsyncNow(runnable);
-			}
-
-			@Override
-			public MultiProxyMethod getMultiProxyMethod() {
-				return MultiProxyMethod.getByName(config.getMultiProxyMethod());
-			}
-
-			@Override
-			public RedisHandler getRedisHandler() {
-				return redisHandler;
-			}
-
-			@Override
-			public boolean getMultiProxyRedisUseExistingConnection() {
-				return config.getMultiProxyRedisUseExistingConnection();
-			}
-
-			@Override
-			public String getMultiProxyPassword() {
-				return config.getMultiProxyRedisPassword();
-			}
-
-			@Override
-			public String getMultiProxyUsername() {
-				return config.getMultiProxyRedisUsername();
-			}
-
-			@Override
-			public int getMultiProxyRedisPort() {
-				return config.getMultiProxyRedisPort();
-			}
-
-			@Override
-			public String getMultiProxyRedisHost() {
-				return config.getMultiProxyRedisHost();
-			}
-
-			@Override
-			public String getMultiProxyServerName() {
-				return config.getProxyServerName();
-			}
-		};
-		multiProxyHandler.loadMultiProxySupport();
-	}
-
-	public void sendServerNameMessage() {
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			for (String s : getAvailableAllServers()) {
-				sendPluginMessageServer(s, "ServerName", s);
-			}
-		}
-
-	}
-
 	@EventHandler
 	public void onLogin(PostLoginEvent event) {
 		getProxy().getScheduler().runAsync(this, new Runnable() {
@@ -1153,39 +1247,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 		});
-
-	}
-
-	public boolean isOnline(ProxiedPlayer p) {
-		if (p != null) {
-			return p.isConnected();
-		}
-
-		return false;
-	}
-
-	public void login(ProxiedPlayer p) {
-		if (p != null && p.getServer() != null && p.getServer().getInfo() != null) {
-			final String server = p.getServer().getInfo().getName();
-			final ProxiedPlayer proxiedPlayer = p;
-			getProxy().getScheduler().schedule(this, new Runnable() {
-
-				@Override
-				public void run() {
-					if (isOnline(p)) {
-						if (getConfig().getGlobalDataEnabled()) {
-							if (getGlobalDataHandler().isTimeChangedHappened()) {
-								getGlobalDataHandler().checkForFinishedTimeChanges();
-							}
-						}
-
-						checkCachedVotes(server);
-						checkOnlineVotes(proxiedPlayer, proxiedPlayer.getUniqueId().toString(), server);
-						multiProxyHandler.login(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
-					}
-				}
-			}, 1, TimeUnit.SECONDS);
-		}
 
 	}
 
@@ -1217,7 +1278,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				String server = in.readUTF();
 				getLogger().info("Status okay for " + server);
 				return;
-			} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
+			}
+			if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
 
 			} else if (subchannel.equalsIgnoreCase("login")) {
 				String player = in.readUTF();
@@ -1266,6 +1328,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return new UUID(mostSigBits, leastSigBits);
 	}
 
+	public void processQueue() {
+		while (getTimeChangeQueue().size() > 0) {
+			VoteTimeQueue vote = getTimeChangeQueue().remove();
+			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
+		}
+	}
+
 	public void reload(boolean loadMysql) {
 		config.load();
 		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
@@ -1284,19 +1353,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		loadMultiProxySupport();
 	}
 
+	private void runAsyncNow(Runnable runnable) {
+		getProxy().getScheduler().runAsync(this, runnable);
+	}
+
 	public void sendMessageServer(String server, String channel, String... messageData) {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			sendPluginMessageServer(server, channel, messageData);
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			sendRedisMessageServer(server, channel, messageData);
 		}
-	}
-
-	public void sendRedisMessageServer(String server, String channel, String... messageData) {
-		ArrayList<String> list = new ArrayList<String>();
-		list.add(channel);
-		list.addAll(ArrayUtils.convert(messageData));
-		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server, ArrayUtils.convert(list));
 	}
 
 	public void sendPluginMessageServer(String server, String channel, String... messageData) {
@@ -1320,6 +1386,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
+	public void sendRedisMessageServer(String server, String channel, String... messageData) {
+		ArrayList<String> list = new ArrayList<>();
+		list.add(channel);
+		list.addAll(ArrayUtils.convert(messageData));
+		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server, ArrayUtils.convert(list));
+	}
+
 	public void sendServerMessage(String... messageData) {
 		for (ClientHandler h : clientHandles.values()) {
 			h.sendMessage(messageData);
@@ -1330,6 +1403,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (clientHandles.containsKey(server)) {
 			clientHandles.get(server).sendMessage(messageData);
 		}
+	}
+
+	public void sendServerNameMessage() {
+		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+			for (String s : getAvailableAllServers()) {
+				sendPluginMessageServer(s, "ServerName", s);
+			}
+		}
+
 	}
 
 	public void sendSocketVote(String name, String service, BungeeMessageData text) {
@@ -1365,6 +1447,22 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	}
 
+	public void sendVoteParty(String server, ServerInfo serverInfo) {
+		if (!serverInfo.getPlayers().isEmpty()) {
+			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+				sendPluginMessageServer(server, "VotePartyBungee");
+			} else if (method.equals(BungeeMethod.SOCKETS)) {
+				sendServerMessageServer(server, "VotePartyBungee");
+			}
+		}
+	}
+
+	public void setCurrentVotePartyVotes(int amount) {
+		votePartyVotes = amount;
+		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
+		debug("Current vote party total: " + votePartyVotes);
+	}
+
 	public void status(CommandSender sender) {
 		if (method.equals(BungeeMethod.SOCKETS)) {
 			sendServerMessage("status");
@@ -1380,15 +1478,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}
 		}
-	}
-
-	public String getMonthTotalsWithDatePath() {
-		LocalDateTime cTime = bungeeTimeChecker.getTime();
-		return getMonthTotalsWithDatePath(cTime);
-	}
-
-	public String getMonthTotalsWithDatePath(LocalDateTime cTime) {
-		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
 	}
 
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
@@ -1420,30 +1509,29 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					getLogger().info("Ignoring vote since unable to get UUID of bedrock player");
 					return;
 				}
-				if (config.getAllowUnJoined()) {
-					if (config.getUUIDLookup()) {
-						debug("Fetching UUID online, since allowunjoined is enabled");
-						UUID u = null;
-						try {
-							if (config.getOnlineMode()) {
-								u = fetchUUID(player);
-							}
-						} catch (Exception e) {
-							if (getConfig().getDebug()) {
-								e.printStackTrace();
-							}
+				if (!config.getAllowUnJoined()) {
+					getLogger().info("Ignoring vote from " + player + " since player hasn't joined before");
+					return;
+				}
+				if (config.getUUIDLookup()) {
+					debug("Fetching UUID online, since allowunjoined is enabled");
+					UUID u = null;
+					try {
+						if (config.getOnlineMode()) {
+							u = fetchUUID(player);
 						}
-						if (u == null) {
-							debug("Failed to get uuid for " + player);
-							return;
+					} catch (Exception e) {
+						if (getConfig().getDebug()) {
+							e.printStackTrace();
 						}
-						uuid = u.toString();
-					} else {
-						getLogger().info("Failed to get uuid for " + player);
+					}
+					if (u == null) {
+						debug("Failed to get uuid for " + player);
 						return;
 					}
+					uuid = u.toString();
 				} else {
-					getLogger().info("Ignoring vote from " + player + " since player hasn't joined before");
+					getLogger().info("Failed to get uuid for " + player);
 					return;
 				}
 			}
@@ -1497,7 +1585,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 							milestoneCount, votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal);
-					ArrayList<Column> update = new ArrayList<Column>();
+					ArrayList<Column> update = new ArrayList<>();
 					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
 					if (config.getStoreMonthTotalsWithDate()) {
@@ -1536,7 +1624,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						if (info.getPlayers().isEmpty() || forceCache) {
 							// cache
 							if (!cachedVotes.containsKey(s)) {
-								cachedVotes.put(s, new ArrayList<OfflineBungeeVote>());
+								cachedVotes.put(s, new ArrayList<>());
 							}
 							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
 							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
@@ -1563,11 +1651,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 					} else {
 						if (!cachedOnlineVotes.containsKey(uuid)) {
-							cachedOnlineVotes.put(uuid, new ArrayList<OfflineBungeeVote>());
+							cachedOnlineVotes.put(uuid, new ArrayList<>());
 						}
 						ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
 						if (list == null) {
-							list = new ArrayList<OfflineBungeeVote>();
+							list = new ArrayList<>();
 						}
 						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 						cachedOnlineVotes.put(uuid, list);
@@ -1607,95 +1695,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			e.printStackTrace();
 		}
 
-	}
-
-	public Set<String> getAvailableAllServers() {
-		Set<String> servers = new HashSet<String>();
-		if (config.getWhiteListedServers().isEmpty()) {
-			for (String s : getProxy().getServers().keySet()) {
-				if (!config.getBlockedServers().contains(s)) {
-					servers.add(s);
-				}
-			}
-		} else {
-			servers.addAll(config.getWhiteListedServers());
-		}
-
-		return servers;
-	}
-
-	@Getter
-	private int votePartyVotes = 0;
-	@Getter
-	@Setter
-	private int currentVotePartyVotesRequired = 0;
-
-	public void addCurrentVotePartyVotes(int amount) {
-		votePartyVotes += amount;
-		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
-		debug("Current vote party total: " + votePartyVotes);
-	}
-
-	public void setCurrentVotePartyVotes(int amount) {
-		votePartyVotes = amount;
-		voteCacheFile.setVotePartyCurrentVotes(votePartyVotes);
-		debug("Current vote party total: " + votePartyVotes);
-	}
-
-	public void checkVoteParty() {
-		if (getConfig().getVotePartyEnabled()) {
-			if (votePartyVotes >= currentVotePartyVotesRequired) {
-				debug("Vote party reached");
-				addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
-
-				currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
-				voteCacheFile.setVotePartyInreaseVotesRequired(voteCacheFile.getVotePartyInreaseVotesRequired()
-						+ getConfig().getVotePartyIncreaseVotesRequired());
-
-				if (!getConfig().getVotePartyBroadcast().isEmpty()) {
-					getProxy().broadcast(new TextComponent(
-							ChatColor.translateAlternateColorCodes('&', getConfig().getVotePartyBroadcast())));
-				}
-
-				for (String command : getConfig().getVotePartyBungeeCommands()) {
-					getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command);
-				}
-
-				if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-					if (getConfig().getVotePartySendToAllServers()) {
-						for (Entry<String, ServerInfo> entry : getProxy().getServers().entrySet()) {
-							sendVoteParty(entry.getKey(), entry.getValue());
-						}
-					} else {
-						for (String server : getConfig().getVotePartyServersToSend()) {
-							ServerInfo serverInfo = getProxy().getServerInfo(server);
-							if (serverInfo != null) {
-								sendVoteParty(server, serverInfo);
-							}
-						}
-					}
-				}
-			}
-			voteCacheFile.save();
-		}
-	}
-
-	public void addVoteParty() {
-		if (getConfig().getVotePartyEnabled()) {
-			addCurrentVotePartyVotes(1);
-
-			checkVoteParty();
-		}
-	}
-
-	public void sendVoteParty(String server, ServerInfo serverInfo) {
-		if (!serverInfo.getPlayers().isEmpty()) {
-			if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-				sendPluginMessageServer(server, "VotePartyBungee");
-			} else if (method.equals(BungeeMethod.SOCKETS)) {
-				sendServerMessageServer(server, "VotePartyBungee");
-			}
-		}
 	}
 
 }

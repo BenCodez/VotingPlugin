@@ -16,20 +16,6 @@ import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import lombok.Getter;
 
 public abstract class MultiProxyHandler {
-	public abstract boolean getMultiProxySupportEnabled();
-
-	public abstract EncryptionHandler getEncryptionHandler();
-
-	public abstract File getPluginDataFolder();
-
-	public abstract void setEncryptionHandler(EncryptionHandler encryptionHandler);
-
-	public abstract void logInfo(String msg);
-
-	public abstract boolean getDebug();
-
-	public abstract String getVersion();
-
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 
 	private SocketHandler multiproxySocketHandler;
@@ -41,19 +27,9 @@ public abstract class MultiProxyHandler {
 
 	}
 
-	public void sendMultiProxyServerMessage(String... messageData) {
-		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
-			for (ClientHandler h : multiproxyClientHandles.values()) {
-				h.sendMessage(messageData);
-			}
-		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
-			for (String server : getProxyServers()) {
-				multiProxyRedis.sendMessage("VotingPluginProxy_" + server, messageData);
-			}
-		}
-	}
+	public abstract void addNonVotedPlayerCache(String string, String string2);
 
-	public abstract List<String> getProxyServers();
+	public abstract void clearVote(String string);
 
 	public void close() {
 		if (multiproxySocketHandler != null) {
@@ -64,6 +40,44 @@ public abstract class MultiProxyHandler {
 			multiProxyRedis.close();
 		}
 	}
+
+	public abstract boolean getDebug();
+
+	public abstract EncryptionHandler getEncryptionHandler();
+
+	public abstract MultiProxyMethod getMultiProxyMethod();
+
+	public abstract String getMultiProxyPassword();
+
+	public abstract String getMultiProxyRedisHost();
+
+	public abstract int getMultiProxyRedisPort();
+
+	public abstract boolean getMultiProxyRedisUseExistingConnection();
+
+	public abstract String getMultiProxyServerName();
+
+	public abstract Collection<String> getMultiProxyServers();
+
+	public abstract MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s);
+
+	public abstract String getMultiProxySocketHostHost();
+
+	public abstract int getMultiProxySocketHostPort();
+
+	public abstract boolean getMultiProxySupportEnabled();
+
+	public abstract String getMultiProxyUsername();
+
+	public abstract File getPluginDataFolder();
+
+	public abstract boolean getPrimaryServer();
+
+	public abstract List<String> getProxyServers();
+
+	public abstract RedisHandler getRedisHandler();
+
+	public abstract String getVersion();
 
 	public void loadMultiProxySupport() {
 		if (getMultiProxySupportEnabled()) {
@@ -117,7 +131,7 @@ public abstract class MultiProxyHandler {
 					}
 				});
 
-				multiproxyClientHandles = new HashMap<String, ClientHandler>();
+				multiproxyClientHandles = new HashMap<>();
 				for (String s : getMultiProxyServers()) {
 					MultiProxyServerSocketConfiguration d = getMultiProxyServersConfiguration(s);
 					multiproxyClientHandles.put(s,
@@ -130,6 +144,13 @@ public abstract class MultiProxyHandler {
 				} else {
 					multiProxyRedis = new RedisHandler(getMultiProxyRedisHost(), getMultiProxyRedisPort(),
 							getMultiProxyUsername(), getMultiProxyPassword()) {
+
+						@Override
+						public void debug(String message) {
+							if (getDebug()) {
+								logInfo("MultiProxyRedis: " + message);
+							}
+						}
 
 						@Override
 						public void onMessage(String channel, String[] data) {
@@ -158,13 +179,6 @@ public abstract class MultiProxyHandler {
 								}
 							}
 						}
-
-						@Override
-						public void debug(String message) {
-							if (getDebug()) {
-								logInfo("MultiProxyRedis: " + message);
-							}
-						}
 					};
 				}
 
@@ -182,48 +196,31 @@ public abstract class MultiProxyHandler {
 		}
 	}
 
-	public abstract void runAsnc(Runnable runnable);
-
-	public abstract MultiProxyMethod getMultiProxyMethod();
-
-	public abstract RedisHandler getRedisHandler();
-
-	public abstract boolean getMultiProxyRedisUseExistingConnection();
-
-	public abstract String getMultiProxyPassword();
-
-	public abstract String getMultiProxyUsername();
-
-	public abstract String getMultiProxyServerName();
-
-	public abstract int getMultiProxyRedisPort();
-
-	public abstract String getMultiProxyRedisHost();
-
-	public abstract boolean getPrimaryServer();
-
 	public void login(String uuid, String playerName) {
-		if (!getMultiProxySupportEnabled()) {
-			return;
-		}
-		if (getPrimaryServer()) {
+		if (!getMultiProxySupportEnabled() || getPrimaryServer()) {
 			return;
 		}
 		sendMultiProxyServerMessage("Login", uuid, playerName);
 	}
 
-	public abstract int getMultiProxySocketHostPort();
+	public abstract void logInfo(String msg);
 
-	public abstract String getMultiProxySocketHostHost();
+	public abstract void runAsnc(Runnable runnable);
 
-	public abstract MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s);
+	public void sendMultiProxyServerMessage(String... messageData) {
+		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
+			for (ClientHandler h : multiproxyClientHandles.values()) {
+				h.sendMessage(messageData);
+			}
+		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
+			for (String server : getProxyServers()) {
+				multiProxyRedis.sendMessage("VotingPluginProxy_" + server, messageData);
+			}
+		}
+	}
 
-	public abstract Collection<String> getMultiProxyServers();
+	public abstract void setEncryptionHandler(EncryptionHandler encryptionHandler);
 
 	public abstract void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			BungeeMessageData text, String uuid);
-
-	public abstract void addNonVotedPlayerCache(String string, String string2);
-
-	public abstract void clearVote(String string);
 }

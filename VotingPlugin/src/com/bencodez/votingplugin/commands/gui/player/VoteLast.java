@@ -33,7 +33,7 @@ public class VoteLast extends GUIHandler {
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
-		ArrayList<String> msg = new ArrayList<String>();
+		ArrayList<String> msg = new ArrayList<>();
 
 		String playerName = user.getPlayerName();
 
@@ -80,10 +80,10 @@ public class VoteLast extends GUIHandler {
 												PlaceholderUtils
 														.replacePlaceHolder(
 																PlaceholderUtils.replacePlaceHolder(
-																		PlaceholderUtils
-																				.replacePlaceHolder(plugin.getGui()
+																		PlaceholderUtils.replacePlaceHolder(
+																				plugin.getGui()
 																						.getChestVoteURLURLText(),
-																						"voteurl", site.getVoteURL()),
+																				"voteurl", site.getVoteURL()),
 																		"sitename", site.getDisplayName()),
 																"player", player.getName()));
 

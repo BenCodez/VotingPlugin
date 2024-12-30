@@ -34,8 +34,8 @@ public class VoteHelp extends GUIHandler {
 	}
 
 	public ArrayList<TextComponent> helpText(CommandSender sender) {
-		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
+		ArrayList<TextComponent> msg = new ArrayList<>();
+		HashMap<String, TextComponent> unsorted = new HashMap<>();
 
 		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
@@ -54,7 +54,7 @@ public class VoteHelp extends GUIHandler {
 						plugin.getConfigFile().getFormatCommandsVoteHelpLine(), hoverColor));
 			}
 		}
-		ArrayList<String> unsortedList = new ArrayList<String>();
+		ArrayList<String> unsortedList = new ArrayList<>();
 		unsortedList.addAll(unsorted.keySet());
 		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
 		for (String cmd : unsortedList) {
@@ -65,8 +65,8 @@ public class VoteHelp extends GUIHandler {
 	}
 
 	public ArrayList<TextComponent> helpTextLegacy(CommandSender sender) {
-		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		HashMap<String, TextComponent> unsorted = new HashMap<String, TextComponent>();
+		ArrayList<TextComponent> msg = new ArrayList<>();
+		HashMap<String, TextComponent> unsorted = new HashMap<>();
 
 		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
@@ -76,7 +76,7 @@ public class VoteHelp extends GUIHandler {
 						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
 			}
 		}
-		ArrayList<String> unsortedList = new ArrayList<String>();
+		ArrayList<String> unsortedList = new ArrayList<>();
 		unsortedList.addAll(unsorted.keySet());
 		Collections.sort(unsortedList, String.CASE_INSENSITIVE_ORDER);
 		for (String cmd : unsortedList) {
@@ -108,8 +108,8 @@ public class VoteHelp extends GUIHandler {
 
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
-		ArrayList<TextComponent> msg = new ArrayList<TextComponent>();
-		ArrayList<TextComponent> text = new ArrayList<TextComponent>();
+		ArrayList<TextComponent> msg = new ArrayList<>();
+		ArrayList<TextComponent> text = new ArrayList<>();
 		if (NMSManager.getInstance().isVersion("1.12")) {
 			text = helpTextLegacy(sender);
 		} else {

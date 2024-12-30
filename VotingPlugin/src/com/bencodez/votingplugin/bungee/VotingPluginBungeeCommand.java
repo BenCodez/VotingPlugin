@@ -56,8 +56,8 @@ public class VotingPluginBungeeCommand extends Command {
 						bungee.status(sender);
 						bungee.sendServerNameMessage();
 					} else {
-						sender.sendMessage(
-								new TextComponent("&aNot using socket/pluginmessage/redis method, command unavailable"));
+						sender.sendMessage(new TextComponent(
+								"&aNot using socket/pluginmessage/redis method, command unavailable"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("multiproxystatus")) {

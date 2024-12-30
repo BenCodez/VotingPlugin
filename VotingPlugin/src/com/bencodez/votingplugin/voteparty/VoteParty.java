@@ -53,7 +53,7 @@ public class VoteParty implements Listener {
 		String uuid = user.getUUID();
 		ArrayList<String> voted = getVotedUsers();
 		if (voted == null) {
-			voted = new ArrayList<String>();
+			voted = new ArrayList<>();
 		}
 		if (!voted.contains(uuid)) {
 			voted.add(uuid);
@@ -62,11 +62,8 @@ public class VoteParty implements Listener {
 	}
 
 	public void check(VotingPluginUser user, boolean forceBungee) {
-		if (getTotalVotes() < getVotesRequired()) {
-			return;
-		}
-		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
-				&& plugin.getServerData().isLastVotePartySameDay()) {
+		if ((getTotalVotes() < getVotesRequired()) || (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
+				&& plugin.getServerData().isLastVotePartySameDay())) {
 			return;
 		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
@@ -98,6 +95,25 @@ public class VoteParty implements Listener {
 
 	}
 
+	public void checkVoteReminder(VotingPluginUser user) {
+		if (!user.isVanished()) {
+			int neededVotes = getNeededVotes();
+
+			for (Integer num1 : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
+				int num = num1.intValue();
+				if (neededVotes == num) {
+					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
+					HashMap<String, String> placeholders = new HashMap<>();
+					placeholders.put("player", user.getPlayerName());
+					placeholders.put("votesrequired", "" + neededVotes);
+					MiscUtils.getInstance()
+							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+				}
+			}
+		}
+
+	}
+
 	/**
 	 * Command vote party.
 	 *
@@ -109,7 +125,7 @@ public class VoteParty implements Listener {
 			int votesRequired = getVotesRequired();
 			int votes = getTotalVotes();
 			int neededVotes = votesRequired - votes;
-			HashMap<String, String> placeholders = new HashMap<String, String>();
+			HashMap<String, String> placeholders = new HashMap<>();
 			placeholders.put("votesrequired", "" + votesRequired);
 			placeholders.put("neededvotes", "" + neededVotes);
 			placeholders.put("votes", "" + votes);
@@ -137,6 +153,18 @@ public class VoteParty implements Listener {
 		return neededVotes;
 	}
 
+	public String getRandomPlayerName() {
+		ArrayList<String> allPlayers = new ArrayList<>();
+		for (Player players : Bukkit.getOnlinePlayers()) {
+			allPlayers.add(players.getName());
+		}
+		if (allPlayers.size() == 0) {
+			return "No Player";
+		}
+		int random = new Random().nextInt(allPlayers.size());
+		return allPlayers.get(random);
+	}
+
 	/**
 	 * Gets the total votes.
 	 *
@@ -157,7 +185,7 @@ public class VoteParty implements Listener {
 		if (list != null) {
 			return list;
 		}
-		return new ArrayList<String>();
+		return new ArrayList<>();
 	}
 
 	public int getVotesRequired() {
@@ -184,18 +212,6 @@ public class VoteParty implements Listener {
 				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
 				.withPlaceHolder("FirstVotePartyToday", "" + !plugin.getServerData().isLastVotePartySameDay())
 				.setServer(useBungee).send(user);
-	}
-
-	public String getRandomPlayerName() {
-		ArrayList<String> allPlayers = new ArrayList<String>();
-		for (Player players : Bukkit.getOnlinePlayers()) {
-			allPlayers.add(players.getName());
-		}
-		if (allPlayers.size() == 0) {
-			return "No Player";
-		}
-		int random = new Random().nextInt(allPlayers.size());
-		return allPlayers.get(random);
 	}
 
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
@@ -230,7 +246,7 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
 			plugin.debug("Trying to give all players vote party");
 
-			ArrayList<String> alreadyGotten = new ArrayList<String>();
+			ArrayList<String> alreadyGotten = new ArrayList<>();
 			for (Player p : Bukkit.getOnlinePlayers()) {
 				VotingPluginUser user;
 				if (orgUser != null && orgUser.getJavaUUID().equals(p.getUniqueId())) {
@@ -316,17 +332,17 @@ public class VoteParty implements Listener {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
-	public void resetVotePartyCount() {
-		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
-	}
-
 	public void reset(boolean override) {
 		if (override) {
 			setTotalVotes(0);
 		}
-		setVotedUsers(new ArrayList<String>());
+		setVotedUsers(new ArrayList<>());
 		resetVotePartyCount();
 
+	}
+
+	public void resetVotePartyCount() {
+		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
 	}
 
 	/**
@@ -347,25 +363,6 @@ public class VoteParty implements Listener {
 	public void setVotedUsers(ArrayList<String> value) {
 		plugin.getServerData().getData().set("VoteParty.Voted", value);
 		plugin.getServerData().saveData();
-	}
-
-	public void checkVoteReminder(VotingPluginUser user) {
-		if (!user.isVanished()) {
-			int neededVotes = getNeededVotes();
-
-			for (Integer num1 : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
-				int num = num1.intValue();
-				if (neededVotes == num) {
-					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
-					HashMap<String, String> placeholders = new HashMap<String, String>();
-					placeholders.put("player", user.getPlayerName());
-					placeholders.put("votesrequired", "" + neededVotes);
-					MiscUtils.getInstance()
-							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
-				}
-			}
-		}
-
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {

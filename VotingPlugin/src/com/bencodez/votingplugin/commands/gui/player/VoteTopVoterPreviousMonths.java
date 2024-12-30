@@ -43,6 +43,10 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 		return null;
 	}
 
+	public void next(int index) {
+
+	}
+
 	@Override
 	public void onBook(Player player) {
 		// TODO
@@ -50,10 +54,6 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
-	}
-
-	public void next(int index) {
-
 	}
 
 	@Override
@@ -70,22 +70,20 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			}
 			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
 			return;
+		}
+		if (yearMonthList.size() > index) {
+			yearMonth = yearMonthList.get(index);
 		} else {
-			if (yearMonthList.size() > index) {
-				yearMonth = yearMonthList.get(index);
-			} else {
-				player.sendMessage(ChatColor.RED + "Can't open previous months, no data for requested index");
-				return;
-			}
+			player.sendMessage(ChatColor.RED + "Can't open previous months, no data for requested index");
+			return;
 		}
 
 		Set<Entry<TopVoterPlayer, Integer>> users = null;
-		if (plugin.getPreviousMonthsTopVoters().containsKey(yearMonth)) {
-			users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
-		} else {
+		if (!plugin.getPreviousMonthsTopVoters().containsKey(yearMonth)) {
 			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
 			return;
 		}
+		users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
 
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 		inv.addPlaceholder("topvoter", yearMonth.toString());
@@ -103,7 +101,7 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 				playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 			}
 
-			playerItem.setLore(new ArrayList<String>());
+			playerItem.setLore(new ArrayList<>());
 
 			inv.addButton(new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
 					.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)

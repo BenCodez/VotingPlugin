@@ -38,54 +38,6 @@ public class ServerData {
 		}
 	}
 
-	public void setShopConverted(boolean value) {
-		getData().set("VoteShopConverted", value);
-		saveData();
-	}
-
-	public boolean isVoteShopConverted() {
-		return getData().getBoolean("VoteShopConverted");
-	}
-
-	public void updatePlaceholders() {
-		boolean data = getData().getBoolean("AutoCacheUpdated", false);
-		if (!data) {
-			List<String> placeholders = getAutoCachedPlaceholder();
-			for (int i = 0; i < placeholders.size(); i++) {
-				placeholders.set(i, placeholders.get(i).toLowerCase());
-			}
-			setAutoCachedPlaceholder(placeholders);
-			getData().set("AutoCacheUpdated", true);
-			saveData();
-		}
-	}
-
-	public void addVoteShopPurchase(String ident) {
-		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
-	}
-
-	public void setVoteShopPurchases(String ident, int amount) {
-		getData().set("VoteShopPurchases." + ident, amount);
-		saveData();
-	}
-
-	public int getVoteShopPurchases(String ident) {
-		return getData().getInt("VoteShopPurchases." + ident);
-	}
-
-	public void setAutoCachedPlaceholder(List<String> placeholders) {
-		getData().set("AutoCachePlaceholders", placeholders);
-		saveData();
-	}
-
-	public List<String> getAutoCachedPlaceholder() {
-		return getData().getStringList("AutoCachePlaceholders");
-	}
-
-	public List<String> getDisabledReminders() {
-		return getData().getStringList("DisabledReminders");
-	}
-
 	public synchronized void addServiceSite(String site) {
 		ArrayList<String> l = getServiceSites();
 		if (!getServiceSites().contains(site)) {
@@ -116,6 +68,34 @@ public class ServerData {
 				getSignSkullLocation("" + count), getSignData("" + count), getSignPosition("" + count)));
 	}
 
+	public void addTimeVoted(int num, VoteTimeQueue vote) {
+		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
+		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
+		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+		saveData();
+	}
+
+	public void addVoteShopPurchase(String ident) {
+		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
+	}
+
+	public void clearTimedVoteCache() {
+		getData().set("TimedVoteCache", null);
+		saveData();
+	}
+
+	public List<String> getAutoCachedPlaceholder() {
+		return getData().getStringList("AutoCachePlaceholders");
+	}
+
+	public int getBungeeVotePartyCurrent() {
+		return getData().getInt("BungeeVotePartyCurrent");
+	}
+
+	public int getBungeeVotePartyRequired() {
+		return getData().getInt("BungeeVotePartyRequired");
+	}
+
 	/**
 	 * Gets the data.
 	 *
@@ -130,9 +110,13 @@ public class ServerData {
 		return data;
 	}
 
+	public List<String> getDisabledReminders() {
+		return getData().getStringList("DisabledReminders");
+	}
+
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getServiceSites() {
-		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<String>());
+		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<>());
 	}
 
 	/**
@@ -176,7 +160,7 @@ public class ServerData {
 		try {
 			return getData().getConfigurationSection("Signs").getKeys(false);
 		} catch (Exception ex) {
-			return new HashSet<String>();
+			return new HashSet<>();
 		}
 	}
 
@@ -195,8 +179,23 @@ public class ServerData {
 				getData().getDouble("Signs." + sign + ".Skull.Z"));
 	}
 
+	public Set<String> getTimedVoteCacheKeys() {
+		if (getData().isConfigurationSection("TimedVoteCache")) {
+			return getData().getConfigurationSection("TimedVoteCache").getKeys(false);
+		}
+		return new HashSet<>();
+	}
+
+	public ConfigurationSection getTimedVoteCacheSection(String num) {
+		return getData().getConfigurationSection("TimedVoteCache." + num);
+	}
+
 	public int getVotePartyExtraRequired() {
 		return getData().getInt("VotePartyExtraRequired", 0);
+	}
+
+	public int getVoteShopPurchases(String ident) {
+		return getData().getInt("VoteShopPurchases." + ident);
 	}
 
 	public boolean isLastVotePartySameDay() {
@@ -214,6 +213,10 @@ public class ServerData {
 			return true;
 		}
 		return false;
+	}
+
+	public boolean isVoteShopConverted() {
+		return getData().getBoolean("VoteShopConverted");
 	}
 
 	/**
@@ -268,8 +271,37 @@ public class ServerData {
 		plugin.getServerDataFile().saveData();
 	}
 
+	public void saveDisabledReminders(ArrayList<UUID> disabledReminders) {
+		ArrayList<String> uuids = new ArrayList<>();
+		for (UUID uuid : disabledReminders) {
+			uuids.add(uuid.toString());
+		}
+		getData().set("DisabledReminders", uuids);
+		saveData();
+	}
+
+	public void setAutoCachedPlaceholder(List<String> placeholders) {
+		getData().set("AutoCachePlaceholders", placeholders);
+		saveData();
+	}
+
+	public void setBungeeVotePartyCurrent(int current) {
+		getData().set("BungeeVotePartyCurrent", current);
+		saveData();
+	}
+
+	public void setBungeeVotePartyRequired(int required) {
+		getData().set("BungeeVotePartyRequired", required);
+		saveData();
+	}
+
 	public void setServiceSites(ArrayList<String> list) {
 		getData().set("ServiceSites", list);
+		saveData();
+	}
+
+	public void setShopConverted(boolean value) {
+		getData().set("VoteShopConverted", value);
 		saveData();
 	}
 
@@ -312,6 +344,11 @@ public class ServerData {
 		saveData();
 	}
 
+	public void setVoteShopPurchases(String ident, int amount) {
+		getData().set("VoteShopPurchases." + ident, amount);
+		saveData();
+	}
+
 	public void updateLastVoteParty() {
 		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
 		saveData();
@@ -323,31 +360,17 @@ public class ServerData {
 		saveData();
 	}
 
-	public int getBungeeVotePartyCurrent() {
-		return getData().getInt("BungeeVotePartyCurrent");
-	}
-
-	public int getBungeeVotePartyRequired() {
-		return getData().getInt("BungeeVotePartyRequired");
-	}
-
-	public void setBungeeVotePartyCurrent(int current) {
-		getData().set("BungeeVotePartyCurrent", current);
-		saveData();
-	}
-
-	public void setBungeeVotePartyRequired(int required) {
-		getData().set("BungeeVotePartyRequired", required);
-		saveData();
-	}
-
-	public void saveDisabledReminders(ArrayList<UUID> disabledReminders) {
-		ArrayList<String> uuids = new ArrayList<String>();
-		for (UUID uuid : disabledReminders) {
-			uuids.add(uuid.toString());
+	public void updatePlaceholders() {
+		boolean data = getData().getBoolean("AutoCacheUpdated", false);
+		if (!data) {
+			List<String> placeholders = getAutoCachedPlaceholder();
+			for (int i = 0; i < placeholders.size(); i++) {
+				placeholders.set(i, placeholders.get(i).toLowerCase());
+			}
+			setAutoCachedPlaceholder(placeholders);
+			getData().set("AutoCacheUpdated", true);
+			saveData();
 		}
-		getData().set("DisabledReminders", uuids);
-		saveData();
 	}
 
 	/**
@@ -355,29 +378,5 @@ public class ServerData {
 	 */
 	public void updateValues() {
 		setVersion();
-	}
-
-	public void addTimeVoted(int num, VoteTimeQueue vote) {
-		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
-		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
-		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
-		saveData();
-	}
-
-	public Set<String> getTimedVoteCacheKeys() {
-		if (getData().isConfigurationSection("TimedVoteCache")) {
-			return getData().getConfigurationSection("TimedVoteCache").getKeys(false);
-		} else {
-			return new HashSet<String>();
-		}
-	}
-
-	public ConfigurationSection getTimedVoteCacheSection(String num) {
-		return getData().getConfigurationSection("TimedVoteCache." + num);
-	}
-
-	public void clearTimedVoteCache() {
-		getData().set("TimedVoteCache", null);
-		saveData();
 	}
 }

@@ -74,6 +74,24 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt(getGottenAlmostAllSitesDayPath()));
 	}
 
+	public ArrayList<String> getAllUUIDs() {
+		return plugin.getUserManager().getAllUUIDs();
+	}
+
+	public String getCoolDownCheckPath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
+		}
+		return "CoolDownCheck";
+	}
+
+	public String getCoolDownCheckSitePath() {
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
+		}
+		return "CoolDownCheck" + "_Sites";
+	}
+
 	public String getGottenAllSitesDayPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
@@ -88,22 +106,6 @@ public class UserManager {
 		return "AlmostAllSitesLast";
 	}
 
-	public String getCoolDownCheckSitePath() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
-		} else {
-			return "CoolDownCheck" + "_Sites";
-		}
-	}
-
-	public String getCoolDownCheckPath() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
-		} else {
-			return "CoolDownCheck";
-		}
-	}
-
 	public String getMonthTotalsWithDatePath() {
 		LocalDateTime cTime = plugin.getTimeChecker().getTime();
 		return getMonthTotalsWithDatePath(cTime);
@@ -113,17 +115,8 @@ public class UserManager {
 		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
 	}
 
-	public ArrayList<String> getAllUUIDs() {
-		return plugin.getUserManager().getAllUUIDs();
-	}
-
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
 		return new VotingPluginUser(plugin, user);
-	}
-
-	@SuppressWarnings("deprecation")
-	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
-		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 
 	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
@@ -147,6 +140,11 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
 		return new VotingPluginUser(plugin, uuid, loadName);
+	}
+
+	@SuppressWarnings("deprecation")
+	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
+		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 
 	public void purgeOldPlayersNoData() {
@@ -207,8 +205,9 @@ public class UserManager {
 						} else if (days > daysOld) {
 							if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
 									&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
-									&& user.getTotal(TopVoter.Daily) == 0)
+									&& user.getTotal(TopVoter.Daily) == 0) {
 								plugin.debug("Removing " + user.getUUID() + " because of no data purge");
+							}
 							user.remove();
 						}
 
