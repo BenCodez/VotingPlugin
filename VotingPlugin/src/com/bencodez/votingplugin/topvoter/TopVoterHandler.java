@@ -213,10 +213,9 @@ public class TopVoterHandler implements Listener {
 						String month = data[1];
 						if (MessageAPI.isInt(year)) {
 							YearMonth yearMonth = YearMonth.of(Integer.parseInt(year), Month.valueOf(month));
-							if (yearMonth.atDay(now.getDayOfMonth()).atTime(23, 59).isBefore(now)) {
+							if (yearMonth.isBefore(YearMonth.of(now.getYear(), now.getMonth()))) {
 								plugin.debug("Loading previous month top voters of " + yearMonth.toString());
-								plugin.getPreviousMonthsTopVoters().put(yearMonth,
-										new LinkedHashMap<>());
+								plugin.getPreviousMonthsTopVoters().put(yearMonth, new LinkedHashMap<>());
 							}
 						}
 					}
@@ -839,8 +838,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersAllTime() {
 		ArrayList<String> msg = new ArrayList<>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(
-				plugin.getTopVoter(TopVoter.AllTime).entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoter(TopVoter.AllTime).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
@@ -892,8 +890,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersMonthly() {
 		ArrayList<String> msg = new ArrayList<>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(
-				plugin.getTopVoter(TopVoter.Monthly).entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoter(TopVoter.Monthly).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
