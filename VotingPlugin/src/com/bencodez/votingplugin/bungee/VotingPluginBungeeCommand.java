@@ -30,38 +30,39 @@ public class VotingPluginBungeeCommand extends Command {
 					if (args.length >= 2) {
 						String user = args[1];
 						String site = args[2];
-						bungee.vote(user, site, false, true, 0, null, null);
+						bungee.getVotingPluginProxy().vote(user, site, false, true, 0, null, null);
 						sender.sendMessage(new TextComponent("Sending vote"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("forcetimechange")) {
 					if (args.length >= 2) {
-						bungee.getBungeeTimeChecker().forceChanged(TimeType.getTimeType(args[1]));
+						bungee.getVotingPluginProxy().getBungeeTimeChecker()
+								.forceChanged(TimeType.getTimeType(args[1]));
 						sender.sendMessage(new TextComponent("Triggering time change: " + args[1]));
 					}
 				}
 				if (args[0].equalsIgnoreCase("status")) {
-					if (bungee.getMethod().equals(BungeeMethod.SOCKETS)) {
+					if (bungee.getVotingPluginProxy().getMethod().equals(BungeeMethod.SOCKETS)) {
 						sender.sendMessage(new TextComponent(
 								"&aChecking status, waiting for response, check console, method: sockets"));
-						bungee.status(sender);
-					} else if (bungee.getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
+						bungee.getVotingPluginProxy().status();
+					} else if (bungee.getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
 						sender.sendMessage(new TextComponent(
 								"&aChecking status, waiting for response, check console, method: plugin messaging"));
-						bungee.status(sender);
-						bungee.sendServerNameMessage();
-					} else if (bungee.getMethod().equals(BungeeMethod.REDIS)) {
+						bungee.getVotingPluginProxy().status();
+						bungee.getVotingPluginProxy().sendServerNameMessage();
+					} else if (bungee.getVotingPluginProxy().getMethod().equals(BungeeMethod.REDIS)) {
 						sender.sendMessage(new TextComponent(
 								"&aChecking status, waiting for response, check console, method: redis"));
-						bungee.status(sender);
-						bungee.sendServerNameMessage();
+						bungee.getVotingPluginProxy().status();
+						bungee.getVotingPluginProxy().sendServerNameMessage();
 					} else {
 						sender.sendMessage(new TextComponent(
 								"&aNot using socket/pluginmessage/redis method, command unavailable"));
 					}
 				}
 				if (args[0].equalsIgnoreCase("multiproxystatus")) {
-					bungee.getMultiProxyHandler().sendMultiProxyServerMessage("Status");
+					bungee.getVotingPluginProxy().getMultiProxyHandler().sendMultiProxyServerMessage("Status");
 					sender.sendMessage(new TextComponent("Sending status message"));
 				}
 				if (args[0].equalsIgnoreCase("help")) {
@@ -79,14 +80,15 @@ public class VotingPluginBungeeCommand extends Command {
 				if (args[0].equalsIgnoreCase("voteparty")) {
 					if (args.length > 1) {
 						if (args[1].equalsIgnoreCase("Force")) {
-							bungee.setCurrentVotePartyVotes(bungee.getCurrentVotePartyVotesRequired());
-							bungee.checkVoteParty();
+							bungee.getVotingPluginProxy().setCurrentVotePartyVotes(
+									bungee.getVotingPluginProxy().getCurrentVotePartyVotesRequired());
+							bungee.getVotingPluginProxy().checkVoteParty();
 							sender.sendMessage(new TextComponent("Vote party forced"));
 						}
 						if (args.length > 2) {
 							if (args[1].equalsIgnoreCase("SetVoteCount")) {
 								if (isInt(args[2])) {
-									bungee.setCurrentVotePartyVotes(Integer.parseInt(args[2]));
+									bungee.getVotingPluginProxy().setCurrentVotePartyVotes(Integer.parseInt(args[2]));
 									sender.sendMessage(new TextComponent("Set current vote party votes to " + args[2]));
 								}
 							}

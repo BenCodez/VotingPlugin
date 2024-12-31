@@ -945,7 +945,7 @@ public class VotingPluginVelocity {
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 		if (mysql != null) {
-			mysql.shutDown();
+			mysql.shutdown();
 		}
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();

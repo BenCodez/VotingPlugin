@@ -28,7 +28,7 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 					vote.setServiceName(serviceSite);
 				}
 
-				plugin.vote(vote.getUsername(), serviceSite, true, true, 0, null, null);
+				plugin.getVotingPluginProxy().vote(vote.getUsername(), serviceSite, true, true, 0, null, null);
 			}
 		});
 

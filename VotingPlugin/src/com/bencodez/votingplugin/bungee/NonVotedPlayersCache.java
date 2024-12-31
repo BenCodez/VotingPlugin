@@ -20,7 +20,7 @@ public class NonVotedPlayersCache {
 	}
 
 	public void addPlayer(ProxiedPlayer proxiedPlayer) {
-		if (!bungee.getMysql().containsKeyQuery(proxiedPlayer.getUniqueId().toString())) {
+		if (!bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(proxiedPlayer.getUniqueId().toString())) {
 			addPlayer(proxiedPlayer.getUniqueId().toString(), proxiedPlayer.getName());
 		}
 	}
@@ -32,7 +32,7 @@ public class NonVotedPlayersCache {
 	}
 
 	public void addPlayerCheck(String uuid, String playerName) {
-		if (!bungee.getMysql().containsKeyQuery(uuid)) {
+		if (!bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
 			addPlayer(uuid, playerName);
 		}
 	}
@@ -45,7 +45,7 @@ public class NonVotedPlayersCache {
 			} else {
 				String uuid = getData().getString("NonVotedPlayers." + player + ".UUID", "");
 				if (!uuid.isEmpty()) {
-					if (bungee.getMysql().containsKeyQuery(uuid)) {
+					if (bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
 						remove(player);
 					}
 				} else {

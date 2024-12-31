@@ -5,14 +5,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.bukkit.configuration.ConfigurationSection;
+
+import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.config.YamlConfiguration;
 
-public class Config {
+public class Config implements VotingPluginProxyConfig {
 	private VotingPluginBungee bungee;
 	@Getter
 	private Configuration data;
@@ -109,8 +115,8 @@ public class Config {
 		return getData().getSection("MultiProxyServers").getKeys();
 	}
 
-	public Configuration getMultiProxyServersConfiguration(String s) {
-		return getData().getSection("MultiProxyServers." + s);
+	public Map<String, Object> getMultiProxyServersConfiguration(String s) {
+		return configToMap(getData().getSection("MultiProxyServers." + s));
 	}
 
 	public String getMultiProxySocketHostHost() {
@@ -149,6 +155,14 @@ public class Config {
 		return getData().getString("Redis.Host", "");
 	}
 
+	public String getTimeZone() {
+		return getData().getString("TimeZone", "");
+	}
+
+	public int getTimeHourOffSet() {
+		return getData().getInt("TimeHourOffSet");
+	}
+
 	public String getRedisPassword() {
 		return getData().getString("Redis.Password", "");
 	}
@@ -169,8 +183,8 @@ public class Config {
 		return getData().getBoolean("SendVotesToAllServers");
 	}
 
-	public Configuration getSpigotServerConfiguration(String s) {
-		return getData().getSection("SpigotServers." + s);
+	public Map<String, Object> getSpigotServerConfiguration(String s) {
+		return configToMap(getData().getSection("SpigotServers." + s));
 	}
 
 	public Collection<String> getSpigotServers() {
@@ -262,6 +276,13 @@ public class Config {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public Map<String, Object> configToMap(Configuration config) {
+		Map<String, Object> map = new HashMap<>();
+		if (config != null)
+			config.getKeys().forEach(key -> map.put(key, config.get(key)));
+		return map;
 	}
 
 }

@@ -1,16 +1,22 @@
 package com.bencodez.votingplugin.bungee.global.multiproxy;
 
-import net.md_5.bungee.config.Configuration;
+import java.util.Map;
 
 public class MultiProxyServerSocketConfigurationBungee implements MultiProxyServerSocketConfiguration {
 	private String server;
-	private String host;
+	private String host = "";
 	private int port;
 
-	public MultiProxyServerSocketConfigurationBungee(String s, Configuration config) {
+	public MultiProxyServerSocketConfigurationBungee(String s, Map<String, Object> config) {
 		server = s;
-		host = config.getString("Host", "");
-		port = config.getInt("Port", 1234);
+		if (config.containsKey("Host")) {
+			host = (String) config.get("Host");
+		}
+		if (config.containsKey("Port")) {
+			port = (int) config.get("Port");
+		} else {
+			port = 1298;
+		}
 	}
 
 	@Override
