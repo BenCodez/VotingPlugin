@@ -407,28 +407,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		votingPluginProxy = new VotingPluginProxy() {
 
 			@Override
-			public void saveVoteCacheFile() {
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void runConsoleCommand(String command) {
-				getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command);
-			}
-
-			@Override
-			public void log(String message) {
-				getLogger().info(message);
-			}
-
-			@Override
-			public VotingPluginProxyConfig getConfig() {
-				return config;
-			}
-
-			@Override
-			public void debug(String str) {
-				debug2(str);
+			public void addNonVotedPlayer(String uuid, String playerName) {
+				nonVotedPlayersCache.addPlayer(uuid, playerName);
 			}
 
 			@Override
@@ -437,19 +417,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public void setVoteCacheVotePartyCurrentVotes(int votes) {
-				voteCacheFile.setVotePartyCurrentVotes(votes);
-			}
-
-			@Override
-			public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
-				voteCacheFile.setVotePartyInreaseVotesRequired(votes);
-
-			}
-
-			@Override
-			public int getVoteCacheVotePartyIncreaseVotesRequired() {
-				return voteCacheFile.getVotePartyInreaseVotesRequired();
+			public void debug(String str) {
+				debug2(str);
 			}
 
 			@Override
@@ -458,14 +427,23 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public boolean isSomeoneOnlineServer(String server) {
-				return !getProxy().getServerInfo(server).getPlayers().isEmpty();
+			public VotingPluginProxyConfig getConfig() {
+				return config;
 			}
 
 			@Override
-			public boolean isPlayerOnline(String playerName) {
-				ProxiedPlayer player = getProxy().getPlayer(playerName);
-				return player != null && player.isConnected();
+			public String getCurrentPlayerServer(String player) {
+				return getProxy().getPlayer(player).getServer().getInfo().getName();
+			}
+
+			@Override
+			public File getDataFolderPlugin() {
+				return getDataFolder();
+			}
+
+			@Override
+			public String getProperName(String uuid, String playerName) {
+				return getProperPlayerName(uuid, playerName);
 			}
 
 			@Override
@@ -501,6 +479,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public String getVersion() {
+				return getDescription().getVersion();
+			}
+
+			@Override
+			public int getVoteCacheCurrentVotePartyVotes() {
+				return voteCacheFile.getVotePartyCurrentVotes();
+			}
+
+			@Override
 			public long getVoteCacheLastUpdated() {
 				return voteCacheFile.getData().getLong("Time.LastUpdated");
 			}
@@ -521,14 +509,59 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public int getVoteCacheVotePartyIncreaseVotesRequired() {
+				return voteCacheFile.getVotePartyInreaseVotesRequired();
+			}
+
+			@Override
+			public boolean isPlayerOnline(String playerName) {
+				ProxiedPlayer player = getProxy().getPlayer(playerName);
+				return player != null && player.isConnected();
+			}
+
+			@Override
+			public boolean isServerValid(String server) {
+				return getProxy().getServerInfo(server) != null;
+			}
+
+			@Override
+			public boolean isSomeoneOnlineServer(String server) {
+				return !getProxy().getServerInfo(server).getPlayers().isEmpty();
+			}
+
+			@Override
 			public boolean isVoteCacheIgnoreTime() {
 				return voteCacheFile.getData().getBoolean("Time.IgnoreTime");
 			}
 
 			@Override
-			public void setVoteCacheVoteCacheIgnoreTime(boolean ignore) {
-				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
+			public void log(String message) {
+				getLogger().info(message);
+			}
+
+			@Override
+			public void logSevere(String message) {
+				getLogger().severe(message);
+			}
+
+			@Override
+			public void runAsync(Runnable run) {
+				runAsyncNow(run);
+			}
+
+			@Override
+			public void runConsoleCommand(String command) {
+				getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command);
+			}
+
+			@Override
+			public void saveVoteCacheFile() {
 				voteCacheFile.save();
+			}
+
+			@Override
+			public void sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
+				getProxy().getServers().get(server).sendData(channel, data, queue);
 			}
 
 			@Override
@@ -556,58 +589,25 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public String getProperName(String uuid, String playerName) {
-				return getProperPlayerName(uuid, playerName);
+			public void setVoteCacheVoteCacheIgnoreTime(boolean ignore) {
+				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
+				voteCacheFile.save();
 			}
 
 			@Override
-			public void logSevere(String message) {
-				getLogger().severe(message);
+			public void setVoteCacheVotePartyCurrentVotes(int votes) {
+				voteCacheFile.setVotePartyCurrentVotes(votes);
 			}
 
 			@Override
-			public String getCurrentPlayerServer(String player) {
-				return getProxy().getPlayer(player).getServer().getInfo().getName();
-			}
+			public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
+				voteCacheFile.setVotePartyInreaseVotesRequired(votes);
 
-			@Override
-			public void sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
-				getProxy().getServers().get(server).sendData(channel, data, queue);
-			}
-
-			@Override
-			public void addNonVotedPlayer(String uuid, String playerName) {
-				nonVotedPlayersCache.addPlayer(uuid, playerName);
-			}
-
-			@Override
-			public String getVersion() {
-				return getDescription().getVersion();
-			}
-
-			@Override
-			public void runAsync(Runnable run) {
-				runAsyncNow(run);
-			}
-
-			@Override
-			public File getDataFolderPlugin() {
-				return getDataFolder();
-			}
-
-			@Override
-			public boolean isServerValid(String server) {
-				return getProxy().getServerInfo(server) != null;
 			}
 
 			@Override
 			public void warn(String message) {
 				getLogger().warning(message);
-			}
-
-			@Override
-			public int getVoteCacheCurrentVotePartyVotes() {
-				return voteCacheFile.getVotePartyCurrentVotes();
 			}
 
 		};

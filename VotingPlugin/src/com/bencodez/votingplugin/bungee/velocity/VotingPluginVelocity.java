@@ -1623,31 +1623,30 @@ public class VotingPluginVelocity {
 					logger.info("Ignoring vote from " + player + " since player hasn't joined before");
 					return;
 				}
-				if (config.getUUIDLookup()) {
-					if (player.startsWith(config.getBedrockPlayerPrefix())) {
-						logger.info("Ignoring vote since unable to get UUID of bedrock player");
-						return;
-					}
-					debug("Fetching UUID online, since allowunjoined is enabled");
-					UUID u = null;
-					try {
-						if (config.getOnlineMode()) {
-							u = fetchUUID(player);
-						}
-					} catch (Exception e) {
-						if (getConfig().getDebug()) {
-							e.printStackTrace();
-						}
-					}
-					if (u == null) {
-						debug("Failed to get uuid for " + player);
-						return;
-					}
-					uuid = u.toString();
-				} else {
+				if (!config.getUUIDLookup()) {
 					logger.info("Failed to get uuid for " + player);
 					return;
 				}
+				if (player.startsWith(config.getBedrockPlayerPrefix())) {
+					logger.info("Ignoring vote since unable to get UUID of bedrock player");
+					return;
+				}
+				debug("Fetching UUID online, since allowunjoined is enabled");
+				UUID u = null;
+				try {
+					if (config.getOnlineMode()) {
+						u = fetchUUID(player);
+					}
+				} catch (Exception e) {
+					if (getConfig().getDebug()) {
+						e.printStackTrace();
+					}
+				}
+				if (u == null) {
+					debug("Failed to get uuid for " + player);
+					return;
+				}
+				uuid = u.toString();
 			}
 
 			player = getProperName(uuid, player);

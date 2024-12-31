@@ -1800,8 +1800,7 @@ public class CommandLoader {
 
 						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager()
 								.getAllKeys(UserStorage.value(args[1]));
-						Queue<Entry<UUID, ArrayList<Column>>> players = new LinkedList<>(
-								cols.entrySet());
+						Queue<Entry<UUID, ArrayList<Column>>> players = new LinkedList<>(cols.entrySet());
 						ArrayList<String> uuids = plugin.getUserManager().getAllUUIDs();
 
 						while (players.size() > 0) {
@@ -2758,8 +2757,7 @@ public class CommandLoader {
 			for (String ident : plugin.getConfigFile().getCustomCommands()) {
 				ConfigurationSection section = plugin.getConfigFile().getCustomCommands(ident);
 				@SuppressWarnings("unchecked")
-				String[] args = ArrayUtils
-						.convert((ArrayList<String>) section.getList("Args", new ArrayList<>()));
+				String[] args = ArrayUtils.convert((ArrayList<String>) section.getList("Args", new ArrayList<>()));
 				plugin.getVoteCommand().add(new CommandHandler(plugin, args, section.getString("Permission", ""),
 						section.getString("HelpMessage", "")) {
 

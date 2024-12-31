@@ -38,10 +38,6 @@ public interface VotingPluginProxyConfig {
 
 	public boolean getMultiProxyOneGlobalReward();
 
-	public String getTimeZone();
-
-	public int getTimeHourOffSet();
-
 	public String getMultiProxyRedisHost();
 
 	public String getMultiProxyRedisPassword();
@@ -91,6 +87,10 @@ public interface VotingPluginProxyConfig {
 	public boolean getStoreMonthTotalsWithDate();
 
 	public boolean getTimeChangeFailSafeBypass();
+
+	public int getTimeHourOffSet();
+
+	public String getTimeZone();
 
 	public boolean getUseMonthDateTotalsAsPrimaryTotal();
 

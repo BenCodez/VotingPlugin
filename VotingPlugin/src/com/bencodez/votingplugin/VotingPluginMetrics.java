@@ -182,7 +182,8 @@ public class VotingPluginMetrics {
 				}
 				if (total > 700000) {
 					return "700000-800000";
-				} else if (total > 600000) {
+				}
+				if (total > 600000) {
 					return "600000-700000";
 				} else if (total > 500000) {
 					return "500000-600000";

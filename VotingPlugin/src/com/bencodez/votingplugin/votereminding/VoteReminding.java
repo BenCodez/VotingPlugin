@@ -173,8 +173,7 @@ public class VoteReminding {
 		boolean hasPermAll = user.hasPermission("VotingPlugin.Login.RemindVotes.All");
 		if (hasPermAll) {
 			return user.canVoteAll();
-		} else {
-			return user.canVoteAny();
 		}
+		return user.canVoteAny();
 	}
 }

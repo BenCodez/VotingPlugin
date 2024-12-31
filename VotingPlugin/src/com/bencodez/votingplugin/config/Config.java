@@ -663,8 +663,7 @@ public class Config extends YMLFile {
 
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteTotal() {
-		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total",
-				new ArrayList<>());
+		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total", new ArrayList<>());
 		if (list.isEmpty()) {
 			list.add("&3&l%player% Total Votes:");
 			list.add("&3&lDaily Total: &6&l%DailyTotal%");

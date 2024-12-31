@@ -184,48 +184,16 @@ public class PlaceHolders {
 			try {
 				if (placeholder.matches(identifier)) {
 					if (placeholder instanceof CalculatingPlaceholder<?>) {
-						if (useCache) {
-							CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
-							if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
-								ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
-								if (cache.containsKey(p.getUniqueId())) {
-									if (cPlaceholder.getCacheData().containsKey(user.getJavaUUID())) {
-										return cPlaceholder.placeholderRequest(user, identifier);
-									}
-									return cache.get(p.getUniqueId());
-								} else if (!forceProcess) {
-									schedulePlaceholderCheck(user);
-									return "...";
-								}
-							}
-
-							if (forceProcess) {
-								if (getCacheLevel().shouldCache()) {
-									if (!placeholdersToSetCacheOn.contains(identifier)
-											&& !cachedPlaceholders.contains(identifier)) {
-										placeholdersToSetCacheOn.add(identifier);
-										schedulePlaceholderCheck(user);
-									}
-								}
-								return placeholder.placeholderRequest(user, identifier);
-							} else {
-								if (getCacheLevel().shouldCache()) {
-									if (!placeholdersToSetCacheOn.contains(identifier)
-											&& !cachedPlaceholders.contains(identifier)) {
-										placeholdersToSetCacheOn.add(identifier);
-										schedulePlaceholderCheck(user);
-									}
-								}
-								return ".";
-							}
-						} else {
+						if (!useCache) {
 							return placeholder.placeholderRequest(user, identifier);
 						}
-					}
-					if (useCache) {
+						CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
 						if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
 							ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
 							if (cache.containsKey(p.getUniqueId())) {
+								if (cPlaceholder.getCacheData().containsKey(user.getJavaUUID())) {
+									return cPlaceholder.placeholderRequest(user, identifier);
+								}
 								return cache.get(p.getUniqueId());
 							} else if (!forceProcess) {
 								schedulePlaceholderCheck(user);
@@ -252,8 +220,38 @@ public class PlaceHolders {
 							}
 							return ".";
 						}
-					} else {
+					}
+					if (!useCache) {
 						return placeholder.placeholderRequest(user, identifier);
+					}
+					if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
+						ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
+						if (cache.containsKey(p.getUniqueId())) {
+							return cache.get(p.getUniqueId());
+						} else if (!forceProcess) {
+							schedulePlaceholderCheck(user);
+							return "...";
+						}
+					}
+
+					if (forceProcess) {
+						if (getCacheLevel().shouldCache()) {
+							if (!placeholdersToSetCacheOn.contains(identifier)
+									&& !cachedPlaceholders.contains(identifier)) {
+								placeholdersToSetCacheOn.add(identifier);
+								schedulePlaceholderCheck(user);
+							}
+						}
+						return placeholder.placeholderRequest(user, identifier);
+					} else {
+						if (getCacheLevel().shouldCache()) {
+							if (!placeholdersToSetCacheOn.contains(identifier)
+									&& !cachedPlaceholders.contains(identifier)) {
+								placeholdersToSetCacheOn.add(identifier);
+								schedulePlaceholderCheck(user);
+							}
+						}
+						return ".";
 					}
 				}
 			} catch (Exception e) {

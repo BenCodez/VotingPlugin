@@ -9,8 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bukkit.configuration.ConfigurationSection;
-
 import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
 
 import lombok.Getter;
@@ -25,6 +23,14 @@ public class Config implements VotingPluginProxyConfig {
 
 	public Config(VotingPluginBungee bungee) {
 		this.bungee = bungee;
+	}
+
+	public Map<String, Object> configToMap(Configuration config) {
+		Map<String, Object> map = new HashMap<>();
+		if (config != null) {
+			config.getKeys().forEach(key -> map.put(key, config.get(key)));
+		}
+		return map;
 	}
 
 	public boolean getAllowUnJoined() {
@@ -155,14 +161,6 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getString("Redis.Host", "");
 	}
 
-	public String getTimeZone() {
-		return getData().getString("TimeZone", "");
-	}
-
-	public int getTimeHourOffSet() {
-		return getData().getInt("TimeHourOffSet");
-	}
-
 	public String getRedisPassword() {
 		return getData().getString("Redis.Password", "");
 	}
@@ -197,6 +195,14 @@ public class Config implements VotingPluginProxyConfig {
 
 	public boolean getTimeChangeFailSafeBypass() {
 		return getData().getBoolean("TimeChangeFailSafeBypass", false);
+	}
+
+	public int getTimeHourOffSet() {
+		return getData().getInt("TimeHourOffSet");
+	}
+
+	public String getTimeZone() {
+		return getData().getString("TimeZone", "");
 	}
 
 	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
@@ -276,13 +282,6 @@ public class Config implements VotingPluginProxyConfig {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-
-	public Map<String, Object> configToMap(Configuration config) {
-		Map<String, Object> map = new HashMap<>();
-		if (config != null)
-			config.getKeys().forEach(key -> map.put(key, config.get(key)));
-		return map;
 	}
 
 }

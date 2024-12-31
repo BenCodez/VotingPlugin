@@ -71,12 +71,11 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
 			return;
 		}
-		if (yearMonthList.size() > index) {
-			yearMonth = yearMonthList.get(index);
-		} else {
+		if (yearMonthList.size() <= index) {
 			player.sendMessage(ChatColor.RED + "Can't open previous months, no data for requested index");
 			return;
 		}
+		yearMonth = yearMonthList.get(index);
 
 		Set<Entry<TopVoterPlayer, Integer>> users = null;
 		if (!plugin.getPreviousMonthsTopVoters().containsKey(yearMonth)) {

@@ -227,7 +227,8 @@ public class SpecialRewardsConfig extends YMLFile {
 			}
 			if (getCumulativeVotesInSameWeek(cumulative)) {
 				return TopVoter.Weekly.toString();
-			} else if (getCumulativeVotesInSameDay(cumulative)) {
+			}
+			if (getCumulativeVotesInSameDay(cumulative)) {
 				return TopVoter.Daily.toString();
 			}
 		}

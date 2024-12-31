@@ -85,7 +85,8 @@ public enum TopVoter {
 		}
 		if (this.equals(TopVoter.Weekly)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterWeekly();
-		} else if (this.equals(TopVoter.Daily)) {
+		}
+		if (this.equals(TopVoter.Daily)) {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterDaily();
 		} else {
 			return VotingPluginMain.plugin.getConfigFile().getFormatTopVoterAllTime();
