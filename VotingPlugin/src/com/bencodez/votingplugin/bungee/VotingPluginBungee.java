@@ -464,7 +464,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public boolean isPlayerOnline(String playerName) {
-				return getProxy().getPlayer(playerName).isConnected();
+				ProxiedPlayer player = getProxy().getPlayer(playerName);
+				return player != null && player.isConnected();
 			}
 
 			@Override
@@ -636,7 +637,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			mysqlLoaded = false;
 			e.printStackTrace();
 		}
-		
 
 		this.getProxy().registerChannel("vp:vp");
 
@@ -647,6 +647,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			nonVotedPlayersCache.load();
+
+			getVotingPluginProxy().load();
 
 			try {
 				for (String key : voteCacheFile.getTimedVoteCache()) {
@@ -722,7 +724,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 			}, 1l, 60l, TimeUnit.MINUTES);
 
-			getVotingPluginProxy().load();
 		}
 
 		if (!getVotingPluginProxy().isVotifierEnabled()) {
@@ -767,8 +768,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		loadVersionFile();
 
-		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString() + ", PluginMessagingVersion: "
-				+ BungeeVersion.getPluginMessageVersion());
+		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString()
+				+ ", PluginMessagingVersion: " + BungeeVersion.getPluginMessageVersion());
 		if (!buildNumber.equals("NOTSET")) {
 			getLogger().info("Detected using dev build number: " + buildNumber);
 		}
