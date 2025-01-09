@@ -818,7 +818,7 @@ public class VotingPluginVelocity {
 						}
 					}
 				}
-			}).delay(60, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
+			}).delay(120, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
 
 			server.getScheduler().buildTask(this, () -> {
 				if (nonVotedPlayersCache != null) {

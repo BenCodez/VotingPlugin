@@ -44,6 +44,7 @@ public class VoteCache extends VelocityJSONFile {
 	public void clearData() {
 		getNode("VoteCache").setValue(null);
 		getNode("OnlineCache").setValue(null);
+		getNode("TimedVoteCache").setValue(null);
 		save();
 	}
 

@@ -51,6 +51,7 @@ public class VoteCache {
 	public void clearData() {
 		getData().set("VoteCache", null);
 		getData().set("OnlineCache", null);
+		getData().set("TimedVoteCache", null);
 		save();
 	}
 

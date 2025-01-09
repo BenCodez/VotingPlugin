@@ -713,7 +713,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								player, null);
 					}
 				}
-			}, 60l, 60l, TimeUnit.SECONDS);
+			}, 120l, 60l, TimeUnit.SECONDS);
 
 			getProxy().getScheduler().schedule(this, new Runnable() {
 
