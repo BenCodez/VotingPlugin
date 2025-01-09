@@ -2,16 +2,18 @@ package com.bencodez.votingplugin.bungee.velocity;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
+import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
-public class Config extends VelocityYMLFile {
+public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 
 	public Config(File file) {
 		super(file);
@@ -101,12 +103,22 @@ public class Config extends VelocityYMLFile {
 		return getString(getNode("MultiProxyRedis", "Username"), "");
 	}
 
-	public @NonNull Collection<? extends ConfigurationNode> getMultiProxyServers() {
-		return getNode("MultiProxyServers").getChildrenMap().values();
+	public @NonNull List<String> getMultiProxyServers() {
+		return getChildrenAsList(getNode("MultiProxyServers"));
 	}
 
-	public ConfigurationNode getMultiProxyServers(String s) {
-		return getNode("MultiProxyServers", s);
+	public List<String> getChildrenAsList(ConfigurationNode config) {
+		List<String> children = new ArrayList<>();
+		if (config != null) {
+			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.getChildrenMap().entrySet()) {
+				children.add(entry.getKey().toString());
+			}
+		}
+		return children;
+	}
+
+	public Map<String, Object> getMultiProxyServersConfiguration(String s) {
+		return configToMap(getNode("MultiProxyServers", s));
 	}
 
 	public String getMultiProxySocketHostHost() {
@@ -169,12 +181,22 @@ public class Config extends VelocityYMLFile {
 		return getBoolean(getNode("SendVotesToAllServers"), true);
 	}
 
-	public ConfigurationNode getSpigotServerConfiguration(String s) {
-		return getNode("SpigotServers", s);
+	public Map<String, Object> getSpigotServerConfiguration(String s) {
+		return configToMap(getNode("SpigotServers", s));
 	}
 
-	public @NonNull Collection<? extends ConfigurationNode> getSpigotServers() {
-		return getNode("SpigotServers").getChildrenMap().values();
+	public Map<String, Object> configToMap(ConfigurationNode config) {
+		Map<String, Object> map = new HashMap<>();
+		if (config != null) {
+			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.getChildrenMap().entrySet()) {
+				map.put(entry.getKey().toString(), entry.getValue().getValue());
+			}
+		}
+		return map;
+	}
+
+	public @NonNull List<String> getSpigotServers() {
+		return getChildrenAsList(getNode("SpigotServers"));
 	}
 
 	public boolean getStoreMonthTotalsWithDate() {
@@ -235,6 +257,22 @@ public class Config extends VelocityYMLFile {
 
 	public List<String> getWhiteListedServers() {
 		return getStringList(getNode("WhiteListedServers"), new ArrayList<>());
+	}
+
+	@Override
+	public int getTimeHourOffSet() {
+		return getInt(getNode("TimeHourOffSet"), 0);
+	}
+
+	@Override
+	public String getTimeZone() {
+		return getString(getNode("TimeZone"), "");
+	}
+
+	@Override
+	public void load() {
+		// TODO Auto-generated method stub
+
 	}
 
 }

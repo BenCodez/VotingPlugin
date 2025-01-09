@@ -24,7 +24,7 @@ public class VoteEventVelocity {
 					serviceSite = "Empty";
 				}
 
-				plugin.vote(name, serviceSite, true, false, 0, null, null);
+				plugin.getVotingPluginProxy().vote(name, serviceSite, true, false, 0, null, null);
 			}
 		});
 

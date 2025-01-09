@@ -447,7 +447,7 @@ public abstract class VotingPluginProxy {
 		return toAdd;
 	}
 
-	public abstract String getVersion();
+	public abstract String getPluginVersion();
 
 	public abstract int getVoteCacheCurrentVotePartyVotes();
 
@@ -485,7 +485,7 @@ public abstract class VotingPluginProxy {
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
 
-			socketHandler = new SocketHandler(getVersion(), getConfig().getBungeeHost(), getConfig().getBungeePort(),
+			socketHandler = new SocketHandler(getPluginVersion(), getConfig().getBungeeHost(), getConfig().getBungeePort(),
 					encryptionHandler, getConfig().getDebug()) {
 
 				@Override
@@ -697,7 +697,7 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public String getVersion() {
-				return getVersion();
+				return getPluginVersion();
 			}
 
 			@Override
@@ -842,6 +842,8 @@ public abstract class VotingPluginProxy {
 	public abstract void runConsoleCommand(String command);
 
 	public abstract void saveVoteCacheFile();
+	
+	public abstract void reloadCore(boolean mysql);
 
 	public void sendMessageServer(String server, String channel, String... messageData) {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {

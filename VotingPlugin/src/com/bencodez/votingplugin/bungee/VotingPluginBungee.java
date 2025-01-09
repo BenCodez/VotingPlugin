@@ -479,7 +479,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public String getVersion() {
+			public String getPluginVersion() {
 				return getDescription().getVersion();
 			}
 
@@ -608,6 +608,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			@Override
 			public void warn(String message) {
 				getLogger().warning(message);
+			}
+			
+			@Override
+			public void reloadCore(boolean mysql) {
+				reloadPlugin(mysql);
 			}
 
 		};
@@ -799,7 +804,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public void reload(boolean loadMysql) {
+	public void reloadPlugin(boolean loadMysql) {
 		config.load();
 		if (loadMysql) {
 			try {

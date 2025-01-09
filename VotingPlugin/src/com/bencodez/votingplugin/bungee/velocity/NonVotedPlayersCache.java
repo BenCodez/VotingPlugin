@@ -15,7 +15,7 @@ public class NonVotedPlayersCache extends VelocityJSONFile {
 	}
 
 	public void addPlayer(Player player) {
-		if (!plugin.getMysql().containsKeyQuery(player.getUniqueId().toString())) {
+		if (!plugin.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(player.getUniqueId().toString())) {
 			addPlayer(player.getUniqueId().toString(), player.getUsername());
 		}
 	}
@@ -27,7 +27,7 @@ public class NonVotedPlayersCache extends VelocityJSONFile {
 	}
 
 	public void addPlayerCheck(String uuid, String playerName) {
-		if (!plugin.getMysql().containsKeyQuery(uuid)) {
+		if (!plugin.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
 			addPlayer(uuid, playerName);
 		}
 	}
@@ -40,7 +40,7 @@ public class NonVotedPlayersCache extends VelocityJSONFile {
 			} else {
 				String uuid = getNode("NonVotedPlayers", player, "UUID").getString("");
 				if (!uuid.isEmpty()) {
-					if (plugin.getMysql().containsKeyQuery(uuid)) {
+					if (plugin.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
 						remove(player);
 					}
 				} else {
