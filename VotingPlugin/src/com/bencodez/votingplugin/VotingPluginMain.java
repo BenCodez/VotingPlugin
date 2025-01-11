@@ -1324,7 +1324,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
-		if (getProfile().contains("dev")) {
+		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
 			plugin.getLogger().info(
 					"Using dev build, this is not a stable build, use at your own risk. Build number: " + buildNumber);
 		}
