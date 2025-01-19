@@ -155,6 +155,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
+                                placeholders.put("sitename", voteSite.getDisplayName());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));
@@ -184,6 +185,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
+                                placeholders.put("sitename", mostRecentSite.getDisplayName());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));
