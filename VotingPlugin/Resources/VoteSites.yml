@@ -89,7 +89,7 @@ VoteSites:
   Site2:
     Enabled: false
     Name: 'Site2'
-    ServiceSite: 'PlanetMinecraft.com'
+    ServiceSite: 'Crafty.gg'
     VoteURL: 'link to vote URL here, used in /vote'
     VoteDelay: 24
     DisplayItem:
