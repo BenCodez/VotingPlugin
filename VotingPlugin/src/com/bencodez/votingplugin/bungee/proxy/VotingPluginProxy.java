@@ -772,9 +772,8 @@ public abstract class VotingPluginProxy {
 			String server = in.readUTF();
 			log("Status okay for " + server);
 			return;
-		}
-		if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-
+		} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
+			// not used currently
 		} else if (subchannel.equalsIgnoreCase("login")) {
 			String player = in.readUTF();
 			String uuid = in.readUTF();
@@ -785,8 +784,8 @@ public abstract class VotingPluginProxy {
 			debug("Login: " + player + "/" + uuid + " " + server);
 			login(player, uuid, server);
 			return;
-		} else {
-			// reforward message
+		} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
+			// reforward message for VoteUpdate
 			out.writeUTF(subchannel);
 			out.writeInt(size);
 			for (int i = 0; i < size; i++) {
@@ -797,6 +796,8 @@ public abstract class VotingPluginProxy {
 					sendPluginMessageData(send, "vp:vp".toLowerCase(), outstream.toByteArray(), false);
 				}
 			}
+		} else {
+			debug("Ignoring plugin message: " + subchannel);
 		}
 	}
 
