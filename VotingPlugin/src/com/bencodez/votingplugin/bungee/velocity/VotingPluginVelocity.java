@@ -392,6 +392,9 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onPluginMessagingReceived(PluginMessageEvent event) {
 		if (event.getIdentifier().getId().equals(CHANNEL.getId())) {
+			if (event.getSource() instanceof Player) {
+				return;
+			}
 			ByteArrayInputStream instream = new ByteArrayInputStream(event.getData());
 			DataInputStream in = new DataInputStream(instream);
 			try {
