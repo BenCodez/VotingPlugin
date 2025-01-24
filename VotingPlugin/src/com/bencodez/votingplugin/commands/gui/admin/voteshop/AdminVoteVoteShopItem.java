@@ -141,7 +141,7 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-						plugin.getRewardHandler().getDirectlyDefined("CHEST.Shop." + identifier + ".Rewards"));
+						plugin.getRewardHandler().getDirectlyDefined("Shop." + identifier + ".Rewards"));
 			}
 		});
 
