@@ -592,7 +592,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return "CoolDownCheck" + "_Sites";
 	}
 
-
 	/**
 	 * Gets the daily total votes.
 	 *
@@ -1379,7 +1378,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		Player player = getPlayer();
 		if (player != null) {
-			plugin.extraDebug("Checking offline votes for " + player.getName());
+			plugin.extraDebug("Checking offline votes for " + player.getName() + "/" + getUUID());
 
 			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
 			if (isTopVoterIgnore() != topVoterIngorePerm) {
