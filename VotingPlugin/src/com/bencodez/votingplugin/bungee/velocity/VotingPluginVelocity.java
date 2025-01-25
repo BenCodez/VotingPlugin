@@ -593,6 +593,9 @@ public class VotingPluginVelocity {
 
 			@Override
 			public boolean isPlayerOnline(String playerName) {
+				if (playerName == null) {
+					return false;
+				}
 				if (server.getPlayer(playerName).isPresent()) {
 					return server.getPlayer(playerName).get().isActive();
 				}

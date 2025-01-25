@@ -39,7 +39,7 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String RedisUsername = "";
 
-	@ConfigDataString(path = "PluginMessagingChannel")
+	@ConfigDataString(path = "PluginMessageChannel")
 	@Getter
 	private String pluginMessagingChannel = "vp:vp";
 	
