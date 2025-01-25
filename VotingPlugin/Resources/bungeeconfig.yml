@@ -87,10 +87,13 @@ BungeeMethod: PLUGINMESSAGING
 
 # Default is vp:vp, can be changed to prevent potential exploits
 # Must match on all servers
+# This setting requires a restart
 PluginMessageChannel: "vp:vp"
 
 # Use this to encrypt the plugin messages
 # Must be set on all servers the same
+# Copy secretkey.key file to all servers (They all must match)
+# This setting requires a restart
 PluginMessageEncryption: false
 
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
