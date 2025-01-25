@@ -84,6 +84,10 @@ BungeeVotePartyRewards: {}
 # This runs a one time command only
 BungeeVotePartyGlobalCommands: []
 
+# Default is vp:vp, can be changed to prevent potential exploits
+# Must match on all servers
+PluginMessageChannel: "vp:vp"
+
 ####################################################################################
 # Global mysql data handle for between server commmunications
 # This is NOT required for bungee voting to work

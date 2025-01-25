@@ -505,7 +505,7 @@ public class BungeeHandler implements Listener {
 		});
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-			plugin.registerBungeeChannels("vp:vp");
+			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
@@ -545,7 +545,7 @@ public class BungeeHandler implements Listener {
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 
-			plugin.registerBungeeChannels("vp:vp");
+			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 
 			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
 			bungeeVotePartyRequired = plugin.getServerData().getBungeeVotePartyRequired();

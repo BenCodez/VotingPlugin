@@ -68,7 +68,7 @@ import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
 public class VotingPluginVelocity {
 
-	private static final ChannelIdentifier CHANNEL = MinecraftChannelIdentifier.create("vp", "vp");
+	private ChannelIdentifier CHANNEL;
 
 	@Getter
 	private Config config;
@@ -473,6 +473,7 @@ public class VotingPluginVelocity {
 		}
 
 		config = new Config(configFile);
+		CHANNEL = MinecraftChannelIdentifier.from(config.getPluginMessageChannel());
 		server.getChannelRegistrar().register(CHANNEL);
 
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")

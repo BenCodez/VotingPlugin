@@ -85,6 +85,10 @@ WhiteListedServers: []
 # REDIS
 BungeeMethod: PLUGINMESSAGING
 
+# Default is vp:vp, can be changed to prevent potential exploits
+# Must match on all servers
+PluginMessageChannel: "vp:vp"
+
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
 Redis:
   Host: localhost

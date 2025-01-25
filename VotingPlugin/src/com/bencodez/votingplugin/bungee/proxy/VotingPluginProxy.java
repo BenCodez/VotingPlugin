@@ -793,7 +793,7 @@ public abstract class VotingPluginProxy {
 			}
 			for (String send : getAllAvailableServers()) {
 				if (isSomeoneOnlineServer(send)) {
-					sendPluginMessageData(send, "vp:vp".toLowerCase(), outstream.toByteArray(), false);
+					sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(), outstream.toByteArray(), false);
 				}
 			}
 		} else {
@@ -866,7 +866,7 @@ public abstract class VotingPluginProxy {
 				out.writeUTF(message);
 			}
 			if (isSomeoneOnlineServer(server)) {
-				sendPluginMessageData(server, "vp:vp".toLowerCase(), byteOutStream.toByteArray(), false);
+				sendPluginMessageData(server, getConfig().getPluginMessageChannel().toLowerCase(), byteOutStream.toByteArray(), false);
 			}
 			out.close();
 		} catch (Exception e) {

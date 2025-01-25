@@ -643,7 +643,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			e.printStackTrace();
 		}
 
-		this.getProxy().registerChannel("vp:vp");
+		this.getProxy().registerChannel(getConfig().getPluginMessageChannel());
 
 		if (mysqlLoaded) {
 
@@ -784,7 +784,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@EventHandler
 	public void onPluginMessage(PluginMessageEvent ev) {
-		if (!ev.getTag().equals("vp:vp".toLowerCase())) {
+		if (!ev.getTag().equals(getConfig().getPluginMessageChannel().toLowerCase())) {
 			return;
 		}
 
