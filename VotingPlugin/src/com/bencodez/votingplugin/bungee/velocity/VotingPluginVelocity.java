@@ -605,7 +605,7 @@ public class VotingPluginVelocity {
 			@Override
 			public boolean isSomeoneOnlineServer(String serverName) {
 				if (server.getServer(serverName).isPresent()) {
-					return server.getServer(serverName).get().getPlayersConnected().isEmpty();
+					return !server.getServer(serverName).get().getPlayersConnected().isEmpty();
 				}
 				return false;
 			}
