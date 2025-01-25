@@ -473,7 +473,8 @@ public class VotingPluginVelocity {
 		}
 
 		config = new Config(configFile);
-		CHANNEL = MinecraftChannelIdentifier.from(config.getPluginMessageChannel());
+		String[] channel = config.getPluginMessageChannel().split(":");
+		CHANNEL = MinecraftChannelIdentifier.create(channel[0].toLowerCase(), channel[1].toLowerCase());
 		server.getChannelRegistrar().register(CHANNEL);
 
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")
