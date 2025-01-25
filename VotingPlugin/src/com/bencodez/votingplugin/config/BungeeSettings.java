@@ -42,6 +42,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataString(path = "PluginMessagingChannel")
 	@Getter
 	private String pluginMessagingChannel = "vp:vp";
+	
+	@ConfigDataBoolean(path = "PluginMessageEncryption")
+	@Getter
+	private boolean pluginMessageEncryption = false;
 
 	@ConfigDataString(path = "Redis.Prefix")
 	@Getter

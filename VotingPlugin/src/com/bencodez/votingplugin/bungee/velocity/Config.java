@@ -280,4 +280,9 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return getString(getNode("PluginMessageChannel"), "vp:vp");
 	}
 
+	@Override
+	public boolean getPluginMessageEncryption() {
+		return getBoolean(getNode("PluginMessageEncryption"), false);
+	}
+
 }

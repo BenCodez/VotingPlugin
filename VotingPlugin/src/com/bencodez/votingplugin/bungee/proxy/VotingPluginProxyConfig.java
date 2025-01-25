@@ -21,8 +21,10 @@ public interface VotingPluginProxyConfig {
 	public String getBungeeMethod();
 
 	public int getBungeePort();
-	
+
 	public String getPluginMessageChannel();
+
+	public boolean getPluginMessageEncryption();
 
 	public boolean getDebug();
 

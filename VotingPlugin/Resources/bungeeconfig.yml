@@ -89,6 +89,10 @@ BungeeMethod: PLUGINMESSAGING
 # Must match on all servers
 PluginMessageChannel: "vp:vp"
 
+# Use this to encrypt the plugin messages
+# Must be set on all servers the same
+PluginMessageEncryption: false
+
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
 Redis:
   Host: localhost

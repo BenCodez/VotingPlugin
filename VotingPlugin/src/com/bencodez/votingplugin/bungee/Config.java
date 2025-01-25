@@ -289,4 +289,9 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getString("PluginMessageChannel", "vp:vp");
 	}
 
+	@Override
+	public boolean getPluginMessageEncryption() {
+		return getData().getBoolean("PluginMessageEncryption", false);
+	}
+
 }

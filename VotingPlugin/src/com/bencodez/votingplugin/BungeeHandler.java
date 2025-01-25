@@ -544,8 +544,12 @@ public class BungeeHandler implements Listener {
 			redisThread.start();
 
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-
 			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
+
+			if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
+				encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
+				plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
+			}
 
 			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
 			bungeeVotePartyRequired = plugin.getServerData().getBungeeVotePartyRequired();

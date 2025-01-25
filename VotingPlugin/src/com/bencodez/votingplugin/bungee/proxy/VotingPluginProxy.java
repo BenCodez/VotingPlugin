@@ -481,7 +481,9 @@ public abstract class VotingPluginProxy {
 		}
 
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-
+			if (getConfig().getPluginMessageEncryption()) {
+				encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
+			}
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
 
@@ -767,37 +769,66 @@ public abstract class VotingPluginProxy {
 
 		debug("Received plugin message, processing...");
 
-		// check for status message returns
-		if (subchannel.equalsIgnoreCase("statusokay")) {
-			String server = in.readUTF();
-			log("Status okay for " + server);
-			return;
-		} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-			// not used currently
-		} else if (subchannel.equalsIgnoreCase("login")) {
-			String player = in.readUTF();
-			String uuid = in.readUTF();
-			String server = "";
-			if (size > 2) {
-				server = in.readUTF();
-			}
-			debug("Login: " + player + "/" + uuid + " " + server);
-			login(player, uuid, server);
-			return;
-		} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
-			// reforward message for VoteUpdate
-			out.writeUTF(subchannel);
-			out.writeInt(size);
-			for (int i = 0; i < size; i++) {
-				out.writeUTF(in.readUTF());
-			}
-			for (String send : getAllAvailableServers()) {
-				if (isSomeoneOnlineServer(send)) {
-					sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(), outstream.toByteArray(), false);
+		try {
+			// check for status message returns
+			if (subchannel.equalsIgnoreCase("statusokay")) {
+				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+					String server = encryptionHandler.decrypt(in.readUTF());
+					log("Status okay for " + server);
+				} else {
+					String server = in.readUTF();
+					log("Status okay for " + server);
 				}
+				return;
+			} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
+				// not used currently
+			} else if (subchannel.equalsIgnoreCase("login")) {
+				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+					String player = encryptionHandler.decrypt(in.readUTF());
+					String uuid = encryptionHandler.decrypt(in.readUTF());
+					String server = "";
+					if (size > 2) {
+						server = encryptionHandler.decrypt(in.readUTF());
+					}
+					debug("Login: " + player + "/" + uuid + " " + server);
+					login(player, uuid, server);
+				} else {
+					String player = in.readUTF();
+					String uuid = in.readUTF();
+					String server = "";
+					if (size > 2) {
+						server = in.readUTF();
+					}
+					debug("Login: " + player + "/" + uuid + " " + server);
+					login(player, uuid, server);
+				}
+				return;
+			} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
+				out.writeUTF(subchannel);
+				out.writeInt(size);
+				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+					for (int i = 0; i < size; i++) {
+						String str = encryptionHandler.decrypt(in.readUTF());
+						if (str != null) {
+							out.writeUTF(str);
+						}
+					}
+				} else {
+					for (int i = 0; i < size; i++) {
+						out.writeUTF(in.readUTF());
+					}
+				}
+				for (String send : getAllAvailableServers()) {
+					if (isSomeoneOnlineServer(send)) {
+						sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(),
+								outstream.toByteArray(), false);
+					}
+				}
+			} else {
+				debug("Ignoring plugin message: " + subchannel);
 			}
-		} else {
-			debug("Ignoring plugin message: " + subchannel);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -863,10 +894,15 @@ public abstract class VotingPluginProxy {
 			out.writeUTF(channel);
 			out.writeInt(messageData.length);
 			for (String message : messageData) {
-				out.writeUTF(message);
+				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+					out.writeUTF(encryptionHandler.encrypt(message));
+				} else {
+					out.writeUTF(message);
+				}
 			}
 			if (isSomeoneOnlineServer(server)) {
-				sendPluginMessageData(server, getConfig().getPluginMessageChannel().toLowerCase(), byteOutStream.toByteArray(), false);
+				sendPluginMessageData(server, getConfig().getPluginMessageChannel().toLowerCase(),
+						byteOutStream.toByteArray(), false);
 			}
 			out.close();
 		} catch (Exception e) {
