@@ -55,6 +55,7 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
@@ -392,9 +393,12 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onPluginMessagingReceived(PluginMessageEvent event) {
 		if (event.getIdentifier().getId().equals(CHANNEL.getId())) {
-			if (event.getSource() instanceof Player) {
-				return;
-			}
+			event.setResult(PluginMessageEvent.ForwardResult.handled());
+
+	        if (!(event.getSource() instanceof ServerConnection)) {
+	            return;
+	        }
+			
 			ByteArrayInputStream instream = new ByteArrayInputStream(event.getData());
 			DataInputStream in = new DataInputStream(instream);
 			try {

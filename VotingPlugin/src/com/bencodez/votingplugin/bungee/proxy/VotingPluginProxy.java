@@ -484,7 +484,8 @@ public abstract class VotingPluginProxy {
 			if (getConfig().getPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
 			} else {
-				logSevere("Plugin message encryption disabled, please enable to prevent exploits: https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-PLUGINMESSAGING#prevent-exploits-recommended-if-possible");
+				logSevere(
+						"Plugin message encryption disabled, please enable to prevent exploits: https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-PLUGINMESSAGING#prevent-exploits-recommended-if-possible");
 			}
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
@@ -766,59 +767,50 @@ public abstract class VotingPluginProxy {
 	public void onPluginMessageReceived(DataInputStream in) throws IOException {
 		ByteArrayOutputStream outstream = new ByteArrayOutputStream();
 		DataOutputStream out = new DataOutputStream(outstream);
-		String subchannel = in.readUTF();
+		String subchannel = "";
+		if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+			subchannel = encryptionHandler.decrypt(in.readUTF());
+		} else {
+			subchannel = in.readUTF();
+		}
 		int size = in.readInt();
 
 		debug("Received plugin message, processing...");
 
 		try {
+			String data = "";
+			if (size > 0) {
+				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+					data = encryptionHandler.decrypt(in.readUTF());
+				} else {
+					data = in.readUTF();
+				}
+			}
+			String[] list = data.split("//");
 			// check for status message returns
 			if (subchannel.equalsIgnoreCase("statusokay")) {
-				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					String server = encryptionHandler.decrypt(in.readUTF());
-					log("Status okay for " + server);
-				} else {
-					String server = in.readUTF();
-					log("Status okay for " + server);
-				}
+				String server = list[0];
+				log("Status okay for " + server);
 				return;
 			} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
 				// not used currently
 			} else if (subchannel.equalsIgnoreCase("login")) {
-				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					String player = encryptionHandler.decrypt(in.readUTF());
-					String uuid = encryptionHandler.decrypt(in.readUTF());
-					String server = "";
-					if (size > 2) {
-						server = encryptionHandler.decrypt(in.readUTF());
-					}
-					debug("Login: " + player + "/" + uuid + " " + server);
-					login(player, uuid, server);
-				} else {
-					String player = in.readUTF();
-					String uuid = in.readUTF();
-					String server = "";
-					if (size > 2) {
-						server = in.readUTF();
-					}
-					debug("Login: " + player + "/" + uuid + " " + server);
-					login(player, uuid, server);
-				}
+
+				String player = list[0];
+				String uuid = list[1];
+				String server = list[2];
+				debug("Login: " + player + "/" + uuid + " " + server);
+				login(player, uuid, server);
+
 				return;
 			} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
 				out.writeUTF(subchannel);
 				out.writeInt(size);
+
 				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					for (int i = 0; i < size; i++) {
-						String str = encryptionHandler.decrypt(in.readUTF());
-						if (str != null) {
-							out.writeUTF(str);
-						}
-					}
+					out.writeUTF(encryptionHandler.encrypt(data));
 				} else {
-					for (int i = 0; i < size; i++) {
-						out.writeUTF(in.readUTF());
-					}
+					out.writeUTF(data);
 				}
 				for (String send : getAllAvailableServers()) {
 					if (isSomeoneOnlineServer(send)) {
@@ -893,14 +885,21 @@ public abstract class VotingPluginProxy {
 		ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
 		DataOutputStream out = new DataOutputStream(byteOutStream);
 		try {
-			out.writeUTF(channel);
+			if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+				out.writeUTF(encryptionHandler.encrypt(channel));
+			} else {
+				out.writeUTF(channel);
+			}
 			out.writeInt(messageData.length);
+
+			String data = "";
 			for (String message : messageData) {
-				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					out.writeUTF(encryptionHandler.encrypt(message));
-				} else {
-					out.writeUTF(message);
-				}
+				data += message + "//";
+			}
+			if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+				out.writeUTF(encryptionHandler.encrypt(data));
+			} else {
+				out.writeUTF(data);
 			}
 			if (isSomeoneOnlineServer(server)) {
 				sendPluginMessageData(server, getConfig().getPluginMessageChannel().toLowerCase(),
