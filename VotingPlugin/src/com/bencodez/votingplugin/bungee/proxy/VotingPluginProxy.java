@@ -783,7 +783,7 @@ public abstract class VotingPluginProxy {
 					data = in.readUTF();
 				}
 			}
-			String[] list = data.split("//");
+			String[] list = data.split("/a/");
 			// check for status message returns
 			if (subchannel.equalsIgnoreCase("statusokay")) {
 				String server = list[0];
@@ -891,7 +891,7 @@ public abstract class VotingPluginProxy {
 
 			String data = "";
 			for (String message : messageData) {
-				data += message + "//";
+				data += message + "/a/";
 			}
 			if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
 				out.writeUTF(encryptionHandler.encrypt(data));
