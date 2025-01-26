@@ -549,8 +549,6 @@ public class BungeeHandler implements Listener {
 			if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
 				plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
-			} else {
-				plugin.getLogger().warning("PluginMessageEncryption is disabled, this is not recommended, please enable to prevent possible exploits");
 			}
 
 			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
