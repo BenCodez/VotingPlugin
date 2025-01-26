@@ -2,6 +2,7 @@ com.bencodez.votingplugin
 com.bencodez.votingplugin.broadcast
 com.bencodez.votingplugin.bungee
 com.bencodez.votingplugin.bungee.global.multiproxy
+com.bencodez.votingplugin.bungee.proxy
 com.bencodez.votingplugin.bungee.velocity
 com.bencodez.votingplugin.commands
 com.bencodez.votingplugin.commands.executers
