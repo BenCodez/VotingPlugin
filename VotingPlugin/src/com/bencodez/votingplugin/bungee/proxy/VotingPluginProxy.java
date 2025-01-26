@@ -483,6 +483,8 @@ public abstract class VotingPluginProxy {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			if (getConfig().getPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
+			} else {
+				logSevere("Plugin message encryption disabled, please enable to prevent exploits: https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-PLUGINMESSAGING#prevent-exploits-recommended-if-possible");
 			}
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
