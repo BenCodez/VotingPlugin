@@ -609,7 +609,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			public void warn(String message) {
 				getLogger().warning(message);
 			}
-			
+
 			@Override
 			public void reloadCore(boolean mysql) {
 				reloadPlugin(mysql);
@@ -709,8 +709,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					}
 
 					for (String player : getVotingPluginProxy().getCachedOnlineVotes().keySet()) {
-						getVotingPluginProxy().checkOnlineVotes(getProxy().getPlayer(UUID.fromString(player)).getName(),
-								player, null);
+						ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(player));
+						if (p != null) {
+							getVotingPluginProxy().checkOnlineVotes(p.getName(), player, null);
+						}
 					}
 				}
 			}, 120l, 60l, TimeUnit.SECONDS);
