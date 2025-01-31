@@ -561,7 +561,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public void sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
-				getProxy().getServers().get(server).sendData(channel, data, queue);
+				getProxy().getServerInfo(server).sendData(channel, data, queue);
 			}
 
 			@Override
