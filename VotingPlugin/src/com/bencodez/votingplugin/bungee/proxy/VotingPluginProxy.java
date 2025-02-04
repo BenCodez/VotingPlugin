@@ -230,8 +230,6 @@ public abstract class VotingPluginProxy {
 			}
 		};
 
-		loadMultiProxySupport();
-
 	}
 
 	public void addCurrentVotePartyVotes(int amount) {
@@ -483,7 +481,7 @@ public abstract class VotingPluginProxy {
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			if (getConfig().getPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
-			} 
+			}
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
 
