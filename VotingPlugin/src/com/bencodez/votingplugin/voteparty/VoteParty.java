@@ -62,12 +62,19 @@ public class VoteParty implements Listener {
 	}
 
 	public void check(VotingPluginUser user, boolean forceBungee) {
-		if ((getTotalVotes() < getVotesRequired()) || (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
-				&& plugin.getServerData().isLastVotePartySameDay())) {
+		if (getTotalVotes() < getVotesRequired()) {
+			plugin.extraDebug("Not enough votes for vote party: " + getTotalVotes() + " / " + getVotesRequired());
+			return;
+		}
+
+		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
+				&& plugin.getServerData().isLastVotePartySameDay()) {
+			plugin.extraDebug("Already had vote party today");
 			return;
 		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
 				&& plugin.getServerData().isLastVotePartySameWeek()) {
+			plugin.extraDebug("Already had vote party this week");
 			return;
 		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
