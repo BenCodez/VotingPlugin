@@ -51,6 +51,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholders;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholdersPlayer;
+import com.bencodez.votingplugin.commands.gui.admin.AdminVoteTopPoints;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
@@ -294,6 +295,18 @@ public class CommandLoader {
 
 					}
 				});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "TopPoints" },
+				"VotingPlugin.Commands.AdminVote.TopPoints|" + adminPerm, "Open the top points GUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				sendMessage(sender, "&cLoading top points, please wait...");
+
+				new AdminVoteTopPoints(plugin, sender,
+						plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender), 1).open();
+			}
+		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "PauseRewards" },
 				"VotingPlugin.Commands.AdminVote.PauseRewards|" + adminPerm, "Pause rewards globally") {
