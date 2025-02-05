@@ -759,66 +759,73 @@ public abstract class VotingPluginProxy {
 		enabled = false;
 	}
 
-	public void onPluginMessageReceived(DataInputStream in) throws IOException {
-		ByteArrayOutputStream outstream = new ByteArrayOutputStream();
-		DataOutputStream out = new DataOutputStream(outstream);
-		String subchannel = "";
-		if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-			subchannel = encryptionHandler.decrypt(in.readUTF());
-		} else {
-			subchannel = in.readUTF();
-		}
-		int size = in.readInt();
+	public void onPluginMessageReceived(DataInputStream in) {
+		runAsync(new Runnable() {
 
-		debug("Received plugin message, processing...");
-
-		try {
-			String data = "";
-			if (size > 0) {
-				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					data = encryptionHandler.decrypt(in.readUTF());
-				} else {
-					data = in.readUTF();
-				}
-			}
-			String[] list = data.split("/a/");
-			// check for status message returns
-			if (subchannel.equalsIgnoreCase("statusokay")) {
-				String server = list[0];
-				log("Status okay for " + server);
-				return;
-			} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-				// not used currently
-			} else if (subchannel.equalsIgnoreCase("login")) {
-
-				String player = list[0];
-				String uuid = list[1];
-				String server = list[2];
-				debug("Login: " + player + "/" + uuid + " " + server);
-				login(player, uuid, server);
-
-				return;
-			} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
-				out.writeUTF(subchannel);
-				out.writeInt(size);
-
-				if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-					out.writeUTF(encryptionHandler.encrypt(data));
-				} else {
-					out.writeUTF(data);
-				}
-				for (String send : getAllAvailableServers()) {
-					if (isSomeoneOnlineServer(send)) {
-						sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(),
-								outstream.toByteArray(), false);
+			@Override
+			public void run() {
+				try {
+					ByteArrayOutputStream outstream = new ByteArrayOutputStream();
+					DataOutputStream out = new DataOutputStream(outstream);
+					String subchannel = "";
+					if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+						subchannel = encryptionHandler.decrypt(in.readUTF());
+					} else {
+						subchannel = in.readUTF();
 					}
+					int size = in.readInt();
+
+					debug("Received plugin message, processing...");
+
+					String data = "";
+					if (size > 0) {
+						if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+							data = encryptionHandler.decrypt(in.readUTF());
+						} else {
+							data = in.readUTF();
+						}
+					}
+					String[] list = data.split("/a/");
+					// check for status message returns
+					if (subchannel.equalsIgnoreCase("statusokay")) {
+						String server = list[0];
+						log("Status okay for " + server);
+						return;
+					} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
+						// not used currently
+					} else if (subchannel.equalsIgnoreCase("login")) {
+
+						String player = list[0];
+						String uuid = list[1];
+						String server = list[2];
+						debug("Login: " + player + "/" + uuid + " " + server);
+						login(player, uuid, server);
+
+						return;
+					} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
+						out.writeUTF(subchannel);
+						out.writeInt(size);
+
+						if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
+							out.writeUTF(encryptionHandler.encrypt(data));
+						} else {
+							out.writeUTF(data);
+						}
+						for (String send : getAllAvailableServers()) {
+							if (isSomeoneOnlineServer(send)) {
+								sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(),
+										outstream.toByteArray(), false);
+							}
+						}
+					} else {
+						debug("Ignoring plugin message: " + subchannel);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-			} else {
-				debug("Ignoring plugin message: " + subchannel);
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		});
+
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
