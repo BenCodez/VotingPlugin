@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.bungee;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.ArrayList;
 
 import lombok.Getter;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -38,20 +40,24 @@ public class NonVotedPlayersCache {
 	}
 
 	public void check() {
+		ArrayList<String> toRemove = new ArrayList<String>();
 		for (String player : getData().getSection("NonVotedPlayers").getKeys()) {
 			long time = getData().getLong("NonVotedPlayers." + player + ".LastTime", 0);
 			if ((System.currentTimeMillis() - time) > 1000 * 60 * 60 * 24 * 5) {
-				remove(player);
+				toRemove.add(player);
 			} else {
 				String uuid = getData().getString("NonVotedPlayers." + player + ".UUID", "");
 				if (!uuid.isEmpty()) {
 					if (bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
-						remove(player);
+						toRemove.add(player);
 					}
 				} else {
-					remove(player);
+					toRemove.add(player);
 				}
 			}
+		}
+		for (String player : toRemove) {
+			remove(player);
 		}
 		save();
 	}
