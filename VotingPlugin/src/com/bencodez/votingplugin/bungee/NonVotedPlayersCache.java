@@ -41,25 +41,30 @@ public class NonVotedPlayersCache {
 
 	public void check() {
 		ArrayList<String> toRemove = new ArrayList<String>();
-		for (String player : getData().getSection("NonVotedPlayers").getKeys()) {
-			long time = getData().getLong("NonVotedPlayers." + player + ".LastTime", 0);
-			if ((System.currentTimeMillis() - time) > 1000 * 60 * 60 * 24 * 5) {
-				toRemove.add(player);
-			} else {
-				String uuid = getData().getString("NonVotedPlayers." + player + ".UUID", "");
-				if (!uuid.isEmpty()) {
-					if (bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
+		Configuration section = getData().getSection("NonVotedPlayers");
+		if (section != null) {
+			for (String player : section.getKeys()) {
+				long time = getData().getLong("NonVotedPlayers." + player + ".LastTime", 0);
+				if ((System.currentTimeMillis() - time) > 1000 * 60 * 60 * 24 * 5) {
+					toRemove.add(player);
+				} else {
+					String uuid = getData().getString("NonVotedPlayers." + player + ".UUID", "");
+					if (!uuid.isEmpty()) {
+						if (bungee.getVotingPluginProxy().getProxyMySQL().containsKeyQuery(uuid)) {
+							toRemove.add(player);
+						}
+					} else {
 						toRemove.add(player);
 					}
-				} else {
-					toRemove.add(player);
 				}
 			}
+			for (String player : toRemove) {
+				remove(player);
+			}
+			save();
+		} else {
+			bungee.debug("NonVotedPlayers section is null");
 		}
-		for (String player : toRemove) {
-			remove(player);
-		}
-		save();
 	}
 
 	public void load() {
