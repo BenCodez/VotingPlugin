@@ -29,6 +29,8 @@ import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -490,22 +492,22 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public long getVoteCacheLastUpdated() {
-				return voteCacheFile.getData().getLong("Time.LastUpdated");
+				return voteCacheFile.getLong("Time.LastUpdated", 0L);
 			}
 
 			@Override
 			public int getVoteCachePrevDay() {
-				return voteCacheFile.getData().getInt("Time.Day");
+				return voteCacheFile.getInt("Time.Day", 0);
 			}
 
 			@Override
 			public String getVoteCachePrevMonth() {
-				return voteCacheFile.getData().getString("Time.Month");
+				return voteCacheFile.getString("Time.Month", "");
 			}
 
 			@Override
 			public int getVoteCachePrevWeek() {
-				return voteCacheFile.getData().getInt("Time.Week");
+				return voteCacheFile.getInt("Time.Week", 0);
 			}
 
 			@Override
@@ -531,7 +533,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public boolean isVoteCacheIgnoreTime() {
-				return voteCacheFile.getData().getBoolean("Time.IgnoreTime");
+				return voteCacheFile.getBoolean("Time.IgnoreTime", false);
 			}
 
 			@Override
@@ -566,31 +568,31 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public void setVoteCacheLastUpdated() {
-				voteCacheFile.getData().set("Time.LastUpdated", System.currentTimeMillis());
+				voteCacheFile.setLong("Time.LastUpdated", System.currentTimeMillis());
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevDay(int day) {
-				voteCacheFile.getData().set("Time.Day", day);
+				voteCacheFile.setInt("Time.Day", day);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevMonth(String text) {
-				voteCacheFile.getData().set("Time.Month", text);
+				voteCacheFile.setString("Time.Month", text);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevWeek(int week) {
-				voteCacheFile.getData().set("Time.Week", week);
+				voteCacheFile.setInt("Time.Week", week);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCacheVoteCacheIgnoreTime(boolean ignore) {
-				voteCacheFile.getData().set("Time.IgnoreTime", ignore);
+				voteCacheFile.setBoolean("Time.IgnoreTime", ignore);
 				voteCacheFile.save();
 			}
 
@@ -648,18 +650,25 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		if (mysqlLoaded) {
 
 			voteCacheFile = new VoteCache(this);
-			voteCacheFile.load();
+			// voteCacheFile.load();
 
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
-			nonVotedPlayersCache.load();
+			// nonVotedPlayersCache.load();
 
 			getVotingPluginProxy().load();
 
 			try {
 				for (String key : voteCacheFile.getTimedVoteCache()) {
-					Configuration data = voteCacheFile.getTimedVoteCache(key);
-					getVotingPluginProxy().getTimeChangeQueue().add(
-							new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
+					JsonElement dataElement = voteCacheFile.getTimedVoteCache(key);
+
+					if (dataElement != null && dataElement.isJsonObject()) {
+						JsonObject data = dataElement.getAsJsonObject();
+						String name = data.has("Name") ? data.get("Name").getAsString() : "";
+						String service = data.has("Service") ? data.get("Service").getAsString() : "";
+						long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
+
+						getVotingPluginProxy().getTimeChangeQueue().add(new VoteTimeQueue(name, service, time));
+					}
 				}
 
 				getVotingPluginProxy().processQueue();
@@ -669,14 +678,24 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			try {
 				for (String server : voteCacheFile.getServers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
+					ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
 					for (String num : voteCacheFile.getServerVotes(server)) {
-						Configuration data = voteCacheFile.getServerVotes(server, num);
-						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
-								data.getString("Text")));
+						JsonElement dataElement = voteCacheFile.getServerVotes(server, num);
+
+						if (dataElement != null && dataElement.isJsonObject()) {
+							JsonObject data = dataElement.getAsJsonObject();
+
+							String name = data.has("Name") ? data.get("Name").getAsString() : "";
+							String uuid = data.has("UUID") ? data.get("UUID").getAsString() : "";
+							String service = data.has("Service") ? data.get("Service").getAsString() : "";
+							long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
+							boolean real = data.has("Real") && data.get("Real").getAsBoolean();
+							String text = data.has("Text") ? data.get("Text").getAsString() : "";
+
+							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
+						}
 					}
-					getVotingPluginProxy().getCachedVotes().put(server, vote);
+					getVotingPluginProxy().getCachedVotes().put(server, votes);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -684,14 +703,25 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			try {
 				for (String player : voteCacheFile.getPlayers()) {
-					ArrayList<OfflineBungeeVote> vote = new ArrayList<>();
+					ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
 					for (String num : voteCacheFile.getOnlineVotes(player)) {
-						Configuration data = voteCacheFile.getOnlineVotes(player, num);
-						vote.add(new OfflineBungeeVote(data.getString("Name"), data.getString("UUID"),
-								data.getString("Service"), data.getLong("Time"), data.getBoolean("Real"),
-								data.getString("Text")));
+						JsonElement dataElement = voteCacheFile.getOnlineVotes(player, num);
+
+						if (dataElement != null && dataElement.isJsonObject()) {
+							JsonObject data = dataElement.getAsJsonObject();
+
+							String name = data.has("Name") ? data.get("Name").getAsString() : "";
+							String uuid = data.has("UUID") ? data.get("UUID").getAsString() : "";
+							String service = data.has("Service") ? data.get("Service").getAsString() : "";
+							long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
+							boolean real = data.has("Real") && data.get("Real").getAsBoolean();
+							String text = data.has("Text") ? data.get("Text").getAsString() : "";
+
+							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
+						}
 					}
-					getVotingPluginProxy().getCachedOnlineVotes().put(player, vote);
+					getLogger().info("VoteCache: " + player);
+					getVotingPluginProxy().getCachedOnlineVotes().put(player, votes);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

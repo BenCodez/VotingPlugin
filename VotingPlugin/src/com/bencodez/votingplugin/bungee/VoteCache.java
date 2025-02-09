@@ -1,161 +1,126 @@
 package com.bencodez.votingplugin.bungee;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Collection;
 
+import com.bencodez.simpleapi.file.BungeeJsonFile;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.google.gson.JsonElement;
 
-import lombok.Getter;
-import net.md_5.bungee.config.Configuration;
-import net.md_5.bungee.config.ConfigurationProvider;
-import net.md_5.bungee.config.JsonConfiguration;
-import net.md_5.bungee.config.YamlConfiguration;
-
-public class VoteCache {
+public class VoteCache extends BungeeJsonFile {
 	private VotingPluginBungee bungee;
-	@Getter
-	private Configuration data;
 
 	public VoteCache(VotingPluginBungee bungee) {
+		super(new File(bungee.getDataFolder(), "votecache.json"));
 		this.bungee = bungee;
+		initialize();
+	}
+
+	private void initialize() {
+		if (!bungee.getDataFolder().exists()) {
+			bungee.getDataFolder().mkdir();
+		}
+		// Reload the JSON file to ensure latest data
+		reload();
 	}
 
 	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
-		Configuration section = getData().getSection("TimedVoteCache." + num);
-		section.set("Name", voteTimedQueue.getName());
-		section.set("Service", voteTimedQueue.getService());
-		section.set("Time", voteTimedQueue.getTime());
+		String path = "TimedVoteCache." + num;
+		setString(path + ".Name", voteTimedQueue.getName());
+		setString(path + ".Service", voteTimedQueue.getService());
+		setLong(path + ".Time", voteTimedQueue.getTime());
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
-		Configuration section = getData().getSection("VoteCache." + server + "." + num);
-		section.set("Name", voteData.getPlayerName());
-		section.set("Service", voteData.getService());
-		section.set("UUID", voteData.getUuid());
-		section.set("Time", voteData.getTime());
-		section.set("Real", voteData.isRealVote());
-		section.set("Text", voteData.getText());
+		String path = "VoteCache." + server + "." + num;
+		setString(path + ".Name", voteData.getPlayerName());
+		setString(path + ".Service", voteData.getService());
+		setString(path + ".UUID", voteData.getUuid());
+		setLong(path + ".Time", voteData.getTime());
+		setBoolean(path + ".Real", voteData.isRealVote());
+		setString(path + ".Text", voteData.getText());
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
-		Configuration section = getData().getSection("OnlineCache." + player + "." + num);
-		section.set("Name", voteData.getPlayerName());
-		section.set("Service", voteData.getService());
-		section.set("UUID", voteData.getUuid());
-		section.set("Time", voteData.getTime());
-		section.set("Real", voteData.isRealVote());
-		section.set("Text", voteData.getText());
+		String path = "OnlineCache." + player + "." + num;
+		setString(path + ".Name", voteData.getPlayerName());
+		setString(path + ".Service", voteData.getService());
+		setString(path + ".UUID", voteData.getUuid());
+		setLong(path + ".Time", voteData.getTime());
+		setBoolean(path + ".Real", voteData.isRealVote());
+		setString(path + ".Text", voteData.getText());
 	}
 
 	public void clearData() {
-		getData().set("VoteCache", null);
-		getData().set("OnlineCache", null);
-		getData().set("TimedVoteCache", null);
+		setString("VoteCache", null);
+		setString("OnlineCache", null);
+		setString("TimedVoteCache", null);
 		save();
 	}
 
 	public Collection<String> getOnlineVotes(String name) {
-		return getData().getSection("OnlineCache." + name).getKeys();
+		return getKeys("OnlineCache." + name);
 	}
 
-	public Configuration getOnlineVotes(String name, String num) {
-		return getData().getSection("OnlineCache." + name + "." + num);
+	public JsonElement getOnlineVotes(String name, String num) {
+		return getNode("OnlineCache." + name + "." + num);
 	}
 
 	public Collection<String> getPlayers() {
-		return getData().getSection("OnlineCache").getKeys();
+		return getKeys("OnlineCache");
 	}
 
 	public Collection<String> getServers() {
-		return getData().getSection("VoteCache").getKeys();
+		return getKeys("VoteCache");
 	}
 
 	public Collection<String> getServerVotes(String server) {
-		return getData().getSection("VoteCache." + server).getKeys();
+		return getKeys("VoteCache." + server);
 	}
 
-	public Configuration getServerVotes(String server, String num) {
-		return getData().getSection("VoteCache." + server + "." + num);
+	public JsonElement getServerVotes(String server, String num) {
+		return getNode("VoteCache." + server + "." + num);
 	}
 
 	public Collection<String> getTimedVoteCache() {
-		return getData().getSection("TimedVoteCache").getKeys();
+		return getKeys("TimedVoteCache");
 	}
 
-	public Configuration getTimedVoteCache(String key) {
-		return getData().getSection("TimedVoteCache." + key);
+	public JsonElement getTimedVoteCache(String key) {
+		return getNode("TimedVoteCache." + key);
 	}
 
 	public int getVotePartyCache(String server) {
-		return getData().getInt("VoteParty.Cache." + server, 0);
+		return getInt("VoteParty.Cache." + server, 0);
 	}
 
 	public int getVotePartyCurrentVotes() {
-		return getData().getInt("VoteParty.CurrentVotes", 0);
+		return getInt("VoteParty.CurrentVotes", 0);
 	}
 
 	public int getVotePartyInreaseVotesRequired() {
-		return getData().getInt("VoteParty.IncreaseVotes", 0);
-	}
-
-	public void load() {
-		if (!bungee.getDataFolder().exists()) {
-			bungee.getDataFolder().mkdir();
-		}
-
-		File yamlFile = new File(bungee.getDataFolder(), "votecache.yml");
-
-		File file = new File(bungee.getDataFolder(), "votecache.json");
-
-		if (!file.exists()) {
-			try {
-				file.createNewFile();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		if (yamlFile.exists()) {
-			try {
-				data = ConfigurationProvider.getProvider(YamlConfiguration.class)
-						.load(new File(bungee.getDataFolder(), "votecache.yml"));
-				yamlFile.renameTo(new File(bungee.getDataFolder(), "oldvotecache.yml"));
-				ConfigurationProvider.getProvider(YamlConfiguration.class).save(data,
-						new File(bungee.getDataFolder(), "oldvotecache.yml"));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			save();
-		}
-
-		try {
-			data = ConfigurationProvider.getProvider(JsonConfiguration.class)
-					.load(new File(bungee.getDataFolder(), "votecache.json"));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public void save() {
-		try {
-			ConfigurationProvider.getProvider(JsonConfiguration.class).save(data,
-					new File(bungee.getDataFolder(), "votecache.json"));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		return getInt("VoteParty.IncreaseVotes", 0);
 	}
 
 	public void setVotePartyCache(String server, int amount) {
-		getData().set("VoteParty.Cache." + server, amount);
+		setInt("VoteParty.Cache." + server, amount);
 	}
 
 	public void setVotePartyCurrentVotes(int amount) {
-		getData().set("VoteParty.CurrentVotes", amount);
+		setInt("VoteParty.CurrentVotes", amount);
 	}
 
 	public void setVotePartyInreaseVotesRequired(int amount) {
-		getData().set("VoteParty.IncreaseVotes", amount);
+		setInt("VoteParty.IncreaseVotes", amount);
 	}
 
+	@Override
+	public void save() {
+		super.save();
+	}
+
+	@Override
+	public void reload() {
+		super.reload();
+	}
 }
