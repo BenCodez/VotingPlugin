@@ -76,7 +76,7 @@
 						<configuration>
 							<addOutputDirectory>false</addOutputDirectory>
 							<outputDirectory>${project.basedir}/target/delombok</outputDirectory>
-							<sourceDirectory>${project.basedir}/src</sourceDirectory>
+							<sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
 						</configuration>
 					</execution>
 				</executions>
