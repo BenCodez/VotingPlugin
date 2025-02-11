@@ -6,3 +6,4 @@
 /.settings/
 /.classpath
 /.factorypath
+/.apt_generated_tests/
