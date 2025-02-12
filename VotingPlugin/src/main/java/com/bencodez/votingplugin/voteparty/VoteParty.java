@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.voteparty;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -51,7 +52,7 @@ public class VoteParty implements Listener {
 	 */
 	public void addVotePlayer(VotingPluginUser user) {
 		String uuid = user.getUUID();
-		ArrayList<String> voted = getVotedUsers();
+		List<String> voted = getVotedUsers();
 		if (voted == null) {
 			voted = new ArrayList<>();
 		}
@@ -186,9 +187,8 @@ public class VoteParty implements Listener {
 	 *
 	 * @return the voted users
 	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<String> getVotedUsers() {
-		ArrayList<String> list = (ArrayList<String>) plugin.getServerData().getData().getList("VoteParty.Voted");
+	public List<String> getVotedUsers() {
+		List<String> list =  plugin.getServerData().getData().getStringList("VoteParty.Voted");
 		if (list != null) {
 			return list;
 		}
@@ -367,7 +367,7 @@ public class VoteParty implements Listener {
 	 *
 	 * @param value the new voted users
 	 */
-	public void setVotedUsers(ArrayList<String> value) {
+	public void setVotedUsers(List<String> value) {
 		plugin.getServerData().getData().set("VoteParty.Voted", value);
 		plugin.getServerData().saveData();
 	}
