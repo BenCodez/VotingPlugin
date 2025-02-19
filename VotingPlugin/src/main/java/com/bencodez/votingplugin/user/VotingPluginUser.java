@@ -1377,34 +1377,41 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		Player player = getPlayer();
-		if (player != null) {
-			plugin.extraDebug("Checking offline votes for " + player.getName() + "/" + getUUID());
+		if (player == null) {
+			return;
+		}
 
-			boolean topVoterIngorePerm = player.hasPermission("VotingPlugin.TopVoter.Ignore");
-			if (isTopVoterIgnore() != topVoterIngorePerm) {
-				setTopVoterIgnore(topVoterIngorePerm);
-			}
-			ArrayList<String> offlineVotes = getOfflineVotes();
-			// plugin.debug("Offvotes: " +
-			// ArrayUtils.getInstance().makeStringList(offlineVotes));
-			if (offlineVotes.size() > 0) {
-				sendVoteEffects(false);
-				setOfflineVotes(new ArrayList<>());
-			}
+		plugin.extraDebug("Checking offline votes for " + player.getName() + "/" + getUUID());
 
-			boolean offlineBroadcast = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
+		// Update top voter ignore flag if needed.
+		boolean currentTopVoterIgnore = player.hasPermission("VotingPlugin.TopVoter.Ignore");
+		if (isTopVoterIgnore() != currentTopVoterIgnore) {
+			setTopVoterIgnore(currentTopVoterIgnore);
+		}
 
-			if (offlineBroadcast && offlineVotes.size() > 0) {
-				offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
-			}
+		ArrayList<String> offlineVotes = getOfflineVotes();
+		if (offlineVotes.isEmpty()) {
+			return;
+		}
 
-			for (String offlineVote : offlineVotes) {
-				if (plugin.hasVoteSite(offlineVote)) {
-					plugin.debug("Giving offline site reward: " + offlineVote);
-					playerVote(plugin.getVoteSite(offlineVote, true), false, !offlineBroadcast, false);
-				} else {
-					plugin.debug("Site doesn't exist: " + offlineVote);
-				}
+		// Send vote effects and clear persistent offline votes.
+		sendVoteEffects(false);
+		setOfflineVotes(new ArrayList<>());
+
+		boolean offlineBroadcastEnabled = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
+
+		// If broadcast is enabled, do it using the local vote count.
+		if (offlineBroadcastEnabled) {
+			offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
+		}
+
+		// Process each offline vote.
+		for (String voteSiteName : offlineVotes) {
+			if (plugin.hasVoteSite(voteSiteName)) {
+				plugin.debug("Giving offline site reward: " + voteSiteName);
+				playerVote(plugin.getVoteSite(voteSiteName, true), false, !offlineBroadcastEnabled, false);
+			} else {
+				plugin.debug("Site doesn't exist: " + voteSiteName);
 			}
 		}
 	}

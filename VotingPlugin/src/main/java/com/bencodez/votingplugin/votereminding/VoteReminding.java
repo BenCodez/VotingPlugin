@@ -116,7 +116,9 @@ public class VoteReminding {
 			}
 			giveReward(user);
 			if (user.getData().hasData() && plugin.getConfigFile().isVoteRemindingRemindOnlyOnce()) {
-				user.setReminded(true);
+				if (!user.isReminded()) {
+					user.setReminded(true);
+				}
 			}
 
 			plugin.debug(user.getPlayerName() + " was reminded!");
@@ -133,7 +135,9 @@ public class VoteReminding {
 						|| shouldRemind(user))) {
 					giveReward(user);
 					if (user.getData().hasData()) {
-						user.setReminded(true);
+						if (!user.isReminded()) {
+							user.setReminded(true);
+						}
 					}
 					plugin.debug(user.getPlayerName() + " was reminded!");
 
