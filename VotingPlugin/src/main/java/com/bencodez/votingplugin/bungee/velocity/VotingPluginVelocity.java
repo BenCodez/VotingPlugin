@@ -516,7 +516,11 @@ public class VotingPluginVelocity {
 
 			@Override
 			public String getCurrentPlayerServer(String player) {
-				return server.getPlayer(player).get().getCurrentServer().get().getServer().getServerInfo().getName();
+				if (server.getPlayer(player).isPresent()) {
+					return server.getPlayer(player).get().getCurrentServer().get().getServer().getServerInfo()
+							.getName();
+				}
+				return "";
 			}
 
 			@Override
