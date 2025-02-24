@@ -2,10 +2,6 @@
 Plugin on SpigotMC
 https://www.spigotmc.org/resources/votingplugin.15358/
 
-## License
-### Creative Commons Arttribution 3.0 Unported
-https://github.com/BenCodez/VotingPlugin/blob/master/VotingPlugin/Resources/LICENSE.txt
-
 ### Maven:
 
     <repository>
