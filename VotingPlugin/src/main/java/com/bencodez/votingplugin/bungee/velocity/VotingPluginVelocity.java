@@ -395,10 +395,10 @@ public class VotingPluginVelocity {
 		if (event.getIdentifier().getId().equals(CHANNEL.getId())) {
 			event.setResult(PluginMessageEvent.ForwardResult.handled());
 
-	        if (!(event.getSource() instanceof ServerConnection)) {
-	            return;
-	        }
-			
+			if (!(event.getSource() instanceof ServerConnection)) {
+				return;
+			}
+
 			ByteArrayInputStream instream = new ByteArrayInputStream(event.getData());
 			DataInputStream in = new DataInputStream(instream);
 			try {
@@ -517,8 +517,10 @@ public class VotingPluginVelocity {
 			@Override
 			public String getCurrentPlayerServer(String player) {
 				if (server.getPlayer(player).isPresent()) {
-					return server.getPlayer(player).get().getCurrentServer().get().getServer().getServerInfo()
-							.getName();
+					if (server.getPlayer(player).get().getCurrentServer().isPresent()) {
+						return server.getPlayer(player).get().getCurrentServer().get().getServer().getServerInfo()
+								.getName();
+					}
 				}
 				return "";
 			}
