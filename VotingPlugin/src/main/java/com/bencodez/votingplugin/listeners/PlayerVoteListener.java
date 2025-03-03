@@ -13,10 +13,10 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 

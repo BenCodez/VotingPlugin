@@ -1,6 +1,6 @@
-package com.bencodez.votingplugin.bungee.velocity;
+package com.bencodez.votingplugin.proxy.velocity;
 
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyCommand;
+import com.bencodez.votingplugin.proxy.VotingPluginProxyCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 

@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.proxy;
+package com.bencodez.votingplugin.proxy;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -41,14 +41,10 @@ import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.json.JsonParser;
-import com.bencodez.votingplugin.bungee.BungeeMessageData;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.bungee.BungeeVersion;
-import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
-import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyHandler;
-import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyMethod;
-import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfiguration;
-import com.bencodez.votingplugin.bungee.global.multiproxy.MultiProxyServerSocketConfigurationBungee;
+import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyMethod;
+import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyServerSocketConfiguration;
+import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

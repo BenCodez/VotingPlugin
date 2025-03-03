@@ -1,7 +1,6 @@
-package com.bencodez.votingplugin.bungee.proxy;
+package com.bencodez.votingplugin.proxy;
 
 import com.bencodez.advancedcore.api.time.TimeType;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
 
 public class VotingPluginProxyCommand {
 	private VotingPluginProxy plugin;

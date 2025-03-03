@@ -11,9 +11,9 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMessageData;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
+import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 

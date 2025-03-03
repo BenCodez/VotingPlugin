@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.global.multiproxy;
+package com.bencodez.votingplugin.proxy.global.multiproxy;
 
 import java.io.File;
 import java.util.Collection;
@@ -11,7 +11,7 @@ import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
 import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
-import com.bencodez.votingplugin.bungee.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.BungeeMessageData;
 
 import lombok.Getter;
 

@@ -33,10 +33,10 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.simpleapi.array.ArrayUtils;
-import com.bencodez.votingplugin.bungee.BungeeMessageData;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.bungee.BungeeVersion;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;

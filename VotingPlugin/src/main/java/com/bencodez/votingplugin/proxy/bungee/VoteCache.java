@@ -1,9 +1,10 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy.bungee;
 
 import java.io.File;
 import java.util.Collection;
 
 import com.bencodez.simpleapi.file.BungeeJsonFile;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.google.gson.JsonElement;
 

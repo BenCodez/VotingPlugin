@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.velocity;
+package com.bencodez.votingplugin.proxy.velocity;
 
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 

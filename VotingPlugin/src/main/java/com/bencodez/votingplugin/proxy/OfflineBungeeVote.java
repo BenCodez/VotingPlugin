@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy;
 
 import lombok.Getter;
 

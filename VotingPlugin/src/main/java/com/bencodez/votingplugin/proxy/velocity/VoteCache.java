@@ -1,10 +1,10 @@
-package com.bencodez.votingplugin.bungee.velocity;
+package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
 import java.util.Collection;
 
 import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
-import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import ninja.leaping.configurate.ConfigurationNode;

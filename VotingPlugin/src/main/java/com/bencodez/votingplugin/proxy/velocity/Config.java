@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.velocity;
+package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -9,7 +9,7 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 import ninja.leaping.configurate.ConfigurationNode;
 

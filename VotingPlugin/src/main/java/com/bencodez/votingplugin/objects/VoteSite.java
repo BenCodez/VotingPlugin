@@ -16,7 +16,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;

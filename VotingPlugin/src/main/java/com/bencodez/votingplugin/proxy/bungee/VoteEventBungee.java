@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy.bungee;
 
 import com.vexsoftware.votifier.bungee.events.VotifierEvent;
 import com.vexsoftware.votifier.model.Vote;

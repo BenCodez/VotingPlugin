@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.proxy;
+package com.bencodez.votingplugin.proxy;
 
 import java.util.Collection;
 import java.util.List;

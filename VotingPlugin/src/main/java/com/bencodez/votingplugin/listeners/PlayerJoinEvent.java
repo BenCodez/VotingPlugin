@@ -8,7 +8,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 // TODO: Auto-generated Javadoc

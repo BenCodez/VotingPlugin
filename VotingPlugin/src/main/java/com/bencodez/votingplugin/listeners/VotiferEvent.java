@@ -8,8 +8,8 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 

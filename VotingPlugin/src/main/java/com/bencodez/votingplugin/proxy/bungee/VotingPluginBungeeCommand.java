@@ -1,6 +1,6 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy.bungee;
 
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyCommand;
+import com.bencodez.votingplugin.proxy.VotingPluginProxyCommand;
 
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.chat.TextComponent;

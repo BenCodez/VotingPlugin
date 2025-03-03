@@ -28,11 +28,11 @@ import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
 import com.bencodez.advancedcore.api.user.usercache.value.DataValueInt;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.bungee.BungeeMessageData;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 

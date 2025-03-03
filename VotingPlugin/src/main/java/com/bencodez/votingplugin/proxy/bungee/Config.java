@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy.bungee;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;

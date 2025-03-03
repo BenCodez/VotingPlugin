@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee;
+package com.bencodez.votingplugin.proxy;
 
 public enum BungeeMethod {
 	MYSQL, PLUGINMESSAGING, SOCKETS, REDIS;

@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.velocity;
+package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -37,11 +37,11 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
-import com.bencodez.votingplugin.bungee.BungeeMethod;
-import com.bencodez.votingplugin.bungee.BungeeVersion;
-import com.bencodez.votingplugin.bungee.OfflineBungeeVote;
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxy;
-import com.bencodez.votingplugin.bungee.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.BungeeVersion;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.inject.Inject;

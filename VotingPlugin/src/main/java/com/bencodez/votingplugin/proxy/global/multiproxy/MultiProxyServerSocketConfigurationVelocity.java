@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.bungee.global.multiproxy;
+package com.bencodez.votingplugin.proxy.global.multiproxy;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
