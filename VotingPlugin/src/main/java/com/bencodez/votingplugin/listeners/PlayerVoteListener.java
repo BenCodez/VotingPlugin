@@ -143,6 +143,9 @@ public class PlayerVoteListener implements Listener {
 
 		user.updateName(true);
 
+		// vote party
+		plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
+
 		if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
 			// broadcast vote if enabled in config
 			if (plugin.getConfigFile().isBroadcastVotesEnabled()
@@ -239,9 +242,6 @@ public class PlayerVoteListener implements Listener {
 				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSitesEnabled().size());
 			}
 		}
-
-		// vote party
-		plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
 		// other rewards
 		plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
