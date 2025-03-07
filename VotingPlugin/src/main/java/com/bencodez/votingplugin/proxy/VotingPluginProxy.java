@@ -1039,7 +1039,7 @@ public abstract class VotingPluginProxy {
 
 			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
-				if (uuid.isEmpty()) {
+				if (uuid.isEmpty() && !player.startsWith(getConfig().getBedrockPlayerPrefix())) {
 					String uuid1 = getUUID(getConfig().getBedrockPlayerPrefix() + player);
 					if (!uuid1.isEmpty()) {
 						debug("Detected bedrock player without prefix, adjusting...");

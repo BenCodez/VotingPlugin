@@ -54,7 +54,8 @@ public class PlayerVoteListener implements Listener {
 		if (!PlayerManager.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!playerName.startsWith(plugin.getOptions().getBedrockPlayerPrefix())
 					&& !plugin.getOptions().getBedrockPlayerPrefix().isEmpty()) {
-				if (PlayerManager.getInstance().isValidUser(plugin.getOptions().getBedrockPlayerPrefix() + playerName,
+				if (!event.isBungee() && PlayerManager.getInstance().isValidUser(
+						plugin.getOptions().getBedrockPlayerPrefix() + playerName,
 						plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 					plugin.debug("Detected a bedrock user without bedrock prefix, adjusting");
 					playerName = plugin.getOptions().getBedrockPlayerPrefix() + playerName;
