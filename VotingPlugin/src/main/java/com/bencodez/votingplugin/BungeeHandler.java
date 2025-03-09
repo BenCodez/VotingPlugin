@@ -324,10 +324,6 @@ public class BungeeHandler implements Listener {
 							.getVotingPluginUser(UUID.fromString(uuid), player);
 					user.cache();
 
-					if (plugin.getBungeeSettings().isPerServerPoints()) {
-						user.addPoints(plugin.getConfigFile().getPointsOnVote());
-					}
-
 					boolean setTotals = Boolean.valueOf(args.get(7));
 
 					boolean wasOnline = Boolean.valueOf(args.get(4));
