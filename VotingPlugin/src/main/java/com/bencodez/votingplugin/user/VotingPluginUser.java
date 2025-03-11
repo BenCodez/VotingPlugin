@@ -1010,6 +1010,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return amount;
 	}
 
+	public int getTotalNumberOfSites() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			if (!site.isHidden()) {
+				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView())) {
+					amount++;
+				}
+			}
+		}
+		return amount;
+	}
+
 	public int getSitesVotedOn() {
 		int amount = 0;
 		for (VoteSite site : plugin.getVoteSitesEnabled()) {

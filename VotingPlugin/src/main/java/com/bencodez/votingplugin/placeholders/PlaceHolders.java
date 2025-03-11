@@ -541,6 +541,14 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get number of sites available to be voted on").updateDataKey("LastVotes"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("SitesAvailableTotal") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				return "" + user.getTotalNumberOfSites();
+			}
+		}.withDescription("Get total number of sites available to be voted on"));
+
 		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
 			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
 
