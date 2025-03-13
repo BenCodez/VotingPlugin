@@ -22,7 +22,7 @@ public class VotingPluginBungeeCommand extends Command {
 				sender.sendMessage(new TextComponent(result.replace("&", "§")));
 			}
 		} else {
-			sender.sendMessage(new TextComponent("&cYou do not have permission to do this!"));
+			sender.sendMessage(new TextComponent("&cYou do not have permission to do this!".replace("&", "§")));
 		}
 	}
 

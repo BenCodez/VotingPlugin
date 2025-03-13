@@ -21,7 +21,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 
 		String result = new VotingPluginProxyCommand(plugin.getVotingPluginProxy()).execute(args);
 		if (result != null) {
-			source.sendMessage(Component.text(result));
+			source.sendMessage(Component.text(result.replace("&", "§")));
 		}
 
 	}
