@@ -353,15 +353,16 @@ public abstract class VotingPluginProxy {
 					runConsoleCommand(command);
 				}
 
-				/*
-				 * if (method.equals(BungeeMethod.PLUGINMESSAGING)) { if
-				 * (getConfig().getVotePartySendToAllServers()) { for (Entry<String, ServerInfo>
-				 * entry : getProxy().getServers().entrySet()) { //sendVoteParty(entry.getKey(),
-				 * entry.getValue()); } } else { for (String server :
-				 * getConfig().getVotePartyServersToSend()) { ServerInfo serverInfo =
-				 * getProxy().getServerInfo(server); if (serverInfo != null) {
-				 * //sendVoteParty(server, serverInfo); } } } }
-				 */
+				if (getConfig().getVotePartySendToAllServers()) {
+					for (String server : getAllAvailableServers()) {
+						sendVoteParty(server);
+					}
+				} else {
+					for (String server : getConfig().getVotePartyServersToSend()) {
+						sendVoteParty(server);
+					}
+				}
+
 			}
 			saveVoteCacheFile();
 		}
@@ -576,8 +577,9 @@ public abstract class VotingPluginProxy {
 			});
 
 		}
-		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
-				+ getVoteCacheVotePartyIncreaseVotesRequired();
+		currentVotePartyVotesRequired =
+
+				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired();
 		votePartyVotes = getVoteCacheCurrentVotePartyVotes();
 
 		loadMultiProxySupport();
