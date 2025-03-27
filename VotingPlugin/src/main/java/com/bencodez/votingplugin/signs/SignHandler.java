@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.signs;
 
 import java.util.ArrayList;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -80,7 +81,7 @@ public class SignHandler {
 		if (block.getState() instanceof Skull) {
 			if (!playerName.equals("No Player")) {
 				Skull skull = (Skull) block.getState();
-				skull.setOwner(playerName);
+				skull.setOwningPlayer(Bukkit.getOfflinePlayer(playerName));
 				skull.update();
 			}
 			return true;
