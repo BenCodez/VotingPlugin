@@ -1,8 +1,8 @@
 package com.bencodez.votingplugin.signs;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -10,6 +10,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.Directional;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.simpleapi.array.ArrayUtils;
@@ -38,13 +39,12 @@ public class SignHandler {
 	@Setter
 	private Location location;
 
-	/** The player name. */
 	private String playerName;
 
-	/** The plugin. */
+	private UUID uuid;
+
 	private VotingPluginMain plugin;
 
-	/** The position. */
 	private int position;
 
 	@Getter
@@ -59,7 +59,6 @@ public class SignHandler {
 	@Setter
 	private boolean valid;
 
-	/** The votes. */
 	private int votes;
 
 	public SignHandler(VotingPluginMain plugin, String sign, Location location, Location skullLocation, String data,
@@ -81,7 +80,14 @@ public class SignHandler {
 		if (block.getState() instanceof Skull) {
 			if (!playerName.equals("No Player")) {
 				Skull skull = (Skull) block.getState();
-				skull.setOwningPlayer(Bukkit.getOfflinePlayer(playerName));
+				try {
+					SkullMeta meta = (SkullMeta) plugin.getSkullCacheHandler().getSkull(uuid, playerName).getItemMeta();
+					skull.setOwnerProfile(meta.getOwnerProfile());
+				} catch (Exception e) {
+					plugin.debug("Failed to set skull for " + playerName);
+					plugin.debug(e);
+					skull.setOwner(playerName);
+				}
 				skull.update();
 			}
 			return true;
@@ -201,6 +207,7 @@ public class SignHandler {
 			if (users != null && users.size() >= position) {
 				TopVoterPlayer user = users.get(position - 1);
 				playerName = user.getPlayerName();
+				uuid = user.getUuid();
 
 				votes = 0;
 				if (data.equalsIgnoreCase("all")) {
