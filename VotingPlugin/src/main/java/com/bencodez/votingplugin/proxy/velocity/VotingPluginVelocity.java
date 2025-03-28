@@ -905,7 +905,7 @@ public class VotingPluginVelocity {
 	}
 
 	public void reloadPlugin(boolean loadMysql) {
-		config.load();
+		config.reload();
 		if (loadMysql) {
 			try {
 				if (!config.getString(config.getNode("Host"), "").isEmpty()) {
