@@ -83,12 +83,14 @@ public class SignHandler {
 				try {
 					SkullMeta meta = (SkullMeta) plugin.getSkullCacheHandler().getSkull(uuid, playerName).getItemMeta();
 					skull.setOwnerProfile(meta.getOwnerProfile());
+					skull.update(true, false);
 				} catch (Exception e) {
 					plugin.debug("Failed to set skull for " + playerName);
 					plugin.debug(e);
 					skull.setOwner(playerName);
+					skull.update(true, false);
 				}
-				skull.update();
+
 			}
 			return true;
 		}
