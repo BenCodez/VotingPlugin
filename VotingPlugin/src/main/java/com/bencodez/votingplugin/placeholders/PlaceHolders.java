@@ -550,14 +550,26 @@ public class PlaceHolders {
 		}.withDescription("Get total number of sites available to be voted on"));
 
 		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
-			
-			placeholders.add(new PlaceHolder<VotingPluginUser>("Next_" + voteSite.getKey()) {
+			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
+
+				@Override
+				public String placeholderDataRequest(VotingPluginUser user, String identifier) {
+					long time = user.getTime(voteSite);
+					return "" + time;
+				}
+
 				@Override
 				public String placeholderRequest(VotingPluginUser user, String identifier) {
+					if (getCacheData().containsKey(user.getJavaUUID())) {
+						String data = getCacheData().get(user.getJavaUUID());
+						if (!data.isEmpty()) {
+							long time = Long.valueOf(data);
+							return user.voteCommandNextInfo(voteSite, time);
+						}
+					}
 					return user.voteCommandNextInfo(voteSite);
 				}
 			}.withDescription("How long until user can vote on " + voteSite.getKey()).updateDataKey("LastVotes"));
-			
 			placeholders.add(new PlaceHolder<VotingPluginUser>("Last_" + voteSite.getKey()) {
 
 				@Override
