@@ -319,8 +319,9 @@ public abstract class VotingPluginProxy {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+				if (cTime - votes.get(i).getTime() > (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000)) {
 					votes.remove(i);
+					debug("Removing vote from cache: " + votes.get(i).toString());
 				}
 			}
 		}
@@ -328,8 +329,9 @@ public abstract class VotingPluginProxy {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (cTime - votes.get(i).getTime() > getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) {
+				if (cTime - votes.get(i).getTime() > (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000)) {
 					votes.remove(i);
+					debug("Removing vote from cache: " + votes.get(i).toString());
 				}
 			}
 		}
