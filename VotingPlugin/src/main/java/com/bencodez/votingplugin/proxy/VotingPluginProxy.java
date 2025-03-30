@@ -67,9 +67,11 @@ public abstract class VotingPluginProxy {
 	private EncryptionHandler encryptionHandler;
 
 	@Getter
+	@Setter
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<>();
 
 	@Getter
+	@Setter
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
 	private HashMap<String, ClientHandler> clientHandles;
@@ -319,9 +321,9 @@ public abstract class VotingPluginProxy {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (cTime - votes.get(i).getTime() > (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000)) {
-					votes.remove(i);
+				if (votes.get(i).getTime() + (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) < cTime) {
 					debug("Removing vote from cache: " + votes.get(i).toString());
+					votes.remove(i);
 				}
 			}
 		}
@@ -329,9 +331,9 @@ public abstract class VotingPluginProxy {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (cTime - votes.get(i).getTime() > (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000)) {
-					votes.remove(i);
+				if (votes.get(i).getTime() + (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) < cTime) {
 					debug("Removing vote from cache: " + votes.get(i).toString());
+					votes.remove(i);
 				}
 			}
 		}
