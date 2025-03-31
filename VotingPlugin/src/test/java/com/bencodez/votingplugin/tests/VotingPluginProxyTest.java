@@ -1,98 +1,120 @@
 
 package com.bencodez.votingplugin.tests;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
+import java.io.FileNotFoundException;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
-import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyHandler;
 
 public class VotingPluginProxyTest {
-	private VotingPluginProxy proxy;
+
+	@InjectMocks
+	private VotingPluginProxyTestImpl votingPluginProxy;
+
+	@Mock
+	private ProxyMySQL proxyMySQL;
+
+	@Mock
 	private VotingPluginProxyConfig config;
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes;
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes;
+
+	@Mock
+	private GlobalDataHandlerProxy globalDataHandler;
+
+	@Mock
+	private MultiProxyHandler multiProxyHandler;
 
 	@BeforeEach
-	public void setUp() {
-		proxy = mock(VotingPluginProxy.class, CALLS_REAL_METHODS);
-		config = mock(VotingPluginProxyConfig.class);
-		when(proxy.getConfig()).thenReturn(config);
-		cachedOnlineVotes = new ConcurrentHashMap<>();
-		cachedVotes = new ConcurrentHashMap<>();
-		proxy.setCachedOnlineVotes(cachedOnlineVotes);
-		proxy.setCachedVotes(cachedVotes);
+	void setUp() {
+		MockitoAnnotations.openMocks(this);
+		votingPluginProxy.setProxyMySQL(proxyMySQL);
+		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
+		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
+
+		// Mocking config methods
+		when(config.getVotePartyEnabled()).thenReturn(true);
+		when(config.getVotePartyVotesRequired()).thenReturn(5);
+		when(config.getVotePartyIncreaseVotesRequired()).thenReturn(5);
+		when(config.getBungeeManageTotals()).thenReturn(true);
+		when(config.getPluginMessageEncryption()).thenReturn(false);
+		when(config.getDebug()).thenReturn(false);
 	}
 
 	@Test
-	void checkVoteCacheTime_removesExpiredVotesFromCachedOnlineVotes() {
-		when(config.getVoteCacheTime()).thenReturn(1); // 1 day
-		long currentTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		long expiredTime = currentTime - (2 * 24 * 60 * 60 * 1000); // 2 days ago
+	void testAddVoteParty() {
+		// Initial votePartyVotes should be 0
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
 
-		ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-		votes.add(new OfflineBungeeVote("player1", "uuid1", "service1", expiredTime, true, "text1"));
-		cachedOnlineVotes.put("server1", votes);
+		// Spy on the votingPluginProxy object
+		VotingPluginProxy spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).checkVoteParty();
 
-		proxy.checkVoteCacheTime();
+		// Add one vote party
+		spyProxy.addCurrentVotePartyVotes(1);
 
-		assertTrue(cachedOnlineVotes.get("server1").isEmpty());
+		// Verify that votePartyVotes increased by 1
+		assertEquals(1, spyProxy.getVotePartyVotes());
 	}
 
 	@Test
-	void checkVoteCacheTime_doesNotRemoveNonExpiredVotesFromCachedOnlineVotes() {
-		when(config.getVoteCacheTime()).thenReturn(1); // 1 day
-		long currentTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		long validTime = currentTime - (12 * 60 * 60 * 1000); // 12 hours ago
+	void testFetchUUID_Success() throws Exception {
+		String playerName = "TestPlayer";
+		String apiResponse = "{\"id\":\"aed922d6-5f64-43ce-8b98-efa8e4e288d3\",\"name\":\"TestPlayer\"}";
 
-		ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-		votes.add(new OfflineBungeeVote("player1", "uuid1", "service1", validTime, true, "text1"));
-		cachedOnlineVotes.put("server1", votes);
+		// Mock the URL connection and response
+		HttpURLConnectionMock.setupMockHttpURLConnection(playerName, 200, apiResponse);
 
-		proxy.checkVoteCacheTime();
+		UUID uuid = votingPluginProxy.fetchUUID(playerName);
 
-		assertFalse(cachedOnlineVotes.get("server1").isEmpty());
+		assertNotNull(uuid);
+		assertEquals("aed922d6-5f64-43ce-8b98-efa8e4e288d3", uuid.toString());
 	}
 
 	@Test
-	void checkVoteCacheTime_removesExpiredVotesFromCachedVotes() {
-		when(config.getVoteCacheTime()).thenReturn(1); // 1 day
-		long currentTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		long expiredTime = currentTime - (2 * 24 * 60 * 60 * 1000); // 2 days ago
+	void testFetchUUID_NotFound() throws Exception {
+		String playerName = "NonExistentPlayer";
+		String apiResponse = "{}";
 
-		ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-		votes.add(new OfflineBungeeVote("player1", "uuid1", "service1", expiredTime, true, "text1"));
-		cachedVotes.put("server1", votes);
+		// Mock the URL connection and response
+		HttpURLConnectionMock.setupMockHttpURLConnection(playerName, 400, apiResponse);
 
-		proxy.checkVoteCacheTime();
+		UUID uuid = null;
+		try {
+			uuid = votingPluginProxy.fetchUUID(playerName);
+		} catch (FileNotFoundException e) {
+			// Expected exception for non-existent player
+		}
 
-		assertTrue(cachedVotes.get("server1").isEmpty());
+		assertNull(uuid);
 	}
 
 	@Test
-	void checkVoteCacheTime_doesNotRemoveNonExpiredVotesFromCachedVotes() {
-		when(config.getVoteCacheTime()).thenReturn(1); // 1 day
-		long currentTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		long validTime = currentTime - (12 * 60 * 60 * 1000); // 12 hours ago
+	void testAddCurrentVotePartyVotes() {
+		// Initial votePartyVotes should be 0
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
 
-		ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-		votes.add(new OfflineBungeeVote("player1", "uuid1", "service1", validTime, true, "text1"));
-		cachedVotes.put("server1", votes);
+		// Add 3 votes
+		votingPluginProxy.addCurrentVotePartyVotes(3);
+		assertEquals(3, votingPluginProxy.getVotePartyVotes());
 
-		proxy.checkVoteCacheTime();
-
-		assertFalse(cachedVotes.get("server1").isEmpty());
+		// Add 2 more votes
+		votingPluginProxy.addCurrentVotePartyVotes(2);
+		assertEquals(5, votingPluginProxy.getVotePartyVotes());
 	}
 }

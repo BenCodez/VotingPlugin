@@ -54,6 +54,7 @@ import lombok.Setter;
 
 public abstract class VotingPluginProxy {
 	@Getter
+	@Setter
 	private int votePartyVotes = 0;
 
 	@Getter
@@ -95,6 +96,7 @@ public abstract class VotingPluginProxy {
 	private boolean enabled;
 
 	@Getter
+	@Setter
 	private MultiProxyHandler multiProxyHandler;
 
 	@Getter
