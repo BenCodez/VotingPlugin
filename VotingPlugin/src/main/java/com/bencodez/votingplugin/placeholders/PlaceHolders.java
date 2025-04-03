@@ -650,7 +650,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user at postion in top voter"));
+		}.useStartsWith().withDescription("Get username at postion in top voter"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Top_Month_Position") {
 
@@ -666,7 +666,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.withDescription("Get user top voter position"));
+		}.withDescription("Get user's current top voter position"));
 
 		if (plugin.getGui().isLastMonthGUI()) {
 			placeholders.add(new PlaceHolder<VotingPluginUser>("Top_LastMonth_Position") {
@@ -738,7 +738,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user at position in top voter"));
+		}.useStartsWith().withDescription("Get username at position in top voter"));
 
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_MonthVotes_") {
 
@@ -789,7 +789,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user at postion in top voter"));
+		}.useStartsWith().withDescription("Get username at postion in top voter"));
 
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_WeekVotes_") {
 
@@ -840,7 +840,7 @@ public class PlaceHolders {
 				}
 				return "";
 			}
-		}.useStartsWith().withDescription("Get user at postion in top voter"));
+		}.useStartsWith().withDescription("Get username at postion in top voter"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("VotePartyContributedVotes") {
 
