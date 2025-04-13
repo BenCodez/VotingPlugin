@@ -1,9 +1,5 @@
 com.bencodez.votingplugin
 com.bencodez.votingplugin.broadcast
-com.bencodez.votingplugin.bungee
-com.bencodez.votingplugin.bungee.global.multiproxy
-com.bencodez.votingplugin.bungee.proxy
-com.bencodez.votingplugin.bungee.velocity
 com.bencodez.votingplugin.commands
 com.bencodez.votingplugin.commands.executers
 com.bencodez.votingplugin.commands.gui
@@ -20,6 +16,10 @@ com.bencodez.votingplugin.events
 com.bencodez.votingplugin.listeners
 com.bencodez.votingplugin.objects
 com.bencodez.votingplugin.placeholders
+com.bencodez.votingplugin.proxy
+com.bencodez.votingplugin.proxy.bungee
+com.bencodez.votingplugin.proxy.global.multiproxy
+com.bencodez.votingplugin.proxy.velocity
 com.bencodez.votingplugin.servicesites
 com.bencodez.votingplugin.signs
 com.bencodez.votingplugin.specialrewards
