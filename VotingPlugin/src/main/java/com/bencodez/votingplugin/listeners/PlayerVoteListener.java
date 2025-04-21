@@ -51,6 +51,7 @@ public class PlayerVoteListener implements Listener {
 		String playerName = event.getPlayer();
 		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
 
+		boolean notValid = false;
 		if (!PlayerManager.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!playerName.startsWith(plugin.getOptions().getBedrockPlayerPrefix())
 					&& !plugin.getOptions().getBedrockPlayerPrefix().isEmpty()) {
@@ -59,16 +60,22 @@ public class PlayerVoteListener implements Listener {
 						plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 					plugin.debug("Detected a bedrock user without bedrock prefix, adjusting");
 					playerName = plugin.getOptions().getBedrockPlayerPrefix() + playerName;
+				} else {
+					notValid = true;
 				}
 			} else {
-				if (!plugin.getConfigFile().isAllowUnjoined()) {
-					plugin.getLogger().warning("Player " + playerName
-							+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
-					if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
-						plugin.getVotingPluginUserManager().getVotingPluginUser(playerName).remove();
-					}
-					return;
+				notValid = true;
+			}
+		}
+
+		if (notValid) {
+			if (!plugin.getConfigFile().isAllowUnjoined()) {
+				plugin.getLogger().warning("Player " + playerName
+						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
+					plugin.getVotingPluginUserManager().getVotingPluginUser(playerName).remove();
 				}
+				return;
 			}
 		}
 
