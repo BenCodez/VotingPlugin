@@ -62,6 +62,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
+import net.md_5.bungee.api.ChatColor;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
@@ -496,7 +497,8 @@ public class VotingPluginVelocity {
 
 			@Override
 			public void broadcast(String message) {
-				server.getAllPlayers().forEach(player -> player.sendMessage(Component.text(message)));
+				server.getAllPlayers().forEach(player -> player
+						.sendMessage(Component.text(ChatColor.translateAlternateColorCodes('&', message))));
 			}
 
 			@Override
