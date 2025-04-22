@@ -61,8 +61,7 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 
 import lombok.Getter;
-import net.kyori.adventure.text.Component;
-import net.md_5.bungee.api.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 
@@ -497,8 +496,8 @@ public class VotingPluginVelocity {
 
 			@Override
 			public void broadcast(String message) {
-				server.getAllPlayers().forEach(player -> player
-						.sendMessage(Component.text(ChatColor.translateAlternateColorCodes('&', message))));
+				server.getAllPlayers().forEach(
+						player -> player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message)));
 			}
 
 			@Override
