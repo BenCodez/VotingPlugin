@@ -339,6 +339,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * @param uuid the uuid
 	 * @return the user
 	 */
+	@Deprecated
 	public VotingPluginUser getUser(UUID uuid) {
 		return getVotingPluginUserManager().getVotingPluginUser(uuid);
 	}

@@ -649,7 +649,8 @@ public class BungeeHandler implements Listener {
 						String uuid = data[1];
 						VotingPluginUser user = null;
 						if (!uuid.isEmpty()) {
-							user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+							user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
+									data[2]);
 						} else {
 							user = plugin.getVotingPluginUserManager().getVotingPluginUser(data[2]);
 						}
@@ -682,7 +683,8 @@ public class BungeeHandler implements Listener {
 						String uuid = data[1];
 						VotingPluginUser user = null;
 						if (!uuid.isEmpty()) {
-							user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+							user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
+									data[2]);
 						} else {
 							user = plugin.getVotingPluginUserManager().getVotingPluginUser(data[2]);
 						}

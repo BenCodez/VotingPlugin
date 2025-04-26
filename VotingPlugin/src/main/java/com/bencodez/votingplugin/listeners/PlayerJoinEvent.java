@@ -76,14 +76,14 @@ public class PlayerJoinEvent implements Listener {
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		if (plugin != null && plugin.isEnabled()) {
-			final java.util.UUID uuid = event.getPlayer().getUniqueId();
+			final Player player = event.getPlayer();
 			plugin.getLoginTimer().execute(new Runnable() {
 
 				@Override
 				public void run() {
-					VotingPluginMain.plugin.getAdvancedTab().remove(uuid);
+					VotingPluginMain.plugin.getAdvancedTab().remove(player.getUniqueId());
 
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 					user.dontCache();
 					user.logoutRewards();
 					plugin.getPlaceholders().onLogout(user);
