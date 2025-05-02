@@ -180,6 +180,8 @@ public class PlaceHolders {
 			}
 		}
 
+		UUID uuid = user.getJavaUUID();
+
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			try {
 				if (placeholder.matches(identifier)) {
@@ -190,11 +192,11 @@ public class PlaceHolders {
 						CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
 						if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
 							ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
-							if (cache.containsKey(p.getUniqueId())) {
-								if (cPlaceholder.getCacheData().containsKey(user.getJavaUUID())) {
+							if (cache.containsKey(uuid)) {
+								if (cPlaceholder.getCacheData().containsKey(uuid)) {
 									return cPlaceholder.placeholderRequest(user, identifier);
 								}
-								return cache.get(p.getUniqueId());
+								return cache.get(uuid);
 							} else if (!forceProcess) {
 								schedulePlaceholderCheck(user);
 								return "...";
@@ -226,8 +228,9 @@ public class PlaceHolders {
 					}
 					if (placeholder.isUsesCache() && placeholder.isCached(identifier)) {
 						ConcurrentHashMap<UUID, String> cache = placeholder.getCache().get(identifier);
-						if (cache.containsKey(p.getUniqueId())) {
-							return cache.get(p.getUniqueId());
+
+						if (cache.containsKey(uuid)) {
+							return cache.get(uuid);
 						} else if (!forceProcess) {
 							schedulePlaceholderCheck(user);
 							return "...";
