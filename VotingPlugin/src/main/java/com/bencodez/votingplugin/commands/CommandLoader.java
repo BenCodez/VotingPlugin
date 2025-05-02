@@ -1069,7 +1069,7 @@ public class CommandLoader {
 						sender.sendMessage(MessageAPI.colorize("&cClearing gotten milestones for all players..."));
 						plugin.getUserManager().removeAllKeyValues(path, DataType.STRING);
 						for (Player p : Bukkit.getOnlinePlayers()) {
-							plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId());
+							plugin.getUserManager().getDataManager().cacheUser(p.getUniqueId(), p.getName());
 						}
 						sender.sendMessage(
 								MessageAPI.colorize("&cFinished clearing gotten milestones for all players"));
