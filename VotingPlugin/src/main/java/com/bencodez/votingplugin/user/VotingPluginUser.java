@@ -1389,6 +1389,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		Player player = getPlayer();
+		if (!plugin.getOptions().isOnlineMode()) {
+			player = Bukkit.getPlayer(getPlayerName());
+		}
 		if (player == null) {
 			return;
 		}
