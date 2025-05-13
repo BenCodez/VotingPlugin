@@ -21,7 +21,7 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
-import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 
 public class VotingPluginProxyTest {
 

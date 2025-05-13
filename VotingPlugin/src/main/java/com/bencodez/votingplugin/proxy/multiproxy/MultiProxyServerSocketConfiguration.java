@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.proxy.global.multiproxy;
+package com.bencodez.votingplugin.proxy.multiproxy;
 
 public interface MultiProxyServerSocketConfiguration {
 	String getHost();

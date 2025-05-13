@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.proxy.global.multiproxy;
+package com.bencodez.votingplugin.proxy.multiproxy;
 
 import java.io.File;
 import java.util.Collection;

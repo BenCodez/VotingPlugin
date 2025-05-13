@@ -41,10 +41,10 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
-import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyHandler;
-import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyMethod;
-import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyServerSocketConfiguration;
-import com.bencodez.votingplugin.proxy.global.multiproxy.MultiProxyServerSocketConfigurationBungee;
+import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
+import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
+import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -566,7 +566,6 @@ public abstract class VotingPluginProxy {
 								server = message[3];
 							}
 							debug("Login: " + player + "/" + uuid + " " + server);
-							addNonVotedPlayer(uuid, player);
 
 							login(player, uuid, server);
 						}
@@ -730,7 +729,9 @@ public abstract class VotingPluginProxy {
 	public abstract void log(String message);
 
 	public void login(String playerName, String uuid, String serverName) {
-		addNonVotedPlayer(uuid, playerName);
+		if (getConfig().getOnlineMode()) { // no need to cache in offline mode
+			addNonVotedPlayer(uuid, playerName);
+		}
 		if (isPlayerOnline(playerName)) {
 			if (getConfig().getGlobalDataEnabled()) {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
@@ -1047,7 +1048,8 @@ public abstract class VotingPluginProxy {
 
 			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
-				if (uuid.isEmpty() && !player.startsWith(getConfig().getBedrockPlayerPrefix())) {
+				if (uuid.isEmpty() && !getConfig().getBedrockPlayerPrefix().isEmpty()
+						&& !player.startsWith(getConfig().getBedrockPlayerPrefix())) {
 					String uuid1 = getUUID(getConfig().getBedrockPlayerPrefix() + player);
 					if (!uuid1.isEmpty()) {
 						debug("Detected bedrock player without prefix, adjusting...");
