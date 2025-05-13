@@ -20,11 +20,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.bencodez.advancedcore.api.time.TimeType;
-import com.bencodez.advancedcore.api.user.userstorage.DataType;
-import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigBungee;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.BungeeMySQL;
+import com.bencodez.simpleapi.sql.DataType;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -136,15 +136,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	private void loadMysql() {
-		votingPluginProxy.setProxyMySQL(new BungeeMySQL(this, "VotingPlugin_Users", config.getData()) {
+		votingPluginProxy
+				.setProxyMySQL(new BungeeMySQL(this, "VotingPlugin_Users", config.getData(), config.getDebug()) {
 
-			@Override
-			public void debug(SQLException e) {
-				if (config.getDebug()) {
-					e.printStackTrace();
-				}
-			}
-		});
+					@Override
+					public void debug(SQLException e) {
+						if (config.getDebug()) {
+							e.printStackTrace();
+						}
+					}
+				});
 
 		ArrayList<String> servers = new ArrayList<>();
 		for (String s : getAvailableAllServers()) {
@@ -157,14 +158,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						new GlobalMySQL("VotingPlugin_GlobalData", getVotingPluginProxy().getProxyMySQL().getMysql()) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								if (config.getDebug()) {
 									e.printStackTrace();
 								}
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								debug2(text);
 							}
 
@@ -175,7 +176,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								getLogger().severe(text);
 							}
 
@@ -223,14 +224,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								new MysqlConfigBungee(config.getData().getSection("GlobalData"))) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								if (config.getDebug()) {
 									e.printStackTrace();
 								}
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								debug2(text);
 							}
 
@@ -241,7 +242,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								getLogger().severe(text);
 							}
 

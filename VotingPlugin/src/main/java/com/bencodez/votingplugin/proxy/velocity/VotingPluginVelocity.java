@@ -31,12 +31,12 @@ import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import com.bencodez.advancedcore.api.time.TimeType;
-import com.bencodez.advancedcore.api.user.userstorage.DataType;
-import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigVelocity;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
+import com.bencodez.simpleapi.sql.DataType;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -191,7 +191,7 @@ public class VotingPluginVelocity {
 	}
 
 	private void loadMysql() {
-		votingPluginProxy.setProxyMySQL(new VelocityMySQL("VotingPlugin_Users", config) {
+		votingPluginProxy.setProxyMySQL(new VelocityMySQL("VotingPlugin_Users", config, config.getDebug(), logger) {
 
 			@Override
 			public void debug(SQLException e) {
@@ -217,14 +217,14 @@ public class VotingPluginVelocity {
 						new GlobalMySQL("VotingPlugin_GlobalData", getVotingPluginProxy().getProxyMySQL().getMysql()) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								if (config.getDebug()) {
 									e.printStackTrace();
 								}
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								debug2(text);
 							}
 
@@ -234,7 +234,7 @@ public class VotingPluginVelocity {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								logger.error(text);
 							}
 
@@ -280,14 +280,14 @@ public class VotingPluginVelocity {
 						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigVelocity("GlobalData", config)) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								if (config.getDebug()) {
 									e.printStackTrace();
 								}
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								debug2(text);
 							}
 
@@ -297,7 +297,7 @@ public class VotingPluginVelocity {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								logger.error(text);
 							}
 

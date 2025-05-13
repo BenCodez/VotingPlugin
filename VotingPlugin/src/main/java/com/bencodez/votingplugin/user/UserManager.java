@@ -15,7 +15,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
-import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 

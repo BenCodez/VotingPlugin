@@ -16,7 +16,7 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserStartup;
-import com.bencodez.advancedcore.api.user.userstorage.Column;
+import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;

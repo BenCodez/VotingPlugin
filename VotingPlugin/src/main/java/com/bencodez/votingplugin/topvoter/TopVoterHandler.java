@@ -28,11 +28,11 @@ import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.api.user.userstorage.Column;
-import com.bencodez.advancedcore.api.user.userstorage.DataType;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.YMLFileHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.sql.Column;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 

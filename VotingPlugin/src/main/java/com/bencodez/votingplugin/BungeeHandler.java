@@ -19,9 +19,6 @@ import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.api.user.usercache.value.DataValue;
-import com.bencodez.advancedcore.api.user.usercache.value.DataValueBoolean;
-import com.bencodez.advancedcore.api.user.userstorage.mysql.api.config.MysqlConfigSpigot;
 import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageHandler;
 import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageListener;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
@@ -33,6 +30,9 @@ import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
 import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.sql.data.DataValueBoolean;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
@@ -830,12 +830,12 @@ public class BungeeHandler implements Listener {
 						new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								plugin.debug(e);
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								plugin.debug(text);
 							}
 
@@ -845,7 +845,7 @@ public class BungeeHandler implements Listener {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								plugin.getLogger().severe(text);
 							}
 
@@ -860,12 +860,12 @@ public class BungeeHandler implements Listener {
 								plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
 
 							@Override
-							public void debug(Exception e) {
+							public void debugEx(Exception e) {
 								plugin.debug(e);
 							}
 
 							@Override
-							public void debug(String text) {
+							public void debugLog(String text) {
 								plugin.debug(text);
 							}
 
@@ -875,7 +875,7 @@ public class BungeeHandler implements Listener {
 							}
 
 							@Override
-							public void severe(String text) {
+							public void logSevere(String text) {
 								plugin.getLogger().severe(text);
 							}
 
