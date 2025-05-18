@@ -15,21 +15,21 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.misc.MiscUtils;
-import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageHandler;
-import com.bencodez.advancedcore.bungeeapi.GlobalMessage.GlobalMessageListener;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
-import com.bencodez.advancedcore.bungeeapi.pluginmessage.PluginMessageHandler;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
-import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.encryption.EncryptionHandler;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
+import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
+import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
+import com.bencodez.simpleapi.servercomm.redis.RedisListener;
+import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
@@ -543,7 +543,8 @@ public class BungeeHandler implements Listener {
 			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 
 			if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
-				encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
+				encryptionHandler = new EncryptionHandler(plugin.getName(),
+						new File(plugin.getDataFolder(), "secretkey.key"));
 				plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
 			}
 
@@ -624,7 +625,8 @@ public class BungeeHandler implements Listener {
 			});
 
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
-			encryptionHandler = new EncryptionHandler(new File(plugin.getDataFolder(), "secretkey.key"));
+			encryptionHandler = new EncryptionHandler(plugin.getName(),
+					new File(plugin.getDataFolder(), "secretkey.key"));
 
 			clientHandler = new ClientHandler(plugin.getBungeeSettings().getBungeeServerHost(),
 					plugin.getBungeeSettings().getBungeeServerPort(), encryptionHandler,

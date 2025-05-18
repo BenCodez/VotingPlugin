@@ -24,18 +24,18 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
-import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.json.JsonParser;
+import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
+import com.bencodez.simpleapi.servercomm.redis.RedisListener;
+import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
@@ -482,10 +482,11 @@ public abstract class VotingPluginProxy {
 
 		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			if (getConfig().getPluginMessageEncryption()) {
-				encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
+				encryptionHandler = new EncryptionHandler("VotingPlugin",
+						new File(getDataFolderPlugin(), "secretkey.key"));
 			}
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
-			encryptionHandler = new EncryptionHandler(new File(getDataFolderPlugin(), "secretkey.key"));
+			encryptionHandler = new EncryptionHandler("VotingPlugin", new File(getDataFolderPlugin(), "secretkey.key"));
 
 			socketHandler = new SocketHandler(getPluginVersion(), getConfig().getBungeeHost(),
 					getConfig().getBungeePort(), encryptionHandler, getConfig().getDebug()) {

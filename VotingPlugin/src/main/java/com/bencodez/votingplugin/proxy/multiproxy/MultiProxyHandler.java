@@ -5,12 +5,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
-import com.bencodez.advancedcore.api.misc.encryption.EncryptionHandler;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisHandler;
-import com.bencodez.advancedcore.bungeeapi.redis.RedisListener;
-import com.bencodez.advancedcore.bungeeapi.sockets.ClientHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketHandler;
-import com.bencodez.advancedcore.bungeeapi.sockets.SocketReceiver;
+import com.bencodez.simpleapi.encryption.EncryptionHandler;
+import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
+import com.bencodez.simpleapi.servercomm.redis.RedisListener;
+import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 
 import lombok.Getter;
@@ -83,7 +83,7 @@ public abstract class MultiProxyHandler {
 		if (getMultiProxySupportEnabled()) {
 			if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
 				if (getEncryptionHandler() == null) {
-					setEncryptionHandler(new EncryptionHandler(new File(getPluginDataFolder(), "secretkey.key")));
+					setEncryptionHandler(new EncryptionHandler("VotingPlugin",new File(getPluginDataFolder(), "secretkey.key")));
 				}
 
 				if (multiproxySocketHandler != null) {
