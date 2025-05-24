@@ -780,7 +780,7 @@ public abstract class VotingPluginProxy {
 					}
 					int size = in.readInt();
 
-					debug("Received plugin message, processing...");
+					debug("Received plugin message, processing..." + subchannel + " " + size);
 
 					String data = "";
 					if (size > 0) {
