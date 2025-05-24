@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.bencodez</groupId>
 	<artifactId>votingplugin</artifactId>
-	<version>6.18.5</version>
+	<version>6.18.6-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>VotingPlugin</name>
 	<properties>
@@ -267,7 +267,7 @@
 		<dependency>
 			<groupId>com.bencodez</groupId>
 			<artifactId>advancedcore</artifactId>
-			<version>3.7.16</version>
+			<version>3.7.17-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
         <dependency>
