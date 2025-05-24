@@ -95,6 +95,14 @@
 								<include>**</include>
 							</includes>
 						</filter>
+					    <filter>
+                            <artifact>*:*</artifact>
+                              <excludes>
+                                 <exclude>META-INF/*.SF</exclude>
+                                 <exclude>META-INF/*.DSA</exclude>
+                                 <exclude>META-INF/*.RSA</exclude>
+                              </excludes>
+                        </filter>
 					</filters>
 					<relocations>
 						<relocation>
@@ -259,7 +267,7 @@
 		<dependency>
 			<groupId>com.bencodez</groupId>
 			<artifactId>advancedcore</artifactId>
-			<version>3.7.16-SNAPSHOT</version>
+			<version>3.7.16</version>
 			<scope>compile</scope>
 		</dependency>
         <dependency>
