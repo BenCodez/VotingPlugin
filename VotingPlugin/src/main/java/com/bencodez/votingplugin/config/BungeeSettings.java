@@ -58,6 +58,26 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataInt(path = "Redis.Port")
 	@Getter
 	private int RedisPort = 6379;
+	
+	@ConfigDataString(path = "MQTT.ClientID")
+	@Getter
+	private String mqttClientID = "";
+
+	@ConfigDataString(path = "MQTT.BrokerURL")
+	@Getter
+	private String mqttBrokerURL = "tcp://localhost:1883";
+
+	@ConfigDataString(path = "MQTT.Username")
+	@Getter
+	private String mqttUsername = "";
+
+	@ConfigDataString(path = "MQTT.Password")
+	@Getter
+	private String mqttPassword = "";
+
+	@ConfigDataString(path = "MQTT.Prefix")
+	@Getter
+	private String mqttPrefix = "";
 
 	@ConfigDataString(path = "BungeeServer.Host")
 	@Getter

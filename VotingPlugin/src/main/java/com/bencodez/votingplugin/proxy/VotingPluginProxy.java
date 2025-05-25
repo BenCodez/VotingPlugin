@@ -24,6 +24,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import org.eclipse.paho.client.mqttv3.MqttException;
+
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
@@ -31,6 +33,11 @@ import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.json.JsonParser;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler.MessageHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
@@ -108,6 +115,12 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
+
+	@Getter
+	private MqttHandler mqttHandler;
+
+	@Getter
+	private GlobalMessageProxyHandler globalMessageProxyHandler;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -270,9 +283,9 @@ public abstract class VotingPluginProxy {
 
 							}
 							if (toSend) {
-								sendMessageServer(server, "Vote", cache.getPlayerName(), cache.getUuid(),
-										cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
-										"" + cache.isRealVote(), cache.getText(),
+								globalMessageProxyHandler.sendMessage(server, "Vote", cache.getPlayerName(),
+										cache.getUuid(), cache.getService(), "" + cache.getTime(),
+										Boolean.FALSE.toString(), "" + cache.isRealVote(), cache.getText(),
 										"" + getConfig().getBungeeManageTotals(),
 										"" + BungeeVersion.getPluginMessageVersion(), "" + getConfig().getBroadcast(),
 										"" + num, "" + numberOfVotes);
@@ -302,8 +315,8 @@ public abstract class VotingPluginProxy {
 					int num = 1;
 					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
-						sendMessageServer(server, "VoteOnline", cache.getPlayerName(), cache.getUuid(),
-								cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
+						globalMessageProxyHandler.sendMessage(server, "VoteOnline", cache.getPlayerName(),
+								cache.getUuid(), cache.getService(), "" + cache.getTime(), Boolean.FALSE.toString(),
 								"" + cache.isRealVote(), cache.getText(), "" + getConfig().getBungeeManageTotals(),
 								"" + BungeeVersion.getPluginMessageVersion(), "" + getConfig().getBroadcast(), "" + num,
 								"" + numberOfVotes);
@@ -502,27 +515,9 @@ public abstract class VotingPluginProxy {
 				@Override
 				public void onReceive(String[] data) {
 					if (data.length > 1) {
-						if (data.length > 2) {
-							if (data[0].equalsIgnoreCase("Broadcast")) {
-								sendServerMessage(data);
-							}
-						}
+						globalMessageProxyHandler.onMessage(data[0].toLowerCase(),
+								ArrayUtils.convertAndRemoveFirst(data));
 					}
-
-				}
-			});
-
-			socketHandler.add(new SocketReceiver() {
-
-				@Override
-				public void onReceive(String[] data) {
-					if (data.length > 1) {
-						if (data[0].equalsIgnoreCase("StatusOkay")) {
-							String server = data[1];
-							log("Voting communicaton okay with " + server);
-						}
-					}
-
 				}
 			});
 
@@ -554,21 +549,9 @@ public abstract class VotingPluginProxy {
 				@Override
 				protected void onMessage(String channel, String[] message) {
 					if (message.length > 0) {
-						if (message[0].equalsIgnoreCase("statusokay")) {
-							String server = message[1];
-							log("Status okay for " + server);
-						} else if (message[0].equalsIgnoreCase("TimeChangeFinished")) {
-
-						} else if (message[0].equalsIgnoreCase("login")) {
-							String player = message[1];
-							String uuid = message[2];
-							String server = "";
-							if (message.length > 3) {
-								server = message[3];
-							}
-							debug("Login: " + player + "/" + uuid + " " + server);
-
-							login(player, uuid, server);
+						if (message.length > 0) {
+							globalMessageProxyHandler.onMessage(message[0].toLowerCase(),
+									ArrayUtils.convertAndRemoveFirst(message));
 						}
 					}
 				}
@@ -582,11 +565,106 @@ public abstract class VotingPluginProxy {
 				}
 			});
 
-		}
-		currentVotePartyVotesRequired =
+		} else if (method.equals(BungeeMethod.MQTT)) {
+			// use MqttHander
 
-				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired();
+			try {
+				mqttHandler = new MqttHandler(new MqttServerComm(getConfig().getMqttClientID(),
+						getConfig().getMqttBrokerURL(), getConfig().getMqttUsername(), getConfig().getMqttPassword()),
+						2);
+				mqttHandler.subscribe(getConfig().getMqttPrefix() + "votingplugin/servers/proxy", new MessageHandler() {
+
+					@Override
+					public void onMessage(String topic, String payload) {
+						debug("Received mqtt message: " + topic + " - " + payload);
+						String[] message = payload.split(":");
+
+						if (message.length > 0) {
+							globalMessageProxyHandler.onMessage(message[0].toLowerCase(),
+									ArrayUtils.convertAndRemoveFirst(message));
+						}
+					}
+				});
+			} catch (MqttException e) {
+				e.printStackTrace();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
+		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
+				+ getVoteCacheVotePartyIncreaseVotesRequired();
 		votePartyVotes = getVoteCacheCurrentVotePartyVotes();
+
+		globalMessageProxyHandler = new GlobalMessageProxyHandler() {
+
+			@Override
+			public void sendMessage(String server, String channel, String... messageData) {
+				switch (method) {
+				case MQTT:
+					sendMqttMessageServer(server, channel, messageData);
+					break;
+				case MYSQL:
+					sendPluginMessageServer(server, channel, messageData);
+					break;
+				case PLUGINMESSAGING:
+					sendPluginMessageServer(server, channel, messageData);
+					break;
+				case REDIS:
+					sendRedisMessageServer(server, channel, messageData);
+					break;
+				case SOCKETS:
+					ArrayList<String> data = new ArrayList<>();
+					data.add(channel);
+					data.addAll(ArrayUtils.convert(messageData));
+					sendServerMessageServer(server, ArrayUtils.convert(data));
+					break;
+				default:
+					break;
+				}
+
+			}
+		};
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener("login") {
+
+			@Override
+			public void onReceive(ArrayList<String> message) {
+				if (message.size() < 2) {
+					logSevere("Invalid login message received: " + message);
+					return;
+				}
+				String player = message.get(0);
+				String uuid = message.get(1);
+				String server = "";
+				if (message.size() > 2) {
+					server = message.get(2);
+				}
+				debug("Login: " + player + "/" + uuid + " " + server);
+
+				login(player, uuid, server);
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener("statusokay") {
+
+			@Override
+			public void onReceive(ArrayList<String> message) {
+				String server = message.get(0);
+				log("Status okay for " + server);
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener("voteupdate") {
+
+			@Override
+			public void onReceive(ArrayList<String> message) {
+				for (String send : getAllAvailableServers()) {
+					globalMessageProxyHandler.sendMessage(send, "VoteUpdate", ArrayUtils.convert(message));
+				}
+			}
+		});
 
 		loadMultiProxySupport();
 	}
@@ -770,8 +848,6 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void run() {
 				try {
-					ByteArrayOutputStream outstream = new ByteArrayOutputStream();
-					DataOutputStream out = new DataOutputStream(outstream);
 					String subchannel = "";
 					if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
 						subchannel = encryptionHandler.decrypt(in.readUTF());
@@ -791,39 +867,9 @@ public abstract class VotingPluginProxy {
 						}
 					}
 					String[] list = data.split("/a/");
-					// check for status message returns
-					if (subchannel.equalsIgnoreCase("statusokay")) {
-						String server = list[0];
-						log("Status okay for " + server);
-						return;
-					} else if (subchannel.equalsIgnoreCase("TimeChangeFinished")) {
-						// not used currently
-					} else if (subchannel.equalsIgnoreCase("login")) {
 
-						String player = list[0];
-						String uuid = list[1];
-						String server = list[2];
-						debug("Login: " + player + "/" + uuid + " " + server);
-						login(player, uuid, server);
-
-						return;
-					} else if (subchannel.equalsIgnoreCase("VoteUpdate")) {
-						out.writeUTF(subchannel);
-						out.writeInt(size);
-
-						if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-							out.writeUTF(encryptionHandler.encrypt(data));
-						} else {
-							out.writeUTF(data);
-						}
-						for (String send : getAllAvailableServers()) {
-							if (isSomeoneOnlineServer(send)) {
-								sendPluginMessageData(send, getConfig().getPluginMessageChannel().toLowerCase(),
-										outstream.toByteArray(), false);
-							}
-						}
-					} else {
-						debug("Ignoring plugin message: " + subchannel);
+					if (list.length > 0) {
+						globalMessageProxyHandler.onMessage(subchannel.toLowerCase(), ArrayUtils.convert(list));
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -878,13 +924,14 @@ public abstract class VotingPluginProxy {
 
 	public abstract void reloadCore(boolean mysql);
 
-	public void sendMessageServer(String server, String channel, String... messageData) {
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-			sendPluginMessageServer(server, channel, messageData);
-		} else if (method.equals(BungeeMethod.REDIS)) {
-			sendRedisMessageServer(server, channel, messageData);
-		}
-	}
+	/*
+	 * public void sendMessageServer(String server, String channel, String...
+	 * messageData) { if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+	 * sendPluginMessageServer(server, channel, messageData); } else if
+	 * (method.equals(BungeeMethod.REDIS)) { sendRedisMessageServer(server, channel,
+	 * messageData); } else if (method.equals(BungeeMethod.MQTT)) {
+	 * sendMqttMessageServer(server, channel, messageData); } }
+	 */
 
 	public abstract void sendPluginMessageData(String server, String channel, byte[] data, boolean queue);
 
@@ -927,6 +974,18 @@ public abstract class VotingPluginProxy {
 		redisHandler.sendMessage(getConfig().getRedisPrefix() + "VotingPlugin_" + server, ArrayUtils.convert(list));
 	}
 
+	public void sendMqttMessageServer(String server, String channel, String... messageData) {
+		ArrayList<String> list = new ArrayList<>();
+		list.add(channel);
+		list.addAll(ArrayUtils.convert(messageData));
+
+		try {
+			mqttHandler.publish(getConfig().getMqttPrefix() + "votingplugin/servers/" + server, String.join(":", list));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	public void sendServerMessage(String... messageData) {
 		for (ClientHandler h : clientHandles.values()) {
 			h.sendMessage(messageData);
@@ -948,45 +1007,9 @@ public abstract class VotingPluginProxy {
 
 	}
 
-	public void sendSocketVote(String name, String service, BungeeMessageData text) {
-		String uuid = getUUID(name);
-
-		if (getConfig().getSendVotesToAllServers()) {
-			sendServerMessage("bungeevote", uuid, name, service, text.toString(),
-					"" + getConfig().getBungeeManageTotals());
-			if (getConfig().getBroadcast()) {
-				sendServerMessage("BungeeBroadcast", service, uuid, name);
-			}
-		} else {
-			// online server only
-
-			String server = "";
-			if (isPlayerOnline(name)) {
-				server = getCurrentPlayerServer(name);
-			} else {
-				server = getConfig().getFallBack();
-			}
-			if (getConfig().getBlockedServers().contains(server)) {
-				server = getConfig().getFallBack();
-			}
-
-			sendServerMessageServer(server, "bungeevoteonline", uuid, name, service, text.toString(),
-					"" + getConfig().getBungeeManageTotals());
-			if (getConfig().getBroadcast()) {
-				sendServerMessage("BungeeBroadcast", service, uuid, name);
-			}
-			sendServerMessage("BungeeUpdate");
-		}
-
-	}
-
 	public void sendVoteParty(String server) {
 		if (isSomeoneOnlineServer(server)) {
-			if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
-				sendMessageServer(server, "VotePartyBungee");
-			} else if (method.equals(BungeeMethod.SOCKETS)) {
-				sendServerMessageServer(server, "VotePartyBungee");
-			}
+			globalMessageProxyHandler.sendMessage(server, "VotePartyBungee", "");
 		}
 	}
 
@@ -1011,18 +1034,13 @@ public abstract class VotingPluginProxy {
 	public abstract void setVoteCacheVotePartyIncreaseVotesRequired(int votes);
 
 	public void status() {
-		if (method.equals(BungeeMethod.SOCKETS)) {
-			sendServerMessage("status");
-		} else if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
-			for (String s : getAllAvailableServers()) {
-				if (!isSomeoneOnlineServer(s)) {
-					log("No players on server " + s
-							+ " to send test status message, please retest with someone online");
-				} else {
-					// send
-					log("Sending request for status message on " + s);
-					sendMessageServer(s, "Status", s);
-				}
+		for (String s : getAllAvailableServers()) {
+			if (!isSomeoneOnlineServer(s)) {
+				log("No players on server " + s + " to send test status message, please retest with someone online");
+			} else {
+				// send
+				log("Sending request for status message on " + s);
+				globalMessageProxyHandler.sendMessage(s, "Status", s);
 			}
 		}
 	}
@@ -1163,71 +1181,68 @@ public abstract class VotingPluginProxy {
 				time = queueTime;
 			}
 
-			if (method.equals(BungeeMethod.PLUGINMESSAGING) || method.equals(BungeeMethod.REDIS)) {
-
-				if (getConfig().getSendVotesToAllServers()) {
-					for (String s : getAllAvailableServers()) {
-						boolean forceCache = false;
-						if (!isPlayerOnline(player) && getConfig().getWaitForUserOnline()) {
-							forceCache = true;
-							debug("Forcing vote to cache");
-						}
-						if (getConfig().getBroadcast()) {
-							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
-						}
-						if (!isSomeoneOnlineServer(s) || forceCache) {
-							// cache
-							if (!cachedVotes.containsKey(s)) {
-								cachedVotes.put(s, new ArrayList<>());
-							}
-							ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
-							list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-							cachedVotes.put(s, list);
-
-							debug("Caching vote for " + player + " on " + service + " for " + s);
-
-						} else {
-							// send
-							sendMessageServer(s, "Vote", player, uuid, service, "" + time, Boolean.TRUE.toString(),
-									"" + realVote, text.toString(), "" + getConfig().getBungeeManageTotals(),
-									"" + BungeeVersion.getPluginMessageVersion(), "" + getConfig().getBroadcast(), "1",
-									"1");
-						}
-
+			if (getConfig().getSendVotesToAllServers()) {
+				for (String s : getAllAvailableServers()) {
+					boolean forceCache = false;
+					if (!isPlayerOnline(player) && getConfig().getWaitForUserOnline()) {
+						forceCache = true;
+						debug("Forcing vote to cache");
 					}
-				} else {
-					if (isPlayerOnline(player) && getAllAvailableServers().contains(getCurrentPlayerServer(player))) {
-						sendMessageServer(getCurrentPlayerServer(player), "VoteOnline", player, uuid, service,
-								"" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
+					if (getConfig().getBroadcast()) {
+
+						globalMessageProxyHandler.sendMessage(s, "VoteBroadcast", uuid, player, service);
+					}
+					if (!isSomeoneOnlineServer(s) || forceCache) {
+						// cache
+						if (!cachedVotes.containsKey(s)) {
+							cachedVotes.put(s, new ArrayList<>());
+						}
+						ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
+						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+						cachedVotes.put(s, list);
+
+						debug("Caching vote for " + player + " on " + service + " for " + s);
+
+					} else {
+						// send
+						globalMessageProxyHandler.sendMessage(s, "Vote", player, uuid, service, "" + time,
+								Boolean.TRUE.toString(), "" + realVote, text.toString(),
 								"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
 								"" + getConfig().getBroadcast(), "1", "1");
-						if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
-							multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
-						}
-					} else {
-						if (!cachedOnlineVotes.containsKey(uuid)) {
-							cachedOnlineVotes.put(uuid, new ArrayList<>());
-						}
-						ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
-						if (list == null) {
-							list = new ArrayList<>();
-						}
-						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-						cachedOnlineVotes.put(uuid, list);
-						debug("Caching online vote for " + player + " on " + service);
 					}
-					for (String s : getAllAvailableServers()) {
-						if (getConfig().getBroadcast()) {
-							sendMessageServer(s, "VoteBroadcast", uuid, player, service);
-						}
-						sendMessageServer(s, "VoteUpdate", uuid, "" + votePartyVotes,
-								"" + currentVotePartyVotesRequired, text.toString());
 
-					}
 				}
-			} else if (method.equals(BungeeMethod.SOCKETS)) {
-				sendSocketVote(player, service, text);
+			} else {
+				if (isPlayerOnline(player) && getAllAvailableServers().contains(getCurrentPlayerServer(player))) {
+					globalMessageProxyHandler.sendMessage(getCurrentPlayerServer(player), "VoteOnline", player, uuid,
+							service, "" + time, Boolean.TRUE.toString(), "" + realVote, text.toString(),
+							"" + getConfig().getBungeeManageTotals(), "" + BungeeVersion.getPluginMessageVersion(),
+							"" + getConfig().getBroadcast(), "1", "1");
+					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
+					}
+				} else {
+					if (!cachedOnlineVotes.containsKey(uuid)) {
+						cachedOnlineVotes.put(uuid, new ArrayList<>());
+					}
+					ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
+					if (list == null) {
+						list = new ArrayList<>();
+					}
+					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+					cachedOnlineVotes.put(uuid, list);
+					debug("Caching online vote for " + player + " on " + service);
+				}
+				for (String s : getAllAvailableServers()) {
+					if (getConfig().getBroadcast()) {
+						globalMessageProxyHandler.sendMessage(s, "VoteBroadcast", uuid, player, service);
+					}
+					globalMessageProxyHandler.sendMessage(s, "VoteUpdate", uuid, "" + votePartyVotes,
+							"" + currentVotePartyVotesRequired, text.toString());
+
+				}
 			}
+
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Seending global proxy vote message");

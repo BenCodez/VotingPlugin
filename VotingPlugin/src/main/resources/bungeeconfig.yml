@@ -55,9 +55,7 @@ GlobalData:
   #Attempt to use mariadb driver
   #UseMariaDB: false
   
-# Time offset for time changes
-# Must match on all servers
-TimeHourOffSet: 0
+
 
 ####################################################################################
 
@@ -79,11 +77,21 @@ WhiteListedServers: []
 # Requires restart and set on all servers
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
-# SOCKETS 
 # PLUGINMESSAGING (Recommended)
-# MYSQL
 # REDIS
+# MQTT
+# SOCKETS 
+# MYSQL (Not recommended)
 BungeeMethod: PLUGINMESSAGING
+
+
+
+######################################################################################
+# Settings for each setup below
+
+###########################################
+# PLUGINMESSAGING settings
+###########################################
 
 # Default is vp:vp, can be changed to prevent potential exploits
 # Must match on all servers
@@ -96,6 +104,10 @@ PluginMessageChannel: "vp:vp"
 # This setting requires a restart
 PluginMessageEncryption: false
 
+###########################################
+# REDIS Settings
+###########################################
+
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
 Redis:
   Host: localhost
@@ -104,6 +116,31 @@ Redis:
   Password: ''
   # Set a prefix from an entire proxy network if using mutli-proxy setup below
   Prefix: ''
+  
+###########################################
+# SOCKETS Settings
+###########################################
+
+# Settings available here https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
+
+###########################################
+# MQTT Settings
+###########################################
+
+MQTT:
+  # clientid must be unique on each server
+  ClientID: 'proxy'
+  BrokerURL: "tcp://localhost:1883"
+  Username: ''
+  Password: ''
+  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  Prefix: ''
+  
+######################################################################################
+
+# Votes will be forwarded when specific player is online
+# If set to false, rewards should still reward when player logs in (by default)
+WaitForUserOnline: false
 
 # If false, votes will be checked if user is a valid player that has joined to server
 # Works for PLUGINMESSAGING and SOCKETS methods only
@@ -142,6 +179,10 @@ MaxAmountOfVotesPerDay: -1
 # Maxium amount of vote points possible, -1 to disable
 LimitVotePoints: -1
 
+# Time offset for time changes
+# Must match on all servers
+TimeHourOffSet: 0
+
 VoteParty:
   # If enabled, will trigger vote party reward 
   # in BungeeSettings.yml under BungeeVotePartyReward
@@ -161,8 +202,6 @@ VoteParty:
   Broadcast: '&aVote party has been reached!'
   
 # Online mode for UUIDS
-# Offline mode setups are not fully tested and are not supported currently
-# If using mixed uuids (premium and cracked players leave this enabled and disable UUIDLookup below)
 # More details here: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
 OnlineMode: true
 
@@ -173,6 +212,7 @@ UUIDLookup: true
 # Month Date Totals
 # Experimental feature
 # Settings must match on backend servers
+# https://github.com/BenCodez/VotingPlugin/wiki/Month-Date-Totals
 ###########################################
 
 # Experimental
@@ -187,15 +227,6 @@ StoreMonthTotalsWithDate: false
 # If using this StoreMonthTotalsWithDate must be enabled
 # This setting may be very buggy as it's in early stages
 UseMonthDateTotalsAsPrimaryTotal: false
-
-##########################################
-# PLUGINMESSAGING Settings
-##########################################
-
-# Applies to PLUGINMESSAGING only
-# Votes will be forwarded when specific player is online
-# If set to false, rewards should still reward when player logs in (by default)
-WaitForUserOnline: false
 
 
 ##########################################
@@ -223,7 +254,7 @@ MultiProxyOneGlobalReward: false
 MultiProxyMethod: SOCKET
 
 ##########################################
-# REDIS Settings
+# REDIS multi-proxy settings
 ##########################################
 
 # Set multiproxymethod to REDIS to use redis
@@ -247,7 +278,7 @@ ProxyServers:
 - proxy3
 
 ##########################################
-# SOCKET settings for mutli-proxy
+# SOCKET multi-proxy settings
 ##########################################
 
 # Set this for each proxy

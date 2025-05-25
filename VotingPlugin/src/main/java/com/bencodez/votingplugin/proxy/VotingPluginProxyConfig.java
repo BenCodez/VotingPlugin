@@ -28,6 +28,16 @@ public interface VotingPluginProxyConfig {
 
 	public boolean getDebug();
 
+	public String getMqttClientID();
+
+	public String getMqttBrokerURL();
+
+	public String getMqttUsername();
+
+	public String getMqttPassword();
+
+	public String getMqttPrefix();
+
 	public String getFallBack();
 
 	public boolean getGlobalDataEnabled();

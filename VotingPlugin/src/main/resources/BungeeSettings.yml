@@ -11,10 +11,11 @@ UseBungeecord: false
 # Requires restart and set on all servers
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups
 # Available:
-# SOCKETS
 # PLUGINMESSAGING (Recommended)
-# MYSQL
 # REDIS (2nd Most Recommended)
+# MQTT
+# MYSQL
+# SOCKETS (Not recommended)
 BungeeMethod: PLUGINMESSAGING
 
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
@@ -25,6 +26,16 @@ Redis:
   Username: 'default'
   Password: ''
   # Set a prefix from an entire proxy network if using multi-proxy setup below
+  Prefix: ''
+  
+MQTT:
+  # clientid must be unique on each server
+  # Default will use the server name below
+  #ClientID: 'server1'
+  BrokerURL: "tcp://localhost:1883"
+  Username: ''
+  Password: ''
+  # Set a prefix from an entire proxy network if using mutli-proxy setup below
   Prefix: ''
 
 # Enables more debug messages for communication between servers

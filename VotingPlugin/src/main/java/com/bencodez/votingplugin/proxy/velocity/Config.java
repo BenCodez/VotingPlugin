@@ -19,90 +19,113 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		super(file);
 	}
 
+	@Override
 	public boolean getAllowUnJoined() {
 		return getBoolean(getNode("AllowUnJoined"), false);
 	}
 
+	@Override
 	public String getBedrockPlayerPrefix() {
 		return getString(getNode("BedrockPlayerPrefix"), ".");
 	}
+
+	@Override
 
 	public List<String> getBlockedServers() {
 		return getStringList(getNode("BlockedServers"), new ArrayList<>());
 	}
 
+	@Override
 	public boolean getBroadcast() {
 		return getBoolean(getNode("Broadcast"), false);
 	}
 
+	@Override
 	public String getBungeeHost() {
 		return getString(getNode("BungeeServer", "Host"), "");
 	}
 
+	@Override
 	public boolean getBungeeManageTotals() {
 		return getBoolean(getNode("BungeeManageTotals"), true);
 	}
 
+	@Override
 	public String getBungeeMethod() {
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
 	}
 
+	@Override
 	public int getBungeePort() {
 		return getInt(getNode("BungeeServer", "Port"), 1297);
 	}
 
+	@Override
 	public boolean getDebug() {
 		return getBoolean(getNode("Debug"), false);
 	}
 
+	@Override
 	public String getFallBack() {
 		return getString(getNode("FallBackServer"), "");
 	}
 
+	@Override
 	public boolean getGlobalDataEnabled() {
 		return getBoolean(getNode("GlobalData", "Enabled"), false);
 	}
 
+	@Override
 	public boolean getGlobalDataUseMainMySQL() {
 		return getBoolean(getNode("GlobalData", "UseMainMySQL"), true);
 	}
 
+	@Override
 	public int getLimitVotePoints() {
 		return getInt(getNode("LimitVotePoints"), -1);
 	}
 
+	@Override
 	public int getMaxAmountOfVotesPerDay() {
 		return getInt(getNode("MaxAmountOfVotesPerDay"), -1);
 	}
 
+	@Override
 	public String getMultiProxyMethod() {
 		return getString(getNode("MultiProxyMethod"), "SOCKET");
 	}
 
+	@Override
 	public boolean getMultiProxyOneGlobalReward() {
 		return getBoolean(getNode("MultiProxyOneGlobalReward"), false);
 	}
 
+	@Override
 	public String getMultiProxyRedisHost() {
 		return getString(getNode("MultiProxyRedis", "Host"), "");
 	}
 
+	@Override
 	public String getMultiProxyRedisPassword() {
 		return getString(getNode("MultiProxyRedis", "Password"), "");
 	}
 
+	@Override
 	public int getMultiProxyRedisPort() {
 		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
 	}
 
+	@Override
 	public boolean getMultiProxyRedisUseExistingConnection() {
 		return getBoolean(getNode("MultiProxyRedis", "UseExistingConnection"), false);
 	}
 
+	@Override
 	public String getMultiProxyRedisUsername() {
 		return getString(getNode("MultiProxyRedis", "Username"), "");
 	}
 
+	@Override
 	public @NonNull List<String> getMultiProxyServers() {
 		return getChildrenAsList(getNode("MultiProxyServers"));
 	}
@@ -117,18 +140,22 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return children;
 	}
 
+	@Override
 	public Map<String, Object> getMultiProxyServersConfiguration(String s) {
 		return configToMap(getNode("MultiProxyServers", s));
 	}
 
+	@Override
 	public String getMultiProxySocketHostHost() {
 		return getString(getNode("MultiProxySocketHost", "Host"), "");
 	}
 
+	@Override
 	public int getMultiProxySocketHostPort() {
 		return getInt(getNode("MultiProxySocketHost", "Port"), 1297);
 	}
 
+	@Override
 	public boolean getMultiProxySupport() {
 		return getBoolean(getNode("MultiProxySupport"), false);
 	}
@@ -137,52 +164,89 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return getNode("MySQL");
 	}
 
+	@Override
 	public boolean getOnlineMode() {
 		return getBoolean(getNode("OnlineMode"), true);
 	}
 
+	@Override
 	public int getPointsOnVote() {
 		return getInt(getNode("PointsOnVote"), 1);
 	}
 
+	@Override
 	public boolean getPrimaryServer() {
 		return getBoolean(getNode("PrimaryServer"), false);
 	}
 
+	@Override
 	public String getProxyServerName() {
 		return getString(getNode("ProxyServerName"), "SOCKET");
 	}
 
+	@Override
 	public List<String> getProxyServers() {
 		return getStringList(getNode("ProxyServers"), new ArrayList<>());
 	}
 
+	@Override
 	public String getRedisHost() {
 		return getString(getNode("Redis", "Host"), "");
 	}
 
+	@Override
 	public String getRedisPassword() {
 		return getString(getNode("Redis", "Password"), "");
 	}
 
+	@Override
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
 	}
 
+	@Override
 	public String getRedisPrefix() {
 		return getString(getNode("Redis", "Prefix"), "");
 	}
 
+	@Override
 	public String getRedisUsername() {
 		return getString(getNode("Redis", "Username"), "");
 	}
 
+	@Override
 	public boolean getSendVotesToAllServers() {
 		return getBoolean(getNode("SendVotesToAllServers"), true);
 	}
 
+	@Override
 	public Map<String, Object> getSpigotServerConfiguration(String s) {
 		return configToMap(getNode("SpigotServers", s));
+	}
+
+	@Override
+	public String getMqttClientID() {
+		return getString(getNode("MQTT", "ClientID"), "proxy");
+	}
+
+	@Override
+	public String getMqttBrokerURL() {
+		return getString(getNode("MQTT", "BrokerURL"), "tcp://localhost:1883");
+	}
+
+	@Override
+	public String getMqttUsername() {
+		return getString(getNode("MQTT", "Username"), "");
+	}
+
+	@Override
+	public String getMqttPassword() {
+		return getString(getNode("MQTT", "Password"), "");
+	}
+
+	@Override
+	public String getMqttPrefix() {
+		return getString(getNode("MQTT", "Prefix"), "");
 	}
 
 	public Map<String, Object> configToMap(ConfigurationNode config) {
@@ -195,42 +259,52 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return map;
 	}
 
+	@Override
 	public @NonNull List<String> getSpigotServers() {
 		return getChildrenAsList(getNode("SpigotServers"));
 	}
 
+	@Override
 	public boolean getStoreMonthTotalsWithDate() {
 		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
 	}
 
+	@Override
 	public boolean getTimeChangeFailSafeBypass() {
 		return getBoolean(getNode("TimeChangeFailSafeBypass"), false);
 	}
 
+	@Override
 	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
 		return getBoolean(getNode("UseMonthDateTotalsAsPrimaryTotal"), false);
 	}
 
+	@Override
 	public boolean getUUIDLookup() {
 		return getBoolean(getNode("UUIDLookup"), true);
 	}
 
+	@Override
 	public int getVoteCacheTime() {
 		return getInt(getNode("VoteCacheTime"), -1);
 	}
 
+	@Override
 	public String getVotePartyBroadcast() {
 		return getString(getVotePartyNode().getNode("Broadcast"), "");
 	}
 
+	@Override
 	public List<String> getVotePartyBungeeCommands() {
 		return getStringList(getVotePartyNode().getNode("BungeeCommands"), new ArrayList<>());
 	}
 
+	@Override
 	public boolean getVotePartyEnabled() {
 		return getBoolean(getVotePartyNode().getNode("Enabled"), false);
 	}
 
+	@Override
 	public int getVotePartyIncreaseVotesRequired() {
 		return getInt(getVotePartyNode().getNode("IncreaseVotesRequired"), 0);
 	}
@@ -239,22 +313,27 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return getNode("VoteParty");
 	}
 
+	@Override
 	public boolean getVotePartySendToAllServers() {
 		return getBoolean(getVotePartyNode().getNode("SendToAllServers"), false);
 	}
 
+	@Override
 	public List<String> getVotePartyServersToSend() {
 		return getStringList(getVotePartyNode().getNode("ServersToSend"), new ArrayList<>());
 	}
 
+	@Override
 	public int getVotePartyVotesRequired() {
 		return getInt(getVotePartyNode().getNode("VotesRequired"), 100);
 	}
 
+	@Override
 	public boolean getWaitForUserOnline() {
 		return getBoolean(getNode("WaitForUserOnline"), false);
 	}
 
+	@Override
 	public List<String> getWhiteListedServers() {
 		return getStringList(getNode("WhiteListedServers"), new ArrayList<>());
 	}

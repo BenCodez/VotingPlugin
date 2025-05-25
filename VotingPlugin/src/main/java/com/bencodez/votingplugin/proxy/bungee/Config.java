@@ -33,224 +33,304 @@ public class Config implements VotingPluginProxyConfig {
 		return map;
 	}
 
+	@Override
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);
 	}
 
+	@Override
 	public String getBedrockPlayerPrefix() {
 		return getData().getString("BedrockPlayerPrefix", ".");
 	}
 
+	@Override
 	public List<String> getBlockedServers() {
 		return getData().getStringList("BlockedServers");
 	}
 
+	@Override
 	public boolean getBroadcast() {
 		return getData().getBoolean("Broadcast", false);
 	}
 
+	@Override
 	public String getBungeeHost() {
 		return getData().getString("BungeeServer.Host", "");
 	}
 
+	@Override
 	public boolean getBungeeManageTotals() {
 		return getData().getBoolean("BungeeManageTotals", true);
 	}
 
+	@Override
 	public String getBungeeMethod() {
 		return getData().getString("BungeeMethod", "SOCKETS");
 	}
 
+	@Override
 	public int getBungeePort() {
 		return getData().getInt("BungeeServer.Port", 1297);
 	}
 
+	@Override
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
 	}
 
+	@Override
 	public String getFallBack() {
 		return getData().getString("FallBackServer", "");
 	}
 
+	@Override
 	public boolean getGlobalDataEnabled() {
 		return getData().getBoolean("GlobalData.Enabled", false);
 	}
 
+	@Override
 	public boolean getGlobalDataUseMainMySQL() {
 		return getData().getBoolean("GlobalData.UseMainMySQL", true);
 	}
 
+	@Override
 	public int getLimitVotePoints() {
 		return getData().getInt("LimitVotePoints", -1);
 	}
 
+	@Override
 	public int getMaxAmountOfVotesPerDay() {
 		return getData().getInt("MaxAmountOfVotesPerDay", -1);
 	}
 
+	@Override
 	public String getMultiProxyMethod() {
 		return getData().getString("MultiProxyMethod", "SOCKET");
 	}
 
+	@Override
 	public boolean getMultiProxyOneGlobalReward() {
 		return getData().getBoolean("MultiProxyOneGlobalReward", false);
 	}
 
+	@Override
 	public String getMultiProxyRedisHost() {
 		return getData().getString("MultiProxyRedis.Host", "");
 	}
 
+	@Override
 	public String getMultiProxyRedisPassword() {
 		return getData().getString("MultiProxyRedis.Password", "");
 	}
 
+	@Override
 	public int getMultiProxyRedisPort() {
 		return getData().getInt("MultiProxyRedis.Port", 6379);
 	}
 
+	@Override
 	public boolean getMultiProxyRedisUseExistingConnection() {
 		return getData().getBoolean("MultiProxyRedis.UseExistingConnection", false);
 	}
 
+	@Override
 	public String getMultiProxyRedisUsername() {
 		return getData().getString("MultiProxyRedis.Username", "");
 	}
 
+	@Override
 	public Collection<String> getMultiProxyServers() {
 		return getData().getSection("MultiProxyServers").getKeys();
 	}
 
+	@Override
 	public Map<String, Object> getMultiProxyServersConfiguration(String s) {
 		return configToMap(getData().getSection("MultiProxyServers." + s));
 	}
 
+	@Override
 	public String getMultiProxySocketHostHost() {
 		return getData().getString("MultiProxySocketHost.Host", "");
 	}
 
+	@Override
 	public int getMultiProxySocketHostPort() {
 		return getData().getInt("MultiProxySocketHost.Port", 1297);
 	}
 
+	@Override
 	public boolean getMultiProxySupport() {
 		return getData().getBoolean("MultiProxySupport", false);
 	}
 
+	@Override
 	public boolean getOnlineMode() {
 		return getData().getBoolean("OnlineMode", true);
 	}
 
+	@Override
 	public int getPointsOnVote() {
 		return getData().getInt("PointsOnVote", 1);
 	}
 
+	@Override
 	public boolean getPrimaryServer() {
 		return getData().getBoolean("PrimaryServer", false);
 	}
 
+	@Override
 	public String getProxyServerName() {
 		return getData().getString("ProxyServerName", "SOCKET");
 	}
 
+	@Override
 	public List<String> getProxyServers() {
 		return getData().getStringList("ProxyServers");
 	}
 
+	@Override
 	public String getRedisHost() {
 		return getData().getString("Redis.Host", "");
 	}
 
+	@Override
 	public String getRedisPassword() {
 		return getData().getString("Redis.Password", "");
 	}
 
+	@Override
 	public int getRedisPort() {
 		return getData().getInt("Redis.Port", 6379);
 	}
 
+	@Override
 	public String getRedisPrefix() {
 		return getData().getString("Redis.Prefix", "");
 	}
 
+	@Override
 	public String getRedisUsername() {
 		return getData().getString("Redis.Username", "");
 	}
 
+	@Override
 	public boolean getSendVotesToAllServers() {
 		return getData().getBoolean("SendVotesToAllServers");
 	}
 
+	@Override
 	public Map<String, Object> getSpigotServerConfiguration(String s) {
 		return configToMap(getData().getSection("SpigotServers." + s));
 	}
 
+	@Override
 	public Collection<String> getSpigotServers() {
 		return getData().getSection("SpigotServers").getKeys();
 	}
 
+	@Override
 	public boolean getStoreMonthTotalsWithDate() {
 		return getData().getBoolean("StoreMonthTotalsWithDate", false);
 	}
 
+	@Override
 	public boolean getTimeChangeFailSafeBypass() {
 		return getData().getBoolean("TimeChangeFailSafeBypass", false);
 	}
 
+	@Override
 	public int getTimeHourOffSet() {
 		return getData().getInt("TimeHourOffSet");
 	}
 
+	@Override
 	public String getTimeZone() {
 		return getData().getString("TimeZone", "");
 	}
 
+	@Override
 	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
 		return getData().getBoolean("UseMonthDateTotalsAsPrimaryTotal", false);
 	}
 
+	@Override
 	public boolean getUUIDLookup() {
 		return getData().getBoolean("UUIDLookup", true);
 	}
 
+	@Override
 	public int getVoteCacheTime() {
 		return getData().getInt("VoteCacheTime", -1);
 	}
 
+	@Override
 	public String getVotePartyBroadcast() {
 		return getData().getString("VoteParty.Broadcast", "");
 	}
 
+	@Override
 	public List<String> getVotePartyBungeeCommands() {
 		return getData().getStringList("VoteParty.BungeeCommands");
 	}
 
+	@Override
 	public boolean getVotePartyEnabled() {
 		return getData().getBoolean("VoteParty.Enabled", false);
 	}
 
+	@Override
 	public int getVotePartyIncreaseVotesRequired() {
 		return getData().getInt("VoteParty.IncreaseVotesRequired", 0);
 	}
 
+	@Override
 	public boolean getVotePartySendToAllServers() {
 		return getData().getBoolean("VoteParty.SendToAllServers", true);
 	}
 
+	@Override
 	public List<String> getVotePartyServersToSend() {
 		return getData().getStringList("VoteParty.ServersToSend");
 	}
 
+	@Override
 	public int getVotePartyVotesRequired() {
 		return getData().getInt("VoteParty.VotesRequired", 100);
 	}
 
+	@Override
 	public boolean getWaitForUserOnline() {
 		return getData().getBoolean("WaitForUserOnline", false);
 	}
 
+	@Override
 	public List<String> getWhiteListedServers() {
 		return getData().getStringList("WhiteListedServers");
+	}
+
+	@Override
+	public String getMqttClientID() {
+		return getData().getString("MQTT.ClientID", "proxy");
+	}
+
+	@Override
+	public String getMqttBrokerURL() {
+		return getData().getString("MQTT.BrokerURL", "tcp://localhost:1883");
+	}
+
+	@Override
+	public String getMqttUsername() {
+		return getData().getString("MQTT.Username", "");
+	}
+
+	@Override
+	public String getMqttPassword() {
+		return getData().getString("MQTT.Password", "");
+	}
+
+	@Override
+	public String getMqttPrefix() {
+		return getData().getString("MQTT.Prefix", "");
 	}
 
 	public void load() {
