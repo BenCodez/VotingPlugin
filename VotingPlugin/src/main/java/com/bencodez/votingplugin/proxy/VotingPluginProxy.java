@@ -28,7 +28,6 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
-import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
@@ -70,7 +69,7 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	@Setter
-	private ProxyMySQL proxyMySQL;
+	private ProxyMysqlUserTable proxyMySQL;
 
 	private EncryptionHandler encryptionHandler;
 

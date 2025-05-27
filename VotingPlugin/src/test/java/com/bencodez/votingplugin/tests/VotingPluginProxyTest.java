@@ -2,13 +2,8 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-
-import java.io.FileNotFoundException;
-import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +13,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
-import com.bencodez.advancedcore.bungeeapi.mysql.ProxyMySQL;
+import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
@@ -29,7 +24,7 @@ public class VotingPluginProxyTest {
 	private VotingPluginProxyTestImpl votingPluginProxy;
 
 	@Mock
-	private ProxyMySQL proxyMySQL;
+	private ProxyMysqlUserTable proxyMySQL;
 
 	@Mock
 	private VotingPluginProxyConfig config;

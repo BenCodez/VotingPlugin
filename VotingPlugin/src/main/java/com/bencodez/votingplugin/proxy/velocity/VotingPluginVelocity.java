@@ -33,13 +33,13 @@ import org.slf4j.Logger;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
-import com.bencodez.advancedcore.bungeeapi.mysql.VelocityMySQL;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -191,20 +191,31 @@ public class VotingPluginVelocity {
 	}
 
 	private void loadMysql() {
-		votingPluginProxy.setProxyMySQL(new VelocityMySQL("VotingPlugin_Users", config, config.getDebug(), logger) {
+		votingPluginProxy.setProxyMySQL(
+				new ProxyMysqlUserTable("VotingPlugin_Users", new MysqlConfigVelocity(config), config.getDebug()) {
 
-			@Override
-			public void debug(SQLException e) {
-				if (config.getDebug()) {
-					e.printStackTrace();
-				}
-			}
+					@Override
+					public void debug(SQLException e) {
+						if (config.getDebug()) {
+							e.printStackTrace();
+						}
+					}
 
-			@Override
-			public void severe(String str) {
-				getLogger().error(str);
-			}
-		});
+					@Override
+					public void severe(String str) {
+						getLogger().error(str);
+					}
+
+					@Override
+					public void logSevere(String string) {
+						logger.error(string);
+					}
+
+					@Override
+					public void logInfo(String string) {
+						logger.info(string);
+					}
+				});
 
 		ArrayList<String> servers = new ArrayList<>();
 		for (String s : getAvailableAllServers()) {
