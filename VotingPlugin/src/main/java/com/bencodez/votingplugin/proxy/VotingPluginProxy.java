@@ -1192,7 +1192,7 @@ public abstract class VotingPluginProxy {
 
 						globalMessageProxyHandler.sendMessage(s, "VoteBroadcast", uuid, player, service);
 					}
-					if (!isSomeoneOnlineServer(s) || forceCache) {
+					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
 						// cache
 						if (!cachedVotes.containsKey(s)) {
 							cachedVotes.put(s, new ArrayList<>());
