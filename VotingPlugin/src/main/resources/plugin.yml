@@ -17,6 +17,7 @@ softdepend:
 - SuperVanish
 - PremiumVanish
 - LuckPerms
+- nLogin
 loadbefore:
 - MCPerks
 api-version: 1.13
