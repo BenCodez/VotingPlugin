@@ -480,8 +480,8 @@ TreatVanishAsOffline: false
 # In miliseconds, 1000 = 1 second
 DelayLoginEvent: 0
 
-# Wait until user is logged in with AuthMe
-# Requires AuthMe or LoginSecurity
+# Wait until user is logged in with AuthMe or NLogin
+# Requires AuthMe or LoginSecurity or NLogin
 WaitUntilLoggedIn: true
 
 ###########################################
