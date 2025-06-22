@@ -28,6 +28,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class AdminVoteTopPoints extends GUIHandler {
 
+	@SuppressWarnings("unused")
 	private int page;
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
