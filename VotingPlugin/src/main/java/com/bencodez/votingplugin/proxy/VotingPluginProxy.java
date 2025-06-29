@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -564,7 +565,9 @@ public abstract class VotingPluginProxy {
 				}
 			});
 
-		} else if (method.equals(BungeeMethod.MQTT)) {
+		} else if (method.equals(BungeeMethod.MQTT))
+
+		{
 			// use MqttHander
 
 			try {
@@ -592,8 +595,9 @@ public abstract class VotingPluginProxy {
 			}
 
 		}
-		currentVotePartyVotesRequired = getConfig().getVotePartyVotesRequired()
-				+ getVoteCacheVotePartyIncreaseVotesRequired();
+		currentVotePartyVotesRequired =
+
+				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired();
 		votePartyVotes = getVoteCacheCurrentVotePartyVotes();
 
 		globalMessageProxyHandler = new GlobalMessageProxyHandler() {
@@ -1044,6 +1048,81 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	public String getWaitUntilDelaySiteFromService(String service) {
+		for (String site : getConfig().getWaitUntilVoteDelaySites()) {
+			if (getConfig().getWaitUntilVoteDelayService(site).equalsIgnoreCase(service)) {
+				return site;
+			}
+		}
+		return "";
+	}
+
+	private long getLastVotesTime(ArrayList<Column> cols, String site) {
+		for (Column d : cols) {
+			if (d.getName().equalsIgnoreCase("LastVotes")) {
+
+				DataValue value = d.getValue();
+				String[] list = value.getString().split("%line%");
+				for (String str : list) {
+					String[] data = str.split("//");
+					if (data[0].equalsIgnoreCase(site)) {
+						return Long.valueOf(data[1]);
+					}
+				}
+
+			}
+		}
+		return 0;
+	}
+
+	public boolean checkVoteDelay(String uuid, String service, ArrayList<Column> data) {
+		String site = getWaitUntilDelaySiteFromService(service);
+		if (site.isEmpty()) {
+			return true;
+		}
+
+		int voteDelay = getConfig().getWaitUntilVoteDelayVoteDelay(site);
+		int voteDelayMin = getConfig().getWaitUntilVoteDelayVoteDelayMin(site);
+
+		long lastVote = getLastVotesTime(data, site);
+		if (lastVote == 0) {
+			return true;
+		}
+
+		try {
+			LocalDateTime now = getBungeeTimeChecker().getTime();
+			LocalDateTime lastVoteTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(lastVote), ZoneId.systemDefault())
+					.plusHours(getConfig().getTimeHourOffSet());
+
+			if (!getConfig().getWaitUntilVoteDelayVoteDelayDaily(site)) {
+				if (voteDelay == 0 && voteDelayMin == 0) {
+					return true;
+				}
+
+				LocalDateTime nextvote = lastVoteTime.plusHours((long) voteDelay).plusMinutes((long) voteDelayMin);
+
+				return now.isAfter(nextvote);
+			}
+			LocalDateTime resetTime = lastVoteTime.withHour(getConfig().getWaitUntilVoteDelayVoteDelayHour(site))
+					.withMinute(0).withSecond(0);
+			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
+
+			if (lastVoteTime.isBefore(resetTime)) {
+				if (now.isAfter(resetTime)) {
+					return true;
+				}
+			} else {
+				if (now.isAfter(resetTimeTomorrow)) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return false;
+	}
+
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			BungeeMessageData text, String uuid) {
 		try {
@@ -1126,6 +1205,11 @@ public abstract class VotingPluginProxy {
 
 					ArrayList<Column> data = getProxyMySQL()
 							.getExactQuery(new Column("uuid", new DataValueString(uuid)));
+
+					if (!checkVoteDelay(uuid, service, data)) {
+						log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
+						return;
+					}
 
 					int allTimeTotal = getValue(data, "AllTimeTotal", 1);
 					int monthTotal = getValue(data, "MonthTotal", 1);

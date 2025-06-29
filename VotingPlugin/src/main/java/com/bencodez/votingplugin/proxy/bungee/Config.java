@@ -374,4 +374,34 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getBoolean("PluginMessageEncryption", false);
 	}
 
+	@Override
+	public Collection<String> getWaitUntilVoteDelaySites() {
+		return getData().getSection("WaitUntilVoteDelay").getKeys();
+	}
+
+	@Override
+	public String getWaitUntilVoteDelayService(String site) {
+		return getData().getString("WaitUntilVoteDelay." + site + ".ServiceSite", "");
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelay(String site) {
+		return getData().getInt("WaitUntilVoteDelay." + site + ".VoteDelay", 24);
+	}
+
+	@Override
+	public boolean getWaitUntilVoteDelayVoteDelayDaily(String site) {
+		return getData().getBoolean("WaitUntilVoteDelay." + site + ".VoteDelayDaily", false);
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelayHour(String site) {
+		return getData().getInt("WaitUntilVoteDelay." + site + ".VoteDelayDailyHour", 0);
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelayMin(String site) {
+		return getData().getInt("WaitUntilVoteDelay." + site + ".VoteDelayMin", 0);
+	}
+
 }

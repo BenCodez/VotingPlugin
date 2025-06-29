@@ -121,6 +121,7 @@ Redis:
 # SOCKETS Settings
 ###########################################
 
+# Settings hidden to avoid confusion, highly recommend other methods first
 # Settings available here https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
 
 ###########################################
@@ -207,6 +208,19 @@ OnlineMode: true
 
 # If true plugin will atempt to lookup uuids if none exist
 UUIDLookup: true
+
+
+# If you use this plugin will ignore votes from these service sites for said amount of time
+WaitUntiVoteDelay:
+  # sitename must match what's in VoteSites.yml on backend servers
+  SITENAME:
+    # Set service site here and vote delay
+    ServiceSite: SERVICESITE
+    VoteDelay: 24
+    VoteDelayMin: 0
+    # If true it resets based on the day isntead
+    VoteDelayDaily: false
+    VoteDelayDailyHour: 0
 
 ###########################################
 # Month Date Totals

@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -362,6 +363,36 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 	@Override
 	public boolean getPluginMessageEncryption() {
 		return getBoolean(getNode("PluginMessageEncryption"), false);
+	}
+
+	@Override
+	public Collection<String> getWaitUntilVoteDelaySites() {
+		return getChildrenAsList(getNode("WaitUntilVoteDelay"));
+	}
+
+	@Override
+	public String getWaitUntilVoteDelayService(String site) {
+		return getString(getNode("WaitUntilVoteDelay", site, "ServiceSite"), "");
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelay(String site) {
+		return getInt(getNode("WaitUntilVoteDelay", site, "VoteDelay"), 24);
+	}
+
+	@Override
+	public boolean getWaitUntilVoteDelayVoteDelayDaily(String site) {
+		return getBoolean(getNode("WaitUntilVoteDelay", site, "VoteDelayDaily"), false);
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelayHour(String site) {
+		return getInt(getNode("WaitUntilVoteDelay", site, "VoteDelayDailyHour"), 0);
+	}
+
+	@Override
+	public int getWaitUntilVoteDelayVoteDelayMin(String site) {
+		return getInt(getNode("WaitUntilVoteDelay", site, "VoteDelayMin"), 0);
 	}
 
 }

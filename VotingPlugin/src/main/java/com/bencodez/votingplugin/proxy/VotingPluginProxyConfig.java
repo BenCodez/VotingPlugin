@@ -130,6 +130,18 @@ public interface VotingPluginProxyConfig {
 
 	public List<String> getWhiteListedServers();
 
+	public Collection<String> getWaitUntilVoteDelaySites();
+
+	public String getWaitUntilVoteDelayService(String site);
+
+	public int getWaitUntilVoteDelayVoteDelay(String site);
+
+	public int getWaitUntilVoteDelayVoteDelayMin(String site);
+
+	public int getWaitUntilVoteDelayVoteDelayHour(String site);
+
+	public boolean getWaitUntilVoteDelayVoteDelayDaily(String site);
+
 	public void load();
 
 	public void save();
