@@ -1385,18 +1385,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onPreLoad() {
 		plugin = this;
 
-		// disable plugin for older versions below 1.12
-
-		if (NMSManager.getInstance().isVersion("1.7", "1.8", "1.9", "1.10", "1.11")) {
-			plugin.getLogger().severe("Detected running " + Bukkit.getVersion()
-					+ ", this version is not supported on this build, read the plugin page. Disabling...");
-			if (!configFile.isOverrideVersionDisable()) {
-				Bukkit.getPluginManager().disablePlugin(this);
-				return;
-			}
-			plugin.getLogger().warning("Overriding version disable, beware of using this! This may cause issues!");
-		}
-
 		setupFiles();
 
 		loadVoteSites();
