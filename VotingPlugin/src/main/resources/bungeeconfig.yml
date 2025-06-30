@@ -211,7 +211,7 @@ UUIDLookup: true
 
 
 # If you use this plugin will ignore votes from these service sites for said amount of time
-WaitUntiVoteDelay:
+WaitUntilVoteDelay:
   # sitename must match what's in VoteSites.yml on backend servers
   SITENAME:
     # Set service site here and vote delay

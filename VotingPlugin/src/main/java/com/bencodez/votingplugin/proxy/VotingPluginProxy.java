@@ -1057,7 +1057,28 @@ public abstract class VotingPluginProxy {
 		return "";
 	}
 
-	private long getLastVotesTime(ArrayList<Column> cols, String site) {
+	private long getLastVotesTime(String uuid, ArrayList<Column> cols, String site, String service) {
+		long mostRecentTime = 0;
+
+		// Check cached online votes
+		if (cachedOnlineVotes.containsKey(uuid)) {
+			ArrayList<OfflineBungeeVote> onlineVotes = cachedOnlineVotes.get(uuid);
+			for (OfflineBungeeVote vote : onlineVotes) {
+				if (vote.getService().equalsIgnoreCase(service)) {
+					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
+				}
+			}
+		}
+
+		// Check cached votes
+		for (ArrayList<OfflineBungeeVote> votes : cachedVotes.values()) {
+			for (OfflineBungeeVote vote : votes) {
+				if (vote.getUuid().equals(uuid) && vote.getService().equalsIgnoreCase(service)) {
+					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
+				}
+			}
+		}
+
 		for (Column d : cols) {
 			if (d.getName().equalsIgnoreCase("LastVotes")) {
 
@@ -1066,26 +1087,28 @@ public abstract class VotingPluginProxy {
 				for (String str : list) {
 					String[] data = str.split("//");
 					if (data[0].equalsIgnoreCase(site)) {
-						return Long.valueOf(data[1]);
+						mostRecentTime = Math.max(mostRecentTime, Long.valueOf(data[1]));
 					}
 				}
 
 			}
 		}
-		return 0;
+		return mostRecentTime;
 	}
 
 	public boolean checkVoteDelay(String uuid, String service, ArrayList<Column> data) {
 		String site = getWaitUntilDelaySiteFromService(service);
 		if (site.isEmpty()) {
+			debug("No service site set for " + service + ", skipping vote delay check");
 			return true;
 		}
 
 		int voteDelay = getConfig().getWaitUntilVoteDelayVoteDelay(site);
 		int voteDelayMin = getConfig().getWaitUntilVoteDelayVoteDelayMin(site);
 
-		long lastVote = getLastVotesTime(data, site);
+		long lastVote = getLastVotesTime(uuid, data, site, service);
 		if (lastVote == 0) {
+			debug("No last vote time found for " + uuid + "/" + service + ", skipping vote delay check");
 			return true;
 		}
 
@@ -1096,6 +1119,7 @@ public abstract class VotingPluginProxy {
 
 			if (!getConfig().getWaitUntilVoteDelayVoteDelayDaily(site)) {
 				if (voteDelay == 0 && voteDelayMin == 0) {
+					debug("Vote delay is 0 for " + site + ", skipping vote delay check");
 					return true;
 				}
 
@@ -1109,10 +1133,12 @@ public abstract class VotingPluginProxy {
 
 			if (lastVoteTime.isBefore(resetTime)) {
 				if (now.isAfter(resetTime)) {
+					debug("Vote delay is met for " + uuid + "/" + service + ", vote can be processed");
 					return true;
 				}
 			} else {
 				if (now.isAfter(resetTimeTomorrow)) {
+					debug("Vote delay is met for " + uuid + "/" + service + ", vote can be processed");
 					return true;
 				}
 			}
@@ -1120,6 +1146,7 @@ public abstract class VotingPluginProxy {
 			e.printStackTrace();
 		}
 
+		debug("Vote delay is not met for " + uuid + "/" + service + ", skipping vote");
 		return false;
 	}
 
