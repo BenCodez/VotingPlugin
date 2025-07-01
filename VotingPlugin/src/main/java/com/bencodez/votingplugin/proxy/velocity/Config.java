@@ -395,4 +395,9 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return getInt(getNode("WaitUntilVoteDelay", site, "VoteDelayMin"), 0);
 	}
 
+	@Override
+	public boolean getResetMilestonesMonthly() {
+		return getBoolean(getNode("ResetMilestonesMonthly"), false);
+	}
+
 }

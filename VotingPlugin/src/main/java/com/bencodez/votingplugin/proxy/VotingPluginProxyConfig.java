@@ -137,6 +137,8 @@ public interface VotingPluginProxyConfig {
 	public int getWaitUntilVoteDelayVoteDelay(String site);
 
 	public int getWaitUntilVoteDelayVoteDelayMin(String site);
+	
+	public boolean getResetMilestonesMonthly();
 
 	public int getWaitUntilVoteDelayVoteDelayHour(String site);
 

@@ -122,6 +122,32 @@ public abstract class VotingPluginProxy {
 	@Getter
 	private GlobalMessageProxyHandler globalMessageProxyHandler;
 
+	public void resetMilestoneCountInVotes() {
+		// Iterate through cached online votes
+		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (OfflineBungeeVote vote : votes) {
+				String updatedText = updateMilestoneCount(vote.getText());
+				vote.setText(updatedText);
+			}
+		}
+
+		// Iterate through cached votes
+		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (OfflineBungeeVote vote : votes) {
+				String updatedText = updateMilestoneCount(vote.getText());
+				vote.setText(updatedText);
+			}
+		}
+	}
+
+	private String updateMilestoneCount(String text) {
+		BungeeMessageData data = new BungeeMessageData(text);
+		data.setMilestoneCount(0); // Reset milestone count to 0
+		return data.toString();
+	}
+
 	public VotingPluginProxy() {
 		enabled = true;
 
@@ -194,6 +220,11 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (type.equals(TimeType.MONTH) && getConfig().getResetMilestonesMonthly()) {
+					debug("Resetting milestones for month change");
+					resetMilestoneCountInVotes();
+				}
+
 				if (getConfig().getVoteCacheTime() > 0) {
 					checkVoteCacheTime();
 				}

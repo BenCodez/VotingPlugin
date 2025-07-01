@@ -209,6 +209,8 @@ OnlineMode: true
 # If true plugin will atempt to lookup uuids if none exist
 UUIDLookup: true
 
+# Should be enabled if enabled on backend servers
+ResetMilestonesMonthly: false
 
 # If you use this plugin will ignore votes from these service sites for said amount of time
 WaitUntilVoteDelay:

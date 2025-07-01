@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy;
 
 import lombok.Getter;
+import lombok.Setter;
 
 public class OfflineBungeeVote {
 
@@ -11,6 +12,7 @@ public class OfflineBungeeVote {
 	@Getter
 	private String service;
 	@Getter
+	@Setter
 	private String text;
 	@Getter
 	private long time;

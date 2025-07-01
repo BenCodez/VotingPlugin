@@ -404,4 +404,9 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getInt("WaitUntilVoteDelay." + site + ".VoteDelayMin", 0);
 	}
 
+	@Override
+	public boolean getResetMilestonesMonthly() {
+		return getData().getBoolean("ResetMilestonesMonthly", false);
+	}
+
 }
