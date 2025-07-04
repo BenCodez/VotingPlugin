@@ -872,6 +872,8 @@ public abstract class VotingPluginProxy {
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();
 		}
+		
+		bungeeTimeChecker.shutdown();
 
 		enabled = false;
 	}
