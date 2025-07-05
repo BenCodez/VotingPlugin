@@ -456,6 +456,7 @@ public class VotingPluginVelocity {
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 
+		timer.shutdownNow();
 		logger.info("VotingPlugin disabled");
 	}
 
