@@ -872,8 +872,20 @@ public abstract class VotingPluginProxy {
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();
 		}
-		
+
+		if (socketHandler != null) {
+			socketHandler.closeConnection();
+		}
+
+		if (redisHandler != null) {
+			redisHandler.close();
+		}
+
 		bungeeTimeChecker.shutdown();
+
+		if (getGlobalDataHandler() != null) {
+			getGlobalDataHandler().shutdown();
+		}
 
 		enabled = false;
 	}
