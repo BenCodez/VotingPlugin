@@ -452,10 +452,12 @@ public class VotingPluginVelocity {
 				num++;
 			}
 		}
-		getVotingPluginProxy().onDisable();
+		
 
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
+		
+		getVotingPluginProxy().onDisable();
 		
 		if (voteCheckTask != null) voteCheckTask.cancel();
 		if (cacheSaveTask != null) cacheSaveTask.cancel();
