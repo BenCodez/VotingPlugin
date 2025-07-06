@@ -59,6 +59,7 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import com.velocitypowered.api.scheduler.ScheduledTask;
 
 import lombok.Getter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -455,6 +456,9 @@ public class VotingPluginVelocity {
 
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
+		
+		if (voteCheckTask != null) voteCheckTask.cancel();
+		if (cacheSaveTask != null) cacheSaveTask.cancel();
 
 		timer.shutdownNow();
 		logger.info("VotingPlugin disabled");
@@ -462,6 +466,9 @@ public class VotingPluginVelocity {
 
 	@Getter
 	public VotingPluginProxy votingPluginProxy;
+
+	private ScheduledTask voteCheckTask;
+	private ScheduledTask cacheSaveTask;
 
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -835,7 +842,7 @@ public class VotingPluginVelocity {
 
 			voteCacheFile.clearData();
 
-			server.getScheduler().buildTask(this, () -> {
+			voteCheckTask = server.getScheduler().buildTask(this, () -> {
 				if (getVotingPluginProxy().getGlobalDataHandler() == null
 						|| !getVotingPluginProxy().getGlobalDataHandler().isTimeChangedHappened()) {
 					for (String server : getVotingPluginProxy().getCachedVotes().keySet()) {
@@ -851,7 +858,7 @@ public class VotingPluginVelocity {
 				}
 			}).delay(120, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
 
-			server.getScheduler().buildTask(this, () -> {
+			cacheSaveTask = server.getScheduler().buildTask(this, () -> {
 				if (nonVotedPlayersCache != null) {
 					debug("Checking nonvotedplayerscache.yml...");
 					nonVotedPlayersCache.check();
