@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.regex.Pattern;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
 
@@ -38,6 +40,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler.MessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
+import com.bencodez.simpleapi.servercomm.mysql.ProxyMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
@@ -121,6 +124,9 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private GlobalMessageProxyHandler globalMessageProxyHandler;
+
+	@Getter
+	private ProxyMessenger proxyMysqlMessenger;
 
 	public void resetMilestoneCountInVotes() {
 		// Iterate through cached online votes
@@ -524,7 +530,22 @@ public abstract class VotingPluginProxy {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
 
-		if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
+		if (method.equals(BungeeMethod.MYSQL)) {
+			try {
+				proxyMysqlMessenger = new ProxyMessenger("VotingPlugin",
+						getProxyMySQL().getMysql().getConnectionManager().getDataSource(), msg -> {
+							debug("Got from " + msg.sourceServerId + ": " + msg.payload);
+							String[] data = msg.payload.split(Pattern.quote("%l%"));
+
+							globalMessageProxyHandler.onMessage(data[0], ArrayUtils.convertAndRemoveFirst(data));
+
+						});
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			if (getConfig().getPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler("VotingPlugin",
 						new File(getDataFolderPlugin(), "secretkey.key"));
@@ -596,9 +617,7 @@ public abstract class VotingPluginProxy {
 				}
 			});
 
-		} else if (method.equals(BungeeMethod.MQTT))
-
-		{
+		} else if (method.equals(BungeeMethod.MQTT)) {
 			// use MqttHander
 
 			try {
@@ -640,7 +659,14 @@ public abstract class VotingPluginProxy {
 					sendMqttMessageServer(server, channel, messageData);
 					break;
 				case MYSQL:
-					sendPluginMessageServer(server, channel, messageData);
+					// sendPluginMessageServer(server, channel, messageData);
+
+					try {
+						proxyMysqlMessenger.sendToBackend(server, channel + "%l%" + String.join("%l%", messageData));
+					} catch (SQLException e) {
+						e.printStackTrace();
+					}
+
 					break;
 				case PLUGINMESSAGING:
 					sendPluginMessageServer(server, channel, messageData);
@@ -865,6 +891,10 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
+
+		if (getProxyMysqlMessenger() != null) {
+			getProxyMysqlMessenger().shutdown();
+		}
 
 		if (getProxyMySQL() != null) {
 			getProxyMySQL().shutdown();

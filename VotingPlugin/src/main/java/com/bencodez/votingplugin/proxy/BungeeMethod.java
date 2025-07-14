@@ -4,7 +4,7 @@ public enum BungeeMethod {
 	MYSQL, PLUGINMESSAGING, SOCKETS, REDIS, MQTT;
 	
 	public boolean requiresPlayerOnline() {
-		return this == MYSQL || this == PLUGINMESSAGING;
+		return this == PLUGINMESSAGING;
 	}
 
 	public static BungeeMethod getByName(String str) {

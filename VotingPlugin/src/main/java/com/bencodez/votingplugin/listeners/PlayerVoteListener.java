@@ -258,21 +258,6 @@ public class PlayerVoteListener implements Listener {
 		plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getCoolDownCheck().vote(user, voteSite);
 
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)) {
-
-				plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
-
-					@Override
-					public void run() {
-						if (Bukkit.getOnlinePlayers().size() > 0) {
-							plugin.getBungeeHandler().getGlobalMessageHandler().sendMessage("VoteUpdate", uuid);
-						}
-					}
-				}, 2);
-			}
-		}
-
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
 				event.isForceBungee(), voteTime);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);

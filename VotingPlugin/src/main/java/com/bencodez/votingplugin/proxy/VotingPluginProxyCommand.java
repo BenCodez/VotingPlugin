@@ -70,6 +70,7 @@ public class VotingPluginProxyCommand {
 			return "&aChecking status via sockets. Check console for details.";
 
 		case PLUGINMESSAGING:
+		case MYSQL:
 		case REDIS:
 			plugin.status();
 			plugin.sendServerNameMessage();

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -26,8 +28,9 @@ import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
-import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler.MessageHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
+import com.bencodez.simpleapi.servercomm.mysql.BackendMessenger;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
@@ -77,6 +80,9 @@ public class BungeeHandler implements Listener {
 	private GlobalMessageHandler globalMessageHandler;
 
 	private Thread redisThread;
+
+	@Getter
+	private BackendMessenger backendMysqlMessenger;
 
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -165,6 +171,10 @@ public class BungeeHandler implements Listener {
 	}
 
 	public void close() {
+		if (backendMysqlMessenger != null) {
+			backendMysqlMessenger.shutdown();
+		}
+
 		if (socketHandler != null) {
 			socketHandler.closeConnection();
 		}
@@ -192,7 +202,14 @@ public class BungeeHandler implements Listener {
 			@Override
 			public void sendMessage(String subChannel, String... messageData) {
 				if (method.equals(BungeeMethod.MYSQL)) {
-					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
+					// plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
+
+					try {
+						backendMysqlMessenger.sendToProxy(subChannel + "%l%" + String.join("%l%", messageData));
+					} catch (SQLException e) {
+						e.printStackTrace();
+					}
+
 				} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
@@ -517,6 +534,27 @@ public class BungeeHandler implements Listener {
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
+
+			try {
+				backendMysqlMessenger = new BackendMessenger("VotingPlugin",
+						plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
+						plugin.getOptions().getServer(), msg -> {
+							plugin.debug("Proxy sent: " + msg.payload);
+
+							String[] message = msg.payload.split(Pattern.quote("%l%"));
+							if (message.length > 0) {
+								ArrayList<String> list = new ArrayList<>();
+								for (int i = 1; i < message.length; i++) {
+									list.add(message[i]);
+								}
+								globalMessageHandler.onMessage(message[0], list);
+							}
+
+						});
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),

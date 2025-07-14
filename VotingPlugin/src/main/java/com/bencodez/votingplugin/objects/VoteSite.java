@@ -118,17 +118,9 @@ public class VoteSite {
 			}
 			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
 					&& plugin.getBungeeSettings().isUseBungeecoord()) {
-				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS)) {
-					plugin.getBungeeHandler().sendData("Broadcast", getServiceSite(), user.getPlayerName());
-				} else if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)
-						|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-					String uuid = user.getUUID();
-					String service = getServiceSite();
-
-					if (Bukkit.getOnlinePlayers().size() > 0) {
-						plugin.getPluginMessaging().sendPluginMessage("VoteBroadcast", uuid, service);
-					}
-				}
+				String uuid = user.getUUID();
+				String service = getServiceSite();
+				plugin.getBungeeHandler().getGlobalMessageHandler().sendMessage("VoteBroadcast", uuid, service);
 
 			} else {
 				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatBroadCastMsg());
