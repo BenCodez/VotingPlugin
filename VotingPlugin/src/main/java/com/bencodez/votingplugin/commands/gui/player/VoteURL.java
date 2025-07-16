@@ -186,8 +186,22 @@ public class VoteURL extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		// normal GUI
+
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLName());
+
+		for (final String str : plugin.getGui().getChestVoteURLExtraItems()) {
+			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestVoteURLExtraItemsItem(str))) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					new RewardBuilder(plugin.getGui().getData(),
+							"CHEST.VoteURL.ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
+							.setGiveOffline(false).send(clickEvent.getPlayer());
+
+				}
+			});
+		}
+
 		if (plugin.getGui().isChestVoteURLViewAllUrlsButtonEnabled()) {
 			ItemBuilder builderAll = getItemAll();
 
@@ -250,21 +264,6 @@ public class VoteURL extends GUIHandler {
 					});
 				}
 			}
-		}
-
-		for (
-
-		final String str : plugin.getGui().getChestVoteURLExtraItems()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestVoteURLExtraItemsItem(str))) {
-
-				@Override
-				public void onClick(ClickEvent clickEvent) {
-					new RewardBuilder(plugin.getGui().getData(),
-							"CHEST.VoteURL.ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
-							.setGiveOffline(false).send(clickEvent.getPlayer());
-
-				}
-			});
 		}
 
 		if (plugin.getGui().isChestVoteURLBackButton()) {
