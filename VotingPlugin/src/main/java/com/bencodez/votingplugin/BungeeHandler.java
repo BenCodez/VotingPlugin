@@ -569,7 +569,9 @@ public class BungeeHandler implements Listener {
 
 				@Override
 				protected void onMessage(String channel, String[] message) {
-					plugin.getLogger().info(channel + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
+					if (plugin.getBungeeSettings().isBungeeDebug()) {
+						plugin.debug(channel + " " + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
+					}
 					if (message.length > 0) {
 						ArrayList<String> list = new ArrayList<>();
 						for (int i = 1; i < message.length; i++) {
