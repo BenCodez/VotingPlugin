@@ -189,6 +189,10 @@ public class VoteURL extends GUIHandler {
 
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLName());
 
+		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
+			inv.dontClose();
+		}
+
 		for (final String str : plugin.getGui().getChestVoteURLExtraItems()) {
 			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestVoteURLExtraItemsItem(str))) {
 
@@ -209,6 +213,7 @@ public class VoteURL extends GUIHandler {
 
 				@Override
 				public void onClick(ClickEvent event) {
+					event.closeInventory();
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(event.getPlayer());
 					json = true;
 					if (event.getClick().equals(ClickType.SHIFT_LEFT)
@@ -249,6 +254,7 @@ public class VoteURL extends GUIHandler {
 
 						@Override
 						public void onClick(ClickEvent event) {
+							event.closeInventory();
 							Player player = event.getPlayer();
 							if (player != null) {
 								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
