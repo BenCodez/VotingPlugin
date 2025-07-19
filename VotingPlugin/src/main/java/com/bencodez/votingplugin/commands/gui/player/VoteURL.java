@@ -232,6 +232,15 @@ public class VoteURL extends GUIHandler {
 				if (voteSite.getPermissionToView().isEmpty() || player.hasPermission(voteSite.getPermissionToView())) {
 					ItemBuilder builder = getItemVoteSite(voteSite);
 					if (startSlot >= 0) {
+						if (inv.isSlotTaken(startSlot)) {
+							boolean found = false;
+							while (!found) {
+								startSlot++;
+								if (!inv.isSlotTaken(startSlot)) {
+									found = true;
+								}
+							}
+						}
 						builder.setSlot(startSlot);
 						startSlot++;
 					}
