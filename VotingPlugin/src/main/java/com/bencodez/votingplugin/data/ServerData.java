@@ -244,6 +244,15 @@ public class ServerData {
 		plugin.getServerDataFile().reloadData();
 	}
 
+	public long getTopVoterMessageId() {
+		return getData().getLong("DiscordSRV.TopVoterMessageId", 0);
+	}
+
+	public void setTopVoterMessageId(long messageId) {
+		getData().set("DiscordSRV.TopVoterMessageId", messageId);
+		saveData();
+	}
+
 	/**
 	 * Removes the sign.
 	 *

@@ -57,7 +57,6 @@ import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInje
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.simpleapi.file.YMLConfig;
-import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.updater.Updater;
@@ -76,6 +75,7 @@ import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
@@ -246,6 +246,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private long lastBackgroundTaskTimeTaken = -1;
 
 	private boolean firstTimeLoaded = false;
+	
+	@Getter
+	private DiscordHandler discordHandler;
 
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
@@ -1198,6 +1201,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			mvdwPlaceholders = new MVdWPlaceholders(this);
 			mvdwPlaceholders.loadMVdWPlaceholders();
 		}
+		
+		if (Bukkit.getPluginManager().isPluginEnabled("DiscordSRV") && configFile.isDiscordSRVEnabled()) {
+			discordHandler = new DiscordHandler(this);
+			discordHandler.load();
+			debug("DiscordSRV enabled, loading DiscordSRV handler");
+		} 
 
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
@@ -1700,6 +1709,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								getSigns().updateSigns();
 
 								checkFirstTimeLoaded();
+								
+								if (discordHandler != null) {
+									discordHandler.updateDiscordLeaderboard();
+								}
 
 								plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 								plugin.extraDebug("Current cached users: "

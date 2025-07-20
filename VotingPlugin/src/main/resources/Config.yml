@@ -615,6 +615,24 @@ StoreMonthTotalsWithDate: false
 UseMonthDateTotalsAsPrimaryTotal: false
 
 ###########################################
+# DiscordSRV settings
+###########################################
+
+DiscordSRV:
+  # Enable DiscordSRV support
+  Enabled: false
+  
+  TopVoter:
+    # If true, will send top voter messages to discord
+    # Will send a message show top 10 voters
+    Enabled: false
+    
+    # DiscordSRV channel to send messages to
+    Channel: 1234565 # Replace with your channel ID
+  
+
+
+###########################################
 # Skull settings
 ###########################################
 

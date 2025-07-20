@@ -18,6 +18,7 @@ softdepend:
 - PremiumVanish
 - LuckPerms
 - nLogin
+- DiscordSRV
 loadbefore:
 - MCPerks
 api-version: 1.13

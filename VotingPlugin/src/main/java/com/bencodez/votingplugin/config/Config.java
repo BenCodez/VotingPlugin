@@ -14,6 +14,7 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataBoolean;
 import com.bencodez.simpleapi.file.annotation.ConfigDataInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataKeys;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
+import com.bencodez.simpleapi.file.annotation.ConfigDataLong;
 import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.placeholders.PlaceholderCacheLevel;
@@ -66,6 +67,18 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "PreloadSkulls")
 	@Getter
 	private boolean preloadSkulls = false;
+
+	@ConfigDataBoolean(path = "DiscordSRV.Enabled")
+	@Getter
+	private boolean discordSRVEnabled = false;
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Enabled")
+	@Getter
+	private boolean discordSRVTopVoterEnabled = false;
+
+	@ConfigDataLong(path = "DiscordSRV.TopVoter.Channel")
+	@Getter
+	private long discordSRVTopVoterChannel = 0;
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
