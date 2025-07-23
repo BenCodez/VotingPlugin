@@ -13,7 +13,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationSection;
-import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -22,6 +21,7 @@ import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
+import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.util.DiscordUtil;
 
@@ -41,6 +41,12 @@ public class DiscordHandler {
 	public void load() {
 		DiscordSRV.api.subscribe(this);
 		plugin.getLogger().info("DiscordHandler loaded; awaiting Discord readiness.");
+
+		// if DiscordSRV is already up and running, mark it ready now
+		if (DiscordUtil.getJda().getStatus() == JDA.Status.CONNECTED) {
+			discordReady.set(true);
+			plugin.getLogger().info("DiscordSRV was already ready; manual update now available.");
+		}
 
 		plugin.getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("DiscordSRV") {
 
