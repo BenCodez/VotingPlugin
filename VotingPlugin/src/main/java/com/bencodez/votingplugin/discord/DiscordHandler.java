@@ -90,7 +90,8 @@ public class DiscordHandler {
 		for (Entry<TopVoterPlayer, Integer> entry : topVoters.entrySet()) {
 			if (rank > 10)
 				break;
-			eb.addField("#" + rank++ + " • " + entry.getKey().getPlayerName(), entry.getValue() + " votes", false);
+			eb.addField("#" + rank++ + " " + entry.getKey().getPlayerName(), entry.getValue().intValue() + " votes",
+					false);
 		}
 
 		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
