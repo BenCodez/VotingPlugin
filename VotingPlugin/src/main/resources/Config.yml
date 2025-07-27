@@ -629,6 +629,9 @@ DiscordSRV:
     
     # DiscordSRV channel to send messages to
     Channel: 1234565 # Replace with your channel ID
+    
+    Title: '&3Top Voters of the Month'
+    RankDisplay: '&c%rank%: &6%player% - %votes% Votes'
   
 
 

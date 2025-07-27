@@ -80,6 +80,14 @@ public class Config extends YMLFile {
 	@Getter
 	private long discordSRVTopVoterChannel = 0;
 
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Title")
+	@Getter
+	private String discordSRVTopVoterTitle = "&3Top Voters of the Month";
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.RankDisplay")
+	@Getter
+	private String discordSRVTopVoterRankDisplay = "&c%rank%: &6%player% - %votes% Votes";
+
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter
 	private boolean allowUnJoinedCheckServer = true;

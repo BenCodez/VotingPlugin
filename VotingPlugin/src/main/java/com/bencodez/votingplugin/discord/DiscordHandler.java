@@ -83,15 +83,20 @@ public class DiscordHandler {
 		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel();
 		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(TopVoter.Monthly);
 
-		EmbedBuilder eb = new EmbedBuilder().setTitle("Top Voters This Month").setColor(Color.CYAN)
-				.setTimestamp(Instant.now());
+		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle();
+		String rankDisplay = plugin.getConfigFile().getDiscordSRVTopVoterRankDisplay();
+
+		EmbedBuilder eb = new EmbedBuilder().setTitle(title).setColor(Color.CYAN).setTimestamp(Instant.now());
 
 		int rank = 1;
 		for (Entry<TopVoterPlayer, Integer> entry : topVoters.entrySet()) {
 			if (rank > 10)
 				break;
-			eb.addField("#" + rank++ + " " + entry.getKey().getPlayerName(), entry.getValue().intValue() + " votes",
-					false);
+			String line = rankDisplay.replace("%rank%", String.valueOf(rank))
+					.replace("%player%", entry.getKey().getPlayerName())
+					.replace("%votes%", String.valueOf(entry.getValue()));
+			eb.addField("", line, false);
+			rank++;
 		}
 
 		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
