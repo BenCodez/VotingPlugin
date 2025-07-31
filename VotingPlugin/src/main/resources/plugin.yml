@@ -87,9 +87,6 @@ commands:
   votechoices:
     description: A command
     alaises: vchoices
-  votegivepoints:
-    description: A command
-    alaises: vgivepoints
   adminvotehelp:
     description: Open adminvote help
     aliases: avhelp
@@ -172,8 +169,6 @@ commands:
   adminvoteresyncmilestonesalreadygiven:
     description: Command Alias
     aliases: avresyncmilestonesalreadygiven
-  votesetprimaryaccount:
-    description: Command Alias
   adminvoteclearofflinevotes:
     description: Command Alias
     aliases: avclearofflinevotes
