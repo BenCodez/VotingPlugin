@@ -561,6 +561,13 @@ public class VotingPluginVelocity {
 			public String getUUID(String playerName) {
 
 				if (!config.getOnlineMode()) {
+					// correct case
+					if (server.getPlayer(playerName).isPresent()) {
+						Player p = server.getPlayer(playerName).get();
+						if (p != null && p.isActive()) {
+							playerName = p.getUsername();
+						} 
+					} 
 					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
 							.toString();
 				}

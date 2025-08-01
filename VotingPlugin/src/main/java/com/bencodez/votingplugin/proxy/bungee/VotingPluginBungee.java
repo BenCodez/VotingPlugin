@@ -473,6 +473,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			public String getUUID(String playerName) {
 
 				if (!config.getOnlineMode()) {
+					// correct casing
+					ProxiedPlayer p = getProxy().getPlayer(playerName);
+					if (p != null && p.isConnected()) {
+						playerName = p.getName();
+					}
 					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
 							.toString();
 				}
