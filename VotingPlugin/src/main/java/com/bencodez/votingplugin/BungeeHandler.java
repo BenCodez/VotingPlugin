@@ -603,9 +603,6 @@ public class BungeeHandler implements Listener {
 				plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
 			}
 
-			bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
-			bungeeVotePartyRequired = plugin.getServerData().getBungeeVotePartyRequired();
-
 			plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler() {
@@ -671,6 +668,9 @@ public class BungeeHandler implements Listener {
 				e.printStackTrace();
 			}
 		}
+
+		bungeeVotePartyCurrent = plugin.getServerData().getBungeeVotePartyCurrent();
+		bungeeVotePartyRequired = plugin.getServerData().getBungeeVotePartyRequired();
 
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
