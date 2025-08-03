@@ -1374,7 +1374,6 @@ public abstract class VotingPluginProxy {
 						debug("Forcing vote to cache");
 					}
 					if (getConfig().getBroadcast()) {
-
 						globalMessageProxyHandler.sendMessage(s, "VoteBroadcast", uuid, player, service);
 					}
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
@@ -1423,7 +1422,7 @@ public abstract class VotingPluginProxy {
 						globalMessageProxyHandler.sendMessage(s, "VoteBroadcast", uuid, player, service);
 					}
 					globalMessageProxyHandler.sendMessage(s, "VoteUpdate", uuid, "" + votePartyVotes,
-							"" + currentVotePartyVotesRequired, text.toString());
+							"" + currentVotePartyVotesRequired, text.toString(), service, "" + time);
 
 				}
 			}

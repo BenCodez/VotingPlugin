@@ -25,6 +25,7 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
@@ -431,16 +432,31 @@ public class BungeeHandler implements Listener {
 
 				user.offVote();
 
-				if (args.size() > 3 && plugin.getBungeeSettings().isPerServerMilestones()) {
-					BungeeMessageData text = new BungeeMessageData(args.get(3));
-					plugin.getSpecialRewards().checkMilestone(user, text, true);
-				}
-
 				if (args.size() > 2) {
 					bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
 					bungeeVotePartyRequired = Integer.parseInt(args.get(2));
 					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+				}
+
+				if (args.size() > 3 && plugin.getBungeeSettings().isPerServerMilestones()) {
+					BungeeMessageData text = new BungeeMessageData(args.get(3));
+					plugin.getSpecialRewards().checkMilestone(user, text, true);
+				}
+
+				if (args.size() > 5) {
+					String service = args.get(4);
+					String data = args.get(5);
+					if (MessageAPI.isLong(data)) {
+						long time = Long.valueOf(data);
+						if (time > 0) {
+							user.setTime(plugin.getVoteSite(service, true), time);
+						} else {
+							if (plugin.getBungeeSettings().isBungeeDebug()) {
+								plugin.debug("Invalid last vote time received from bungee: " + time);
+							}
+						}
+					}
 				}
 
 				plugin.setUpdate(true);
