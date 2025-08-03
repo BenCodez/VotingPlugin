@@ -452,15 +452,16 @@ public class VotingPluginVelocity {
 				num++;
 			}
 		}
-		
 
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
-		
+
 		getVotingPluginProxy().onDisable();
-		
-		if (voteCheckTask != null) voteCheckTask.cancel();
-		if (cacheSaveTask != null) cacheSaveTask.cancel();
+
+		if (voteCheckTask != null)
+			voteCheckTask.cancel();
+		if (cacheSaveTask != null)
+			cacheSaveTask.cancel();
 
 		timer.shutdownNow();
 		logger.info("VotingPlugin disabled");
@@ -566,8 +567,13 @@ public class VotingPluginVelocity {
 						Player p = server.getPlayer(playerName).get();
 						if (p != null && p.isActive()) {
 							playerName = p.getUsername();
-						} 
-					} 
+						}
+					}
+					for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
+						if (entry.getValue().equalsIgnoreCase(playerName)) {
+							playerName = entry.getValue();
+						}
+					}
 					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
 							.toString();
 				}
