@@ -1826,6 +1826,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setTime(VoteSite voteSite, Long time) {
 		HashMap<VoteSite, Long> lastVotes = getLastVotes();
+		if (lastVotes != null && lastVotes.containsKey(voteSite)) {
+			if (lastVotes.get(voteSite).longValue() == time.longValue()) {
+				plugin.debug("Not setting last vote time for " + voteSite.getKey() + ", already set to " + time);
+				return;
+			}
+		}
 		lastVotes.put(voteSite, time);
 		setLastVotes(lastVotes);
 	}
