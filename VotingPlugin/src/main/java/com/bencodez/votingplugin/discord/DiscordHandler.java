@@ -54,9 +54,10 @@ public class DiscordHandler {
 			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
 					ConfigurationSection section, HashMap<String, String> placeholders) {
 				if (section.getBoolean("Enabled")) {
-					sendRewardMessage(PlaceholderUtils
-							.replacePlaceHolder(section.getString("Message", "Please set a message"), placeholders),
-							section.getString("ChannelID", "0"));
+					String msg = PlaceholderUtils
+							.replacePlaceHolder(section.getString("Message", "Please set a message"), placeholders);
+					msg = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), msg);
+					sendRewardMessage(msg, section.getString("ChannelID", "0"));
 				}
 				return null;
 			}
