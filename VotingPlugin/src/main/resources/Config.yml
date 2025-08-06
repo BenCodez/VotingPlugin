@@ -623,8 +623,8 @@ DiscordSRV:
   Enabled: false
   
   TopVoter:
-    # If true, will send top voter messages to discord
-    # Will send a message show top 10 voters
+    # If true, will send a top voter message to Discord that updates daily
+    # Will send a message showing top 10 voters
     Enabled: false
     
     # DiscordSRV channel to send messages to
@@ -832,5 +832,6 @@ ExtraVoteShopCheck: true
 RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
+
 
 
