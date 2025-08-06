@@ -623,15 +623,15 @@ DiscordSRV:
   Enabled: false
   
   TopVoter:
-    # If true, will send top voter messages to discord
-    # Will send a message show top 10 voters
+    # If true, will send a top voter message to Discord that updates daily
+    # Will send a message showing top 10 voters
     Enabled: false
     
     # DiscordSRV channel to send messages to
     Channel: 1234565 # Replace with your channel ID
     
-    Title: '&3Top Voters of the Month'
-    RankDisplay: '&c%rank%: &6%player% - %votes% Votes'
+    Title: 'Top Voters of the Month'
+    RankDisplay: '%rank%: **%player%** - %votes% Votes'
   
 
 
@@ -832,4 +832,6 @@ ExtraVoteShopCheck: true
 RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
+
+
 
