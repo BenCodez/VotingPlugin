@@ -16,6 +16,7 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -244,12 +245,12 @@ public class ServerData {
 		plugin.getServerDataFile().reloadData();
 	}
 
-	public long getTopVoterMessageId() {
-		return getData().getLong("DiscordSRV.TopVoterMessageId", 0);
+	public long getTopVoterMessageId(TopVoter top) {
+		return getData().getLong("DiscordSRV.TopVoterMessageId." + top.toString(), 0);
 	}
 
-	public void setTopVoterMessageId(long messageId) {
-		getData().set("DiscordSRV.TopVoterMessageId", messageId);
+	public void setTopVoterMessageId(TopVoter top, long messageId) {
+		getData().set("DiscordSRV.TopVoterMessageId." + top.toString(), messageId);
 		saveData();
 	}
 

@@ -620,18 +620,54 @@ UseMonthDateTotalsAsPrimaryTotal: false
 
 DiscordSRV:
   # Enable DiscordSRV support
+  # Also enables using rewards in discord
   Enabled: false
   
+  # Show live top voter counts in discord
   TopVoter:
-    # If true, will send top voter messages to discord
-    # Will send a message show top 10 voters
-    Enabled: false
+    AllTime:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
     
-    # DiscordSRV channel to send messages to
-    Channel: 1234565 # Replace with your channel ID
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
     
-    Title: '&3Top Voters of the Month'
-    RankDisplay: '&c%rank%: &6%player% - %votes% Votes'
+      Title: 'All Time Top Voters'
+      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+    
+    Monthly:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+    
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+    
+      Title: 'Top Voters of the Month'
+      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+    
+    Weekly:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+    
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+    
+      Title: 'Top Voters of the Week'
+      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+    
+    Daily:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+    
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+    
+      Title: 'Top Voters of the Day'
+      RankDisplay: '%rank%: &6%player% - %votes% Votes'
   
 
 

@@ -72,21 +72,129 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean discordSRVEnabled = false;
 
-	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Enabled")
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.AllTime.Enabled")
 	@Getter
-	private boolean discordSRVTopVoterEnabled = false;
+	private boolean discordSRVTopVoterAllTimeEnabled = false;
 
-	@ConfigDataLong(path = "DiscordSRV.TopVoter.Channel")
+	@ConfigDataLong(path = "DiscordSRV.TopVoter.AllTime.Channel")
 	@Getter
-	private long discordSRVTopVoterChannel = 0;
+	private long discordSRVTopVoterAllTimeChannel = 0;
 
-	@ConfigDataString(path = "DiscordSRV.TopVoter.Title")
+	@ConfigDataString(path = "DiscordSRV.TopVoter.AllTime.Title")
 	@Getter
-	private String discordSRVTopVoterTitle = "&3Top Voters of the Month";
+	private String discordSRVTopVoterAllTimeTitle = "All Time Top Voters";
 
-	@ConfigDataString(path = "DiscordSRV.TopVoter.RankDisplay")
+	@ConfigDataString(path = "DiscordSRV.TopVoter.AllTime.RankDisplay")
 	@Getter
-	private String discordSRVTopVoterRankDisplay = "&c%rank%: &6%player% - %votes% Votes";
+	private String discordSRVTopVoterAllTimeRankDisplay = "%rank%: &6%player% - %votes% Votes";
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Monthly.Enabled")
+	@Getter
+	private boolean discordSRVTopVoterMonthlyEnabled = false;
+
+	@ConfigDataLong(path = "DiscordSRV.TopVoter.Monthly.Channel")
+	@Getter
+	private long discordSRVTopVoterMonthlyChannel = 0;
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Monthly.Title")
+	@Getter
+	private String discordSRVTopVoterMonthlyTitle = "Top Voters of the Month";
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Monthly.RankDisplay")
+	@Getter
+	private String discordSRVTopVoterMonthlyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Weekly.Enabled")
+	@Getter
+	private boolean discordSRVTopVoterWeeklyEnabled = false;
+
+	@ConfigDataLong(path = "DiscordSRV.TopVoter.Weekly.Channel")
+	@Getter
+	private long discordSRVTopVoterWeeklyChannel = 0;
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Weekly.Title")
+	@Getter
+	private String discordSRVTopVoterWeeklyTitle = "Top Voters of the Week";
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Weekly.RankDisplay")
+	@Getter
+	private String discordSRVTopVoterWeeklyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Daily.Enabled")
+	@Getter
+	private boolean discordSRVTopVoterDailyEnabled = false;
+
+	@ConfigDataLong(path = "DiscordSRV.TopVoter.Daily.Channel")
+	@Getter
+	private long discordSRVTopVoterDailyChannel = 0;
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Daily.Title")
+	@Getter
+	private String discordSRVTopVoterDailyTitle = "Top Voters of the Day";
+
+	@ConfigDataString(path = "DiscordSRV.TopVoter.Daily.RankDisplay")
+	@Getter
+	private String discordSRVTopVoterDailyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+
+	public boolean isDiscordSRVTopVoterEnabled(TopVoter topVoter) {
+		switch (topVoter) {
+		case AllTime:
+			return isDiscordSRVTopVoterAllTimeEnabled();
+		case Monthly:
+			return isDiscordSRVTopVoterMonthlyEnabled();
+		case Weekly:
+			return isDiscordSRVTopVoterWeeklyEnabled();
+		case Daily:
+			return isDiscordSRVTopVoterDailyEnabled();
+		default:
+			return false;
+		}
+	}
+
+	public long getDiscordSRVTopVoterChannel(TopVoter topVoter) {
+		switch (topVoter) {
+		case AllTime:
+			return getDiscordSRVTopVoterAllTimeChannel();
+		case Monthly:
+			return getDiscordSRVTopVoterMonthlyChannel();
+		case Weekly:
+			return getDiscordSRVTopVoterWeeklyChannel();
+		case Daily:
+			return getDiscordSRVTopVoterDailyChannel();
+		default:
+			return 0;
+		}
+	}
+
+	public String getDiscordSRVTopVoterTitle(TopVoter topVoter) {
+		switch (topVoter) {
+		case AllTime:
+			return getDiscordSRVTopVoterAllTimeTitle();
+		case Monthly:
+			return getDiscordSRVTopVoterMonthlyTitle();
+		case Weekly:
+			return getDiscordSRVTopVoterWeeklyTitle();
+		case Daily:
+			return getDiscordSRVTopVoterDailyTitle();
+		default:
+			return "";
+		}
+	}
+
+	public String getDiscordSRVTopVoterRankDisplay(TopVoter topVoter) {
+		switch (topVoter) {
+		case AllTime:
+			return getDiscordSRVTopVoterAllTimeRankDisplay();
+		case Monthly:
+			return getDiscordSRVTopVoterMonthlyRankDisplay();
+		case Weekly:
+			return getDiscordSRVTopVoterWeeklyRankDisplay();
+		case Daily:
+			return getDiscordSRVTopVoterDailyRankDisplay();
+		default:
+			return "";
+		}
+	}
 
 	@ConfigDataBoolean(path = "AllowUnJoinedCheckServer")
 	@Getter

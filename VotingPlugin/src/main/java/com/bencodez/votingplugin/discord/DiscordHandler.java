@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -28,13 +27,15 @@ import github.scarsz.discordsrv.util.DiscordUtil;
 public class DiscordHandler {
 
 	private final VotingPluginMain plugin;
-	private final AtomicLong topVoterMessageId = new AtomicLong(-1);
+	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 
 	public DiscordHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
-		long savedId = plugin.getServerData().getTopVoterMessageId();
-		topVoterMessageId.set(savedId);
+		for (TopVoter top : TopVoter.values()) {
+			long savedId = plugin.getServerData().getTopVoterMessageId(top);
+			topVoterMessageIds.put(top, savedId);
+		}
 	}
 
 	/** Call this early, e.g. from onEnable() in main plugin class */
@@ -81,11 +82,19 @@ public class DiscordHandler {
 			return;
 		}
 
-		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel();
-		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(TopVoter.Monthly);
+		for (TopVoter top : TopVoter.values()) {
+			if (plugin.getConfigFile().isDiscordSRVTopVoterEnabled(top)) {
+				updateTopVoterMessageId(top);
+			}
+		}
+	}
 
-		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle();
-		String rankDisplay = plugin.getConfigFile().getDiscordSRVTopVoterRankDisplay();
+	public void updateTopVoterMessageId(TopVoter top) {
+		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel(top);
+		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(top);
+
+		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle(top);
+		String rankDisplay = plugin.getConfigFile().getDiscordSRVTopVoterRankDisplay(top);
 
 		EmbedBuilder eb = new EmbedBuilder().setTitle(title).setColor(Color.CYAN).setTimestamp(Instant.now());
 
@@ -102,21 +111,24 @@ public class DiscordHandler {
 
 		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
 		if (channel == null) {
-			plugin.getLogger().warning("Discord channel ID " + channelId + " not found.");
+			plugin.getLogger().warning("Discord channel ID " + channelId + " not found: " + top.toString());
 			return;
 		}
 
-		if (topVoterMessageId.get() <= 0) {
+		if (topVoterMessageIds.get(top) <= 0) {
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
-				topVoterMessageId.set(newId);
-				plugin.getServerData().setTopVoterMessageId(newId);
-				plugin.getLogger().info("Posted new Top Voters (ID: " + newId + ")");
-			}, err -> plugin.getLogger().warning("Error sending Top Voters: " + err.getMessage()));
+				topVoterMessageIds.put(top, newId);
+				plugin.getServerData().setTopVoterMessageId(top, newId);
+				plugin.getLogger().info("Posted new Top Voters  " + top.toString() + " (ID: " + newId + ")");
+			}, err -> plugin.getLogger()
+					.warning("Error sending Top Voters " + top.toString() + ": " + err.getMessage()));
 		} else {
-			channel.editMessageEmbedsById(topVoterMessageId.get(), eb.build()).queue(
-					m -> plugin.getLogger().info("Edited Top Voters (ID: " + topVoterMessageId.get() + ")"),
-					err -> plugin.getLogger().warning("Error editing Top Voters: " + err.getMessage()));
+			channel.editMessageEmbedsById(topVoterMessageIds.get(top), eb.build())
+					.queue(m -> plugin.getLogger()
+							.info("Edited Top Voters " + top.toString() + " (ID: " + topVoterMessageIds.get(top) + ")"),
+							err -> plugin.getLogger()
+									.warning("Error editing Top Voters" + top.toString() + ": " + err.getMessage()));
 		}
 	}
 
