@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.mockito.Mockito;
 
@@ -198,5 +199,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
 		// TODO Auto-generated method stub
 
+	}
+
+	@Override
+	public ScheduledExecutorService getScheduler() {
+		return null;
 	}
 }

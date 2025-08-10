@@ -277,11 +277,8 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							if (getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-								getVotingPluginProxy().sendPluginMessageServer(s, "BungeeTimeChange", "");
-							} else if (getVotingPluginProxy().getMethod().equals(BungeeMethod.SOCKETS)) {
-								getVotingPluginProxy().sendServerMessage(s, "BungeeTimeChange");
-							}
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, "BungeeTimeChange",
+									"");
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -340,11 +337,8 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							if (getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-								getVotingPluginProxy().sendPluginMessageServer(s, "BungeeTimeChange", "");
-							} else if (getVotingPluginProxy().getMethod().equals(BungeeMethod.SOCKETS)) {
-								getVotingPluginProxy().sendServerMessage(s, "BungeeTimeChange");
-							}
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, "BungeeTimeChange",
+									"");
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -748,6 +742,11 @@ public class VotingPluginVelocity {
 			@Override
 			public void reloadCore(boolean mysql) {
 				reloadPlugin(mysql);
+			}
+
+			@Override
+			public ScheduledExecutorService getScheduler() {
+				return timer;
 			}
 
 		};

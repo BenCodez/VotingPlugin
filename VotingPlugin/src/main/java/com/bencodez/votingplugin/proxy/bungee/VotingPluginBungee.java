@@ -15,6 +15,8 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -62,6 +64,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
 	private VotingPluginProxy votingPluginProxy;
+
+	@Getter
+	private ScheduledExecutorService timer;
 
 	public void debug(String msg) {
 		if (config.getDebug()) {
@@ -224,11 +229,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							if (getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-								getVotingPluginProxy().sendPluginMessageServer(s, "BungeeTimeChange", "");
-							} else if (getVotingPluginProxy().getMethod().equals(BungeeMethod.SOCKETS)) {
-								getVotingPluginProxy().sendServerMessage(s, "BungeeTimeChange");
-							}
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, "BungeeTimeChange",
+									"");
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -292,11 +294,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								}
 								for (String s : getAvailableAllServers()) {
 									getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-									if (getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-										getVotingPluginProxy().sendPluginMessageServer(s, "BungeeTimeChange", "");
-									} else if (getVotingPluginProxy().getMethod().equals(BungeeMethod.SOCKETS)) {
-										getVotingPluginProxy().sendServerMessage(s, "BungeeTimeChange");
-									}
+									getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
+											"BungeeTimeChange", "");
 								}
 
 								getVotingPluginProxy().processQueue();
@@ -413,12 +412,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		voteCacheFile.save();
 		nonVotedPlayersCache.save();
 
+		timer.shutdownNow();
+
 		getLogger().info("VotingPlugin disabled");
 
 	}
 
 	@Override
 	public void onEnable() {
+
+		timer = Executors.newScheduledThreadPool(1);
 
 		getProxy().getPluginManager().registerListener(this, this);
 
@@ -641,6 +644,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			@Override
 			public void reloadCore(boolean mysql) {
 				reloadPlugin(mysql);
+			}
+
+			@Override
+			public ScheduledExecutorService getScheduler() {
+				return timer;
 			}
 
 		};
