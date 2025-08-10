@@ -1842,6 +1842,20 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "ClearDiscordMessageID", "(topvoter)" },
+						"VotingPlugin.Commands.AdminVote.ClearDiscordMessageID",
+						"Clear discord message ID for top voter", true, true) {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						String topVoter = args[1];
+						TopVoter top = TopVoter.valueOf(topVoter);
+						plugin.getServerData().setTopVoterMessageId(top, 0);
+						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {},
 				"VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {
 
