@@ -331,7 +331,7 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 
 	@Override
 	public boolean getWaitForUserOnline() {
-		return getBoolean(getNode("WaitForUserOnline"), false);
+		return getBoolean(getNode("WaitForUserOnline"), true);
 	}
 
 	@Override

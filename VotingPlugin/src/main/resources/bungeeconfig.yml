@@ -140,8 +140,9 @@ MQTT:
 ######################################################################################
 
 # Votes will be forwarded when specific player is online
-# If set to false, rewards should still reward when player logs in (by default)
-WaitForUserOnline: false
+# If set to false, rewards should still reward when player logs in even when false
+# but it can fail to reward, this setting has no effect if sendtoallservers is false
+WaitForUserOnline: true
 
 # If false, votes will be checked if user is a valid player that has joined to server
 # Works for PLUGINMESSAGING and SOCKETS methods only
@@ -159,7 +160,7 @@ BungeeManageTotals: true
 
 # Tell servers to broadcast
 # Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
-Broadcast: true
+Broadcast: false
 
 # Geyser/bedrock player settings
 # https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support

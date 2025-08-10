@@ -300,7 +300,7 @@ public class Config implements VotingPluginProxyConfig {
 
 	@Override
 	public boolean getWaitForUserOnline() {
-		return getData().getBoolean("WaitForUserOnline", false);
+		return getData().getBoolean("WaitForUserOnline", true);
 	}
 
 	@Override
