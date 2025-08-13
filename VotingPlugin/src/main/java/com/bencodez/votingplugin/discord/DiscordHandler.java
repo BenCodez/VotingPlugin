@@ -84,6 +84,7 @@ public class DiscordHandler {
 
 		for (TopVoter top : TopVoter.values()) {
 			if (plugin.getConfigFile().isDiscordSRVTopVoterEnabled(top)) {
+				plugin.debug("Updating Discord Top Voter: " + top.toString());
 				updateTopVoterMessageId(top);
 			}
 		}

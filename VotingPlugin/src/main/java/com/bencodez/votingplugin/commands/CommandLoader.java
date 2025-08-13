@@ -1850,7 +1850,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						String topVoter = args[1];
-						TopVoter top = TopVoter.valueOf(topVoter);
+						TopVoter top = TopVoter.getTopVoter(topVoter);
 						plugin.getServerData().setTopVoterMessageId(top, 0);
 						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
 					}
