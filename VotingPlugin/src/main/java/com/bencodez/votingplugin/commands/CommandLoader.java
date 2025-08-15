@@ -1852,6 +1852,7 @@ public class CommandLoader {
 						String topVoter = args[1];
 						TopVoter top = TopVoter.getTopVoter(topVoter);
 						plugin.getServerData().setTopVoterMessageId(top, 0);
+						plugin.getDiscordHandler().getTopVoterMessageIds().put(top, 0L);
 						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
 					}
 				});

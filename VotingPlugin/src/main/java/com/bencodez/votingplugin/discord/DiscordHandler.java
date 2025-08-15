@@ -23,10 +23,12 @@ import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.util.DiscordUtil;
+import lombok.Getter;
 
 public class DiscordHandler {
 
 	private final VotingPluginMain plugin;
+	@Getter
 	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 
