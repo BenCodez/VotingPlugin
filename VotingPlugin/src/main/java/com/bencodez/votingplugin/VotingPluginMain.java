@@ -246,7 +246,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private long lastBackgroundTaskTimeTaken = -1;
 
 	private boolean firstTimeLoaded = false;
-	
+
 	@Getter
 	private DiscordHandler discordHandler;
 
@@ -1201,12 +1201,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			mvdwPlaceholders = new MVdWPlaceholders(this);
 			mvdwPlaceholders.loadMVdWPlaceholders();
 		}
-		
+
 		if (Bukkit.getPluginManager().isPluginEnabled("DiscordSRV") && configFile.isDiscordSRVEnabled()) {
 			discordHandler = new DiscordHandler(this);
 			discordHandler.load();
 			debug("DiscordSRV enabled, loading DiscordSRV handler");
-		} 
+		}
 
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
@@ -1709,8 +1709,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								getSigns().updateSigns();
 
 								checkFirstTimeLoaded();
-								
+
 								if (discordHandler != null) {
+									plugin.extraDebug("Attempting to update DiscordSRV leaderboard");
 									discordHandler.updateDiscordLeaderboard();
 								}
 
