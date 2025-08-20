@@ -1,0 +1,60 @@
+theme: minima
+title: VotingPlugin Documentation
+description: Comprehensive documentation for VotingPlugin - A highly customizable Minecraft voting plugin
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# SEO
+url: "https://bencodez.github.io"
+baseurl: "/VotingPlugin"
+
+# Navigation
+navigation:
+  - title: "Installation"
+    url: "/docs/installation"
+  - title: "Configuration"
+    url: "/docs/configuration"
+  - title: "Commands"
+    url: "/docs/commands"
+  - title: "Permissions"
+    url: "/docs/permissions"
+  - title: "Features"
+    url: "#"
+    subnav:
+      - title: "Vote Parties"
+        url: "/docs/vote-parties"
+      - title: "Rewards"
+        url: "/docs/rewards"
+      - title: "Top Voters"
+        url: "/docs/top-voters"
+      - title: "Proxy Setup"
+        url: "/docs/proxy-setup"
+  - title: "API"
+    url: "/docs/api"
+  - title: "Troubleshooting"
+    url: "/docs/troubleshooting"
+
+# Footer links
+footer_links:
+  - title: "SpigotMC"
+    url: "https://www.spigotmc.org/resources/votingplugin.15358/"
+  - title: "GitHub"
+    url: "https://github.com/BenCodez/VotingPlugin"
+  - title: "Issues"
+    url: "https://github.com/BenCodez/VotingPlugin/issues"
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - VotingPlugin/
