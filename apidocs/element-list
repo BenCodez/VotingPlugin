@@ -12,6 +12,7 @@ com.bencodez.votingplugin.commands.tabcompleter
 com.bencodez.votingplugin.config
 com.bencodez.votingplugin.cooldown
 com.bencodez.votingplugin.data
+com.bencodez.votingplugin.discord
 com.bencodez.votingplugin.events
 com.bencodez.votingplugin.listeners
 com.bencodez.votingplugin.objects
