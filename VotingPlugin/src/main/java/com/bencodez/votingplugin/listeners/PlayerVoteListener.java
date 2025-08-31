@@ -51,6 +51,14 @@ public class PlayerVoteListener implements Listener {
 		String playerName = event.getPlayer();
 		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
 
+		// attempt to get exact name from cache matching casing
+		for (Entry<String, String> entry : plugin.getUuidNameCache().entrySet()) {
+			if (entry.getValue().equalsIgnoreCase(playerName)) {
+				playerName = entry.getValue();
+				break;
+			}
+		}
+
 		boolean notValid = false;
 		if (!PlayerManager.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
 			if (!playerName.startsWith(plugin.getOptions().getBedrockPlayerPrefix())
