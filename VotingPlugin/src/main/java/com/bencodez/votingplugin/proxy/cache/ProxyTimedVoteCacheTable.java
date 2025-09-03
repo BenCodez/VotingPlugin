@@ -10,10 +10,6 @@ import java.util.List;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
-/**
- * Timed Vote Cache table (holds votes that become valid at/after expireTime).
- * Table name: <prefix>timedvotecache
- */
 public abstract class ProxyTimedVoteCacheTable {
 
 	protected com.bencodez.simpleapi.sql.mysql.MySQL mysql;

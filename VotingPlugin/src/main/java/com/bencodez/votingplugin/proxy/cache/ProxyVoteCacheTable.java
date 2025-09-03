@@ -12,9 +12,6 @@ import java.util.Set;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
-/**
- * Normal Vote Cache table (one row per vote). Table name: <prefix>votecache
- */
 public abstract class ProxyVoteCacheTable {
 
 	protected com.bencodez.simpleapi.sql.mysql.MySQL mysql;
