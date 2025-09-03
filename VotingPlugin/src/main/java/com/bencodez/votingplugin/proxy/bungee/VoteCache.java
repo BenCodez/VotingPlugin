@@ -5,10 +5,12 @@ import java.util.Collection;
 
 import com.bencodez.simpleapi.file.BungeeJsonFile;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.cache.DataNode;
+import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
+import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
-import com.google.gson.JsonElement;
 
-public class VoteCache extends BungeeJsonFile {
+public class VoteCache extends BungeeJsonFile implements IVoteCache {
 	private VotingPluginBungee bungee;
 
 	public VoteCache(VotingPluginBungee bungee) {
@@ -63,8 +65,8 @@ public class VoteCache extends BungeeJsonFile {
 		return getKeys("OnlineCache." + name);
 	}
 
-	public JsonElement getOnlineVotes(String name, String num) {
-		return getNode("OnlineCache." + name + "." + num);
+	public GsonDataNode getOnlineVotes(String name, String num) {
+		return new GsonDataNode(getNode("OnlineCache." + name + "." + num));
 	}
 
 	public Collection<String> getPlayers() {
@@ -79,16 +81,16 @@ public class VoteCache extends BungeeJsonFile {
 		return getKeys("VoteCache." + server);
 	}
 
-	public JsonElement getServerVotes(String server, String num) {
-		return getNode("VoteCache." + server + "." + num);
+	public GsonDataNode getServerVotes(String server, String num) {
+		return new GsonDataNode(getNode("VoteCache." + server + "." + num));
 	}
 
 	public Collection<String> getTimedVoteCache() {
 		return getKeys("TimedVoteCache");
 	}
 
-	public JsonElement getTimedVoteCache(String key) {
-		return getNode("TimedVoteCache." + key);
+	public DataNode getTimedVoteCache(String key) {
+		return new GsonDataNode(getNode("TimedVoteCache." + key));
 	}
 
 	public int getVotePartyCache(String server) {

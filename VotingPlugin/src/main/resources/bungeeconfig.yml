@@ -54,7 +54,14 @@ GlobalData:
   #PublicKeyRetrieval: false
   #Attempt to use mariadb driver
   #UseMariaDB: false
-  
+
+####################################################################################
+
+VoteCache:
+  # If enabled, will cache votes in mysql
+  UseMYSQL: false
+  UseMainMySQL: true
+  # Mysql settings only used if above is false
 
 
 ####################################################################################

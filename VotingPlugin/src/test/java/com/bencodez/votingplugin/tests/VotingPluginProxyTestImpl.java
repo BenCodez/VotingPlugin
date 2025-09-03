@@ -9,6 +9,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import org.mockito.Mockito;
 
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
@@ -203,6 +204,12 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public ScheduledExecutorService getScheduler() {
+		return null;
+	}
+
+	@Override
+	public MysqlConfig getVoteCacheMySQLConfig() {
+		// TODO Auto-generated method stub
 		return null;
 	}
 }

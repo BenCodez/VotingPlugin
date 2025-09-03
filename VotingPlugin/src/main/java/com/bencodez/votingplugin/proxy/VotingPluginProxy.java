@@ -20,11 +20,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -53,6 +51,9 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
@@ -78,14 +79,6 @@ public abstract class VotingPluginProxy {
 	private ProxyMysqlUserTable proxyMySQL;
 
 	private EncryptionHandler encryptionHandler;
-
-	@Getter
-	@Setter
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<>();
-
-	@Getter
-	@Setter
-	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
 	private HashMap<String, ClientHandler> clientHandles;
 
@@ -119,9 +112,6 @@ public abstract class VotingPluginProxy {
 	private BungeeMethod method;
 
 	@Getter
-	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
-
-	@Getter
 	private MqttHandler mqttHandler;
 
 	@Getter
@@ -130,31 +120,8 @@ public abstract class VotingPluginProxy {
 	@Getter
 	private ProxyMessenger proxyMysqlMessenger;
 
-	public void resetMilestoneCountInVotes() {
-		// Iterate through cached online votes
-		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-			for (OfflineBungeeVote vote : votes) {
-				String updatedText = updateMilestoneCount(vote.getText());
-				vote.setText(updatedText);
-			}
-		}
-
-		// Iterate through cached votes
-		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-			for (OfflineBungeeVote vote : votes) {
-				String updatedText = updateMilestoneCount(vote.getText());
-				vote.setText(updatedText);
-			}
-		}
-	}
-
-	private String updateMilestoneCount(String text) {
-		BungeeMessageData data = new BungeeMessageData(text);
-		data.setMilestoneCount(0); // Reset milestone count to 0
-		return data.toString();
-	}
+	@Getter
+	private VoteCacheHandler voteCacheHandler;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -230,7 +197,7 @@ public abstract class VotingPluginProxy {
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
 				if (type.equals(TimeType.MONTH) && getConfig().getResetMilestonesMonthly()) {
 					debug("Resetting milestones for month change");
-					resetMilestoneCountInVotes();
+					getVoteCacheHandler().resetMilestoneCountInVotes();
 				}
 
 				if (getConfig().getVoteCacheTime() > 0) {
@@ -303,8 +270,9 @@ public abstract class VotingPluginProxy {
 		int delay = 1;
 		if (isServerValid(server)) {
 			if (isSomeoneOnlineServer(server)) {
-				if (cachedVotes.containsKey(server) && !getConfig().getBlockedServers().contains(server)) {
-					ArrayList<OfflineBungeeVote> c = cachedVotes.get(server);
+				if (getVoteCacheHandler().getCachedVotes().containsKey(server)
+						&& !getConfig().getBlockedServers().contains(server)) {
+					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getCachedVotes().get(server);
 					ArrayList<OfflineBungeeVote> newSet = new ArrayList<>();
 					if (!c.isEmpty()) {
 						int num = 1;
@@ -335,18 +303,26 @@ public abstract class VotingPluginProxy {
 								newSet.add(cache);
 							}
 						}
-						cachedVotes.put(server, newSet);
+						getVoteCacheHandler().getCachedVotes().put(server, newSet);
+					} else {
+						debug("No cached votes for server: " + server);
 					}
+				} else {
+					debug("No cached votes for server: " + server);
 				}
+			} else {
+				debug("No one online on server: " + server);
 			}
+		} else {
+			debug("Server not valid: " + server);
 		}
 
 	}
 
 	public synchronized void checkOnlineVotes(String player, String uuid, String server) {
 		int delay = 1;
-		if (isPlayerOnline(player) && cachedOnlineVotes.containsKey(uuid)) {
-			ArrayList<OfflineBungeeVote> c = cachedOnlineVotes.get(uuid);
+		if (isPlayerOnline(player) && getVoteCacheHandler().getCachedOnlineVotes().containsKey(uuid)) {
+			ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getCachedOnlineVotes().get(uuid);
 			if (!c.isEmpty()) {
 				if (server == null) {
 					server = getCurrentPlayerServer(player);
@@ -363,7 +339,7 @@ public abstract class VotingPluginProxy {
 						delay++;
 						num++;
 					}
-					cachedOnlineVotes.put(uuid, new ArrayList<>());
+					getVoteCacheHandler().getCachedOnlineVotes().put(uuid, new ArrayList<>());
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
 					}
@@ -374,7 +350,8 @@ public abstract class VotingPluginProxy {
 
 	public void checkVoteCacheTime() {
 		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getVoteCacheHandler().getCachedOnlineVotes()
+				.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
 				if (votes.get(i).getTime() + (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) < cTime) {
@@ -384,7 +361,7 @@ public abstract class VotingPluginProxy {
 			}
 		}
 
-		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getVoteCacheHandler().getCachedVotes().entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (int i = votes.size() - 1; i >= 0; i--) {
 				if (votes.get(i).getTime() + (getConfig().getVoteCacheTime() * 24 * 60 * 60 * 1000) < cTime) {
@@ -523,11 +500,37 @@ public abstract class VotingPluginProxy {
 
 	public abstract boolean isVoteCacheIgnoreTime();
 
-	public void load() {
+	public abstract MysqlConfig getVoteCacheMySQLConfig();
+
+	public void load(IVoteCache jsonStorage) {
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
 		bungeeTimeChecker.loadTimer();
+
+		// todo mysql
+		voteCacheHandler = new VoteCacheHandler(getVoteCacheMySQLConfig(), getConfig().getVoteCacheUseMySQL(),
+				getConfig().getDebug(), getProxyMySQL().getMysql(), getConfig().getVoteCacheUseMainMySQL(),
+				jsonStorage) {
+
+			@Override
+			public void logInfo1(String msg) {
+				logInfo(msg);
+			}
+
+			@Override
+			public void logSevere1(String msg) {
+				logSevere(msg);
+			}
+
+			@Override
+			public void debug1(Exception e) {
+				if (getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
+		};
+		voteCacheHandler.load();
 
 		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (getMethod() == null) {
@@ -748,7 +751,7 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void clearVote(String string) {
-				cachedOnlineVotes.remove(string);
+				getVoteCacheHandler().getCachedOnlineVotes().remove(string);
 			}
 
 			@Override
@@ -897,6 +900,7 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
+		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
 			getProxyMysqlMessenger().shutdown();
@@ -982,8 +986,8 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void processQueue() {
-		while (getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getTimeChangeQueue().remove();
+		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
+			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().remove();
 			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
 		}
 	}
@@ -1149,8 +1153,8 @@ public abstract class VotingPluginProxy {
 		long mostRecentTime = 0;
 
 		// Check cached online votes
-		if (cachedOnlineVotes.containsKey(uuid)) {
-			ArrayList<OfflineBungeeVote> onlineVotes = cachedOnlineVotes.get(uuid);
+		if (getVoteCacheHandler().getCachedOnlineVotes().containsKey(uuid)) {
+			ArrayList<OfflineBungeeVote> onlineVotes = getVoteCacheHandler().getCachedOnlineVotes().get(uuid);
 			for (OfflineBungeeVote vote : onlineVotes) {
 				if (vote.getService().equalsIgnoreCase(service)) {
 					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
@@ -1159,7 +1163,7 @@ public abstract class VotingPluginProxy {
 		}
 
 		// Check cached votes
-		for (ArrayList<OfflineBungeeVote> votes : cachedVotes.values()) {
+		for (ArrayList<OfflineBungeeVote> votes : getVoteCacheHandler().getCachedVotes().values()) {
 			for (OfflineBungeeVote vote : votes) {
 				if (vote.getUuid().equals(uuid) && vote.getService().equalsIgnoreCase(service)) {
 					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
@@ -1249,7 +1253,7 @@ public abstract class VotingPluginProxy {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
 					if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
-						timeChangeQueue.add(new VoteTimeQueue(player, service,
+						getVoteCacheHandler().getTimeChangeQueue().add(new VoteTimeQueue(player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 						log("Cachcing vote from " + player + "/" + service
 								+ " because time change is happening right now");
@@ -1391,12 +1395,12 @@ public abstract class VotingPluginProxy {
 					}
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
 						// cache
-						if (!cachedVotes.containsKey(s)) {
-							cachedVotes.put(s, new ArrayList<>());
+						if (!getVoteCacheHandler().getCachedVotes().containsKey(s)) {
+							getVoteCacheHandler().getCachedVotes().put(s, new ArrayList<>());
 						}
-						ArrayList<OfflineBungeeVote> list = cachedVotes.get(s);
+						ArrayList<OfflineBungeeVote> list = getVoteCacheHandler().getCachedVotes().get(s);
 						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-						cachedVotes.put(s, list);
+						getVoteCacheHandler().getCachedVotes().put(s, list);
 
 						debug("Caching vote for " + player + " on " + service + " for " + s);
 
@@ -1419,15 +1423,15 @@ public abstract class VotingPluginProxy {
 						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
 					}
 				} else {
-					if (!cachedOnlineVotes.containsKey(uuid)) {
-						cachedOnlineVotes.put(uuid, new ArrayList<>());
+					if (!getVoteCacheHandler().getCachedOnlineVotes().containsKey(uuid)) {
+						getVoteCacheHandler().getCachedOnlineVotes().put(uuid, new ArrayList<>());
 					}
-					ArrayList<OfflineBungeeVote> list = cachedOnlineVotes.get(uuid);
+					ArrayList<OfflineBungeeVote> list = getVoteCacheHandler().getCachedOnlineVotes().get(uuid);
 					if (list == null) {
 						list = new ArrayList<>();
 					}
 					list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-					cachedOnlineVotes.put(uuid, list);
+					getVoteCacheHandler().getCachedOnlineVotes().put(uuid, list);
 					debug("Caching online vote for " + player + " on " + service);
 				}
 				int delay = 2;

@@ -27,6 +27,10 @@ public interface VotingPluginProxyConfig {
 	public boolean getPluginMessageEncryption();
 
 	public boolean getDebug();
+	
+	public boolean getVoteCacheUseMySQL();
+	
+	public boolean getVoteCacheUseMainMySQL();
 
 	public String getMqttClientID();
 

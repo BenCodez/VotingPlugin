@@ -409,4 +409,14 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getBoolean("ResetMilestonesMonthly", false);
 	}
 
+	@Override
+	public boolean getVoteCacheUseMySQL() {
+		return getData().getBoolean("VoteCache.UseMySQL", false);
+	}
+
+	@Override
+	public boolean getVoteCacheUseMainMySQL() {
+		return getData().getBoolean("VoteCache.UseMainMySQL", true);
+	}
+
 }

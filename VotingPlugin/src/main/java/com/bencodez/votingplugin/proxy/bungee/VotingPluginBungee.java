@@ -25,17 +25,13 @@ import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.sql.DataType;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
-import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
-import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
-import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -377,36 +373,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Override
 	public void onDisable() {
-		if (getVotingPluginProxy().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-			getLogger().info("VotingPlugin saving vote cache: " + getVotingPluginProxy().getCachedVotes().size() + "/"
-					+ getVotingPluginProxy().getCachedOnlineVotes().size());
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getVotingPluginProxy().getCachedVotes()
-					.entrySet()) {
-				String server = entry.getKey();
-				int num = 0;
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					voteCacheFile.addVote(server, num, voteData);
-					num++;
-				}
-			}
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getVotingPluginProxy().getCachedOnlineVotes()
-					.entrySet()) {
-				String name = entry.getKey();
-				int num = 0;
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					voteCacheFile.addVoteOnline(name, num, voteData);
-					num++;
-				}
-			}
-		}
-		if (!getVotingPluginProxy().getTimeChangeQueue().isEmpty()) {
-			int num = 0;
-			for (VoteTimeQueue vote : getVotingPluginProxy().getTimeChangeQueue()) {
-				voteCacheFile.addTimedVote(num, vote);
-				num++;
-			}
-		}
-
 		getVotingPluginProxy().onDisable();
 
 		voteCacheFile.save();
@@ -651,6 +617,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return timer;
 			}
 
+			@Override
+			public MysqlConfig getVoteCacheMySQLConfig() {
+				return new MysqlConfigBungee(config.getData().getSection("VoteCache"));
+			}
+
 		};
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
@@ -689,90 +660,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			nonVotedPlayersCache = new NonVotedPlayersCache(this);
 			// nonVotedPlayersCache.load();
 
-			getVotingPluginProxy().load();
-
-			try {
-				for (String key : voteCacheFile.getTimedVoteCache()) {
-					JsonElement dataElement = voteCacheFile.getTimedVoteCache(key);
-
-					if (dataElement != null && dataElement.isJsonObject()) {
-						JsonObject data = dataElement.getAsJsonObject();
-						String name = data.has("Name") ? data.get("Name").getAsString() : "";
-						String service = data.has("Service") ? data.get("Service").getAsString() : "";
-						long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
-
-						getVotingPluginProxy().getTimeChangeQueue().add(new VoteTimeQueue(name, service, time));
-					}
-				}
-
-				getVotingPluginProxy().processQueue();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			try {
-				for (String server : voteCacheFile.getServers()) {
-					ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-					for (String num : voteCacheFile.getServerVotes(server)) {
-						JsonElement dataElement = voteCacheFile.getServerVotes(server, num);
-
-						if (dataElement != null && dataElement.isJsonObject()) {
-							JsonObject data = dataElement.getAsJsonObject();
-
-							String name = data.has("Name") ? data.get("Name").getAsString() : "";
-							String uuid = data.has("UUID") ? data.get("UUID").getAsString() : "";
-							String service = data.has("Service") ? data.get("Service").getAsString() : "";
-							long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
-							boolean real = data.has("Real") && data.get("Real").getAsBoolean();
-							String text = data.has("Text") ? data.get("Text").getAsString() : "";
-
-							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
-						}
-					}
-					getVotingPluginProxy().getCachedVotes().put(server, votes);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			try {
-				for (String player : voteCacheFile.getPlayers()) {
-					ArrayList<OfflineBungeeVote> votes = new ArrayList<>();
-					for (String num : voteCacheFile.getOnlineVotes(player)) {
-						JsonElement dataElement = voteCacheFile.getOnlineVotes(player, num);
-
-						if (dataElement != null && dataElement.isJsonObject()) {
-							JsonObject data = dataElement.getAsJsonObject();
-
-							String name = data.has("Name") ? data.get("Name").getAsString() : "";
-							String uuid = data.has("UUID") ? data.get("UUID").getAsString() : "";
-							String service = data.has("Service") ? data.get("Service").getAsString() : "";
-							long time = data.has("Time") ? data.get("Time").getAsLong() : 0L;
-							boolean real = data.has("Real") && data.get("Real").getAsBoolean();
-							String text = data.has("Text") ? data.get("Text").getAsString() : "";
-
-							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
-						}
-					}
-					getLogger().info("VoteCache: " + player);
-					getVotingPluginProxy().getCachedOnlineVotes().put(player, votes);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			voteCacheFile.clearData();
+			getVotingPluginProxy().load(voteCacheFile);
 
 			getProxy().getScheduler().schedule(this, new Runnable() {
 
 				@Override
 				public void run() {
 
-					for (String server : getVotingPluginProxy().getCachedVotes().keySet()) {
+					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotes().keySet()) {
 						getVotingPluginProxy().checkCachedVotes(server);
 					}
 
-					for (String player : getVotingPluginProxy().getCachedOnlineVotes().keySet()) {
+					for (String player : getVotingPluginProxy().getVoteCacheHandler().getCachedOnlineVotes().keySet()) {
 						ProxiedPlayer p = getProxy().getPlayer(UUID.fromString(player));
 						if (p != null) {
 							getVotingPluginProxy().checkOnlineVotes(p.getName(), player, null);
