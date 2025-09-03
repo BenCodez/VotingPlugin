@@ -402,7 +402,7 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 
 	@Override
 	public boolean getVoteCacheUseMySQL() {
-		return getBoolean(getNode("VoteCache", "UseMYSQL"), false);
+		return getBoolean(getNode("VoteCache", "UseMySQL"), false);
 	}
 
 	@Override

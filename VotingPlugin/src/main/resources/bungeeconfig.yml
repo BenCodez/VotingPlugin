@@ -59,7 +59,7 @@ GlobalData:
 
 VoteCache:
   # If enabled, will cache votes in mysql
-  UseMYSQL: false
+  UseMySQL: false
   UseMainMySQL: true
   # Mysql settings only used if above is false
 
