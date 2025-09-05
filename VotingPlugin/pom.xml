@@ -131,8 +131,7 @@
 						</relocation>
 						<relocation>
 							<pattern>com.zaxxer.hikari</pattern>
-							<shadedPattern>
-								${project.groupId}.votingplugin.hikari</shadedPattern>
+							<shadedPattern>${project.groupId}.votingplugin.simpleapi.hikari</shadedPattern>
 						</relocation>
 						<relocation>
 							<pattern>org.bstats</pattern>
