@@ -410,4 +410,9 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 		return getBoolean(getNode("VoteCache", "UseMainMySQL"), true);
 	}
 
+	@Override
+	public int getTimeWeekOffSet() {
+		return getInt(getNode("TimeWeekOffSet"), 0);
+	}
+
 }

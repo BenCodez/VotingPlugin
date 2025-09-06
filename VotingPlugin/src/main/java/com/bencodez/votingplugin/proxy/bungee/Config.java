@@ -419,4 +419,9 @@ public class Config implements VotingPluginProxyConfig {
 		return getData().getBoolean("VoteCache.UseMainMySQL", true);
 	}
 
+	@Override
+	public int getTimeWeekOffSet() {
+		return getData().getInt("TimeWeekOffSet");
+	}
+
 }

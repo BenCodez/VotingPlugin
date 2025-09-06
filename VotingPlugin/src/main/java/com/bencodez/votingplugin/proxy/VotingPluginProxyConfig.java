@@ -107,6 +107,8 @@ public interface VotingPluginProxyConfig {
 	public boolean getTimeChangeFailSafeBypass();
 
 	public int getTimeHourOffSet();
+	
+	public int getTimeWeekOffSet();
 
 	public String getTimeZone();
 

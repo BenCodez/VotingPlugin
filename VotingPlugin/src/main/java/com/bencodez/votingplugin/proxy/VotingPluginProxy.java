@@ -126,7 +126,8 @@ public abstract class VotingPluginProxy {
 	public VotingPluginProxy() {
 		enabled = true;
 
-		bungeeTimeChecker = new BungeeTimeChecker(getConfig().getTimeZone(), getConfig().getTimeHourOffSet()) {
+		bungeeTimeChecker = new BungeeTimeChecker(getConfig().getTimeZone(), getConfig().getTimeHourOffSet(),
+				getConfig().getTimeWeekOffSet()) {
 
 			@Override
 			public void debug(String text) {
