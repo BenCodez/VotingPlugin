@@ -87,7 +87,7 @@
 				<version>3.6.0</version>
 				<configuration>
 					<shadedArtifactAttached>false</shadedArtifactAttached>
-					<minimizeJar>true</minimizeJar>
+					<minimizeJar>false</minimizeJar>
 					<filters>
 						<filter>
 							<artifact>mysql-connector-java</artifact>
@@ -160,7 +160,8 @@
 								<excludes>
 									<exclude>com.google.*:*</exclude>
 								</excludes>
-							</artifactSet>
+							</artifactSet> 
+							<minimizeJar>false</minimizeJar>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
 							<filters>
 								<filter>
@@ -169,9 +170,14 @@
 										<exclude>META-INF/*.SF</exclude>
 										<exclude>META-INF/*.DSA</exclude>
 										<exclude>META-INF/*.RSA</exclude>
+										<exclude>module-info.class</exclude>
 									</excludes>
 								</filter>
 							</filters>
+							<transformers>
+        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
+      </transformers>
 						</configuration>
 					</execution>
 				</executions>
