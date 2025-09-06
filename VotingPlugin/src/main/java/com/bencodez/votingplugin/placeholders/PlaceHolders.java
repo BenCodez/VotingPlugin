@@ -1018,7 +1018,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				LocalDateTime now = plugin.getTimeChecker().getTime();
+				LocalDateTime now = plugin.getTimeChecker().getTime().plusDays(plugin.getOptions().getTimeWeekOffSet());
 				LocalDateTime newWeek = plugin.getTimeChecker().getTime().withHour(0).withMinute(0);
 
 				TemporalField woy = WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear();
