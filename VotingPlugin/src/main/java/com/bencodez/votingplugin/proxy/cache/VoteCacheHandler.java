@@ -31,6 +31,10 @@ public abstract class VoteCacheHandler {
 	// server based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
+	public void removeUserCachedOnlineVotes(String uuid) {
+		cachedOnlineVotes.remove(uuid);
+	}
+
 	public void resetMilestoneCountInVotes() {
 		// Iterate through cached online votes
 		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
@@ -61,16 +65,19 @@ public abstract class VoteCacheHandler {
 		if (useMySQL) {
 			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedVotes().entrySet()) {
 				String server = entry.getKey();
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					voteCacheTable.insertVote(voteData.getUuid(), voteData.getPlayerName(), voteData.getService(),
-							voteData.getTime(), voteData.isRealVote(), voteData.getText(), server);
-
+				if (!entry.getValue().isEmpty()) {
+					for (OfflineBungeeVote voteData : entry.getValue()) {
+						voteCacheTable.insertVote(voteData.getUuid(), voteData.getPlayerName(), voteData.getService(),
+								voteData.getTime(), voteData.isRealVote(), voteData.getText(), server);
+					}
 				}
 			}
 			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedOnlineVotes().entrySet()) {
-				for (OfflineBungeeVote voteData : entry.getValue()) {
-					onlineVoteCacheTable.insertOnlineVote(voteData.getUuid(), voteData.getPlayerName(),
-							voteData.getService(), voteData.getTime(), voteData.isRealVote(), voteData.getText());
+				if (!entry.getValue().isEmpty()) {
+					for (OfflineBungeeVote voteData : entry.getValue()) {
+						onlineVoteCacheTable.insertOnlineVote(voteData.getUuid(), voteData.getPlayerName(),
+								voteData.getService(), voteData.getTime(), voteData.isRealVote(), voteData.getText());
+					}
 				}
 			}
 

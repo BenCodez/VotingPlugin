@@ -340,7 +340,7 @@ public abstract class VotingPluginProxy {
 						delay++;
 						num++;
 					}
-					getVoteCacheHandler().getCachedOnlineVotes().put(uuid, new ArrayList<>());
+					getVoteCacheHandler().removeUserCachedOnlineVotes(uuid);
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
 					}
