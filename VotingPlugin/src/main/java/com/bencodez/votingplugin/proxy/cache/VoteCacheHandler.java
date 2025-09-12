@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.proxy.cache;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -21,8 +23,6 @@ public abstract class VoteCacheHandler {
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
-	@Getter
-	@Setter
 	// uuid based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<>();
 
@@ -31,8 +31,44 @@ public abstract class VoteCacheHandler {
 	// server based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
-	public void removeUserCachedOnlineVotes(String uuid) {
+	public boolean hasOnlineVotes(String uuid) {
+		return cachedOnlineVotes.containsKey(uuid);
+	}
+
+	public ArrayList<OfflineBungeeVote> getOnlineVotes(String uuid) {
+		return cachedOnlineVotes.getOrDefault(uuid, new ArrayList<>());
+	}
+
+	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
+		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
+		cachedOnlineVotes.get(uuid).add(vote);
+	}
+
+	public void removeOnlineVotes(String uuid) {
 		cachedOnlineVotes.remove(uuid);
+	}
+
+	public void checkVoteCacheTime(int voteCacheTime) {
+		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (votes.get(i).getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+					debug1("Removing vote from cache: " + votes.get(i).toString());
+					votes.remove(i);
+				}
+			}
+		}
+
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedVotes().entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (int i = votes.size() - 1; i >= 0; i--) {
+				if (votes.get(i).getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+					debug1("Removing vote from cache: " + votes.get(i).toString());
+					votes.remove(i);
+				}
+			}
+		}
 	}
 
 	public void resetMilestoneCountInVotes() {
@@ -72,7 +108,7 @@ public abstract class VoteCacheHandler {
 					}
 				}
 			}
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedOnlineVotes().entrySet()) {
+			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 				if (!entry.getValue().isEmpty()) {
 					for (OfflineBungeeVote voteData : entry.getValue()) {
 						onlineVoteCacheTable.insertOnlineVote(voteData.getUuid(), voteData.getPlayerName(),
@@ -98,8 +134,8 @@ public abstract class VoteCacheHandler {
 				}
 			}
 
-			if (!getCachedOnlineVotes().isEmpty()) {
-				for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedOnlineVotes().entrySet()) {
+			if (!cachedOnlineVotes.isEmpty()) {
+				for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 					String name = entry.getKey();
 					int num = 0;
 					for (OfflineBungeeVote voteData : entry.getValue()) {
@@ -229,7 +265,7 @@ public abstract class VoteCacheHandler {
 							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
 						}
 					}
-					getCachedOnlineVotes().put(player, votes);
+					cachedOnlineVotes.put(player, votes);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -251,6 +287,8 @@ public abstract class VoteCacheHandler {
 	public abstract void logSevere1(String msg);
 
 	public abstract void debug1(Exception e);
+	
+	public abstract void debug1(String msg);
 
 	public VoteCacheHandler(MysqlConfig mysqlConfig, boolean useMySQL, boolean useExistingConnection, MySQL mysql,
 			boolean debug, IVoteCache jsonStorage) {
@@ -330,7 +368,8 @@ public abstract class VoteCacheHandler {
 					}
 				};
 
-				timedVoteCacheTable = new ProxyTimedVoteCacheTable(mysqlConfig, debug) {
+				timedVoteCacheTable = new ProxyTimedVoteCacheTable(voteCacheTable.getMysql(),
+						mysqlConfig.getTablePrefix(), debug) {
 					@Override
 					public void logSevere(String string) {
 						logSevere1(string);
@@ -348,7 +387,8 @@ public abstract class VoteCacheHandler {
 					}
 				};
 
-				onlineVoteCacheTable = new ProxyOnlineVoteCacheTable(mysqlConfig, debug) {
+				onlineVoteCacheTable = new ProxyOnlineVoteCacheTable(voteCacheTable.getMysql(),
+						mysqlConfig.getTablePrefix(), debug) {
 					@Override
 					public void logSevere(String string) {
 						logSevere1(string);

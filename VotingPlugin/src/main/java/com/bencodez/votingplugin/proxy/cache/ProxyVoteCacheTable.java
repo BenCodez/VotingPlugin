@@ -12,9 +12,12 @@ import java.util.Set;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
+import lombok.Getter;
+
 public abstract class ProxyVoteCacheTable {
 
-	protected com.bencodez.simpleapi.sql.mysql.MySQL mysql;
+	@Getter
+	private com.bencodez.simpleapi.sql.mysql.MySQL mysql;
 	private final String tableName;
 
 	public abstract void logSevere(String msg);

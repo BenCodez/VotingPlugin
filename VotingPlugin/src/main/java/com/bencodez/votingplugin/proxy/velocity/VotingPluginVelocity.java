@@ -791,11 +791,11 @@ public class VotingPluginVelocity {
 						getVotingPluginProxy().checkCachedVotes(server);
 					}
 
-					for (String player : getVotingPluginProxy().getVoteCacheHandler().getCachedOnlineVotes().keySet()) {
-						if (server.getPlayer(UUID.fromString(player)).isPresent()) {
-							getVotingPluginProxy().checkOnlineVotes(
-									server.getPlayer(UUID.fromString(player)).get().getUsername(), player, null);
-						}
+					for (Player player : server.getAllPlayers()) {
+
+						getVotingPluginProxy().checkOnlineVotes(player.getUsername(), player.getUniqueId().toString(),
+								null);
+
 					}
 				}
 			}).delay(120, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
