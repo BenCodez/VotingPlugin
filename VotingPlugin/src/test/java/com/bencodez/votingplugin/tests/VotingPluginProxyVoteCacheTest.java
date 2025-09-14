@@ -37,7 +37,7 @@ public class VotingPluginProxyVoteCacheTest {
 		when(proxy.getConfig()).thenReturn(config);
 		cachedOnlineVotes = new ConcurrentHashMap<>();
 		cachedVotes = new ConcurrentHashMap<>();
-		proxy.getVoteCacheHandler().setCachedOnlineVotes(cachedOnlineVotes);
+		//proxy.getVoteCacheHandler().setCachedOnlineVotes(cachedOnlineVotes);
 		proxy.getVoteCacheHandler().setCachedVotes(cachedVotes);
 	}
 
